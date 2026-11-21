@@ -1,0 +1,17 @@
+{
+  "name": "@cairn/site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "alchemy deploy",
+    "plan": "alchemy plan",
+    "typecheck": "effect-tsgo tsc --noEmit"
+  },
+  "dependencies": {
+    "@alchemy.run/cloudflare": "2.0.0-beta.87",
+    "@cairn/viewer": "workspace:*",
+    "alchemy": "2.0.0-beta.87",
+    "effect": "catalog:"
+  }
+}

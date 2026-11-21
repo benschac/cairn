@@ -29,6 +29,7 @@ It runs these through Turborepo, which reruns only what a change affects:
 | Lint   | `oxlint`                    | Type-aware Oxlint, including the `@xstate/effect` rule against inline Effects in machines.                                                   |
 | Format | `oxfmt --check`             | Formatting. `pnpm fix` rewrites files.                                                                                                       |
 | Tests  | `vitest run`, `node --test` | Each package's tests, and the tests for the hook guard in `scripts/guard`.                                                                   |
+| Build  | `vite build`                | The viewer bundles.                                                                                                                          |
 
 A lefthook `pre-commit` hook runs `pnpm check` on every commit. A commit that
 fails any check is refused. `pnpm install` installs the hook.
@@ -55,7 +56,16 @@ still honours `--no-verify`. CI in `.github/workflows/ci.yml` runs
 - `packages/core`: the machines. A lifecycle is an XState machine built with
   `setupEffect`, whose context and events are schemas from the contract.
 
-VISION.md lists the packages still to come. Add one when the work needs it.
+- `apps/viewer`: the Foldkit viewer. A Schema-defined Model, fact-named
+  Messages, one `update` and one `view`. Test it with a Scene from
+  `foldkit/scene`: click what a person clicks and assert on what the view shows.
+- `apps/site`: the Alchemy stack that hosts the demo on Cloudflare. It is
+  declared in `alchemy.run.ts` and deploys the viewer. Nothing deploys on
+  commit; `pnpm --filter @cairn/site run deploy` needs the owner's Cloudflare
+  credentials, which never go in the repo.
+
+VISION.md lists the packages still to come (`cli`, `adapters`). Add one when
+the work needs it.
 
 ## Tests
 
