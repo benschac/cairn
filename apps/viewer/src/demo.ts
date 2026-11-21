@@ -8,7 +8,7 @@ export const demoRows = Schema.decodeUnknownSync(Schema.Array(TaskRow))([
     task: {
       gated: true,
       id: "task-1",
-      section: "data-model",
+      section: "prd.data-model",
       title: "Add the sessions table",
     },
   },
@@ -17,7 +17,7 @@ export const demoRows = Schema.decodeUnknownSync(Schema.Array(TaskRow))([
     task: {
       gated: false,
       id: "task-2",
-      section: "plan-command",
+      section: "prd.plan-command",
       title: "Parse PRD sections",
     },
   },
@@ -26,7 +26,7 @@ export const demoRows = Schema.decodeUnknownSync(Schema.Array(TaskRow))([
     task: {
       gated: false,
       id: "task-3",
-      section: "plan-command",
+      section: "prd.plan-command",
       title: "Write the stack",
     },
   },

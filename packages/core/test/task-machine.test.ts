@@ -12,7 +12,7 @@ const decodeTask = Schema.decodeUnknownSync(Task);
 const migration = decodeTask({
   gated: true,
   id: "task-1",
-  section: "data-model",
+  section: "prd.data-model",
   title: "Add the sessions table",
 });
 
