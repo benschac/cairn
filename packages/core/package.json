@@ -1,0 +1,24 @@
+{
+  "name": "@cairn/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "effect-tsgo tsc --noEmit"
+  },
+  "dependencies": {
+    "@cairn/contract": "workspace:*",
+    "@xstate/effect": "catalog:",
+    "effect": "catalog:",
+    "xstate": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@oxlint/plugins": "1.94.0",
+    "vitest": "catalog:"
+  }
+}

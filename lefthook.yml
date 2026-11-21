@@ -1,0 +1,5 @@
+# Every commit runs the whole floor. Do not skip it: see AGENTS.md.
+pre-commit:
+  commands:
+    check:
+      run: pnpm check
