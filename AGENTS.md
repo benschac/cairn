@@ -1,7 +1,8 @@
 # Working in Cairn
 
 Cairn turns a markdown PRD into a spec and a stack of branches for agents to
-build. Read [VISION.md](VISION.md) before deciding what to build.
+build. Read [VISION.md](VISION.md) before deciding what to build, and
+[PRD.md](PRD.md) for what the tool has to do. The PRD is the initial spec.
 
 ## Before building anything
 
