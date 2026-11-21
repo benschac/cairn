@@ -41,6 +41,14 @@ docs and demo site for now, and a hosted team layer later if it ever happens.
 Model API keys come from the user's own environment and are never stored.
 Redaction keeps them out of session logs.
 
+Alchemy Domain (`@alchemy.run/domain`) is something we are very interested in:
+it models a domain as commands, aggregates and events, and builds each piece as
+its own layer. We intend to use it to assemble our infrastructure.
+
+Other people should be able to reach a running Cairn. We can build it locally
+and expose it with something like Cloudflare Tunnel, so deploying to the cloud
+is optional and done as needed.
+
 ## State machines
 
 A task's lifecycle is the core machine: `pending`, `running`,
@@ -50,6 +58,9 @@ orchestrator run and the v2 rebase flow are machines too.
 Machines use XState v6 beta with `@xstate/effect`. Machine context and events
 are defined as Effect Schema, the same schemas the contract package exports. One
 set of types covers files, machines and the viewer.
+
+Schemas cross into XState as Standard Schema. `@xstate/effect` does that
+conversion, so a machine takes the contract's Effect Schemas directly.
 
 ## Verification and testing
 
