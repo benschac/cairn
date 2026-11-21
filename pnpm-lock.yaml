@@ -94,6 +94,34 @@ importers:
         specifier: 'catalog:'
         version: 5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)(yaml@2.9.1))
 
+  packages/cli:
+    dependencies:
+      '@cairn/contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@cairn/core':
+        specifier: workspace:*
+        version: link:../core
+      '@effect/platform-node':
+        specifier: 4.1.5
+        version: 4.1.5(effect@4.1.5)(redis@6.3.1)
+      '@xstate/effect':
+        specifier: 'catalog:'
+        version: 1.0.0-beta.3(@oxlint/plugins@1.94.0)(effect@4.1.5)(xstate@6.0.0-beta.4)
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5
+      xstate:
+        specifier: 'catalog:'
+        version: 6.0.0-beta.4
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5)(vitest@5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)(yaml@2.9.1)))
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.1(@types/node@24.19.2)(vite@8.3.8(@types/node@24.19.2)(yaml@2.9.1))
+
   packages/contract:
     dependencies:
       effect:

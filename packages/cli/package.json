@@ -1,0 +1,23 @@
+{
+  "name": "@cairn/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/serve.ts",
+    "test": "vitest run",
+    "typecheck": "effect-tsgo tsc --noEmit"
+  },
+  "dependencies": {
+    "@cairn/contract": "workspace:*",
+    "@cairn/core": "workspace:*",
+    "@effect/platform-node": "4.1.5",
+    "@xstate/effect": "catalog:",
+    "effect": "catalog:",
+    "xstate": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "vitest": "catalog:"
+  }
+}

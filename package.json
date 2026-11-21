@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "check": "turbo run typecheck typecheck:root test test:guard lint format:check build",
+    "dev": "turbo run dev",
     "fix": "oxlint --fix && oxfmt",
     "format:check": "oxfmt --check",
     "lint": "oxlint",

@@ -1,4 +1,4 @@
-import { Task, TaskStatus } from "@cairn/contract";
+import { Participant, Task, TaskStatus } from "@cairn/contract";
 import { Schema } from "effect";
 
 export const TaskRow = Schema.Struct({
@@ -9,6 +9,8 @@ export type TaskRow = typeof TaskRow.Type;
 
 export const Model = Schema.Struct({
   onlyWaiting: Schema.Boolean,
+  participants: Schema.Array(Participant),
   rows: Schema.Array(TaskRow),
+  you: Schema.NullOr(Schema.String),
 });
 export type Model = typeof Model.Type;

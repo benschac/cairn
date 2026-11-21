@@ -15,12 +15,23 @@ engineers, starting with engineers running agent-heavy, stacked-diff workflows.
 `cairn plan`: one command turns a PRD into a spec and a stack I'd approve, with
 every task linked to a PRD section and the risky ones gated.
 
+## Presence, from the first step
+
+Cairn is multiplayer from the start. A plan is a shared document, and you see
+the cursor of everyone working in it, the way Google Docs shows the other people
+editing. A participant can be a human or an agent.
+
+The first step is a cursor display: open the viewer and watch the other cursors
+move around the screen. That gives the document its first shared state.
+
 ## What it is not
 
 - Not an editor.
 - Not an orchestrator.
 - Not a task manager.
-- No agent chat, no hosting, and no multiple users in v1.
+- No agent chat and no hosting in v1.
+- No accounts, teams or permissions in v1. Everyone who can reach a running
+  Cairn shares it.
 - Small features skip it.
 
 ## How I'll know it's working

@@ -1,7 +1,7 @@
 import { it } from "@effect/vitest";
-import { click, expect, given, role, scene, text } from "foldkit/scene";
+import { Subscription, click, expect, given, role, scene, selector, text } from "foldkit/scene";
 
-import { init, update, view } from "../src/main.ts";
+import { Message, init, update, view } from "../src/main.ts";
 
 const waiting = role("button", { name: "Waiting for approval" });
 
@@ -18,5 +18,29 @@ it("the waiting filter leaves only the tasks that need a human", () => {
     expect(text(/Write the stack/u)).toBeAbsent(),
     click(waiting),
     expect(text(/Write the stack/u)).toExist(),
+  );
+});
+
+it("other participants appear with their cursors, and you do not", () => {
+  scene(
+    { update, view },
+    given(init().model),
+    expect(role("status")).toHaveText("Nobody else is here."),
+    Subscription.emit(
+      Message.ReceivedPresence({
+        presence: {
+          participants: [
+            { cursor: { x: 0.1, y: 0.1 }, id: "p1", kind: "human", name: "Ada" },
+            { cursor: { x: 0.25, y: 0.5 }, id: "p2", kind: "agent", name: "Planner" },
+            { cursor: null, id: "p3", kind: "human", name: "Grace" },
+          ],
+          you: "p1",
+        },
+      }),
+    ),
+    expect(role("status")).toHaveText("Here now: Planner (agent), Grace"),
+    expect(selector('[data-cursor="agent"]')).toHaveText("Planner (agent)"),
+    expect(selector('[data-cursor="agent"]')).toHaveStyle("left", "25%"),
+    expect(selector('[data-cursor="human"]')).toBeAbsent(),
   );
 });

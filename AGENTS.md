@@ -64,8 +64,19 @@ still honours `--no-verify`. CI in `.github/workflows/ci.yml` runs
   commit; `pnpm --filter @cairn/site run deploy` needs the owner's Cloudflare
   credentials, which never go in the repo.
 
-VISION.md lists the packages still to come (`cli`, `adapters`). Add one when
-the work needs it.
+- `packages/cli`: the process that runs on the user's machine. For now it is
+  the presence server: a WebSocket at `/presence` that feeds the room machine
+  in `core` and sends every participant the current room.
+
+VISION.md lists the package still to come (`adapters`). Add it when the work
+needs it.
+
+## Running it
+
+`pnpm dev` starts the presence server on port 4310 and the viewer on Vite's
+port, which proxies `/presence` to the server. Open the viewer in two windows
+to see two cursors. `?name=Ada` sets a name, and a client that connects with
+`?kind=agent` is shown as an agent.
 
 ## Tests
 
