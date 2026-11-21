@@ -1,4 +1,4 @@
-# Spec Trace MVP
+# Cairn MVP
 
 A local tool that traces a feature from PRD to spec to stacked diffs to commits to agent sessions, and renders that trace as a read-only canvas. Built to be shippable in one day and dogfooded on RinkSide.
 
@@ -17,12 +17,12 @@ Given a markdown PRD in a repo, produce a spec and a stack manifest, let the exi
 ## Repo layout
 
 ```text
-.trace/
+.cairn/
   prd.md            # source PRD, human-authored
   spec.md           # generated spec, editable
   manifest.json     # stack plan + links + status
   events.jsonl      # append-only status events from orchestrator
-  trace.db          # SQLite: sessions keyed by ID, notes, annotations
+  cairn.db          # SQLite: sessions keyed by ID, notes, annotations
 ```
 
 ## Section IDs
@@ -38,7 +38,7 @@ Every heading in `prd.md` and `spec.md` carries a stable ID using a trailing att
 Rules:
 
 - IDs are lowercase, dot-namespaced, prefixed `prd.` or `spec.`.
-- `trace ids` adds missing IDs in place and never rewrites existing ones.
+- `cairn ids` adds missing IDs in place and never rewrites existing ones.
 - Renaming a heading keeps its ID. Deleting a heading with linked tasks is a lint error.
 
 ## Manifest schema
@@ -71,12 +71,12 @@ Status values: `pending`, `running`, `blocked_on_human`, `failed`, `done`, `land
 
 ## CLI
 
-- `trace init` creates `.trace/` and a PRD template.
-- `trace ids` assigns missing section IDs in `prd.md` and `spec.md`.
-- `trace plan` calls a model to generate `spec.md` from `prd.md`, then generates `manifest.json`: tasks, stack order, parent links, model and reasoning level per task, human gates. Prints the plan and waits for approval.
-- `trace lint` checks that every task references real section IDs, every PRD section maps to at least one task, and gated tasks sit as low in the stack as their dependencies allow.
-- `trace status` prints the manifest as a tree with status.
-- `trace serve` starts the local viewer.
+- `cairn init` creates `.cairn/` and a PRD template.
+- `cairn ids` assigns missing section IDs in `prd.md` and `spec.md`.
+- `cairn plan` calls a model to generate `spec.md` from `prd.md`, then generates `manifest.json`: tasks, stack order, parent links, model and reasoning level per task, human gates. Prints the plan and waits for approval.
+- `cairn lint` checks that every task references real section IDs, every PRD section maps to at least one task, and gated tasks sit as low in the stack as their dependencies allow.
+- `cairn status` prints the manifest as a tree with status.
+- `cairn serve` starts the local viewer.
 
 ## Orchestrator contract
 
@@ -87,16 +87,16 @@ The existing orchestrator reads `manifest.json` and runs tasks. It must:
 3. Add commit trailers to every commit:
 
    ```text
-   Trace-Task: t1
-   Trace-Section: spec.saved-views.persist
-   Trace-Session: s_8f2k1q
+   Cairn-Task: t1
+   Cairn-Section: spec.saved-views.persist
+   Cairn-Session: s_8f2k1q
    ```
 
-4. Redact the session log, then store it in `.trace/trace.db` under its `Trace-Session` ID.
-5. Attach later notes, reviews, and annotations to the session ID in `trace.db`, never to the commit. The trailer is an immutable pointer; the database holds everything that can change.
+4. Redact the session log, then store it in `.cairn/cairn.db` under its `Cairn-Session` ID.
+5. Attach later notes, reviews, and annotations to the session ID in `cairn.db`, never to the commit. The trailer is an immutable pointer; the database holds everything that can change.
 6. Stop and emit `blocked_on_human` for any task with `humanGate.required`, and do not start its children.
 
-Trace derives manifest status from `events.jsonl` and git, so the orchestrator never edits `manifest.json` directly.
+Cairn derives manifest status from `events.jsonl` and git, so the orchestrator never edits `manifest.json` directly.
 
 ## Human gates
 
@@ -105,7 +105,7 @@ A task is gated if either is true:
 - Tagged: any linked PRD or spec section contains `<!-- human -->`.
 - Detected: the task's planned or actual diff touches configured high-trust paths.
 
-Default high-trust patterns in `.trace/config.json`:
+Default high-trust patterns in `.cairn/config.json`:
 
 ```json
 {
@@ -130,7 +130,7 @@ Before writing session JSONL, strip values matching env var names from `.env*`, 
 
 ## Viewer
 
-Local web app served by `trace serve`, read-only, polling or file-watching `.trace/` and git.
+Local web app served by `cairn serve`, read-only, polling or file-watching `.cairn/` and git.
 
 Layout:
 
@@ -140,24 +140,24 @@ Layout:
 - Curves: SVG bezier curves linking PRD section to spec section to task node. Hovering any node highlights its full chain.
 - Task detail panel: commits with links to diffs, session files, events timeline, and gate reasons.
 
-Suggested stack: Foldkit SPA for the viewer, a markdown renderer that preserves heading IDs, and a tiny Node server exposing `.trace/` files and `git log --format` with trailers, plus reads from `trace.db`.
+Suggested stack: Foldkit SPA for the viewer, a markdown renderer that preserves heading IDs, and a tiny Node server exposing `.cairn/` files and `git log --format` with trailers, plus reads from `cairn.db`.
 
 ## Implementation in Effect
 
 The CLI and local server are written in Effect, so every side effect is a typed service that tests can swap out.
 
-- Schemas: manifest, events, config, and commit trailers are Effect Schema definitions. Every file read from `.trace/` is decoded through them, and failures are typed errors naming the bad field.
-- Services as Layers: `Git` (branches, log, trailers), `TraceStore` (`trace.db`), `Planner` (model calls), `Orchestrator` (adapter to the user's runner), `Redactor`, and `Clock`.
+- Schemas: manifest, events, config, and commit trailers are Effect Schema definitions. Every file read from `.cairn/` is decoded through them, and failures are typed errors naming the bad field.
+- Services as Layers: `Git` (branches, log, trailers), `TraceStore` (`cairn.db`), `Planner` (model calls), `Orchestrator` (adapter to the user's runner), `Redactor`, and `Clock`.
 - Composition: one composition root per entrypoint (CLI, server). Live Layers in production; test Layers (fake git, in-memory SQLite, scripted planner) in tests.
 - Tests: `@effect/vitest` with `it.effect` and `it.layer`. Status derivation, gate detection, and lint run against test Layers with no real repo.
 - Viewer: Foldkit. Interaction logic (selection, chain highlighting, drawer state) lives in the pure update function and is unit tested without a render loop. Rendering only draws.
 
 ## Contract package
 
-`@spectrace/contract` is the single source of truth for everything an orchestrator reads or writes, and it must work from plain JavaScript.
+`@cairn/contract` is the single source of truth for everything an orchestrator reads or writes, and it must work from plain JavaScript.
 
 - Effect Schema definitions for manifest, events, config, and trailers.
-- Generated JSON Schema files, so any language can validate `.trace/` files.
+- Generated JSON Schema files, so any language can validate `.cairn/` files.
 - Plain JS entry points: `parseManifest(json)`, `parseEvent(line)`, `formatTrailers(task)`. Each returns a result or throws an error naming the bad field. Callers need no Effect knowledge.
 - Shipped `.d.ts` types, so JS users get editor autocomplete and checked JSDoc.
 - A `version` field on every file, with migrations in the package, so old manifests keep loading.
@@ -166,17 +166,17 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 
 ## Acceptance criteria
 
-- Running `trace init`, `trace plan`, and the orchestrator on a real RinkSide feature produces a manifest with at least three stacked tasks.
-- Every commit on those branches has Trace trailers, including a `Trace-Session` ID that resolves to a redacted session in `trace.db`.
+- Running `cairn init`, `cairn plan`, and the orchestrator on a real RinkSide feature produces a manifest with at least three stacked tasks.
+- Every commit on those branches has Cairn trailers, including a `Cairn-Session` ID that resolves to a redacted session in `cairn.db`.
 - A task touching a migrations path is gated and its children do not start until it is approved.
 - The viewer shows correct status for every PRD section, and clicking a PRD section reaches its commits in two clicks or fewer.
-- `trace lint` catches an orphaned section ID and an unmapped PRD section.
+- `cairn lint` catches an orphaned section ID and an unmapped PRD section.
 
 ## One-day build order
 
-1. Section ID parser and `trace ids` (1h).
-2. Manifest schema, `trace plan` prompt, and `trace lint` (2h).
-3. Orchestrator contract: events, trailers, session IDs in `trace.db`, redaction (2h).
+1. Section ID parser and `cairn ids` (1h).
+2. Manifest schema, `cairn plan` prompt, and `cairn lint` (2h).
+3. Orchestrator contract: events, trailers, session IDs in `cairn.db`, redaction (2h).
 4. Status derivation from events and git (1h).
 5. Viewer: three columns, badges, curves, detail panel (3h).
 6. Dogfood on one RinkSide feature and fix what breaks (1h).
@@ -225,7 +225,7 @@ A feature's PRD, spec, and stack live in a shared room. Humans and agents see ea
 - One Durable Object per room (one feature). It holds the Loro document, applies updates, and fans them out over hibernatable WebSockets.
 - Storage: Durable Object SQLite for updates and snapshots. R2 for version snapshots and opt-in redacted sessions.
 - Single writer for LWW state: statuses and leases are written through the room's Durable Object, which serializes them.
-- Local bridge: `trace connect` links a repo's `.trace/` to a room. It pushes events, commit SHAs, and session IDs, and pulls PRD and spec edits back to markdown on disk.
+- Local bridge: `cairn connect` links a repo's `.cairn/` to a room. It pushes events, commit SHAs, and session IDs, and pulls PRD and spec edits back to markdown on disk.
 - Offline: the viewer still works on local files. Loro merges edits made while disconnected.
 - Deploy: Worker, Durable Object namespace, R2 bucket, and the Foldkit site, all defined in Alchemy. Room tokens live in each room's storage, so no signing key is needed yet. Model keys never reach the server.
 
