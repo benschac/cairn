@@ -32,6 +32,9 @@ importers:
       '@effect/tsgo':
         specifier: 0.73.2
         version: 0.73.2
+      '@foldkit/oxlint-plugin':
+        specifier: 0.15.4
+        version: 0.15.4(effect@4.1.5)
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
@@ -430,6 +433,10 @@ packages:
 
   '@emnapi/wasi-threads@2.2.0':
     resolution: {integrity: sha512-JP7OYH38Q7+pyTAe14raZHLQIK7BDKbdwji+Xi3pcd/6QkJYQH3SX4wu6EplGrGJWRepoNzedfm0G3B9Z4e9Rw==}
+
+  '@foldkit/oxlint-plugin@0.15.4':
+    resolution: {integrity: sha512-qBFoApW7UAn5gu2GWyhL5lwyQpD9scCwESJOWQ3uC3h1oVnpToDmlCvFNC3HmfNZjQUxcGSwvWtL9LOB+ECyjg==}
+    engines: {node: '>=20.19.0 || >=22.12.0'}
 
   '@foldkit/vite-plugin@0.29.1':
     resolution: {integrity: sha512-PYErA63nqfF4dn/exAkbHKzxHekqG2Q0pMGaT5ss6XnTfFglo11Cr6A3rDTE664IwaQ8GEXQQftCnX5Vzmb14g==}
@@ -1499,6 +1506,11 @@ packages:
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
+  effect-oxlint@0.4.0:
+    resolution: {integrity: sha512-IA3ihFKGK0JoZVSPPgPP58988jj4PZ5/asFOhaSYHwDyRRRbkBJn7FX8RiPi++MFpXQvb+3fQpKdPzOvUK9xPQ==}
+    peerDependencies:
+      effect: ^4.0.0
+
   effect@4.1.5:
     resolution: {integrity: sha512-xyR20KhQI0vg2gD8ILUSQRTTESEYJ0JKdP+QD8J37xbwPTqXRxFM/l0+vUVD9fuSvoYruoTqyt33C4FZv1s4TQ==}
 
@@ -2370,6 +2382,12 @@ snapshots:
       tslib: 2.9.1
     optional: true
 
+  '@foldkit/oxlint-plugin@0.15.4(effect@4.1.5)':
+    dependencies:
+      effect-oxlint: 0.4.0(effect@4.1.5)
+    transitivePeerDependencies:
+      - effect
+
   '@foldkit/vite-plugin@0.29.1(effect@4.1.5)(foldkit@0.171.0(@effect/platform-browser@4.1.5(effect@4.1.5))(effect@4.1.5))(redis@6.3.1)(vite@8.3.8(@types/node@24.19.2)(yaml@2.9.1))':
     dependencies:
       '@effect/platform-node': 4.1.5(effect@4.1.5)(redis@6.3.1)
@@ -3029,6 +3047,11 @@ snapshots:
   devlop@1.1.0:
     dependencies:
       dequal: 2.0.3
+
+  effect-oxlint@0.4.0(effect@4.1.5):
+    dependencies:
+      '@oxlint/plugins': 1.94.0
+      effect: 4.1.5
 
   effect@4.1.5: {}
 

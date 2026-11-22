@@ -256,7 +256,8 @@ const stacksView = (
     ],
     Array.map(trace.tasks, (task) => {
       const position = Option.getOrElse(Record.get(layout, task.id), () => origin);
-      return h.div(
+      return h.keyed("div")(
+        task.id,
         Array.appendAll(
           [
             h.DataAttribute("task", task.id),

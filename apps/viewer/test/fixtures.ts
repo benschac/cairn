@@ -18,4 +18,5 @@ export const paneSize = { height: 600, width: 1200 };
  * Scene tests run no hooks, so the canvas pane's mount stays pending until the test answers for
  * it with the message the library would send first.
  */
+// oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/main.ts is the root module, not a child
 export const mounted = Mount.resolve(PanZoomCanvas, Message.MeasuredPane({ size: paneSize }));

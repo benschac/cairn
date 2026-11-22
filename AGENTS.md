@@ -83,13 +83,13 @@ pnpm check
 
 It runs these through Turborepo, which reruns only what a change affects:
 
-| Check  | Command                     | What it covers                                                                                                                               |
-| ------ | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Types  | `effect-tsgo tsc --noEmit`  | Strict TypeScript 7 plus the Effect language-service diagnostics, in every package and in the root scripts. An Effect warning fails the run. |
-| Lint   | `oxlint`                    | Type-aware Oxlint, including the `@xstate/effect` rule against inline Effects in machines.                                                   |
-| Format | `oxfmt --check`             | Formatting. `pnpm fix` rewrites files.                                                                                                       |
-| Tests  | `vitest run`, `node --test` | Each package's tests, and the tests for the hook guard in `scripts/guard` and the stack planner in `scripts/land`.                           |
-| Build  | `vite build`                | The viewer bundles.                                                                                                                          |
+| Check  | Command                     | What it covers                                                                                                                                |
+| ------ | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Types  | `effect-tsgo tsc --noEmit`  | Strict TypeScript 7 plus the Effect language-service diagnostics, in every package and in the root scripts. An Effect warning fails the run.  |
+| Lint   | `oxlint`                    | Type-aware Oxlint, including the `@xstate/effect` rule against inline Effects in machines and the recommended `@foldkit/oxlint-plugin` rules. |
+| Format | `oxfmt --check`             | Formatting. `pnpm fix` rewrites files.                                                                                                        |
+| Tests  | `vitest run`, `node --test` | Each package's tests, and the tests for the hook guard in `scripts/guard` and the stack planner in `scripts/land`.                            |
+| Build  | `vite build`                | The viewer bundles.                                                                                                                           |
 
 A lefthook `pre-commit` hook runs `pnpm check` on every commit. A commit that
 fails any check is refused. `pnpm install` installs the hook.

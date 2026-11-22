@@ -10,8 +10,9 @@ import {
   type TraceJudgment,
   type TraceTask,
 } from "@cairn/contract";
-import { Array, DateTime, HashSet, Match, Option, Schema, String } from "effect";
+import { Array, DateTime, HashSet, Match, Option, Schema, String, pipe } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
+import { defineRouteUnion, literal, mapTo, slash, string } from "foldkit/route";
 
 import { Node, chainOf, judgmentsOf } from "./trace.ts";
 
@@ -21,6 +22,16 @@ export interface DrawerMessages<M> {
   readonly onClickTask: (id: TaskId) => M;
   readonly onClickCommit: (sha: Sha) => M;
 }
+
+/** The server's routes the drawer links to. */
+const ServerRoute = defineRouteUnion({ Session: { id: Schema.String } });
+
+const sessionRouter = pipe(
+  literal("api"),
+  slash(literal("sessions")),
+  slash(string("id")),
+  mapTo(ServerRoute.Session),
+);
 
 const shortSha = (sha: Sha): string => String.takeLeft(sha, 7);
 
@@ -104,7 +115,7 @@ const taskDetailView = <M>(
       h.ul(
         [],
         Array.map(task.sessions, (id) =>
-          h.li([], [h.a([h.DataAttribute("session", id), h.Href(`/api/sessions/${id}`)], [id])]),
+          h.li([], [h.a([h.DataAttribute("session", id), h.Href(sessionRouter({ id }))], [id])]),
         ),
       ),
     ],
@@ -164,7 +175,8 @@ const sectionTasksView = <M>(
         Array.map(
           Array.filter(trace.tasks, (task) => HashSet.has(taskIds, task.id)),
           (task) =>
-            h.li(
+            h.keyed("li")(
+              task.id,
               [h.DataAttribute("drawer-task", task.id)],
               [
                 h.button(

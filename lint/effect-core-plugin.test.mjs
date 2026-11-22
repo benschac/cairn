@@ -1,6 +1,7 @@
 // Proves the Effect core rules fire on native patterns and stay quiet on the Effect ones:
 // the core/* rules in lint/effect-core-plugin.mjs through the root oxlint.config.ts, and the
-// @effect/tsgo diagnostics each tsconfig turns on. Run with: node --test lint/
+// @effect/tsgo diagnostics each tsconfig turns on, and a few of the foldkit/* rules from
+// @foldkit/oxlint-plugin. Run with: node --test lint/
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
@@ -13,8 +14,9 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const bin = (name) => join(root, "node_modules", ".bin", name);
 const effect = "import { Array, Effect, Order } from 'effect'\n";
 
-// [name, source, every core rule it must trip: one name, a list, or null for none]. The test
-// compares the whole set, so a case also proves the other core rules stay quiet.
+// [name, source, every core rule it must trip: one name, a list, or null for none, and the same
+// for the foldkit rules when the case has a fourth element]. The test compares the whole set, so a
+// case also proves the other rules stay quiet.
 const lintCases = [
   [
     "native sort with comparator",
@@ -300,6 +302,24 @@ const lintCases = [
     null,
   ],
   ["typeof outside Effect code", "export const f = (x: unknown) => typeof x === 'string'", null],
+  [
+    "NoOp Message",
+    "import { defineMessageUnion } from 'foldkit/message'\nexport const Message = defineMessageUnion({ NoOp: {} })",
+    null,
+    "no-noop-message",
+  ],
+  [
+    "empty children array",
+    "import type { HtmlBuilder } from 'foldkit/html'\nexport const f = (h: HtmlBuilder<never>) => h.div([], [])",
+    null,
+    "no-empty-children-array",
+  ],
+  [
+    "element without children",
+    "import type { HtmlBuilder } from 'foldkit/html'\nexport const f = (h: HtmlBuilder<never>) => h.div([])",
+    null,
+    null,
+  ],
 ];
 
 // [tsconfig the fixture extends, name, source, the @effect/tsgo diagnostic it must report or null]
@@ -440,15 +460,14 @@ const tsgoCases = [
   ],
 ];
 
-let dir;
 const lintFound = new Map();
 const tsgoFound = new Map();
 const caseIndex = (path) => Number(/case-(\d+)\.ts$/.exec(path)?.[1] ?? -1);
 
 // The fixtures live outside the repo, so a `pnpm lint` or `pnpm format:check` running beside
 // this test never sees them. A node_modules link lets them resolve effect and @types/node.
+const dir = await realpath(await mkdtemp(join(tmpdir(), "cairn-effect-core-")));
 const setup = async () => {
-  dir = await realpath(await mkdtemp(join(tmpdir(), "cairn-effect-core-")));
   await symlink(join(root, "node_modules"), join(dir, "node_modules"), "dir");
 };
 
@@ -520,6 +539,19 @@ await test("core/* oxlint rules", (t) =>
         const core = new Set(lintFound.get(name).filter((code) => code.startsWith("core(")));
         const want = new Set([expected ?? []].flat().map((rule) => `core(${rule})`));
         assert.deepEqual(core, want);
+      }),
+    ),
+  ));
+
+const foldkitFound = (name) =>
+  new Set(lintFound.get(name).filter((code) => code.startsWith("foldkit(")));
+
+await test("foldkit/* oxlint rules", (t) =>
+  Promise.all(
+    lintCases.map(([name, , , expected]) =>
+      t.test(name, () => {
+        const want = new Set([expected ?? []].flat().map((rule) => `foldkit(${rule})`));
+        assert.deepEqual(foldkitFound(name), want);
       }),
     ),
   ));
