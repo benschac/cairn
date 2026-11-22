@@ -206,10 +206,7 @@ const nodeAttributes = (
 type ColumnName = "prd" | "spec" | "stacks";
 
 const column = (name: ColumnName, children: ReadonlyArray<Html>, h: HtmlBuilder<Message>): Html =>
-  h.section(
-    [h.DataAttribute("column", name), h.Style({ "min-width": "0", overflow: "auto" })],
-    children,
-  );
+  h.section([h.DataAttribute("column", name), h.Style({ overflow: "visible" })], children);
 
 /** Where a task without a position would sit. stackLayoutOf places every task it is given. */
 const origin: StackPosition = { column: 1, row: 1 };
@@ -226,7 +223,12 @@ const stacksView = (
   return h.div(
     [
       h.DataAttribute("stacks", ""),
-      h.Style({ display: "grid", gap: "8px", "grid-auto-columns": "minmax(160px, 1fr)" }),
+      h.Style({
+        display: "grid",
+        gap: "8px",
+        "grid-auto-columns": "200px",
+        width: "max-content",
+      }),
     ],
     Array.map(trace.tasks, (task) => {
       const position = Option.getOrElse(Record.get(layout, task.id), () => origin);
@@ -367,6 +369,8 @@ const columnsView = (
             position: "relative",
             transform: transformOf(viewport),
             "transform-origin": "0 0",
+            // The layer is as wide as its content; nothing in it scrolls or clips.
+            width: "max-content",
           }),
         ],
         [
@@ -375,7 +379,7 @@ const columnsView = (
               h.Style({
                 display: "grid",
                 gap: "24px",
-                "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)",
+                "grid-template-columns": "480px 480px max-content",
               }),
             ],
             [

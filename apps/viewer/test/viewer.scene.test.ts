@@ -528,3 +528,19 @@ it("a panned canvas keeps its nodes clickable and marked so a drag on them selec
     expect(layer).toHaveStyle("transform", transformOf({ x: -300, y: 40, zoom: 0.5 })),
   );
 });
+
+it("nothing in the canvas scrolls or clips, so every node can be hovered and clicked", () => {
+  const stacks = selector("[data-stacks]");
+  scene(
+    { update, view },
+    given(loaded),
+    mounted,
+    expect(selector('[data-column="prd"]')).toHaveStyle("overflow", "visible"),
+    expect(selector('[data-column="spec"]')).toHaveStyle("overflow", "visible"),
+    expect(selector('[data-column="stacks"]')).toHaveStyle("overflow", "visible"),
+    // The stacks grid is as wide as its columns, however many there are.
+    expect(stacks).toHaveStyle("width", "max-content"),
+    expect(layer).toHaveStyle("width", "max-content"),
+    expect(selector("[data-column] pre")).toHaveStyle("white-space", "pre-wrap"),
+  );
+});

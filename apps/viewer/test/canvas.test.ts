@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Schema } from "effect";
+import { Array, Number, Option, Record, Schema } from "effect";
 
 import {
   FIT_PADDING,
@@ -10,6 +10,7 @@ import {
   boundsOf,
   fitViewport,
   reconcile,
+  sameViewport,
   transformOf,
   viewportAttribute,
   viewportOfAttribute,
@@ -37,9 +38,12 @@ const Small = Schema.Struct({
 });
 
 it.prop("transformOf translates by the offset and scales by the zoom", [Viewport], ([viewport]) => {
-  const match = /^translate\((.+)px, (.+)px\) scale\((.+)\)$/.exec(transformOf(viewport));
+  const parsed = Option.map(
+    Option.fromNullOr(/^translate\((.+)px, (.+)px\) scale\((.+)\)$/.exec(transformOf(viewport))),
+    (match) => Array.getSomes(Array.map(Array.drop(match, 1), Number.parse)),
+  );
   // A negative zero prints as "0", so compare with the sign of zero dropped.
-  expect(match?.slice(1).map(Number)).toEqual([viewport.x + 0, viewport.y + 0, viewport.zoom]);
+  expect(parsed).toEqual(Option.some([viewport.x + 0, viewport.y + 0, viewport.zoom]));
 });
 
 it.prop(
@@ -79,31 +83,60 @@ it.prop(
   },
 );
 
+const Thin = Schema.Struct({
+  height: Schema.Finite.check(Schema.isBetween({ maximum: 1e6, minimum: 1e5 })),
+  width: Schema.Finite.check(Schema.isBetween({ maximum: 50, minimum: 1 })),
+  x: Pixels,
+  y: Pixels,
+});
+
+it.prop(
+  "when the zoom limit stops the bounds fitting, their top and left sit at the pane's padding",
+  [Huge, Small],
+  ([bounds, pane]) => {
+    const fit = fitViewport(bounds, pane.width, pane.height);
+    expect(Math.abs(bounds.x * fit.zoom + fit.x - FIT_PADDING)).toBeLessThanOrEqual(1e-6);
+    expect(Math.abs(bounds.y * fit.zoom + fit.y - FIT_PADDING)).toBeLessThanOrEqual(1e-6);
+  },
+);
+
+it.prop(
+  "bounds that are too tall but fit across are top aligned and still centred across",
+  [Thin, Pane],
+  ([bounds, pane]) => {
+    const fit = fitViewport(bounds, pane.width, pane.height);
+    expect(fit.zoom).toBe(MIN_ZOOM);
+    expect(Math.abs(bounds.y * fit.zoom + fit.y - FIT_PADDING)).toBeLessThanOrEqual(1e-6);
+    const middle = bounds.x * fit.zoom + fit.x + (bounds.width * fit.zoom) / 2;
+    expect(Math.abs(middle - pane.width / 2)).toBeLessThanOrEqual(1 + 1e-6);
+  },
+);
+
 it.prop("a viewport survives the pane attribute", [Viewport], ([viewport]) => {
   // JSON has no negative zero, so compare with the sign of zero dropped.
-  expect(viewportOfAttribute(viewportAttribute(viewport))).toEqual({
-    x: viewport.x + 0,
-    y: viewport.y + 0,
-    zoom: viewport.zoom,
-  });
+  expect(viewportOfAttribute(viewportAttribute(viewport))).toEqual(
+    Option.some({ x: viewport.x + 0, y: viewport.y + 0, zoom: viewport.zoom }),
+  );
 });
 
 it("the pane attribute refuses text that is not a viewport", () => {
-  expect(viewportOfAttribute(null)).toBeNull();
-  expect(viewportOfAttribute("")).toBeNull();
-  expect(viewportOfAttribute("[]")).toBeNull();
-  expect(viewportOfAttribute('{"x":0,"y":0,"zoom":0}')).toBeNull();
-  expect(viewportOfAttribute('{"x":0,"y":0,"zoom":9}')).toBeNull();
-  expect(viewportOfAttribute('{"x":0,"y":0}')).toBeNull();
+  const refused = [
+    null,
+    "",
+    "[]",
+    '{"x":0,"y":0,"zoom":0}',
+    '{"x":0,"y":0,"zoom":9}',
+    '{"x":0,"y":0}',
+  ];
+  expect(Array.filter(refused, (text) => Option.isSome(viewportOfAttribute(text)))).toEqual([]);
 });
-
 it.prop("a viewport outside the zoom limits is not a Viewport", [Pixels], ([x]) => {
   const is = Schema.is(Viewport);
   expect(is({ x, y: 0, zoom: 1 })).toBe(true);
   expect(is({ x, y: 0, zoom: MAX_ZOOM * 1.01 })).toBe(false);
   expect(is({ x, y: 0, zoom: MIN_ZOOM / 2 })).toBe(false);
   expect(is({ x, y: 0, zoom: 0 })).toBe(false);
-  expect(is({ x: Number.NaN, y: 0, zoom: 1 })).toBe(false);
+  expect(is({ x: NaN, y: 0, zoom: 1 })).toBe(false);
   expect(Schema.is(Size)({ height: -1, width: 10 })).toBe(false);
 });
 
@@ -111,22 +144,28 @@ it.prop(
   "boundsOf covers every measured box, and nothing measured has no bounds",
   [Schema.Array(Bounds)],
   ([boxes]) => {
-    const positions: Positions = Object.fromEntries(boxes.map((box, at) => [`n${at}`, box]));
+    const positions: Positions = Record.fromEntries(
+      Array.map(boxes, (box, at) => [`n${at}`, box] as const),
+    );
     const bounds = boundsOf(positions);
-    if (boxes.length === 0) {
-      expect(bounds).toBeNull();
-      return;
-    }
-    for (const box of boxes) {
-      expect(bounds?.x ?? Infinity).toBeLessThanOrEqual(box.x);
-      expect(bounds?.y ?? Infinity).toBeLessThanOrEqual(box.y);
-      expect((bounds?.x ?? -Infinity) + (bounds?.width ?? 0)).toBeGreaterThanOrEqual(
-        box.x + box.width - 1e-6,
-      );
-      expect((bounds?.y ?? -Infinity) + (bounds?.height ?? 0)).toBeGreaterThanOrEqual(
-        box.y + box.height - 1e-6,
-      );
-    }
+    Array.match(boxes, {
+      onEmpty: () => expect(bounds).toEqual(Option.none()),
+      onNonEmpty: (measured) => {
+        const { height, width, x, y } = Option.getOrThrow(bounds);
+        const outside = Array.filter(
+          measured,
+          (box) =>
+            box.x < x ||
+            box.y < y ||
+            box.x + box.width > x + width + 1e-6 ||
+            box.y + box.height > y + height + 1e-6,
+        );
+        expect(outside).toEqual([]);
+        // And no bigger than it has to be: a box touches the left and the top.
+        expect(Array.some(measured, (box) => box.x === x)).toBe(true);
+        expect(Array.some(measured, (box) => box.y === y)).toBe(true);
+      },
+    });
   },
 );
 
@@ -136,12 +175,15 @@ it.prop(
   "a viewport the library reported is acknowledged, with what came before it, and not applied",
   [Reported, Schema.Int.check(Schema.isBetween({ maximum: 63, minimum: 0 }))],
   ([reported, index]) => {
-    const at = index % reported.length;
-    const echoed = reported[at];
-    if (echoed === undefined) throw new Error("empty");
-    const result = reconcile(reported, echoed);
-    expect(result.sync).toBe(false);
-    expect(result.reported).toEqual(reported.slice(reported.indexOf(echoed) + 1));
+    const echoed = Option.getOrThrow(Array.get(reported, index % reported.length));
+    // The first report equal to the echo, which may come before the one picked.
+    const first = Option.getOrThrow(
+      Array.findFirstIndex(reported, (viewport) => sameViewport(viewport, echoed)),
+    );
+    expect(reconcile(reported, echoed)).toEqual({
+      reported: Array.drop(reported, first + 1),
+      sync: false,
+    });
   },
 );
 
@@ -149,15 +191,19 @@ it.prop(
   "a viewport the library never reported is applied, and forgets what was reported",
   [Reported, Viewport],
   ([reported, fromModel]) => {
-    const unseen = reported.some(
-      (viewport) =>
-        viewport.x === fromModel.x &&
-        viewport.y === fromModel.y &&
-        viewport.zoom === fromModel.zoom,
-    );
-    if (unseen) {
+    const wasReported = Array.containsWith(sameViewport)(reported, fromModel);
+    if (wasReported) {
       return;
     }
     expect(reconcile(reported, fromModel)).toEqual({ reported: [], sync: true });
+  },
+);
+
+it.prop(
+  "viewports are the same exactly when their offsets and zoom are",
+  [Viewport, Viewport],
+  ([a, b]) => {
+    expect(sameViewport(a, a)).toBe(true);
+    expect(sameViewport(a, b)).toBe(a.x === b.x && a.y === b.y && a.zoom === b.zoom);
   },
 );

@@ -182,7 +182,13 @@ export const renderMarkdown = <Message>(
     Match.discriminators("type")({
       blockquote: (node) => [h.blockquote([], renderBlocks(node.children))],
       break: () => [h.br([])],
-      code: (node) => [h.pre([], [h.code(languageClass(node.lang), [node.value])])],
+      code: (node) => [
+        h.pre(
+          // The canvas never scrolls, so a long line wraps instead of running out of its column.
+          [h.Style({ "overflow-wrap": "anywhere", "white-space": "pre-wrap" })],
+          [h.code(languageClass(node.lang), [node.value])],
+        ),
+      ],
       delete: (node) => [h.del([], inline(node.children))],
       emphasis: (node) => [h.em([], inline(node.children))],
       heading: (node) => [heading(node)],
