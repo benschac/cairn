@@ -32,7 +32,8 @@ export const measure = (
       ])
     : {};
 
-const rectOf = (box: DOMRect): Rect => ({
+/** An element's box on screen, as a Rect. */
+export const rectOf = (box: DOMRect): Rect => ({
   height: box.height,
   width: box.width,
   x: box.x,

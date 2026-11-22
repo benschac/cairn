@@ -1,11 +1,6 @@
 import { Participant, RoomEvents } from "@cairn/contract";
-import type { Cursor } from "@cairn/contract";
 import { setupEffect } from "@xstate/effect";
-import { Array, Number, Option, Schema, Struct } from "effect";
-
-const toSurface = Number.clamp({ maximum: 1, minimum: 0 });
-
-const onSurface = (cursor: Cursor): Cursor => Struct.evolve(cursor, { x: toSurface, y: toSurface });
+import { Array, Option, Schema, Struct } from "effect";
 
 export const roomMachine = setupEffect({
   schemas: {
@@ -23,7 +18,7 @@ export const roomMachine = setupEffect({
           context: {
             participants: Array.append(
               Array.filter(context.participants, ({ id }) => id !== event.participant.id),
-              Struct.evolve(event.participant, { cursor: Option.map(onSurface) }),
+              event.participant,
             ),
           },
         }),
@@ -36,7 +31,7 @@ export const roomMachine = setupEffect({
           context: {
             participants: Array.map(context.participants, (participant) =>
               participant.id === event.id
-                ? Struct.evolve(participant, { cursor: () => Option.some(onSurface(event.cursor)) })
+                ? Struct.evolve(participant, { cursor: () => Option.some(event.cursor) })
                 : participant,
             ),
           },

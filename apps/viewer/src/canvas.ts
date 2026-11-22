@@ -1,9 +1,17 @@
-import { PanOnScrollMode, XYPanZoom, getViewportForBounds } from "@xyflow/system";
+import type { Cursor } from "@cairn/contract";
+import {
+  PanOnScrollMode,
+  XYPanZoom,
+  getViewportForBounds,
+  pointToRendererPoint,
+  rendererPointToPoint,
+} from "@xyflow/system";
 import {
   Array,
   Effect,
   Function,
   MutableRef,
+  Number,
   Option,
   Order,
   Predicate,
@@ -95,6 +103,28 @@ export const fitViewport = (bounds: Rect, width: number, height: number): Viewpo
     zoom,
   };
 };
+
+/** A point in pane pixels, to canvas coordinates: the point on the layer under that spot. */
+export const toCanvas = (point: Cursor, viewport: Viewport): Cursor =>
+  pointToRendererPoint(point, [viewport.x, viewport.y, viewport.zoom]);
+
+/** A point in canvas coordinates, to pane pixels. The inverse of `toCanvas`. */
+export const toScreen = (point: Cursor, viewport: Viewport): Cursor =>
+  rendererPointToPoint(point, [viewport.x, viewport.y, viewport.zoom]);
+
+/** Whether a point in window pixels is on the pane, edges included. */
+const isOnPane = (pane: Rect) => (client: Cursor) =>
+  Number.between(client.x, { maximum: pane.x + pane.width, minimum: pane.x }) &&
+  Number.between(client.y, { maximum: pane.y + pane.height, minimum: pane.y });
+
+/**
+ * The cursor to send for a pointer at `client` (window pixels) over a pane at `pane`, in canvas
+ * coordinates; none when the pointer is outside the pane.
+ */
+export const cursorOf = (client: Cursor, pane: Rect, viewport: Viewport): Option.Option<Cursor> =>
+  Option.map(Option.liftPredicate(client, isOnPane(pane)), (point) =>
+    toCanvas({ x: point.x - pane.x, y: point.y - pane.y }, viewport),
+  );
 
 const ViewportJson = Schema.fromJsonString(Viewport);
 

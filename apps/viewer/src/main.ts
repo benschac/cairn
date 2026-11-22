@@ -127,7 +127,12 @@ const cursorColor = { agent: "#7c3aed", human: "#0f766e" } satisfies Record.Read
   string
 >;
 
-const cursorView = (participant: Participant, h: HtmlBuilder<Message>): Option.Option<Html> =>
+/** A cursor sits on the canvas layer, so it pans and zooms with the content; its label undoes the zoom. */
+const cursorView = (
+  participant: Participant,
+  zoom: number,
+  h: HtmlBuilder<Message>,
+): Option.Option<Html> =>
   Option.map(participant.cursor, (cursor) =>
     h.div(
       [
@@ -137,11 +142,13 @@ const cursorView = (participant: Participant, h: HtmlBuilder<Message>): Option.O
           "border-radius": "0 10px 10px 10px",
           color: "white",
           font: "12px system-ui, sans-serif",
-          left: `${cursor.x * 100}%`,
+          left: `${cursor.x}px`,
           padding: "2px 8px",
           "pointer-events": "none",
-          position: "fixed",
-          top: `${cursor.y * 100}%`,
+          position: "absolute",
+          top: `${cursor.y}px`,
+          transform: `scale(${1 / zoom})`,
+          "transform-origin": "0 0",
         }),
       ],
       [labelOf(participant)],
@@ -323,12 +330,13 @@ const edgesView = (
     }),
   );
 
-/** The columns and their edges, with the chain of the hovered node, or else the selected one, highlighted. */
+/** The columns and their edges, and the other participants' cursors, with the chain of the hovered node, or else the selected one, highlighted. */
 const columnsView = (
   trace: Trace,
   positions: Positions,
   viewport: Viewport,
   maybeActive: Option.Option<Node>,
+  others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): Html => {
   // One chain per render: every node and edge reads it.
@@ -373,41 +381,46 @@ const columnsView = (
             width: "max-content",
           }),
         ],
-        [
-          h.div(
-            [
-              h.Style({
-                display: "grid",
-                gap: "24px",
-                "grid-template-columns": "480px 480px max-content",
-              }),
-            ],
-            [
-              column(
-                "prd",
-                [
-                  renderMarkdown(trace.prd.markdown, h, {
-                    attributesOf: sectionAttributes,
-                    decorate: badged,
-                  }),
-                ],
-                h,
-              ),
-              column(
-                "spec",
-                [
-                  renderMarkdown(trace.spec.markdown, h, {
-                    attributesOf: sectionAttributes,
-                    decorate: specDecorated,
-                  }),
-                ],
-                h,
-              ),
-              column("stacks", [stacksView(trace, maybeChain, h)], h),
-            ],
+        Array.appendAll(
+          [
+            h.div(
+              [
+                h.Style({
+                  display: "grid",
+                  gap: "24px",
+                  "grid-template-columns": "480px 480px max-content",
+                }),
+              ],
+              [
+                column(
+                  "prd",
+                  [
+                    renderMarkdown(trace.prd.markdown, h, {
+                      attributesOf: sectionAttributes,
+                      decorate: badged,
+                    }),
+                  ],
+                  h,
+                ),
+                column(
+                  "spec",
+                  [
+                    renderMarkdown(trace.spec.markdown, h, {
+                      attributesOf: sectionAttributes,
+                      decorate: specDecorated,
+                    }),
+                  ],
+                  h,
+                ),
+                column("stacks", [stacksView(trace, maybeChain, h)], h),
+              ],
+            ),
+            edgesView(trace, positions, maybeChain, h),
+          ],
+          Array.getSomes(
+            Array.map(others, (participant) => cursorView(participant, viewport.zoom, h)),
           ),
-          edgesView(trace, positions, maybeChain, h),
-        ],
+        ),
       ),
     ],
   );
@@ -421,12 +434,20 @@ const alertView = (error: string, h: HtmlBuilder<Message>): Html => h.p([h.Role(
 const fitButton = (h: HtmlBuilder<Message>): Html =>
   h.button([h.Type("button"), h.OnClick(Message.ClickedFit())], ["Fit to view"]);
 
-const traceView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> => {
+/** Everyone in the room but you. */
+const othersOf = (model: Model): ReadonlyArray<Participant> =>
+  Array.filter(model.participants, (participant) => !Option.contains(model.you, participant.id));
+
+const traceView = (
+  model: Model,
+  others: ReadonlyArray<Participant>,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> => {
   const maybeActive = Option.orElse(model.maybeHovered, () => model.maybeSelected);
   // The Fit button and the canvas, shown whenever there is a trace to pan over.
   const canvas = (trace: Trace): ReadonlyArray<Html> => [
     fitButton(h),
-    columnsView(trace, model.positions, model.viewport, maybeActive, h),
+    columnsView(trace, model.positions, model.viewport, maybeActive, others, h),
   ];
   return AsyncData.match(model.trace, {
     onFailure: (error) => [alertView(error, h)],
@@ -439,17 +460,13 @@ const traceView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
 };
 
 export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
-  const others = Array.filter(
-    model.participants,
-    (participant) => !Option.contains(model.you, participant.id),
-  );
+  const others = othersOf(model);
   return {
     body: h.main(
       [],
       Array.flatten([
         [h.h1([], ["Cairn"]), h.p([h.Role("status")], [presentText(others)])],
-        traceView(model, h),
-        Array.getSomes(Array.map(others, (participant) => cursorView(participant, h))),
+        traceView(model, others, h),
       ]),
     ),
     title: "Cairn",

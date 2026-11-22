@@ -1,5 +1,6 @@
+import { Cursor } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, Number, Option, Record, Schema } from "effect";
+import { Array, Number, Option, Record, Schema, Struct } from "effect";
 
 import {
   FIT_PADDING,
@@ -8,9 +9,12 @@ import {
   Size,
   Viewport,
   boundsOf,
+  cursorOf,
   fitViewport,
   reconcile,
   sameViewport,
+  toCanvas,
+  toScreen,
   transformOf,
   viewportAttribute,
   viewportOfAttribute,
@@ -205,5 +209,40 @@ it.prop(
   ([a, b]) => {
     expect(sameViewport(a, a)).toBe(true);
     expect(sameViewport(a, b)).toBe(a.x === b.x && a.y === b.y && a.zoom === b.zoom);
+  },
+);
+
+// A cursor within the pixels a window can reach.
+const Point = Cursor.mapFields(() => ({ x: Pixels, y: Pixels }));
+// Offsets a window can reach; an arbitrary finite offset loses all precision to rounding.
+const Shown = Viewport.mapFields(Struct.assign({ x: Pixels, y: Pixels }));
+const PaneBox = Box({ maximum: 2000, minimum: 1 });
+
+it.prop("toScreen undoes toCanvas for any viewport", [Point, Shown], ([point, viewport]) => {
+  const back = toScreen(toCanvas(point, viewport), viewport);
+  expect(back.x).toBeCloseTo(point.x, 6);
+  expect(back.y).toBeCloseTo(point.y, 6);
+});
+
+it.prop(
+  "a pointer inside the pane sends its canvas point, and one outside sends nothing",
+  [PaneBox, Shown, Point],
+  ([pane, viewport, offset]) => {
+    const inside = { x: pane.x + pane.width / 2, y: pane.y + pane.height / 2 };
+    const sent = Option.getOrThrow(cursorOf(inside, pane, viewport));
+    const expected = toCanvas({ x: pane.width / 2, y: pane.height / 2 }, viewport);
+    // Adding then subtracting the pane's offset can differ from the direct sum in the last bit.
+    expect(sent.x).toBeCloseTo(expected.x, 4);
+    expect(sent.y).toBeCloseTo(expected.y, 4);
+    // A point past each edge, by at least a pixel.
+    const outside = [
+      { x: pane.x - 1 - Math.abs(offset.x), y: inside.y },
+      { x: pane.x + pane.width + 1 + Math.abs(offset.x), y: inside.y },
+      { x: inside.x, y: pane.y - 1 - Math.abs(offset.y) },
+      { x: inside.x, y: pane.y + pane.height + 1 + Math.abs(offset.y) },
+    ];
+    expect(
+      Array.filter(outside, (point) => Option.isSome(cursorOf(point, pane, viewport))),
+    ).toStrictEqual([]);
   },
 );

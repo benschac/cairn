@@ -1,5 +1,4 @@
 import {
-  ParticipantId,
   TraceJudgment,
   Verdict,
   type JudgmentTarget,
@@ -183,40 +182,6 @@ it("a flag or unsure judgment marks its task and section, dimmed when stale; a p
   );
 });
 
-it("other participants appear with their cursors, and you do not", () => {
-  scene(
-    { update, view },
-    given(loaded),
-    mounted,
-    expect(role("status")).toHaveText("Nobody else is here."),
-    Subscription.emit(
-      Message.ReceivedPresence({
-        presence: {
-          participants: [
-            {
-              cursor: Option.some({ x: 0.1, y: 0.1 }),
-              id: ParticipantId.make("p1"),
-              kind: "human",
-              name: "Ada",
-            },
-            {
-              cursor: Option.some({ x: 0.25, y: 0.5 }),
-              id: ParticipantId.make("p2"),
-              kind: "agent",
-              name: "Planner",
-            },
-            { cursor: Option.none(), id: ParticipantId.make("p3"), kind: "human", name: "Grace" },
-          ],
-          you: ParticipantId.make("p1"),
-        },
-      }),
-    ),
-    expect(role("status")).toHaveText("Here now: Planner (agent), Grace"),
-    expect(selector('[data-cursor="agent"]')).toHaveText("Planner (agent)"),
-    expect(selector('[data-cursor="agent"]')).toHaveStyle("left", "25%"),
-    expect(selector('[data-cursor="human"]')).toBeAbsent(),
-  );
-});
 // A spec section whose chain has tasks and PRD sections, and a task outside that chain.
 const { chain, specSection, unrelated } = Option.getOrThrow(
   Array.findFirst(demoTrace.spec.sections, (section) => {

@@ -8,9 +8,6 @@ import { roomMachine } from "../src/index.ts";
 const Member = Schema.Literals(["a", "b"]).pipe(Schema.brand("ParticipantId"));
 const Stranger = Schema.Literal("c").pipe(Schema.brand("ParticipantId"));
 
-const OnSurface = Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 }));
-const isOnSurface = Schema.is(Cursor.mapFields(() => ({ x: OnSurface, y: OnSurface })));
-
 const eventsFor = <Id extends Schema.Top>(id: Id) =>
   [
     Schema.Struct({ id, type: Schema.Literal("left") }),
@@ -39,7 +36,7 @@ const replay = (events: typeof History.Type) =>
   );
 
 it.prop(
-  "a room lists each participant once, with cursors on the surface",
+  "a room lists each participant once, and keeps cursors where they were sent, off the unit square too",
   [History],
   ([events]) => {
     Array.reduce(events, initialTransition(roomMachine)[0], (before, event) => {
@@ -47,15 +44,20 @@ it.prop(
       const { participants } = snapshot.context;
       const ids = Array.map(participants, ({ id }) => id);
       expect(Array.dedupe(ids)).toStrictEqual(ids);
-      Array.forEach(Array.getSomes(Array.map(participants, ({ cursor }) => cursor)), (cursor) => {
-        expect(isOnSurface(cursor)).toBe(true);
-      });
+      const find = (id: string) =>
+        Array.findFirst(participants, (participant) => participant.id === id);
+      if (event.type === "joined") {
+        expect(find(event.participant.id)).toStrictEqual(Option.some(event.participant));
+      }
       if (event.type === "left") {
         expect(ids).not.toContain(event.id);
       }
+      // A known participant's cursor is exactly the one sent; an unknown id adds nobody.
       if (event.type === "moved") {
-        const mover = Array.findFirst(participants, ({ id }) => id === event.id);
-        expect(Option.exists(mover, ({ cursor }) => Option.isNone(cursor))).toBe(false);
+        const wasPresent = Array.some(before.context.participants, ({ id }) => id === event.id);
+        expect(Option.map(find(event.id), ({ cursor }) => cursor)).toStrictEqual(
+          wasPresent ? Option.some(Option.some(event.cursor)) : Option.none(),
+        );
       }
       return snapshot;
     });
