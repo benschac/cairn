@@ -1,6 +1,6 @@
 import { Trace } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Schema } from "effect";
+import { Array, Order, Schema } from "effect";
 
 import { Node, chainOf, isInChain } from "../src/trace.ts";
 
@@ -34,8 +34,8 @@ const taskBase = {
 
 const prdId = (n: number) => `prd.p${n}`;
 const specId = (n: number) => `spec.s${n}`;
-const prdIds = [0, 1, 2, 3, 4].map(prdId);
-const specIds = [0, 1, 2, 3, 4].map(specId);
+const prdIds = Array.makeBy(5, prdId);
+const specIds = Array.makeBy(5, specId);
 
 const section = (id: string, implementsIds: ReadonlyArray<string>) => ({
   human: false,
@@ -116,7 +116,7 @@ it.prop("an unknown node has an empty chain", [Shape], ([shape]) => {
   }
 });
 
-const ids = (set: ReadonlySet<string>) => [...set].toSorted();
+const ids = (set: ReadonlySet<string>) => Array.sort(set, Order.String);
 
 it("a hand-built trace links PRD, spec and tasks one hop through spec sections", () => {
   const trace = build({

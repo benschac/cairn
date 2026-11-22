@@ -1,11 +1,11 @@
-import { SectionId, TaskId, type Trace } from "@cairn/contract";
-import { Schema } from "effect";
+import { PrdSectionId, SectionId, TaskId, type Trace } from "@cairn/contract";
+import { Array, Option, Record, Schema } from "effect";
 
 /** A node in the viewer: a PRD or spec section, or a task. */
 export const Node = Schema.Union([
   Schema.Struct({ id: SectionId, kind: Schema.Literal("section") }),
   Schema.Struct({ id: TaskId, kind: Schema.Literal("task") }),
-]);
+]).pipe(Schema.toTaggedUnion("kind"));
 export type Node = typeof Node.Type;
 
 export interface Chain {
@@ -16,9 +16,10 @@ export interface Chain {
 
 const empty = (): Chain => ({ prd: new Set(), spec: new Set(), tasks: new Set() });
 
-const includes = (ids: ReadonlyArray<string>, id: string): boolean => ids.includes(id);
+const isPrdSection = Schema.is(PrdSectionId);
 
-const isPrd = (id: string): boolean => id.startsWith("prd.");
+/** The PRD sections each spec section implements, by spec section id. */
+type Links = Record.ReadonlyRecord<string, ReadonlyArray<string>>;
 
 /**
  * The PRD sections, spec sections and tasks linked to a node, in both directions.
@@ -31,57 +32,75 @@ const isPrd = (id: string): boolean => id.startsWith("prd.");
  * An unknown node has an empty chain; a known node is in its own chain.
  */
 export const chainOf = (trace: Trace, node: Node): Chain => {
-  const implementsOf = new Map<string, ReadonlyArray<string>>(
-    trace.spec.sections.map((section) => [section.id, section.keys.implements]),
-  );
+  const implementsOf: Links = Record.fromIterableWith(trace.spec.sections, (section) => [
+    section.id,
+    section.keys.implements,
+  ]);
+  const implementedBy = (id: string): ReadonlyArray<string> =>
+    Option.getOrElse(Record.get(implementsOf, id), () => []);
 
-  if (node.kind === "task") {
-    const task = trace.tasks.find((candidate) => candidate.id === node.id);
-    if (task === undefined) {
-      return empty();
-    }
-    const prd = new Set<string>(task.prdSections);
-    for (const id of task.specSections) {
-      for (const implemented of implementsOf.get(id) ?? []) {
-        prd.add(implemented);
-      }
-    }
-    return { prd, spec: new Set<string>(task.specSections), tasks: new Set([task.id]) };
-  }
+  const taskChain = (id: string): Chain =>
+    Option.match(
+      Array.findFirst(trace.tasks, (task) => task.id === id),
+      {
+        onNone: empty,
+        onSome: (task) => ({
+          prd: new Set<string>(
+            Array.appendAll(task.prdSections, Array.flatMap(task.specSections, implementedBy)),
+          ),
+          spec: new Set(task.specSections),
+          tasks: new Set([task.id]),
+        }),
+      },
+    );
 
-  if (isPrd(node.id)) {
-    if (!trace.prd.sections.some((section) => section.id === node.id)) {
+  const prdChain = (id: string): Chain => {
+    if (!Array.some(trace.prd.sections, (section) => section.id === id)) {
       return empty();
     }
     const spec = new Set<string>(
-      trace.spec.sections
-        .filter((section) => includes(section.keys.implements, node.id))
-        .map((section) => section.id),
+      Array.map(
+        Array.filter(trace.spec.sections, (section) => Array.contains(section.keys.implements, id)),
+        (section) => section.id,
+      ),
     );
-    const tasks = new Set<string>(
-      trace.tasks
-        .filter(
+    const tasks = new Set(
+      Array.map(
+        Array.filter(
+          trace.tasks,
           (task) =>
-            includes(task.prdSections, node.id) || task.specSections.some((id) => spec.has(id)),
-        )
-        .map((task) => task.id),
+            Array.contains(task.prdSections, id) ||
+            Array.some(task.specSections, (specId) => spec.has(specId)),
+        ),
+        (task) => task.id,
+      ),
     );
-    return { prd: new Set([node.id]), spec, tasks };
-  }
-
-  if (!implementsOf.has(node.id)) {
-    return empty();
-  }
-  return {
-    prd: new Set<string>(implementsOf.get(node.id) ?? []),
-    spec: new Set([node.id]),
-    tasks: new Set<string>(
-      trace.tasks.filter((task) => includes(task.specSections, node.id)).map((task) => task.id),
-    ),
+    return { prd: new Set([id]), spec, tasks };
   };
+
+  const specChain = (id: string): Chain =>
+    Option.match(Record.get(implementsOf, id), {
+      onNone: empty,
+      onSome: (implemented) => ({
+        prd: new Set(implemented),
+        spec: new Set([id]),
+        tasks: new Set(
+          Array.map(
+            Array.filter(trace.tasks, (task) => Array.contains(task.specSections, id)),
+            (task) => task.id,
+          ),
+        ),
+      }),
+    });
+
+  return Node.match(node, {
+    section: ({ id }) => (isPrdSection(id) ? prdChain(id) : specChain(id)),
+    task: ({ id }) => taskChain(id),
+  });
 };
 
 export const isInChain = (chain: Chain, node: Node): boolean =>
-  node.kind === "task"
-    ? chain.tasks.has(node.id)
-    : chain.prd.has(node.id) || chain.spec.has(node.id);
+  Node.match(node, {
+    section: ({ id }) => chain.prd.has(id) || chain.spec.has(id),
+    task: ({ id }) => chain.tasks.has(id),
+  });

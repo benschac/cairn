@@ -2,43 +2,44 @@ import { readFileSync } from "node:fs";
 
 import { Manifest, SectionStatus, TaskStatus, Trace } from "@cairn/contract";
 import { it } from "@effect/vitest";
-import { Schema } from "effect";
+import { Array, Option, Schema, String } from "effect";
 import { expect } from "vitest";
 
 import { demoTrace } from "../src/demo.ts";
 
 const repo = (path: string) => readFileSync(new URL(`../../../${path}`, import.meta.url), "utf8");
 
-const fixture = JSON.parse(
+const decodeManifest = Schema.decodeSync(Schema.fromJsonString(Manifest));
+const decodeTrace = Schema.decodeUnknownOption(Trace);
+
+/** The fixture as plain JSON, so a test can corrupt any field before decoding it. */
+const fixture = Schema.decodeSync(Schema.fromJsonString(Schema.Any))(
   readFileSync(new URL("../src/demo-trace.json", import.meta.url), "utf8"),
 );
 
+const fencePattern = /^\s*(```|~~~)/u;
+const headingIdPattern = /^#{1,6} .*\{#([^}]+)\}\s*$/u;
+
 /** The `{#id}` headings of a document, skipping any inside a fenced code block. */
-const headingIds = (markdown: string): string[] => {
-  const ids: string[] = [];
-  let fenced = false;
-  for (const line of markdown.split("\n")) {
-    if (/^\s*(```|~~~)/u.test(line)) fenced = !fenced;
-    const match = /^#{1,6} .*\{#([^}]+)\}\s*$/u.exec(line);
-    if (!fenced && match?.[1] !== undefined) ids.push(match[1]);
-  }
-  return ids;
+const headingIds = (markdown: string): ReadonlyArray<string> => {
+  const [, ids] = Array.mapAccum(String.split(markdown, "\n"), false, (isFenced, line) => {
+    const isInFence = fencePattern.test(line) ? !isFenced : isFenced;
+    const maybeId = isInFence
+      ? Option.none()
+      : Option.flatMap(String.match(headingIdPattern)(line), (match) => Array.get(match, 1));
+    return [isInFence, maybeId];
+  });
+  return Array.getSomes(ids);
 };
 
-const decodeCopy = (edit: (copy: typeof fixture) => void) => {
-  const copy = structuredClone(fixture);
-  edit(copy);
-  return Schema.decodeUnknownSync(Trace)(copy);
-};
+const idsOf = (sections: ReadonlyArray<{ readonly id: string }>) =>
+  Array.map(sections, (section) => section.id);
 
 /** Whether the Trace schema refuses the fixture after an edit. */
 const refused = (edit: (copy: typeof fixture) => void) => {
-  try {
-    decodeCopy(edit);
-    return false;
-  } catch {
-    return true;
-  }
+  const copy = structuredClone(fixture);
+  edit(copy);
+  return Option.isNone(decodeTrace(copy));
 };
 
 it("the fixture decodes through the Trace schema", () => {
@@ -47,9 +48,12 @@ it("the fixture decodes through the Trace schema", () => {
 });
 
 it("every task in the manifest appears in the trace", () => {
-  const manifest = Schema.decodeUnknownSync(Manifest)(JSON.parse(repo(".cairn/manifest.json")));
-  const traced = new Set(demoTrace.tasks.map((task) => task.id));
-  for (const task of manifest.tasks) expect(traced.has(task.id)).toBe(true);
+  const manifest = decodeManifest(repo(".cairn/manifest.json"));
+  const missing = Array.difference(
+    Array.map(manifest.tasks, (task) => task.id),
+    Array.map(demoTrace.tasks, (task) => task.id),
+  );
+  expect(missing).toEqual([]);
   expect(demoTrace.tasks.length).toBe(manifest.tasks.length);
 });
 
@@ -62,12 +66,8 @@ it.each([
     const ids = headingIds(repo(path));
     expect(ids.length).toBeGreaterThan(0);
     expect(doc.path).toBe(path);
-    const sectionIds = new Set<string>(demoTrace.sections.map((section) => section.id));
-    const listed = new Set<string>(doc.sections.map((section) => section.id));
-    for (const id of ids) {
-      expect(sectionIds.has(id)).toBe(true);
-      expect(listed.has(id)).toBe(true);
-    }
+    expect(Array.difference(ids, idsOf(demoTrace.sections))).toEqual([]);
+    expect(Array.difference(ids, idsOf(doc.sections))).toEqual([]);
     expect(doc.sections.length).toBe(ids.length);
   },
 );
@@ -85,7 +85,10 @@ it("a copy with a corrupted field is refused", () => {
   ).toBe(true);
   expect(
     refused((copy) => {
-      copy.tasks[0].commits[0].sha = "76aa977";
+      const committed = Option.getOrThrow(
+        Array.findFirst(copy.tasks, (task: typeof fixture) => Array.isArrayNonEmpty(task.commits)),
+      );
+      committed.commits[0].sha = "76aa977";
     }),
   ).toBe(true);
   expect(refused((copy) => copy.tasks)).toBe(false);

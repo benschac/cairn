@@ -5,7 +5,7 @@ import demoTraceJson from "./demo-trace.json" with { type: "json" };
 
 export const demoTrace = Schema.decodeUnknownSync(Trace)(demoTraceJson);
 
-export const demoRows = Schema.decodeUnknownSync(Schema.Array(ManifestTask))([
+export const demoRows = Schema.decodeSync(Schema.Array(ManifestTask))([
   {
     branch: "demo/01-add-the-sessions-table",
     commits: [],

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { SectionId } from "@cairn/contract";
 import { it } from "@effect/vitest";
+import { Array, Option, Predicate } from "effect";
 import type { Html } from "foldkit/html";
 import { expect as expectScene, given, scene, selector } from "foldkit/scene";
 import { expect } from "vitest";
@@ -28,23 +29,26 @@ const render = (markdown: string): VNode => {
   return rendered;
 };
 
-const defined = <A>(value: A | undefined): A => {
-  if (value === undefined) throw new Error("expected a value");
-  return value;
-};
-
 const children = (node: VNode): ReadonlyArray<VNode | string> => node.children ?? [];
 
 const walk = (node: VNode | string): ReadonlyArray<VNode> =>
-  typeof node === "string" ? [] : [node, ...children(node).flatMap(walk)];
+  Predicate.isString(node) ? [] : [node, ...Array.flatMap(children(node), walk)];
 
 const textOf = (node: VNode | string): string =>
-  typeof node === "string" ? node : (node.text ?? children(node).map(textOf).join(""));
+  Predicate.isString(node)
+    ? node
+    : (node.text ?? Array.join(Array.map(children(node), textOf), ""));
 
 const attr = (node: VNode, name: string): unknown =>
   node.data?.attrs?.[name] ?? node.data?.props?.[name];
 
-const tags = (node: VNode) => walk(node).map((element) => element.sel?.split(/[.#]/u)[0]);
+const tagOf = (element: VNode) => element.sel?.split(/[.#]/u)[0];
+
+const tags = (node: VNode) => Array.map(walk(node), tagOf);
+
+/** The first element with a tag, or a thrown error that fails the test. */
+const firstTag = (node: VNode, tag: string): VNode =>
+  Option.getOrThrow(Array.findFirst(walk(node), (element) => tagOf(element) === tag));
 
 const spec = readFileSync(new URL("../../../.cairn/spec.md", import.meta.url), "utf8");
 const prd = readFileSync(new URL("../../../.cairn/prd.md", import.meta.url), "utf8");
@@ -67,11 +71,10 @@ it.prop(
   [SectionId],
   ([id]) => {
     const root = render(`## Some title {#${id}}\n\nBody.`);
-    const heading = walk(root).find((element) => tags(element)[0] === "h2");
-    expect(heading).toBeDefined();
-    expect(attr(defined(heading), "id")).toBe(id);
-    expect(attr(defined(heading), "data-section")).toBe(id);
-    expect(textOf(defined(heading))).toBe("Some title");
+    const heading = firstTag(root, "h2");
+    expect(attr(heading, "id")).toBe(id);
+    expect(attr(heading, "data-section")).toBe(id);
+    expect(textOf(heading)).toBe("Some title");
   },
 );
 
@@ -148,24 +151,9 @@ it("renders the inline and block markdown it supports", () => {
       "```",
     ].join("\n"),
   );
-  const present = new Set(tags(root));
-  for (const tag of [
-    "p",
-    "em",
-    "strong",
-    "code",
-    "a",
-    "blockquote",
-    "hr",
-    "ol",
-    "ul",
-    "li",
-    "pre",
-  ]) {
-    expect(present.has(tag)).toBe(true);
-  }
-  const link = walk(root).find((element) => tags(element)[0] === "a");
-  expect(attr(defined(link), "href")).toBe("https://example.com");
+  const supported = ["p", "em", "strong", "code", "a", "blockquote", "hr", "ol", "ul", "li", "pre"];
+  expect(tags(root)).toEqual(expect.arrayContaining(supported));
+  expect(attr(firstTag(root, "a"), "href")).toBe("https://example.com");
   expect(textOf(root)).toContain("const x = 1;");
 });
 
@@ -234,16 +222,13 @@ it("no element carries innerHTML or an event handler from the markdown", () => {
 it.each(["javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,x", "vbscript:x"])(
   "a link to %s gets no href",
   (url) => {
-    const link = walk(render(`[x](${url})`)).find((element) => tags(element)[0] === "a");
-    expect(link).toBeDefined();
-    expect(attr(defined(link), "href")).toBeUndefined();
+    expect(attr(firstTag(render(`[x](${url})`), "a"), "href")).toBeUndefined();
   },
 );
 
 it.each(["https://example.com/a", "mailto:a@b.c", "/relative", "#spec.x", "./x.md"])(
   "a link to %s keeps its href",
   (url) => {
-    const link = walk(render(`[x](${url})`)).find((element) => tags(element)[0] === "a");
-    expect(attr(defined(link), "href")).toBe(url);
+    expect(attr(firstTag(render(`[x](${url})`), "a"), "href")).toBe(url);
   },
 );
