@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect";
 
-import { TaskId, TaskStatus } from "./index.ts";
+import { TaskId } from "./ids.ts";
+import { TaskStatus } from "./manifest.ts";
 
 /**
  * Who wrote an event. Only a `human:` actor can move a task out of
@@ -23,9 +24,8 @@ export type Actor = typeof Actor.Type;
 export const Event = Schema.Struct({
   actor: Actor.pipe(Schema.withDecodingDefaultKey(Effect.succeed("orchestrator" as const))),
   detail: Schema.optionalKey(Schema.String),
-  // index.ts re-exports this module, so these two are read lazily to survive the import cycle.
-  status: Schema.suspend(() => TaskStatus),
-  taskId: Schema.suspend(() => TaskId),
+  status: TaskStatus,
+  taskId: TaskId,
   ts: Schema.DateTimeUtcFromString,
   v: Schema.Literal(1).pipe(Schema.withDecodingDefaultKey(Effect.succeed(1 as const))),
 });

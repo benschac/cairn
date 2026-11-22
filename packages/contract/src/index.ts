@@ -57,3 +57,5 @@ export const PresenceJson = Schema.fromJsonString(Presence);
 export const CursorJson = Schema.fromJsonString(Cursor);
 
 export * from "./events.ts";
+export * from "./judgments.ts";
+export * from "./trace.ts";
