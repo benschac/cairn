@@ -15,17 +15,21 @@
 
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import {
+  Array,
   Console,
   Effect,
   Layer,
   Logger,
   Option,
   Path,
+  Predicate,
+  Record,
   Ref,
   Runtime,
   Schedule,
   Schema,
   Stream,
+  String,
 } from "effect";
 import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
@@ -101,7 +105,10 @@ class MergeNotRecorded extends Schema.TaggedError<MergeNotRecorded>()("MergeNotR
 }) {
   override readonly [Runtime.errorReported] = false;
   override get message() {
-    const pulls = this.numbers.map((number) => `#${number}`).join(", ");
+    const pulls = Array.join(
+      Array.map(this.numbers, (number) => `#${number}`),
+      ", ",
+    );
     return `The commits are on ${TRUNK}, but GitHub has not marked these merged: ${pulls}. Check them before closing by hand.`;
   }
 }
@@ -114,10 +121,13 @@ class CommandFailed extends Schema.TaggedError<CommandFailed>()("CommandFailed",
 }) {
   override readonly [Runtime.errorReported] = false;
   override get message() {
-    const line = [this.command, ...this.args].join(" ");
-    return `${line} exited with ${this.exitCode}${this.stderr ? `: ${this.stderr}` : ""}`;
+    const line = Array.join(Array.prepend(this.args, this.command), " ");
+    return `${line} exited with ${this.exitCode}${String.isNonEmpty(this.stderr) ? `: ${this.stderr}` : ""}`;
   }
 }
+
+// A commit's abbreviated hash.
+const short = (oid: string) => String.takeLeft(oid, 7);
 
 const decodePullRequests = Schema.decodeUnknownEffect(
   Schema.fromJsonString(Schema.Array(PullRequest)),
@@ -148,9 +158,9 @@ const land = Effect.fn("land")(function* ({
           { concurrency: "unbounded" },
         );
         if (exitCode !== 0) {
-          return yield* new CommandFailed({ command, args, exitCode, stderr: stderr.trim() });
+          return yield* new CommandFailed({ command, args, exitCode, stderr: String.trim(stderr) });
         }
-        return stdout.trim();
+        return String.trim(stdout);
       }),
     );
   const isAncestor = (a: string, b: string) => {
@@ -167,7 +177,7 @@ const land = Effect.fn("land")(function* ({
   };
 
   const top = Option.isSome(branch) ? branch.value : yield* sh("git", ["branch", "--show-current"]);
-  if (!top || top === TRUNK) return yield* new MissingTopBranch({ current: top });
+  if (String.isEmpty(top) || top === TRUNK) return yield* new MissingTopBranch({ current: top });
 
   yield* sh("git", ["fetch", "--quiet", REMOTE]);
   const trunkOid = yield* sh("git", ["rev-parse", `${REMOTE}/${TRUNK}`]);
@@ -177,7 +187,7 @@ const land = Effect.fn("land")(function* ({
     "--state",
     "open",
     "--limit",
-    String(LIST_LIMIT),
+    `${LIST_LIMIT}`,
     "--json",
     PULL_FIELDS,
   ]).pipe(Effect.flatMap(decodePullRequests));
@@ -186,54 +196,64 @@ const land = Effect.fn("land")(function* ({
   const ordered: Ordered = orderStack(pulls, top, TRUNK);
   if (!ordered.ok) return yield* new StackNotFound({ reason: ordered.reason });
   const { stack } = ordered;
-  const tip = stack[stack.length - 1]?.headRefOid ?? stack[0].headRefOid;
+  const tip = Array.lastNonEmpty(stack).headRefOid;
 
   // Ask git about each pull request and the one below it once, then answer chainBreak from the results.
   const pairs = links(stack, trunkOid);
   const answers = yield* Effect.forEach(pairs, ([a, b]) => isAncestor(a, b), { concurrency: 4 });
-  const ancestry = new Map(pairs.map(([a, b], i) => [`${a}..${b}`, answers[i] ?? false]));
-  const broken = chainBreak(stack, trunkOid, (a, b) => ancestry.get(`${a}..${b}`) ?? false);
+  const ancestry = Record.fromEntries(
+    Array.map(Array.zip(pairs, answers), ([[a, b], answer]) => [`${a}..${b}`, answer] as const),
+  );
+  const broken = chainBreak(stack, trunkOid, (a, b) =>
+    Option.getOrElse(Record.get(ancestry, `${a}..${b}`), () => false),
+  );
   // The merge commits each pull request adds over the one below it, as "<sha> <subject>".
   const merges = yield* Effect.forEach(
     pairs,
     ([a, b]) =>
       sh("git", ["log", "--merges", "--format=%h %s", `${a}..${b}`]).pipe(
-        Effect.map((out) => (out ? out.split("\n") : [])),
+        Effect.map((out) => (String.isNonEmpty(out) ? String.split(out, "\n") : [])),
       ),
     { concurrency: 4 },
   );
 
-  const rows = stack.map((pull, i) => {
+  const rows = Array.map(Array.zip(stack, merges), ([pull, merged]) => {
     const brokenReason =
       pull === broken
-        ? [
+        ? Option.some(
             pull === stack[0]
               ? `does not sit on the current ${TRUNK}`
               : "does not sit on the pull request below it",
-          ]
-        : [];
-    const mergeReason = mergeBlocker(merges[i] ?? []);
+          )
+        : Option.none<string>();
+    const mergeReason = Option.fromUndefinedOr(mergeBlocker(merged));
     return {
       pull,
       checks: checkSummary(pull),
-      reasons: [...brokenReason, ...(mergeReason ? [mergeReason] : []), ...blockers(pull)],
+      reasons: Array.flatten([
+        Option.toArray(brokenReason),
+        Option.toArray(mergeReason),
+        blockers(pull),
+      ]),
     };
   });
-  const blocked = rows.filter((row) => row.reasons.length).length;
+  const blocked = Array.filter(rows, (row) => Array.isReadonlyArrayNonEmpty(row.reasons)).length;
 
-  const report = [
-    `Stack ending at ${top}: ${stack.length} pull requests onto ${TRUNK} (${trunkOid.slice(0, 7)})`,
-  ].concat(
-    rows.flatMap(({ pull, checks, reasons }) =>
-      [
-        `  #${pull.number} ${pull.headRefOid.slice(0, 7)} ${pull.headRefName}: ${pull.title}`,
-        `      checks ${checks.passed.length} passed, ${checks.pending.length} pending, ${checks.failed.length} failed${reasons.length ? "" : "; ready"}`,
-      ].concat(reasons.map((reason) => `      blocked: ${reason}`)),
+  const report = Array.prepend(
+    Array.flatMap(rows, ({ pull, checks, reasons }) =>
+      Array.appendAll(
+        [
+          `  #${pull.number} ${short(pull.headRefOid)} ${pull.headRefName}: ${pull.title}`,
+          `      checks ${checks.passed.length} passed, ${checks.pending.length} pending, ${checks.failed.length} failed${Array.isReadonlyArrayNonEmpty(reasons) ? "" : "; ready"}`,
+        ],
+        Array.map(reasons, (reason) => `      blocked: ${reason}`),
+      ),
     ),
+    `Stack ending at ${top}: ${stack.length} pull requests onto ${TRUNK} (${short(trunkOid)})`,
   );
-  yield* Console.log(report.join("\n"));
-  if (blocked) {
-    if (broken || merges.some((list) => list.length)) {
+  yield* Console.log(Array.join(report, "\n"));
+  if (blocked > 0) {
+    if (Predicate.isNotUndefined(broken) || Array.some(merges, Array.isReadonlyArrayNonEmpty)) {
       yield* Console.log(
         "Rebase and resubmit first: gt sync, gt restack, gt submit --stack, then wait for the checks. Do not merge a base branch in.",
       );
@@ -241,15 +261,15 @@ const land = Effect.fn("land")(function* ({
     return yield* new StackBlocked({ blocked, total: stack.length });
   }
 
-  const retarget = stack.filter((pull) => pull.baseRefName !== TRUNK);
+  const retarget = Array.filter(stack, (pull) => pull.baseRefName !== TRUNK);
   if (!push) {
     return yield* Console.log(
-      `Ready. --push would retarget ${retarget.length} pull requests to ${TRUNK} and run: git push ${REMOTE} ${tip.slice(0, 7)}:refs/heads/${TRUNK}`,
+      `Ready. --push would retarget ${retarget.length} pull requests to ${TRUNK} and run: git push ${REMOTE} ${short(tip)}:refs/heads/${TRUNK}`,
     );
   }
 
   const setBase = (pull: PullRequest, base: string) =>
-    sh("gh", ["pr", "edit", String(pull.number), "--base", base]);
+    sh("gh", ["pr", "edit", `${pull.number}`, "--base", base]);
   const retargeted = yield* Ref.make<PullRequest[]>([]);
   // Puts back every base branch already moved to main, then reports why nothing landed.
   const restore = (detail: string) =>
@@ -261,7 +281,9 @@ const land = Effect.fn("land")(function* ({
   yield* Effect.forEach(
     retarget,
     (pull) =>
-      setBase(pull, TRUNK).pipe(Effect.andThen(Ref.update(retargeted, (done) => [...done, pull]))),
+      setBase(pull, TRUNK).pipe(
+        Effect.andThen(Ref.update(retargeted, (done) => Array.append(done, pull))),
+      ),
     { discard: true },
   ).pipe(
     // No force: git refuses unless this is a fast-forward of the remote main.
@@ -272,25 +294,25 @@ const land = Effect.fn("land")(function* ({
     }),
   );
   yield* Effect.logInfo(
-    `Pushed ${tip.slice(0, 7)} to ${TRUNK}; waiting for GitHub to mark ${stack.length} pull requests merged`,
+    `Pushed ${short(tip)} to ${TRUNK}; waiting for GitHub to mark ${stack.length} pull requests merged`,
   );
 
   const stateOf = (pull: PullRequest) =>
-    sh("gh", ["pr", "view", String(pull.number), "--json", "state", "--jq", ".state"]);
+    sh("gh", ["pr", "view", `${pull.number}`, "--json", "state", "--jq", ".state"]);
   const open = yield* Ref.make<readonly PullRequest[]>(stack);
   const poll = Effect.gen(function* () {
     yield* Effect.sleep(MERGE_POLL);
     const waiting = yield* Ref.get(open);
     const states = yield* Effect.forEach(waiting, stateOf, { concurrency: "unbounded" });
-    const still = waiting.filter((_, i) => states[i] !== "MERGED");
+    const still = Array.filter(waiting, (_, i) => states[i] !== "MERGED");
     yield* Ref.set(open, still);
     return still;
   });
   const unmerged = yield* poll.pipe(
-    Effect.repeat({ schedule: Schedule.during(MERGE_WAIT), until: (still) => still.length === 0 }),
+    Effect.repeat({ schedule: Schedule.during(MERGE_WAIT), until: Array.isReadonlyArrayEmpty }),
   );
-  if (unmerged.length) {
-    return yield* new MergeNotRecorded({ numbers: unmerged.map((pull) => pull.number) });
+  if (Array.isReadonlyArrayNonEmpty(unmerged)) {
+    return yield* new MergeNotRecorded({ numbers: Array.map(unmerged, (pull) => pull.number) });
   }
   return yield* Console.log(
     `Landed ${stack.length} pull requests. Run gt sync to clean up local branches.`,

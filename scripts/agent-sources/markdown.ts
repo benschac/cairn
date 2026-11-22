@@ -25,7 +25,7 @@ export const headingsOf = (lines: ReadonlyArray<string>): ReadonlyArray<Heading>
     Option.none<string>(),
     (fence, line, i): readonly [Option.Option<string>, Option.Option<Heading>] => {
       const marker = FENCE.exec(line);
-      if (marker) {
+      if (marker !== null) {
         const [, run = "", info = ""] = marker;
         const next = Option.match(fence, {
           onNone: () => Option.some(run),
@@ -46,14 +46,14 @@ export const headingsOf = (lines: ReadonlyArray<string>): ReadonlyArray<Heading>
 };
 
 // A "Topic | Start line | End line" table over a document of `lineCount` lines: each topic ends where the next begins.
-export const topicTable = (topics: ReadonlyArray<Heading>, lineCount: number) => [
-  "| Topic | Start line | End line |",
-  "| --- | ---: | ---: |",
-  ...Array.map(topics, (topic, i) => {
-    const end = Option.match(Array.get(topics, i + 1), {
-      onNone: () => lineCount,
-      onSome: (next) => next.start - 1,
-    });
-    return `| ${escapeCell(topic.name)} | ${topic.start} | ${end} |`;
-  }),
-];
+export const topicTable = (topics: ReadonlyArray<Heading>, lineCount: number) =>
+  Array.appendAll(
+    ["| Topic | Start line | End line |", "| --- | ---: | ---: |"],
+    Array.map(topics, (topic, i) => {
+      const end = Option.match(Array.get(topics, i + 1), {
+        onNone: () => lineCount,
+        onSome: (next) => next.start - 1,
+      });
+      return `| ${escapeCell(topic.name)} | ${topic.start} | ${end} |`;
+    }),
+  );

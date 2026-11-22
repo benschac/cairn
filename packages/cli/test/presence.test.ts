@@ -4,7 +4,7 @@ import { Cursor, CursorJson, ParticipantKind, PresenceJson } from "@cairn/contra
 import type { Presence } from "@cairn/contract";
 import { NodeHttpServer, NodeSocket } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer, Schema, Stream, Struct } from "effect";
+import { Array, Effect, Layer, Schema, Stream, String, Struct } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import { Socket } from "effect/socket";
 
@@ -29,7 +29,7 @@ const SurfaceCursor = Cursor.mapFields(() => ({ x: OnSurface, y: OnSurface }));
 
 const join = Effect.fn("join")(function* (query: string) {
   const url = yield* HttpServer.addressFormattedWith((address) =>
-    Effect.succeed(`${address.replace(/^http/, "ws")}/presence?${query}`),
+    Effect.succeed(`${String.replace(/^http/, "ws")(address)}/presence?${query}`),
   );
   const socket = yield* Socket.makeWebSocket(url);
   const reader = yield* socket.reader;
@@ -52,7 +52,7 @@ const join = Effect.fn("join")(function* (query: string) {
 });
 
 const someoneMoved = (presence: Presence) =>
-  presence.participants.some((participant) => participant.cursor !== null);
+  Array.some(presence.participants, (participant) => participant.cursor !== null);
 
 it.live.prop(
   "a participant sees another's kind and cursor past frames that are not cursors, then sees them leave",
@@ -68,14 +68,16 @@ it.live.prop(
         const sent = yield* other.moves(cursor);
 
         const seen = yield* planner.sees(someoneMoved);
-        expect(seen.participants.map((participant) => Struct.omit(participant, ["id"]))).toEqual([
+        expect(
+          Array.map(seen.participants, (participant) => Struct.omit(participant, ["id"])),
+        ).toEqual([
           { cursor: null, kind: "human", name: "Planner" },
           { cursor: sent, kind, name: "Ada" },
         ]);
       }).pipe(Effect.scoped);
 
       const alone = yield* planner.sees((presence) => presence.participants.length === 1);
-      expect(alone.participants.map((participant) => participant.name)).toEqual(["Planner"]);
+      expect(Array.map(alone.participants, (participant) => participant.name)).toEqual(["Planner"]);
     }).pipe(Effect.provide(Server)),
 );
 
@@ -84,7 +86,7 @@ it.live("a client without a usable name or kind joins as a numbered human guest"
     const guest = yield* join("name=&kind=robot");
     const seen = yield* guest.sees((presence) => presence.participants.length === 1);
     expect(seen.participants).toEqual([
-      { cursor: null, id: seen.you, kind: "human", name: `Guest ${seen.you.slice(1)}` },
+      { cursor: null, id: seen.you, kind: "human", name: `Guest ${String.slice(1)(seen.you)}` },
     ]);
   }).pipe(Effect.provide(Server)),
 );

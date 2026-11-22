@@ -1,6 +1,6 @@
 import { Trace } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, Order, Schema } from "effect";
+import { Array, HashSet, Option, Order, Schema } from "effect";
 
 import { Node, chainOf, isInChain } from "../src/trace.ts";
 
@@ -52,23 +52,26 @@ const build = (shape: typeof Shape.Type): Trace =>
     baseBranch: "main",
     feature: "demo",
     judgments: [],
-    prd: { markdown: "", path: "prd.md", sections: prdIds.map((id) => section(id, [])) },
+    prd: { markdown: "", path: "prd.md", sections: Array.map(prdIds, (id) => section(id, [])) },
     sections: [],
     spec: {
       markdown: "",
       path: "spec.md",
-      sections: specIds.map((id, n) =>
+      sections: Array.map(specIds, (id, n) =>
         section(
           id,
-          (shape.specs[n] ?? []).map((p) => prdId(p)),
+          Array.map(
+            Option.getOrElse(Array.get(shape.specs, n), () => []),
+            (p) => prdId(p),
+          ),
         ),
       ),
     },
-    tasks: shape.tasks.map((task, n) => ({
+    tasks: Array.map(shape.tasks, (task, n) => ({
       ...taskBase,
       id: `t${n}`,
-      prdSections: task.prd.map((p) => prdId(p)),
-      specSections: task.spec.map((s) => specId(s)),
+      prdSections: Array.map(task.prd, (p) => prdId(p)),
+      specSections: Array.map(task.spec, (s) => specId(s)),
     })),
     version: 1,
     warnings: [],
@@ -78,17 +81,18 @@ const decodeNode = Schema.decodeUnknownSync(Node);
 const sectionNode = (id: string) => decodeNode({ id, kind: "section" });
 const taskNode = (id: string) => decodeNode({ id, kind: "task" });
 
-const nodesOf = (trace: Trace): ReadonlyArray<Node> => [
-  ...trace.prd.sections.map((s) => sectionNode(s.id)),
-  ...trace.spec.sections.map((s) => sectionNode(s.id)),
-  ...trace.tasks.map((task) => taskNode(task.id)),
-];
+const nodesOf = (trace: Trace): ReadonlyArray<Node> =>
+  Array.flatten([
+    Array.map(trace.prd.sections, (s) => sectionNode(s.id)),
+    Array.map(trace.spec.sections, (s) => sectionNode(s.id)),
+    Array.map(trace.tasks, (task) => taskNode(task.id)),
+  ]);
 
 it.prop("a node is in its own chain", [Shape], ([shape]) => {
   const trace = build(shape);
-  for (const node of nodesOf(trace)) {
+  Array.forEach(nodesOf(trace), (node) => {
     expect(isInChain(chainOf(trace, node), node)).toBe(true);
-  }
+  });
 });
 
 it.prop(
@@ -97,26 +101,29 @@ it.prop(
   ([shape]) => {
     const trace = build(shape);
     const nodes = nodesOf(trace);
-    for (const a of nodes) {
-      for (const b of nodes) {
-        if (isInChain(chainOf(trace, a), b)) {
-          expect(isInChain(chainOf(trace, b), a)).toBe(true);
-        }
+    Array.forEach(Array.cartesian(nodes, nodes), ([a, b]) => {
+      if (isInChain(chainOf(trace, a), b)) {
+        expect(isInChain(chainOf(trace, b), a)).toBe(true);
       }
-    }
+    });
   },
 );
 
 it.prop("an unknown node has an empty chain", [Shape], ([shape]) => {
   const trace = build(shape);
-  for (const node of [taskNode("t999"), sectionNode("spec.nowhere"), sectionNode("prd.nowhere")]) {
-    const chain = chainOf(trace, node);
-    expect(chain.prd.size + chain.spec.size + chain.tasks.size).toBe(0);
-    expect(isInChain(chain, node)).toBe(false);
-  }
+  Array.forEach(
+    [taskNode("t999"), sectionNode("spec.nowhere"), sectionNode("prd.nowhere")],
+    (node) => {
+      const chain = chainOf(trace, node);
+      expect(HashSet.size(chain.prd) + HashSet.size(chain.spec) + HashSet.size(chain.tasks)).toBe(
+        0,
+      );
+      expect(isInChain(chain, node)).toBe(false);
+    },
+  );
 });
 
-const ids = (set: ReadonlySet<string>) => Array.sort(set, Order.String);
+const ids = (set: HashSet.HashSet<string>) => Array.sort(set, Order.String);
 
 it("a hand-built trace links PRD, spec and tasks one hop through spec sections", () => {
   const trace = build({

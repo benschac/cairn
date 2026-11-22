@@ -43,8 +43,12 @@
           "globalTimersInEffect": "error",
           "instanceOfSchema": "error",
           "newPromise": "error",
+          "preferEffectArray": "error",
+          "preferEffectRecord": "error",
+          "preferEffectString": "error",
           "processEnv": "error",
           "processEnvInEffect": "error",
+          "strictBooleanExpressions": "error",
           "tryCatchInEffectGen": "error",
           "yieldInCallArgument": "error"
         }

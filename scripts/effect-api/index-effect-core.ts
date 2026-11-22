@@ -7,7 +7,21 @@
 //   node scripts/effect-api/index-effect-core.ts --check  fail when the index does not match the installed effect
 
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Array, Effect, FileSystem, Layer, Logger, Order, Path, Runtime, Schema } from "effect";
+import {
+  Array,
+  Effect,
+  FileSystem,
+  Layer,
+  Logger,
+  Option,
+  Order,
+  Path,
+  pipe,
+  Predicate,
+  Runtime,
+  Schema,
+  String,
+} from "effect";
 import { Command, Flag } from "effect/cli";
 
 const INDEX = ".agent_sources/effect/core-index.md";
@@ -33,18 +47,23 @@ const declaration =
   /^export (?:declare )?(?:const|function|type|interface|class|namespace|enum) ([A-Za-z_$][\w$]*)/;
 
 // The first sentence of a JSDoc block, flattened to one line and safe inside a table cell.
+// The prose runs from the first non-empty line to the next blank line or tag.
 const summarize = (block: ReadonlyArray<string>) => {
-  const prose: string[] = [];
-  for (const raw of block) {
-    const line = raw.replace(/^\s*\/?\*+\/?\s?/, "").trim();
-    if (line.startsWith("@") || line.startsWith("**")) break;
-    if (line === "" && prose.length) break;
-    if (line) prose.push(line);
-  }
-  const text = prose.join(" ").replaceAll("|", "\\|");
-  const end = text.search(/\.(\s|$)/);
-  const sentence = end === -1 ? text : text.slice(0, end + 1);
-  return sentence.length > 140 ? `${sentence.slice(0, 137)}...` : sentence;
+  const prose = pipe(
+    block,
+    Array.map((raw) => pipe(raw, String.replace(/^\s*\/?\*+\/?\s?/, ""), String.trim)),
+    Array.dropWhile(String.isEmpty),
+    Array.takeWhile(
+      (line) =>
+        String.isNonEmpty(line) && !String.startsWith("@")(line) && !String.startsWith("**")(line),
+    ),
+  );
+  const text = pipe(prose, Array.join(" "), String.replaceAll("|", "\\|"));
+  const sentence = pipe(
+    String.search(text, /\.(\s|$)/),
+    Option.match({ onNone: () => text, onSome: (end) => String.slice(0, end + 1)(text) }),
+  );
+  return sentence.length > 140 ? `${String.slice(0, 137)(sentence)}...` : sentence;
 };
 
 interface Export {
@@ -53,38 +72,72 @@ interface Export {
   readonly doc: ReadonlyArray<string>;
 }
 
+// The index of the last of `lines` up to `end` that `test` accepts, or 0 when none does.
+const lastAtOrBefore = (
+  lines: ReadonlyArray<string>,
+  end: number,
+  test: (line: string) => boolean,
+) =>
+  pipe(
+    Array.take(lines, end + 1),
+    Array.findLastIndex(test),
+    Option.getOrElse(() => 0),
+  );
+
 // Every export of one declaration file, with the line its JSDoc starts on.
 const exportsOf = (lines: ReadonlyArray<string>) => {
-  const found: Export[] = [];
-  lines.forEach((line, i) => {
-    const match = declaration.exec(line);
-    if (!match?.[1]) return;
-    let start = i;
-    if (lines[i - 1]?.trim() === "*/") {
-      while (start > 0 && !lines[start]?.trimStart().startsWith("/**")) start--;
-    }
-    found.push({ name: match[1], start: start + 1, doc: start < i ? lines.slice(start, i) : [] });
-  });
+  const declared = Array.getSomes(
+    Array.map(lines, (line, i) =>
+      pipe(
+        line,
+        String.match(declaration),
+        Option.flatMap(Array.get(1)),
+        Option.map((name): Export => {
+          const documented = pipe(
+            Array.get(lines, i - 1),
+            Option.exists((previous) => String.trim(previous) === "*/"),
+          );
+          const start = documented
+            ? lastAtOrBefore(lines, i, (l) => pipe(l, String.trimStart, String.startsWith("/**")))
+            : i;
+          return { name, start: start + 1, doc: Array.drop(Array.take(lines, i), start) };
+        }),
+      ),
+    ),
+  );
   // A name that is a reserved word (try, catch, void) is declared as `try_` and exported in an
   // `export { /** doc */ try_ as try }` block, with its JSDoc inside the block.
-  lines.forEach((line, i) => {
-    if (!/^export \{\s*$/.test(line)) return;
-    let close = i + 1;
-    while (close < lines.length && !/\bas ([A-Za-z_$][\w$]*)\s*\};?\s*$/.test(lines[close] ?? "")) {
-      close++;
-    }
-    const [, local, name] =
-      /([A-Za-z_$][\w$]*) as ([A-Za-z_$][\w$]*)/.exec(lines[close] ?? "") ?? [];
-    if (!local || !name) return;
-    const declared = new RegExp(
-      `^declare (?:const|function|class) ${local.replace("$", "\\$")}\\b`,
-    );
-    let start = i;
-    while (start > 0 && !declared.test(lines[start] ?? "")) start--;
-    found.push({ name, start: start + 1, doc: lines.slice(i + 1, close) });
-  });
+  const renamed = Array.getSomes(
+    Array.map(lines, (line, i) =>
+      /^export \{\s*$/.test(line)
+        ? pipe(
+            Array.drop(lines, i + 1),
+            Array.findFirstIndex((next) => /\bas ([A-Za-z_$][\w$]*)\s*\};?\s*$/.test(next)),
+            Option.flatMap((offset) => {
+              const close = i + 1 + offset;
+              return pipe(
+                Array.get(lines, close),
+                Option.flatMap(String.match(/([A-Za-z_$][\w$]*) as ([A-Za-z_$][\w$]*)/)),
+                Option.flatMap(([, local, name]) =>
+                  Predicate.isNotUndefined(local) && Predicate.isNotUndefined(name)
+                    ? Option.some({ local, name, close })
+                    : Option.none(),
+                ),
+              );
+            }),
+            Option.map(({ local, name, close }): Export => {
+              const declaredLocal = new RegExp(
+                `^declare (?:const|function|class) ${String.replace("$", "\\$")(local)}\\b`,
+              );
+              const start = lastAtOrBefore(lines, i, (l) => declaredLocal.test(l));
+              return { name, start: start + 1, doc: Array.drop(Array.take(lines, close), i + 1) };
+            }),
+          )
+        : Option.none(),
+    ),
+  );
   return Array.sort(
-    found,
+    Array.appendAll(declared, renamed),
     Order.mapInput(Order.Number, (e: Export) => e.start),
   );
 };
@@ -103,24 +156,28 @@ const indexCore = Effect.fn("indexEffectCore")(function* ({ check }: { check: bo
   const dist = path.join(effect, "dist");
   const listing = yield* fs.readDirectory(dist);
   const files = Array.sort(
-    Array.filter(listing, (file) => file.endsWith(".d.ts") && file !== "index.d.ts"),
+    Array.filter(listing, (file) => String.endsWith(".d.ts")(file) && file !== "index.d.ts"),
     Order.String,
   );
   const modules = yield* Effect.forEach(
     files,
     Effect.fnUntraced(function* (file) {
-      const module = file.slice(0, -".d.ts".length);
-      const lines = (yield* fs.readFileString(path.join(dist, file))).split("\n");
+      const module = String.slice(0, -".d.ts".length)(file);
+      const text = yield* fs.readFileString(path.join(dist, file));
+      const lines = String.split(text, "\n");
       const exports = exportsOf(lines);
       return Array.map(exports, (e, i) => {
-        const end = (exports[i + 1]?.start ?? lines.length + 1) - 1;
+        const end = pipe(
+          Array.get(exports, i + 1),
+          Option.match({ onNone: () => lines.length, onSome: (next) => next.start - 1 }),
+        );
         return `| ${module} | ${e.name} | ${e.start} | ${end} | ${summarize(e.doc)} |`;
       });
     }),
   );
   const rows = Array.flatten(modules);
 
-  const index = [
+  const header = [
     "# effect core API index",
     "",
     `Generated from the type declarations of the installed \`effect@${version}\` by \`scripts/effect-api/index-effect-core.ts\`. Do not edit it; \`pnpm check:effect-api\` fails when it is stale.`,
@@ -139,9 +196,8 @@ const indexCore = Effect.fn("indexEffectCore")(function* ({ check }: { check: bo
     "",
     "| Module | Export | Start | End | Summary |",
     "| --- | --- | ---: | ---: | --- |",
-    ...rows,
-    "",
-  ].join("\n");
+  ];
+  const index = Array.join(Array.flatten([header, rows, [""]]), "\n");
 
   const target = path.join(repo, INDEX);
   if (check) {

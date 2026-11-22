@@ -1,4 +1,4 @@
-import { Array, Result, Schema, String } from "effect";
+import { Array, Result, Schema, String, pipe } from "effect";
 
 import { SpecSectionId, TaskId } from "./ids.ts";
 
@@ -40,11 +40,12 @@ export class TrailerError extends Schema.TaggedError<
 }) {}
 
 export const formatTrailers = (trailers: Trailers): string =>
-  [
-    `Cairn-Task: ${trailers.taskId}`,
-    ...trailers.sections.map((section) => `Cairn-Section: ${section}`),
-    `Cairn-Session: ${trailers.sessionId}`,
-  ].join("\n");
+  pipe(
+    Array.map(trailers.sections, (section) => `Cairn-Section: ${section}`),
+    Array.prepend(`Cairn-Task: ${trailers.taskId}`),
+    Array.append(`Cairn-Session: ${trailers.sessionId}`),
+    Array.join("\n"),
+  );
 
 const TRAILER_LINE = /^Cairn-(Task|Section|Session):[ \t]*(.*?)[ \t]*$/u;
 

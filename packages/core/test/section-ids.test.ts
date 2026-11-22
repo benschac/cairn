@@ -47,30 +47,30 @@ it.prop("existing IDs and every other line are left as written", Document, ({ li
   const before = String.split(render(lines), "\n");
   const after = String.split(assignSectionIds(render(lines), prefix).markdown, "\n");
   expect(after).toHaveLength(before.length);
-  for (const [index, line] of before.entries()) {
+  Array.forEach(Array.zip(before, after), ([line, written], index) => {
     const isBareHeading = Line.guards.heading(lines[index]);
     if (!isBareHeading) {
-      expect(after[index]).toBe(line);
-    } else if (after[index] !== line) {
-      expect(after[index]?.startsWith(`${line} {#`)).toBe(true);
+      expect(written).toBe(line);
+    } else if (written !== line) {
+      expect(String.startsWith(`${line} {#`)(written)).toBe(true);
     }
-  }
+  });
 });
 
 it.prop("every new ID is well formed and no ID is added twice", Document, ({ lines, prefix }) => {
   const { added, markdown } = assignSectionIds(render(lines), prefix);
-  for (const id of added) {
+  Array.forEach(added, (id) => {
     expect(id).toMatch(SECTION_ID);
-  }
+  });
   expect(Array.dedupe(added)).toStrictEqual(added);
-  for (const id of added) {
+  Array.forEach(added, (id) => {
     expect(Array.filter(sectionIdsOf(markdown), (existing) => existing === id)).toHaveLength(1);
-  }
+  });
 });
 
 it("a section takes its parent section's ID as its namespace", () => {
   const { markdown } = assignSectionIds(
-    ["# Plan", "## Saved views", "### Persist filter state", "## Saved views"].join("\n"),
+    Array.join(["# Plan", "## Saved views", "### Persist filter state", "## Saved views"], "\n"),
     "spec",
   );
   expect(String.split(markdown, "\n")).toEqual([

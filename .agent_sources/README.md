@@ -29,6 +29,7 @@ installed version.
 | [effect/index.md](effect/index.md)                       | Every public module of every installed Effect package (`effect`, `effect/cli`, `effect/process`, `@effect/platform-node`, `@effect/platform-browser`, `@effect/vitest`) with its import path, export count, size and summary. Start here to find the module. |
 | [effect/core-index.md](effect/core-index.md)             | Every export of the core modules (`Array`, `Order`, `Option`, `Record`, `Match`, `Effect`, `Schema`, `FileSystem`, `Path`, ...) with its summary and its line range in `node_modules/effect/dist/<Module>.d.ts`.                                             |
 | [effect/native-to-effect.md](effect/native-to-effect.md) | The Effect replacement for a native pattern (a sort comparator, a `Set` dedupe, a `for` loop over effects, `JSON.parse`, a Node built-in) and the check that reports it.                                                                                     |
+| [effect/checklist.md](effect/checklist.md) | The review to run while writing Effect code and before committing: each smell, its Effect API, the check that enforces it, a worked example in this repository, and `rg` scans for a diff. |
 
 Run `pnpm install` first. Then, before writing or reviewing Effect code:
 
@@ -41,6 +42,8 @@ Run `pnpm install` first. Then, before writing or reviewing Effect code:
 3. For idioms such as services, layers, errors, resources, child processes,
    CLIs and testing, read `node_modules/effect/AGENTS.md` and the matching
    topic under `node_modules/effect/ai-docs/src/`.
+4. Before committing, run through `checklist.md` and its `rg` scans over your
+   diff.
 
 ```sh
 rg -n -i 'child process|filesystem|NodeServices' .agent_sources/effect/index.md

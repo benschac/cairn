@@ -145,16 +145,21 @@ const refresh = Effect.fn("refreshPatternSources")(function* ({
         });
       }
       const filename = path.basename(source.document);
-      const index = [
-        `# ${source.title} index`,
-        "",
-        `Source: ${source.url}`,
-        "",
-        `Line ranges refer to [${filename}](${filename}). Read [the Ratstack workflow](README.md) before applying examples.`,
-        "",
-        ...topicTable(topics, lines.length),
-        "",
-      ].join("\n");
+      const index = Array.join(
+        Array.flatten([
+          [
+            `# ${source.title} index`,
+            "",
+            `Source: ${source.url}`,
+            "",
+            `Line ranges refer to [${filename}](${filename}). Read [the Ratstack workflow](README.md) before applying examples.`,
+            "",
+          ],
+          topicTable(topics, lines.length),
+          [""],
+        ]),
+        "\n",
+      );
       const sha256 = yield* digest.digestHex(Digest.sha256, bytes);
       return { source, bytes, index, sha256 };
     }),

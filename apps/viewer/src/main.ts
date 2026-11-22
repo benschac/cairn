@@ -74,24 +74,26 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
   return {
     body: h.main(
       [],
-      [
-        h.h1([], ["Cairn"]),
-        h.p([h.Role("status")], [presentText(others)]),
-        h.button(
-          [h.OnClick(Message.ClickedToggleWaiting()), h.AriaPressed(String(model.onlyWaiting))],
-          ["Waiting for approval"],
-        ),
-        h.ul(
-          [],
-          Array.map(visibleRows(model), (row) =>
-            h.li(
-              [h.DataAttribute("status", row.status)],
-              [`${row.title} (${Array.join(row.prdSections, ", ")}): ${row.status}`],
+      Array.appendAll(
+        [
+          h.h1([], ["Cairn"]),
+          h.p([h.Role("status")], [presentText(others)]),
+          h.button(
+            [h.OnClick(Message.ClickedToggleWaiting()), h.AriaPressed(String(model.onlyWaiting))],
+            ["Waiting for approval"],
+          ),
+          h.ul(
+            [],
+            Array.map(visibleRows(model), (row) =>
+              h.li(
+                [h.DataAttribute("status", row.status)],
+                [`${row.title} (${Array.join(row.prdSections, ", ")}): ${row.status}`],
+              ),
             ),
           ),
-        ),
-        ...Array.getSomes(Array.map(others, (participant) => cursorView(participant, h))),
-      ],
+        ],
+        Array.getSomes(Array.map(others, (participant) => cursorView(participant, h))),
+      ),
     ),
     title: "Cairn",
   };

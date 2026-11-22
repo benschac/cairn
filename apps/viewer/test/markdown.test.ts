@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { SectionId } from "@cairn/contract";
 import { it } from "@effect/vitest";
-import { Array, Option, Predicate } from "effect";
+import { Array, Option, Predicate, String, pipe } from "effect";
 import type { Html } from "foldkit/html";
 import { expect as expectScene, given, scene, selector } from "foldkit/scene";
 import { expect } from "vitest";
@@ -32,7 +32,7 @@ const render = (markdown: string): VNode => {
 const children = (node: VNode): ReadonlyArray<VNode | string> => node.children ?? [];
 
 const walk = (node: VNode | string): ReadonlyArray<VNode> =>
-  Predicate.isString(node) ? [] : [node, ...Array.flatMap(children(node), walk)];
+  Predicate.isString(node) ? [] : Array.prepend(Array.flatMap(children(node), walk), node);
 
 const textOf = (node: VNode | string): string =>
   Predicate.isString(node)
@@ -42,7 +42,12 @@ const textOf = (node: VNode | string): string =>
 const attr = (node: VNode, name: string): unknown =>
   node.data?.attrs?.[name] ?? node.data?.props?.[name];
 
-const tagOf = (element: VNode) => element.sel?.split(/[.#]/u)[0];
+const tagOf = (element: VNode) =>
+  pipe(
+    Option.fromNullishOr(element.sel),
+    Option.map((sel) => Array.headNonEmpty(String.split(sel, /[.#]/u))),
+    Option.getOrUndefined,
+  );
 
 const tags = (node: VNode) => Array.map(walk(node), tagOf);
 
@@ -54,17 +59,19 @@ const spec = readFileSync(new URL("../../../.cairn/spec.md", import.meta.url), "
 const prd = readFileSync(new URL("../../../.cairn/prd.md", import.meta.url), "utf8");
 
 const sectionsIn = (source: string) =>
-  walk(render(source)).flatMap((element) => {
+  Array.flatMap(walk(render(source)), (element) => {
     const id = attr(element, "data-section");
-    return typeof id === "string" ? [{ element, id }] : [];
+    return Predicate.isString(id) ? [{ element, id }] : [];
   });
 
 const headingIds = (source: string) =>
-  [
-    ...source
-      .replaceAll(/^```[\s\S]*?^```/gmu, "")
-      .matchAll(/^#{1,6}[ \t]+.*\{#([^}\s]+)\}[ \t]*$/gmu),
-  ].map((match) => match[1]);
+  pipe(
+    source,
+    String.replaceAll(/^```[\s\S]*?^```/gmu, ""),
+    String.matchAll(/^#{1,6}[ \t]+.*\{#([^}\s]+)\}[ \t]*$/gmu),
+    Array.fromIterable,
+    Array.map((match) => match[1]),
+  );
 
 it.prop(
   "a heading's trailing id becomes its element id and data-section, and leaves its text",
@@ -84,29 +91,32 @@ it("a heading without an id has no data-section", () => {
 });
 
 it("every heading with an id in the spec and the PRD becomes a data-section element", () => {
-  for (const source of [spec, prd]) {
-    expect(sectionsIn(source).map((section) => section.id)).toEqual(headingIds(source));
+  Array.forEach([spec, prd], (source) => {
+    expect(Array.map(sectionsIn(source), (section) => section.id)).toEqual(headingIds(source));
     expect(headingIds(source).length).toBeGreaterThan(5);
-  }
-  for (const { element, id } of sectionsIn(spec)) {
+  });
+  Array.forEach(sectionsIn(spec), ({ element, id }) => {
     expect(attr(element, "id")).toBe(id);
     expect(textOf(element)).not.toContain("{#");
-  }
+  });
 });
 
 it("the key list that starts a spec section renders as chips", () => {
   const root = render(
-    [
-      "## Title {#spec.a}",
-      "",
-      "- Implements: `prd.x`, `prd.y`",
-      "- Files: `a/b.ts`",
-      "",
-      "Prose.",
-    ].join("\n"),
+    Array.join(
+      [
+        "## Title {#spec.a}",
+        "",
+        "- Implements: `prd.x`, `prd.y`",
+        "- Files: `a/b.ts`",
+        "",
+        "Prose.",
+      ],
+      "\n",
+    ),
   );
-  const chips = walk(root).filter((element) => attr(element, "data-key") !== undefined);
-  expect(chips.map((chip) => [attr(chip, "data-key"), textOf(chip)])).toEqual([
+  const chips = Array.filter(walk(root), (element) => attr(element, "data-key") !== undefined);
+  expect(Array.map(chips, (chip) => [attr(chip, "data-key"), textOf(chip)])).toEqual([
     ["Implements", "prd.x"],
     ["Implements", "prd.y"],
     ["Files", "a/b.ts"],
@@ -115,41 +125,52 @@ it("the key list that starts a spec section renders as chips", () => {
 });
 
 it("a section's chips in the spec match its key lines", () => {
-  const chips = walk(render(spec)).filter((element) => attr(element, "data-key") !== undefined);
+  const chips = Array.filter(
+    walk(render(spec)),
+    (element) => attr(element, "data-key") !== undefined,
+  );
   expect(chips.length).toBeGreaterThan(20);
 });
 
 it("a bullet list that is not a key list stays a list", () => {
-  for (const source of [
-    "## T {#spec.a}\n\n- Colour: `red`",
-    "## T {#spec.a}\n\n- Implements: some prose",
-    "Intro\n\n- Implements: `prd.x`",
-  ]) {
-    const root = render(source);
-    expect(tags(root)).toContain("ul");
-    expect(walk(root).filter((element) => attr(element, "data-key") !== undefined)).toEqual([]);
-  }
+  Array.forEach(
+    [
+      "## T {#spec.a}\n\n- Colour: `red`",
+      "## T {#spec.a}\n\n- Implements: some prose",
+      "Intro\n\n- Implements: `prd.x`",
+    ],
+    (source) => {
+      const root = render(source);
+      expect(tags(root)).toContain("ul");
+      expect(
+        Array.filter(walk(root), (element) => attr(element, "data-key") !== undefined),
+      ).toEqual([]);
+    },
+  );
 });
 
 it("renders the inline and block markdown it supports", () => {
   const root = render(
-    [
-      "A *soft* and **hard** line with `code` and [a link](https://example.com).",
-      "",
-      "> quoted",
-      "",
-      "---",
-      "",
-      "1. one",
-      "2. two",
-      "",
-      "- a",
-      "- b",
-      "",
-      "```ts",
-      "const x = 1;",
-      "```",
-    ].join("\n"),
+    Array.join(
+      [
+        "A *soft* and **hard** line with `code` and [a link](https://example.com).",
+        "",
+        "> quoted",
+        "",
+        "---",
+        "",
+        "1. one",
+        "2. two",
+        "",
+        "- a",
+        "- b",
+        "",
+        "```ts",
+        "const x = 1;",
+        "```",
+      ],
+      "\n",
+    ),
   );
   const supported = ["p", "em", "strong", "code", "a", "blockquote", "hr", "ol", "ul", "li", "pre"];
   expect(tags(root)).toEqual(expect.arrayContaining(supported));
@@ -159,12 +180,12 @@ it("renders the inline and block markdown it supports", () => {
 
 it("renders a GFM table with a header row and body rows", () => {
   const root = render(
-    ["| Name | Role |", "| :--- | ---: |", "| Ada | human |", "| Bot | agent |"].join("\n"),
+    Array.join(["| Name | Role |", "| :--- | ---: |", "| Ada | human |", "| Bot | agent |"], "\n"),
   );
   const names = tags(root);
-  expect(names.filter((tag) => tag === "th")).toHaveLength(2);
-  expect(names.filter((tag) => tag === "td")).toHaveLength(4);
-  expect(names.filter((tag) => tag === "tr")).toHaveLength(3);
+  expect(Array.filter(names, (tag) => tag === "th")).toHaveLength(2);
+  expect(Array.filter(names, (tag) => tag === "td")).toHaveLength(4);
+  expect(Array.filter(names, (tag) => tag === "tr")).toHaveLength(3);
   expect(textOf(root)).toBe("NameRoleAdahumanBotagent");
 });
 
@@ -195,14 +216,14 @@ const hostile = [
 ];
 
 it.each(hostile)("raw HTML never becomes an element: %s", (source) => {
-  for (const markdown of [source, `para\n\n${source}\n\nafter`, `- ${source}`]) {
+  Array.forEach([source, `para\n\n${source}\n\nafter`, `- ${source}`], (markdown) => {
     const names = tags(render(markdown));
-    for (const tag of ["script", "img", "iframe", "b"]) {
+    Array.forEach(["script", "img", "iframe", "b"], (tag) => {
       expect(names).not.toContain(tag);
-    }
-    expect(names.filter((tag) => tag === "div")).toHaveLength(1);
+    });
+    expect(Array.filter(names, (tag) => tag === "div")).toHaveLength(1);
     expect(textOf(render(markdown))).not.toContain("<");
-  }
+  });
 });
 
 it("HTML comments are dropped, including their text", () => {
@@ -213,10 +234,10 @@ it("HTML comments are dropped, including their text", () => {
 });
 
 it("no element carries innerHTML or an event handler from the markdown", () => {
-  for (const element of walk(render(`${hostile.join("\n\n")}\n\n${spec}`))) {
+  Array.forEach(walk(render(`${Array.join(hostile, "\n\n")}\n\n${spec}`)), (element) => {
     expect(element.data?.props?.["innerHTML"]).toBeUndefined();
     expect(element.data?.on).toBeUndefined();
-  }
+  });
 });
 
 it.each(["javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,x", "vbscript:x"])(

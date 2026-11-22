@@ -16,40 +16,57 @@ Effect, XState 6 and `@xstate/effect` change quickly. Read the installed source
 and docs under `node_modules` instead of trusting memory.
 [.agent_sources/README.md](.agent_sources/README.md) is the way in:
 
-| Need                     | Start here                                                                                                             |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Any Effect module        | `.agent_sources/effect/index.md`, then `core-index.md` for an export's line range in `node_modules/effect/dist/*.d.ts` |
-| A native pattern         | `.agent_sources/effect/native-to-effect.md`: the Effect replacement for a loop, comparator, `Set`, `JSON`, `Date`, ... |
-| Effect idioms            | `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/src/`                                                 |
-| XState, `@xstate/effect` | `.agent_sources/xstate/index.md`, `.agent_sources/xstate-effect/index.md`                                              |
-| Ratstack patterns        | `.agent_sources/ratstack/README.md`: offline `llms.txt` and `llms-full.txt` with line-range indexes                    |
-| Upstream source          | `.agent_sources/github.com/`: full clones of effect, xstate, rat-stack, foldkit, alchemy (gitignored)                  |
+| Need                     | Start here                                                                                                                        |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| Any Effect module        | `.agent_sources/effect/index.md`, then `core-index.md` for an export's line range in `node_modules/effect/dist/*.d.ts`            |
+| Review before a commit   | `.agent_sources/effect/checklist.md`: the smells to look for in your diff, the Effect API for each and the check that enforces it |
+| A native pattern         | `.agent_sources/effect/native-to-effect.md`: the Effect replacement for a loop, comparator, `Set`, `JSON`, `Date`, ...            |
+| Effect idioms            | `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/src/`                                                            |
+| XState, `@xstate/effect` | `.agent_sources/xstate/index.md`, `.agent_sources/xstate-effect/index.md`                                                         |
+| Ratstack patterns        | `.agent_sources/ratstack/README.md`: offline `llms.txt` and `llms-full.txt` with line-range indexes                               |
+| Upstream source          | `.agent_sources/github.com/`: full clones of effect, xstate, rat-stack, foldkit, alchemy (gitignored)                             |
 
 `.agent_sources` is hidden: name its path to `rg` or pass `--hidden`. Do not
 read a whole cached document; search its index and read the line range.
 
 ## Effect core modules
 
-Use as much of Effect as the task allows. Before writing a helper, search the
-lookup: Effect probably already has it.
+Code that imports `effect` is Effect code, and that is nearly all of the
+repository. Use as much of Effect as the task allows. Before writing a helper,
+search the lookup: Effect probably already has it.
 
-- Use the core modules (`Array`, `Order`, `Option`, `Record`, `Number`,
-  `String`, `Match`, `Predicate`, `Schema`) and `Effect.forEach` instead of
-  native sort comparators, `new Set` dedupe, `Math.max(...xs)`, hand-written
-  clamps or case conversions, `JSON.parse`, or `for` loops that push or
-  `yield*`.
+- Before you commit, run through
+  [.agent_sources/effect/checklist.md](.agent_sources/effect/checklist.md)
+  and its `rg` scans over your diff. It covers collections, `Option`,
+  `Match`, `Record` and `Struct`, equality and ordering, `Schema`, errors,
+  services and layers, scopes, concurrency, `Stream`, time and `Config`,
+  logging, the platform modules, Foldkit, XState and tests. A reviewer runs
+  the same list.
+- Use the core modules (`Array`, `Option`, `Record`, `Struct`, `HashSet`,
+  `HashMap`, `Order`, `Match`, `Predicate`, `String`, `Number`, `Schema`)
+  and `Effect.forEach` instead of native array and string methods, loops,
+  spreads, `new Map` and `new Set`, `Object.*`, `.length` checks, `typeof`
+  tests, `switch`, `??` fallbacks, `JSON.parse` and hand-written helpers.
 - Read the declaration and JSDoc of each export you call. Do not write a
-  signature from memory.
+  signature from memory. Most `String` functions are data-last only.
 - A script under `scripts/` is an Effect program run by `NodeRuntime.runMain`
   with `NodeServices.layer`; see `scripts/land/land.ts`.
-- `lint/effect-core-plugin.mjs` enforces `core/no-native-sort`,
-  `core/no-set-dedupe` and `core/no-yield-in-loop` in files that import
-  Effect. A `yield*` loop that must stop early or poll may stay a loop with
-  `// loop: <reason>` on the line above it. `tsconfig.base.json` makes the
-  `@effect/tsgo` diagnostics for platform globals (`Date`, `console`,
-  `Math.random`, timers, `fetch`, `JSON`, `process.env`), `new Promise`,
-  try/catch in `Effect.gen`, `extends Error` and `Effect.all` over a `map`
-  errors. `pnpm test:lint` proves the rules fire.
+- `lint/effect-core-plugin.mjs` enforces, in files that import Effect,
+  `core/no-native-loop`, `core/no-yield-in-loop`, `core/no-native-collection`,
+  `core/no-array-spread`, `core/no-length-check`, `core/no-typeof-check`,
+  `core/no-switch`, `core/no-native-sort` and `core/no-set-dedupe`. A loop
+  that must stop early, poll or walk by index may stay a loop with
+  `// loop: <reason>` on the line above it.
+- `tsconfig.base.json` makes these `@effect/tsgo` diagnostics errors:
+  `preferEffectArray`, `preferEffectString` and `preferEffectRecord` for
+  native array, string and `Object` methods; `strictBooleanExpressions` for a
+  non-boolean condition; the platform globals (`Date`, `console`,
+  `Math.random`, timers, `fetch`, `JSON`, `process.env`); `new Promise`;
+  try/catch in `Effect.gen`; `extends Error`; and `Effect.all` over a `map`.
+  `pnpm test:lint` proves the rules fire.
+- A file that is not Effect code, such as `scripts/guard/policy.ts`, turns a
+  diagnostic off at its top with `// @effect-diagnostics <rule>:off -- <reason>`.
+  Nothing else does.
 - After an Effect upgrade or a new `@effect/*` dependency, run
   `node scripts/effect-api/refresh-effect-api.ts` and
   `node scripts/effect-api/index-effect-core.ts`; after an XState upgrade,

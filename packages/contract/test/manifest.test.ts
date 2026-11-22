@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Result, Schema } from "effect";
+import { Array, Result, Schema } from "effect";
 
 import repoManifest from "../../../.cairn/manifest.json" with { type: "json" };
 import { GateReason, Manifest, ManifestTask } from "../src/index.ts";
@@ -15,7 +15,7 @@ const refused = (
 ) => {
   const encoded = encode(manifest);
   const [first, ...rest] = encoded.tasks;
-  return Result.isFailure(decode({ ...encoded, tasks: [patch(first), ...rest] }));
+  return Result.isFailure(decode({ ...encoded, tasks: Array.prepend(rest, patch(first)) }));
 };
 
 /** A patch that gives the task a required gate with `reasons`. */

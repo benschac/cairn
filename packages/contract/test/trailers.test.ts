@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Result, Schema, String } from "effect";
+import { Array, Predicate, Result, Schema, String } from "effect";
 
 import {
   PrdSectionId,
@@ -31,26 +31,25 @@ it.prop("a second Cairn-Session is refused", [Trailers], ([trailers]) => {
 });
 
 it.prop("a message missing the task, session or sections is refused", [Trailers], ([t]) => {
-  const lines = formatTrailers(t).split("\n");
-  expect(failure(lines.filter((l) => !l.startsWith("Cairn-Task")).join("\n"))).toBe("missing-task");
-  expect(failure(lines.filter((l) => !l.startsWith("Cairn-Session")).join("\n"))).toBe(
-    "missing-session",
-  );
-  expect(failure(lines.filter((l) => !l.startsWith("Cairn-Section")).join("\n"))).toBe(
-    "missing-section",
-  );
+  const lines = String.split(formatTrailers(t), "\n");
+  const without = (key: string) =>
+    Array.join(Array.filter(lines, Predicate.not(String.startsWith(key))), "\n");
+  expect(failure(without("Cairn-Task"))).toBe("missing-task");
+  expect(failure(without("Cairn-Session"))).toBe("missing-session");
+  expect(failure(without("Cairn-Section"))).toBe("missing-section");
 });
 
+// The spec of a session id, written out so that loosening SessionId fails this property.
+const mayPass = (id: string) =>
+  /^s_[a-z0-9]{6,}$/u.test(id) || String.includes("\n")(id) || String.trim(id) !== id;
+
 it.prop("a session id that does not match is refused", [Schema.String], ([text]) => {
-  for (const bad of [text, `s_${text}`]) {
-    // The spec of a session id, written out so that loosening SessionId fails this property.
-    if (/^s_[a-z0-9]{6,}$/u.test(bad) || String.includes("\n")(bad) || String.trim(bad) !== bad)
-      continue;
+  Array.forEach(Array.filter([text, `s_${text}`], Predicate.not(mayPass)), (bad) => {
     expect(failure(`Cairn-Task: t1\nCairn-Section: spec.a\nCairn-Session: ${bad}`)).not.toBe(
       "parsed",
     );
     expect(Schema.is(SessionId)(bad)).toBe(false);
-  }
+  });
 });
 
 it("a session id is s_ then six or more lowercase letters or digits", () => {
@@ -70,7 +69,7 @@ it("a section that is not a spec section is refused in the trailers", () => {
 });
 
 it.prop("PrdSectionId accepts prd.* and refuses spec.*", [SpecSectionId], ([spec]) => {
-  const prd = `prd.${spec.slice("spec.".length)}`;
+  const prd = `prd.${String.slice("spec.".length)(spec)}`;
   expect(Schema.is(PrdSectionId)(prd)).toBe(true);
   expect(Schema.is(SpecSectionId)(prd)).toBe(false);
   expect(Schema.is(SpecSectionId)(spec)).toBe(true);

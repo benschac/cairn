@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { Array } from "effect";
+
 import {
   blockers,
   chainBreak,
@@ -33,7 +35,7 @@ const pull = (
   ...extra,
 });
 
-const numbers = (stack: readonly PullRequest[]) => stack.map((p) => p.number);
+const numbers = (stack: readonly PullRequest[]) => Array.map(stack, (p) => p.number);
 
 await test("orderStack follows base branches from the top down to the trunk, bottom first", () => {
   const pulls = [
@@ -73,7 +75,7 @@ await test("a reviewed, mergeable pull request with passing checks has no blocke
 });
 
 const blocks = (extra: Partial<PullRequest>, pattern: RegExp) =>
-  assert.match(blockers(pull(1, "a", "main", extra)).join("; "), pattern);
+  assert.match(Array.join(blockers(pull(1, "a", "main", extra)), "; "), pattern);
 
 await test("each unmet requirement blocks the pull request", () => {
   blocks({ isDraft: true }, /draft/);

@@ -59,7 +59,7 @@ class StaleXStateIndex extends Schema.TaggedError<StaleXStateIndex>()("StaleXSta
 }) {
   override readonly [Runtime.errorReported] = false;
   override get message() {
-    return `${this.files.join(", ")} do not match the installed XState packages; run ${REGENERATE}`;
+    return `${Array.join(this.files, ", ")} do not match the installed XState packages; run ${REGENERATE}`;
   }
 }
 
@@ -171,34 +171,44 @@ const indexXStateDocs = Effect.fn("indexXStateDocs")(function* ({ check }: { che
       return `| [${page}](../../${xstate.location}/docs/${page}) | ${escapeCell(title)} | ${lines.length} | ${escapeCell(summary)} |`;
     }),
   );
-  const xstateIndex = [
-    "# XState documentation index",
-    "",
-    GENERATED,
-    "",
-    `${xstate.name}@${xstate.version} ships these pages in \`${xstate.location}/docs/\`, written for that version. Each row is one page; the pages are short, so read the matching page whole. Start with \`index.md\` (reading order), \`agents.md\` (agent guide), and \`xstate-v5-to-v6.md\` (differences from v5). \`docs/api-stability.json\` classifies every export as public, experimental, or internal. Declarations are in \`${xstate.location}/dist/\`.`,
-    "",
-    "For Effect-backed actors, see [the @xstate/effect index](../xstate-effect/index.md).",
-    "",
-    "| Page | Title | Lines | Summary |",
-    "| --- | --- | ---: | --- |",
-    ...rows,
-    "",
-  ].join("\n");
+  const xstateIndex = Array.join(
+    Array.flatten([
+      [
+        "# XState documentation index",
+        "",
+        GENERATED,
+        "",
+        `${xstate.name}@${xstate.version} ships these pages in \`${xstate.location}/docs/\`, written for that version. Each row is one page; the pages are short, so read the matching page whole. Start with \`index.md\` (reading order), \`agents.md\` (agent guide), and \`xstate-v5-to-v6.md\` (differences from v5). \`docs/api-stability.json\` classifies every export as public, experimental, or internal. Declarations are in \`${xstate.location}/dist/\`.`,
+        "",
+        "For Effect-backed actors, see [the @xstate/effect index](../xstate-effect/index.md).",
+        "",
+        "| Page | Title | Lines | Summary |",
+        "| --- | --- | ---: | --- |",
+      ],
+      rows,
+      [""],
+    ]),
+    "\n",
+  );
 
   const readme = yield* fs.readFileString(path.join(effect.dir, "README.md"));
   const readmeLines = String.split(readme, "\n");
   const topics = headingsOf(readmeLines);
-  const effectIndex = [
-    "# @xstate/effect documentation index",
-    "",
-    GENERATED,
-    "",
-    `${effect.name}@${effect.version} documents itself in [README.md](../../${effect.location}/README.md). Line ranges refer to that file; read only the matching range. Declarations are in \`${effect.location}/dist/\`. For XState itself, see [the XState index](../xstate/index.md).`,
-    "",
-    ...topicTable(topics, readmeLines.length),
-    "",
-  ].join("\n");
+  const effectIndex = Array.join(
+    Array.flatten([
+      [
+        "# @xstate/effect documentation index",
+        "",
+        GENERATED,
+        "",
+        `${effect.name}@${effect.version} documents itself in [README.md](../../${effect.location}/README.md). Line ranges refer to that file; read only the matching range. Declarations are in \`${effect.location}/dist/\`. For XState itself, see [the XState index](../xstate/index.md).`,
+        "",
+      ],
+      topicTable(topics, readmeLines.length),
+      [""],
+    ]),
+    "\n",
+  );
 
   const outputs: ReadonlyArray<Output> = [
     { file: ".agent_sources/xstate/index.md", text: xstateIndex },

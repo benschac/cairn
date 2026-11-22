@@ -1,3 +1,4 @@
+// @effect-diagnostics preferEffectArray:off preferEffectString:off -- the guard runs before every shell command as a plain Node script and does not load Effect.
 export const BYPASS_REASON =
   "Blocked: this command skips or disables the commit hook. The hook runs `pnpm check`, which every commit here must pass. Drop the bypass (--no-verify, git commit -n, LEFTHOOK=0, core.hooksPath, lefthook uninstall, or a write under .git/hooks), run `pnpm check`, and fix what it reports. Ask the owner before changing lefthook.yml.";
 

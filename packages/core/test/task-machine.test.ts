@@ -31,18 +31,21 @@ it.prop(
   [Task],
   ([task]) => {
     const table = lifecycle(task.gated);
-    for (const { state } of getShortestPaths(taskMachine, { input: task })) {
-      const before = statusOf(state);
-      for (const type of TaskEventType.literals) {
-        const [after] = transition(taskMachine, state, { type });
-        const expected = Option.getOrElse(Record.get(table[before], type), () => before);
-        expect({ before, type, after: statusOf(after) }).toStrictEqual({
-          before,
-          type,
-          after: expected,
-        });
-      }
-    }
+    const steps = Array.map(
+      Array.cartesian(getShortestPaths(taskMachine, { input: task }), TaskEventType.literals),
+      ([{ state }, type]) => ({
+        before: statusOf(state),
+        type,
+        after: statusOf(transition(taskMachine, state, { type })[0]),
+      }),
+    );
+    expect(steps).toStrictEqual(
+      Array.map(steps, ({ before, type }) => ({
+        before,
+        type,
+        after: Option.getOrElse(Record.get(table[before], type), () => before),
+      })),
+    );
   },
 );
 
@@ -50,15 +53,15 @@ it.prop(
   "a gated task is done only after a human approves it",
   [Task, Schema.Array(TaskEventType)],
   ([task, events]) => {
-    let [snapshot] = initialTransition(taskMachine, task);
-    for (const type of events) {
+    Array.reduce(events, initialTransition(taskMachine, task)[0], (snapshot, type) => {
       const before = statusOf(snapshot);
-      [snapshot] = transition(taskMachine, snapshot, { type });
-      const after = statusOf(snapshot);
+      const [next] = transition(taskMachine, snapshot, { type });
+      const after = statusOf(next);
       if (task.gated && after === "done" && before !== "done") {
         expect([before, type]).toStrictEqual(["blocked_on_human", "approve"]);
       }
-    }
+      return next;
+    });
   },
 );
 

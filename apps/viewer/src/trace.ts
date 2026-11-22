@@ -1,5 +1,5 @@
 import { PrdSectionId, SectionId, TaskId, type Trace } from "@cairn/contract";
-import { Array, Option, Record, Schema } from "effect";
+import { Array, HashSet, Option, Record, Schema } from "effect";
 
 /** A node in the viewer: a PRD or spec section, or a task. */
 export const Node = Schema.Union([
@@ -9,12 +9,16 @@ export const Node = Schema.Union([
 export type Node = typeof Node.Type;
 
 export interface Chain {
-  readonly prd: ReadonlySet<string>;
-  readonly spec: ReadonlySet<string>;
-  readonly tasks: ReadonlySet<string>;
+  readonly prd: HashSet.HashSet<string>;
+  readonly spec: HashSet.HashSet<string>;
+  readonly tasks: HashSet.HashSet<string>;
 }
 
-const empty = (): Chain => ({ prd: new Set(), spec: new Set(), tasks: new Set() });
+const empty = (): Chain => ({
+  prd: HashSet.empty(),
+  spec: HashSet.empty(),
+  tasks: HashSet.empty(),
+});
 
 const isPrdSection = Schema.is(PrdSectionId);
 
@@ -45,11 +49,11 @@ export const chainOf = (trace: Trace, node: Node): Chain => {
       {
         onNone: empty,
         onSome: (task) => ({
-          prd: new Set<string>(
+          prd: HashSet.fromIterable(
             Array.appendAll(task.prdSections, Array.flatMap(task.specSections, implementedBy)),
           ),
-          spec: new Set(task.specSections),
-          tasks: new Set([task.id]),
+          spec: HashSet.fromIterable(task.specSections),
+          tasks: HashSet.make(task.id),
         }),
       },
     );
@@ -58,33 +62,33 @@ export const chainOf = (trace: Trace, node: Node): Chain => {
     if (!Array.some(trace.prd.sections, (section) => section.id === id)) {
       return empty();
     }
-    const spec = new Set<string>(
+    const spec = HashSet.fromIterable<string>(
       Array.map(
         Array.filter(trace.spec.sections, (section) => Array.contains(section.keys.implements, id)),
         (section) => section.id,
       ),
     );
-    const tasks = new Set(
+    const tasks = HashSet.fromIterable(
       Array.map(
         Array.filter(
           trace.tasks,
           (task) =>
             Array.contains(task.prdSections, id) ||
-            Array.some(task.specSections, (specId) => spec.has(specId)),
+            Array.some(task.specSections, (specId) => HashSet.has(spec, specId)),
         ),
         (task) => task.id,
       ),
     );
-    return { prd: new Set([id]), spec, tasks };
+    return { prd: HashSet.make(id), spec, tasks };
   };
 
   const specChain = (id: string): Chain =>
     Option.match(Record.get(implementsOf, id), {
       onNone: empty,
       onSome: (implemented) => ({
-        prd: new Set(implemented),
-        spec: new Set([id]),
-        tasks: new Set(
+        prd: HashSet.fromIterable(implemented),
+        spec: HashSet.make(id),
+        tasks: HashSet.fromIterable(
           Array.map(
             Array.filter(trace.tasks, (task) => Array.contains(task.specSections, id)),
             (task) => task.id,
@@ -101,6 +105,6 @@ export const chainOf = (trace: Trace, node: Node): Chain => {
 
 export const isInChain = (chain: Chain, node: Node): boolean =>
   Node.match(node, {
-    section: ({ id }) => chain.prd.has(id) || chain.spec.has(id),
-    task: ({ id }) => chain.tasks.has(id),
+    section: ({ id }) => HashSet.has(chain.prd, id) || HashSet.has(chain.spec, id),
+    task: ({ id }) => HashSet.has(chain.tasks, id),
   });

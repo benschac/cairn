@@ -21,6 +21,7 @@ import {
   Result,
   Runtime,
   Schema,
+  String,
 } from "effect";
 import { Command, Flag } from "effect/cli";
 
@@ -46,31 +47,43 @@ const decodeManifest = Schema.decodeUnknownEffect(Schema.fromJsonString(Manifest
 
 const fail = (reason: string) => Effect.fail(new IndexFailed({ reason }));
 
-const unquote = (text: string) => text.trim().replace(/^(["'])(.*)\1$/, "$2");
+const unquote = (text: string) => pipe(text, String.trim, String.replace(/^(["'])(.*)\1$/, "$2"));
 
 // The indented lines of one top-level block of pnpm-workspace.yaml, trimmed. The file is flat enough not to need a YAML parser.
 const yamlBlock = (text: string, key: string) =>
   pipe(
-    text.split("\n"),
+    String.split(text, "\n"),
     Array.dropWhile((line) => line !== `${key}:`),
     Array.drop(1),
     Array.takeWhile((line) => /^\s+\S/.test(line)),
-    Array.map((line) => line.trim()),
+    Array.map((line) => String.trim(line)),
   );
 
 // The first sentence of a file's leading JSDoc block, or "" when it has none. Reference directives may precede the block.
+// The paragraph runs from the first non-empty line to the next blank line or tag.
 const summaryOf = (text: string) => {
-  const head = text.replace(/^(?:[ \t]*(?:\/\/\/[^\n]*)?\n)*/, "");
-  if (!head.startsWith("/**")) return "";
-  const paragraph: string[] = [];
-  for (const raw of head.slice(3, head.indexOf("*/")).split("\n")) {
-    const line = raw.replace(/^\s*\*?\s?/, "").trim();
-    if (line.startsWith("@") || (!line && paragraph.length)) break;
-    if (line) paragraph.push(line);
-  }
-  const prose = paragraph.join(" ");
-  const sentence = /^.*?[.!?](?=\s|$)/.exec(prose)?.[0] ?? prose;
-  return sentence.replaceAll("|", "\\|");
+  const head = String.replace(/^(?:[ \t]*(?:\/\/\/[^\n]*)?\n)*/, "")(text);
+  if (!String.startsWith("/**")(head)) return "";
+  const end = pipe(
+    head,
+    String.indexOf("*/"),
+    Option.getOrElse(() => -1),
+  );
+  const prose = pipe(
+    String.slice(3, end)(head),
+    String.split("\n"),
+    Array.map((raw) => pipe(raw, String.replace(/^\s*\*?\s?/, ""), String.trim)),
+    Array.dropWhile(String.isEmpty),
+    Array.takeWhile((line) => String.isNonEmpty(line) && !String.startsWith("@")(line)),
+    Array.join(" "),
+  );
+  return pipe(
+    prose,
+    String.match(/^.*?[.!?](?=\s|$)/),
+    Option.map((match) => match[0]),
+    Option.getOrElse(() => prose),
+    String.replaceAll("|", "\\|"),
+  );
 };
 
 const exported =
@@ -80,29 +93,36 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const repo = yield* path.fromFileUrl(new URL("../../", import.meta.url));
-  const shown = (dir: string) => path.relative(repo, dir) || ".";
+  const shown = (dir: string) => {
+    const relative = path.relative(repo, dir);
+    return String.isEmpty(relative) ? "." : relative;
+  };
   const readManifest = (file: string) =>
     fs.readFileString(file).pipe(Effect.flatMap(decodeManifest));
 
   // The workspaces that can declare an Effect dependency: the root and each folder a workspace glob names.
   const workspaceYaml = yield* fs.readFileString(path.join(repo, "pnpm-workspace.yaml"));
-  const globs = Array.map(yamlBlock(workspaceYaml, "packages"), (item) => unquote(item.slice(1)));
+  const globs = Array.map(yamlBlock(workspaceYaml, "packages"), (item) =>
+    unquote(String.slice(1)(item)),
+  );
   const catalog = Record.fromEntries(
-    Array.filterMap(yamlBlock(workspaceYaml, "catalog"), (entry) => {
-      const colon = entry.search(/:\s/);
-      return colon === -1
-        ? Result.failVoid
-        : Result.succeed([
-            unquote(entry.slice(0, colon)),
-            unquote(entry.slice(colon + 1)),
-          ] as const);
-    }),
+    Array.filterMap(yamlBlock(workspaceYaml, "catalog"), (entry) =>
+      Option.match(String.search(entry, /:\s/), {
+        onNone: () => Result.failVoid,
+        onSome: (colon) =>
+          Result.succeed([
+            unquote(String.slice(0, colon)(entry)),
+            unquote(String.slice(colon + 1)(entry)),
+          ] as const),
+      }),
+    ),
   );
   const nested = yield* Effect.forEach(
     globs,
     Effect.fnUntraced(function* (glob) {
-      if (!glob.endsWith("/*")) return yield* fail(`Unsupported workspace pattern "${glob}"`);
-      const parent = path.join(repo, glob.slice(0, -2));
+      if (!String.endsWith("/*")(glob))
+        return yield* fail(`Unsupported workspace pattern "${glob}"`);
+      const parent = path.join(repo, String.slice(0, -2)(glob));
       const names = yield* fs.readDirectory(parent);
       return yield* Effect.filter(
         Array.map(Array.sort(names, Order.String), (name) => path.join(parent, name)),
@@ -110,11 +130,13 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
       );
     }),
   );
-  const workspaces = [repo, ...Array.flatten(nested)];
+  const workspaces = Array.prepend(Array.flatten(nested), repo);
 
   // The folders a workspace searches for a package: its own node_modules, then each parent's up to the root.
-  const searchPath = (dir: string): string[] =>
-    dir === repo || !dir.startsWith(repo) ? [repo] : [dir, ...searchPath(path.dirname(dir))];
+  const searchPath = (dir: string): Array.NonEmptyArray<string> =>
+    dir === repo || !String.startsWith(repo)(dir)
+      ? [repo]
+      : Array.prepend(searchPath(path.dirname(dir)), dir);
 
   // Every Effect package a workspace depends on, with the copy it resolves.
   const declared = yield* Effect.forEach(
@@ -123,7 +145,7 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
       const manifest = yield* readManifest(path.join(dir, "package.json"));
       const effectDeps = Array.filter(
         Record.toEntries({ ...manifest.dependencies, ...manifest.devDependencies }),
-        ([name]) => name === "effect" || name.startsWith("@effect/"),
+        ([name]) => name === "effect" || String.startsWith("@effect/")(name),
       );
       return yield* Effect.forEach(
         effectDeps,
@@ -179,10 +201,10 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
         : [];
       const modules = Array.sort(
         Array.filterMap(listing, (file) =>
-          file.endsWith(".d.ts") &&
+          String.endsWith(".d.ts")(file) &&
           path.basename(file) !== "index.d.ts" &&
-          !file.split(path.sep).includes("internal")
-            ? Result.succeed(file.slice(0, -".d.ts".length))
+          !Array.contains(String.split(file, path.sep), "internal")
+            ? Result.succeed(String.slice(0, -".d.ts".length)(file))
             : Result.failVoid,
         ),
         Order.String,
@@ -191,7 +213,7 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
         modules,
         Effect.fnUntraced(function* (module) {
           const declarations = yield* fs.readFileString(path.join(dist, `${module}.d.ts`));
-          const lines = declarations.split("\n");
+          const lines = String.split(declarations, "\n");
           const count = Array.filter(lines, (line) => exported.test(line)).length;
           // The compiler drops a module's leading JSDoc when imports follow it, so read the shipped source first.
           const source = path.join(pkg.dir, "src", `${module}.ts`);
@@ -199,13 +221,20 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
           const sourceSummary = summaryOf(sourceText);
           // A module that only forwards another one has no declarations of its own; name where they live.
           const forwarded = Array.map(
-            [...declarations.matchAll(/^export \* from "([^"]+)"/gm)],
+            Array.fromIterable(String.matchAll(/^export \* from "([^"]+)"/gm)(declarations)),
             (match) => `\`${match[1]}\``,
           );
-          const summary =
-            sourceSummary ||
-            summaryOf(declarations) ||
-            (forwarded.length ? `Re-exports ${forwarded.join(", ")}.` : "");
+          const summary = pipe(
+            [
+              sourceSummary,
+              summaryOf(declarations),
+              Array.isReadonlyArrayNonEmpty(forwarded)
+                ? `Re-exports ${Array.join(forwarded, ", ")}.`
+                : "",
+            ],
+            Array.findFirst(String.isNonEmpty),
+            Option.getOrElse(() => ""),
+          );
           return {
             count,
             row: `| ${pkg.name}/${module} | ${count} | ${lines.length} | ${summary} |`,
@@ -220,23 +249,29 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
       return {
         rows,
         total: `| ${pkg.name} | ${pkg.version} | ${rows.length} | ${exports} | \`${location}/dist\` |`,
-        section: [
-          `## ${pkg.name}@${pkg.version}`,
-          "",
-          `Declarations: \`${location}/dist/<module>.d.ts\`. Guides: ${Array.map(guides, (guide) => `\`${location}/${guide}\``).join(", ")}.`,
-          "",
-          "| Module | Exports | Lines | Summary |",
-          "| --- | ---: | ---: | --- |",
-          ...Array.map(rows, ({ row }) => row),
-          "",
-        ],
+        section: Array.flatten([
+          [
+            `## ${pkg.name}@${pkg.version}`,
+            "",
+            `Declarations: \`${location}/dist/<module>.d.ts\`. Guides: ${Array.join(
+              Array.map(guides, (guide) => `\`${location}/${guide}\``),
+              ", ",
+            )}.`,
+            "",
+            "| Module | Exports | Lines | Summary |",
+            "| --- | ---: | ---: | --- |",
+          ],
+          Array.map(rows, ({ row }) => row),
+          [""],
+        ]),
       };
     }),
   );
-  const withModules = Array.filter(indexed, ({ rows }) => rows.length > 0);
-  if (!withModules.length) return yield* fail("No installed Effect package has declaration files");
+  const withModules = Array.filter(indexed, ({ rows }) => Array.isReadonlyArrayNonEmpty(rows));
+  if (!Array.isReadonlyArrayNonEmpty(withModules))
+    return yield* fail("No installed Effect package has declaration files");
 
-  const index = [
+  const header = [
     "# Effect API index",
     "",
     `Generated by \`scripts/effect-api/refresh-effect-api.ts\` from the installed packages. Do not edit it; \`pnpm check:effect-api\` fails when it is stale.`,
@@ -251,10 +286,16 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
     "",
     "| Package | Version | Modules | Exports | Declarations |",
     "| --- | --- | ---: | ---: | --- |",
-    ...Array.map(withModules, ({ total }) => total),
-    "",
-    ...Array.flatMap(withModules, ({ section }) => section),
-  ].join("\n");
+  ];
+  const index = Array.join(
+    Array.flatten([
+      header,
+      Array.map(withModules, ({ total }) => total),
+      [""],
+      Array.flatMap(withModules, ({ section }) => section),
+    ]),
+    "\n",
+  );
 
   const target = path.join(repo, INDEX);
   if (check) {

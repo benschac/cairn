@@ -110,7 +110,7 @@ export const renderMarkdown = <Message>(markdown: string, h: HtmlBuilder<Message
     const children = Option.isSome(maybeId)
       ? Array.map(node.children, (child, index) =>
           index === lastIndex && child.type === "text"
-            ? { ...child, value: child.value.replace(headingIdPattern, "") }
+            ? { ...child, value: String.replace(headingIdPattern, "")(child.value) }
             : child,
         )
       : node.children;
@@ -143,10 +143,10 @@ export const renderMarkdown = <Message>(markdown: string, h: HtmlBuilder<Message
       Array.map(keyRows, ({ key, ids }) =>
         h.div(
           [h.DataAttribute("key-row", key)],
-          [
+          Array.prepend(
+            Array.map(ids, (id) => h.span([h.DataAttribute("key", key)], [id])),
             h.span([h.DataAttribute("key-label", "")], [key]),
-            ...Array.map(ids, (id) => h.span([h.DataAttribute("key", key)], [id])),
-          ],
+          ),
         ),
       ),
     );
@@ -166,7 +166,9 @@ export const renderMarkdown = <Message>(markdown: string, h: HtmlBuilder<Message
         h.a(safeHref.test(node.url) ? [h.Href(node.url)] : [], inline(node.children)),
       ],
       list: (node) => [(node.ordered === true ? h.ol : h.ul)([], renderBlocks(node.children))],
-      listItem: (node) => [h.li([], [...checkbox(node.checked), ...renderBlocks(node.children)])],
+      listItem: (node) => [
+        h.li([], Array.appendAll(checkbox(node.checked), renderBlocks(node.children))),
+      ],
       paragraph: (node) => [h.p([], inline(node.children))],
       root: (node) => renderBlocks(node.children),
       strong: (node) => [h.strong([], inline(node.children))],

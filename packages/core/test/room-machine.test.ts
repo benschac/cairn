@@ -15,13 +15,15 @@ const eventsFor = <Id extends Schema.Top>(id: Id) =>
   ] as const;
 
 const History = Schema.Array(
-  Schema.Union([
-    Schema.Struct({
-      participant: Schema.Struct({ ...Participant.fields, id: Member }),
-      type: Schema.Literal("joined"),
-    }),
-    ...eventsFor(Schema.Union([Member, Stranger])),
-  ]),
+  Schema.Union(
+    Array.prepend(
+      eventsFor(Schema.Union([Member, Stranger])),
+      Schema.Struct({
+        participant: Schema.Struct({ ...Participant.fields, id: Member }),
+        type: Schema.Literal("joined"),
+      }),
+    ),
+  ),
 );
 
 const StrangerEvent = Schema.Union(eventsFor(Stranger));
@@ -37,20 +39,19 @@ it.prop(
   "a room lists each participant once, with cursors on the surface",
   [History],
   ([events]) => {
-    let [snapshot] = initialTransition(roomMachine);
-    for (const event of events) {
-      [snapshot] = transition(roomMachine, snapshot, event);
+    Array.reduce(events, initialTransition(roomMachine)[0], (before, event) => {
+      const [snapshot] = transition(roomMachine, before, event);
       const { participants } = snapshot.context;
       const ids = Array.map(participants, ({ id }) => id);
       expect(Array.dedupe(ids)).toStrictEqual(ids);
-      for (const { cursor } of participants) {
+      Array.forEach(participants, ({ cursor }) => {
         if (cursor !== null) {
           expect(cursor.x).toBeGreaterThanOrEqual(0);
           expect(cursor.x).toBeLessThanOrEqual(1);
           expect(cursor.y).toBeGreaterThanOrEqual(0);
           expect(cursor.y).toBeLessThanOrEqual(1);
         }
-      }
+      });
       if (event.type === "left") {
         expect(ids).not.toContain(event.id);
       }
@@ -60,7 +61,8 @@ it.prop(
           expect(mover.value.cursor).not.toBeNull();
         }
       }
-    }
+      return snapshot;
+    });
   },
 );
 
