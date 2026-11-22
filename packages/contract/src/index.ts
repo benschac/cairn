@@ -1,17 +1,9 @@
 import { Schema } from "effect";
 
-export const SECTION_ID = /^(?:prd|spec)(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)+$/u;
+import { SectionId, TaskId } from "./ids.ts";
 
-export const SectionId = Schema.String.check(Schema.isPattern(SECTION_ID)).pipe(
-  Schema.brand("SectionId"),
-);
-
-export const SectionPrefix = Schema.Literals(["prd", "spec"]);
-export type SectionPrefix = typeof SectionPrefix.Type;
-export type SectionId = typeof SectionId.Type;
-
-export const TaskId = Schema.NonEmptyString.pipe(Schema.brand("TaskId"));
-export type TaskId = typeof TaskId.Type;
+export * from "./ids.ts";
+export * from "./trailers.ts";
 
 export const TaskStatus = Schema.Literals([
   "pending",
