@@ -80,7 +80,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
           visibleRows(model).map((row) =>
             h.li(
               [h.DataAttribute("status", row.status)],
-              [`${row.task.title} (${row.task.section}): ${row.status}`],
+              [`${row.title} (${row.prdSections.join(", ")}): ${row.status}`],
             ),
           ),
         ),
