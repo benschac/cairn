@@ -3,10 +3,10 @@ import type { Cursor } from "@cairn/contract";
 import { Effect, Filter, Option, Schema, Stream } from "effect";
 import { Subscription } from "foldkit";
 
-import { VIEWPORT_ATTRIBUTE, cursorOf, originViewport, viewportOfAttribute } from "./canvas.ts";
-import { rectOf } from "./layout.ts";
-import { Message } from "./main.ts";
-import type { Model } from "./model.ts";
+import { VIEWPORT_ATTRIBUTE, cursorOf, originViewport, viewportOfAttribute } from "../canvas.ts";
+import { rectOf } from "../geometry.ts";
+import { Message } from "../message.ts";
+import type { Model } from "../model.ts";
 
 const decodePresence = Schema.decodeUnknownOption(PresenceJson);
 const encodeCursor = Schema.encodeEffect(CursorJson);

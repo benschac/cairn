@@ -2,20 +2,8 @@ import { SectionId, type TaskId, type Trace } from "@cairn/contract";
 import { Position, getBezierPath } from "@xyflow/system";
 import { Array, HashSet, Match, Option, Record, Schema, pipe } from "effect";
 
+import type { Positions, Rect } from "./geometry.ts";
 import { Node } from "./trace.ts";
-
-/** A node's box in canvas coordinates, as measured from the DOM. */
-export const Rect = Schema.Struct({
-  height: Schema.Finite,
-  width: Schema.Finite,
-  x: Schema.Finite,
-  y: Schema.Finite,
-});
-export type Rect = typeof Rect.Type;
-
-/** Measured rects by node id: a section id for a `[data-section]` node, a task id for a `[data-task]` node. */
-export const Positions = Schema.Record(Schema.String, Rect);
-export type Positions = typeof Positions.Type;
 
 /** What an edge stands for: PRD to spec, spec to task, or a parent or dependency in the stacks. */
 export const EdgeKind = Schema.Literals(["implements", "specifies", "parent", "dependency"]);

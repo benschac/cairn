@@ -1,44 +1,9 @@
 import { AsyncData, Subscription } from "foldkit";
-import { Array, Effect, Filter, Option, Predicate, Queue, Record, Schema, Stream } from "effect";
+import { Array, Effect, Filter, Option, Predicate, Queue, Schema, Stream } from "effect";
 
-import { Positions, type Rect } from "./curves.ts";
-import { Message } from "./main.ts";
-import type { Model } from "./model.ts";
-
-/** A measured element: its node key (the section or task id) and its box on screen. */
-export type Measured = { readonly key: string; readonly rect: Rect };
-
-/** A scale the layer can divide by: finite and above zero. */
-const isUsableScale = Schema.is(Schema.Finite.check(Schema.isGreaterThan(0)));
-
-/**
- * Canvas coordinates: each element's box relative to the layer, divided by the layer's scale so
- * that pan and zoom do not change them. A layer with no usable scale yields no positions.
- */
-export const measure = (
-  layerRect: Rect,
-  scale: number,
-  elements: ReadonlyArray<Measured>,
-): Positions =>
-  isUsableScale(scale)
-    ? Record.fromIterableWith(elements, ({ key, rect }) => [
-        key,
-        {
-          height: rect.height / scale,
-          width: rect.width / scale,
-          x: (rect.x - layerRect.x) / scale,
-          y: (rect.y - layerRect.y) / scale,
-        },
-      ])
-    : {};
-
-/** An element's box on screen, as a Rect. */
-export const rectOf = (box: DOMRect): Rect => ({
-  height: box.height,
-  width: box.width,
-  x: box.x,
-  y: box.y,
-});
+import { Positions, measure, rectOf } from "../geometry.ts";
+import { Message } from "../message.ts";
+import type { Model } from "../model.ts";
 
 const findLayer = (): Option.Option<Element> =>
   Option.fromNullOr(document.querySelector("[data-canvas-layer]"));

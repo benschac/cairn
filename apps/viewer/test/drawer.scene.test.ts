@@ -8,8 +8,11 @@ import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
 import { drawerView, type DrawerMessages } from "../src/drawer.ts";
-import { Message, init, update as appUpdate, view as appView } from "../src/main.ts";
+import { init } from "../src/init.ts";
+import { Message } from "../src/message.ts";
 import { chainOf, type Node } from "../src/trace.ts";
+import { update as appUpdate } from "../src/update.ts";
+import { view as appView } from "../src/view/view.ts";
 import { loaded, mounted } from "./fixtures.ts";
 
 const sectionNode = (id: string): Node => ({

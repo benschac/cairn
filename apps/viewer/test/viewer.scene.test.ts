@@ -23,22 +23,23 @@ import {
 import { modifyFields } from "foldkit/struct";
 
 import {
-  MAX_ZOOM,
-  MIN_ZOOM,
   PanZoomCanvas,
-  Viewport,
   boundsOf,
   fitViewport,
   originViewport,
   transformOf,
   viewportAttribute,
 } from "../src/canvas.ts";
+import { curvesOf } from "../src/curves.ts";
 import { demoTrace } from "../src/demo.ts";
-import { Message, init, update, view } from "../src/main.ts";
-import { curvesOf, type Positions } from "../src/curves.ts";
+import { MAX_ZOOM, MIN_ZOOM, Viewport, type Positions } from "../src/geometry.ts";
+import { init } from "../src/init.ts";
+import { Message } from "../src/message.ts";
 import { TraceData } from "../src/model.ts";
 import { columnOf, stackLayoutOf } from "../src/stacks.ts";
 import { chainOf, isInChain, sectionStatusOf, type Chain, type Node } from "../src/trace.ts";
+import { update } from "../src/update.ts";
+import { view } from "../src/view/view.ts";
 import { loaded, mounted, paneSize } from "./fixtures.ts";
 
 const status = (id: SectionId) => Option.getOrThrow(sectionStatusOf(demoTrace, id));

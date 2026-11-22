@@ -6,6 +6,7 @@ import type {
   PhrasingContent,
   Root,
   RootContent,
+  Table,
   TableRow,
 } from "mdast";
 import { fromMarkdown } from "mdast-util-from-markdown";
@@ -96,6 +97,171 @@ export interface SectionHooks<Message> {
   readonly decorate?: (sectionId: SectionId) => ReadonlyArray<Html>;
 }
 
+/** What every renderer below reads: the builder and the caller's section hooks. */
+interface RenderContext<Message> {
+  readonly h: HtmlBuilder<Message>;
+  readonly attributesOf: (sectionId: SectionId) => ReadonlyArray<Attribute<Message>>;
+  readonly decorate: (sectionId: SectionId) => ReadonlyArray<Html>;
+}
+
+const inline = <Message>(
+  context: RenderContext<Message>,
+  nodes: ReadonlyArray<PhrasingContent>,
+): Rendered => Array.flatMap(nodes, (node) => render(context, node));
+
+const tableRow = <Message>(
+  context: RenderContext<Message>,
+  cellTag: HtmlBuilder<Message>["th"],
+  align: ReadonlyArray<AlignType>,
+  row: TableRow,
+): Html =>
+  context.h.tr(
+    [],
+    Array.map(row.children, (cell, column) =>
+      cellTag(
+        pipe(
+          Array.get(align, column),
+          Option.flatMap(Option.fromNullOr),
+          Option.map((cellAlign) => context.h.Style({ "text-align": cellAlign })),
+          Array.fromOption,
+        ),
+        inline(context, cell.children),
+      ),
+    ),
+  );
+
+const tableView = <Message>(context: RenderContext<Message>, node: Table): Html => {
+  const { h } = context;
+  return h.table(
+    [],
+    Array.matchLeft(node.children, {
+      onEmpty: () => [h.thead([]), h.tbody([])],
+      onNonEmpty: (head, body) => {
+        const align = node.align ?? [];
+        return [
+          h.thead([], [tableRow(context, h.th, align, head)]),
+          h.tbody(
+            [],
+            Array.map(body, (row) => tableRow(context, h.td, align, row)),
+          ),
+        ];
+      },
+    }),
+  );
+};
+
+const heading = <Message>(context: RenderContext<Message>, node: Heading): Html => {
+  const { h, attributesOf, decorate } = context;
+  const maybeId = firstGroup(headingIdPattern)(textOf(node));
+  const children = Option.isSome(maybeId)
+    ? Array.match(node.children, {
+        onEmpty: () => node.children,
+        onNonEmpty: Array.modifyLastNonEmpty(stripId),
+      })
+    : node.children;
+  const tag = Option.getOrElse(
+    Array.get([h.h1, h.h2, h.h3, h.h4, h.h5, h.h6], node.depth - 1),
+    () => h.h6,
+  );
+  const maybeSectionId = Option.filter(maybeId, isSectionId);
+  return tag(
+    Option.match(maybeId, {
+      onNone: () => [],
+      onSome: (id) =>
+        Array.appendAll(
+          [h.Id(id), h.DataAttribute("section", id)],
+          Option.match(maybeSectionId, { onNone: () => [], onSome: attributesOf }),
+        ),
+    }),
+    Array.appendAll(
+      inline(
+        context,
+        Array.filter(children, (child) => child.type !== "text" || child.value !== ""),
+      ),
+      Option.match(maybeSectionId, { onNone: () => [], onSome: decorate }),
+    ),
+  );
+};
+
+const languageClass = <Message>(h: HtmlBuilder<Message>, lang: string | null | undefined) =>
+  pipe(
+    Option.fromNullishOr(lang),
+    Option.filter(String.isNonEmpty),
+    Option.map((language) =>
+      h.Class(`language-${Array.headNonEmpty(String.split(language, /\s/u))}`),
+    ),
+    Array.fromOption,
+  );
+
+const chips = <Message>(h: HtmlBuilder<Message>, keyRows: ReadonlyArray<KeyRow>): Html =>
+  h.div(
+    [h.DataAttribute("keys", "")],
+    Array.map(keyRows, ({ key, ids }) =>
+      h.div(
+        [h.DataAttribute("key-row", key)],
+        Array.prepend(
+          Array.map(ids, (id) => h.span([h.DataAttribute("key", key)], [id])),
+          h.span([h.DataAttribute("key-label", "")], [key]),
+        ),
+      ),
+    ),
+  );
+
+const render = <Message>(context: RenderContext<Message>, content: Nodes): Rendered => {
+  const { h } = context;
+  return Match.value(content).pipe(
+    Match.withReturnType<Rendered>(),
+    Match.discriminators("type")({
+      blockquote: (node) => [h.blockquote([], renderBlocks(context, node.children))],
+      break: () => [h.br([])],
+      code: (node) => [
+        h.pre(
+          // The canvas never scrolls, so a long line wraps instead of running out of its column.
+          [h.Style({ "overflow-wrap": "anywhere", "white-space": "pre-wrap" })],
+          [h.code(languageClass(h, node.lang), [node.value])],
+        ),
+      ],
+      delete: (node) => [h.del([], inline(context, node.children))],
+      emphasis: (node) => [h.em([], inline(context, node.children))],
+      heading: (node) => [heading(context, node)],
+      image: (node) => [node.alt ?? ""],
+      inlineCode: (node) => [h.code([], [node.value])],
+      link: (node) => [
+        h.a(safeHref.test(node.url) ? [h.Href(node.url)] : [], inline(context, node.children)),
+      ],
+      list: (node) => [
+        (node.ordered === true ? h.ol : h.ul)([], renderBlocks(context, node.children)),
+      ],
+      listItem: (node) => [
+        h.li([], Array.appendAll(checkbox(node.checked), renderBlocks(context, node.children))),
+      ],
+      paragraph: (node) => [h.p([], inline(context, node.children))],
+      root: (node) => renderBlocks(context, node.children),
+      strong: (node) => [h.strong([], inline(context, node.children))],
+      table: (node) => [tableView(context, node)],
+      text: (node) => [node.value],
+      thematicBreak: () => [h.hr([])],
+    }),
+    // Raw HTML, including comments, never reaches the page: those nodes render nothing.
+    Match.orElse(() => []),
+  );
+};
+
+const renderBlocks = <Message>(
+  context: RenderContext<Message>,
+  nodes: ReadonlyArray<RootContent>,
+): Rendered =>
+  Array.flatMap(nodes, (node, index) => {
+    const followsHeading = Option.exists(
+      Array.get(nodes, index - 1),
+      (previous) => previous.type === "heading",
+    );
+    return Option.match(followsHeading ? keyRowsOf(node) : Option.none(), {
+      onNone: () => render(context, node),
+      onSome: (keyRows) => [chips(context.h, keyRows)],
+    });
+  });
+
 export const renderMarkdown = <Message>(
   markdown: string,
   h: HtmlBuilder<Message>,
@@ -105,141 +271,5 @@ export const renderMarkdown = <Message>(
     extensions: [gfm()],
     mdastExtensions: [gfmFromMarkdown()],
   });
-
-  const inline = (nodes: ReadonlyArray<PhrasingContent>): Rendered => Array.flatMap(nodes, render);
-
-  const tableRow = (cellTag: typeof h.th, align: ReadonlyArray<AlignType>, row: TableRow): Html =>
-    h.tr(
-      [],
-      Array.map(row.children, (cell, column) =>
-        cellTag(
-          pipe(
-            Array.get(align, column),
-            Option.flatMap(Option.fromNullOr),
-            Option.map((cellAlign) => h.Style({ "text-align": cellAlign })),
-            Array.fromOption,
-          ),
-          inline(cell.children),
-        ),
-      ),
-    );
-
-  const heading = (node: Heading): Html => {
-    const maybeId = firstGroup(headingIdPattern)(textOf(node));
-    const children = Option.isSome(maybeId)
-      ? Array.match(node.children, {
-          onEmpty: () => node.children,
-          onNonEmpty: Array.modifyLastNonEmpty(stripId),
-        })
-      : node.children;
-    const tag = Option.getOrElse(
-      Array.get([h.h1, h.h2, h.h3, h.h4, h.h5, h.h6], node.depth - 1),
-      () => h.h6,
-    );
-    const maybeSectionId = Option.filter(maybeId, isSectionId);
-    return tag(
-      Option.match(maybeId, {
-        onNone: () => [],
-        onSome: (id) =>
-          Array.appendAll(
-            [h.Id(id), h.DataAttribute("section", id)],
-            Option.match(maybeSectionId, { onNone: () => [], onSome: attributesOf }),
-          ),
-      }),
-      Array.appendAll(
-        inline(Array.filter(children, (child) => child.type !== "text" || child.value !== "")),
-        Option.match(maybeSectionId, { onNone: () => [], onSome: decorate }),
-      ),
-    );
-  };
-
-  const languageClass = (lang: string | null | undefined) =>
-    pipe(
-      Option.fromNullishOr(lang),
-      Option.filter(String.isNonEmpty),
-      Option.map((language) =>
-        h.Class(`language-${Array.headNonEmpty(String.split(language, /\s/u))}`),
-      ),
-      Array.fromOption,
-    );
-
-  const chips = (keyRows: ReadonlyArray<KeyRow>): Html =>
-    h.div(
-      [h.DataAttribute("keys", "")],
-      Array.map(keyRows, ({ key, ids }) =>
-        h.div(
-          [h.DataAttribute("key-row", key)],
-          Array.prepend(
-            Array.map(ids, (id) => h.span([h.DataAttribute("key", key)], [id])),
-            h.span([h.DataAttribute("key-label", "")], [key]),
-          ),
-        ),
-      ),
-    );
-
-  const render: (node: Nodes) => Rendered = Match.type<Nodes>().pipe(
-    Match.withReturnType<Rendered>(),
-    Match.discriminators("type")({
-      blockquote: (node) => [h.blockquote([], renderBlocks(node.children))],
-      break: () => [h.br([])],
-      code: (node) => [
-        h.pre(
-          // The canvas never scrolls, so a long line wraps instead of running out of its column.
-          [h.Style({ "overflow-wrap": "anywhere", "white-space": "pre-wrap" })],
-          [h.code(languageClass(node.lang), [node.value])],
-        ),
-      ],
-      delete: (node) => [h.del([], inline(node.children))],
-      emphasis: (node) => [h.em([], inline(node.children))],
-      heading: (node) => [heading(node)],
-      image: (node) => [node.alt ?? ""],
-      inlineCode: (node) => [h.code([], [node.value])],
-      link: (node) => [
-        h.a(safeHref.test(node.url) ? [h.Href(node.url)] : [], inline(node.children)),
-      ],
-      list: (node) => [(node.ordered === true ? h.ol : h.ul)([], renderBlocks(node.children))],
-      listItem: (node) => [
-        h.li([], Array.appendAll(checkbox(node.checked), renderBlocks(node.children))),
-      ],
-      paragraph: (node) => [h.p([], inline(node.children))],
-      root: (node) => renderBlocks(node.children),
-      strong: (node) => [h.strong([], inline(node.children))],
-      table: (node) => [
-        h.table(
-          [],
-          Array.matchLeft(node.children, {
-            onEmpty: () => [h.thead([]), h.tbody([])],
-            onNonEmpty: (head, body) => {
-              const align = node.align ?? [];
-              return [
-                h.thead([], [tableRow(h.th, align, head)]),
-                h.tbody(
-                  [],
-                  Array.map(body, (row) => tableRow(h.td, align, row)),
-                ),
-              ];
-            },
-          }),
-        ),
-      ],
-      text: (node) => [node.value],
-      thematicBreak: () => [h.hr([])],
-    }),
-    // Raw HTML, including comments, never reaches the page: those nodes render nothing.
-    Match.orElse(() => []),
-  );
-
-  const renderBlocks = (nodes: ReadonlyArray<RootContent>): Rendered =>
-    Array.flatMap(nodes, (node, index) => {
-      const followsHeading = Option.exists(
-        Array.get(nodes, index - 1),
-        (previous) => previous.type === "heading",
-      );
-      return Option.match(followsHeading ? keyRowsOf(node) : Option.none(), {
-        onNone: () => render(node),
-        onSome: (keyRows) => [chips(keyRows)],
-      });
-    });
-
-  return h.div([h.Class("markdown")], renderBlocks(tree.children));
+  return h.div([h.Class("markdown")], renderBlocks({ attributesOf, decorate, h }, tree.children));
 };

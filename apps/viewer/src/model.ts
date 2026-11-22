@@ -2,8 +2,7 @@ import { Participant, ParticipantId, Sha, Trace } from "@cairn/contract";
 import { Schema } from "effect";
 import { AsyncData } from "foldkit";
 
-import { Size, Viewport } from "./canvas.ts";
-import { Positions } from "./curves.ts";
+import { Positions, Size, Viewport } from "./geometry.ts";
 import { Node } from "./trace.ts";
 
 /** The trace as it loads: nothing yet, a failure, the trace, or the last good trace beside a failure. */

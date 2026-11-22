@@ -5,9 +5,11 @@ import {
   getViewportForBounds,
   pointToRendererPoint,
   rendererPointToPoint,
+  type PanZoomInstance,
 } from "@xyflow/system";
 import {
   Array,
+  Cause,
   Effect,
   Function,
   MutableRef,
@@ -21,43 +23,17 @@ import {
   Stream,
 } from "effect";
 import { Mount } from "foldkit";
-import { defineMessageUnion } from "foldkit/message";
 
-import type { Positions, Rect } from "./curves.ts";
-
-export const MIN_ZOOM = 0.1;
-export const MAX_ZOOM = 2;
+import { MAX_ZOOM, MIN_ZOOM, Viewport, type Positions, type Rect } from "./geometry.ts";
+import { Message } from "./message.ts";
 
 /** Pixels of room Fit leaves around the content. */
 export const FIT_PADDING = 24;
 
-/**
- * Where the canvas layer sits in its pane: `x` and `y` are the layer's offset in pane pixels and
- * `zoom` its scale. This is the viewport `@xyflow/system` reports, and the model holds it.
- */
-export const Viewport = Schema.Struct({
-  x: Schema.Finite,
-  y: Schema.Finite,
-  zoom: Schema.Finite.check(Schema.isBetween({ maximum: MAX_ZOOM, minimum: MIN_ZOOM })),
-});
-export type Viewport = typeof Viewport.Type;
-
-/** The canvas pane's size in pixels. */
-export const Size = Schema.Struct({
-  height: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)),
-  width: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)),
-});
-export type Size = typeof Size.Type;
-
 export const originViewport: Viewport = { x: 0, y: 0, zoom: 1 };
 
-/** The messages the canvas mount sends. `main.ts` adds them to the viewer's own union. */
-export const canvasMessages = {
-  MeasuredPane: { size: Size },
-  PannedOrZoomed: { viewport: Viewport },
-} as const;
-const CanvasMessage = defineMessageUnion(canvasMessages);
-type CanvasMessage = typeof CanvasMessage.Type;
+/** The messages the canvas mount sends. */
+type CanvasMessage = typeof Message.MeasuredPane.Type | typeof Message.PannedOrZoomed.Type;
 
 /** The CSS transform that puts the canvas layer at the viewport. Pair it with `transform-origin: 0 0`. */
 export const transformOf = (viewport: Viewport): string =>
@@ -170,7 +146,7 @@ const paneViewportOf = (pane: Element): Viewport =>
   );
 
 const paneSized = (width: number, height: number): CanvasMessage =>
-  CanvasMessage.MeasuredPane({ size: { height, width } });
+  Message.MeasuredPane({ size: { height, width } });
 
 /** Drag on the pane to pan and scroll to zoom; anything marked `nopan` (the nodes) keeps its clicks and its text selection. */
 const panZoomOptions = {
@@ -193,6 +169,109 @@ const panZoomOptions = {
   zoomOnScroll: true,
 };
 
+/** What the library and the attribute watcher share while the pane is mounted. */
+interface PanZoomState {
+  /** Viewports the library reported that the model has not yet echoed back. */
+  readonly reported: MutableRef.MutableRef<ReadonlyArray<Viewport>>;
+  /** Whether the mount is moving the library itself, which then reports what the model has. */
+  readonly syncing: MutableRef.MutableRef<boolean>;
+}
+
+/** XYPanZoom on the pane, reporting each pan and zoom it makes; destroyed when the scope closes. */
+const attachPanZoom = (
+  element: Element,
+  queue: Queue.Queue<CanvasMessage, Cause.Done>,
+  { reported, syncing }: PanZoomState,
+) =>
+  Effect.acquireRelease(
+    Effect.sync(() => {
+      const instance = XYPanZoom({
+        domNode: element,
+        maxZoom: MAX_ZOOM,
+        minZoom: MIN_ZOOM,
+        onDraggingChange: Function.constVoid,
+        onPanZoom: (_event, viewport) => {
+          if (!MutableRef.get(syncing)) {
+            MutableRef.update(reported, (viewports) =>
+              Array.takeRight(Array.append(viewports, viewport), REPORTED_LIMIT),
+            );
+            Queue.offerUnsafe(queue, Message.PannedOrZoomed({ viewport }));
+          }
+        },
+        translateExtent: [
+          [-Infinity, -Infinity],
+          [Infinity, Infinity],
+        ],
+        viewport: paneViewportOf(element),
+      });
+      instance.update(panZoomOptions);
+      return instance;
+    }),
+    (instance) => Effect.sync(() => instance.destroy()),
+  );
+
+/**
+ * Moves the library to each viewport the model writes to the pane attribute, unless the library
+ * reported it first; disconnected when the scope closes.
+ */
+const watchViewportAttribute = (
+  element: Element,
+  panZoom: PanZoomInstance,
+  { reported, syncing }: PanZoomState,
+) =>
+  Effect.acquireRelease(
+    Effect.sync(() => {
+      const watcher = new MutationObserver(() => {
+        const viewport = paneViewportOf(element);
+        const next = reconcile(MutableRef.get(reported), viewport);
+        MutableRef.set(reported, next.reported);
+        if (next.sync) {
+          MutableRef.set(syncing, true);
+          // A DOM callback, not an Effect: the flag must drop even if the library throws.
+          try {
+            panZoom.syncViewport(viewport);
+          } finally {
+            MutableRef.set(syncing, false);
+          }
+        }
+      });
+      watcher.observe(element, { attributeFilter: [VIEWPORT_ATTRIBUTE], attributes: true });
+      return watcher;
+    }),
+    (watcher) => Effect.sync(() => watcher.disconnect()),
+  );
+
+/**
+ * Reports the pane's size now and whenever it changes; the observer disconnects when the scope
+ * closes. Environments without `ResizeObserver` (jsdom) keep the first size.
+ */
+const observePaneSize = (element: Element, queue: Queue.Queue<CanvasMessage, Cause.Done>) =>
+  Effect.gen(function* () {
+    yield* Effect.sync(() => {
+      const box = element.getBoundingClientRect();
+      Queue.offerUnsafe(queue, paneSized(box.width, box.height));
+    });
+    if (Predicate.hasProperty(globalThis, "ResizeObserver")) {
+      yield* Effect.acquireRelease(
+        Effect.sync(() => {
+          const resizer = new ResizeObserver((entries) =>
+            Option.match(Array.head(entries), {
+              onNone: Function.constVoid,
+              onSome: (entry) =>
+                Queue.offerUnsafe(
+                  queue,
+                  paneSized(entry.contentRect.width, entry.contentRect.height),
+                ),
+            }),
+          );
+          resizer.observe(element);
+          return resizer;
+        }),
+        (resizer) => Effect.sync(() => resizer.disconnect()),
+      );
+    }
+  });
+
 /**
  * Pan and zoom on the canvas pane. The library reports each change as `PannedOrZoomed` and the pane's
  * size as `MeasuredPane`. Mount arguments are fixed when the element appears, so the model's
@@ -204,82 +283,14 @@ export const PanZoomCanvas = Mount.defineStream("PanZoomCanvas", {
   execute: ({ element }) =>
     Stream.callback<CanvasMessage>((queue) =>
       Effect.gen(function* () {
-        // Viewports the library reported that the model has not yet echoed back.
-        const reported = MutableRef.make<ReadonlyArray<Viewport>>([]);
-        // Whether the mount is moving the library itself, which then reports what the model has.
-        const syncing = MutableRef.make(false);
-        const panZoom = yield* Effect.acquireRelease(
-          Effect.sync(() => {
-            const instance = XYPanZoom({
-              domNode: element,
-              maxZoom: MAX_ZOOM,
-              minZoom: MIN_ZOOM,
-              onDraggingChange: Function.constVoid,
-              onPanZoom: (_event, viewport) => {
-                if (!MutableRef.get(syncing)) {
-                  MutableRef.update(reported, (viewports) =>
-                    Array.takeRight(Array.append(viewports, viewport), REPORTED_LIMIT),
-                  );
-                  Queue.offerUnsafe(queue, CanvasMessage.PannedOrZoomed({ viewport }));
-                }
-              },
-              translateExtent: [
-                [-Infinity, -Infinity],
-                [Infinity, Infinity],
-              ],
-              viewport: paneViewportOf(element),
-            });
-            instance.update(panZoomOptions);
-            return instance;
-          }),
-          (instance) => Effect.sync(() => instance.destroy()),
-        );
-        yield* Effect.acquireRelease(
-          Effect.sync(() => {
-            const watcher = new MutationObserver(() => {
-              const viewport = paneViewportOf(element);
-              const next = reconcile(MutableRef.get(reported), viewport);
-              MutableRef.set(reported, next.reported);
-              if (next.sync) {
-                MutableRef.set(syncing, true);
-                // A DOM callback, not an Effect: the flag must drop even if the library throws.
-                try {
-                  panZoom.syncViewport(viewport);
-                } finally {
-                  MutableRef.set(syncing, false);
-                }
-              }
-            });
-            watcher.observe(element, { attributeFilter: [VIEWPORT_ATTRIBUTE], attributes: true });
-            return watcher;
-          }),
-          (watcher) => Effect.sync(() => watcher.disconnect()),
-        );
-        yield* Effect.sync(() => {
-          const box = element.getBoundingClientRect();
-          Queue.offerUnsafe(queue, paneSized(box.width, box.height));
-        });
-        // Environments without `ResizeObserver` (jsdom) keep the first size.
-        if (Predicate.hasProperty(globalThis, "ResizeObserver")) {
-          yield* Effect.acquireRelease(
-            Effect.sync(() => {
-              const resizer = new ResizeObserver((entries) =>
-                Option.match(Array.head(entries), {
-                  onNone: Function.constVoid,
-                  onSome: (entry) =>
-                    Queue.offerUnsafe(
-                      queue,
-                      paneSized(entry.contentRect.width, entry.contentRect.height),
-                    ),
-                }),
-              );
-              resizer.observe(element);
-              return resizer;
-            }),
-            (resizer) => Effect.sync(() => resizer.disconnect()),
-          );
-        }
+        const state: PanZoomState = {
+          reported: MutableRef.make<ReadonlyArray<Viewport>>([]),
+          syncing: MutableRef.make(false),
+        };
+        const panZoom = yield* attachPanZoom(element, queue, state);
+        yield* watchViewportAttribute(element, panZoom, state);
+        yield* observePaneSize(element, queue);
       }),
     ),
-  messages: [CanvasMessage.MeasuredPane, CanvasMessage.PannedOrZoomed],
+  messages: [Message.MeasuredPane, Message.PannedOrZoomed],
 });

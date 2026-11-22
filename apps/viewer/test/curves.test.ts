@@ -5,7 +5,8 @@ import { Array, Hash, HashSet, Option, Order, Record, Schema, String, Struct, pi
 
 import { demoTrace } from "../src/demo.ts";
 import { stackLayoutOf } from "../src/stacks.ts";
-import { type Curve, type EdgeKind, type Positions, curvesOf } from "../src/curves.ts";
+import { type Curve, type EdgeKind, curvesOf } from "../src/curves.ts";
+import type { Positions } from "../src/geometry.ts";
 
 /** A stable, non-negative number for a string, to spread generated ids over small pools. */
 const hash = (text: string): number => Hash.string(text) >>> 0;

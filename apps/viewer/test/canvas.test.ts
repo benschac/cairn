@@ -4,10 +4,6 @@ import { Array, Number, Option, Record, Schema, Struct } from "effect";
 
 import {
   FIT_PADDING,
-  MAX_ZOOM,
-  MIN_ZOOM,
-  Size,
-  Viewport,
   boundsOf,
   cursorOf,
   fitViewport,
@@ -19,7 +15,7 @@ import {
   viewportAttribute,
   viewportOfAttribute,
 } from "../src/canvas.ts";
-import type { Positions } from "../src/curves.ts";
+import { MAX_ZOOM, MIN_ZOOM, Size, Viewport, type Positions } from "../src/geometry.ts";
 
 const Pixels = Schema.Finite.check(Schema.isBetween({ maximum: 1e6, minimum: -1e6 }));
 const Box = (size: { readonly maximum: number; readonly minimum: number }) =>

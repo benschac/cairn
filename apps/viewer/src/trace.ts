@@ -120,6 +120,19 @@ export const isInChain = (chain: Chain, node: Node): boolean =>
     section: ({ id }) => HashSet.has(chain.prd, id) || HashSet.has(chain.spec, id),
     task: ({ id }) => HashSet.has(chain.tasks, id),
   });
+/** A section's title, or its id when the trace has no section with that id. */
+export const sectionTitleOf = (trace: Trace, id: SectionId): string =>
+  Option.getOrElse(
+    Option.map(
+      Array.findFirst(
+        Array.appendAll(trace.prd.sections, trace.spec.sections),
+        (candidate) => candidate.id === id,
+      ),
+      (found) => found.title,
+    ),
+    () => id,
+  );
+
 /** The rollup status of a section, or none when the trace has none for it. */
 export const sectionStatusOf = (trace: Trace, id: SectionId): Option.Option<SectionStatus> =>
   Option.map(

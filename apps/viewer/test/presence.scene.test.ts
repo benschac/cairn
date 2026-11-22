@@ -3,8 +3,11 @@ import { it } from "@effect/vitest";
 import { Option, Schema } from "effect";
 import { Subscription, expect, given, role, scene, selector } from "foldkit/scene";
 
-import { Viewport, transformOf } from "../src/canvas.ts";
-import { Message, update, view } from "../src/main.ts";
+import { transformOf } from "../src/canvas.ts";
+import { Viewport } from "../src/geometry.ts";
+import { Message } from "../src/message.ts";
+import { update } from "../src/update.ts";
+import { view } from "../src/view/view.ts";
 import { loaded, mounted } from "./fixtures.ts";
 
 const presenceWith = (agentCursor: Cursor) =>

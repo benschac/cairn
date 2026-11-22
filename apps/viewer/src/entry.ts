@@ -1,11 +1,10 @@
-import { Runtime, Subscription } from "foldkit";
+import { Runtime } from "foldkit";
 
-import { subscriptions as layoutSubscriptions } from "./layout.ts";
-import { init, update, view } from "./main.ts";
+import { init } from "./init.ts";
 import { Model } from "./model.ts";
-import { subscriptions as presenceSubscriptions } from "./presence.ts";
-
-const subscriptions = Subscription.aggregate(presenceSubscriptions, layoutSubscriptions);
+import { subscriptions } from "./subscription/index.ts";
+import { update } from "./update.ts";
+import { view } from "./view/view.ts";
 
 Runtime.run(
   Runtime.makeApplication({

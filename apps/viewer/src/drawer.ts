@@ -14,7 +14,7 @@ import { Array, DateTime, HashSet, Match, Option, Schema, String, pipe } from "e
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { defineRouteUnion, literal, mapTo, slash, string } from "foldkit/route";
 
-import { Node, chainOf, judgmentsOf } from "./trace.ts";
+import { Node, chainOf, judgmentsOf, sectionTitleOf } from "./trace.ts";
 
 /** The message constructors the drawer's view needs; the app supplies its own. */
 export interface DrawerMessages<M> {
@@ -98,16 +98,7 @@ const commitsView = <M>(task: TraceTask, h: HtmlBuilder<M>, messages: DrawerMess
     Array.map(task.commits, (commit) => commitView(commit, h, messages)),
   );
 
-const taskDetailView = <M>(
-  trace: Trace,
-  task: TraceTask,
-  h: HtmlBuilder<M>,
-  messages: DrawerMessages<M>,
-): ReadonlyArray<Html> => [
-  h.section(
-    [h.DataAttribute("drawer-part", "commits-section")],
-    [h.h3([], ["Commits"]), commitsView(task, h, messages)],
-  ),
+const sessionsView = <M>(task: TraceTask, h: HtmlBuilder<M>): Html =>
   h.section(
     [h.DataAttribute("drawer-part", "sessions")],
     [
@@ -119,7 +110,9 @@ const taskDetailView = <M>(
         ),
       ),
     ],
-  ),
+  );
+
+const eventsView = <M>(task: TraceTask, h: HtmlBuilder<M>): Html =>
   h.section(
     [h.DataAttribute("drawer-part", "events")],
     [
@@ -134,7 +127,10 @@ const taskDetailView = <M>(
         ),
       ),
     ],
-  ),
+  );
+
+/** The gate the plan set and the gate in effect, each with its reasons. */
+const gateView = <M>(task: TraceTask, h: HtmlBuilder<M>): Html =>
   h.section(
     [h.DataAttribute("drawer-part", "gate")],
     [
@@ -156,7 +152,21 @@ const taskDetailView = <M>(
         Array.map(task.gate.reasons, (reason) => h.li([], [reason])),
       ),
     ],
+  );
+
+const taskDetailView = <M>(
+  trace: Trace,
+  task: TraceTask,
+  h: HtmlBuilder<M>,
+  messages: DrawerMessages<M>,
+): ReadonlyArray<Html> => [
+  h.section(
+    [h.DataAttribute("drawer-part", "commits-section")],
+    [h.h3([], ["Commits"]), commitsView(task, h, messages)],
   ),
+  sessionsView(task, h),
+  eventsView(task, h),
+  gateView(task, h),
   judgmentsView(trace, { id: task.id, kind: "task" }, h),
 ];
 
@@ -200,6 +210,38 @@ interface DrawerContent {
   readonly body: ReadonlyArray<Html>;
 }
 
+/** A section's tasks and, for a spec section, its judgments. */
+const sectionContent = <M>(
+  trace: Trace,
+  section: typeof Node.cases.section.Type,
+  h: HtmlBuilder<M>,
+  messages: DrawerMessages<M>,
+): DrawerContent => ({
+  body: Array.appendAll(
+    [sectionTasksView(trace, chainOf(trace, section).tasks, h, messages)],
+    isSpecSection(section.id) ? [judgmentsView(trace, section, h)] : [],
+  ),
+  title: sectionTitleOf(trace, section.id),
+});
+
+/** A task's detail, or nothing under its id when the trace does not have it. */
+const taskContent = <M>(
+  trace: Trace,
+  id: TaskId,
+  h: HtmlBuilder<M>,
+  messages: DrawerMessages<M>,
+): DrawerContent =>
+  Option.match(
+    Array.findFirst(trace.tasks, (candidate) => candidate.id === id),
+    {
+      onNone: () => ({ body: [], title: id }),
+      onSome: (task) => ({
+        body: taskDetailView(trace, task, h, messages),
+        title: `${task.id} ${task.title}`,
+      }),
+    },
+  );
+
 /**
  * The drawer open on a node: a dialog with a section's tasks (and a spec section's judgments),
  * or a task's commits, sessions, events, gate reasons and judgments. A node the trace does not
@@ -212,33 +254,8 @@ export const drawerView = <M>(
   messages: DrawerMessages<M>,
 ): Html => {
   const content = Node.match(node, {
-    section: (section): DrawerContent => ({
-      body: Array.appendAll(
-        [sectionTasksView(trace, chainOf(trace, section).tasks, h, messages)],
-        isSpecSection(section.id) ? [judgmentsView(trace, section, h)] : [],
-      ),
-      title: Option.getOrElse(
-        Option.map(
-          Array.findFirst(
-            Array.appendAll(trace.prd.sections, trace.spec.sections),
-            (candidate) => candidate.id === section.id,
-          ),
-          (found) => found.title,
-        ),
-        () => section.id,
-      ),
-    }),
-    task: ({ id }): DrawerContent =>
-      Option.match(
-        Array.findFirst(trace.tasks, (candidate) => candidate.id === id),
-        {
-          onNone: () => ({ body: [], title: id }),
-          onSome: (task) => ({
-            body: taskDetailView(trace, task, h, messages),
-            title: `${task.id} ${task.title}`,
-          }),
-        },
-      ),
+    section: (section) => sectionContent(trace, section, h, messages),
+    task: ({ id }) => taskContent(trace, id, h, messages),
   });
 
   return h.aside(
@@ -265,3 +282,27 @@ export const drawerView = <M>(
     ),
   );
 };
+
+/** In the demo the commit is already in the trace, so its detail is its subject and files. */
+export const commitDetailView = <M>(
+  trace: Trace,
+  sha: Sha,
+  h: HtmlBuilder<M>,
+): Option.Option<Html> =>
+  Option.map(
+    Array.findFirst(
+      Array.flatMap(trace.tasks, (task) => task.commits),
+      (commit) => commit.sha === sha,
+    ),
+    (commit) =>
+      h.section(
+        [h.DataAttribute("commit-detail", commit.sha)],
+        [
+          h.h3([], [commit.subject]),
+          h.ul(
+            [],
+            Array.map(commit.files, (file) => h.li([], [file])),
+          ),
+        ],
+      ),
+  );

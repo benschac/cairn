@@ -1,0 +1,127 @@
+import type { Participant, SectionId, Trace } from "@cairn/contract";
+import { Array, Option } from "effect";
+import type { Html, HtmlBuilder } from "foldkit/html";
+
+import { PanZoomCanvas, VIEWPORT_ATTRIBUTE, transformOf, viewportAttribute } from "../canvas.ts";
+import type { Positions, Viewport } from "../geometry.ts";
+import { renderMarkdown } from "../markdown.ts";
+import type { Message } from "../message.ts";
+import { chainOf, judgmentMarkOf, sectionStatusOf, type Chain, type Node } from "../trace.ts";
+import { cursorsView } from "./cursorsView.ts";
+import { edgesView } from "./edgesView.ts";
+import { badgeView, judgmentView, nodeAttributes } from "./nodeView.ts";
+import { stacksView } from "./stacksView.ts";
+
+type ColumnName = "prd" | "spec" | "stacks";
+
+const column = (name: ColumnName, children: ReadonlyArray<Html>, h: HtmlBuilder<Message>): Html =>
+  h.section([h.DataAttribute("column", name), h.Style({ overflow: "visible" })], children);
+
+/** The PRD, the spec and the stacks side by side, each section and task a node in the chain. */
+const columnsGridView = (
+  trace: Trace,
+  maybeChain: Option.Option<Chain>,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const sectionAttributes = (sectionId: SectionId) =>
+    nodeAttributes(maybeChain, { id: sectionId, kind: "section" }, h);
+  const badged = (sectionId: SectionId): ReadonlyArray<Html> =>
+    Array.fromOption(
+      Option.map(sectionStatusOf(trace, sectionId), (status) => badgeView(status, h)),
+    );
+  const specDecorated = (sectionId: SectionId): ReadonlyArray<Html> =>
+    Array.appendAll(
+      badged(sectionId),
+      Array.fromOption(
+        Option.map(judgmentMarkOf(trace, { id: sectionId, kind: "section" }), (mark) =>
+          judgmentView(mark, h),
+        ),
+      ),
+    );
+  return h.div(
+    [
+      h.Style({
+        display: "grid",
+        gap: "24px",
+        "grid-template-columns": "480px 480px max-content",
+      }),
+    ],
+    [
+      column(
+        "prd",
+        [
+          renderMarkdown(trace.prd.markdown, h, {
+            attributesOf: sectionAttributes,
+            decorate: badged,
+          }),
+        ],
+        h,
+      ),
+      column(
+        "spec",
+        [
+          renderMarkdown(trace.spec.markdown, h, {
+            attributesOf: sectionAttributes,
+            decorate: specDecorated,
+          }),
+        ],
+        h,
+      ),
+      column("stacks", [stacksView(trace, maybeChain, h)], h),
+    ],
+  );
+};
+
+/** The layer holds everything that pans and zooms: the columns, their edges and the cursors. */
+const canvasLayerView = (
+  trace: Trace,
+  positions: Positions,
+  viewport: Viewport,
+  maybeChain: Option.Option<Chain>,
+  others: ReadonlyArray<Participant>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.div(
+    [
+      h.DataAttribute("canvas-layer", ""),
+      h.Style({
+        position: "relative",
+        transform: transformOf(viewport),
+        "transform-origin": "0 0",
+        // The layer is as wide as its content; nothing in it scrolls or clips.
+        width: "max-content",
+      }),
+    ],
+    Array.appendAll(
+      [columnsGridView(trace, maybeChain, h), edgesView(trace, positions, maybeChain, h)],
+      cursorsView(others, viewport.zoom, h),
+    ),
+  );
+
+/** The columns and their edges, and the other participants' cursors, with the chain of the hovered node, or else the selected one, highlighted. */
+export const canvasView = (
+  trace: Trace,
+  positions: Positions,
+  viewport: Viewport,
+  maybeActive: Option.Option<Node>,
+  others: ReadonlyArray<Participant>,
+  h: HtmlBuilder<Message>,
+): Html => {
+  // One chain per render: every node and edge reads it.
+  const maybeChain = Option.map(maybeActive, (active) => chainOf(trace, active));
+  // The canvas is the pane; the layer inside it holds everything that pans and zooms.
+  return h.div(
+    [
+      h.DataAttribute("canvas", ""),
+      h.Attribute(VIEWPORT_ATTRIBUTE, viewportAttribute(viewport)),
+      h.OnMount(PanZoomCanvas()),
+      h.Style({
+        height: "calc(100vh - 160px)",
+        "min-height": "320px",
+        overflow: "hidden",
+        position: "relative",
+      }),
+    ],
+    [canvasLayerView(trace, positions, viewport, maybeChain, others, h)],
+  );
+};

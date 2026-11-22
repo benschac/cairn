@@ -7,8 +7,11 @@ import { modifyFields } from "foldkit/struct";
 import demoTraceJson from "../src/demo-trace.json" with { type: "json" };
 import { demoTrace } from "../src/demo.ts";
 import { TraceNotDecoded, TraceNotLoaded, decodeTrace, describeTraceError } from "../src/load.ts";
-import { LoadTrace, Message, init, update, view } from "../src/main.ts";
+import { init } from "../src/init.ts";
+import { Message } from "../src/message.ts";
 import { TraceData } from "../src/model.ts";
+import { LoadTrace, update } from "../src/update.ts";
+import { view } from "../src/view/view.ts";
 import { mounted } from "./fixtures.ts";
 
 const columns = [

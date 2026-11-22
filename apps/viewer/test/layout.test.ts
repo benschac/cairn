@@ -1,8 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { Array, Number, Option, Record, Schema, Struct } from "effect";
 
-import { Rect } from "../src/curves.ts";
-import { measure } from "../src/layout.ts";
+import { Rect, measure } from "../src/geometry.ts";
 
 // Real screens stay far from the float limits, where sums overflow.
 const Pixels = Schema.Finite.check(Schema.isBetween({ maximum: 1e6, minimum: -1e6 }));
