@@ -1,4 +1,4 @@
-import { Result, Schema } from "effect";
+import { Array, Result, Schema, String } from "effect";
 
 import { SpecSectionId, TaskId } from "./ids.ts";
 
@@ -30,11 +30,14 @@ export const TrailerFailure = Schema.Literals([
 ]);
 export type TrailerFailure = typeof TrailerFailure.Type;
 
-export const TrailerError = Schema.Struct({
+/** Why a commit message's trailers were refused. */
+export class TrailerError extends Schema.TaggedError<
+  TrailerError,
+  { readonly brand: unique symbol }
+>()("TrailerError", {
   detail: Schema.String,
   reason: TrailerFailure,
-});
-export type TrailerError = typeof TrailerError.Type;
+}) {}
 
 export const formatTrailers = (trailers: Trailers): string =>
   [
@@ -45,28 +48,53 @@ export const formatTrailers = (trailers: Trailers): string =>
 
 const TRAILER_LINE = /^Cairn-(Task|Section|Session):[ \t]*(.*?)[ \t]*$/u;
 
+/** A `Cairn-<key>: <value>` line, or a failure for any other line. */
+const readTrailer = (line: string): Result.Result<{ key: string; value: string }, void> => {
+  const match = TRAILER_LINE.exec(line);
+  return match === null
+    ? Result.failVoid
+    : Result.succeed({ key: match[1] ?? "", value: match[2] ?? "" });
+};
+
+const refuse = (reason: TrailerFailure, detail: string) => new TrailerError({ detail, reason });
+
+/** The value of a trailer that has to appear exactly once. */
+const single = (
+  values: ReadonlyArray<string>,
+  key: string,
+  missing: TrailerFailure,
+  duplicate: TrailerFailure,
+): Result.Result<string, TrailerError> =>
+  Array.match(values, {
+    onEmpty: () => Result.fail(refuse(missing, `no Cairn-${key} trailer`)),
+    onNonEmpty: ([value, ...rest]) =>
+      Array.isReadonlyArrayNonEmpty(rest)
+        ? Result.fail(refuse(duplicate, `more than one Cairn-${key} trailer`))
+        : Result.succeed(value),
+  });
+
 const decodeTrailers = Schema.decodeUnknownResult(Trailers);
 
 /** Reads the Cairn trailers out of a commit message. Other lines are ignored. */
-export const parseTrailers = (message: string): Result.Result<Trailers, TrailerError> => {
-  const tasks: Array<string> = [];
-  const sections: Array<string> = [];
-  const sessions: Array<string> = [];
-  for (const line of message.split(/\r?\n/u)) {
-    const match = TRAILER_LINE.exec(line);
-    if (match === null) continue;
-    const [, key, value = ""] = match;
-    (key === "Task" ? tasks : key === "Section" ? sections : sessions).push(value);
-  }
-  const fail = (reason: TrailerFailure, detail: string) =>
-    Result.fail<TrailerError>({ detail, reason });
-  if (tasks.length === 0) return fail("missing-task", "no Cairn-Task trailer");
-  if (tasks.length > 1) return fail("duplicate-task", "more than one Cairn-Task trailer");
-  if (sessions.length === 0) return fail("missing-session", "no Cairn-Session trailer");
-  if (sessions.length > 1) return fail("duplicate-session", "more than one Cairn-Session trailer");
-  if (sections.length === 0) return fail("missing-section", "no Cairn-Section trailer");
-  return Result.mapError(
-    decodeTrailers({ sections, sessionId: sessions[0], taskId: tasks[0] }),
-    (error) => ({ detail: String(error), reason: "invalid" as const }),
-  );
-};
+export const parseTrailers = (message: string): Result.Result<Trailers, TrailerError> =>
+  Result.gen(function* () {
+    const found = Array.groupBy(
+      Array.filterMap(String.split(message, /\r?\n/u), readTrailer),
+      ({ key }) => key,
+    );
+    const values = (key: string) => Array.map(found[key] ?? [], ({ value }) => value);
+    const taskId = yield* single(values("Task"), "Task", "missing-task", "duplicate-task");
+    const sessionId = yield* single(
+      values("Session"),
+      "Session",
+      "missing-session",
+      "duplicate-session",
+    );
+    const sections = values("Section");
+    if (!Array.isReadonlyArrayNonEmpty(sections)) {
+      return yield* Result.fail(refuse("missing-section", "no Cairn-Section trailer"));
+    }
+    return yield* Result.mapError(decodeTrailers({ sections, sessionId, taskId }), (error) =>
+      refuse("invalid", error.message),
+    );
+  });

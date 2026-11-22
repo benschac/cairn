@@ -1,12 +1,14 @@
 import { expect, it } from "@effect/vitest";
 import { Exit, Schema } from "effect";
 
+import { SectionId } from "../src/ids.ts";
 import { Judgment } from "../src/judgments.ts";
 import { SectionStatus } from "../src/manifest.ts";
-import { Trace, TraceJson, TraceTask, TraceWarning } from "../src/trace.ts";
+import { Trace, TraceJson, TraceJudgment, TraceTask, TraceWarning } from "../src/trace.ts";
 
 const encode = Schema.encodeSync(TraceJson);
 const decode = Schema.decodeUnknownSync(TraceJson);
+const encodeTrace = Schema.encodeSync(Trace);
 const refused = (schema: Schema.Decoder<unknown>, input: unknown) =>
   Exit.isFailure(Schema.decodeUnknownExit(schema)(input));
 
@@ -16,40 +18,39 @@ it.prop("a trace survives a round trip through JSON", [Trace], ([trace]) => {
   expect(encode(decode(json))).toBe(json);
 });
 
-const baseTrace = (): Record<string, unknown> => ({
-  baseBranch: "main",
-  feature: "demo",
-  judgments: [],
-  prd: { markdown: "", path: ".cairn/prd.md", sections: [] },
-  sections: [],
-  spec: { markdown: "", path: ".cairn/spec.md", sections: [] },
-  tasks: [],
-  version: 1,
-  warnings: [],
-});
-
 it("a minimal trace decodes", () => {
-  expect(Exit.isSuccess(Schema.decodeUnknownExit(Trace)(baseTrace()))).toBe(true);
+  const minimal = {
+    baseBranch: "main",
+    feature: "demo",
+    judgments: [],
+    prd: { markdown: "", path: ".cairn/prd.md", sections: [] },
+    sections: [],
+    spec: { markdown: "", path: ".cairn/spec.md", sections: [] },
+    tasks: [],
+    version: 1,
+    warnings: [],
+  };
+  expect(refused(Trace, minimal)).toBe(false);
 });
 
-it.prop("every section status decodes", [SectionStatus], ([status]) => {
-  const input = { ...baseTrace(), sections: [{ id: "spec.a", status }] };
-  expect(Exit.isSuccess(Schema.decodeUnknownExit(Trace)(input))).toBe(true);
+it.prop(
+  "every section status decodes and an unknown one is refused",
+  [Trace, SectionId, SectionStatus],
+  ([trace, id, status]) => {
+    const encoded = encodeTrace(trace);
+    expect(refused(Trace, { ...encoded, sections: [{ id, status }] })).toBe(false);
+    expect(refused(Trace, { ...encoded, sections: [{ id, status: "merged" }] })).toBe(true);
+  },
+);
+
+it.prop("refuses a trace with a version other than 1", [Trace], ([trace]) => {
+  expect(refused(Trace, { ...encodeTrace(trace), version: 2 })).toBe(true);
 });
 
-it("refuses a section status that does not exist", () => {
-  const input = { ...baseTrace(), sections: [{ id: "spec.a", status: "merged" }] };
-  expect(refused(Trace, input)).toBe(true);
-});
-
-it("refuses a trace with a version other than 1", () => {
-  expect(refused(Trace, { ...baseTrace(), version: 2 })).toBe(true);
-});
-
-it("refuses a bad warning kind", () => {
-  const warning = { kind: "oops", message: "m", sha: null, taskId: null };
-  expect(refused(TraceWarning, warning)).toBe(true);
-  expect(refused(TraceWarning, { ...warning, kind: "unknown-task" })).toBe(false);
+it.prop("refuses a bad warning kind", [TraceWarning], ([warning]) => {
+  const encoded = Schema.encodeSync(TraceWarning)(warning);
+  expect(refused(TraceWarning, encoded)).toBe(false);
+  expect(refused(TraceWarning, { ...encoded, kind: "oops" })).toBe(true);
 });
 
 it.prop("a task keeps the manifest's fields and refuses them malformed", [TraceTask], ([task]) => {
@@ -72,21 +73,15 @@ it.prop(
   },
 );
 
-it("a judgment in a trace is refused when its verdict is unknown", () => {
-  const judgment = {
-    action: "none",
-    answer: { probability: 0.5 },
-    at: "2026-01-02T03:04:05.000Z",
-    inputHash: "a".repeat(64),
-    message: "m",
-    question: "size",
-    round: 1,
-    stale: false,
-    target: { kind: "stack" },
-    verdict: "pass",
-  };
-  const ok = { ...baseTrace(), judgments: [judgment] };
-  expect(refused(Trace, ok)).toBe(false);
-  expect(refused(Trace, { ...ok, judgments: [{ ...judgment, verdict: "maybe" }] })).toBe(true);
-  expect(refused(Trace, { ...ok, judgments: [{ ...judgment, inputHash: "xyz" }] })).toBe(true);
-});
+it.prop(
+  "a judgment in a trace is refused when its verdict or input hash is malformed",
+  [Trace, TraceJudgment],
+  ([trace, judgment]) => {
+    const encoded = Schema.encodeSync(TraceJudgment)(judgment);
+    const withJudgment = (j: object) => ({ ...encodeTrace(trace), judgments: [j] });
+    expect(refused(Trace, withJudgment(encoded))).toBe(false);
+    expect(refused(Trace, withJudgment({ ...encoded, verdict: "maybe" }))).toBe(true);
+    expect(refused(Trace, withJudgment({ ...encoded, inputHash: "xyz" }))).toBe(true);
+    expect(refused(Trace, withJudgment({ ...encoded, stale: "no" }))).toBe(true);
+  },
+);

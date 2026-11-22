@@ -1,9 +1,9 @@
-import { Schema, Struct } from "effect";
+import { Schema } from "effect";
 
 import { Event } from "./events.ts";
 import { PrdSectionId, SectionId, SpecSectionId, TaskId } from "./ids.ts";
 import { Judgment } from "./judgments.ts";
-import { GateReason, ManifestTask, SectionStatus, Slug, TaskStatus } from "./manifest.ts";
+import { HumanGate, ManifestTask, SectionStatus, Slug } from "./manifest.ts";
 import { SessionId, Sha } from "./trailers.ts";
 
 export const TraceSection = Schema.Struct({
@@ -41,17 +41,14 @@ export const TraceCommit = Schema.Struct({
 export type TraceCommit = typeof TraceCommit.Type;
 
 /** A manifest task as derived state: its status, gate and commits are computed, not snapshotted. */
-export const TraceTask = Schema.Struct({
-  ...Struct.omit(ManifestTask.fields, ["status", "commits"]),
-  commits: Schema.Array(TraceCommit),
-  events: Schema.Array(Event),
-  gate: Schema.Struct({
-    reasons: Schema.Array(GateReason),
-    required: Schema.Boolean,
+export const TraceTask = ManifestTask.pipe(
+  Schema.fieldsAssign({
+    commits: Schema.Array(TraceCommit),
+    events: Schema.Array(Event),
+    gate: HumanGate,
+    waiting: Schema.Boolean,
   }),
-  status: TaskStatus,
-  waiting: Schema.Boolean,
-});
+);
 export type TraceTask = typeof TraceTask.Type;
 
 export const TraceWarningKind = Schema.Literals([
@@ -72,10 +69,14 @@ export const TraceWarning = Schema.Struct({
 });
 export type TraceWarning = typeof TraceWarning.Type;
 
+/** A judgment with whether its input has changed since it was made. */
+export const TraceJudgment = Judgment.pipe(Schema.fieldsAssign({ stale: Schema.Boolean }));
+export type TraceJudgment = typeof TraceJudgment.Type;
+
 export const Trace = Schema.Struct({
   baseBranch: Schema.NonEmptyString,
   feature: Slug,
-  judgments: Schema.Array(Schema.Struct({ ...Judgment.fields, stale: Schema.Boolean })),
+  judgments: Schema.Array(TraceJudgment),
   prd: TraceDocument,
   sections: Schema.Array(Schema.Struct({ id: SectionId, status: SectionStatus })),
   spec: TraceDocument,

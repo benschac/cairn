@@ -29,7 +29,7 @@ export const JudgmentTarget = Schema.Union([
   Schema.Struct({ id: TaskId, kind: Schema.Literal("task") }),
   Schema.Struct({ kind: Schema.Literal("draft"), title: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("stack") }),
-]);
+]).pipe(Schema.toTaggedUnion("kind"));
 export type JudgmentTarget = typeof JudgmentTarget.Type;
 
 export const JudgmentQuestion = Schema.Literals([

@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Result, Schema } from "effect";
+import { Result, Schema, String } from "effect";
 
 import {
   PrdSectionId,
@@ -11,10 +11,11 @@ import {
   parseTrailers,
 } from "../src/index.ts";
 
-const failure = (message: string) => {
-  const result = parseTrailers(message);
-  return Result.isFailure(result) ? result.failure.reason : "parsed";
-};
+const failure = (message: string) =>
+  Result.match(parseTrailers(message), {
+    onFailure: (error) => error.reason,
+    onSuccess: () => "parsed",
+  });
 
 it.prop("formatting trailers then parsing them round-trips", [Trailers], ([trailers]) => {
   const message = `Add a thing\n\nBody text.\n\n${formatTrailers(trailers)}\n`;
@@ -40,12 +41,16 @@ it.prop("a message missing the task, session or sections is refused", [Trailers]
   );
 });
 
-it.prop("a session id that does not match is refused", [Schema.String], ([bad]) => {
-  if (!(!/^s_[a-z0-9]{6,}$/u.test(bad) && !bad.includes("\n") && bad.trim() === bad)) return;
-  expect(failure(`Cairn-Task: t1\nCairn-Section: spec.a\nCairn-Session: ${bad}`)).not.toBe(
-    "parsed",
-  );
-  expect(Schema.is(SessionId)(bad)).toBe(false);
+it.prop("a session id that does not match is refused", [Schema.String], ([text]) => {
+  for (const bad of [text, `s_${text}`]) {
+    // The spec of a session id, written out so that loosening SessionId fails this property.
+    if (/^s_[a-z0-9]{6,}$/u.test(bad) || String.includes("\n")(bad) || String.trim(bad) !== bad)
+      continue;
+    expect(failure(`Cairn-Task: t1\nCairn-Section: spec.a\nCairn-Session: ${bad}`)).not.toBe(
+      "parsed",
+    );
+    expect(Schema.is(SessionId)(bad)).toBe(false);
+  }
 });
 
 it("a session id is s_ then six or more lowercase letters or digits", () => {

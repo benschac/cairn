@@ -44,6 +44,13 @@ export const GateReason = Schema.Union([
 ]);
 export type GateReason = typeof GateReason.Type;
 
+/** Whether a task waits for a human before it lands, and why. */
+export const HumanGate = Schema.Struct({
+  reasons: Schema.Array(GateReason),
+  required: Schema.Boolean,
+});
+export type HumanGate = typeof HumanGate.Type;
+
 const BRANCH = /^[a-z0-9]+(?:-[a-z0-9]+)*\/\d{2,}-[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 
 export const ManifestTask = Schema.Struct({
@@ -51,10 +58,7 @@ export const ManifestTask = Schema.Struct({
   commits: Schema.Array(Sha),
   dependsOn: Schema.Array(TaskId),
   files: Schema.Array(Schema.String),
-  humanGate: Schema.Struct({
-    reasons: Schema.Array(GateReason),
-    required: Schema.Boolean,
-  }),
+  humanGate: HumanGate,
   id: TaskId,
   model: Schema.NonEmptyString,
   parent: Schema.NullOr(TaskId),
