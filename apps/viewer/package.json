@@ -13,11 +13,15 @@
     "@cairn/contract": "workspace:*",
     "@effect/platform-browser": "4.1.5",
     "effect": "catalog:",
-    "foldkit": "0.171.0"
+    "foldkit": "0.171.0",
+    "mdast-util-from-markdown": "2.1.0",
+    "mdast-util-gfm": "3.1.0",
+    "micromark-extension-gfm": "3.0.0"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@foldkit/vite-plugin": "0.29.1",
+    "@types/mdast": "4.0.4",
     "vite": "8.3.8",
     "vitest": "catalog:"
   }
