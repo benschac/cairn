@@ -73,26 +73,6 @@
       "sessions": []
     },
     {
-      "id": "t4",
-      "title": "Add PRD and spec section ID schemas",
-      "prdSections": ["prd.section-ids", "prd.contract-package"],
-      "specSections": ["spec.contract.section-ids"],
-      "files": ["packages/contract/src/index.ts", "packages/contract/test/section-id.test.ts"],
-      "branch": "cairn-mvp/04-section-id-schemas",
-      "parent": null,
-      "dependsOn": [],
-      "worktree": "wt-2",
-      "model": "haiku",
-      "reasoning": "low",
-      "humanGate": {
-        "required": false,
-        "reasons": []
-      },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
-    },
-    {
       "id": "t5",
       "title": "Add the failed status to the task machine",
       "prdSections": ["prd.orchestrator-contract", "prd.manifest-schema"],
@@ -124,21 +104,22 @@
       "files": [
         "packages/contract/src/manifest.ts",
         "packages/contract/src/index.ts",
-        "packages/contract/test/manifest.test.ts"
+        "packages/contract/test/manifest.test.ts",
+        "packages/core/test/task-machine.test.ts"
       ],
       "branch": "cairn-mvp/06-manifest-schema",
-      "parent": null,
-      "dependsOn": [],
-      "worktree": "wt-4",
+      "parent": "t9",
+      "dependsOn": ["t9"],
+      "worktree": "wt-7",
       "model": "sonnet",
       "reasoning": "low",
       "humanGate": {
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["76aa977d0837241dc3b74549b0327a5d2ae73749"],
+      "sessions": ["s_mm9ti7hg"]
     },
     {
       "id": "t7",
@@ -184,16 +165,17 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["c544bf24a0b817eddcf69272cd4fcb2202693542"],
+      "sessions": ["s_c8dwmnm7"]
     },
     {
       "id": "t9",
       "title": "Add the trailer and commit schemas",
-      "prdSections": ["prd.orchestrator-contract", "prd.contract-package"],
-      "specSections": ["spec.contract.trailers"],
+      "prdSections": ["prd.orchestrator-contract", "prd.contract-package", "prd.section-ids"],
+      "specSections": ["spec.contract.trailers", "spec.contract.section-ids"],
       "files": [
+        "packages/contract/src/ids.ts",
         "packages/contract/src/trailers.ts",
         "packages/contract/src/index.ts",
         "packages/contract/test/trailers.test.ts"
@@ -208,9 +190,9 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["c55fb232918d4f70cb931ab162a8d2f4f26742f1"],
+      "sessions": ["s_7cylsux8"]
     },
     {
       "id": "t10",
@@ -220,6 +202,7 @@
       "files": [
         "packages/contract/src/trace.ts",
         "packages/contract/src/index.ts",
+        "packages/contract/src/events.ts",
         "packages/contract/test/trace.test.ts"
       ],
       "branch": "cairn-mvp/10-trace-schema",
@@ -262,10 +245,15 @@
     },
     {
       "id": "t12",
-      "title": "Move the task machine to ManifestTask and an effective gate",
+      "title": "Move the task machine to ManifestTask and an effective gate, and remove Task",
       "prdSections": ["prd.orchestrator-contract", "prd.human-gates"],
       "specSections": ["spec.status.task-machine", "spec.contract.manifest"],
-      "files": ["packages/core/src/task-machine.ts", "packages/core/test/task-machine.test.ts"],
+      "files": [
+        "packages/core/src/task-machine.ts",
+        "packages/core/test/task-machine.test.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/task.test.ts"
+      ],
       "branch": "cairn-mvp/12-machine-manifest-task",
       "parent": null,
       "dependsOn": ["t5", "t6"],
@@ -282,12 +270,10 @@
     },
     {
       "id": "t13",
-      "title": "Move the viewer to ManifestTask and remove Task",
+      "title": "Move the viewer to ManifestTask",
       "prdSections": ["prd.manifest-schema", "prd.viewer"],
       "specSections": ["spec.viewer.model-and-messages", "spec.contract.manifest"],
       "files": [
-        "packages/contract/src/index.ts",
-        "packages/contract/test/task.test.ts",
         "apps/viewer/src/model.ts",
         "apps/viewer/src/main.ts",
         "apps/viewer/src/demo.ts",
@@ -987,9 +973,9 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["5bcf86940b291624f80e1e4c0cce5ed9437f3f98"],
+      "sessions": ["s_acsa6xwd"]
     },
     {
       "id": "t43",

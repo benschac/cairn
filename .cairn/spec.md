@@ -96,8 +96,11 @@ Everything a file in `.cairn/` holds is decoded through a schema here. A decode 
 ### Section IDs {#spec.contract.section-ids}
 
 - Implements: `prd.section-ids`
+- Files: `packages/contract/src/ids.ts`
 
 `SectionId` exists. Add `PrdSectionId` and `SpecSectionId`, which also check the prefix.
+
+`SectionId`, `TaskId` and the two prefixed IDs live in `ids.ts`, and `index.ts` re-exports them. Contract modules import IDs from `ids.ts`, never from `index.ts`, which re-exports them and would make a cycle. `TaskId` matches `^[A-Za-z0-9][A-Za-z0-9._-]*$`, so it survives a `Cairn-Task` trailer.
 
 ### Manifest {#spec.contract.manifest}
 
@@ -501,17 +504,9 @@ flowchart BT
     direction BT
     t2["t2 · 02-trace-store · GATE<br/>Add the trace store and its first migration<br/>wt-1"]
   end
-  subgraph s3["Stack 3 · contract"]
-    direction BT
-    t4["t4 · 04-section-id-schemas<br/>Add PRD and spec section ID schemas<br/>wt-2"]
-  end
   subgraph s4["Stack 4 · status"]
     direction BT
     t5["t5 · 05-failed-status<br/>Add the failed status to the task machine<br/>wt-3"]
-  end
-  subgraph s5["Stack 5 · contract"]
-    direction BT
-    t6["t6 · 06-manifest-schema<br/>Add the manifest schema<br/>wt-4"]
   end
   subgraph s6["Stack 6 · contract"]
     direction BT
@@ -524,11 +519,12 @@ flowchart BT
   subgraph s8["Stack 8 · contract"]
     direction BT
     t9["t9 · 09-trailer-schema<br/>Add the trailer and commit schemas<br/>wt-7"]
+    t6["t6 · 06-manifest-schema<br/>Add the manifest schema<br/>wt-7"]
   end
   subgraph s9["Stack 9 · contract"]
     direction BT
     t10["t10 · 10-trace-schema<br/>Add the Trace schema<br/>wt-7"]
-    t13["t13 · 13-viewer-manifest-task<br/>Move the viewer to ManifestTask and remove Task<br/>wt-7"]
+    t13["t13 · 13-viewer-manifest-task<br/>Move the viewer to ManifestTask<br/>wt-7"]
     t43["t43 · 43-chain-of<br/>Add chainOf for linked sections and tasks<br/>wt-7"]
     t44["t44 · 44-demo-trace<br/>Add a demo trace built from this repo<br/>wt-14"]
   end
@@ -543,7 +539,7 @@ flowchart BT
   end
   subgraph s11["Stack 11 · status"]
     direction BT
-    t12["t12 · 12-machine-manifest-task<br/>Move the task machine to ManifestTask and an effective gate<br/>wt-4"]
+    t12["t12 · 12-machine-manifest-task<br/>Move the task machine to ManifestTask and an effective gate, and remove Task<br/>wt-4"]
   end
   subgraph s12["Stack 12 · contract"]
     direction BT
@@ -664,15 +660,14 @@ flowchart BT
   main --> t1
   main --> t2
   t1 --> t3
-  main --> t4
   main --> t5
-  main --> t6
   main --> t7
   main --> t8
   main --> t9
   t6 -.-> t10
   t8 -.-> t10
   t9 -.-> t10
+  t9 --> t6
   main --> t11
   t5 -.-> t12
   t6 -.-> t12
@@ -762,7 +757,7 @@ flowchart BT
   t54 --> t67
   class t1,t3,t20,t31,t32,t58,t60,t62 opus
   class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67 sonnet
-  class t4,t11,t24,t27,t44,t56,t66 haiku
+  class t11,t24,t27,t44,t56,t66 haiku
   class t1,t2,t3 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
   classDef sonnet fill:#2563eb,color:#ffffff,stroke:#1e3a8a
