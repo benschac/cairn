@@ -27,6 +27,15 @@ export type StackPosition = typeof StackPosition.Type;
 /** Every task's position, by task id. */
 export type StackLayout = Record.ReadonlyRecord<TaskId, StackPosition>;
 
+/** A task's column in the layout, or column 1 for an id the layout does not place. */
+export const columnOf =
+  (layout: StackLayout) =>
+  (taskId: TaskId): number =>
+    Option.match(Record.get(layout, taskId), {
+      onNone: () => 1,
+      onSome: (position) => position.column,
+    });
+
 /** Orders task ids by their number, so `t2` comes before `t10`. */
 export const TaskIdOrder: Order.Order<TaskId> = Order.make((self, that) =>
   String.localeCompare(that, ["en"], { numeric: true })(self),

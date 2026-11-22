@@ -7,10 +7,11 @@ import type { Attribute, Document, Html, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
 import { modifyFields } from "foldkit/struct";
 
+import { curvesOf, Positions, type EdgeKind } from "./curves.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { TraceData, type Model } from "./model.ts";
-import { stackLayoutOf, type StackPosition } from "./stacks.ts";
+import { columnOf, stackLayoutOf, type StackPosition } from "./stacks.ts";
 import {
   Node,
   chainOf,
@@ -25,6 +26,7 @@ export const Message = defineMessageUnion({
   ClickedNode: { node: Node },
   HoveredNode: { node: Node },
   LeftNode: {},
+  MeasuredLayout: { positions: Positions },
   ReceivedPresence: { presence: Presence },
   SettledLoadTrace: { result: Schema.Result(Schema.toType(Trace), Schema.String) },
 });
@@ -47,6 +49,9 @@ export const update = (model: Model, message: Message) =>
       model: modifyFields(model, { maybeHovered: () => Option.some(node) }),
     }),
     LeftNode: () => ({ model: modifyFields(model, { maybeHovered: () => Option.none() }) }),
+    MeasuredLayout: ({ positions }) => ({
+      model: modifyFields(model, { positions: () => positions }),
+    }),
     ReceivedPresence: ({ presence }) => ({
       model: modifyFields(model, {
         participants: () => presence.participants,
@@ -73,6 +78,7 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
     maybeHovered: Option.none(),
     maybeSelected: Option.none(),
     participants: [],
+    positions: {},
     trace: TraceData.Loading(),
     you: Option.none(),
   },
@@ -226,13 +232,70 @@ const stacksView = (
   );
 };
 
-/** The columns, with the chain of the hovered node, or else the selected one, highlighted. */
+const edgeColor = {
+  dependency: "#b45309",
+  implements: "#64748b",
+  parent: "#334155",
+  specifies: "#0f766e",
+} satisfies Record.ReadonlyRecord<EdgeKind, string>;
+
+/**
+ * One SVG path per curve between measured nodes. While a chain is active an edge with both ends
+ * in it is highlighted and every other edge is dimmed.
+ */
+const edgesView = (
+  trace: Trace,
+  positions: Positions,
+  maybeChain: Option.Option<Chain>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.svg(
+    [
+      h.DataAttribute("edges", ""),
+      h.Style({
+        height: "100%",
+        inset: "0",
+        overflow: "visible",
+        "pointer-events": "none",
+        position: "absolute",
+        width: "100%",
+      }),
+    ],
+    Array.map(curvesOf(trace, positions, columnOf(stackLayoutOf(trace.tasks))), (curve) => {
+      // None while no chain is active; otherwise whether both ends are in it.
+      const maybeInChain = Option.map(
+        maybeChain,
+        (chain) => isInChain(chain, curve.source) && isInChain(chain, curve.target),
+      );
+      return h.path(
+        Array.flatten([
+          [h.DataAttribute("edge", curve.id), h.DataAttribute("kind", curve.kind)],
+          Array.fromOption(
+            Option.map(maybeInChain, (inChain) =>
+              h.DataAttribute(inChain ? "highlighted" : "dimmed", "true"),
+            ),
+          ),
+          [
+            h.D(curve.path),
+            h.Fill("none"),
+            h.Stroke(edgeColor[curve.kind]),
+            h.StrokeWidth(Option.contains(maybeInChain, true) ? "2.5" : "1.5"),
+            h.Opacity(Option.contains(maybeInChain, false) ? "0.15" : "1"),
+          ],
+          curve.dashed ? [h.StrokeDasharray("6 4")] : [],
+        ]),
+      );
+    }),
+  );
+
+/** The columns and their edges, with the chain of the hovered node, or else the selected one, highlighted. */
 const columnsView = (
   trace: Trace,
+  positions: Positions,
   maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
-  // One chain per render: every node reads it.
+  // One chain per render: every node and edge reads it.
   const maybeChain = Option.map(maybeActive, (active) => chainOf(trace, active));
   const sectionAttributes = (sectionId: SectionId) =>
     nodeAttributes(maybeChain, { id: sectionId, kind: "section" }, h);
@@ -249,36 +312,48 @@ const columnsView = (
         ),
       ),
     );
+  // The canvas is the pane; the layer inside it holds everything that pans and zooms.
   return h.div(
+    [h.DataAttribute("canvas", ""), h.Style({ position: "relative" })],
     [
-      h.Style({
-        display: "grid",
-        gap: "24px",
-        "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)",
-      }),
-    ],
-    [
-      column(
-        "prd",
+      h.div(
+        [h.DataAttribute("canvas-layer", ""), h.Style({ position: "relative" })],
         [
-          renderMarkdown(trace.prd.markdown, h, {
-            attributesOf: sectionAttributes,
-            decorate: badged,
-          }),
+          h.div(
+            [
+              h.Style({
+                display: "grid",
+                gap: "24px",
+                "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)",
+              }),
+            ],
+            [
+              column(
+                "prd",
+                [
+                  renderMarkdown(trace.prd.markdown, h, {
+                    attributesOf: sectionAttributes,
+                    decorate: badged,
+                  }),
+                ],
+                h,
+              ),
+              column(
+                "spec",
+                [
+                  renderMarkdown(trace.spec.markdown, h, {
+                    attributesOf: sectionAttributes,
+                    decorate: specDecorated,
+                  }),
+                ],
+                h,
+              ),
+              column("stacks", [stacksView(trace, maybeChain, h)], h),
+            ],
+          ),
+          edgesView(trace, positions, maybeChain, h),
         ],
-        h,
       ),
-      column(
-        "spec",
-        [
-          renderMarkdown(trace.spec.markdown, h, {
-            attributesOf: sectionAttributes,
-            decorate: specDecorated,
-          }),
-        ],
-        h,
-      ),
-      column("stacks", [stacksView(trace, maybeChain, h)], h),
     ],
   );
 };
@@ -294,9 +369,12 @@ const traceView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> =
     onFailure: (error) => [alertView(error, h)],
     onIdle: () => [loadingView(h)],
     onLoading: () => [loadingView(h)],
-    onRefreshing: (data) => [columnsView(data, maybeActive, h)],
-    onStale: ({ data, error }) => [alertView(error, h), columnsView(data, maybeActive, h)],
-    onSuccess: (data) => [columnsView(data, maybeActive, h)],
+    onRefreshing: (data) => [columnsView(data, model.positions, maybeActive, h)],
+    onStale: ({ data, error }) => [
+      alertView(error, h),
+      columnsView(data, model.positions, maybeActive, h),
+    ],
+    onSuccess: (data) => [columnsView(data, model.positions, maybeActive, h)],
   });
 };
 

@@ -24,9 +24,10 @@ import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
 import { Message, init, update, view } from "../src/main.ts";
+import { curvesOf, type Positions } from "../src/curves.ts";
 import { TraceData } from "../src/model.ts";
-import { stackLayoutOf } from "../src/stacks.ts";
-import { chainOf, sectionStatusOf, type Chain, type Node } from "../src/trace.ts";
+import { columnOf, stackLayoutOf } from "../src/stacks.ts";
+import { chainOf, isInChain, sectionStatusOf, type Chain, type Node } from "../src/trace.ts";
 
 const loaded = modifyFields(init().model, {
   trace: () => TraceData.Success({ data: demoTrace }),
@@ -296,5 +297,109 @@ it("hovering something else previews it over the selection", () => {
     expect(task(chainTask)).toHaveAttr("data-dimmed", "true"),
     left,
     highlighted(task(chainTask)),
+  );
+});
+
+// Scene tests cannot lay anything out, so give every node a box and let the curves follow.
+const boxes: Positions = Record.fromEntries(
+  Array.map(
+    Array.flatten<ReadonlyArray<ReadonlyArray<string>>>([
+      Array.map(demoTrace.prd.sections, (section) => section.id),
+      Array.map(demoTrace.spec.sections, (section) => section.id),
+      Array.map(demoTrace.tasks, (candidate) => candidate.id),
+    ]),
+    (key, index) =>
+      [
+        key,
+        { height: 20, width: 100, x: (index % 7) * 130, y: Math.floor(index / 7) * 60 },
+      ] as const,
+  ),
+);
+const allCurves = curvesOf(demoTrace, boxes, columnOf(stackLayoutOf(demoTrace.tasks)));
+const measured = Subscription.emit(Message.MeasuredLayout({ positions: boxes }));
+const edge = (id: string) => selector(`[data-edge="${id}"]`);
+// An edge counts as in the chain only when both of its ends are, so these straddle it.
+const straddling = (sourceIn: boolean) =>
+  Array.findFirst(
+    allCurves,
+    (curve) =>
+      isInChain(chain, curve.source) === sourceIn && isInChain(chain, curve.target) !== sourceIn,
+  );
+const { dashedCurve, enteringChain, insideChain, leavingChain, outsideChain, solidCurve } =
+  Option.getOrThrowWith(
+    Option.all({
+      dashedCurve: Array.findFirst(allCurves, (curve) => curve.dashed),
+      enteringChain: straddling(false),
+      leavingChain: straddling(true),
+      insideChain: Array.findFirst(
+        allCurves,
+        (curve) => curve.kind === "specifies" && curve.source.id === specSection.id,
+      ),
+      outsideChain: Array.findFirst(
+        allCurves,
+        (curve) => curve.source.id === unrelated || curve.target.id === unrelated,
+      ),
+      solidCurve: Array.findFirst(allCurves, (curve) => curve.kind === "specifies"),
+    }),
+    () => new Error("the demo trace lacks the edges the curve scenes need"),
+  );
+
+it("the columns sit inside one canvas layer that also holds the edges", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    expect(selector("[data-canvas] [data-canvas-layer]")).toExist(),
+    expect(selector("[data-canvas-layer] [data-column]")).toExist(),
+    expect(selector("[data-canvas-layer] [data-edges]")).toExist(),
+    expect(selector("[data-edges]")).toHaveStyle("pointer-events", "none"),
+  );
+});
+
+it("with nothing measured no edge is drawn", () => {
+  scene({ update, view }, given(loaded), expect(selector("[data-edge]")).toBeAbsent());
+});
+
+it("measured nodes get a path per link, dashed only across columns", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    measured,
+    expect(edge(solidCurve.id)).toHaveAttr("data-kind", solidCurve.kind),
+    expect(edge(solidCurve.id)).toHaveAttr("d", solidCurve.path),
+    expect(selector(`[data-edge="${solidCurve.id}"][stroke-dasharray]`)).toBeAbsent(),
+    expect(edge(dashedCurve.id)).toHaveAttr("data-kind", "dependency"),
+    expect(edge(dashedCurve.id)).toHaveAttr("stroke-dasharray", "6 4"),
+    expect(selector("[data-edge][data-highlighted]")).toBeAbsent(),
+    expect(selector("[data-edge][data-dimmed]")).toBeAbsent(),
+  );
+});
+
+it("a measurement replaces the previous one, and edges to unmeasured nodes are not drawn", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    measured,
+    expect(edge(solidCurve.id)).toExist(),
+    Subscription.emit(Message.MeasuredLayout({ positions: {} })),
+    expect(selector("[data-edge]")).toBeAbsent(),
+  );
+});
+
+it("hovering a chain highlights its edges and dims the others; leaving clears", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    measured,
+    hover(heading(specSection.id)),
+    expect(edge(insideChain.id)).toHaveAttr("data-highlighted", "true"),
+    expect(edge(outsideChain.id)).toHaveAttr("data-dimmed", "true"),
+    expect(edge(outsideChain.id)).toHaveAttr("opacity", "0.15"),
+    expect(edge(leavingChain.id)).toHaveAttr("data-dimmed", "true"),
+    expect(edge(enteringChain.id)).toHaveAttr("data-dimmed", "true"),
+    expect(edge(insideChain.id)).toHaveAttr("stroke-width", "2.5"),
+    expect(selector(`[data-edge="${insideChain.id}"][data-dimmed]`)).toBeAbsent(),
+    left,
+    expect(selector("[data-edge][data-highlighted]")).toBeAbsent(),
+    expect(selector("[data-edge][data-dimmed]")).toBeAbsent(),
   );
 });
