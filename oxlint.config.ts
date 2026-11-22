@@ -10,7 +10,7 @@ export default defineConfig({
     perf: "error",
     suspicious: "error",
   },
-  ignorePatterns: ["**/dist/**", "**/node_modules/**", ".claude/**"],
+  ignorePatterns: ["**/dist/**", "**/node_modules/**", ".claude/**", ".agent_sources/**"],
   jsPlugins: [fromCore.resolve("@xstate/effect/oxlint")],
   options: {
     typeAware: true,

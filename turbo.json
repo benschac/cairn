@@ -30,6 +30,30 @@
       "inputs": ["scripts/land/**", "package.json"],
       "outputs": []
     },
+    "//#check:effect-api": {
+      "inputs": [
+        "scripts/effect-api/**",
+        ".agent_sources/effect/index.md",
+        ".agent_sources/effect/core-index.md",
+        "package.json",
+        "apps/*/package.json",
+        "packages/*/package.json",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml"
+      ],
+      "outputs": []
+    },
+    "//#check:xstate-docs": {
+      "inputs": [
+        "scripts/agent-sources/**",
+        ".agent_sources/xstate/**",
+        ".agent_sources/xstate-effect/**",
+        "packages/core/package.json",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml"
+      ],
+      "outputs": []
+    },
     "//#lint": {
       "outputs": []
     },

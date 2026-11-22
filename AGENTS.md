@@ -8,13 +8,45 @@ hand in the format `cairn plan` will produce.
 
 ## Before building anything
 
-Read <https://ratstack.sh/llms.txt>. It is the reference for this stack:
-Cloudflare, Alchemy, Foldkit and Effect, with XState machines and Effect Schema.
-Take the piece the task needs and leave the rest. Do not copy rat-stack.
+Ratstack is the reference for this stack: Cloudflare, Alchemy, Foldkit and
+Effect, with XState machines and Effect Schema. Take the piece the task needs
+and leave the rest. Do not copy rat-stack.
 
 Effect, XState 6 and `@xstate/effect` change quickly. Read the installed source
-and docs under `node_modules` (`effect/AGENTS.md`, `xstate/docs`,
-`@xstate/effect/README.md`) instead of trusting memory.
+and docs under `node_modules` instead of trusting memory.
+[.agent_sources/README.md](.agent_sources/README.md) is the way in:
+
+| Need                     | Start here                                                                                                             |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Any Effect module        | `.agent_sources/effect/index.md`, then `core-index.md` for an export's line range in `node_modules/effect/dist/*.d.ts` |
+| A native pattern         | `.agent_sources/effect/native-to-effect.md`: the Effect replacement for a loop, comparator, `Set`, `JSON`, `Date`, ... |
+| Effect idioms            | `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/src/`                                                 |
+| XState, `@xstate/effect` | `.agent_sources/xstate/index.md`, `.agent_sources/xstate-effect/index.md`                                              |
+| Ratstack patterns        | `.agent_sources/ratstack/README.md`: offline `llms.txt` and `llms-full.txt` with line-range indexes                    |
+| Upstream source          | `.agent_sources/github.com/`: full clones of effect, xstate, rat-stack, foldkit, alchemy (gitignored)                  |
+
+`.agent_sources` is hidden: name its path to `rg` or pass `--hidden`. Do not
+read a whole cached document; search its index and read the line range.
+
+## Effect core modules
+
+Use as much of Effect as the task allows. Before writing a helper, search the
+lookup: Effect probably already has it.
+
+- Use the core modules (`Array`, `Order`, `Option`, `Record`, `Number`,
+  `String`, `Match`, `Predicate`, `Schema`) and `Effect.forEach` instead of
+  native sort comparators, `new Set` dedupe, `Math.max(...xs)`, hand-written
+  clamps or case conversions, `JSON.parse`, or `for` loops that push or
+  `yield*`.
+- Read the declaration and JSDoc of each export you call. Do not write a
+  signature from memory.
+- A script under `scripts/` is an Effect program run by `NodeRuntime.runMain`
+  with `NodeServices.layer`; see `scripts/land/land.ts`.
+- After an Effect upgrade or a new `@effect/*` dependency, run
+  `node scripts/effect-api/refresh-effect-api.ts` and
+  `node scripts/effect-api/index-effect-core.ts`; after an XState upgrade,
+  `node scripts/agent-sources/index-xstate-docs.ts`. `pnpm check` fails on
+  a stale index.
 
 ## How work gets checked
 

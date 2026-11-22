@@ -1,0 +1,30 @@
+{
+  "ratstack-guide": {
+    "url": "https://ratstack.sh/llms.txt",
+    "fetchedAt": "2026-11-17T17:19:35.710Z",
+    "retrieval": "imported-download; timestamp supplied by caller",
+    "sha256": "afc49dfa475519b189f063f87d19e8f5f695c85d6503f16ae6d8f438a98b07de",
+    "bytes": 62237,
+    "package": null,
+    "targetPackageVersion": null,
+    "upstreamVersion": null,
+    "upstreamRevision": null,
+    "compatibility": "Unversioned website snapshot. Cairn uses the same stack (Effect, XState, Foldkit, Alchemy, Cloudflare) at the versions its manifests pin; check the installed packages before applying an example.",
+    "document": "ratstack/guide.txt",
+    "index": "ratstack/guide-index.md"
+  },
+  "ratstack": {
+    "url": "https://ratstack.sh/llms-full.txt",
+    "fetchedAt": "2026-11-17T17:19:35.710Z",
+    "retrieval": "imported-download; timestamp supplied by caller",
+    "sha256": "43b7647a515007561cf1a0211e59f58e5c3e227e885b70f01fda18ddc93e27d4",
+    "bytes": 2460521,
+    "package": null,
+    "targetPackageVersion": null,
+    "upstreamVersion": null,
+    "upstreamRevision": null,
+    "compatibility": "Unversioned website snapshot. Cairn uses the same stack (Effect, XState, Foldkit, Alchemy, Cloudflare) at the versions its manifests pin; check the installed packages before applying an example.",
+    "document": "ratstack/docs.txt",
+    "index": "ratstack/index.md"
+  }
+}

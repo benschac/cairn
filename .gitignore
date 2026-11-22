@@ -8,5 +8,6 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .claude/settings.local.json
-# Upstream sources fetched for agents to read; they carry their own lint configs.
-.agent_sources/
+# Full upstream clones for agents to read; they carry their own lint configs. The
+# generated indexes beside them in .agent_sources/ are tracked.
+.agent_sources/github.com/

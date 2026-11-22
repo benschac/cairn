@@ -11,6 +11,11 @@
           "@effect/platform-node/NodeServices",
           "effect/cli/Command",
           "effect/cli/Flag",
+          "effect/crypto/Digest",
+          "effect/encoding/Yaml",
+          "effect/http/FetchHttpClient",
+          "effect/http/HttpClient",
+          "effect/FileSystem",
           "effect/Path",
           "effect/process/ChildProcess",
           "effect/process/ChildProcessSpawner"
