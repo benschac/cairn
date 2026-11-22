@@ -8,3 +8,5 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .claude/settings.local.json
+# Upstream sources fetched for agents to read; they carry their own lint configs.
+.agent_sources/

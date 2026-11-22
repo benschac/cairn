@@ -1,4 +1,22 @@
 {
   "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "ignoreEffectWarningsInTscExitCode": false,
+        "allowedUnstableApis": [
+          "@effect/vitest",
+          "@effect/platform-node/NodeRuntime",
+          "@effect/platform-node/NodeServices",
+          "effect/cli/Command",
+          "effect/cli/Flag",
+          "effect/Path",
+          "effect/process/ChildProcess",
+          "effect/process/ChildProcessSpawner"
+        ]
+      }
+    ]
+  },
   "include": ["scripts", "*.config.ts"]
 }

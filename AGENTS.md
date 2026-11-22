@@ -31,7 +31,7 @@ It runs these through Turborepo, which reruns only what a change affects:
 | Types  | `effect-tsgo tsc --noEmit`  | Strict TypeScript 7 plus the Effect language-service diagnostics, in every package and in the root scripts. An Effect warning fails the run. |
 | Lint   | `oxlint`                    | Type-aware Oxlint, including the `@xstate/effect` rule against inline Effects in machines.                                                   |
 | Format | `oxfmt --check`             | Formatting. `pnpm fix` rewrites files.                                                                                                       |
-| Tests  | `vitest run`, `node --test` | Each package's tests, and the tests for the hook guard in `scripts/guard`.                                                                   |
+| Tests  | `vitest run`, `node --test` | Each package's tests, and the tests for the hook guard in `scripts/guard` and the stack planner in `scripts/land`.                           |
 | Build  | `vite build`                | The viewer bundles.                                                                                                                          |
 
 A lefthook `pre-commit` hook runs `pnpm check` on every commit. A commit that
@@ -73,6 +73,22 @@ still honours `--no-verify`. CI in `.github/workflows/ci.yml` runs
 
 VISION.md lists the package still to come (`adapters`). Add it when the work
 needs it.
+
+## Landing a stack
+
+`pnpm land --branch <top branch>` reports whether a stack of pull requests can
+land on `main` with one fast-forward push, and what blocks each one. Without
+`--push` it changes nothing.
+
+- Do not pass `--push` or add the `reviewed` label unless the owner asks for
+  it in the current conversation. The label is the owner's record that they
+  reviewed that pull request; GitHub does not let an author approve their own.
+- When the stack does not sit on the current `main`, rebase and resubmit it,
+  then wait for the checks before landing.
+- Restack by rebasing (`gt restack`), never by merging a base branch or `main`
+  into a pull request. Landing fast-forwards `main`, so a merge commit would
+  replace the pull request's own commit titles and messages in the history; the
+  script refuses a stack that contains one.
 
 ## Running it
 
