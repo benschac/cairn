@@ -1,4 +1,4 @@
-import { Presence, Trace } from "@cairn/contract";
+import { Presence, Sha, Trace } from "@cairn/contract";
 import type { Participant, ParticipantKind, SectionId, SectionStatus } from "@cairn/contract";
 import { Array, Effect, Match, Number, Option, Record, Schema } from "effect";
 import { AsyncData, Command } from "foldkit";
@@ -19,6 +19,7 @@ import {
   type Viewport,
 } from "./canvas.ts";
 import { curvesOf, Positions, type EdgeKind } from "./curves.ts";
+import { drawerView, type DrawerMessages } from "./drawer.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { TraceData, type Model } from "./model.ts";
@@ -35,8 +36,10 @@ import {
 
 export const Message = defineMessageUnion({
   ...canvasMessages,
+  ClickedCommit: { sha: Sha },
   ClickedFit: {},
   ClickedNode: { node: Node },
+  ClosedDrawer: {},
   HoveredNode: { node: Node },
   LeftNode: {},
   MeasuredLayout: { positions: Positions },
@@ -49,6 +52,9 @@ const nodeEquivalence = Schema.toEquivalence(Node);
 
 export const update = (model: Model, message: Message) =>
   Message.match<Update.Return<Model, Message>>(message, {
+    ClickedCommit: ({ sha }) => ({
+      model: modifyFields(model, { maybeCommit: () => Option.some(sha) }),
+    }),
     // Fit frames every measured node in the pane; until both are known it does nothing.
     ClickedFit: () =>
       Option.match(Option.all({ bounds: boundsOf(model.positions), pane: model.maybePane }), {
@@ -59,13 +65,22 @@ export const update = (model: Model, message: Message) =>
           }),
         }),
       }),
-    // Clicking the selected node clears the selection; clicking any other node selects it.
+    // Clicking a node opens its drawer. Clicking the selected node clears the selection;
+    // clicking any other node selects it.
     ClickedNode: ({ node }) => ({
       model: modifyFields(model, {
+        maybeCommit: () => Option.none(),
+        maybeDrawer: () => Option.some(node),
         maybeSelected: (maybeSelected) =>
           Option.exists(maybeSelected, (selected) => nodeEquivalence(selected, node))
             ? Option.none()
             : Option.some(node),
+      }),
+    }),
+    ClosedDrawer: () => ({
+      model: modifyFields(model, {
+        maybeCommit: () => Option.none(),
+        maybeDrawer: () => Option.none(),
       }),
     }),
     HoveredNode: ({ node }) => ({
@@ -104,6 +119,8 @@ export const LoadTrace = Command.define("LoadTrace", {
 export const init: Runtime.ApplicationInit<Model, Message> = () => ({
   commands: [LoadTrace()],
   model: {
+    maybeCommit: Option.none(),
+    maybeDrawer: Option.none(),
     maybeHovered: Option.none(),
     maybePane: Option.none(),
     maybeSelected: Option.none(),
@@ -426,6 +443,45 @@ const columnsView = (
   );
 };
 
+const drawerMessages: DrawerMessages<Message> = {
+  onClickCommit: (sha) => Message.ClickedCommit({ sha }),
+  onClickTask: (id) => Message.ClickedNode({ node: { id, kind: "task" } }),
+  onClose: Message.ClosedDrawer(),
+};
+
+/** In the demo the commit is already in the trace, so its detail is its subject and files. */
+const commitDetailView = (trace: Trace, sha: Sha, h: HtmlBuilder<Message>): Option.Option<Html> =>
+  Option.map(
+    Array.findFirst(
+      Array.flatMap(trace.tasks, (task) => task.commits),
+      (commit) => commit.sha === sha,
+    ),
+    (commit) =>
+      h.section(
+        [h.DataAttribute("commit-detail", commit.sha)],
+        [
+          h.h3([], [commit.subject]),
+          h.ul(
+            [],
+            Array.map(commit.files, (file) => h.li([], [file])),
+          ),
+        ],
+      ),
+  );
+
+/** The open drawer and, below it, the commit clicked in it; nothing while the drawer is closed. */
+const drawerViews = (model: Model, trace: Trace, h: HtmlBuilder<Message>): ReadonlyArray<Html> =>
+  Option.match(model.maybeDrawer, {
+    onNone: () => [],
+    onSome: (node) =>
+      Array.prepend(
+        Array.fromOption(
+          Option.flatMap(model.maybeCommit, (sha) => commitDetailView(trace, sha, h)),
+        ),
+        drawerView(trace, node, h, drawerMessages),
+      ),
+  });
+
 const loadingView = (h: HtmlBuilder<Message>): Html =>
   h.p([h.DataAttribute("loading", "")], ["Loading the trace..."]);
 
@@ -444,11 +500,12 @@ const traceView = (
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => {
   const maybeActive = Option.orElse(model.maybeHovered, () => model.maybeSelected);
-  // The Fit button and the canvas, shown whenever there is a trace to pan over.
-  const canvas = (trace: Trace): ReadonlyArray<Html> => [
-    fitButton(h),
-    columnsView(trace, model.positions, model.viewport, maybeActive, others, h),
-  ];
+  // The Fit button, the canvas and the drawer, shown whenever there is a trace to pan over.
+  const canvas = (trace: Trace): ReadonlyArray<Html> =>
+    Array.appendAll(
+      [fitButton(h), columnsView(trace, model.positions, model.viewport, maybeActive, others, h)],
+      drawerViews(model, trace, h),
+    );
   return AsyncData.match(model.trace, {
     onFailure: (error) => [alertView(error, h)],
     onIdle: () => [loadingView(h)],

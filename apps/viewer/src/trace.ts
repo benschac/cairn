@@ -157,20 +157,16 @@ const markOrder: Order.Order<JudgmentMark> = Order.combine(
   Order.mapInput(Order.Boolean, (mark: JudgmentMark) => mark.stale),
 );
 
+/** The judgments about a node: those whose section or task target has the node's id. */
+export const judgmentsOf = (trace: Trace, node: Node): ReadonlyArray<TraceJudgment> =>
+  Array.filter(trace.judgments, (judgment) => judges(judgment.target, node));
+
 /**
  * The judgment marker for a spec section or task: its worst judgment that is not a pass,
  * with `flag` ahead of `unsure`. A fresh judgment wins over a stale one of the same verdict.
  */
 export const judgmentMarkOf = (trace: Trace, node: Node): Option.Option<JudgmentMark> =>
-  Array.match(
-    Array.getSomes(
-      Array.map(
-        Array.filter(trace.judgments, (judgment) => judges(judgment.target, node)),
-        markOf,
-      ),
-    ),
-    {
-      onEmpty: () => Option.none(),
-      onNonEmpty: (marks) => Option.some(Array.min(marks, markOrder)),
-    },
-  );
+  Array.match(Array.getSomes(Array.map(judgmentsOf(trace, node), markOf)), {
+    onEmpty: () => Option.none(),
+    onNonEmpty: (marks) => Option.some(Array.min(marks, markOrder)),
+  });
