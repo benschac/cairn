@@ -1073,7 +1073,7 @@ Each judgment in the `Trace` carries `stale: boolean`. The server recomputes `in
 - Files: `apps/viewer/src/model.ts`, `apps/viewer/src/main.ts`, `apps/viewer/src/trace.ts`, `apps/viewer/src/load.ts`, `apps/viewer/src/stacks.ts`
 - Depends on: `spec.contract.trace`, `spec.viewer.markdown-rendering`
 
-The model holds the trace, the hovered node, the selected node, the drawer, the measured node positions and the canvas viewport. Messages: `SettledLoadTrace`, `HoveredNode`, `LeftNode`, `ClickedNode`, `ClickedCommit`, `ReceivedCommit`, `ClosedDrawer`, `MeasuredLayout`, `PannedOrZoomed`, `MeasuredPane`, `ClickedFit`.
+The model holds the trace, the hovered node, the drawer, the measured node positions and the canvas viewport. The drawer is closed, or open on a node with the commit clicked in it; the open drawer's node is the selection, so clicking that node again closes the drawer. Messages: `SettledLoadTrace`, `HoveredNode`, `LeftNode`, `ClickedNode`, `ClickedDrawerTask`, `ClickedCommit`, `ReceivedCommit`, `ClickedCloseDrawer`, `MeasuredLayout`, `PannedOrZoomed`, `MeasuredPane`, `ClickedFit`.
 
 `chainOf(trace, node)` is pure: the PRD sections, spec sections and tasks linked to a node, in both directions. Hovering highlights the chain; clicking selects it.
 

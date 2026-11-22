@@ -1,4 +1,4 @@
-import { Presence, Sha, Trace } from "@cairn/contract";
+import { Presence, Sha, TaskId, Trace } from "@cairn/contract";
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 
@@ -6,10 +6,13 @@ import { Positions, Size, Viewport } from "./geometry.ts";
 import { Node } from "./trace.ts";
 
 export const Message = defineMessageUnion({
+  /** The drawer's Close button. */
+  ClickedCloseDrawer: {},
   ClickedCommit: { sha: Sha },
+  /** A task listed in a section's drawer. */
+  ClickedDrawerTask: { id: TaskId },
   ClickedFit: {},
   ClickedNode: { node: Node },
-  ClosedDrawer: {},
   HoveredNode: { node: Node },
   LeftNode: {},
   MeasuredLayout: { positions: Positions },

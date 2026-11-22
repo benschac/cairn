@@ -1,6 +1,7 @@
 import { Participant, ParticipantId, Sha, Trace } from "@cairn/contract";
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import { AsyncData } from "foldkit";
+import { defineTaggedUnion } from "foldkit/schema";
 
 import { Positions, Size, Viewport } from "./geometry.ts";
 import { Node } from "./trace.ts";
@@ -9,15 +10,28 @@ import { Node } from "./trace.ts";
 export const TraceData = AsyncData.Schema(Schema.toType(Trace), Schema.String);
 export type TraceData = typeof TraceData.schema.Type;
 
+/**
+ * The detail drawer: closed, or open on a node with the commit clicked in it. The open drawer is
+ * the selection, so a commit cannot be chosen while the drawer is closed.
+ */
+export const Drawer = defineTaggedUnion({
+  Closed: {},
+  Open: { maybeCommitSha: Schema.Option(Sha), node: Node },
+});
+export type Drawer = typeof Drawer.Type;
+
+/** The node whose drawer is open: the selected node. */
+export const selectedNodeOf = (drawer: Drawer): Option.Option<Node> =>
+  Drawer.match(drawer, {
+    Closed: () => Option.none(),
+    Open: ({ node }) => Option.some(node),
+  });
+
 export const Model = Schema.Struct({
-  /** The node the detail drawer is open on. */
-  maybeDrawer: Schema.Option(Node),
+  drawer: Drawer,
   maybeHovered: Schema.Option(Node),
   /** The canvas pane's size, once its mount has measured it. */
   maybePaneSize: Schema.Option(Size),
-  maybeSelected: Schema.Option(Node),
-  /** The commit clicked in the open drawer. */
-  maybeSelectedCommitSha: Schema.Option(Sha),
   maybeYou: Schema.Option(ParticipantId),
   participants: Schema.Array(Participant),
   positions: Positions,

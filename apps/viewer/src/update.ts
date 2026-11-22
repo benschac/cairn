@@ -6,17 +6,31 @@ import { modifyFields } from "foldkit/struct";
 import { boundsOf, fitViewport } from "./canvas.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
-import type { Model } from "./model.ts";
+import { Drawer, selectedNodeOf, type Model } from "./model.ts";
 import { Node } from "./trace.ts";
 
 // UPDATE
 
 const nodeEquivalence = Schema.toEquivalence(Node);
 
+const openOn = (node: Node): Drawer => Drawer.Open({ maybeCommitSha: Option.none(), node });
+
 export const update = (model: Model, message: Message) =>
   Message.match<Update.Return<Model, Message>>(message, {
+    ClickedCloseDrawer: () => ({ model: modifyFields(model, { drawer: () => Drawer.Closed() }) }),
+    // A commit is clicked in the open drawer; with the drawer closed there is none to click.
     ClickedCommit: ({ sha }) => ({
-      model: modifyFields(model, { maybeSelectedCommitSha: () => Option.some(sha) }),
+      model: Drawer.match(model.drawer, {
+        Closed: () => model,
+        Open: ({ node }) =>
+          modifyFields(model, {
+            drawer: () => Drawer.Open({ maybeCommitSha: Option.some(sha), node }),
+          }),
+      }),
+    }),
+    // A task in a section's drawer opens that task's drawer; it never closes one.
+    ClickedDrawerTask: ({ id }) => ({
+      model: modifyFields(model, { drawer: () => openOn({ id, kind: "task" }) }),
     }),
     // Fit frames every measured node in the pane; until both are known it does nothing.
     ClickedFit: () =>
@@ -28,24 +42,14 @@ export const update = (model: Model, message: Message) =>
           }),
         }),
       }),
-    // Clicking a node opens its drawer. Clicking the selected node clears the selection;
-    // clicking any other node selects it.
+    // The open drawer is the selection. Clicking the node whose drawer is open closes it;
+    // clicking any other node opens that node's drawer.
     ClickedNode: ({ node }) => ({
       model: modifyFields(model, {
-        maybeSelectedCommitSha: () => Option.none(),
-        maybeDrawer: () => Option.some(node),
-        maybeSelected: (maybeSelected) =>
-          Option.liftPredicate(
-            node,
-            (clicked) =>
-              !Option.exists(maybeSelected, (selected) => nodeEquivalence(selected, clicked)),
-          ),
-      }),
-    }),
-    ClosedDrawer: () => ({
-      model: modifyFields(model, {
-        maybeSelectedCommitSha: () => Option.none(),
-        maybeDrawer: () => Option.none(),
+        drawer: (drawer) =>
+          Option.exists(selectedNodeOf(drawer), (selected) => nodeEquivalence(selected, node))
+            ? Drawer.Closed()
+            : openOn(node),
       }),
     }),
     HoveredNode: ({ node }) => ({

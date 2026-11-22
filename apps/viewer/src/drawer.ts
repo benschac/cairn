@@ -250,49 +250,8 @@ const taskContent = <Message>(
     },
   );
 
-/**
- * The drawer open on a node: a dialog with a section's tasks (and a spec section's judgments),
- * or a task's commits, sessions, events, gate reasons and judgments. A node the trace does not
- * have opens a dialog titled by its id with nothing in it.
- */
-export const drawerView = <Message>(
-  trace: Trace,
-  node: Node,
-  h: HtmlBuilder<Message>,
-  messages: DrawerMessages<Message>,
-): Html => {
-  const content = Node.match(node, {
-    section: (section) => sectionContent(trace, section, h, messages),
-    task: ({ id }) => taskContent(trace, id, h, messages),
-  });
-
-  return h.aside(
-    [
-      h.Role("dialog"),
-      h.AriaLabel(`Details for ${content.title}`),
-      h.DataAttribute("drawer", node.kind),
-      h.DataAttribute("drawer-id", node.id),
-    ],
-    Array.appendAll(
-      [
-        h.button(
-          [
-            h.Type("button"),
-            h.AriaLabel("Close"),
-            h.DataAttribute("close", ""),
-            h.OnClick(messages.onClose),
-          ],
-          ["Close"],
-        ),
-        h.h2([], [content.title]),
-      ],
-      content.body,
-    ),
-  );
-};
-
 /** In the demo the commit is already in the trace, so its detail is its subject and files. */
-export const commitDetailView = <Message>(
+const commitDetailView = <Message>(
   trace: Trace,
   sha: Sha,
   h: HtmlBuilder<Message>,
@@ -314,3 +273,48 @@ export const commitDetailView = <Message>(
         ],
       ),
   );
+
+/**
+ * The drawer open on a node: a dialog with a section's tasks (and a spec section's judgments),
+ * or a task's commits, sessions, events, gate reasons and judgments, and last the commit clicked
+ * in it. A node the trace does not have opens a dialog titled by its id with nothing in it.
+ * The drawer is keyed by its node, so no DOM state carries from one node's drawer to another's.
+ */
+export const drawerView = <Message>(
+  trace: Trace,
+  node: Node,
+  maybeCommitSha: Option.Option<Sha>,
+  h: HtmlBuilder<Message>,
+  messages: DrawerMessages<Message>,
+): Html => {
+  const content = Node.match(node, {
+    section: (section) => sectionContent(trace, section, h, messages),
+    task: ({ id }) => taskContent(trace, id, h, messages),
+  });
+
+  return h.keyed("aside")(
+    `${node.kind}:${node.id}`,
+    [
+      h.Role("dialog"),
+      h.AriaLabel(`Details for ${content.title}`),
+      h.DataAttribute("drawer", node.kind),
+      h.DataAttribute("drawer-id", node.id),
+    ],
+    Array.flatten([
+      [
+        h.button(
+          [
+            h.Type("button"),
+            h.AriaLabel("Close"),
+            h.DataAttribute("close", ""),
+            h.OnClick(messages.onClose),
+          ],
+          ["Close"],
+        ),
+        h.h2([], [content.title]),
+      ],
+      content.body,
+      Array.fromOption(Option.flatMap(maybeCommitSha, (sha) => commitDetailView(trace, sha, h))),
+    ]),
+  );
+};

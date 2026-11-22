@@ -3,9 +3,9 @@ import { Array, Option } from "effect";
 import { AsyncData } from "foldkit";
 import type { Document, Html, HtmlBuilder } from "foldkit/html";
 
-import { commitDetailView, drawerView, type DrawerMessages } from "../drawer.ts";
+import { drawerView, type DrawerMessages } from "../drawer.ts";
 import { Message } from "../message.ts";
-import type { Model } from "../model.ts";
+import { Drawer, selectedNodeOf, type Model } from "../model.ts";
 import { canvasView } from "./canvasView.ts";
 import { labelOf } from "./cursorsView.ts";
 
@@ -17,21 +17,17 @@ const presenceText = (others: ReadonlyArray<Participant>) =>
 
 const drawerMessages: DrawerMessages<Message> = {
   onClickCommit: (sha) => Message.ClickedCommit({ sha }),
-  onClickTask: (id) => Message.ClickedNode({ node: { id, kind: "task" } }),
-  onClose: Message.ClosedDrawer(),
+  onClickTask: (id) => Message.ClickedDrawerTask({ id }),
+  onClose: Message.ClickedCloseDrawer(),
 };
 
-/** The open drawer and, below it, the commit clicked in it; nothing while the drawer is closed. */
+/** The open drawer, holding the commit clicked in it; nothing while the drawer is closed. */
 const drawerViews = (model: Model, trace: Trace, h: HtmlBuilder<Message>): ReadonlyArray<Html> =>
-  Option.match(model.maybeDrawer, {
-    onNone: () => [],
-    onSome: (node) =>
-      Array.prepend(
-        Array.fromOption(
-          Option.flatMap(model.maybeSelectedCommitSha, (sha) => commitDetailView(trace, sha, h)),
-        ),
-        drawerView(trace, node, h, drawerMessages),
-      ),
+  Drawer.match(model.drawer, {
+    Closed: () => [],
+    Open: ({ maybeCommitSha, node }) => [
+      drawerView(trace, node, maybeCommitSha, h, drawerMessages),
+    ],
   });
 
 const loadingView = (h: HtmlBuilder<Message>): Html =>
@@ -54,7 +50,7 @@ const traceView = (
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => {
-  const maybeActive = Option.orElse(model.maybeHovered, () => model.maybeSelected);
+  const maybeActive = Option.orElse(model.maybeHovered, () => selectedNodeOf(model.drawer));
   // The Fit button, the canvas and the drawer, shown whenever there is a trace to pan over.
   const canvas = (trace: Trace): ReadonlyArray<Html> =>
     Array.appendAll(
