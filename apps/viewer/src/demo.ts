@@ -1,5 +1,9 @@
-import { ManifestTask } from "@cairn/contract";
+import { ManifestTask, Trace } from "@cairn/contract";
 import { Schema } from "effect";
+
+import demoTraceJson from "./demo-trace.json" with { type: "json" };
+
+export const demoTrace = Schema.decodeUnknownSync(Trace)(demoTraceJson);
 
 export const demoRows = Schema.decodeUnknownSync(Schema.Array(ManifestTask))([
   {

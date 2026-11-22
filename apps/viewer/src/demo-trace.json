@@ -1,0 +1,3702 @@
+{
+  "baseBranch": "main",
+  "feature": "cairn-mvp",
+  "judgments": [],
+  "prd": {
+    "path": ".cairn/prd.md",
+    "markdown": "# Cairn MVP {#prd.cairn-mvp}\n\nA local tool that traces a feature from PRD to spec to stacked diffs to commits to agent sessions, and renders that trace as a read-only canvas. Built to be shippable in one day and dogfooded on RinkSide.\n\n## Goal {#prd.goal}\n\nGiven a markdown PRD in a repo, produce a spec and a stack manifest, let the existing orchestrator execute the stack, and show a live view of which PRD sections are done, in progress, blocked, or waiting on a human. Every commit links back to its PRD section and to the agent session that produced it.\n\n## Non-goals for v1 {#prd.non-goals-for-v1}\n\n- No rich editor (Tiptap etc). Users edit markdown in their own editor.\n- No real-time multi-user collaboration (v2, see multiplayer).\n- No agent-to-agent chat inbox. Coordination is orchestrator-assigned.\n- No hosted service, auth, or multi-repo support.\n- No replacement of the existing orchestrator. This tool wraps it.\n\n## Repo layout {#prd.repo-layout}\n\n```text\n.cairn/\n  prd.md            # source PRD, human-authored\n  spec.md           # generated spec, editable\n  spec.json         # structured index of spec.md: keys, requirements and artifacts per section\n  manifest.json     # stack plan + links + status\n  events.jsonl      # append-only status events from orchestrator\n  judgments.json    # decision-model verdicts on spec sections, tasks and the stack\n  cairn.db          # SQLite: sessions keyed by ID, notes, annotations\n```\n\n## Section IDs {#prd.section-ids}\n\nEvery heading in `prd.md` and `spec.md` carries a stable ID using a trailing attribute:\n\n```markdown\n## Saved views {#prd.saved-views}\n\n### Persist filter state {#spec.saved-views.persist}\n```\n\nRules:\n\n- IDs are lowercase, dot-namespaced, prefixed `prd.` or `spec.`.\n- `cairn ids` adds missing IDs in place and never rewrites existing ones.\n- Renaming a heading keeps its ID. Deleting a heading with linked tasks is a lint error.\n\n## Manifest schema {#prd.manifest-schema}\n\n```json\n{\n  \"version\": 1,\n  \"feature\": \"saved-views\",\n  \"baseBranch\": \"main\",\n  \"tasks\": [\n    {\n      \"id\": \"t1\",\n      \"title\": \"Add saved_views table\",\n      \"prdSections\": [\"prd.saved-views\"],\n      \"specSections\": [\"spec.saved-views.persist\"],\n      \"branch\": \"saved-views/01-schema\",\n      \"parent\": null,\n      \"dependsOn\": [],\n      \"worktree\": null,\n      \"model\": \"opus\",\n      \"reasoning\": \"high\",\n      \"humanGate\": { \"required\": true, \"reasons\": [\"tag:human\", \"path:migrations/\"] },\n      \"status\": \"pending\",\n      \"commits\": [],\n      \"sessions\": []\n    }\n  ]\n}\n```\n\nStatus values: `pending`, `running`, `blocked_on_human`, `failed`, `done`, `landed`.\n\nThe plan is a set of stacks that can be built at the same time, not one long stack. `dependsOn` lists the tasks a task needs. A task with no dependencies starts its own stack on `baseBranch`. A task whose dependencies all sit on one stack goes on top of the latest of them. A task that needs work from two stacks starts from `baseBranch` once that work has landed. Tasks on different stacks run in parallel, each with its own agent.\n\n`worktree` says where a task is built. Tasks that run one after another share a checkout; only work that can run at the same time needs its own. A task takes over the worktree of a task it depends on when it can, and gets a new one otherwise. `null` is the repo's own checkout. Two tasks share a worktree only when one depends on the other, so tasks running at once never collide.\n\n## CLI {#prd.cli}\n\n- `cairn init` creates `.cairn/` and a PRD template.\n- `cairn ids` assigns missing section IDs in `prd.md` and `spec.md`.\n- `cairn plan` calls a model to generate `spec.md` and `spec.json` from `prd.md`, then generates `manifest.json`: tasks, stack order, parent links, model and reasoning level per task, human gates. A decision model checks the breakdown at each step (see judging the plan). Prints the plan with what judging changed and reported, and waits for approval.\n- `cairn lint` checks that every task references real section IDs, every PRD section maps to at least one task, and every task's parent follows from its dependencies, so nothing sits below a gated task except what it depends on.\n- `cairn judge` judges the current spec and manifest again and writes `judgments.json`.\n- `cairn status` prints the manifest as a tree with status.\n- `cairn serve` starts the local viewer.\n\n## Orchestrator contract {#prd.orchestrator-contract}\n\nThe existing orchestrator reads `manifest.json` and runs tasks. It must:\n\n1. Append one line to `events.jsonl` per state change: `{\"ts\", \"taskId\", \"status\", \"detail\"}`.\n2. Start every task whose dependencies are `done` or `landed`, and whose dependencies on other stacks are `landed`. Run ready tasks in parallel, each in its `worktree`. Stacks are managed with Graphite: each task is one diff, created with `gt create` on top of its parent, or on `baseBranch` when it has no parent. Graphite owns branches, restacking and pull requests; neither Cairn nor the orchestrator rebases a branch by hand.\n3. Add commit trailers to every commit:\n\n   ```text\n   Cairn-Task: t1\n   Cairn-Section: spec.saved-views.persist\n   Cairn-Session: s_8f2k1q\n   ```\n\n4. Redact the session log, then store it in `.cairn/cairn.db` under its `Cairn-Session` ID.\n5. Attach later notes, reviews, and annotations to the session ID in `cairn.db`, never to the commit. The trailer is an immutable pointer; the database holds everything that can change.\n6. Stop and emit `blocked_on_human` for any task with `humanGate.required`, and do not start its children.\n\nCairn derives manifest status from `events.jsonl` and git, so the orchestrator never edits `manifest.json` directly.\n\n## Human gates {#prd.human-gates}\n\nA task is gated if either is true:\n\n- Tagged: any linked PRD or spec section contains `<!-- human -->`.\n- Detected: the task's planned or actual diff touches configured high-trust paths.\n\nDefault high-trust patterns in `.cairn/config.json`:\n\n```json\n{\n  \"humanPaths\": [\n    \"**/migrations/**\",\n    \"**/auth/**\",\n    \"**/payments/**\",\n    \"infra/**\",\n    \"*.sql\",\n    \".github/workflows/**\"\n  ]\n}\n```\n\nDetection runs twice: at plan time against declared files, and post-commit against the actual diff. A post-commit hit on an ungated task flips it to `blocked_on_human`.\n\nPlanner rule: nothing sits below a gated task except what it depends on, so the human reviews it before dependent branches land, and unrelated work is never held up behind it.\n\n## Judging the plan {#prd.judging-the-plan}\n\nA plan can pass lint and still be wrong: a task too big for one agent session, a task given a stronger model than it needs, a spec section that drifts from the PRD, a stack that bundles two features. Lint checks structure. Judging uses a decision model at each step of breaking the PRD down, so the plan a human approves is already sized right and routed to the right models.\n\nThe decision model is TypeSafe's Jev, built for typed decisions with calibrated confidence rather than text. The language model writes; Jev decides. Every answer comes with probabilities and a confidence, and code, not the model, decides what an answer means, using thresholds in `.cairn/config.json`.\n\nCheckpoints in `cairn plan`:\n\n1. After the spec is written: is each section sized right? A section judged too large is broken down into smaller sections. Is it faithful to the PRD sections it implements, and could an agent build it without asking a question? Those are reported.\n2. After tasks are drafted: is each task one reviewable diff? A task judged too large is broken down into smaller tasks, and the new tasks are judged again.\n3. Once tasks are the right size: which model and reasoning level does each task need? Jev's choice replaces the planner's when Jev is confident.\n4. The stack as a whole: does it build every PRD section, can each task be built and tested with only the tasks below it, and is it one feature? Those are reported.\n\nRules:\n\n- A low-confidence answer never acts. It is reported as `unsure`, and the planner's draft stands.\n- Breaking down is bounded: at most two rounds, so planning always ends.\n- Judging never decides gates, IDs, branch names or order. Those stay deterministic.\n- Judging shapes the draft before a human sees it. The plan output shows what was broken down and which models were changed, and why. The human still approves the plan.\n- A spec section a human wrote or edited is never rewritten. Judging only reports on it.\n- After the manifest is written, `cairn judge` reports on it again and changes nothing. `cairn judge --strict` exits non-zero on a flag, for CI.\n- Jev's key comes from `TYPESAFE_API_KEY` and is never stored. Without a key, Cairn plans with the planner's drafts as they are and says that judging was skipped.\n- Each judgment records a hash of what it judged. When the section or task changes, the judgment is stale, and `cairn judge` asks again only for what changed.\n- The model version is pinned in config and recorded in `judgments.json`, so a decision can be traced to the model that made it.\n\n## Redaction {#prd.redaction}\n\nBefore writing session JSONL, strip values matching env var names from `.env*`, common token patterns (API keys, bearer tokens, private keys), and anything in a user-supplied deny list. Log redaction counts per file. Fail closed: if redaction errors, do not write the session.\n\n## Viewer {#prd.viewer}\n\nLocal web app served by `cairn serve`, read-only, polling or file-watching `.cairn/` and git.\n\nLayout:\n\n- Left column: rendered `prd.md`. Each section shows a status badge rolled up from its tasks.\n- Middle column: rendered `spec.md` with the same badges.\n- Right column: the stacks as a node graph, one column per stack, each read bottom to top and joined by curves, with branch name, model, status, and a human-gate marker on each node. A task that needs work from another stack has a dashed curve to it.\n- Curves: SVG bezier curves linking PRD section to spec section to task node. Hovering any node highlights its full chain.\n- Task detail panel: commits with links to diffs, session files, events timeline, gate reasons, and judgments.\n- Judgment markers: a spec section or task node with a `flag` or `unsure` judgment shows a marker. Stale judgments are shown as stale.\n\nSuggested stack: Foldkit SPA for the viewer, a markdown renderer that preserves heading IDs, and a tiny Node server exposing `.cairn/` files and `git log --format` with trailers, plus reads from `cairn.db`.\n\n## Implementation in Effect {#prd.implementation-in-effect}\n\nThe CLI and local server are written in Effect, so every side effect is a typed service that tests can swap out.\n\n- Schemas: manifest, events, config, and commit trailers are Effect Schema definitions. Every file read from `.cairn/` is decoded through them, and failures are typed errors naming the bad field.\n- Services as Layers: `Git` (branches, log, trailers), `TraceStore` (`cairn.db`), `Planner` (model calls that write the spec and tasks), `Judge` (decision-model calls that judge them), `Orchestrator` (adapter to the user's runner), `Redactor`, and `Clock`.\n- Models: two kinds, each behind an `effect/ai` service. A language model writes (`LanguageModel`, for `Planner`); a decision model judges (`DecisionModel`, for `Judge`). Swapping a provider changes one Layer. Each can take a base URL, so a user can route calls through a gateway such as Cloudflare AI Gateway; Cairn does not require one.\n- Composition: one composition root per entrypoint (CLI, server). Live Layers in production; test Layers (fake git, in-memory SQLite, scripted planner, scripted judge) in tests.\n- Tests: `@effect/vitest` with `it.effect` and `it.layer`. Status derivation, gate detection, and lint run against test Layers with no real repo.\n- Viewer: Foldkit. Interaction logic (selection, chain highlighting, drawer state) lives in the pure update function and is unit tested without a render loop. Rendering only draws.\n\n## Contract package {#prd.contract-package}\n\n`@cairn/contract` is the single source of truth for everything an orchestrator reads or writes, and it must work from plain JavaScript.\n\n- Effect Schema definitions for manifest, events, config, trailers, and judgments.\n- Generated JSON Schema files, so any language can validate `.cairn/` files.\n- Plain JS entry points: `parseManifest(json)`, `parseEvent(line)`, `formatTrailers(task)`. Each returns a result or throws an error naming the bad field. Callers need no Effect knowledge.\n- Shipped `.d.ts` types, so JS users get editor autocomplete and checked JSDoc.\n- A `version` field on every file, with migrations in the package, so old manifests keep loading.\n\nAdapters for Claude subagents, Pi, and plain shell scripts import only this package.\n\n## Acceptance criteria {#prd.acceptance-criteria}\n\n- Running `cairn init`, `cairn plan`, and the orchestrator on a real RinkSide feature produces a manifest with at least three stacked tasks.\n- Every commit on those branches has Cairn trailers, including a `Cairn-Session` ID that resolves to a redacted session in `cairn.db`.\n- A task touching a migrations path is gated and its children do not start until it is approved.\n- The viewer shows correct status for every PRD section, and clicking a PRD section reaches its commits in two clicks or fewer.\n- `cairn lint` catches an orphaned section ID and an unmapped PRD section.\n- A drafted task judged too large is broken down before the plan is printed, and the plan output says so.\n- A task's model is changed only when Jev is confident; otherwise the planner's choice stands and is reported as `unsure`.\n- A judgment on a task that has since changed shows as stale.\n- With no `TYPESAFE_API_KEY`, `cairn plan` still writes the manifest and says that judging was skipped.\n\n## One-day build order {#prd.one-day-build-order}\n\n1. Section ID parser and `cairn ids` (1h).\n2. Manifest schema, `cairn plan` prompt, and `cairn lint` (2h).\n3. Judging: questions, verdicts, `cairn judge` (1h).\n4. Orchestrator contract: events, trailers, session IDs in `cairn.db`, redaction (2h).\n5. Status derivation from events and git (1h).\n6. Viewer: three columns, badges, curves, detail panel, judgment markers (3h).\n7. Dogfood on one RinkSide feature and fix what breaks (1h).\n\n## v2: diverging state {#prd.v2-diverging-state}\n\nv2 lets humans and agents change the PRD and statuses at the same time, and keeps work correct when the PRD moves mid-stack. Each kind of state gets the strategy that fits it.\n\n| State                  | Strategy                                 | Why                                                                      |\n| ---------------------- | ---------------------------------------- | ------------------------------------------------------------------------ |\n| PRD and spec prose     | Loro CRDT                                | Human and agent edits land concurrently and must merge without conflicts |\n| Section IDs            | Loro marks on the text                   | IDs must survive concurrent edits around them                            |\n| Task status and leases | LWW register with a hybrid logical clock | One writer per task (the orchestrator), so a CRDT is overkill            |\n| Events                 | Append-only log                          | Nothing to merge                                                         |\n\nYjs stays an option for the editor if Loro's bindings fall short. Strategies can coexist per field.\n\n### Versioning and branching {#prd.v2-diverging-state.versioning-and-branching}\n\n- Every PRD change is a Loro version. The manifest records `prdVersion`, the version it was planned from.\n- Draft PRD changes happen on a Loro fork and merge back when approved, mirroring how the stack works in git.\n\n### Rebase flow {#prd.v2-diverging-state.rebase-flow}\n\nWhen the PRD head moves past `manifest.prdVersion`:\n\n1. Diff the two versions by section ID: changed, added, removed.\n2. Mark linked tasks `stale` (new status) and show their chains as stale in the viewer.\n3. Re-plan tasks that have not started.\n4. For landed tasks, create follow-up tasks instead of rewriting history.\n5. Restack only the affected branches and their dependents. Untouched branches keep their commits.\n6. Update `prdVersion` once the stack is consistent.\n\n### v2 acceptance criteria {#prd.v2-diverging-state.v2-acceptance-criteria}\n\n- A human editing a section while an agent writes its status loses neither change.\n- Editing one PRD section mid-stack marks only that section's chain stale.\n- A rebase restacks only the affected branches.\n\n## v2: multiplayer on Cloudflare {#prd.v2-multiplayer-on-cloudflare}\n\nA feature's PRD, spec, and stack live in a shared room. Humans and agents see each other's cursors and every change as it happens. Git and code stay on each machine; the room holds the document, statuses, and presence.\n\n### Architecture {#prd.v2-multiplayer-on-cloudflare.architecture}\n\n- One Durable Object per room (one feature). It holds the Loro document, applies updates, and fans them out over hibernatable WebSockets.\n- Storage: Durable Object SQLite for updates and snapshots. R2 for version snapshots and opt-in redacted sessions.\n- Single writer for LWW state: statuses and leases are written through the room's Durable Object, which serializes them.\n- Local bridge: `cairn connect` links a repo's `.cairn/` to a room. It pushes events, commit SHAs, and session IDs, and pulls PRD and spec edits back to markdown on disk.\n- Offline: the viewer still works on local files. Loro merges edits made while disconnected.\n- Deploy: Worker, Durable Object namespace, R2 bucket, and the Foldkit site, all defined in Alchemy. Room tokens live in each room's storage, so no signing key is needed yet. Model keys never reach the server.\n\n### Presence {#prd.v2-multiplayer-on-cloudflare.presence}\n\nPresence is ephemeral and never persisted. Each participant broadcasts:\n\n```json\n{\n  \"actorId\": \"agent:t2\",\n  \"kind\": \"agent\",\n  \"name\": \"sonnet · 02-api\",\n  \"cursor\": { \"sectionId\": \"spec.persist.api\", \"anchor\": \"loro-cursor\" },\n  \"focus\": { \"taskId\": \"t2\", \"file\": \"src/api/views.ts\" },\n  \"state\": \"editing\",\n  \"heartbeatAt\": 1763766000\n}\n```\n\n- Humans: a text caret and selection in the PRD and spec, plus a pointer on the canvas.\n- Agents: a labeled caret on the section they work from, a pulse on their stack node, and the file they are in. Agent presence comes from orchestrator events, so agents need no browser.\n- Heartbeats: every 5 s. Three missed marks the actor away. For an agent, its task goes `stalled` (new status) and its lease is released.\n\n### Permissions {#prd.v2-multiplayer-on-cloudflare.permissions}\n\n- Each room has one token: a plain string assigned when the room is created. Anyone with it can join.\n- Clients declare whether they are a human or an agent. Gate approvals are only accepted from human clients and record who approved.\n- This is trust-based and fine for v2. Signed, scoped tokens come later.\n\n### Multiplayer acceptance criteria {#prd.v2-multiplayer-on-cloudflare.multiplayer-acceptance-criteria}\n\n- Two humans and one agent see each other's cursors and edits in under 250 ms p95 within one region.\n- Killing an agent process marks it away and stalls its task within 15 s.\n- A gate approval from an agent client is rejected.\n- Clients that edit offline converge on reconnect with no lost edits, property tested with random edits and partitions.\n- `alchemy deploy` brings up a working room from an empty Cloudflare account.\n\n## Later {#prd.later}\n\n- Rich editing beyond markdown: embeds, comments, and inline diffs.\n- An inbox view of agent activity across rooms.\n- Drift detection that flags or proposes spec updates when code diverges.\n- Cost per section and per model.\n- Judging during a run: before a task starts, and on its diff after it is done.- Adapters for Vercel Board and other agent message boards.\n",
+    "sections": [
+      {
+        "human": false,
+        "id": "prd.cairn-mvp",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 1,
+        "line": 1,
+        "parent": null,
+        "title": "Cairn MVP"
+      },
+      {
+        "human": false,
+        "id": "prd.goal",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 5,
+        "parent": "prd.cairn-mvp",
+        "title": "Goal"
+      },
+      {
+        "human": false,
+        "id": "prd.non-goals-for-v1",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 9,
+        "parent": "prd.cairn-mvp",
+        "title": "Non-goals for v1"
+      },
+      {
+        "human": false,
+        "id": "prd.repo-layout",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 17,
+        "parent": "prd.cairn-mvp",
+        "title": "Repo layout"
+      },
+      {
+        "human": false,
+        "id": "prd.section-ids",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 30,
+        "parent": "prd.cairn-mvp",
+        "title": "Section IDs"
+      },
+      {
+        "human": false,
+        "id": "prd.manifest-schema",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 46,
+        "parent": "prd.cairn-mvp",
+        "title": "Manifest schema"
+      },
+      {
+        "human": false,
+        "id": "prd.cli",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 80,
+        "parent": "prd.cairn-mvp",
+        "title": "CLI"
+      },
+      {
+        "human": false,
+        "id": "prd.orchestrator-contract",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 90,
+        "parent": "prd.cairn-mvp",
+        "title": "Orchestrator contract"
+      },
+      {
+        "human": false,
+        "id": "prd.human-gates",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 110,
+        "parent": "prd.cairn-mvp",
+        "title": "Human gates"
+      },
+      {
+        "human": false,
+        "id": "prd.judging-the-plan",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 136,
+        "parent": "prd.cairn-mvp",
+        "title": "Judging the plan"
+      },
+      {
+        "human": false,
+        "id": "prd.redaction",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 161,
+        "parent": "prd.cairn-mvp",
+        "title": "Redaction"
+      },
+      {
+        "human": false,
+        "id": "prd.viewer",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 165,
+        "parent": "prd.cairn-mvp",
+        "title": "Viewer"
+      },
+      {
+        "human": false,
+        "id": "prd.implementation-in-effect",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 180,
+        "parent": "prd.cairn-mvp",
+        "title": "Implementation in Effect"
+      },
+      {
+        "human": false,
+        "id": "prd.contract-package",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 191,
+        "parent": "prd.cairn-mvp",
+        "title": "Contract package"
+      },
+      {
+        "human": false,
+        "id": "prd.acceptance-criteria",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 203,
+        "parent": "prd.cairn-mvp",
+        "title": "Acceptance criteria"
+      },
+      {
+        "human": false,
+        "id": "prd.one-day-build-order",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 215,
+        "parent": "prd.cairn-mvp",
+        "title": "One-day build order"
+      },
+      {
+        "human": false,
+        "id": "prd.v2-diverging-state",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 225,
+        "parent": "prd.cairn-mvp",
+        "title": "v2: diverging state"
+      },
+      {
+        "human": false,
+        "id": "prd.v2-diverging-state.versioning-and-branching",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 238,
+        "parent": "prd.v2-diverging-state",
+        "title": "Versioning and branching"
+      },
+      {
+        "human": false,
+        "id": "prd.v2-diverging-state.rebase-flow",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 243,
+        "parent": "prd.v2-diverging-state",
+        "title": "Rebase flow"
+      },
+      {
+        "human": false,
+        "id": "prd.v2-diverging-state.v2-acceptance-criteria",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 254,
+        "parent": "prd.v2-diverging-state",
+        "title": "v2 acceptance criteria"
+      },
+      {
+        "human": false,
+        "id": "prd.v2-multiplayer-on-cloudflare",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 260,
+        "parent": "prd.cairn-mvp",
+        "title": "v2: multiplayer on Cloudflare"
+      },
+      {
+        "human": false,
+        "id": "prd.v2-multiplayer-on-cloudflare.architecture",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 264,
+        "parent": "prd.v2-multiplayer-on-cloudflare",
+        "title": "Architecture"
+      },
+      {
+        "human": false,
+        "id": "prd.v2-multiplayer-on-cloudflare.presence",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 273,
+        "parent": "prd.v2-multiplayer-on-cloudflare",
+        "title": "Presence"
+      },
+      {
+        "human": false,
+        "id": "prd.v2-multiplayer-on-cloudflare.permissions",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 293,
+        "parent": "prd.v2-multiplayer-on-cloudflare",
+        "title": "Permissions"
+      },
+      {
+        "human": false,
+        "id": "prd.v2-multiplayer-on-cloudflare.multiplayer-acceptance-criteria",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 299,
+        "parent": "prd.v2-multiplayer-on-cloudflare",
+        "title": "Multiplayer acceptance criteria"
+      },
+      {
+        "human": false,
+        "id": "prd.later",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 307,
+        "parent": "prd.cairn-mvp",
+        "title": "Later"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "spec.cairn-mvp-spec",
+      "status": "in_progress"
+    },
+    {
+      "id": "spec.format",
+      "status": "context"
+    },
+    {
+      "id": "spec.scope",
+      "status": "deferred"
+    },
+    {
+      "id": "spec.package-layout",
+      "status": "pending"
+    },
+    {
+      "id": "spec.libraries",
+      "status": "in_progress"
+    },
+    {
+      "id": "spec.contract",
+      "status": "in_progress"
+    },
+    {
+      "id": "spec.contract.section-ids",
+      "status": "done"
+    },
+    {
+      "id": "spec.contract.manifest",
+      "status": "in_progress"
+    },
+    {
+      "id": "spec.contract.events",
+      "status": "done"
+    },
+    {
+      "id": "spec.contract.trailers",
+      "status": "in_progress"
+    },
+    {
+      "id": "spec.contract.trace",
+      "status": "pending"
+    },
+    {
+      "id": "spec.contract.config",
+      "status": "pending"
+    },
+    {
+      "id": "spec.contract.judgments",
+      "status": "pending"
+    },
+    {
+      "id": "spec.contract.spec-index",
+      "status": "pending"
+    },
+    {
+      "id": "spec.contract.javascript-entry",
+      "status": "pending"
+    },
+    {
+      "id": "spec.sections",
+      "status": "pending"
+    },
+    {
+      "id": "spec.sections.parsing",
+      "status": "pending"
+    },
+    {
+      "id": "spec.sections.cairn-ids",
+      "status": "pending"
+    },
+    {
+      "id": "spec.gates",
+      "status": "pending"
+    },
+    {
+      "id": "spec.gates.path-matching",
+      "status": "pending"
+    },
+    {
+      "id": "spec.gates.detection",
+      "status": "pending"
+    },
+    {
+      "id": "spec.models",
+      "status": "pending"
+    },
+    {
+      "id": "spec.planning",
+      "status": "pending"
+    },
+    {
+      "id": "spec.planning.planner-service",
+      "status": "pending"
+    },
+    {
+      "id": "spec.planning.stack-order",
+      "status": "pending"
+    },
+    {
+      "id": "spec.planning.cairn-plan",
+      "status": "pending"
+    },
+    {
+      "id": "spec.lint",
+      "status": "pending"
+    },
+    {
+      "id": "spec.judging",
+      "status": "pending"
+    },
+    {
+      "id": "spec.judging.questions",
+      "status": "pending"
+    },
+    {
+      "id": "spec.judging.verdicts",
+      "status": "pending"
+    },
+    {
+      "id": "spec.judging.judge-service",
+      "status": "pending"
+    },
+    {
+      "id": "spec.judging.checkpoints",
+      "status": "pending"
+    },
+    {
+      "id": "spec.judging.cairn-judge",
+      "status": "pending"
+    },
+    {
+      "id": "spec.status",
+      "status": "pending"
+    },
+    {
+      "id": "spec.status.task-machine",
+      "status": "pending"
+    },
+    {
+      "id": "spec.status.derivation",
+      "status": "pending"
+    },
+    {
+      "id": "spec.status.section-rollup",
+      "status": "pending"
+    },
+    {
+      "id": "spec.status.cairn-status-and-cairn-approve",
+      "status": "pending"
+    },
+    {
+      "id": "spec.sessions",
+      "status": "pending"
+    },
+    {
+      "id": "spec.sessions.trace-store",
+      "status": "pending"
+    },
+    {
+      "id": "spec.sessions.redaction",
+      "status": "pending"
+    },
+    {
+      "id": "spec.sessions.cairn-session",
+      "status": "pending"
+    },
+    {
+      "id": "spec.orchestrator-adapter",
+      "status": "pending"
+    },
+    {
+      "id": "spec.cli",
+      "status": "pending"
+    },
+    {
+      "id": "spec.server",
+      "status": "pending"
+    },
+    {
+      "id": "spec.viewer",
+      "status": "in_progress"
+    },
+    {
+      "id": "spec.viewer.model-and-messages",
+      "status": "pending"
+    },
+    {
+      "id": "spec.viewer.markdown-rendering",
+      "status": "done"
+    },
+    {
+      "id": "spec.viewer.curves",
+      "status": "pending"
+    },
+    {
+      "id": "spec.viewer.presence",
+      "status": "pending"
+    },
+    {
+      "id": "spec.viewer.detail-panel",
+      "status": "pending"
+    },
+    {
+      "id": "spec.viewer.diff-view",
+      "status": "pending"
+    },
+    {
+      "id": "spec.viewer.demo-data",
+      "status": "pending"
+    },
+    {
+      "id": "spec.acceptance",
+      "status": "pending"
+    },
+    {
+      "id": "prd.cairn-mvp",
+      "status": "in_progress"
+    },
+    {
+      "id": "prd.goal",
+      "status": "context"
+    },
+    {
+      "id": "prd.non-goals-for-v1",
+      "status": "context"
+    },
+    {
+      "id": "prd.repo-layout",
+      "status": "pending"
+    },
+    {
+      "id": "prd.section-ids",
+      "status": "in_progress"
+    },
+    {
+      "id": "prd.manifest-schema",
+      "status": "in_progress"
+    },
+    {
+      "id": "prd.cli",
+      "status": "pending"
+    },
+    {
+      "id": "prd.orchestrator-contract",
+      "status": "in_progress"
+    },
+    {
+      "id": "prd.human-gates",
+      "status": "pending"
+    },
+    {
+      "id": "prd.judging-the-plan",
+      "status": "pending"
+    },
+    {
+      "id": "prd.redaction",
+      "status": "pending"
+    },
+    {
+      "id": "prd.viewer",
+      "status": "in_progress"
+    },
+    {
+      "id": "prd.implementation-in-effect",
+      "status": "in_progress"
+    },
+    {
+      "id": "prd.contract-package",
+      "status": "in_progress"
+    },
+    {
+      "id": "prd.acceptance-criteria",
+      "status": "pending"
+    },
+    {
+      "id": "prd.one-day-build-order",
+      "status": "context"
+    },
+    {
+      "id": "prd.v2-diverging-state",
+      "status": "deferred"
+    },
+    {
+      "id": "prd.v2-diverging-state.versioning-and-branching",
+      "status": "deferred"
+    },
+    {
+      "id": "prd.v2-diverging-state.rebase-flow",
+      "status": "deferred"
+    },
+    {
+      "id": "prd.v2-diverging-state.v2-acceptance-criteria",
+      "status": "deferred"
+    },
+    {
+      "id": "prd.v2-multiplayer-on-cloudflare",
+      "status": "deferred"
+    },
+    {
+      "id": "prd.v2-multiplayer-on-cloudflare.architecture",
+      "status": "deferred"
+    },
+    {
+      "id": "prd.v2-multiplayer-on-cloudflare.presence",
+      "status": "deferred"
+    },
+    {
+      "id": "prd.v2-multiplayer-on-cloudflare.permissions",
+      "status": "deferred"
+    },
+    {
+      "id": "prd.v2-multiplayer-on-cloudflare.multiplayer-acceptance-criteria",
+      "status": "deferred"
+    },
+    {
+      "id": "prd.later",
+      "status": "deferred"
+    }
+  ],
+  "spec": {
+    "path": ".cairn/spec.md",
+    "markdown": "# Cairn MVP spec {#spec.cairn-mvp-spec}\n\nThis spec turns [prd.md](prd.md) into code. It is the first spec Cairn has, so it also sets the format that `cairn plan` writes.\n\nAlready built: the section ID parser (`packages/core/src/section-ids.ts`), a task machine without `failed`, the presence room and server, and a viewer that lists demo rows. Everything else below is new.\n\n## Format {#spec.format}\n\n- Context: `prd.goal`, `prd.non-goals-for-v1`, `prd.one-day-build-order`\n\nEach spec section starts with a list of keys, before any prose. `cairn lint`, the planner and the viewer read them.\n\n| Key          | Value                                        | Used for                                    |\n| ------------ | -------------------------------------------- | ------------------------------------------- |\n| `Implements` | PRD section IDs                              | Curves, rollup, coverage                    |\n| `Files`      | Paths it will touch; a trailing `/` is a dir | Plan-time gate detection                    |\n| `Depends on` | Spec section IDs                             | Stack order                                 |\n| `Defers`     | PRD section IDs left for later               | Coverage; the viewer shows them as deferred |\n| `Context`    | PRD section IDs that need no code            | Coverage; the viewer shows no badge         |\n\nIDs are written in backticks and separated by commas. A key applies to its section and every section below it.\n\nA PRD section is covered when it, or a section under it, appears in some `Implements`, `Defers` or `Context` key. A `Defers` or `Context` key covers the sections under the one it names too. \"Under\" means in the heading tree, not by ID prefix: the top heading does not namespace its children, so `prd.goal` sits under `prd.cairn-mvp`.\n\n## Scope {#spec.scope}\n\n- Defers: `prd.v2-diverging-state`, `prd.v2-multiplayer-on-cloudflare`, `prd.later`\n\nThis spec covers v1. Presence is the one v2 piece already built, and it stays: `cairn serve` keeps serving `/presence` next to the trace API.\n\n## Package layout {#spec.package-layout}\n\n- Implements: `prd.implementation-in-effect`\n\n| Package       | Holds                                                                                                     |\n| ------------- | --------------------------------------------------------------------------------------------------------- |\n| `contract`    | Schemas, generated JSON Schema, the plain JS entry                                                        |\n| `core`        | Pure logic: sections, gates, stack order, lint, status derivation, rollup, redaction, machines            |\n| `cli`         | Services, commands and the server. Two composition roots: `src/main.ts` (CLI) and `src/serve.ts` (server) |\n| `apps/viewer` | The Foldkit viewer                                                                                        |\n\nCore takes plain values and does no IO. Only the CLI touches disk, git, the database or a model, through these services:\n\n| Service      | Live                                 | Test                           |\n| ------------ | ------------------------------------ | ------------------------------ |\n| `Git`        | `git` subprocesses                   | An in-memory commit graph      |\n| `TraceStore` | `node:sqlite` on `.cairn/cairn.db`   | `node:sqlite` on `:memory:`    |\n| `Planner`    | `LanguageModel` (see `spec.models`)  | Scripted replies from fixtures |\n| `Judge`      | `DecisionModel` (see `spec.models`)  | Scripted answers               |\n| `Redactor`   | Reads `.env*` and config, calls core | Fixed secret set               |\n\nThe PRD's `Clock` service is Effect's own `Clock`; tests use `TestClock`. Files go through Effect's `FileSystem`. Commands use `effect/cli`.\n\n## Libraries {#spec.libraries}\n\n- Implements: `prd.implementation-in-effect`, `prd.viewer`\n\nAlready installed, and kept:\n\n| Library                       | Version                    | Used for                                          |\n| ----------------------------- | -------------------------- | ------------------------------------------------- |\n| `effect`                      | 4.1.5                      | Schema, services, `effect/cli`, `effect/ai`, HTTP |\n| `xstate` and `@xstate/effect` | 6.0.0-beta.4, 1.0.0-beta.3 | Task and room machines                            |\n| `foldkit`                     | 0.171.0                    | The viewer                                        |\n\nNew:\n\n| Library                                                                 | Version             | License    | Used for                                                |\n| ----------------------------------------------------------------------- | ------------------- | ---------- | ------------------------------------------------------- |\n| `@pierre/diffs`                                                         | 1.6.4               | Apache-2.0 | Parsing patches into hunks and rendering commit diffs   |\n| `@xyflow/system`                                                        | 1.0.0               | MIT        | Bezier paths, viewport math and pan/zoom for the canvas |\n| `@effect/ai-anthropic`                                                  | 4.1.5               | MIT        | The live `LanguageModel`, for the `Planner`             |\n| `@effect/ai-typesafe`                                                   | 4.1.5               | MIT        | The live `DecisionModel` (Jev), for the `Judge`         |\n| `mdast-util-from-markdown`, `mdast-util-gfm`, `micromark-extension-gfm` | 2.1.0, 3.1.0, 3.0.0 | MIT        | Markdown to nodes for the viewer                        |\n\nBuilt into Node 24, so no package: `node:sqlite` for `cairn.db`, and `path.matchesGlob` for gate patterns. Diffs come from `git`, so the CLI needs no diff library.\n\nConsidered and left out:\n\n- `@pierre/words` renders markdown to HTML strings through WebAssembly and is built for streaming model output. The viewer would need `innerHTML` for it, and it knows nothing of `{#id}` headings. It may suit streaming session logs later.\n- `@pierre/highlights`, the WebAssembly highlighter `@pierre/diffs` can use instead of Shiki. It is in beta; Shiki's JavaScript engine is the default and is enough for now.\n- A SQLite package such as `better-sqlite3`, since `node:sqlite` needs no native build.\n- Rete, JointJS, Cytoscape, Drawflow and LiteGraph. Each owns its scene and graph state, which would put state in two places beside the Foldkit model.\n- `elkjs` for layout: EPL-2.0 or GPL-3.0 and 8 MB. `@dagrejs/dagre` (MIT) is the choice when layout stops being fixed.\n- The AI SDK (`ai`, `@ai-sdk/anthropic`, `@ai-sdk/typesafe-ai`). It would add a second schema language and a Promise API beside Effect, and `effect/ai` already covers both language and decision models with Effect Schema.\n- Cloudflare AI Gateway as a dependency. It is a proxy, not a library; `baseUrl` in config lets a user route through it (see `spec.models`).\n- Workers AI. Cairn runs on the user's machine, not in a Worker.\n\n## Contract {#spec.contract}\n\n- Implements: `prd.contract-package`\n- Files: `packages/contract/src/`, `packages/contract/schema/`\n\nEverything a file in `.cairn/` holds is decoded through a schema here. A decode failure is a typed error that names the file, the line where there is one, and the field path.\n\n### Section IDs {#spec.contract.section-ids}\n\n- Implements: `prd.section-ids`\n- Files: `packages/contract/src/ids.ts`\n\n`SectionId` exists. Add `PrdSectionId` and `SpecSectionId`, which also check the prefix.\n\n`SectionId`, `TaskId` and the two prefixed IDs live in `ids.ts`, and `index.ts` re-exports them. Contract modules import IDs from `ids.ts`, never from `index.ts`, which re-exports them and would make a cycle. `TaskId` matches `^[A-Za-z0-9][A-Za-z0-9._-]*$`, so it survives a `Cairn-Task` trailer.\n\n### Manifest {#spec.contract.manifest}\n\n- Implements: `prd.manifest-schema`\n- Files: `packages/contract/src/manifest.ts`\n\n```ts\nManifest = {\n  version: 1\n  feature: Slug\n  baseBranch: string\n  tasks: NonEmptyArray<ManifestTask>\n}\n\nManifestTask = {\n  id: TaskId // t1, t2, ... in dependency order (see spec.planning.stack-order)\n  title: NonEmptyString\n  prdSections: NonEmptyArray<PrdSectionId>\n  specSections: NonEmptyArray<SpecSectionId>\n  files: Array<string> // new: the declared files plan-time detection runs on\n  branch: string // <feature>/<NN>-<slug>\n  parent: TaskId | null // see spec.planning.stack-order\n  dependsOn: Array<TaskId> // new: the tasks this one needs\n  worktree: string | null // new: where it is built; null is the repo's own checkout\n  model: NonEmptyString\n  reasoning: \"low\" | \"medium\" | \"high\" | \"xhigh\" | \"max\"\n  humanGate: { required: boolean; reasons: Array<GateReason> }\n  status: TaskStatus\n  commits: Array<Sha>\n  sessions: Array<SessionId>\n}\n\nGateReason = \"tag:human\" | `path:${string}`\nTaskStatus = \"pending\" | \"running\" | \"blocked_on_human\" | \"failed\" | \"done\" | \"landed\"\n```\n\n`TaskStatus` gains `failed`. The existing `Task` schema, with one `section` and a `gated` flag, is replaced by `ManifestTask`; the machine and the viewer move to it.\n\n`status`, `commits` and `sessions` are a snapshot. Cairn writes them; nothing reads them to decide anything. Derived status (see `spec.status.derivation`) is the truth. Only Cairn writes `manifest.json`.\n\n### Events {#spec.contract.events}\n\n- Implements: `prd.orchestrator-contract`\n- Files: `packages/contract/src/events.ts`\n\nOne JSON object per line of `events.jsonl`:\n\n```ts\nEvent = {\n  v?: 1 // missing means 1\n  ts: string // ISO 8601, decoded to a DateTime.Utc\n  taskId: TaskId\n  status: TaskStatus\n  detail?: string\n  actor?: \"orchestrator\" | `human:${string}` | `agent:${string}` // missing means orchestrator\n}\n```\n\n`actor` is new. Approvals need it: only a `human:` actor can move a task out of `blocked_on_human`.\n\n### Trailers {#spec.contract.trailers}\n\n- Implements: `prd.orchestrator-contract`\n- Files: `packages/contract/src/trailers.ts`\n\n```text\nCairn-Task: t1\nCairn-Section: spec.contract.manifest\nCairn-Section: spec.contract.events\nCairn-Session: s_8f2k1q\n```\n\nOne `Cairn-Task` and one `Cairn-Session`. `Cairn-Section` repeats, once per spec section, since a task can have several. `SessionId` matches `^s_[a-z0-9]{6,}$`.\n\n### Trace {#spec.contract.trace}\n\n- Implements: `prd.viewer`, `prd.contract-package`\n- Files: `packages/contract/src/trace.ts`\n- Depends on: `spec.contract.manifest`, `spec.contract.events`, `spec.contract.trailers`\n\n`Trace` is what the server sends and the viewer draws. `cairn status --json` prints it, and the demo loads one from a file.\n\n```ts\nTrace = {\n  version: 1\n  feature: Slug\n  baseBranch: string\n  prd: TraceDocument\n  spec: TraceDocument\n  tasks: Array<TraceTask> // manifest order\n  sections: Array<{ id: SectionId; status: SectionStatus }> // every PRD and spec section\n  warnings: Array<TraceWarning>\n  judgments: Array<Judgment & { stale: boolean }> // empty until the judging work fills it (see spec.server)\n}\n\nTraceDocument = {\n  path: string // \".cairn/prd.md\" or \".cairn/spec.md\"\n  markdown: string // the whole file, rendered by the viewer\n  sections: Array<TraceSection>\n}\n\nTraceSection = {\n  id: SectionId\n  title: string // without the {#id}\n  level: number\n  line: number\n  parent: SectionId | null\n  human: boolean\n  keys: {\n    // own keys plus inherited ones; all empty in the PRD\n    implements: Array<PrdSectionId>\n    files: Array<string>\n    dependsOn: Array<SpecSectionId>\n    defers: Array<PrdSectionId>\n    context: Array<PrdSectionId>\n  }\n}\n\nTraceTask = Omit<ManifestTask, \"status\" | \"commits\"> & {\n  status: TaskStatus // derived, not the manifest snapshot\n  waiting: boolean // pending, with a blocked_on_human task below it\n  gate: { required: boolean; reasons: Array<GateReason> } // effective: plan time plus the files its commits changed\n  commits: Array<TraceCommit>\n  events: Array<Event> // sorted as derivation sorts them\n}\n\nTraceCommit = {\n  sha: Sha\n  parents: Array<Sha>\n  subject: string\n  files: Array<string>\n  sections: Array<SpecSectionId> // from Cairn-Section trailers\n  session: SessionId | null // from Cairn-Session\n}\n\nTraceWarning = {\n  kind: \"illegal-transition\" | \"non-human-approval\" | \"unknown-task\" | \"missing-trailers\" | \"landed-without-approval\" | \"missing-session\"\n  message: string\n  taskId: TaskId | null\n  sha: Sha | null\n}\n```\n\n`TraceSection` is declared here rather than imported from core's `Section`, so the viewer depends only on the contract. The trace carries no positions: the viewer lays everything out itself (see `spec.viewer.model-and-messages`).\n\nThe viewer is built against this schema and the demo trace, so it does not wait for the CLI or the server. The demo trace has to decode through `Trace`; a test checks it.\n\n### Config {#spec.contract.config}\n\n- Implements: `prd.human-gates`\n- Files: `packages/contract/src/config.ts`\n\n```ts\nConfig = {\n  version: 1\n  humanPaths: Array<string> // defaults to the PRD's list\n  redact: { deny: Array<string> } // defaults to []\n  planner: {\n    model: string // defaults to \"claude-opus-5-5\"\n    baseUrl: string | undefined // e.g. a Cloudflare AI Gateway URL\n  }\n  judge: {\n    model: string // defaults to \"jev-1.14.0\"\n    baseUrl: string | undefined\n    pass: number // defaults to 0.8\n    flag: number // defaults to 0.5\n    minConfidence: number // defaults to 0.5\n    maxRounds: number // defaults to 2\n    models: Record<string, string> // name the manifest uses, and when to use it\n  }\n}\n```\n\nA missing `.cairn/config.json` decodes to the defaults. `judge.pass` must be greater than `judge.flag`, and all three thresholds lie in `[0, 1]`. `judge.models` defaults to:\n\n| Name     | When to use it                                                                     |\n| -------- | ---------------------------------------------------------------------------------- |\n| `haiku`  | Mechanical changes: a schema field, a rename, a command wired to existing code     |\n| `sonnet` | Most tasks: a feature or service with its tests across a few files                 |\n| `opus`   | Logic where a subtle bug costs a lot: derivation, ordering, redaction, concurrency |\n\n### Judgments {#spec.contract.judgments}\n\n- Implements: `prd.judging-the-plan`\n- Files: `packages/contract/src/judgments.ts`\n\n```ts\nJudgments = {\n  version: 1\n  model: string // the decision model that answered, e.g. \"jev-1.14.0\"\n  judgments: Array<Judgment>\n}\n\nJudgment = {\n  target:\n    | { kind: \"section\"; id: SpecSectionId }\n    | { kind: \"task\"; id: TaskId }\n    | { kind: \"draft\"; title: string } // a draft that was split, so never got a TaskId\n    | { kind: \"stack\" }\n  question: \"size\" | \"faithful\" | \"buildable\" | \"matches\" | \"model\" | \"reasoning\" | \"complete\" | \"ordered\" | \"oneFeature\"\n  verdict: \"pass\" | \"flag\" | \"unsure\"\n  action: \"none\" | \"split\" | \"routed\" // what planning did because of it\n  round: number // 1 for the first ask; a split's replacements are judged in round 2\n  answer: RateAnswer | ProbabilityAnswer | Unanswered\n  message: string\n  inputHash: Sha256Hex\n  at: DateTimeUtc\n}\n\nRateAnswer = { label: string; probabilities: Record<string, number>; confidence: number | undefined }\nProbabilityAnswer = { probability: number }\nUnanswered = { unanswered: \"Refused\" | \"Missing\" | \"Invalid\"; description: string }\n```\n\nThe answer shapes mirror `effect/ai`'s `RateAnswer`, `ProbabilityAnswer` and `Unanswered`; a `classify` answer uses `RateAnswer`'s shape. Judgments on drafts that became tasks are keyed by the task's ID once `stackOf` assigns it. Only Cairn writes `judgments.json`. A missing file decodes to no judgments.\n\n### Spec index {#spec.contract.spec-index}\n\n- Implements: `prd.repo-layout`\n- Files: `packages/contract/src/spec-index.ts`, `packages/cli/src/spec-index.ts`\n- Depends on: `spec.sections.parsing`, `spec.planning.planner-service`\n\n`spec.json` is a structured copy of `spec.md`, so the planner, the judge and other tools read the spec without parsing markdown.\n\n```ts\nSpecIndex = {\n  version: 1\n  source: string // \".cairn/spec.md\"\n  prd: string\n  manifest: string\n  sections: Array<IndexedSection> // in document order\n}\n\nIndexedSection = {\n  // derived by code from spec.md and manifest.json\n  id: SpecSectionId\n  title: string\n  level: number\n  line: number\n  parent: SpecSectionId | null\n  children: Array<SpecSectionId>\n  human: boolean\n  implements: Array<PrdSectionId> // own keys only, not inherited\n  files: Array<string>\n  dependsOn: Array<SpecSectionId>\n  defers: Array<PrdSectionId>\n  context: Array<PrdSectionId>\n  tasks: Array<TaskId> // tasks whose specSections name this section\n  // extracted from the section's prose by Planner.index\n  summary: string\n  requirements: Array<{ id: `${SpecSectionId}#r${number}`; level: \"must\" | \"must-not\" | \"should\" | \"may\"; text: string }>\n  artifacts: Array<Artifact> // { id, kind, name, location, description, ...kind-specific fields }\n  tests: Array<{ id: `${SpecSectionId}#t${number}`; kind: \"check\" | \"example\" | \"property\" | \"scene\" | \"integration\" | \"mutation\"; text: string }>\n  decisions: Array<{ id: `${SpecSectionId}#d${number}`; text: string; why: string | null }> // null when the spec gives no reason\n}\n```\n\n`cairn plan` writes `spec.json` whenever it writes `spec.md` or `manifest.json`. Code fills the derived fields. `Planner.index` fills the rest, one call per section whose body changed; a section whose body is unchanged keeps its entry.\n\nUntil the CLI exists, `spec.json` is written by hand in this format, and the lint rule `index-drift` is what keeps it honest.\n\n### JavaScript entry {#spec.contract.javascript-entry}\n\n- Implements: `prd.contract-package`\n- Files: `packages/contract/src/js.ts`, `packages/contract/package.json`\n\n`@cairn/contract/js` exports functions that need no Effect:\n\n- `parseManifest(input)`, `parseEvent(line)`, `parseConfig(input)` return the decoded value or throw a `CairnContractError` with `path` (the field path) and a message.\n- `formatTrailers({ taskId, sections, sessionId })` returns the trailer block. `trailerArgs(...)` returns the same as `--trailer` arguments for `git commit`.\n- `appendEvent(path, event)` validates the event and appends it in a single `O_APPEND` write, so concurrent writers never interleave lines.\n- `cairnDir(cwd)` returns the main checkout's `.cairn/` the same way the CLI finds it, so an orchestrator working in a worktree appends to the shared `events.jsonl`.\n- `migrateManifest(input)` upgrades older versions. Version 1 is the only one, so for now it checks the version and returns the input.\n\nThe package ships `.d.ts` files and `schema/{manifest,event,config}.schema.json`, generated with `Schema.toJsonSchemaDocument`. A test regenerates them and fails if the committed files differ, so `pnpm check` catches drift.\n\n## Sections {#spec.sections}\n\n### Parsing {#spec.sections.parsing}\n\n- Implements: `prd.section-ids`\n- Files: `packages/core/src/section-ids.ts`, `packages/core/src/sections.ts`\n\n`sectionsOf(markdown)` returns every heading outside a fence:\n\n```ts\nSection = {\n  id: SectionId | undefined\n  level: number\n  title: string // without the {#id}\n  line: number // 1-based, for lint output\n  parent: SectionId | undefined\n  body: string // up to the next heading of any level\n  human: boolean // its body or an ancestor's body has <!-- human -->\n  keys: { implements; files; dependsOn; defers; context } // own keys plus inherited ones\n}\n```\n\nIt reuses the fence and heading rules `assignSectionIds` already has, so both agree on what counts as a heading.\n\n### `cairn ids` {#spec.sections.cairn-ids}\n\n- Implements: `prd.cli`, `prd.section-ids`\n- Files: `packages/cli/src/commands/ids.ts`\n- Depends on: `spec.sections.parsing`\n\nRuns `assignSectionIds` on `prd.md` with `prd` and on `spec.md` with `spec`. Writes a file only when IDs were added, and prints each added ID. `--check` writes nothing and exits 1 if any heading lacks an ID.\n\n## Gates {#spec.gates}\n\n### Path matching {#spec.gates.path-matching}\n\n- Implements: `prd.human-gates`\n- Files: `packages/core/src/gates.ts`\n\nPatterns use `path.matchesGlob` from Node, with one gitignore rule added: a pattern without a `/` matches the file name in any directory. Without it, `*.sql` would miss `db/001.sql`. A declared path ending in `/` is a directory and matches when a file inside it would.\n\n### Detection {#spec.gates.detection}\n\n- Implements: `prd.human-gates`\n- Files: `packages/core/src/gates.ts`\n- Depends on: `spec.gates.path-matching`, `spec.sections.parsing`, `spec.contract.manifest`\n\n`gateOf(task, sections, config, changedFiles)` returns `{ required, reasons }`:\n\n- `tag:human` if any linked PRD or spec section has `human: true`.\n- `path:<pattern>` for each pattern that matches a file in `task.files` (plan time) or in `changedFiles` (after commits).\n\nThe plan stores the plan-time result in `humanGate`. Status derivation recomputes it with the files the task's commits actually changed, so a hit after commit gates a task the plan did not.\n\n## Models {#spec.models}\n\n- Implements: `prd.implementation-in-effect`, `prd.judging-the-plan`\n- Files: `packages/cli/src/models.ts`\n- Depends on: `spec.contract.config`\n\nCairn uses two kinds of model, each behind an `effect/ai` service. `models.ts` builds both Layers from config, and the CLI composition root provides them.\n\n| Service         | Does                                       | Live provider                                                         | Key                 | Used by   |\n| --------------- | ------------------------------------------ | --------------------------------------------------------------------- | ------------------- | --------- |\n| `LanguageModel` | Writes text and schema-decoded objects     | `@effect/ai-anthropic`, `AnthropicLanguageModel.model(planner.model)` | `ANTHROPIC_API_KEY` | `Planner` |\n| `DecisionModel` | Answers typed questions with probabilities | `@effect/ai-typesafe`, `TypeSafeDecisionModel.model(judge.model)`     | `TYPESAFE_API_KEY`  | `Judge`   |\n\n- Keys are read with `Config.Redacted`, never written and never logged. The `Redactor` adds both keys' values to its secret set, so a key in the shell environment is stripped from session logs like one in `.env`.\n- Layers are built only when a command needs them. A command that calls no model never reads a key. `cairn plan` without `ANTHROPIC_API_KEY` fails before it changes any file.\n- `planner.baseUrl` and `judge.baseUrl` become each client's `apiUrl`. Setting them routes calls through a proxy, such as Cloudflare AI Gateway for logs, caching and spend. Cairn ships no gateway and needs no Cloudflare account.\n- The Jev model is pinned (`jev-1.14.0`, not `jev-latest`) so the same input gets the same model, and `judgments.json` records it.\n- No test reads a key or touches the network. `Planner` and `Judge` tests provide scripted Layers.\n\n## Planning {#spec.planning}\n\n### Planner service {#spec.planning.planner-service}\n\n- Implements: `prd.cli`\n- Files: `packages/cli/src/planner.ts`, `packages/cli/prompts/`\n- Depends on: `spec.models`\n\nFive calls, each with a prompt file in `packages/cli/prompts/`:\n\n- `spec(prd)` returns spec markdown. The prompt includes this file as its worked example.\n- `tasks(prd, spec)` returns `TaskDraft[]`: title, PRD and spec sections, files, the drafts it depends on, model and reasoning. Model and reasoning are proposals; routing (see `spec.judging.checkpoints`) can replace them.\n- `splitSection(section, reason)` returns markdown for two or more sections that replace it, under the same parent and with the same `Implements`.\n- `splitTask(draft, spec, reason)` returns two or more `TaskDraft`s that together cover the draft's spec sections and files.\n- `index(section)` returns the prose fields of an `IndexedSection` (see `spec.contract.spec-index`).\n\n`reason` is the judgment that asked for the split, so the prompt says what was wrong. Every structured output is decoded through its schema. A failed decode retries once with the error in the prompt, then fails with a `PlannerError`.\n\nThe model never decides gates, IDs, branch names or order. Those are deterministic and tested.\n\nThe live layer uses the `LanguageModel` from `spec.models`, so the key comes from `ANTHROPIC_API_KEY` and is never written anywhere. The test layer replays fixtures: this `spec.md`, the drafts behind this repo's `manifest.json`, this repo's `spec.json`, and scripted splits.\n\n### Stack order {#spec.planning.stack-order}\n\n- Implements: `prd.human-gates`, `prd.cli`, `prd.manifest-schema`\n- Files: `packages/core/src/stack.ts`\n- Depends on: `spec.gates.detection`\n\n`stackOf(feature, drafts, gates)` returns the tasks as a set of stacks:\n\n1. Topologically sort by dependency. Among tasks whose dependencies are placed, take gated ones first, then planner order. IDs are `t1`… in that order. Branches are `<feature>/<NN>-<slug>`.\n2. `dependsOn` is the draft's dependencies, as task IDs.\n3. `parentOf` sets the parent. A task with no dependencies starts a stack on `baseBranch`: `parent` is `null`. A task whose dependencies all lie on one chain takes the latest of them as its parent. A task whose dependencies lie on different stacks has `parent: null` and starts from `baseBranch` once every dependency has landed.\n4. A cycle fails with a `PlannerError` naming the tasks in it.\n5. `worktreesOf` gives each task a `worktree`. Walking tasks in ID order, a task takes the worktree of its parent, or else of one of its dependencies, when that worktree's latest task is one it depends on and no other task has taken it next. Otherwise it gets a new one. The first worktree is the repo's own checkout (`null`); the rest are `wt-1`, `wt-2`, ….\n\nTasks that share a worktree always run one after another, so a chain is built in one checkout. Tasks that can run at the same time never share one.\n\nEvery ancestor of a task is something it depends on. So a gated task has nothing below it but its own dependencies, and tasks on different stacks can be built at the same time.\n\nThis repo's stacks, drawn from [manifest.json](manifest.json). Each box is a stack built bottom to top, and stacks run in parallel. A solid arrow is a parent branch; a dashed arrow means the task starts from `main` once that dependency has landed. The last line of each task is its worktree. Purple is opus, blue is sonnet, yellow is haiku; a red border and GATE mark a human gate. Redraw it when the manifest changes.\n\n```mermaid\nflowchart BT\n  main([\"main\"])\n  subgraph s1[\"Stack 1 · sessions\"]\n    direction BT\n    t1[\"t1 · 01-redact · GATE<br/>Redact secrets from session logs<br/>main checkout\"]\n    t3[\"t3 · 03-redactor-service · GATE<br/>Add the Redactor service<br/>main checkout\"]\n  end\n  subgraph s2[\"Stack 2 · sessions\"]\n    direction BT\n    t2[\"t2 · 02-trace-store · GATE<br/>Add the trace store and its first migration<br/>wt-1\"]\n  end\n  subgraph s4[\"Stack 4 · status\"]\n    direction BT\n    t5[\"t5 · 05-failed-status<br/>Add the failed status to the task machine<br/>wt-3\"]\n  end\n  subgraph s6[\"Stack 6 · contract\"]\n    direction BT\n    t7[\"t7 · 07-decode-error<br/>Add a decode error that names the file, line and field path<br/>wt-5\"]\n  end\n  subgraph s7[\"Stack 7 · contract\"]\n    direction BT\n    t8[\"t8 · 08-event-schema<br/>Add the event schema with an actor<br/>wt-6\"]\n  end\n  subgraph s8[\"Stack 8 · contract\"]\n    direction BT\n    t9[\"t9 · 09-trailer-schema<br/>Add the trailer and commit schemas<br/>wt-7\"]\n    t6[\"t6 · 06-manifest-schema<br/>Add the manifest schema<br/>wt-7\"]\n  end\n  subgraph s9[\"Stack 9 · contract\"]\n    direction BT\n    t10[\"t10 · 10-trace-schema<br/>Add the Trace schema<br/>wt-7\"]\n    t13[\"t13 · 13-viewer-manifest-task<br/>Move the viewer to ManifestTask<br/>wt-7\"]\n    t43[\"t43 · 43-chain-of<br/>Add chainOf for linked sections and tasks<br/>wt-7\"]\n    t44[\"t44 · 44-demo-trace<br/>Add a demo trace built from this repo<br/>wt-14\"]\n  end\n  subgraph s10[\"Stack 10 · contract\"]\n    direction BT\n    t11[\"t11 · 11-config-schema<br/>Add the config schema with defaults<br/>wt-8\"]\n    t28[\"t28 · 28-planner-service<br/>Add the Planner service with a fixture layer<br/>wt-8\"]\n    t29[\"t29 · 29-planner-live<br/>Add the live language model layer and planner prompts<br/>wt-8\"]\n    t55[\"t55 · 55-judgment-schema<br/>Add the judgments schema and the judge config<br/>wt-15\"]\n    t57[\"t57 · 57-decision-model<br/>Add the Jev decision model layer<br/>wt-17\"]\n    t61[\"t61 · 61-planner-split<br/>Add the split and index planner calls<br/>wt-17\"]\n  end\n  subgraph s11[\"Stack 11 · status\"]\n    direction BT\n    t12[\"t12 · 12-machine-manifest-task<br/>Move the task machine to ManifestTask and an effective gate, and remove Task<br/>wt-4\"]\n  end\n  subgraph s12[\"Stack 12 · contract\"]\n    direction BT\n    t14[\"t14 · 14-js-parse<br/>Add the plain JS entry with parse functions and cairnDir<br/>wt-9\"]\n    t15[\"t15 · 15-js-append-event<br/>Add trailerArgs and appendEvent to the JS entry<br/>wt-9\"]\n    t16[\"t16 · 16-json-schema<br/>Generate the contract JSON Schema and declaration files<br/>wt-9\"]\n  end\n  subgraph s13[\"Stack 13 · sections\"]\n    direction BT\n    t17[\"t17 · 17-sections-of<br/>Parse markdown into sections with keys and human tags<br/>wt-10\"]\n    t24[\"t24 · 24-cairn-ids<br/>Add cairn ids<br/>wt-10\"]\n  end\n  subgraph s14[\"Stack 14 · gates\"]\n    direction BT\n    t18[\"t18 · 18-gate-path-matching<br/>Match gate patterns against declared paths<br/>wt-11\"]\n  end\n  subgraph s15[\"Stack 15 · gates\"]\n    direction BT\n    t19[\"t19 · 19-gate-detection<br/>Detect human gates from tags and paths<br/>wt-11\"]\n    t20[\"t20 · 20-stack-order<br/>Order drafts into stacks by dependency<br/>wt-11\"]\n    t25[\"t25 · 25-lint-sections<br/>Lint section IDs and PRD coverage<br/>wt-11\"]\n    t26[\"t26 · 26-lint-stack<br/>Lint parents, dependencies and gates<br/>wt-11\"]\n    t27[\"t27 · 27-cairn-lint<br/>Add cairn lint<br/>wt-11\"]\n    t66[\"t66 · 66-index-drift<br/>Lint spec.json for drift<br/>wt-11\"]\n  end\n  subgraph s16[\"Stack 16 · status\"]\n    direction BT\n    t21[\"t21 · 21-git-service<br/>Add the Git service with live and in-memory layers<br/>wt-4\"]\n  end\n  subgraph s17[\"Stack 17 · cli\"]\n    direction BT\n    t22[\"t22 · 22-cli-init<br/>Add the cairn binary and cairn init<br/>wt-12\"]\n    t23[\"t23 · 23-workspace-loader<br/>Load the .cairn files through the contract schemas<br/>wt-12\"]\n  end\n  subgraph s18[\"Stack 18 · planning\"]\n    direction BT\n    t30[\"t30 · 30-cairn-plan<br/>Add cairn plan<br/>wt-8\"]\n  end\n  subgraph s19[\"Stack 19 · status\"]\n    direction BT\n    t31[\"t31 · 31-derive-events<br/>Derive task status from events<br/>wt-6\"]\n    t32[\"t32 · 32-derive-commits<br/>Derive effective gates and landing from commits<br/>wt-6\"]\n    t33[\"t33 · 33-section-rollup<br/>Roll task status up to sections<br/>wt-6\"]\n  end\n  subgraph s20[\"Stack 20 · server\"]\n    direction BT\n    t34[\"t34 · 34-trace-schema<br/>Build the Trace from derived state<br/>wt-4\"]\n  end\n  subgraph s21[\"Stack 21 · status\"]\n    direction BT\n    t35[\"t35 · 35-cairn-status<br/>Add cairn status<br/>wt-8\"]\n    t36[\"t36 · 36-cairn-approve<br/>Add cairn approve<br/>wt-8\"]\n  end\n  subgraph s22[\"Stack 22 · sessions\"]\n    direction BT\n    t37[\"t37 · 37-cairn-session<br/>Add cairn session put and note<br/>main checkout\"]\n  end\n  subgraph s23[\"Stack 23 · orchestrator-adapter\"]\n    direction BT\n    t38[\"t38 · 38-orchestrator-contract-test<br/>Test the orchestrator contract end to end<br/>main checkout\"]\n  end\n  subgraph s24[\"Stack 24 · server\"]\n    direction BT\n    t39[\"t39 · 39-api-trace<br/>Serve the trace at /api/trace with an ETag<br/>wt-8\"]\n    t40[\"t40 · 40-api-sessions-commits<br/>Serve sessions and commit patches<br/>wt-8\"]\n    t41[\"t41 · 41-cairn-serve<br/>Add cairn serve with the built viewer<br/>wt-8\"]\n  end\n  subgraph s25[\"Stack 25 · viewer\"]\n    direction BT\n    t42[\"t42 · 42-markdown-rendering<br/>Render markdown to Foldkit nodes<br/>wt-13\"]\n  end\n  subgraph s26[\"Stack 26 · viewer\"]\n    direction BT\n    t45[\"t45 · 45-viewer-columns<br/>Show the trace as PRD, spec and stack columns, with the stack layout<br/>wt-14\"]\n    t46[\"t46 · 46-trace-polling<br/>Load the trace from /api/trace and poll it<br/>wt-14\"]\n    t47[\"t47 · 47-chain-highlight<br/>Highlight the chain on hover and select it on click<br/>wt-14\"]\n    t48[\"t48 · 48-curves-of<br/>Compute bezier curves between linked nodes<br/>wt-14\"]\n    t49[\"t49 · 49-curves-overlay<br/>Measure node positions and draw the curves<br/>wt-14\"]\n    t50[\"t50 · 50-canvas-pan-zoom<br/>Pan and zoom the canvas with XYPanZoom<br/>wt-14\"]\n    t51[\"t51 · 51-canvas-presence<br/>Keep presence cursors in canvas coordinates<br/>wt-14\"]\n    t52[\"t52 · 52-detail-drawer<br/>Open the detail drawer from sections and tasks<br/>wt-14\"]\n  end\n  subgraph s27[\"Stack 27 · viewer\"]\n    direction BT\n    t53[\"t53 · 53-diff-parse<br/>Parse commit patches with @pierre/diffs<br/>wt-14\"]\n    t54[\"t54 · 54-diff-render<br/>Render commit diffs in the drawer<br/>wt-14\"]\n    t67[\"t67 · 67-judgment-markers<br/>Show judgments in the trace and the viewer<br/>wt-14\"]\n  end\n  subgraph s28[\"Stack 28 · contract\"]\n    direction BT\n    t56[\"t56 · 56-spec-index-schema<br/>Add the spec index schema<br/>wt-16\"]\n  end\n  subgraph s29[\"Stack 29 · judging\"]\n    direction BT\n    t58[\"t58 · 58-judging-questions<br/>Define the judging questions and their inputs<br/>wt-18\"]\n  end\n  subgraph s30[\"Stack 30 · judging\"]\n    direction BT\n    t59[\"t59 · 59-verdicts<br/>Turn answers into verdicts and routes<br/>wt-18\"]\n  end\n  subgraph s31[\"Stack 31 · judging\"]\n    direction BT\n    t60[\"t60 · 60-judge-service<br/>Add the Judge service with a scripted layer<br/>wt-18\"]\n    t65[\"t65 · 65-cairn-judge<br/>Add cairn judge<br/>wt-18\"]\n  end\n  subgraph s32[\"Stack 32 · judging\"]\n    direction BT\n    t62[\"t62 · 62-refine<br/>Refine the spec and drafts at the checkpoints<br/>wt-17\"]\n  end\n  subgraph s33[\"Stack 33 · contract\"]\n    direction BT\n    t63[\"t63 · 63-spec-index-writer<br/>Write spec.json from the spec and manifest<br/>wt-16\"]\n  end\n  subgraph s34[\"Stack 34 · planning\"]\n    direction BT\n    t64[\"t64 · 64-plan-checkpoints<br/>Run the checkpoints inside cairn plan<br/>wt-16\"]\n  end\n  main --> t1\n  main --> t2\n  t1 --> t3\n  main --> t5\n  main --> t7\n  main --> t8\n  main --> t9\n  t6 -.-> t10\n  t8 -.-> t10\n  t9 -.-> t10\n  t9 --> t6\n  main --> t11\n  t5 -.-> t12\n  t6 -.-> t12\n  t10 --> t13\n  main --> t14\n  t14 --> t15\n  t15 --> t16\n  main --> t17\n  main --> t18\n  t6 -.-> t19\n  t17 -.-> t19\n  t18 -.-> t19\n  t19 --> t20\n  t8 -.-> t21\n  t9 -.-> t21\n  t12 -.-> t21\n  t19 -.-> t21\n  main --> t22\n  t22 --> t23\n  t17 --> t24\n  t20 --> t25\n  t25 --> t26\n  t26 --> t27\n  t11 --> t28\n  t28 --> t29\n  t24 -.-> t30\n  t27 -.-> t30\n  t29 -.-> t30\n  t8 -.-> t31\n  t9 -.-> t31\n  t12 -.-> t31\n  t19 -.-> t31\n  t31 --> t32\n  t32 --> t33\n  t2 -.-> t34\n  t21 -.-> t34\n  t32 -.-> t34\n  t21 -.-> t35\n  t30 -.-> t35\n  t32 -.-> t35\n  t35 --> t36\n  t2 -.-> t37\n  t3 -.-> t37\n  t16 -.-> t38\n  t36 -.-> t38\n  t37 -.-> t38\n  t34 -.-> t39\n  t36 -.-> t39\n  t39 --> t40\n  t40 --> t41\n  main --> t42\n  t13 --> t43\n  t13 --> t44\n  t42 -.-> t45\n  t43 -.-> t45\n  t44 -.-> t45\n  t45 --> t46\n  t46 --> t47\n  t47 --> t48\n  t48 --> t49\n  t49 --> t50\n  t50 --> t51\n  t51 --> t52\n  t41 -.-> t53\n  t52 -.-> t53\n  t53 --> t54\n  t11 --> t55\n  t17 -.-> t56\n  t29 -.-> t56\n  t29 --> t57\n  t6 -.-> t58\n  t17 -.-> t58\n  t55 -.-> t59\n  t58 -.-> t59\n  t57 -.-> t60\n  t59 -.-> t60\n  t57 --> t61\n  t60 -.-> t62\n  t61 -.-> t62\n  t56 -.-> t63\n  t61 -.-> t63\n  t30 -.-> t64\n  t62 -.-> t64\n  t63 -.-> t64\n  t60 --> t65\n  t27 --> t66\n  t54 --> t67\n  class t1,t3,t20,t31,t32,t58,t60,t62 opus\n  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67 sonnet\n  class t11,t24,t27,t44,t56,t66 haiku\n  class t1,t2,t3 gate\n  classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95\n  classDef sonnet fill:#2563eb,color:#ffffff,stroke:#1e3a8a\n  classDef haiku fill:#facc15,color:#111111,stroke:#a16207\n  classDef gate stroke:#dc2626,stroke-width:5px\n  style main fill:#e5e7eb,color:#111111,stroke:#6b7280\n```\n\n### `cairn plan` {#spec.planning.cairn-plan}\n\n- Implements: `prd.cli`\n- Files: `packages/cli/src/commands/plan.ts`\n- Depends on: `spec.planning.planner-service`, `spec.planning.stack-order`, `spec.lint`, `spec.sections.cairn-ids`, `spec.judging.checkpoints`, `spec.contract.spec-index`\n\n1. Assign missing IDs in `prd.md`.\n2. If `spec.md` is missing, or `--respec` is passed, generate it and assign its IDs. Otherwise keep the human's edits and plan from the file as it is.\n3. Draft tasks.\n4. If `TYPESAFE_API_KEY` is set, `refine` the spec and drafts (see `spec.judging.checkpoints`). Otherwise print `Judging skipped: TYPESAFE_API_KEY is not set.` and keep the drafts as they are.\n5. Compute gates, order the stack, ask the stack questions, and lint the result in memory.\n6. Print what judging changed, then the stack as `cairn status` would, with lint findings and `flag` or `unsure` judgments, and ask `Write manifest.json? [y/N]`. `--yes` skips the question.\n7. Refuse to write if lint has errors, or if an existing manifest has a task that is not `pending`. Re-planning a started stack is v2's rebase flow. Judgments never block the write.\n8. Write `spec.md` if it was generated or split, then `spec.json`, `manifest.json` and `judgments.json`.\n\n## Lint {#spec.lint}\n\n- Implements: `prd.cli`, `prd.section-ids`\n- Files: `packages/core/src/lint.ts`, `packages/cli/src/commands/lint.ts`\n- Depends on: `spec.sections.parsing`, `spec.gates.detection`, `spec.planning.stack-order`\n\n`lint(prd, spec, manifest, config)` is pure and returns a list of `Finding`, each `{ rule, severity, file, line, message }`. The command prints `file:line rule message` and exits 1 on any error.\n\n| Rule                | Severity | Fires when                                                                                                        |\n| ------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |\n| `unknown-section`   | error    | A task or spec key names an ID that no heading has, including a deleted heading                                   |\n| `unmapped-section`  | error    | A PRD section is not covered (see `spec.format`)                                                                  |\n| `missing-id`        | error    | A heading has no ID. The message says to run `cairn ids`                                                          |\n| `duplicate-id`      | error    | Two headings share an ID                                                                                          |\n| `wrong-prefix`      | error    | A `spec.` ID in `prd.md`, or the reverse                                                                          |\n| `bad-parent`        | error    | A parent or dependency that is not in the manifest, or a cycle                                                    |\n| `parent-mismatch`   | error    | `parent` differs from what `parentOf` computes from `dependsOn`                                                   |\n| `worktree-clash`    | error    | Two tasks share a `worktree` and neither depends on the other                                                     |\n| `gate-mismatch`     | error    | `humanGate` differs from what plan-time detection computes                                                        |\n| `no-commits-landed` | warning  | A task is `landed` with no commits                                                                                |\n| `index-drift`       | warning  | A derived field in `spec.json` differs from `spec.md` or `manifest.json`; the message names the section and field |\n\n## Judging {#spec.judging}\n\n- Implements: `prd.judging-the-plan`\n\nLint says whether the plan is well formed. Judging asks a decision model, at each step of the breakdown, whether the pieces are the right size and which model each task needs. The language model writes and splits; the decision model decides when to split and which model to use; code decides what each answer means and keeps every change within bounds.\n\n### Questions {#spec.judging.questions}\n\n- Files: `packages/core/src/judging/questions.ts`\n- Depends on: `spec.sections.parsing`, `spec.contract.manifest`\n\nThree `Decision.make` definitions from `effect/ai`, each an input schema and named decisions. They are plain data, so they live in core. `inputsOf(prd, spec, manifest)` is pure and returns one input per spec section, per task and for the stack.\n\n| Target  | Input                                                                                     | Decision     | Kind                                          | Asks                                                                              |\n| ------- | ----------------------------------------------------------------------------------------- | ------------ | --------------------------------------------- | --------------------------------------------------------------------------------- |\n| Section | The section's title, body and files; the title and body of each PRD section it implements | `size`       | rate: `too_small`, `right`, `too_large`       | Is it one to three tasks' worth, or a detail of a neighbour, or several features? |\n|         |                                                                                           | `faithful`   | probability                                   | It does what its PRD sections ask and adds no behaviour they do not ask for       |\n|         |                                                                                           | `buildable`  | probability                                   | An agent could build it from its text and files without asking a question         |\n| Task    | Title, files, the titles it depends on; the bodies of its spec and PRD sections           | `size`       | rate: `too_small`, `right`, `too_large`       | Is it one reviewable diff from one agent session?                                 |\n|         |                                                                                           | `matches`    | probability                                   | Its title and files carry out its spec sections, and nothing they do not ask      |\n|         |                                                                                           | `model`      | classify: the names in `judge.models`         | Which model the task needs, from each model's description in config               |\n|         |                                                                                           | `reasoning`  | rate: `low`, `medium`, `high`, `xhigh`, `max` | How much reasoning the work needs                                                 |\n| Stack   | Feature, the PRD goal, every PRD section's ID and title, every task's title and sections  | `complete`   | probability                                   | Together the tasks build every PRD section listed                                 |\n|         |                                                                                           | `ordered`    | probability                                   | Each task can be built and tested with only the tasks it depends on               |\n|         |                                                                                           | `oneFeature` | probability                                   | It builds one feature, not several that could ship alone                          |\n\nThe task input leaves out the planner's own model and reasoning, so Jev's choice does not lean on them.\n\nEach rating level and probability carries a description in the definition, with an example from this repo's own plan. The definitions are the prompt; there is no prompt file.\n\n### Verdicts {#spec.judging.verdicts}\n\n- Files: `packages/core/src/judging/verdicts.ts`\n- Depends on: `spec.judging.questions`, `spec.contract.judgments`\n\n`verdictOf(question, outcome, thresholds, task?)` is pure and returns `pass`, `flag` or `unsure`:\n\n- A probability: `pass` at or above `judge.pass`, `flag` below `judge.flag`, `unsure` between.\n- `size`: `unsure` when confidence is below `judge.minConfidence`; otherwise `pass` for `right` and `flag` for the other two, with the label in the message.\n- An unanswered decision (refused, missing or invalid) is `unsure`, with the reason in the message.\n\n`model` and `reasoning` choose rather than judge. `routeOf(answers, draft, thresholds)` returns the model and reasoning to use, each with `source: \"judge\" | \"planner\"`. An answer with confidence at or above `judge.minConfidence` gives Jev's label and `pass`; a lower one keeps the planner's value and gives `unsure`. In `cairn judge`, which changes nothing, a confident answer that differs from the manifest is a `flag`.\n\nProperties: raising a probability never turns `pass` into `flag`; lowering confidence never turns `unsure` into `pass`; an unanswered decision is never `pass`; `routeOf` never returns a model that is not in `judge.models`.\n\n### Judge service {#spec.judging.judge-service}\n\n- Files: `packages/cli/src/judge.ts`\n- Depends on: `spec.models`, `spec.judging.verdicts`\n\n`Judge.judge(inputs, previous)` returns `Judgments`. For each target it hashes the encoded input with SHA-256. A previous judgment with the same hash and model is kept without a call. The rest go to `DecisionModel.decideSettled`, one request per target with all its questions, four requests at a time.\n\n- The TypeSafe client does not retry. `Judge` retries a rate-limit error up to three times, waiting the delay the provider gives.\n- Any other `AiError` fails with a `JudgeError` that names the target. A missing key fails with a `JudgeError` that names `TYPESAFE_API_KEY`.\n- The test layer builds a `DecisionModel` with `DecisionModel.make` and a scripted `decide`. Tests count its calls to show that an unchanged target is not asked again.\n\n### Checkpoints {#spec.judging.checkpoints}\n\n- Files: `packages/cli/src/refine.ts`\n- Depends on: `spec.judging.judge-service`, `spec.planning.planner-service`\n\n`refine({ prd, spec, drafts, specGenerated })` runs the first three checkpoints in order and returns the refined spec, the refined drafts and the judgments behind every change:\n\n1. Sections, only when `specGenerated` is true. A section whose `size` is `too_large` with confidence at or above `judge.minConfidence` goes to `Planner.splitSection`. Its replacement sections get IDs and are judged again. `too_small`, `faithful` and `buildable` are reported. A spec a human wrote or edited is reported on, never rewritten.\n2. Task size. A draft whose `size` is confidently `too_large` goes to `Planner.splitTask`, and the new drafts are judged again. `too_small` and `matches` are reported.\n3. Routing. Each draft's `model` and `reasoning` answers go through `routeOf`. A confident answer replaces the planner's value; otherwise the planner's value stays and the judgment is `unsure`.\n\nThe fourth checkpoint, the stack questions, runs in `cairn plan` after `stackOf` has ordered the drafts. It only reports.\n\nBounds:\n\n- Steps 1 and 2 run at most `judge.maxRounds` rounds each. Anything still too large after the last round is reported as `flag`.\n- A split has to cover what it replaces: the replacement sections keep the original's `Implements`, and the new drafts together keep the original's spec sections and files. A split that drops one is discarded, the original is kept, and the judgment says why.\n- Every change is a judgment with `action: \"split\"` or `action: \"routed\"`. `cairn plan` prints them before the stack, for example `split  draft \"Add the trace store\" into 2 tasks (size too_large, confidence 0.83)` and `routed t12 sonnet to haiku (confidence 0.91)`.\n- Without `TYPESAFE_API_KEY`, `refine` returns its input unchanged with no judgments.\n\nTests use the scripted `Judge` and `Planner` layers: one `too_large` answer causes one split; a split that drops a spec section is discarded; rounds stop at `judge.maxRounds` even when every answer is `too_large`; a low-confidence `model` answer leaves the planner's model.\n\n### `cairn judge` {#spec.judging.cairn-judge}\n\n- Files: `packages/cli/src/commands/judge.ts`\n- Depends on: `spec.judging.judge-service`, `spec.contract.judgments`\n\n`cairn judge` judges the current `spec.md` and `manifest.json`, writes `.cairn/judgments.json`, and prints one line per `flag` or `unsure`: `file:line judge:<question> <verdict> <message>`, with the probability or the label and confidence. Task lines point at the task's first spec section.\n\n- `--fresh` ignores previous judgments and asks again.\n- `--strict` exits 1 on any `flag`. Without it the command exits 0 unless it fails.\n- It never writes `manifest.json`, `spec.md`, `spec.json` or `prd.md`. To act on a flag, edit the spec or re-run `cairn plan` while every task is `pending`.\n\n## Status {#spec.status}\n\n### Task machine {#spec.status.task-machine}\n\n- Implements: `prd.orchestrator-contract`\n- Files: `packages/core/src/task-machine.ts`\n- Depends on: `spec.contract.manifest`\n\nAdd `failed`: `running` goes there on `fail`, and `start` takes it back to `running`. The machine's input is the task plus its effective gate. Everything else stays: a gated task reaches `done` only through `approve`, and `land` is ignored outside `done`.\n\n### Derivation {#spec.status.derivation}\n\n- Implements: `prd.orchestrator-contract`, `prd.human-gates`\n- Files: `packages/core/src/derive.ts`\n- Depends on: `spec.status.task-machine`, `spec.contract.events`, `spec.contract.trailers`, `spec.gates.detection`\n\n`derive(manifest, sections, config, events, commits)` recomputes every task from scratch each time:\n\n1. Group commits by their `Cairn-Task` trailer. The files they change give each task's effective gate.\n2. Sort the task's events by `ts`, then by status and actor, so the order of lines in the file never matters.\n3. Fold them through the task machine. `running` sends `start`; `done` sends `approve` from `blocked_on_human` when the actor is human, and `finish` otherwise; `blocked_on_human` sends `finish`; `failed` sends `fail`; `landed` sends `land`.\n4. Send `land` when the task's commits are reachable from `baseBranch`, or a commit on `baseBranch` carries the task's trailer (a squash merge).\n\nAn orchestrator that reports `done` for a gated task still leaves it in `blocked_on_human`: the machine enforces the gate, not the orchestrator.\n\nAnything the machine ignores becomes a warning in the result, not an error: an illegal transition, an approval from a non-human actor, an event or trailer for an unknown task, a commit on a task branch without trailers, and a branch that landed without approval.\n\nA `pending` task with a `blocked_on_human` task below it is marked `waiting`, so the viewer can show why it has not started.\n\n### Section rollup {#spec.status.section-rollup}\n\n- Implements: `prd.viewer`\n- Files: `packages/core/src/rollup.ts`\n- Depends on: `spec.status.derivation`\n\nA section's status comes from the tasks linked to it or to any section under it. The first rule that matches wins:\n\n1. `deferred` or `context` if a spec key says so.\n2. `unmapped` if no task links to it.\n3. `blocked_on_human`, then `failed`, then `running`, if any task has that status.\n4. `landed` if all have landed, `done` if all are done or landed, `pending` if all are pending.\n5. `in_progress` otherwise.\n\n`SectionStatus` goes in the contract next to `TaskStatus`.\n\n### `cairn status` and `cairn approve` {#spec.status.cairn-status-and-cairn-approve}\n\n- Implements: `prd.cli`, `prd.human-gates`\n- Files: `packages/cli/src/commands/status.ts`, `packages/cli/src/commands/approve.ts`, `packages/cli/src/git.ts`\n- Depends on: `spec.status.derivation`\n\n`cairn status` prints each stack as a tree, top to bottom, one line per task with status, branch, model and a gate marker, then any warnings. A task that waits for another stack to land names what it waits for. `--json` prints the `Trace` the server serves. Both refresh the manifest snapshot when it changed.\n\n`cairn approve <taskId>` appends `{ status: \"done\", actor: \"human:<git user.name>\" }` and prints the new status. It refuses a task that is not `blocked_on_human`. The PRD has no way to approve a gate; this is it.\n\n`Git.log` reads each task branch with `git log --format=%H%x1f%P%x1f%(trailers:key=Cairn-Task,key=Cairn-Section,key=Cairn-Session)` and `git show --name-only` for changed files.\n\n## Sessions {#spec.sessions}\n\n### Trace store {#spec.sessions.trace-store}\n\n- Implements: `prd.orchestrator-contract`, `prd.repo-layout`\n- Files: `packages/cli/src/trace-store.ts`, `packages/cli/src/migrations/001-init.sql`\n\n`node:sqlite`, so there is no native dependency. Migrations are numbered SQL files, tracked with `PRAGMA user_version`. The database opens with `journal_mode = WAL` and a five-second `busy_timeout`, because tasks running in parallel store sessions at the same time.\n\n```sql\ncreate table sessions (\n  id text primary key,          -- s_...\n  task_id text not null,\n  agent text,\n  model text,\n  started_at text,\n  ended_at text,\n  log text not null,            -- redacted JSONL\n  redactions text not null,     -- JSON: count per kind\n  stored_at text not null\n);\n\ncreate table notes (\n  id integer primary key,\n  session_id text not null references sessions (id),\n  kind text not null check (kind in ('note', 'review', 'annotation')),\n  author text not null,\n  body text not null,\n  created_at text not null\n);\n```\n\nNotes attach to sessions, never to commits. `cairn.db` is gitignored: even redacted, session logs stay on the machine that made them.\n\n### Redaction {#spec.sessions.redaction}\n\n<!-- human -->\n\n- Implements: `prd.redaction`\n- Files: `packages/core/src/redact.ts`, `packages/cli/src/redactor.ts`\n\n`redact(jsonl, secrets)` in core parses each line, rewrites every string value, and serializes it again. Working on decoded strings catches secrets that JSON escaping would hide from a regex over raw text. A line that does not parse fails the whole session.\n\nSecrets come from three places:\n\n- Values in `.env*` files at the repo root, and the current environment's values for the same names. Values under 8 characters are skipped, so `PORT=3000` does not redact every 3000.\n- Token patterns: Anthropic and OpenAI keys, GitHub tokens, AWS access keys, Slack tokens, bearer tokens, JWTs and PEM private key blocks.\n- `config.redact.deny`.\n\nEach match becomes `[REDACTED:<kind>]`. The result carries a count per kind, stored with the session and printed. Any error fails closed: nothing is written and the command exits non-zero.\n\nRedaction is a mutation-testing target, as is gate detection and derivation.\n\n### `cairn session` {#spec.sessions.cairn-session}\n\n- Implements: `prd.orchestrator-contract`\n- Files: `packages/cli/src/commands/session.ts`\n- Depends on: `spec.sessions.trace-store`, `spec.sessions.redaction`\n\n- `cairn session put --task t1 [--id s_x] < log.jsonl` redacts, stores and prints the session ID, generating one if none is given.\n- `cairn session note <id> --kind review <text>` adds a note.\n\nRedaction lives in Cairn, not in each adapter, so there is one implementation to get right and to test.\n\n## Orchestrator adapter {#spec.orchestrator-adapter}\n\n- Implements: `prd.orchestrator-contract`\n- Depends on: `spec.contract.javascript-entry`, `spec.sessions.cairn-session`, `spec.status.cairn-status-and-cairn-approve`\n\nWhat the existing orchestrator does per task, using only `@cairn/contract/js` and the CLI:\n\n1. Read the manifest with `parseManifest`. Take every task that is `pending` in `cairn status --json` whose dependencies are `done` or `landed`, and whose dependencies off its own chain are `landed`. Run them in parallel. How many run at once is the orchestrator's choice; the plan only guarantees that tasks running at once have different worktrees.\n2. Work in the task's `worktree`: the repo's own checkout when it is `null`, otherwise `git worktree add ../<repo>-<worktree>` the first time it is used. There, `gt checkout` the parent branch, or `baseBranch` after `gt sync` when the task has no parent, so it starts from the latest `baseBranch`.\n3. `appendEvent` with `running`.\n4. Run the agent with a new session ID. Its first commit is `gt create <branch> -m <message>`, and later ones are `gt modify --commit -m <message>`. Each message ends with the `formatTrailers` block. `gt modify` restacks the branches above automatically.\n5. Pipe the session log to `cairn session put`.\n6. `appendEvent` with `failed`, or with `blocked_on_human` when `humanGate.required` and `done` otherwise. A blocked task stops its chain until `cairn approve`.\n\nGraphite does the rest of the stack work: `gt submit --stack` opens or updates one pull request per task, and `gt sync` pulls `baseBranch`, deletes merged branches and restacks what is left. Landing is still read from git (see `spec.status.derivation`): a squash merge carries the task's trailers onto `baseBranch`. Graphite runs git hooks by default, so `pnpm check` still gates every commit; `--no-verify` is refused as before.\n\nThe `adapters` package from the vision comes later. For dogfooding, this list is the contract the orchestrator has to meet.\n\n## CLI {#spec.cli}\n\n- Implements: `prd.cli`, `prd.repo-layout`\n- Files: `packages/cli/src/main.ts`, `packages/cli/src/commands/init.ts`, `packages/cli/package.json`\n\nOne `cairn` binary built with `effect/cli`. Each command finds `.cairn/` in the repo's main checkout, from `git rev-parse --path-format=absolute --git-common-dir`, not from the current worktree. Commands run inside a worktree read and write the same `events.jsonl` and `cairn.db` as everyone else.\n\n`cairn init` creates `.cairn/` with a PRD template, an empty `events.jsonl` and the default `config.json`, and adds `.cairn/cairn.db` to `.gitignore`. It refuses to overwrite an existing `.cairn/`.\n\n## Server {#spec.server}\n\n- Implements: `prd.cli`, `prd.viewer`\n- Files: `packages/cli/src/serve.ts`, `packages/cli/src/api.ts`\n- Depends on: `spec.status.cairn-status-and-cairn-approve`, `spec.sessions.trace-store`\n\n`cairn serve` runs the existing server on port 4310 with these routes:\n\n| Route                   | Returns                                                                                                                                                               |\n| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |\n| `GET /api/trace`        | The `Trace`: both documents' markdown and sections, the derived tasks, section statuses, commits, events, judgments and warnings. An `ETag` from a hash of the inputs |\n| `GET /api/sessions/:id` | The redacted session and its notes                                                                                                                                    |\n| `GET /api/commits/:sha` | `git show --patch` output as text, which `parsePatchFiles` reads                                                                                                      |\n| `WS /presence`          | Unchanged                                                                                                                                                             |\n| `GET /*`                | The built viewer. In dev, Vite serves it and proxies `/api`                                                                                                           |\n\nThe viewer polls `/api/trace` every two seconds with `If-None-Match` (the viewer side is in `spec.viewer.model-and-messages`). A file watcher can replace polling later; the PRD allows either.\n\n`Trace` is a contract schema (see `spec.contract.trace`), so the server encodes and the viewer decodes the same type.\n\nEach judgment in the `Trace` carries `stale: boolean`. The server recomputes `inputsOf` and marks a judgment stale when its `inputHash` no longer matches.\n\n## Viewer {#spec.viewer}\n\n### Model and messages {#spec.viewer.model-and-messages}\n\n- Implements: `prd.viewer`\n- Files: `apps/viewer/src/model.ts`, `apps/viewer/src/main.ts`, `apps/viewer/src/trace.ts`, `apps/viewer/src/load.ts`, `apps/viewer/src/stacks.ts`\n- Depends on: `spec.contract.trace`, `spec.viewer.markdown-rendering`\n\nThe model holds the trace, the hovered node, the selected node, the drawer, the measured node positions and the canvas viewport. Messages: `ReceivedTrace`, `FailedToLoadTrace`, `HoveredNode`, `LeftNode`, `ClickedNode`, `ClickedCommit`, `ReceivedCommit`, `ClosedDrawer`, `MeasuredLayout`, `PannedOrZoomed`.\n\n`chainOf(trace, node)` is pure: the PRD sections, spec sections and tasks linked to a node, in both directions. Hovering highlights the chain; clicking selects it.\n\nLayout as the PRD gives it: PRD, spec, then the stacks. Each section heading carries its rollup badge, and each task node shows branch, model, status and a gate marker. A spec section or task node with a `flag` or `unsure` judgment also shows a judgment marker, dimmed when the judgment is stale.\n\nThe stacks area is a node graph, one column per chain, read bottom to top. `stackLayoutOf(tasks)` is pure and gives each task a column and a row:\n\n- Columns follow parent links. A task with no parent starts a new column. At a fork, the first child (by ID) continues its parent's column and each other child starts a new column right after it. Columns are ordered by the ID of their first task.\n- A task's row is its wave: 1 for a task with no dependencies, otherwise 1 more than the highest wave among its dependencies. Row 1 is at the bottom, so everything a task needs sits below it.\n- Within a column, a parent and its child are joined by a curve from the parent's top edge to the child's bottom edge. A dependency on another column is a dashed curve, drawn the same way. Both come from `curvesOf` (see `spec.viewer.curves`).\n\nProperties: every task sits above all of its dependencies; a task and its parent share a column; two tasks never share a column and a row.\nLoading: under `cairn serve`, a subscription in `load.ts` fetches `/api/trace` every two seconds with `If-None-Match` (see `spec.server`). A `200` is decoded through the `Trace` schema and sends `ReceivedTrace`; a `304` sends nothing; a network or decode error sends `FailedToLoadTrace`, and the view shows the error above the last good trace. The demo build (`vite build --mode demo`) loads `demo-trace.json` once and never polls.\n\n### Markdown rendering {#spec.viewer.markdown-rendering}\n\n- Implements: `prd.viewer`\n- Files: `apps/viewer/src/markdown.ts`\n\nParse with `mdast-util-from-markdown` plus GFM tables and map the nodes to Foldkit's `h` builders. No `innerHTML`, so a PRD cannot inject markup, and Scene tests see the rendered text. Each heading's `{#id}` becomes its element ID and `data-section` attribute. The key list at the top of a spec section renders as small chips. HTML comments are dropped.\n\n### Canvas and curves {#spec.viewer.curves}\n\n- Implements: `prd.viewer`\n- Files: `apps/viewer/src/layout.ts`, `apps/viewer/src/curves.ts`, `apps/viewer/src/canvas.ts`\n- Depends on: `spec.viewer.model-and-messages`\n\nThe three columns sit on one canvas, built the way React Flow builds its own, from `@xyflow/system`, the framework-agnostic core under React Flow and Svelte Flow. Foldkit renders every node and edge; the library supplies geometry and gestures, never DOM or state.\n\n- Positions: a subscription measures every `[data-section]` and `[data-task]` element on load and resize, and sends `MeasuredLayout`. Positions are in canvas coordinates, so pan and zoom do not invalidate them.\n- Curves: `curvesOf(trace, positions)` is pure. It returns one edge per link, with its path from `getBezierPath`. PRD to spec and spec to task links run from a node's right edge to the next node's left edge. Links inside the stacks area run from a task's top edge to the bottom edge of the task above it: solid for a parent, dashed for a dependency on another column (see `spec.viewer.model-and-messages`). The view draws all edges in one SVG layer and dims those outside the highlighted chain.\n- Pan and zoom: `XYPanZoom` runs in a Foldkit `Mount` on the canvas pane. Its `onPanZoom` callback sends `PannedOrZoomed` with the viewport, and the model holds it. When the model's viewport changes for another reason, such as fitting the selected chain with `getViewportForBounds`, the mount calls `syncViewport`. `destroy` runs on unmount.\n\nNot in v1: dragging nodes, drawing connections and automatic layout. When they come, drag starts as a small pointer handler that sends `DraggedNode`, `XYDrag` and `XYHandle` are used only if snapping or connection drawing needs them, and `@dagrejs/dagre` places nodes as a pure function called from `update`.\n\n### Presence on the canvas {#spec.viewer.presence}\n\n- Implements: `prd.v2-multiplayer-on-cloudflare.presence`, `prd.viewer`\n- Files: `apps/viewer/src/presence.ts`, `apps/viewer/src/canvas.ts`, `packages/core/src/room-machine.ts`\n- Depends on: `spec.viewer.curves`\n\nToday a cursor is a fraction of the sender's window, drawn with `position: fixed`. Once the canvas pans and zooms, that puts a cursor over different content in each window.\n\n- A cursor is a point in canvas coordinates. The sender converts the pointer with its current viewport through `toCanvas(point, viewport)`, built on `pointToRendererPoint` from `@xyflow/system`.\n- The view draws each cursor inside the canvas's transformed layer, so it sits over the same node in every window, whatever that window's pan and zoom. Its label is scaled by `1 / zoom` so it stays the same size on screen.\n- The `Cursor` schema keeps `{ x, y }`; only its meaning changes, from window fractions to canvas coordinates. The room machine stops clamping cursors to `[0, 1]`. A pointer outside the canvas pane sends no move.\n\nTests: a property that `toScreen(toCanvas(p, v), v)` returns `p` for any viewport `v`; a Scene test with two participants and different viewports that finds the other participant's cursor at the same canvas position.\n\n### Detail panel {#spec.viewer.detail-panel}\n\n- Implements: `prd.viewer`, `prd.acceptance-criteria`\n- Files: `apps/viewer/src/drawer.ts`\n- Depends on: `spec.viewer.model-and-messages`\n\nClicking a PRD or spec section opens the drawer with its tasks, and each task lists its commits. Clicking a commit loads its diff (see `spec.viewer.diff-view`). That is the two-click path from section to commit.\n\nClicking a task shows its commits, sessions (linked to `/api/sessions/:id`), events timeline, gate reasons and judgments. A spec section's drawer lists its judgments too. Each judgment shows its question, verdict, message and the probability or label and confidence behind it.\n\n### Diff view {#spec.viewer.diff-view}\n\n- Implements: `prd.viewer`\n- Files: `apps/viewer/src/diff.ts`, `apps/viewer/package.json`\n- Depends on: `spec.viewer.detail-panel`, `spec.server`\n\n`ReceivedCommit` carries the patch text. `parsePatchFiles` from `@pierre/diffs` turns it into `ParsedPatch`: the commit message as `patchMetadata`, then one `FileDiffMetadata` per file with its hunks. Cairn's code reads that structure; it does not parse hunks itself.\n\nEach file renders through `@pierre/diffs`' vanilla `FileDiff` class inside a Foldkit `Mount`, which hands a real element to a library that owns its own DOM. The mount calls `render({ fileDiff, containerWrapper })`, calls `setOptions` when the model changes, and calls `cleanUp()` on unmount.\n\nOptions:\n\n- `diffStyle`: `unified` in the drawer, with a toggle for `split`. The toggle is model state.\n- `lineDiffType`: `word-alt`, the default, which highlights changed words in a line.\n- `hunkSeparators`: `line-info`, the default. A diff parsed from a patch has only the patch's lines, so expanding context needs `loadDiffFiles` and a route that returns both versions of a file. That waits until someone asks for it.\n- Light and dark follow `themeType: \"system\"`.\n\nThe files touched by a human-gated path are listed first, with the matching pattern as a label. Later, the same position data can carry line annotations, through `setLineAnnotations`, for review notes from `cairn.db`.\n\nSnabbdom hooks do not fire in Scene tests, so a Scene sees the mount element and not the diff inside it. Scene tests check that the right files mount with the right options. A unit test checks the patch-to-files step against real `git show` output.\n\n### Demo data {#spec.viewer.demo-data}\n\n- Implements: `prd.viewer`\n- Files: `apps/viewer/src/demo.ts`, `apps/viewer/src/demo-trace.json`\n- Depends on: `spec.contract.trace`\n\nThe demo, and the site deployed from it, loads a `Trace` built from this repo's own `.cairn/` by `cairn status --json`. It replaces the three hand-written rows in `demo.ts`. Until the CLI exists, the fixture is written by hand.\n\n## Acceptance {#spec.acceptance}\n\n- Implements: `prd.acceptance-criteria`\n\n| PRD criterion                                     | How it is checked                                                                                |\n| ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |\n| Three or more stacked tasks on a RinkSide feature | Dogfood run; `cairn status` output kept with the feature                                         |\n| Trailers and resolvable sessions                  | `cairn status` warns on a commit without trailers or with a session missing from `cairn.db`      |\n| A migrations task is gated and blocks children    | Derivation property test: no child leaves `pending` before a human approves its gated parent     |\n| Correct status and two clicks to commits          | Rollup property tests; a Scene test clicks a section and then a commit                           |\n| Lint catches orphaned and unmapped sections       | Lint tests for `unknown-section` and `unmapped-section`                                          |\n| An oversized draft is broken down before printing | `refine` test: a scripted `too_large` answer splits a draft, and the plan output lists the split |\n| A model changes only when Jev is confident        | `routeOf` property test and a `refine` test with a low-confidence `model` answer                 |\n| A changed task's judgment shows stale             | Trace test: edit a task and check `stale`                                                        |\n| Planning without `TYPESAFE_API_KEY` still writes  | `cairn plan` test with no key: manifest written, skip message printed                            |\n",
+    "sections": [
+      {
+        "human": false,
+        "id": "spec.cairn-mvp-spec",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 1,
+        "line": 1,
+        "parent": null,
+        "title": "Cairn MVP spec"
+      },
+      {
+        "human": false,
+        "id": "spec.format",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": ["prd.goal", "prd.non-goals-for-v1", "prd.one-day-build-order"]
+        },
+        "level": 2,
+        "line": 7,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Format"
+      },
+      {
+        "human": false,
+        "id": "spec.scope",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": ["prd.v2-diverging-state", "prd.v2-multiplayer-on-cloudflare", "prd.later"],
+          "context": []
+        },
+        "level": 2,
+        "line": 25,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Scope"
+      },
+      {
+        "human": false,
+        "id": "spec.package-layout",
+        "keys": {
+          "implements": ["prd.implementation-in-effect"],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 31,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Package layout"
+      },
+      {
+        "human": false,
+        "id": "spec.libraries",
+        "keys": {
+          "implements": ["prd.implementation-in-effect", "prd.viewer"],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 54,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Libraries"
+      },
+      {
+        "human": false,
+        "id": "spec.contract",
+        "keys": {
+          "implements": ["prd.contract-package"],
+          "files": ["packages/contract/src/", "packages/contract/schema/"],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 89,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Contract"
+      },
+      {
+        "human": false,
+        "id": "spec.contract.section-ids",
+        "keys": {
+          "implements": ["prd.contract-package", "prd.section-ids"],
+          "files": [
+            "packages/contract/src/",
+            "packages/contract/schema/",
+            "packages/contract/src/ids.ts"
+          ],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 96,
+        "parent": "spec.contract",
+        "title": "Section IDs"
+      },
+      {
+        "human": false,
+        "id": "spec.contract.manifest",
+        "keys": {
+          "implements": ["prd.contract-package", "prd.manifest-schema"],
+          "files": [
+            "packages/contract/src/",
+            "packages/contract/schema/",
+            "packages/contract/src/manifest.ts"
+          ],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 105,
+        "parent": "spec.contract",
+        "title": "Manifest"
+      },
+      {
+        "human": false,
+        "id": "spec.contract.events",
+        "keys": {
+          "implements": ["prd.contract-package", "prd.orchestrator-contract"],
+          "files": [
+            "packages/contract/src/",
+            "packages/contract/schema/",
+            "packages/contract/src/events.ts"
+          ],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 144,
+        "parent": "spec.contract",
+        "title": "Events"
+      },
+      {
+        "human": false,
+        "id": "spec.contract.trailers",
+        "keys": {
+          "implements": ["prd.contract-package", "prd.orchestrator-contract"],
+          "files": [
+            "packages/contract/src/",
+            "packages/contract/schema/",
+            "packages/contract/src/trailers.ts"
+          ],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 164,
+        "parent": "spec.contract",
+        "title": "Trailers"
+      },
+      {
+        "human": false,
+        "id": "spec.contract.trace",
+        "keys": {
+          "implements": ["prd.contract-package", "prd.viewer"],
+          "files": [
+            "packages/contract/src/",
+            "packages/contract/schema/",
+            "packages/contract/src/trace.ts"
+          ],
+          "dependsOn": ["spec.contract.manifest", "spec.contract.events", "spec.contract.trailers"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 178,
+        "parent": "spec.contract",
+        "title": "Trace"
+      },
+      {
+        "human": false,
+        "id": "spec.contract.config",
+        "keys": {
+          "implements": ["prd.contract-package", "prd.human-gates"],
+          "files": [
+            "packages/contract/src/",
+            "packages/contract/schema/",
+            "packages/contract/src/config.ts"
+          ],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 251,
+        "parent": "spec.contract",
+        "title": "Config"
+      },
+      {
+        "human": false,
+        "id": "spec.contract.judgments",
+        "keys": {
+          "implements": ["prd.contract-package", "prd.judging-the-plan"],
+          "files": [
+            "packages/contract/src/",
+            "packages/contract/schema/",
+            "packages/contract/src/judgments.ts"
+          ],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 285,
+        "parent": "spec.contract",
+        "title": "Judgments"
+      },
+      {
+        "human": false,
+        "id": "spec.contract.spec-index",
+        "keys": {
+          "implements": ["prd.contract-package", "prd.repo-layout"],
+          "files": [
+            "packages/contract/src/",
+            "packages/contract/schema/",
+            "packages/contract/src/spec-index.ts",
+            "packages/cli/src/spec-index.ts"
+          ],
+          "dependsOn": ["spec.sections.parsing", "spec.planning.planner-service"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 320,
+        "parent": "spec.contract",
+        "title": "Spec index"
+      },
+      {
+        "human": false,
+        "id": "spec.contract.javascript-entry",
+        "keys": {
+          "implements": ["prd.contract-package"],
+          "files": [
+            "packages/contract/src/",
+            "packages/contract/schema/",
+            "packages/contract/src/js.ts",
+            "packages/contract/package.json"
+          ],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 365,
+        "parent": "spec.contract",
+        "title": "JavaScript entry"
+      },
+      {
+        "human": false,
+        "id": "spec.sections",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 380,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Sections"
+      },
+      {
+        "human": false,
+        "id": "spec.sections.parsing",
+        "keys": {
+          "implements": ["prd.section-ids"],
+          "files": ["packages/core/src/section-ids.ts", "packages/core/src/sections.ts"],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 382,
+        "parent": "spec.sections",
+        "title": "Parsing"
+      },
+      {
+        "human": false,
+        "id": "spec.sections.cairn-ids",
+        "keys": {
+          "implements": ["prd.cli", "prd.section-ids"],
+          "files": ["packages/cli/src/commands/ids.ts"],
+          "dependsOn": ["spec.sections.parsing"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 404,
+        "parent": "spec.sections",
+        "title": "`cairn ids`"
+      },
+      {
+        "human": false,
+        "id": "spec.gates",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 412,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Gates"
+      },
+      {
+        "human": false,
+        "id": "spec.gates.path-matching",
+        "keys": {
+          "implements": ["prd.human-gates"],
+          "files": ["packages/core/src/gates.ts"],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 414,
+        "parent": "spec.gates",
+        "title": "Path matching"
+      },
+      {
+        "human": false,
+        "id": "spec.gates.detection",
+        "keys": {
+          "implements": ["prd.human-gates"],
+          "files": ["packages/core/src/gates.ts"],
+          "dependsOn": [
+            "spec.gates.path-matching",
+            "spec.sections.parsing",
+            "spec.contract.manifest"
+          ],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 421,
+        "parent": "spec.gates",
+        "title": "Detection"
+      },
+      {
+        "human": false,
+        "id": "spec.models",
+        "keys": {
+          "implements": ["prd.implementation-in-effect", "prd.judging-the-plan"],
+          "files": ["packages/cli/src/models.ts"],
+          "dependsOn": ["spec.contract.config"],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 434,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Models"
+      },
+      {
+        "human": false,
+        "id": "spec.planning",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 453,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Planning"
+      },
+      {
+        "human": false,
+        "id": "spec.planning.planner-service",
+        "keys": {
+          "implements": ["prd.cli"],
+          "files": ["packages/cli/src/planner.ts", "packages/cli/prompts/"],
+          "dependsOn": ["spec.models"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 455,
+        "parent": "spec.planning",
+        "title": "Planner service"
+      },
+      {
+        "human": false,
+        "id": "spec.planning.stack-order",
+        "keys": {
+          "implements": ["prd.human-gates", "prd.cli", "prd.manifest-schema"],
+          "files": ["packages/core/src/stack.ts"],
+          "dependsOn": ["spec.gates.detection"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 475,
+        "parent": "spec.planning",
+        "title": "Stack order"
+      },
+      {
+        "human": false,
+        "id": "spec.planning.cairn-plan",
+        "keys": {
+          "implements": ["prd.cli"],
+          "files": ["packages/cli/src/commands/plan.ts"],
+          "dependsOn": [
+            "spec.planning.planner-service",
+            "spec.planning.stack-order",
+            "spec.lint",
+            "spec.sections.cairn-ids",
+            "spec.judging.checkpoints",
+            "spec.contract.spec-index"
+          ],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 769,
+        "parent": "spec.planning",
+        "title": "`cairn plan`"
+      },
+      {
+        "human": false,
+        "id": "spec.lint",
+        "keys": {
+          "implements": ["prd.cli", "prd.section-ids"],
+          "files": ["packages/core/src/lint.ts", "packages/cli/src/commands/lint.ts"],
+          "dependsOn": [
+            "spec.sections.parsing",
+            "spec.gates.detection",
+            "spec.planning.stack-order"
+          ],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 784,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Lint"
+      },
+      {
+        "human": false,
+        "id": "spec.judging",
+        "keys": {
+          "implements": ["prd.judging-the-plan"],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 806,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Judging"
+      },
+      {
+        "human": false,
+        "id": "spec.judging.questions",
+        "keys": {
+          "implements": ["prd.judging-the-plan"],
+          "files": ["packages/core/src/judging/questions.ts"],
+          "dependsOn": ["spec.sections.parsing", "spec.contract.manifest"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 812,
+        "parent": "spec.judging",
+        "title": "Questions"
+      },
+      {
+        "human": false,
+        "id": "spec.judging.verdicts",
+        "keys": {
+          "implements": ["prd.judging-the-plan"],
+          "files": ["packages/core/src/judging/verdicts.ts"],
+          "dependsOn": ["spec.judging.questions", "spec.contract.judgments"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 836,
+        "parent": "spec.judging",
+        "title": "Verdicts"
+      },
+      {
+        "human": false,
+        "id": "spec.judging.judge-service",
+        "keys": {
+          "implements": ["prd.judging-the-plan"],
+          "files": ["packages/cli/src/judge.ts"],
+          "dependsOn": ["spec.models", "spec.judging.verdicts"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 851,
+        "parent": "spec.judging",
+        "title": "Judge service"
+      },
+      {
+        "human": false,
+        "id": "spec.judging.checkpoints",
+        "keys": {
+          "implements": ["prd.judging-the-plan"],
+          "files": ["packages/cli/src/refine.ts"],
+          "dependsOn": ["spec.judging.judge-service", "spec.planning.planner-service"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 862,
+        "parent": "spec.judging",
+        "title": "Checkpoints"
+      },
+      {
+        "human": false,
+        "id": "spec.judging.cairn-judge",
+        "keys": {
+          "implements": ["prd.judging-the-plan"],
+          "files": ["packages/cli/src/commands/judge.ts"],
+          "dependsOn": ["spec.judging.judge-service", "spec.contract.judgments"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 884,
+        "parent": "spec.judging",
+        "title": "`cairn judge`"
+      },
+      {
+        "human": false,
+        "id": "spec.status",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 895,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Status"
+      },
+      {
+        "human": false,
+        "id": "spec.status.task-machine",
+        "keys": {
+          "implements": ["prd.orchestrator-contract"],
+          "files": ["packages/core/src/task-machine.ts"],
+          "dependsOn": ["spec.contract.manifest"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 897,
+        "parent": "spec.status",
+        "title": "Task machine"
+      },
+      {
+        "human": false,
+        "id": "spec.status.derivation",
+        "keys": {
+          "implements": ["prd.orchestrator-contract", "prd.human-gates"],
+          "files": ["packages/core/src/derive.ts"],
+          "dependsOn": [
+            "spec.status.task-machine",
+            "spec.contract.events",
+            "spec.contract.trailers",
+            "spec.gates.detection"
+          ],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 905,
+        "parent": "spec.status",
+        "title": "Derivation"
+      },
+      {
+        "human": false,
+        "id": "spec.status.section-rollup",
+        "keys": {
+          "implements": ["prd.viewer"],
+          "files": ["packages/core/src/rollup.ts"],
+          "dependsOn": ["spec.status.derivation"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 924,
+        "parent": "spec.status",
+        "title": "Section rollup"
+      },
+      {
+        "human": false,
+        "id": "spec.status.cairn-status-and-cairn-approve",
+        "keys": {
+          "implements": ["prd.cli", "prd.human-gates"],
+          "files": [
+            "packages/cli/src/commands/status.ts",
+            "packages/cli/src/commands/approve.ts",
+            "packages/cli/src/git.ts"
+          ],
+          "dependsOn": ["spec.status.derivation"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 940,
+        "parent": "spec.status",
+        "title": "`cairn status` and `cairn approve`"
+      },
+      {
+        "human": false,
+        "id": "spec.sessions",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 952,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Sessions"
+      },
+      {
+        "human": false,
+        "id": "spec.sessions.trace-store",
+        "keys": {
+          "implements": ["prd.orchestrator-contract", "prd.repo-layout"],
+          "files": ["packages/cli/src/trace-store.ts", "packages/cli/src/migrations/001-init.sql"],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 954,
+        "parent": "spec.sessions",
+        "title": "Trace store"
+      },
+      {
+        "human": true,
+        "id": "spec.sessions.redaction",
+        "keys": {
+          "implements": ["prd.redaction"],
+          "files": ["packages/core/src/redact.ts", "packages/cli/src/redactor.ts"],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 986,
+        "parent": "spec.sessions",
+        "title": "Redaction"
+      },
+      {
+        "human": false,
+        "id": "spec.sessions.cairn-session",
+        "keys": {
+          "implements": ["prd.orchestrator-contract"],
+          "files": ["packages/cli/src/commands/session.ts"],
+          "dependsOn": ["spec.sessions.trace-store", "spec.sessions.redaction"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 1005,
+        "parent": "spec.sessions",
+        "title": "`cairn session`"
+      },
+      {
+        "human": false,
+        "id": "spec.orchestrator-adapter",
+        "keys": {
+          "implements": ["prd.orchestrator-contract"],
+          "files": [],
+          "dependsOn": [
+            "spec.contract.javascript-entry",
+            "spec.sessions.cairn-session",
+            "spec.status.cairn-status-and-cairn-approve"
+          ],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 1016,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Orchestrator adapter"
+      },
+      {
+        "human": false,
+        "id": "spec.cli",
+        "keys": {
+          "implements": ["prd.cli", "prd.repo-layout"],
+          "files": [
+            "packages/cli/src/main.ts",
+            "packages/cli/src/commands/init.ts",
+            "packages/cli/package.json"
+          ],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 1034,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "CLI"
+      },
+      {
+        "human": false,
+        "id": "spec.server",
+        "keys": {
+          "implements": ["prd.cli", "prd.viewer"],
+          "files": ["packages/cli/src/serve.ts", "packages/cli/src/api.ts"],
+          "dependsOn": ["spec.status.cairn-status-and-cairn-approve", "spec.sessions.trace-store"],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 1043,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Server"
+      },
+      {
+        "human": false,
+        "id": "spec.viewer",
+        "keys": {
+          "implements": [],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 1065,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Viewer"
+      },
+      {
+        "human": false,
+        "id": "spec.viewer.model-and-messages",
+        "keys": {
+          "implements": ["prd.viewer"],
+          "files": [
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/main.ts",
+            "apps/viewer/src/trace.ts",
+            "apps/viewer/src/load.ts",
+            "apps/viewer/src/stacks.ts"
+          ],
+          "dependsOn": ["spec.contract.trace", "spec.viewer.markdown-rendering"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 1067,
+        "parent": "spec.viewer",
+        "title": "Model and messages"
+      },
+      {
+        "human": false,
+        "id": "spec.viewer.markdown-rendering",
+        "keys": {
+          "implements": ["prd.viewer"],
+          "files": ["apps/viewer/src/markdown.ts"],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 1088,
+        "parent": "spec.viewer",
+        "title": "Markdown rendering"
+      },
+      {
+        "human": false,
+        "id": "spec.viewer.curves",
+        "keys": {
+          "implements": ["prd.viewer"],
+          "files": [
+            "apps/viewer/src/layout.ts",
+            "apps/viewer/src/curves.ts",
+            "apps/viewer/src/canvas.ts"
+          ],
+          "dependsOn": ["spec.viewer.model-and-messages"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 1095,
+        "parent": "spec.viewer",
+        "title": "Canvas and curves"
+      },
+      {
+        "human": false,
+        "id": "spec.viewer.presence",
+        "keys": {
+          "implements": ["prd.v2-multiplayer-on-cloudflare.presence", "prd.viewer"],
+          "files": [
+            "apps/viewer/src/presence.ts",
+            "apps/viewer/src/canvas.ts",
+            "packages/core/src/room-machine.ts"
+          ],
+          "dependsOn": ["spec.viewer.curves"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 1109,
+        "parent": "spec.viewer",
+        "title": "Presence on the canvas"
+      },
+      {
+        "human": false,
+        "id": "spec.viewer.detail-panel",
+        "keys": {
+          "implements": ["prd.viewer", "prd.acceptance-criteria"],
+          "files": ["apps/viewer/src/drawer.ts"],
+          "dependsOn": ["spec.viewer.model-and-messages"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 1123,
+        "parent": "spec.viewer",
+        "title": "Detail panel"
+      },
+      {
+        "human": false,
+        "id": "spec.viewer.diff-view",
+        "keys": {
+          "implements": ["prd.viewer"],
+          "files": ["apps/viewer/src/diff.ts", "apps/viewer/package.json"],
+          "dependsOn": ["spec.viewer.detail-panel", "spec.server"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 1133,
+        "parent": "spec.viewer",
+        "title": "Diff view"
+      },
+      {
+        "human": false,
+        "id": "spec.viewer.demo-data",
+        "keys": {
+          "implements": ["prd.viewer"],
+          "files": ["apps/viewer/src/demo.ts", "apps/viewer/src/demo-trace.json"],
+          "dependsOn": ["spec.contract.trace"],
+          "defers": [],
+          "context": []
+        },
+        "level": 3,
+        "line": 1154,
+        "parent": "spec.viewer",
+        "title": "Demo data"
+      },
+      {
+        "human": false,
+        "id": "spec.acceptance",
+        "keys": {
+          "implements": ["prd.acceptance-criteria"],
+          "files": [],
+          "dependsOn": [],
+          "defers": [],
+          "context": []
+        },
+        "level": 2,
+        "line": 1162,
+        "parent": "spec.cairn-mvp-spec",
+        "title": "Acceptance"
+      }
+    ]
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Redact secrets from session logs",
+      "prdSections": ["prd.redaction"],
+      "specSections": ["spec.sessions.redaction"],
+      "files": [
+        "packages/core/src/redact.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/redact.test.ts"
+      ],
+      "branch": "cairn-mvp/01-redact",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": null,
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["tag:human"]
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": true,
+        "reasons": ["tag:human"]
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t2",
+      "title": "Add the trace store and its first migration",
+      "prdSections": ["prd.orchestrator-contract", "prd.repo-layout"],
+      "specSections": ["spec.sessions.trace-store"],
+      "files": [
+        "packages/cli/src/trace-store.ts",
+        "packages/cli/src/migrations/001-init.sql",
+        "packages/cli/test/trace-store.test.ts",
+        ".gitignore"
+      ],
+      "branch": "cairn-mvp/02-trace-store",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-1",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**", "path:*.sql"]
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**", "path:*.sql"]
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t3",
+      "title": "Add the Redactor service",
+      "prdSections": ["prd.redaction"],
+      "specSections": ["spec.sessions.redaction"],
+      "files": ["packages/cli/src/redactor.ts", "packages/cli/test/redactor.test.ts"],
+      "branch": "cairn-mvp/03-redactor-service",
+      "parent": "t1",
+      "dependsOn": ["t1"],
+      "worktree": null,
+      "model": "opus",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": true,
+        "reasons": ["tag:human"]
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": true,
+        "reasons": ["tag:human"]
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t5",
+      "title": "Add the failed status to the task machine",
+      "prdSections": ["prd.orchestrator-contract", "prd.manifest-schema"],
+      "specSections": ["spec.status.task-machine", "spec.contract.manifest"],
+      "files": [
+        "packages/contract/src/index.ts",
+        "packages/core/src/task-machine.ts",
+        "packages/core/test/task-machine.test.ts"
+      ],
+      "branch": "cairn-mvp/05-failed-status",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-3",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t6",
+      "title": "Add the manifest schema",
+      "prdSections": ["prd.manifest-schema", "prd.contract-package"],
+      "specSections": ["spec.contract.manifest"],
+      "files": [
+        "packages/contract/src/manifest.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/manifest.test.ts",
+        "packages/core/test/task-machine.test.ts"
+      ],
+      "branch": "cairn-mvp/06-manifest-schema",
+      "parent": "t9",
+      "dependsOn": ["t9"],
+      "worktree": "wt-7",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": ["s_mm9ti7hg"],
+      "status": "done",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [
+        {
+          "files": [
+            "packages/contract/src/index.ts",
+            "packages/contract/src/manifest.ts",
+            "packages/contract/test/manifest.test.ts",
+            "packages/core/test/task-machine.test.ts"
+          ],
+          "parents": ["c55fb232918d4f70cb931ab162a8d2f4f26742f1"],
+          "sections": ["spec.contract.manifest"],
+          "session": "s_mm9ti7hg",
+          "sha": "76aa977d0837241dc3b74549b0327a5d2ae73749",
+          "subject": "Add the manifest schema"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t6",
+          "ts": "2026-11-22T02:26:38.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t6",
+          "ts": "2026-11-22T02:26:38.000Z",
+          "v": 1
+        }
+      ]
+    },
+    {
+      "id": "t7",
+      "title": "Add a decode error that names the file, line and field path",
+      "prdSections": ["prd.contract-package"],
+      "specSections": ["spec.contract"],
+      "files": [
+        "packages/contract/src/decode.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/decode.test.ts"
+      ],
+      "branch": "cairn-mvp/07-decode-error",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-5",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t8",
+      "title": "Add the event schema with an actor",
+      "prdSections": ["prd.orchestrator-contract", "prd.contract-package"],
+      "specSections": ["spec.contract.events"],
+      "files": [
+        "packages/contract/src/events.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/events.test.ts"
+      ],
+      "branch": "cairn-mvp/08-event-schema",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-6",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": ["s_c8dwmnm7"],
+      "status": "done",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [
+        {
+          "files": [
+            "packages/contract/src/events.ts",
+            "packages/contract/src/index.ts",
+            "packages/contract/test/events.test.ts"
+          ],
+          "parents": ["12ca9fae0fe2863e3827cc8b85389bd5e6ad77c3"],
+          "sections": ["spec.contract.events"],
+          "session": "s_c8dwmnm7",
+          "sha": "c544bf24a0b817eddcf69272cd4fcb2202693542",
+          "subject": "Add the event schema with an actor"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t8",
+          "ts": "2026-11-22T02:27:03.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t8",
+          "ts": "2026-11-22T02:27:03.000Z",
+          "v": 1
+        }
+      ]
+    },
+    {
+      "id": "t9",
+      "title": "Add the trailer and commit schemas",
+      "prdSections": ["prd.orchestrator-contract", "prd.contract-package", "prd.section-ids"],
+      "specSections": ["spec.contract.trailers", "spec.contract.section-ids"],
+      "files": [
+        "packages/contract/src/ids.ts",
+        "packages/contract/src/trailers.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/trailers.test.ts"
+      ],
+      "branch": "cairn-mvp/09-trailer-schema",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-7",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": ["s_7cylsux8"],
+      "status": "done",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [
+        {
+          "files": [
+            "packages/contract/src/ids.ts",
+            "packages/contract/src/index.ts",
+            "packages/contract/src/trailers.ts",
+            "packages/contract/test/trailers.test.ts"
+          ],
+          "parents": ["12ca9fae0fe2863e3827cc8b85389bd5e6ad77c3"],
+          "sections": ["spec.contract.trailers", "spec.contract.section-ids"],
+          "session": "s_7cylsux8",
+          "sha": "c55fb232918d4f70cb931ab162a8d2f4f26742f1",
+          "subject": "Add the trailer and commit schemas"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t9",
+          "ts": "2026-11-22T02:25:28.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t9",
+          "ts": "2026-11-22T02:25:28.000Z",
+          "v": 1
+        }
+      ]
+    },
+    {
+      "id": "t10",
+      "title": "Add the Trace schema",
+      "prdSections": ["prd.viewer", "prd.contract-package"],
+      "specSections": ["spec.contract.trace"],
+      "files": [
+        "packages/contract/src/trace.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/src/events.ts",
+        "packages/contract/test/trace.test.ts"
+      ],
+      "branch": "cairn-mvp/10-trace-schema",
+      "parent": null,
+      "dependsOn": ["t6", "t8", "t9"],
+      "worktree": "wt-7",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t11",
+      "title": "Add the config schema with defaults",
+      "prdSections": ["prd.human-gates", "prd.contract-package"],
+      "specSections": ["spec.contract.config"],
+      "files": [
+        "packages/contract/src/config.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/config.test.ts"
+      ],
+      "branch": "cairn-mvp/11-config-schema",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-8",
+      "model": "haiku",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t12",
+      "title": "Move the task machine to ManifestTask and an effective gate, and remove Task",
+      "prdSections": ["prd.orchestrator-contract", "prd.human-gates"],
+      "specSections": ["spec.status.task-machine", "spec.contract.manifest"],
+      "files": [
+        "packages/core/src/task-machine.ts",
+        "packages/core/test/task-machine.test.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/task.test.ts"
+      ],
+      "branch": "cairn-mvp/12-machine-manifest-task",
+      "parent": null,
+      "dependsOn": ["t5", "t6"],
+      "worktree": "wt-4",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t13",
+      "title": "Move the viewer to ManifestTask",
+      "prdSections": ["prd.manifest-schema", "prd.viewer"],
+      "specSections": ["spec.viewer.model-and-messages", "spec.contract.manifest"],
+      "files": [
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/src/demo.ts",
+        "apps/viewer/test/viewer.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/13-viewer-manifest-task",
+      "parent": "t10",
+      "dependsOn": ["t10"],
+      "worktree": "wt-7",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t14",
+      "title": "Add the plain JS entry with parse functions and cairnDir",
+      "prdSections": ["prd.contract-package", "prd.orchestrator-contract"],
+      "specSections": ["spec.contract.javascript-entry"],
+      "files": [
+        "packages/contract/src/js.ts",
+        "packages/contract/package.json",
+        "packages/contract/test/js.test.ts"
+      ],
+      "branch": "cairn-mvp/14-js-parse",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-9",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t15",
+      "title": "Add trailerArgs and appendEvent to the JS entry",
+      "prdSections": ["prd.contract-package", "prd.orchestrator-contract"],
+      "specSections": ["spec.contract.javascript-entry", "spec.contract.trailers"],
+      "files": ["packages/contract/src/js.ts", "packages/contract/test/append-event.test.ts"],
+      "branch": "cairn-mvp/15-js-append-event",
+      "parent": "t14",
+      "dependsOn": ["t14"],
+      "worktree": "wt-9",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t16",
+      "title": "Generate the contract JSON Schema and declaration files",
+      "prdSections": ["prd.contract-package"],
+      "specSections": ["spec.contract.javascript-entry", "spec.contract"],
+      "files": [
+        "packages/contract/schema/",
+        "packages/contract/scripts/generate-schema.ts",
+        "packages/contract/package.json",
+        "packages/contract/tsconfig.build.json",
+        "packages/contract/test/schema-drift.test.ts"
+      ],
+      "branch": "cairn-mvp/16-json-schema",
+      "parent": "t15",
+      "dependsOn": ["t15"],
+      "worktree": "wt-9",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t17",
+      "title": "Parse markdown into sections with keys and human tags",
+      "prdSections": ["prd.section-ids"],
+      "specSections": ["spec.sections.parsing", "spec.format"],
+      "files": [
+        "packages/contract/src/section.ts",
+        "packages/contract/src/index.ts",
+        "packages/core/src/section-ids.ts",
+        "packages/core/src/sections.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/sections.test.ts"
+      ],
+      "branch": "cairn-mvp/17-sections-of",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-10",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t18",
+      "title": "Match gate patterns against declared paths",
+      "prdSections": ["prd.human-gates"],
+      "specSections": ["spec.gates.path-matching"],
+      "files": [
+        "packages/core/src/gates.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/gates.test.ts"
+      ],
+      "branch": "cairn-mvp/18-gate-path-matching",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-11",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t19",
+      "title": "Detect human gates from tags and paths",
+      "prdSections": ["prd.human-gates"],
+      "specSections": ["spec.gates.detection"],
+      "files": ["packages/core/src/gates.ts", "packages/core/test/gates.test.ts"],
+      "branch": "cairn-mvp/19-gate-detection",
+      "parent": null,
+      "dependsOn": ["t6", "t17", "t18"],
+      "worktree": "wt-11",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t20",
+      "title": "Order drafts into stacks by dependency",
+      "prdSections": ["prd.human-gates", "prd.cli"],
+      "specSections": ["spec.planning.stack-order"],
+      "files": [
+        "packages/contract/src/task-draft.ts",
+        "packages/contract/src/index.ts",
+        "packages/core/src/stack.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/stack.test.ts"
+      ],
+      "branch": "cairn-mvp/20-stack-order",
+      "parent": "t19",
+      "dependsOn": ["t19"],
+      "worktree": "wt-11",
+      "model": "opus",
+      "reasoning": "xhigh",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t21",
+      "title": "Add the Git service with live and in-memory layers",
+      "prdSections": ["prd.orchestrator-contract"],
+      "specSections": ["spec.status.cairn-status-and-cairn-approve"],
+      "files": ["packages/cli/src/git.ts", "packages/cli/test/git.test.ts"],
+      "branch": "cairn-mvp/21-git-service",
+      "parent": null,
+      "dependsOn": ["t8", "t9", "t12", "t19"],
+      "worktree": "wt-4",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t22",
+      "title": "Add the cairn binary and cairn init",
+      "prdSections": ["prd.cli", "prd.repo-layout"],
+      "specSections": ["spec.cli", "spec.package-layout"],
+      "files": [
+        "packages/cli/src/main.ts",
+        "packages/cli/src/commands/init.ts",
+        "packages/cli/src/templates/prd.md",
+        "packages/cli/package.json",
+        "packages/cli/test/init.test.ts"
+      ],
+      "branch": "cairn-mvp/22-cli-init",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-12",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t23",
+      "title": "Load the .cairn files through the contract schemas",
+      "prdSections": ["prd.repo-layout", "prd.contract-package"],
+      "specSections": ["spec.contract", "spec.cli"],
+      "files": ["packages/cli/src/workspace.ts", "packages/cli/test/workspace.test.ts"],
+      "branch": "cairn-mvp/23-workspace-loader",
+      "parent": "t22",
+      "dependsOn": ["t22"],
+      "worktree": "wt-12",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t24",
+      "title": "Add cairn ids",
+      "prdSections": ["prd.cli", "prd.section-ids"],
+      "specSections": ["spec.sections.cairn-ids"],
+      "files": [
+        "packages/cli/src/commands/ids.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/ids.test.ts"
+      ],
+      "branch": "cairn-mvp/24-cairn-ids",
+      "parent": "t17",
+      "dependsOn": ["t17"],
+      "worktree": "wt-10",
+      "model": "haiku",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t25",
+      "title": "Lint section IDs and PRD coverage",
+      "prdSections": ["prd.cli", "prd.section-ids"],
+      "specSections": ["spec.lint", "spec.format"],
+      "files": [
+        "packages/core/src/lint.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/lint-sections.test.ts"
+      ],
+      "branch": "cairn-mvp/25-lint-sections",
+      "parent": "t20",
+      "dependsOn": ["t20"],
+      "worktree": "wt-11",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t26",
+      "title": "Lint parents, dependencies and gates",
+      "prdSections": ["prd.cli", "prd.human-gates"],
+      "specSections": ["spec.lint"],
+      "files": ["packages/core/src/lint.ts", "packages/core/test/lint-stack.test.ts"],
+      "branch": "cairn-mvp/26-lint-stack",
+      "parent": "t25",
+      "dependsOn": ["t25"],
+      "worktree": "wt-11",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t27",
+      "title": "Add cairn lint",
+      "prdSections": ["prd.cli", "prd.acceptance-criteria"],
+      "specSections": ["spec.lint"],
+      "files": [
+        "packages/cli/src/commands/lint.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/lint.test.ts"
+      ],
+      "branch": "cairn-mvp/27-cairn-lint",
+      "parent": "t26",
+      "dependsOn": ["t26"],
+      "worktree": "wt-11",
+      "model": "haiku",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t28",
+      "title": "Add the Planner service with a fixture layer",
+      "prdSections": ["prd.cli"],
+      "specSections": ["spec.planning.planner-service"],
+      "files": [
+        "packages/cli/src/planner.ts",
+        "packages/cli/test/planner.test.ts",
+        "packages/cli/test/fixtures/"
+      ],
+      "branch": "cairn-mvp/28-planner-service",
+      "parent": "t11",
+      "dependsOn": ["t11"],
+      "worktree": "wt-8",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t29",
+      "title": "Add the live language model layer and planner prompts",
+      "prdSections": ["prd.cli", "prd.implementation-in-effect"],
+      "specSections": ["spec.planning.planner-service", "spec.libraries", "spec.models"],
+      "files": [
+        "packages/cli/src/models.ts",
+        "packages/cli/src/planner.ts",
+        "packages/cli/prompts/",
+        "packages/cli/package.json",
+        "packages/cli/test/planner-live.test.ts"
+      ],
+      "branch": "cairn-mvp/29-planner-live",
+      "parent": "t28",
+      "dependsOn": ["t28"],
+      "worktree": "wt-8",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t30",
+      "title": "Add cairn plan",
+      "prdSections": ["prd.cli", "prd.manifest-schema"],
+      "specSections": ["spec.planning.cairn-plan"],
+      "files": [
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/src/print-stack.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/plan.test.ts"
+      ],
+      "branch": "cairn-mvp/30-cairn-plan",
+      "parent": null,
+      "dependsOn": ["t24", "t27", "t29"],
+      "worktree": "wt-8",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t31",
+      "title": "Derive task status from events",
+      "prdSections": ["prd.orchestrator-contract", "prd.human-gates"],
+      "specSections": ["spec.status.derivation"],
+      "files": [
+        "packages/core/src/derive.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/derive-events.test.ts"
+      ],
+      "branch": "cairn-mvp/31-derive-events",
+      "parent": null,
+      "dependsOn": ["t8", "t9", "t12", "t19"],
+      "worktree": "wt-6",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t32",
+      "title": "Derive effective gates and landing from commits",
+      "prdSections": ["prd.orchestrator-contract", "prd.human-gates", "prd.acceptance-criteria"],
+      "specSections": ["spec.status.derivation"],
+      "files": ["packages/core/src/derive.ts", "packages/core/test/derive-commits.test.ts"],
+      "branch": "cairn-mvp/32-derive-commits",
+      "parent": "t31",
+      "dependsOn": ["t31"],
+      "worktree": "wt-6",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t33",
+      "title": "Roll task status up to sections",
+      "prdSections": ["prd.viewer", "prd.acceptance-criteria"],
+      "specSections": ["spec.status.section-rollup"],
+      "files": [
+        "packages/contract/src/index.ts",
+        "packages/core/src/rollup.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/rollup.test.ts"
+      ],
+      "branch": "cairn-mvp/33-section-rollup",
+      "parent": "t32",
+      "dependsOn": ["t32"],
+      "worktree": "wt-6",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t34",
+      "title": "Build the Trace from derived state",
+      "prdSections": ["prd.viewer", "prd.contract-package"],
+      "specSections": ["spec.server", "spec.status.derivation"],
+      "files": [
+        "packages/contract/src/index.ts",
+        "packages/core/src/trace.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/trace.test.ts"
+      ],
+      "branch": "cairn-mvp/34-trace-schema",
+      "parent": null,
+      "dependsOn": ["t2", "t21", "t32"],
+      "worktree": "wt-4",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t35",
+      "title": "Add cairn status",
+      "prdSections": ["prd.cli", "prd.orchestrator-contract", "prd.acceptance-criteria"],
+      "specSections": ["spec.status.cairn-status-and-cairn-approve"],
+      "files": [
+        "packages/cli/src/commands/status.ts",
+        "packages/cli/src/print-stack.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/status.test.ts"
+      ],
+      "branch": "cairn-mvp/35-cairn-status",
+      "parent": null,
+      "dependsOn": ["t21", "t30", "t32"],
+      "worktree": "wt-8",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t36",
+      "title": "Add cairn approve",
+      "prdSections": ["prd.cli", "prd.human-gates"],
+      "specSections": ["spec.status.cairn-status-and-cairn-approve"],
+      "files": [
+        "packages/cli/src/commands/approve.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/approve.test.ts"
+      ],
+      "branch": "cairn-mvp/36-cairn-approve",
+      "parent": "t35",
+      "dependsOn": ["t35"],
+      "worktree": "wt-8",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t37",
+      "title": "Add cairn session put and note",
+      "prdSections": ["prd.orchestrator-contract", "prd.redaction"],
+      "specSections": ["spec.sessions.cairn-session"],
+      "files": [
+        "packages/cli/src/commands/session.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/session.test.ts"
+      ],
+      "branch": "cairn-mvp/37-cairn-session",
+      "parent": null,
+      "dependsOn": ["t2", "t3"],
+      "worktree": null,
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t38",
+      "title": "Test the orchestrator contract end to end",
+      "prdSections": ["prd.orchestrator-contract", "prd.acceptance-criteria"],
+      "specSections": ["spec.orchestrator-adapter", "spec.acceptance"],
+      "files": ["packages/cli/test/orchestrator.test.ts"],
+      "branch": "cairn-mvp/38-orchestrator-contract-test",
+      "parent": null,
+      "dependsOn": ["t16", "t36", "t37"],
+      "worktree": null,
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t39",
+      "title": "Serve the trace at /api/trace with an ETag",
+      "prdSections": ["prd.viewer", "prd.cli"],
+      "specSections": ["spec.server"],
+      "files": [
+        "packages/cli/src/api.ts",
+        "packages/cli/src/serve.ts",
+        "packages/cli/test/api.test.ts"
+      ],
+      "branch": "cairn-mvp/39-api-trace",
+      "parent": null,
+      "dependsOn": ["t34", "t36"],
+      "worktree": "wt-8",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t40",
+      "title": "Serve sessions and commit patches",
+      "prdSections": ["prd.viewer", "prd.orchestrator-contract"],
+      "specSections": ["spec.server"],
+      "files": [
+        "packages/cli/src/api.ts",
+        "packages/cli/src/git.ts",
+        "packages/cli/test/api.test.ts"
+      ],
+      "branch": "cairn-mvp/40-api-sessions-commits",
+      "parent": "t39",
+      "dependsOn": ["t39"],
+      "worktree": "wt-8",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t41",
+      "title": "Add cairn serve with the built viewer",
+      "prdSections": ["prd.cli", "prd.viewer"],
+      "specSections": ["spec.server", "spec.scope"],
+      "files": [
+        "packages/cli/src/serve.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/serve.test.ts",
+        "apps/viewer/vite.config.ts"
+      ],
+      "branch": "cairn-mvp/41-cairn-serve",
+      "parent": "t40",
+      "dependsOn": ["t40"],
+      "worktree": "wt-8",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t42",
+      "title": "Render markdown to Foldkit nodes",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.markdown-rendering", "spec.libraries"],
+      "files": [
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/package.json",
+        "apps/viewer/test/markdown.test.ts"
+      ],
+      "branch": "cairn-mvp/42-markdown-rendering",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-13",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": ["s_acsa6xwd"],
+      "status": "done",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/package.json",
+            "apps/viewer/src/markdown.ts",
+            "apps/viewer/test/markdown.test.ts",
+            "pnpm-lock.yaml"
+          ],
+          "parents": ["12ca9fae0fe2863e3827cc8b85389bd5e6ad77c3"],
+          "sections": ["spec.viewer.markdown-rendering", "spec.libraries"],
+          "session": "s_acsa6xwd",
+          "sha": "5bcf86940b291624f80e1e4c0cce5ed9437f3f98",
+          "subject": "Render markdown to Foldkit nodes"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t42",
+          "ts": "2026-11-22T02:27:06.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t42",
+          "ts": "2026-11-22T02:27:06.000Z",
+          "v": 1
+        }
+      ]
+    },
+    {
+      "id": "t43",
+      "title": "Add chainOf for linked sections and tasks",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.model-and-messages"],
+      "files": ["apps/viewer/src/trace.ts", "apps/viewer/test/trace.test.ts"],
+      "branch": "cairn-mvp/43-chain-of",
+      "parent": "t13",
+      "dependsOn": ["t13"],
+      "worktree": "wt-7",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t44",
+      "title": "Add a demo trace built from this repo",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.demo-data"],
+      "files": [
+        "apps/viewer/src/demo.ts",
+        "apps/viewer/src/demo-trace.json",
+        "apps/viewer/test/demo.test.ts"
+      ],
+      "branch": "cairn-mvp/44-demo-trace",
+      "parent": "t13",
+      "dependsOn": ["t13"],
+      "worktree": "wt-14",
+      "model": "haiku",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t45",
+      "title": "Show the trace as PRD, spec and stack columns, with the stack layout",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.model-and-messages"],
+      "files": [
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/src/trace.ts",
+        "apps/viewer/src/demo.ts",
+        "apps/viewer/test/viewer.scene.test.ts",
+        "apps/viewer/src/stacks.ts",
+        "apps/viewer/test/stacks.test.ts"
+      ],
+      "branch": "cairn-mvp/45-viewer-columns",
+      "parent": null,
+      "dependsOn": ["t42", "t43", "t44"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t46",
+      "title": "Load the trace from /api/trace and poll it",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.model-and-messages"],
+      "files": [
+        "apps/viewer/src/load.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/test/load.test.ts"
+      ],
+      "branch": "cairn-mvp/46-trace-polling",
+      "parent": "t45",
+      "dependsOn": ["t45"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t47",
+      "title": "Highlight the chain on hover and select it on click",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.model-and-messages"],
+      "files": [
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/test/viewer.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/47-chain-highlight",
+      "parent": "t46",
+      "dependsOn": ["t46"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t48",
+      "title": "Compute bezier curves between linked nodes",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.curves"],
+      "files": [
+        "apps/viewer/src/curves.ts",
+        "apps/viewer/test/curves.test.ts",
+        "apps/viewer/package.json"
+      ],
+      "branch": "cairn-mvp/48-curves-of",
+      "parent": "t47",
+      "dependsOn": ["t47"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t49",
+      "title": "Measure node positions and draw the curves",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.curves"],
+      "files": [
+        "apps/viewer/src/layout.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/test/viewer.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/49-curves-overlay",
+      "parent": "t48",
+      "dependsOn": ["t48"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t50",
+      "title": "Pan and zoom the canvas with XYPanZoom",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.curves"],
+      "files": [
+        "apps/viewer/src/canvas.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/test/viewer.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/50-canvas-pan-zoom",
+      "parent": "t49",
+      "dependsOn": ["t49"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t51",
+      "title": "Keep presence cursors in canvas coordinates",
+      "prdSections": ["prd.v2-multiplayer-on-cloudflare.presence", "prd.viewer"],
+      "specSections": ["spec.viewer.presence"],
+      "files": [
+        "apps/viewer/src/presence.ts",
+        "apps/viewer/src/canvas.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/test/canvas.test.ts",
+        "apps/viewer/test/presence.scene.test.ts",
+        "packages/core/src/room-machine.ts",
+        "packages/core/test/room-machine.test.ts"
+      ],
+      "branch": "cairn-mvp/51-canvas-presence",
+      "parent": "t50",
+      "dependsOn": ["t50"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t52",
+      "title": "Open the detail drawer from sections and tasks",
+      "prdSections": ["prd.viewer", "prd.acceptance-criteria"],
+      "specSections": ["spec.viewer.detail-panel"],
+      "files": [
+        "apps/viewer/src/drawer.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/test/drawer.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/52-detail-drawer",
+      "parent": "t51",
+      "dependsOn": ["t51"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t53",
+      "title": "Parse commit patches with @pierre/diffs",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.diff-view", "spec.libraries"],
+      "files": [
+        "apps/viewer/src/diff.ts",
+        "apps/viewer/package.json",
+        "apps/viewer/test/diff.test.ts",
+        "apps/viewer/test/fixtures/"
+      ],
+      "branch": "cairn-mvp/53-diff-parse",
+      "parent": null,
+      "dependsOn": ["t41", "t52"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t54",
+      "title": "Render commit diffs in the drawer",
+      "prdSections": ["prd.viewer", "prd.acceptance-criteria"],
+      "specSections": ["spec.viewer.diff-view"],
+      "files": [
+        "apps/viewer/src/diff.ts",
+        "apps/viewer/src/drawer.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/test/drawer.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/54-diff-render",
+      "parent": "t53",
+      "dependsOn": ["t53"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t55",
+      "title": "Add the judgments schema and the judge config",
+      "prdSections": ["prd.judging-the-plan", "prd.contract-package"],
+      "specSections": ["spec.contract.judgments", "spec.contract.config"],
+      "files": [
+        "packages/contract/src/judgments.ts",
+        "packages/contract/src/config.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/judgments.test.ts"
+      ],
+      "branch": "cairn-mvp/55-judgment-schema",
+      "parent": "t11",
+      "dependsOn": ["t11"],
+      "worktree": "wt-15",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t56",
+      "title": "Add the spec index schema",
+      "prdSections": ["prd.repo-layout", "prd.contract-package"],
+      "specSections": ["spec.contract.spec-index"],
+      "files": [
+        "packages/contract/src/spec-index.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/spec-index.test.ts"
+      ],
+      "branch": "cairn-mvp/56-spec-index-schema",
+      "parent": null,
+      "dependsOn": ["t17", "t29"],
+      "worktree": "wt-16",
+      "model": "haiku",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t57",
+      "title": "Add the Jev decision model layer",
+      "prdSections": ["prd.judging-the-plan", "prd.implementation-in-effect"],
+      "specSections": ["spec.models", "spec.libraries"],
+      "files": [
+        "packages/cli/src/models.ts",
+        "packages/cli/package.json",
+        "packages/cli/test/models.test.ts"
+      ],
+      "branch": "cairn-mvp/57-decision-model",
+      "parent": "t29",
+      "dependsOn": ["t29"],
+      "worktree": "wt-17",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t58",
+      "title": "Define the judging questions and their inputs",
+      "prdSections": ["prd.judging-the-plan"],
+      "specSections": ["spec.judging.questions"],
+      "files": [
+        "packages/core/src/judging/questions.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/questions.test.ts"
+      ],
+      "branch": "cairn-mvp/58-judging-questions",
+      "parent": null,
+      "dependsOn": ["t6", "t17"],
+      "worktree": "wt-18",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t59",
+      "title": "Turn answers into verdicts and routes",
+      "prdSections": ["prd.judging-the-plan"],
+      "specSections": ["spec.judging.verdicts"],
+      "files": ["packages/core/src/judging/verdicts.ts", "packages/core/test/verdicts.test.ts"],
+      "branch": "cairn-mvp/59-verdicts",
+      "parent": null,
+      "dependsOn": ["t55", "t58"],
+      "worktree": "wt-18",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t60",
+      "title": "Add the Judge service with a scripted layer",
+      "prdSections": ["prd.judging-the-plan", "prd.implementation-in-effect"],
+      "specSections": ["spec.judging.judge-service"],
+      "files": ["packages/cli/src/judge.ts", "packages/cli/test/judge.test.ts"],
+      "branch": "cairn-mvp/60-judge-service",
+      "parent": null,
+      "dependsOn": ["t57", "t59"],
+      "worktree": "wt-18",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t61",
+      "title": "Add the split and index planner calls",
+      "prdSections": ["prd.judging-the-plan", "prd.cli"],
+      "specSections": ["spec.planning.planner-service"],
+      "files": [
+        "packages/cli/src/planner.ts",
+        "packages/cli/prompts/",
+        "packages/cli/test/planner.test.ts"
+      ],
+      "branch": "cairn-mvp/61-planner-split",
+      "parent": "t57",
+      "dependsOn": ["t57"],
+      "worktree": "wt-17",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t62",
+      "title": "Refine the spec and drafts at the checkpoints",
+      "prdSections": ["prd.judging-the-plan"],
+      "specSections": ["spec.judging.checkpoints"],
+      "files": ["packages/cli/src/refine.ts", "packages/cli/test/refine.test.ts"],
+      "branch": "cairn-mvp/62-refine",
+      "parent": null,
+      "dependsOn": ["t60", "t61"],
+      "worktree": "wt-17",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t63",
+      "title": "Write spec.json from the spec and manifest",
+      "prdSections": ["prd.repo-layout", "prd.cli"],
+      "specSections": ["spec.contract.spec-index"],
+      "files": ["packages/cli/src/spec-index.ts", "packages/cli/test/spec-index.test.ts"],
+      "branch": "cairn-mvp/63-spec-index-writer",
+      "parent": null,
+      "dependsOn": ["t56", "t61"],
+      "worktree": "wt-16",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t64",
+      "title": "Run the checkpoints inside cairn plan",
+      "prdSections": ["prd.judging-the-plan", "prd.cli"],
+      "specSections": ["spec.planning.cairn-plan"],
+      "files": ["packages/cli/src/commands/plan.ts", "packages/cli/test/plan.test.ts"],
+      "branch": "cairn-mvp/64-plan-checkpoints",
+      "parent": null,
+      "dependsOn": ["t30", "t62", "t63"],
+      "worktree": "wt-16",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t65",
+      "title": "Add cairn judge",
+      "prdSections": ["prd.judging-the-plan", "prd.cli"],
+      "specSections": ["spec.judging.cairn-judge"],
+      "files": [
+        "packages/cli/src/commands/judge.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/judge-command.test.ts"
+      ],
+      "branch": "cairn-mvp/65-cairn-judge",
+      "parent": "t60",
+      "dependsOn": ["t60"],
+      "worktree": "wt-18",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t66",
+      "title": "Lint spec.json for drift",
+      "prdSections": ["prd.cli", "prd.repo-layout"],
+      "specSections": ["spec.lint"],
+      "files": ["packages/core/src/lint.ts", "packages/core/test/lint.test.ts"],
+      "branch": "cairn-mvp/66-index-drift",
+      "parent": "t27",
+      "dependsOn": ["t27"],
+      "worktree": "wt-11",
+      "model": "haiku",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    },
+    {
+      "id": "t67",
+      "title": "Show judgments in the trace and the viewer",
+      "prdSections": ["prd.judging-the-plan", "prd.viewer"],
+      "specSections": ["spec.server", "spec.viewer.model-and-messages", "spec.viewer.detail-panel"],
+      "files": [
+        "packages/contract/src/trace.ts",
+        "packages/cli/src/api.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/drawer.ts",
+        "apps/viewer/test/judgments.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/67-judgment-markers",
+      "parent": "t54",
+      "dependsOn": ["t54"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "sessions": [],
+      "status": "pending",
+      "waiting": false,
+      "gate": {
+        "required": false,
+        "reasons": []
+      },
+      "commits": [],
+      "events": []
+    }
+  ],
+  "version": 1,
+  "warnings": []
+}
