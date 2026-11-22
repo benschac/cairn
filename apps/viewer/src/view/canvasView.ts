@@ -1,12 +1,14 @@
 import type { Participant, SectionId, Trace } from "@cairn/contract";
 import { Array, Option } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
+import { createLazy, type Html, type HtmlBuilder } from "foldkit/html";
 
 import { PanZoomCanvas, VIEWPORT_ATTRIBUTE, transformOf, viewportAttribute } from "../canvas.ts";
 import type { Positions, Viewport } from "../geometry.ts";
 import { MeasureLayout } from "../layout.ts";
 import { renderMarkdown, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
+import { selectedNodeOf, type Drawer } from "../model.ts";
+import { stackLayoutOf } from "../stacks.ts";
 import { chainOf, type Chain, type Node } from "../trace.ts";
 import { cursorsView } from "./cursorsView.ts";
 import { edgesView } from "./edgesView.ts";
@@ -19,6 +21,17 @@ import {
 import { stacksView } from "./stacksView.ts";
 
 type ColumnName = "prd" | "spec" | "stacks";
+
+/** The chain of the hovered node, or else the selected one. */
+const chainOfActive = (
+  trace: Trace,
+  maybeHovered: Option.Option<Node>,
+  maybeSelected: Option.Option<Node>,
+): Option.Option<Chain> =>
+  Option.map(
+    Option.orElse(maybeHovered, () => maybeSelected),
+    (active) => chainOf(trace, active),
+  );
 
 const COLUMN_LABEL = { prd: "PRD", spec: "Spec", stacks: "Stacks" } satisfies Record<
   ColumnName,
@@ -42,13 +55,22 @@ const columnView = (
 /** The page has its own h1, so a document's "# " heading renders as an h2. */
 const HEADING_OFFSET = 1;
 
-/** The PRD, the spec and the stacks side by side, each section and task a node in the chain. */
+/**
+ * The PRD, the spec and the stacks side by side, each section and task a node in the chain.
+ *
+ * Parsing the markdown dominates a render, so `columnsLazy` rebuilds this only when the trace,
+ * the hovered node, the drawer or `h` changes: not on a pan, a zoom, a cursor or a measurement.
+ * It takes the Model's own fields and derives the selection and the chain in here, because a
+ * fresh `Option` of either each render would never be reference-equal.
+ */
 const columnsGridView = (
   trace: Trace,
-  maybeChain: Option.Option<Chain>,
-  maybeSelected: Option.Option<Node>,
+  maybeHovered: Option.Option<Node>,
+  drawer: Drawer,
   h: HtmlBuilder<Message>,
 ): Html => {
+  const maybeSelected = selectedNodeOf(drawer);
+  const maybeChain = chainOfActive(trace, maybeHovered, maybeSelected);
   const sectionTitle = (sectionId: SectionId, title: Rendered): Rendered => [
     nodeButtonView({ id: sectionId, kind: "section" }, maybeSelected, title, h),
   ];
@@ -99,17 +121,21 @@ const columnsGridView = (
   );
 };
 
+/** One slot: the columns are rendered at a single position. */
+const columnsLazy = createLazy();
+
 /** The layer holds everything that pans and zooms: the columns, their edges and the cursors. */
 const canvasLayerView = (
   trace: Trace,
   positions: Positions,
   viewport: Viewport,
-  maybeChain: Option.Option<Chain>,
-  maybeSelected: Option.Option<Node>,
+  maybeHovered: Option.Option<Node>,
+  drawer: Drawer,
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
-): Html =>
-  h.div(
+): Html => {
+  const maybeChain = chainOfActive(trace, maybeHovered, selectedNodeOf(drawer));
+  return h.div(
     [
       h.DataAttribute("canvas-layer", ""),
       h.OnMount(MeasureLayout()),
@@ -123,25 +149,24 @@ const canvasLayerView = (
     ],
     Array.appendAll(
       [
-        columnsGridView(trace, maybeChain, maybeSelected, h),
-        edgesView(trace, positions, maybeChain, h),
+        columnsLazy(columnsGridView, [trace, maybeHovered, drawer, h]),
+        edgesView(trace, positions, stackLayoutOf(trace.tasks), maybeChain, h),
       ],
       cursorsView(others, viewport.zoom, h),
     ),
   );
+};
 
 /** The columns and their edges, and the other participants' cursors, with the chain of the hovered node, or else the selected one, highlighted. */
 export const canvasView = (
   trace: Trace,
   positions: Positions,
   viewport: Viewport,
-  maybeActive: Option.Option<Node>,
-  maybeSelected: Option.Option<Node>,
+  maybeHovered: Option.Option<Node>,
+  drawer: Drawer,
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): Html => {
-  // One chain per render: every node and edge reads it.
-  const maybeChain = Option.map(maybeActive, (active) => chainOf(trace, active));
   // The canvas is the pane; the layer inside it holds everything that pans and zooms.
   return h.div(
     [
@@ -157,6 +182,6 @@ export const canvasView = (
         position: "relative",
       }),
     ],
-    [canvasLayerView(trace, positions, viewport, maybeChain, maybeSelected, others, h)],
+    [canvasLayerView(trace, positions, viewport, maybeHovered, drawer, others, h)],
   );
 };

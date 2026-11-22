@@ -5,7 +5,7 @@ import type { Document, Html, HtmlBuilder } from "foldkit/html";
 
 import { drawerView, type DrawerMessages } from "../drawer.ts";
 import { Message } from "../message.ts";
-import { Drawer, selectedNodeOf, type Model } from "../model.ts";
+import { Drawer, type Model } from "../model.ts";
 import { canvasView } from "./canvasView.ts";
 import { labelOf } from "./cursorsView.ts";
 
@@ -52,14 +52,20 @@ const traceView = (
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => {
-  const maybeSelected = selectedNodeOf(model.drawer);
-  const maybeActive = Option.orElse(model.maybeHovered, () => maybeSelected);
   // The Fit button, the canvas and the drawer, shown whenever there is a trace to pan over.
   const canvas = (trace: Trace): ReadonlyArray<Html> =>
     Array.appendAll(
       [
         fitButton(h),
-        canvasView(trace, model.positions, model.viewport, maybeActive, maybeSelected, others, h),
+        canvasView(
+          trace,
+          model.positions,
+          model.viewport,
+          model.maybeHovered,
+          model.drawer,
+          others,
+          h,
+        ),
       ],
       drawerViews(model, trace, h),
     );

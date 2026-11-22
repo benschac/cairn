@@ -5,7 +5,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import { curvesOf, type Curve, type EdgeKind } from "../curves.ts";
 import type { Positions } from "../geometry.ts";
 import type { Message } from "../message.ts";
-import { columnOf, stackLayoutOf } from "../stacks.ts";
+import { columnOf, type StackLayout } from "../stacks.ts";
 import { isInChain, type Chain } from "../trace.ts";
 
 const EDGE_COLOR = {
@@ -48,11 +48,12 @@ const edgeView = (
 
 /**
  * One SVG path per curve between measured nodes. While a chain is active an edge with both ends
- * in it is highlighted and every other edge is dimmed.
+ * in it is highlighted and every other edge is dimmed. `layout` places the tasks in their columns.
  */
 export const edgesView = (
   trace: Trace,
   positions: Positions,
+  layout: StackLayout,
   maybeChain: Option.Option<Chain>,
   h: HtmlBuilder<Message>,
 ): Html =>
@@ -70,7 +71,7 @@ export const edgesView = (
         width: "100%",
       }),
     ],
-    Array.map(curvesOf(trace, positions, columnOf(stackLayoutOf(trace.tasks))), (curve) =>
+    Array.map(curvesOf(trace, positions, columnOf(layout)), (curve) =>
       edgeView(curve, maybeChain, h),
     ),
   );
