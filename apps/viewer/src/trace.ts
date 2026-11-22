@@ -1,5 +1,14 @@
-import { PrdSectionId, SectionId, TaskId, type Trace } from "@cairn/contract";
-import { Array, HashSet, Option, Record, Schema } from "effect";
+import {
+  JudgmentTarget,
+  PrdSectionId,
+  SectionId,
+  TaskId,
+  Verdict,
+  type SectionStatus,
+  type Trace,
+  type TraceJudgment,
+} from "@cairn/contract";
+import { Array, HashSet, Option, Order, Record, Schema, String } from "effect";
 
 /** A node in the viewer: a PRD or spec section, or a task. */
 export const Node = Schema.Union([
@@ -111,3 +120,57 @@ export const isInChain = (chain: Chain, node: Node): boolean =>
     section: ({ id }) => HashSet.has(chain.prd, id) || HashSet.has(chain.spec, id),
     task: ({ id }) => HashSet.has(chain.tasks, id),
   });
+/** The rollup status of a section, or none when the trace has none for it. */
+export const sectionStatusOf = (trace: Trace, id: SectionId): Option.Option<SectionStatus> =>
+  Option.map(
+    Array.findFirst(trace.sections, (section) => section.id === id),
+    (section) => section.status,
+  );
+
+/** The verdicts that put a marker on a node: anything but a pass. */
+export const MarkVerdict = Verdict.pick(["flag", "unsure"]);
+
+export const JudgmentMark = Schema.Struct({ stale: Schema.Boolean, verdict: MarkVerdict });
+export type JudgmentMark = typeof JudgmentMark.Type;
+
+const isMarkVerdict = Schema.is(MarkVerdict);
+
+/** Whether a judgment is about the node: a section or task judgment with the node's id. */
+const judges = (target: JudgmentTarget, node: Node): boolean =>
+  JudgmentTarget.match(target, {
+    draft: () => false,
+    // A judgment names a spec section id, a narrower brand than the viewer's SectionId.
+    section: ({ id }) => node.kind === "section" && String.Equivalence(node.id, id),
+    stack: () => false,
+    task: ({ id }) => node.kind === "task" && node.id === id,
+  });
+
+const markOf = (judgment: TraceJudgment): Option.Option<JudgmentMark> =>
+  Option.map(Option.liftPredicate(judgment.verdict, isMarkVerdict), (verdict) => ({
+    stale: judgment.stale,
+    verdict,
+  }));
+
+/** `flag` ahead of `unsure`, then fresh ahead of stale: `false` orders before `true`. */
+const markOrder: Order.Order<JudgmentMark> = Order.combine(
+  Order.mapInput(Order.Boolean, (mark: JudgmentMark) => mark.verdict !== "flag"),
+  Order.mapInput(Order.Boolean, (mark: JudgmentMark) => mark.stale),
+);
+
+/**
+ * The judgment marker for a spec section or task: its worst judgment that is not a pass,
+ * with `flag` ahead of `unsure`. A fresh judgment wins over a stale one of the same verdict.
+ */
+export const judgmentMarkOf = (trace: Trace, node: Node): Option.Option<JudgmentMark> =>
+  Array.match(
+    Array.getSomes(
+      Array.map(
+        Array.filter(trace.judgments, (judgment) => judges(judgment.target, node)),
+        markOf,
+      ),
+    ),
+    {
+      onEmpty: () => Option.none(),
+      onNonEmpty: (marks) => Option.some(Array.min(marks, markOrder)),
+    },
+  );

@@ -11,7 +11,8 @@ import type {
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
-import { Array, Match, Option, Predicate, String, Struct, pipe } from "effect";
+import { SectionId } from "@cairn/contract";
+import { Array, Match, Option, Predicate, Schema, String, Struct, pipe } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 /** The keys that start a spec section, in the order the format lists them. */
@@ -85,7 +86,14 @@ const stripId = (child: PhrasingContent): PhrasingContent =>
 const checkbox = (checked: boolean | null | undefined): ReadonlyArray<string> =>
   Predicate.isBoolean(checked) ? [checked ? "[x] " : "[ ] "] : [];
 
-export const renderMarkdown = <Message>(markdown: string, h: HtmlBuilder<Message>): Html => {
+const isSectionId = Schema.is(SectionId);
+
+/** `decorate` adds nodes to the end of a heading whose `{#id}` is a section ID. */
+export const renderMarkdown = <Message>(
+  markdown: string,
+  h: HtmlBuilder<Message>,
+  decorate: (sectionId: SectionId) => ReadonlyArray<Html> = () => [],
+): Html => {
   const tree: Root = fromMarkdown(markdown, {
     extensions: [gfm()],
     mdastExtensions: [gfmFromMarkdown()],
@@ -126,7 +134,14 @@ export const renderMarkdown = <Message>(markdown: string, h: HtmlBuilder<Message
         onNone: () => [],
         onSome: (id) => [h.Id(id), h.DataAttribute("section", id)],
       }),
-      inline(Array.filter(children, (child) => child.type !== "text" || child.value !== "")),
+      Array.appendAll(
+        inline(Array.filter(children, (child) => child.type !== "text" || child.value !== "")),
+        pipe(
+          maybeId,
+          Option.filter(isSectionId),
+          Option.match({ onNone: () => [], onSome: decorate }),
+        ),
+      ),
     );
   };
 

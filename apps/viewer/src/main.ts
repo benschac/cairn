@@ -1,25 +1,24 @@
 import { Presence } from "@cairn/contract";
-import type { ManifestTask, Participant, ParticipantKind } from "@cairn/contract";
-import { Array, Boolean, Match, Option } from "effect";
+import type { Participant, ParticipantKind, SectionId, SectionStatus } from "@cairn/contract";
+import { Array, Match, Number, Option, Record } from "effect";
 import type { Runtime, Update } from "foldkit";
 import type { Document, Html, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
 import { modifyFields } from "foldkit/struct";
 
-import { demoRows } from "./demo.ts";
+import { demoTrace } from "./demo.ts";
+import { renderMarkdown } from "./markdown.ts";
 import type { Model } from "./model.ts";
+import { stackLayoutOf, type StackPosition } from "./stacks.ts";
+import { judgmentMarkOf, sectionStatusOf, type JudgmentMark } from "./trace.ts";
 
 export const Message = defineMessageUnion({
-  ClickedToggleWaiting: {},
   ReceivedPresence: { presence: Presence },
 });
 export type Message = typeof Message.Type;
 
 export const update = (model: Model, message: Message) =>
   Message.match<Update.Return<Model, Message>>(message, {
-    ClickedToggleWaiting: () => ({
-      model: modifyFields(model, { onlyWaiting: Boolean.not }),
-    }),
     ReceivedPresence: ({ presence }) => ({
       model: modifyFields(model, {
         participants: () => presence.participants,
@@ -29,13 +28,8 @@ export const update = (model: Model, message: Message) =>
   });
 
 export const init: Runtime.ApplicationInit<Model, Message> = () => ({
-  model: { onlyWaiting: false, participants: [], rows: demoRows, you: Option.none() },
+  model: { participants: [], trace: demoTrace, you: Option.none() },
 });
-
-const isWaiting = (row: ManifestTask) => row.status === "blocked_on_human";
-
-const visibleRows = (model: Model) =>
-  model.onlyWaiting ? Array.filter(model.rows, isWaiting) : model.rows;
 
 const labelOf = (participant: Participant) =>
   Match.value(participant.kind).pipe(
@@ -44,7 +38,7 @@ const labelOf = (participant: Participant) =>
     Match.exhaustive,
   );
 
-const cursorColor = { agent: "#7c3aed", human: "#0f766e" } satisfies Record<
+const cursorColor = { agent: "#7c3aed", human: "#0f766e" } satisfies Record.ReadonlyRecord<
   ParticipantKind,
   string
 >;
@@ -76,11 +70,101 @@ const presentText = (others: ReadonlyArray<Participant>) =>
     onNonEmpty: (present) => `Here now: ${Array.join(Array.map(present, labelOf), ", ")}`,
   });
 
+const badgeView = (status: SectionStatus, h: HtmlBuilder<Message>): Html =>
+  h.span(
+    [
+      h.DataAttribute("badge", ""),
+      h.DataAttribute("status", status),
+      h.Style({ "font-size": "11px", "margin-left": "8px", opacity: "0.8" }),
+    ],
+    [status],
+  );
+
+const judgmentView = (mark: JudgmentMark, h: HtmlBuilder<Message>): Html =>
+  h.span(
+    [
+      h.DataAttribute("judgment", mark.verdict),
+      h.DataAttribute("stale", String(mark.stale)),
+      h.Style({ "font-size": "11px", "margin-left": "8px", opacity: mark.stale ? "0.4" : "1" }),
+    ],
+    [mark.verdict],
+  );
+
+type ColumnName = "prd" | "spec" | "stacks";
+
+const column = (name: ColumnName, children: ReadonlyArray<Html>, h: HtmlBuilder<Message>): Html =>
+  h.section(
+    [h.DataAttribute("column", name), h.Style({ "min-width": "0", overflow: "auto" })],
+    children,
+  );
+
+/** Where a task without a position would sit. stackLayoutOf places every task it is given. */
+const origin: StackPosition = { column: 1, row: 1 };
+
+const stacksView = (model: Model, h: HtmlBuilder<Message>): Html => {
+  const { trace } = model;
+  const layout = stackLayoutOf(trace.tasks);
+  const top = Array.reduce(Record.values(layout), 1, (highest, position) =>
+    Number.max(highest, position.row),
+  );
+  return h.div(
+    [
+      h.DataAttribute("stacks", ""),
+      h.Style({ display: "grid", gap: "8px", "grid-auto-columns": "minmax(160px, 1fr)" }),
+    ],
+    Array.map(trace.tasks, (task) => {
+      const position = Option.getOrElse(Record.get(layout, task.id), () => origin);
+      return h.div(
+        [
+          h.DataAttribute("task", task.id),
+          h.Style({
+            border: "1px solid #94a3b8",
+            "border-radius": "6px",
+            "grid-column": String(position.column),
+            // Row 1 is the bottom, so everything a task needs sits below it.
+            "grid-row": String(top - position.row + 1),
+            padding: "6px 8px",
+          }),
+        ],
+        Array.flatten([
+          [
+            h.strong([], [task.id]),
+            ` ${task.title}`,
+            h.div([h.DataAttribute("field", "branch")], [task.branch]),
+            h.div([h.DataAttribute("field", "model")], [task.model]),
+            h.div([h.DataAttribute("status", task.status)], [task.status]),
+          ],
+          task.gate.required ? [h.span([h.DataAttribute("gate", "")], ["human gate"])] : [],
+          Array.fromOption(
+            Option.map(judgmentMarkOf(trace, { id: task.id, kind: "task" }), (mark) =>
+              judgmentView(mark, h),
+            ),
+          ),
+        ]),
+      );
+    }),
+  );
+};
+
 export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
   const others = Array.filter(
     model.participants,
     (participant) => !Option.contains(model.you, participant.id),
   );
+  const { trace } = model;
+  const badged = (sectionId: SectionId): ReadonlyArray<Html> =>
+    Array.fromOption(
+      Option.map(sectionStatusOf(trace, sectionId), (status) => badgeView(status, h)),
+    );
+  const specDecorated = (sectionId: SectionId): ReadonlyArray<Html> =>
+    Array.appendAll(
+      badged(sectionId),
+      Array.fromOption(
+        Option.map(judgmentMarkOf(trace, { id: sectionId, kind: "section" }), (mark) =>
+          judgmentView(mark, h),
+        ),
+      ),
+    );
   return {
     body: h.main(
       [],
@@ -88,18 +172,19 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
         [
           h.h1([], ["Cairn"]),
           h.p([h.Role("status")], [presentText(others)]),
-          h.button(
-            [h.OnClick(Message.ClickedToggleWaiting()), h.AriaPressed(String(model.onlyWaiting))],
-            ["Waiting for approval"],
-          ),
-          h.ul(
-            [],
-            Array.map(visibleRows(model), (row) =>
-              h.li(
-                [h.DataAttribute("status", row.status)],
-                [`${row.title} (${Array.join(row.prdSections, ", ")}): ${row.status}`],
-              ),
-            ),
+          h.div(
+            [
+              h.Style({
+                display: "grid",
+                gap: "24px",
+                "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)",
+              }),
+            ],
+            [
+              column("prd", [renderMarkdown(trace.prd.markdown, h, badged)], h),
+              column("spec", [renderMarkdown(trace.spec.markdown, h, specDecorated)], h),
+              column("stacks", [stacksView(model, h)], h),
+            ],
           ),
         ],
         Array.getSomes(Array.map(others, (participant) => cursorView(participant, h))),

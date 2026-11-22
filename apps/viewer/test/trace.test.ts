@@ -1,8 +1,9 @@
-import { Trace } from "@cairn/contract";
+import { SectionId, Trace, TraceJudgment, Verdict, type JudgmentTarget } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, HashSet, Number, Option, Order, Schema } from "effect";
+import { Array, HashSet, Number, Option, Order, Schema, Struct } from "effect";
 
-import { Node, chainOf, isInChain } from "../src/trace.ts";
+import { demoTrace } from "../src/demo.ts";
+import { Node, chainOf, isInChain, judgmentMarkOf, sectionStatusOf } from "../src/trace.ts";
 
 const index = Schema.Int.check(Schema.isBetween({ maximum: 4, minimum: 0 }));
 const indexes = Schema.Array(index);
@@ -148,3 +149,59 @@ it("a hand-built trace links PRD, spec and tasks one hop through spec sections",
   const task0 = chainOf(trace, taskNode("t0"));
   expect(ids(task0.prd)).toEqual(["prd.p0", "prd.p2"]);
 });
+
+it("sectionStatusOf finds each rolled-up section and nothing for an unknown one", () => {
+  Array.forEach(demoTrace.sections, (rolled) => {
+    expect(sectionStatusOf(demoTrace, rolled.id)).toEqual(Option.some(rolled.status));
+  });
+  expect(sectionStatusOf(demoTrace, SectionId.make("spec.nowhere"))).toEqual(Option.none());
+});
+
+const judgment = (verdict: Verdict, stale: boolean, target: typeof JudgmentTarget.Encoded) =>
+  Schema.decodeSync(TraceJudgment)({
+    action: "none",
+    answer: { probability: 0.5 },
+    at: "2026-01-01T00:00:00.000Z",
+    inputHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    message: "m",
+    question: "size",
+    round: 1,
+    stale,
+    target,
+    verdict,
+  });
+
+const Marks = Schema.Array(Schema.Struct({ stale: Schema.Boolean, verdict: Verdict }));
+
+it.prop(
+  "a node's mark is its worst judgment that is not a pass, fresh ahead of stale",
+  [Marks],
+  ([marks]) => {
+    const trace = Struct.evolve(build({ specs: [[0]], tasks: [{ prd: [0], spec: [0] }] }), {
+      judgments: () =>
+        Array.appendAll(
+          Array.map(marks, ({ stale, verdict }) =>
+            judgment(verdict, stale, { id: "t0", kind: "task" }),
+          ),
+          // Judgments of other targets never mark t0.
+          [
+            judgment("flag", false, { id: "t1", kind: "task" }),
+            judgment("flag", false, { id: specId(0), kind: "section" }),
+            judgment("flag", false, { kind: "stack" }),
+          ],
+        ),
+    });
+    const counted = Array.filter(marks, (mark) => mark.verdict !== "pass");
+    Option.match(judgmentMarkOf(trace, taskNode("t0")), {
+      onNone: () => expect(counted).toEqual([]),
+      onSome: (mark) => {
+        expect(mark.verdict).toBe(
+          Array.some(counted, (m) => m.verdict === "flag") ? "flag" : "unsure",
+        );
+        expect(mark.stale).toBe(
+          !Array.some(counted, (m) => m.verdict === mark.verdict && !m.stale),
+        );
+      },
+    });
+  },
+);
