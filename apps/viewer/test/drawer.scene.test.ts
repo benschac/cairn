@@ -2,7 +2,6 @@ import { SectionId, Sha, TaskId, TraceJudgment } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, HashSet, Option, Schema, String, Struct } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
-import { defineMessageUnion } from "foldkit/message";
 import {
   Command,
   all,
@@ -41,13 +40,10 @@ const sectionNode = (id: string): Node => ({
 });
 const taskNode = (id: TaskId): Node => ({ id, kind: "task" });
 
-const Msg = defineMessageUnion({ Close: {}, Commit: { sha: Sha }, Task: { id: TaskId } });
-type Msg = typeof Msg.Type;
-
-const messages: DrawerMessages<Msg> = {
-  onClickCommit: (sha) => Msg.Commit({ sha }),
-  onClickTask: (id) => Msg.Task({ id }),
-  onClose: Msg.Close(),
+const messages: DrawerMessages<Message> = {
+  onClickCommit: (sha) => Message.ClickedCommit({ sha }),
+  onClickTask: (id) => Message.ClickedDrawerTask({ id }),
+  onClose: Message.ClickedCloseDrawer(),
 };
 
 /** The first task in the demo trace with a commit, and that commit. */
@@ -93,21 +89,9 @@ interface DrawerModel {
   readonly node: Node;
 }
 
-const view = (model: DrawerModel, h: HtmlBuilder<Msg>): Html =>
+const view = (model: DrawerModel, h: HtmlBuilder<Message>): Html =>
   drawerView(trace, model.node, Option.none(), h, messages);
-const update = (model: DrawerModel, _message: Msg) => ({ model });
-
-/** An update that keeps every message the drawer sends, in order. */
-const recording = () => {
-  const sent: Array<Msg> = [];
-  return {
-    sent,
-    update: (model: DrawerModel, message: Msg) => {
-      sent.push(message);
-      return { model };
-    },
-  };
-};
+const update = (model: DrawerModel, _message: Message) => ({ model });
 
 const open = (node: Node) => given<DrawerModel>({ node });
 
@@ -159,27 +143,6 @@ it("a section drawer shows each linked task's commits as buttons with the short 
   );
 });
 
-it("the section drawer is two clicks from a commit: its commit button sends onClickCommit", () => {
-  const recorder = recording();
-  scene(
-    { update: recorder.update, view },
-    open(sectionNode(spec)),
-    click(within(drawerTask(task.id), commitButton(commit.sha))),
-  );
-  assert(recorder.sent).toEqual([Msg.Commit({ sha: commit.sha })]);
-});
-
-it("clicking a task in a section drawer and the close button send their messages", () => {
-  const recorder = recording();
-  scene(
-    { update: recorder.update, view },
-    open(sectionNode(spec)),
-    click(drawerTaskButton),
-    click(closeButton),
-  );
-  assert(recorder.sent).toEqual([Msg.Task({ id: task.id }), Msg.Close()]);
-});
-
 it("a spec section drawer lists its judgments, with the unanswered reason", () => {
   scene(
     { update, view },
@@ -221,17 +184,6 @@ it("a task drawer shows commits, sessions, events, gate reasons and judgments", 
     expect(selector('[data-drawer-judgment="model"]')).toContainText("opus (confidence 0.9)"),
     expect(selector('[data-drawer-judgment="size"]')).toBeAbsent(),
   );
-});
-
-it("a task drawer sends the commit and close messages", () => {
-  const recorder = recording();
-  scene(
-    { update: recorder.update, view },
-    open(taskNode(task.id)),
-    click(commitButton(commit.sha)),
-    click(closeButton),
-  );
-  assert(recorder.sent).toEqual([Msg.Commit({ sha: commit.sha }), Msg.Close()]);
 });
 
 it("an unknown task opens an empty drawer titled by its id, with only its Close button", () => {

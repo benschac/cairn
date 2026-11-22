@@ -4,8 +4,8 @@ import { SectionId } from "@cairn/contract";
 import { it } from "@effect/vitest";
 import { Array, Number, Option, Predicate, Result, Schema, String, pipe } from "effect";
 import type { Html } from "foldkit/html";
-import { expect as expectScene, given, scene, selector } from "foldkit/scene";
-import { expect } from "vitest";
+import { expect, given, scene, selector } from "foldkit/scene";
+import { expect as assert } from "vitest";
 
 import { renderMarkdown, type SectionHooks } from "../src/markdown.ts";
 
@@ -83,25 +83,25 @@ it.prop(
   ([id]) => {
     const root = render(`## Some title {#${id}}\n\nBody.`);
     const heading = firstTag(root, "h2");
-    expect(attr(heading, "id")).toBe(id);
-    expect(attr(heading, "data-section")).toBe(id);
-    expect(textOf(heading)).toBe("Some title");
+    assert(attr(heading, "id")).toBe(id);
+    assert(attr(heading, "data-section")).toBe(id);
+    assert(textOf(heading)).toBe("Some title");
   },
 );
 
 it("a heading without an id has no data-section", () => {
   const sections = sectionsIn("## Plain title\n\nBody.");
-  expect(sections).toEqual([]);
+  assert(sections).toEqual([]);
 });
 
 it("every heading with an id in the spec and the PRD becomes a data-section element", () => {
   Array.forEach([spec, prd], (source) => {
-    expect(Array.map(sectionsIn(source), (section) => section.id)).toEqual(headingIds(source));
-    expect(headingIds(source).length).toBeGreaterThan(5);
+    assert(Array.map(sectionsIn(source), (section) => section.id)).toEqual(headingIds(source));
+    assert(headingIds(source).length).toBeGreaterThan(5);
   });
   Array.forEach(sectionsIn(spec), ({ element, id }) => {
-    expect(attr(element, "id")).toBe(id);
-    expect(textOf(element)).not.toContain("{#");
+    assert(attr(element, "id")).toBe(id);
+    assert(textOf(element)).not.toContain("{#");
   });
 });
 
@@ -120,12 +120,12 @@ it("the key list that starts a spec section renders as chips", () => {
     ),
   );
   const chips = Array.filter(walk(root), (element) => attr(element, "data-key") !== undefined);
-  expect(Array.map(chips, (chip) => [attr(chip, "data-key"), textOf(chip)])).toEqual([
+  assert(Array.map(chips, (chip) => [attr(chip, "data-key"), textOf(chip)])).toEqual([
     ["Implements", "prd.x"],
     ["Implements", "prd.y"],
     ["Files", "a/b.ts"],
   ]);
-  expect(tags(root)).not.toContain("ul");
+  assert(tags(root)).not.toContain("ul");
 });
 
 it("a section's chips in the spec match its key lines", () => {
@@ -133,7 +133,7 @@ it("a section's chips in the spec match its key lines", () => {
     walk(render(spec)),
     (element) => attr(element, "data-key") !== undefined,
   );
-  expect(chips.length).toBeGreaterThan(20);
+  assert(chips.length).toBeGreaterThan(20);
 });
 
 it("a bullet list that is not a key list stays a list", () => {
@@ -145,8 +145,8 @@ it("a bullet list that is not a key list stays a list", () => {
     ],
     (source) => {
       const root = render(source);
-      expect(tags(root)).toContain("ul");
-      expect(
+      assert(tags(root)).toContain("ul");
+      assert(
         Array.filter(walk(root), (element) => attr(element, "data-key") !== undefined),
       ).toEqual([]);
     },
@@ -177,9 +177,9 @@ it("renders the inline and block markdown it supports", () => {
     ),
   );
   const supported = ["p", "em", "strong", "code", "a", "blockquote", "hr", "ol", "ul", "li", "pre"];
-  expect(tags(root)).toEqual(expect.arrayContaining(supported));
-  expect(attr(firstTag(root, "a"), "href")).toBe("https://example.com");
-  expect(textOf(root)).toContain("const x = 1;");
+  assert(tags(root)).toEqual(assert.arrayContaining(supported));
+  assert(attr(firstTag(root, "a"), "href")).toBe("https://example.com");
+  assert(textOf(root)).toContain("const x = 1;");
 });
 
 it("renders a GFM table with a header row and body rows", () => {
@@ -188,25 +188,23 @@ it("renders a GFM table with a header row and body rows", () => {
   );
   const names = tags(root);
   const count = (tag: string) => Array.countBy(names, (name) => name === tag);
-  expect(Array.map(["th", "td", "tr"], count)).toEqual([2, 4, 3]);
-  expect(textOf(root)).toBe("NameRoleAdahumanBotagent");
+  assert(Array.map(["th", "td", "tr"], count)).toEqual([2, 4, 3]);
+  assert(textOf(root)).toBe("NameRoleAdahumanBotagent");
 });
 
 it("a table in a Scene is found by what a person reads", () => {
-  expect(() =>
-    scene(
-      {
-        update: (model: null) => ({ model }),
-        view: (_model: null, h) => ({
-          body: renderMarkdown("## Hi {#spec.hi}\n\n| A |\n| - |\n| cell |", h),
-          title: "markdown",
-        }),
-      },
-      given(null),
-      expectScene(selector("[data-section='spec.hi']")).toHaveText("Hi"),
-      expectScene(selector("td")).toHaveText("cell"),
-    ),
-  ).not.toThrow();
+  scene(
+    {
+      update: (model: null) => ({ model }),
+      view: (_model: null, h) => ({
+        body: renderMarkdown("## Hi {#spec.hi}\n\n| A |\n| - |\n| cell |", h),
+        title: "markdown",
+      }),
+    },
+    given(null),
+    expect(selector("[data-section='spec.hi']")).toHaveText("Hi"),
+    expect(selector("td")).toHaveText("cell"),
+  );
 });
 
 const hostile = [
@@ -222,38 +220,38 @@ it.each(hostile)("raw HTML never becomes an element: %s", (source) => {
   Array.forEach([source, `para\n\n${source}\n\nafter`, `- ${source}`], (markdown) => {
     const names = tags(render(markdown));
     Array.forEach(["script", "img", "iframe", "b"], (tag) => {
-      expect(names).not.toContain(tag);
+      assert(names).not.toContain(tag);
     });
-    expect(Array.countBy(names, (tag) => tag === "div")).toBe(1);
-    expect(textOf(render(markdown))).not.toContain("<");
+    assert(Array.countBy(names, (tag) => tag === "div")).toBe(1);
+    assert(textOf(render(markdown))).not.toContain("<");
   });
 });
 
 it("HTML comments are dropped, including their text", () => {
   const root = render("Before <!-- secret --> after\n\n<!-- block secret -->\n\nEnd");
-  expect(textOf(root)).not.toContain("secret");
-  expect(textOf(root)).toContain("Before");
-  expect(textOf(root)).toContain("End");
+  assert(textOf(root)).not.toContain("secret");
+  assert(textOf(root)).toContain("Before");
+  assert(textOf(root)).toContain("End");
 });
 
 it("no element carries innerHTML or an event handler from the markdown", () => {
   Array.forEach(walk(render(`${Array.join(hostile, "\n\n")}\n\n${spec}`)), (element) => {
-    expect(element.data?.props?.["innerHTML"]).toBeUndefined();
-    expect(element.data?.on).toBeUndefined();
+    assert(element.data?.props?.["innerHTML"]).toBeUndefined();
+    assert(element.data?.on).toBeUndefined();
   });
 });
 
 it.each(["javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,x", "vbscript:x"])(
   "a link to %s gets no href",
   (url) => {
-    expect(attr(firstTag(render(`[x](${url})`), "a"), "href")).toBeUndefined();
+    assert(attr(firstTag(render(`[x](${url})`), "a"), "href")).toBeUndefined();
   },
 );
 
 it.each(["https://example.com/a", "mailto:a@b.c", "/relative", "#spec.x", "./x.md"])(
   "a link to %s keeps its href",
   (url) => {
-    expect(attr(firstTag(render(`[x](${url})`), "a"), "href")).toBe(url);
+    assert(attr(firstTag(render(`[x](${url})`), "a"), "href")).toBe(url);
   },
 );
 
@@ -267,12 +265,12 @@ it.prop(
     const root = render(`${String.repeat(depth)("#")} Title {#spec.title}`, {
       headingOffset: offset,
     });
-    expect(textOf(firstTag(root, `h${Number.min(depth + offset, 6)}`))).toBe("Title");
+    assert(textOf(firstTag(root, `h${Number.min(depth + offset, 6)}`))).toBe("Title");
   },
 );
 
 it('without an offset "# " is an h1', () => {
-  expect(tags(render("# Title {#prd.title}"))).toContain("h1");
+  assert(tags(render("# Title {#prd.title}"))).toContain("h1");
 });
 
 it("wrapTitle wraps a section heading's title, and the decoration stays outside it", () => {
@@ -292,10 +290,10 @@ it("wrapTitle wraps a section heading's title, and the decoration stays outside 
       },
     },
     given(null),
-    expectScene(selector('[data-section="spec.some"] button')).toHaveText("Some code title"),
-    expectScene(selector('[data-section="spec.some"] button [data-badge]')).toBeAbsent(),
-    expectScene(selector('[data-section="spec.some"] [data-badge]')).toExist(),
+    expect(selector('[data-section="spec.some"] button')).toHaveText("Some code title"),
+    expect(selector('[data-section="spec.some"] button [data-badge]')).toBeAbsent(),
+    expect(selector('[data-section="spec.some"] [data-badge]')).toExist(),
   );
   // Only the heading with a section id is wrapped.
-  expect(Array.dedupe(wrapped)).toEqual(["spec.some"]);
+  assert(Array.dedupe(wrapped)).toEqual(["spec.some"]);
 });

@@ -1,14 +1,14 @@
 import { Cursor, ParticipantId } from "@cairn/contract";
 import { it } from "@effect/vitest";
 import { Option, Schema } from "effect";
-import { Subscription, expect, given, role, scene, selector } from "foldkit/scene";
+import { Mount, Subscription, expect, given, role, scene, selector } from "foldkit/scene";
 
-import { transformOf } from "../src/canvas.ts";
+import { PanZoomCanvas, transformOf } from "../src/canvas.ts";
 import { Viewport } from "../src/geometry.ts";
 import { Message } from "../src/message.ts";
 import { update } from "../src/update.ts";
 import { view } from "../src/view/view.ts";
-import { loaded, mounted } from "./fixtures.ts";
+import { layerMounted, loaded, paneSize } from "./fixtures.ts";
 
 const presenceWith = (agentCursor: Cursor) =>
   Message.ReceivedPresence({
@@ -38,7 +38,8 @@ it("other participants appear with their cursors, and you do not", () => {
   scene(
     { update, view },
     given(loaded),
-    mounted,
+    layerMounted,
+    Mount.resolve(PanZoomCanvas, Message.MeasuredPane({ size: paneSize })),
     expect(role("status")).toHaveText("Nobody else is here."),
     Subscription.emit(presenceWith({ x: 300, y: -40 })),
     expect(role("status")).toHaveText("Here now: Planner (agent), Grace"),
@@ -60,8 +61,8 @@ it.prop(
     scene(
       { update, view },
       given(loaded),
-      mounted,
-      Subscription.emit(Message.PannedOrZoomed({ viewport })),
+      layerMounted,
+      Mount.resolve(PanZoomCanvas, Message.PannedOrZoomed({ viewport })),
       Subscription.emit(presenceWith(cursor)),
       expect(agentCursor).toHaveStyle("left", `${cursor.x}px`),
       expect(agentCursor).toHaveStyle("top", `${cursor.y}px`),
