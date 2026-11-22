@@ -13,6 +13,21 @@ export const TaskStatus = Schema.Literals([
 ]);
 export type TaskStatus = typeof TaskStatus.Type;
 
+/** A section's rolled-up status: a task status, or one only a section can have. */
+export const SectionStatus = Schema.Literals([
+  "deferred",
+  "context",
+  "unmapped",
+  "blocked_on_human",
+  "failed",
+  "running",
+  "landed",
+  "done",
+  "pending",
+  "in_progress",
+]);
+export type SectionStatus = typeof SectionStatus.Type;
+
 /** A lowercase kebab-case name, such as `cairn-mvp`. */
 export const Slug = Schema.String.check(Schema.isPattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)).pipe(
   Schema.brand("Slug"),
