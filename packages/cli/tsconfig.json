@@ -9,9 +9,11 @@
           "@effect/vitest",
           "@effect/platform-node/NodeHttpServer",
           "@effect/platform-node/NodeRuntime",
+          "@effect/platform-node/NodeSocket",
           "effect/http/HttpRouter",
           "effect/http/HttpServer",
-          "effect/http/HttpServerResponse"
+          "effect/http/HttpServerResponse",
+          "effect/socket/Socket"
         ]
       }
     ]

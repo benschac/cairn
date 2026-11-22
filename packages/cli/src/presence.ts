@@ -1,18 +1,32 @@
 import { CursorJson, ParticipantKind, PresenceJson } from "@cairn/contract";
 import { roomMachine } from "@cairn/core";
 import { createEffectActor, send, snapshots } from "@xstate/effect";
-import { Context, Effect, Layer, Option, Ref, Schema, Stream } from "effect";
+import type { EffectActor } from "@xstate/effect";
+import { Context, Effect, Layer, Number, Option, Ref, Schema, Stream } from "effect";
+import type { Scope } from "effect";
 import { HttpRouter, HttpServerResponse } from "effect/http";
 
 const decodeCursor = Schema.decodeUnknownEffect(CursorJson);
 const encodePresence = Schema.encodeEffect(PresenceJson);
-const decodeKind = Schema.decodeUnknownOption(ParticipantKind);
+
+/** The query a client connects with. A missing or unusable value falls back instead of refusing the client. */
+export const PresenceQuery = Schema.Struct({
+  kind: ParticipantKind.pipe(
+    Schema.catchDecoding(() => Effect.succeedNone),
+    Schema.withDecodingDefaultType(Effect.succeed<ParticipantKind>("human")),
+  ),
+  name: Schema.OptionFromOptional(
+    Schema.NonEmptyString.pipe(Schema.catchDecoding(() => Effect.succeedNone)),
+  ),
+});
+export type PresenceQuery = typeof PresenceQuery.Type;
 
 export class Room extends Context.Service<
   Room,
   {
-    readonly actor: Effect.Success<ReturnType<typeof createEffectActor<typeof roomMachine>>>;
-    readonly nextId: Effect.Effect<string>;
+    readonly actor: EffectActor<typeof roomMachine>;
+    /** Adds a participant for the life of the current scope and returns its id. */
+    readonly join: (query: PresenceQuery) => Effect.Effect<string, never, Scope.Scope>;
   }
 >()("@cairn/cli/Room") {
   static readonly layer = Layer.effect(
@@ -20,10 +34,24 @@ export class Room extends Context.Service<
     Effect.gen(function* () {
       const actor = yield* createEffectActor(roomMachine);
       const count = yield* Ref.make(0);
-      return Room.of({
-        actor,
-        nextId: Ref.updateAndGet(count, (n) => n + 1).pipe(Effect.map((n) => `p${n}`)),
+      const join = Effect.fn("Room.join")(function* ({ kind, name }: PresenceQuery) {
+        const n = yield* Ref.updateAndGet(count, Number.increment);
+        const id = `p${n}`;
+        yield* Effect.acquireRelease(
+          send(actor, {
+            participant: {
+              cursor: null,
+              id,
+              kind,
+              name: Option.getOrElse(name, () => `Guest ${n}`),
+            },
+            type: "joined",
+          }),
+          () => send(actor, { id, type: "left" }),
+        );
+        return id;
       });
+      return Room.of({ actor, join });
     }),
   );
 }
@@ -31,23 +59,11 @@ export class Room extends Context.Service<
 export const PresenceRoute = HttpRouter.add("GET", "/presence", (request) =>
   Effect.gen(function* () {
     const room = yield* Room;
+    const query = yield* HttpRouter.schemaParams(PresenceQuery);
     const socket = yield* request.upgrade;
     const writer = yield* socket.writer;
     const reader = yield* socket.reader;
-    const id = yield* room.nextId;
-    const query = new URL(request.url, "http://cairn.local").searchParams;
-    const kind = decodeKind(query.get("kind"));
-
-    yield* Effect.addFinalizer(() => send(room.actor, { id, type: "left" }));
-    yield* send(room.actor, {
-      participant: {
-        cursor: null,
-        id,
-        kind: Option.getOrElse(kind, () => "human" as const),
-        name: query.get("name") || `Guest ${id.slice(1)}`,
-      },
-      type: "joined",
-    });
+    const id = yield* room.join(query);
 
     yield* snapshots(room.actor).pipe(
       Stream.mapEffect((snapshot) =>
@@ -57,17 +73,21 @@ export const PresenceRoute = HttpRouter.add("GET", "/presence", (request) =>
       Effect.forkScoped,
     );
 
+    // A pull fails once the socket closes, which ends the connection.
     yield* reader.pull.pipe(
       Effect.flatMap((frames) =>
-        Effect.forEach(frames, (frame) =>
-          decodeCursor(frame).pipe(
-            Effect.flatMap((cursor) => send(room.actor, { cursor, id, type: "moved" })),
-            Effect.ignore,
-          ),
+        Effect.forEach(
+          frames,
+          (frame) =>
+            decodeCursor(frame).pipe(
+              Effect.flatMap((cursor) => send(room.actor, { cursor, id, type: "moved" })),
+              Effect.ignore({ log: "Debug", message: "Ignored a frame that is not a cursor" }),
+            ),
+          { discard: true },
         ),
       ),
       Effect.forever,
-      Effect.ignore,
+      Effect.catchTag("SocketError", () => Effect.void),
     );
 
     return HttpServerResponse.empty();

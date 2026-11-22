@@ -1,11 +1,12 @@
 import { createServer } from "node:http";
 
-import { PresenceJson } from "@cairn/contract";
+import { Cursor, CursorJson, ParticipantKind, PresenceJson } from "@cairn/contract";
 import type { Presence } from "@cairn/contract";
+import { NodeHttpServer, NodeSocket } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { NodeHttpServer } from "@effect/platform-node";
-import { Effect, Layer, Queue, Schema } from "effect";
+import { Effect, Layer, Schema, Stream, Struct } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
+import { Socket } from "effect/socket";
 
 import { PresenceRoute, Room } from "../src/presence.ts";
 
@@ -14,52 +15,76 @@ const Server = HttpRouter.serve(PresenceRoute, {
   disableLogger: true,
 }).pipe(
   Layer.provide(Room.layer),
-  Layer.provideMerge(NodeHttpServer.layer(createServer, { port: 0 })),
+  Layer.provideMerge(NodeHttpServer.layer(createServer, { host: "127.0.0.1", port: 0 })),
+  Layer.provideMerge(NodeSocket.layerWebSocketConstructor),
 );
 
 const decodePresence = Schema.decodeUnknownEffect(PresenceJson);
+const encodeCursor = Schema.encodeEffect(CursorJson);
+const decodeCursor = Schema.decodeEffect(CursorJson);
+
+// The room keeps cursors on the surface, so a cursor already on it arrives unchanged.
+const OnSurface = Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 }));
+const SurfaceCursor = Cursor.mapFields(() => ({ x: OnSurface, y: OnSurface }));
 
 const join = Effect.fn("join")(function* (query: string) {
-  const server = yield* HttpServer.HttpServer;
-  const port = "port" in server.address ? server.address.port : 0;
-  const frames = yield* Queue.unbounded<string>();
-  const socket = yield* Effect.acquireRelease(
-    Effect.sync(() => new WebSocket(`ws://127.0.0.1:${port}/presence?${query}`)),
-    (open) => Effect.sync(() => open.close()),
+  const url = yield* HttpServer.addressFormattedWith((address) =>
+    Effect.succeed(`${address.replace(/^http/, "ws")}/presence?${query}`),
   );
-  socket.addEventListener("message", (event) => {
-    Queue.offerUnsafe(frames, String(event.data));
-  });
-  yield* Effect.callback<void>((resume) => {
-    socket.addEventListener("open", () => resume(Effect.void));
-  });
+  const socket = yield* Socket.makeWebSocket(url);
+  const reader = yield* socket.reader;
+  const writer = yield* socket.writer;
+  const presences = Stream.fromEffectRepeat(reader.pull).pipe(
+    Stream.flattenIterable,
+    Stream.mapEffect((frame) => decodePresence(frame)),
+  );
   const sees = (matches: (presence: Presence) => boolean) =>
-    Queue.take(frames).pipe(
-      Effect.flatMap(decodePresence),
-      Effect.repeat({ until: matches }),
+    presences.pipe(
+      Stream.filter(matches),
+      Stream.runHead,
+      Effect.flatMap(Effect.fromOption),
       Effect.timeout("2 seconds"),
     );
-  return { sees, socket };
+  // Sends a cursor and returns it as the wire carries it: JSON turns -0 into 0.
+  const moves = (cursor: Cursor) =>
+    encodeCursor(cursor).pipe(Effect.tap(writer.write), Effect.flatMap(decodeCursor));
+  return { moves, sees, writer };
 });
 
-it.live("two participants see each other's cursor, and a departure", () =>
+const someoneMoved = (presence: Presence) =>
+  presence.participants.some((participant) => participant.cursor !== null);
+
+it.live.prop(
+  "a participant sees another's kind and cursor past frames that are not cursors, then sees them leave",
+  { cursor: SurfaceCursor, kind: ParticipantKind },
+  ({ cursor, kind }) =>
+    Effect.gen(function* () {
+      const planner = yield* join("name=Planner");
+
+      yield* Effect.gen(function* () {
+        const other = yield* join(`name=Ada&kind=${kind}`);
+        yield* other.writer.write("not a cursor");
+        yield* other.writer.write(new Uint8Array([1, 2, 3]));
+        const sent = yield* other.moves(cursor);
+
+        const seen = yield* planner.sees(someoneMoved);
+        expect(seen.participants.map((participant) => Struct.omit(participant, ["id"]))).toEqual([
+          { cursor: null, kind: "human", name: "Planner" },
+          { cursor: sent, kind, name: "Ada" },
+        ]);
+      }).pipe(Effect.scoped);
+
+      const alone = yield* planner.sees((presence) => presence.participants.length === 1);
+      expect(alone.participants.map((participant) => participant.name)).toEqual(["Planner"]);
+    }).pipe(Effect.provide(Server)),
+);
+
+it.live("a client without a usable name or kind joins as a numbered human guest", () =>
   Effect.gen(function* () {
-    const planner = yield* join("name=Planner&kind=agent");
-
-    yield* Effect.gen(function* () {
-      const ada = yield* join("name=Ada");
-      ada.socket.send(JSON.stringify({ x: 0.25, y: 0.5 }));
-
-      const seen = yield* planner.sees((presence) =>
-        presence.participants.some((participant) => participant.cursor !== null),
-      );
-      expect(seen.participants.map(({ cursor, kind, name }) => ({ cursor, kind, name }))).toEqual([
-        { cursor: null, kind: "agent", name: "Planner" },
-        { cursor: { x: 0.25, y: 0.5 }, kind: "human", name: "Ada" },
-      ]);
-    }).pipe(Effect.scoped);
-
-    const alone = yield* planner.sees((presence) => presence.participants.length === 1);
-    expect(alone.participants.map((participant) => participant.name)).toEqual(["Planner"]);
+    const guest = yield* join("name=&kind=robot");
+    const seen = yield* guest.sees((presence) => presence.participants.length === 1);
+    expect(seen.participants).toEqual([
+      { cursor: null, id: seen.you, kind: "human", name: `Guest ${seen.you.slice(1)}` },
+    ]);
   }).pipe(Effect.provide(Server)),
 );
