@@ -4,28 +4,53 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { PanZoomCanvas, VIEWPORT_ATTRIBUTE, transformOf, viewportAttribute } from "../canvas.ts";
 import type { Positions, Viewport } from "../geometry.ts";
-import { renderMarkdown } from "../markdown.ts";
+import { renderMarkdown, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
 import { chainOf, type Chain, type Node } from "../trace.ts";
 import { cursorsView } from "./cursorsView.ts";
 import { edgesView } from "./edgesView.ts";
-import { judgmentMarkViews, nodeAttributes, sectionBadgeViews } from "./nodeView.ts";
+import {
+  judgmentMarkViews,
+  nodeAttributes,
+  nodeButtonView,
+  sectionBadgeViews,
+} from "./nodeView.ts";
 import { stacksView } from "./stacksView.ts";
 
 type ColumnName = "prd" | "spec" | "stacks";
+
+const COLUMN_LABEL = { prd: "PRD", spec: "Spec", stacks: "Stacks" } satisfies Record<
+  ColumnName,
+  string
+>;
 
 const columnView = (
   name: ColumnName,
   children: ReadonlyArray<Html>,
   h: HtmlBuilder<Message>,
-): Html => h.section([h.DataAttribute("column", name), h.Style({ overflow: "visible" })], children);
+): Html =>
+  h.section(
+    [
+      h.AriaLabel(COLUMN_LABEL[name]),
+      h.DataAttribute("column", name),
+      h.Style({ overflow: "visible" }),
+    ],
+    children,
+  );
+
+/** The page has its own h1, so a document's "# " heading renders as an h2. */
+const HEADING_OFFSET = 1;
 
 /** The PRD, the spec and the stacks side by side, each section and task a node in the chain. */
 const columnsGridView = (
   trace: Trace,
   maybeChain: Option.Option<Chain>,
+  maybeSelected: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
+  const sectionTitle = (sectionId: SectionId, title: Rendered): Rendered => [
+    nodeButtonView({ id: sectionId, kind: "section" }, maybeSelected, title, h),
+  ];
   const sectionAttributes = (sectionId: SectionId) =>
     nodeAttributes(maybeChain, { id: sectionId, kind: "section" }, h);
   const sectionBadges = (sectionId: SectionId): ReadonlyArray<Html> =>
@@ -50,6 +75,8 @@ const columnsGridView = (
           renderMarkdown(trace.prd.markdown, h, {
             attributesOf: sectionAttributes,
             decorate: sectionBadges,
+            headingOffset: HEADING_OFFSET,
+            wrapTitle: sectionTitle,
           }),
         ],
         h,
@@ -60,11 +87,13 @@ const columnsGridView = (
           renderMarkdown(trace.spec.markdown, h, {
             attributesOf: sectionAttributes,
             decorate: specSectionMarks,
+            headingOffset: HEADING_OFFSET,
+            wrapTitle: sectionTitle,
           }),
         ],
         h,
       ),
-      columnView("stacks", [stacksView(trace, maybeChain, h)], h),
+      columnView("stacks", [stacksView(trace, maybeChain, maybeSelected, h)], h),
     ],
   );
 };
@@ -75,6 +104,7 @@ const canvasLayerView = (
   positions: Positions,
   viewport: Viewport,
   maybeChain: Option.Option<Chain>,
+  maybeSelected: Option.Option<Node>,
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): Html =>
@@ -90,7 +120,10 @@ const canvasLayerView = (
       }),
     ],
     Array.appendAll(
-      [columnsGridView(trace, maybeChain, h), edgesView(trace, positions, maybeChain, h)],
+      [
+        columnsGridView(trace, maybeChain, maybeSelected, h),
+        edgesView(trace, positions, maybeChain, h),
+      ],
       cursorsView(others, viewport.zoom, h),
     ),
   );
@@ -101,6 +134,7 @@ export const canvasView = (
   positions: Positions,
   viewport: Viewport,
   maybeActive: Option.Option<Node>,
+  maybeSelected: Option.Option<Node>,
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -109,6 +143,8 @@ export const canvasView = (
   // The canvas is the pane; the layer inside it holds everything that pans and zooms.
   return h.div(
     [
+      h.Role("region"),
+      h.AriaLabel("Trace canvas"),
       h.DataAttribute("canvas", ""),
       h.Attribute(VIEWPORT_ATTRIBUTE, viewportAttribute(viewport)),
       h.OnMount(PanZoomCanvas()),
@@ -119,6 +155,6 @@ export const canvasView = (
         position: "relative",
       }),
     ],
-    [canvasLayerView(trace, positions, viewport, maybeChain, others, h)],
+    [canvasLayerView(trace, positions, viewport, maybeChain, maybeSelected, others, h)],
   );
 };

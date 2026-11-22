@@ -4,8 +4,8 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 
 import type { Message } from "../message.ts";
 import { stackLayoutOf, type StackPosition } from "../stacks.ts";
-import type { Chain } from "../trace.ts";
-import { judgmentMarkViews, nodeAttributes } from "./nodeView.ts";
+import type { Chain, Node } from "../trace.ts";
+import { judgmentMarkViews, nodeAttributes, nodeButtonView } from "./nodeView.ts";
 
 /** Where a task without a position would sit. stackLayoutOf places every task it is given. */
 const UNPLACED_TASK_POSITION: StackPosition = { column: 1, row: 1 };
@@ -17,6 +17,7 @@ const taskCardView = (
   position: StackPosition,
   topRow: number,
   maybeChain: Option.Option<Chain>,
+  maybeSelected: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.keyed("div")(
@@ -37,8 +38,12 @@ const taskCardView = (
     ),
     Array.flatten([
       [
-        h.strong([], [task.id]),
-        ` ${task.title}`,
+        nodeButtonView(
+          { id: task.id, kind: "task" },
+          maybeSelected,
+          [h.strong([], [task.id]), ` ${task.title}`],
+          h,
+        ),
         h.div([h.DataAttribute("field", "branch")], [task.branch]),
         h.div([h.DataAttribute("field", "model")], [task.model]),
         h.div([h.DataAttribute("status", task.status)], [task.status]),
@@ -51,6 +56,7 @@ const taskCardView = (
 export const stacksView = (
   trace: Trace,
   maybeChain: Option.Option<Chain>,
+  maybeSelected: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const layout = stackLayoutOf(trace.tasks);
@@ -74,6 +80,7 @@ export const stacksView = (
         Option.getOrElse(Record.get(layout, task.id), () => UNPLACED_TASK_POSITION),
         topRow,
         maybeChain,
+        maybeSelected,
         h,
       ),
     ),

@@ -31,10 +31,12 @@ const drawerViews = (model: Model, trace: Trace, h: HtmlBuilder<Message>): Reado
   });
 
 const loadingView = (h: HtmlBuilder<Message>): Html =>
-  h.p([h.DataAttribute("loading", "")], ["Loading the trace..."]);
+  h.p([h.Role("status"), h.DataAttribute("loading", "")], ["Loading the trace..."]);
 
 const alertView = (error: string, h: HtmlBuilder<Message>): Html => h.p([h.Role("alert")], [error]);
 
+// NOTE: a native button with Type("button"). @foldkit/ui's Button.view adds only Tabindex(0)
+// over that, so it is not a dependency.
 const fitButton = (h: HtmlBuilder<Message>): Html =>
   h.button([h.Type("button"), h.OnClick(Message.ClickedFit())], ["Fit to view"]);
 
@@ -50,11 +52,15 @@ const traceView = (
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => {
-  const maybeActive = Option.orElse(model.maybeHovered, () => selectedNodeOf(model.drawer));
+  const maybeSelected = selectedNodeOf(model.drawer);
+  const maybeActive = Option.orElse(model.maybeHovered, () => maybeSelected);
   // The Fit button, the canvas and the drawer, shown whenever there is a trace to pan over.
   const canvas = (trace: Trace): ReadonlyArray<Html> =>
     Array.appendAll(
-      [fitButton(h), canvasView(trace, model.positions, model.viewport, maybeActive, others, h)],
+      [
+        fitButton(h),
+        canvasView(trace, model.positions, model.viewport, maybeActive, maybeSelected, others, h),
+      ],
       drawerViews(model, trace, h),
     );
   return AsyncData.match(model.trace, {

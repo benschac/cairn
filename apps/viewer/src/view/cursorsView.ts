@@ -26,6 +26,8 @@ const cursorView = (
     h.div(
       [
         h.DataAttribute("cursor", participant.kind),
+        // The status line already names everyone here.
+        h.AriaHidden(true),
         h.Style({
           background: CURSOR_COLOR[participant.kind],
           "border-radius": "0 10px 10px 10px",

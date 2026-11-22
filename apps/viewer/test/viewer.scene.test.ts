@@ -14,11 +14,13 @@ import {
   click,
   expect,
   expectAll,
+  focus,
   given,
   hover,
   role,
   scene,
   selector,
+  within,
 } from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
 
@@ -40,7 +42,14 @@ import { columnOf, stackLayoutOf } from "../src/stacks.ts";
 import { chainOf, isInChain, sectionStatusOf, type Chain, type Node } from "../src/trace.ts";
 import { update } from "../src/update.ts";
 import { view } from "../src/view/view.ts";
-import { loaded, mounted, paneSize } from "./fixtures.ts";
+import {
+  focusedDrawerHeading,
+  loaded,
+  mounted,
+  paneSize,
+  sectionButton,
+  taskButton,
+} from "./fixtures.ts";
 
 const status = (id: SectionId) => Option.getOrThrow(sectionStatusOf(demoTrace, id));
 const task = (id: string) => selector(`[data-task="${id}"]`);
@@ -174,6 +183,8 @@ it("a flag or unsure judgment marks its task and section, dimmed when stale; a p
             expect(mark).toHaveAttr("data-judgment", verdict),
             expect(mark).toHaveAttr("data-stale", String(stale)),
             expect(mark).toHaveStyle("opacity", stale ? "0.4" : "1"),
+            // Staleness is in the text too, not only in the opacity.
+            expect(mark).toHaveText(stale ? `${verdict} (stale)` : verdict),
           ];
     }),
     expect(selector(`[data-section="${specId}"] [data-judgment="flag"]`)).toHaveAttr(
@@ -255,20 +266,23 @@ it("hovering a task highlights its sections", () => {
   );
 });
 
+const specButton = sectionButton("Spec", specSection.id);
+
 it("clicking keeps the highlight after leaving, and clicking again clears it", () => {
   scene(
     { update, view },
     given(loaded),
     mounted,
     hover(heading(specSection.id)),
-    click(heading(specSection.id)),
+    click(specButton),
+    focusedDrawerHeading,
     left,
     highlighted(task(chainTask)),
     expect(task(unrelated)).toHaveAttr("data-dimmed", "true"),
     // A leave with nothing hovered is ignored: the selection stays.
     left,
     highlighted(task(chainTask)),
-    click(heading(specSection.id)),
+    click(specButton),
     expectAll(all.selector("[data-highlighted]")).toBeEmpty(),
   );
 });
@@ -278,7 +292,8 @@ it("hovering something else previews it over the selection", () => {
     { update, view },
     given(loaded),
     mounted,
-    click(heading(specSection.id)),
+    click(specButton),
+    focusedDrawerHeading,
     hover(task(unrelated)),
     highlighted(task(unrelated)),
     expect(task(chainTask)).toHaveAttr("data-dimmed", "true"),
@@ -489,7 +504,10 @@ it("a panned canvas keeps its nodes clickable and marked so a drag on them selec
     expect(task(chainTask)).toHaveClass("nopan"),
     expect(heading(specSection.id)).toHaveClass("nopan"),
     expect(pane).not.toHaveClass("nopan"),
-    click(heading(specSection.id)),
+    expect(specButton).toHaveClass("nopan"),
+    expect(taskButton(chainTask)).toHaveClass("nopan"),
+    click(specButton),
+    focusedDrawerHeading,
     highlighted(task(chainTask)),
     expect(layer).toHaveStyle("transform", transformOf({ x: -300, y: 40, zoom: 0.5 })),
   );
@@ -508,5 +526,68 @@ it("nothing in the canvas scrolls or clips, so every node can be hovered and cli
     expect(stacks).toHaveStyle("width", "max-content"),
     expect(layer).toHaveStyle("width", "max-content"),
     expect(selector("[data-column] pre")).toHaveStyle("white-space", "pre-wrap"),
+  );
+});
+
+it("focusing a node's button highlights its chain as hovering does; blurring clears it", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    mounted,
+    focus(specButton),
+    highlighted(heading(specSection.id)),
+    highlighted(task(chainTask)),
+    expect(task(unrelated)).toHaveAttr("data-dimmed", "true"),
+    // Scene's blur step reads DOM globals this test environment lacks, so send what OnBlur sends.
+    left,
+    expectAll(all.selector("[data-highlighted]")).toBeEmpty(),
+    focus(taskButton(chainTask)),
+    highlighted(task(chainTask)),
+  );
+});
+
+it("the button of the node whose drawer is open is pressed, and no other", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    mounted,
+    expectAll(all.role("button", { pressed: true })).toBeEmpty(),
+    click(specButton),
+    focusedDrawerHeading,
+    expect(specButton).toHaveAttr("aria-pressed", "true"),
+    expectAll(all.role("button", { pressed: true })).toHaveCount(1),
+    expect(taskButton(chainTask)).toHaveAttr("aria-pressed", "false"),
+    click(taskButton(chainTask)),
+    focusedDrawerHeading,
+    expect(specButton).toHaveAttr("aria-pressed", "false"),
+    expect(taskButton(chainTask)).toHaveAttr("aria-pressed", "true"),
+  );
+});
+
+it("the canvas and its columns are named regions, and the page has one h1", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    mounted,
+    expect(role("region", { name: "Trace canvas" })).toHaveAttr("data-canvas", ""),
+    expect(role("region", { name: "PRD" })).toHaveAttr("data-column", "prd"),
+    expect(role("region", { name: "Spec" })).toHaveAttr("data-column", "spec"),
+    expect(role("region", { name: "Stacks" })).toHaveAttr("data-column", "stacks"),
+    expectAll(all.role("heading", { level: 1 })).toHaveCount(1),
+    expect(role("heading", { level: 1 })).toHaveText("Cairn"),
+    // A document's "# " heading sits one level below the page's.
+    expect(within(role("region", { name: "Spec" }), role("heading", { level: 2 }))).toHaveAttr(
+      "data-section",
+      Option.getOrThrow(Array.head(demoTrace.spec.sections)).id,
+    ),
+    expect(selector("[data-edges]")).toHaveAttr("aria-hidden", "true"),
+  );
+});
+
+it("the loading line is a status", () => {
+  scene(
+    { update, view },
+    given(init().model),
+    expect(selector("[data-loading]")).toHaveAttr("role", "status"),
   );
 });

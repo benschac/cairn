@@ -59,6 +59,8 @@ export const edgesView = (
   h.svg(
     [
       h.DataAttribute("edges", ""),
+      // The edges only draw the links the nodes' highlight already shows.
+      h.AriaHidden(true),
       h.Style({
         height: "100%",
         inset: "0",

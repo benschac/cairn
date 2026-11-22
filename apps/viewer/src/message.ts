@@ -13,6 +13,8 @@ export const Message = defineMessageUnion({
   ClickedDrawerTask: { id: TaskId },
   ClickedFit: {},
   ClickedNode: { node: Node },
+  CompletedFocusDrawerHeading: {},
+  CompletedFocusNode: {},
   HoveredNode: { node: Node },
   LeftNode: {},
   MeasuredLayout: { positions: Positions },

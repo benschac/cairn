@@ -4,6 +4,7 @@ import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 
 import { boundsOf, fitViewport } from "./canvas.ts";
+import { FocusDrawerHeading, FocusNode } from "./command.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
 import { Drawer, selectedNodeOf, type Model } from "./model.ts";
@@ -17,7 +18,15 @@ const openOn = (node: Node): Drawer => Drawer.Open({ maybeCommitSha: Option.none
 
 export const update = (model: Model, message: Message) =>
   Message.match<Update.Return<Model, Message>>(message, {
-    ClickedCloseDrawer: () => ({ model: modifyFields(model, { drawer: () => Drawer.Closed() }) }),
+    // Closing the drawer returns focus to the button of the node it was open on.
+    ClickedCloseDrawer: () =>
+      Drawer.match(model.drawer, {
+        Closed: () => ({ model }),
+        Open: ({ node }) => ({
+          commands: [FocusNode({ node })],
+          model: modifyFields(model, { drawer: () => Drawer.Closed() }),
+        }),
+      }),
     // A commit is clicked in the open drawer; with the drawer closed there is none to click.
     ClickedCommit: ({ sha }) => ({
       model: Drawer.match(model.drawer, {
@@ -30,6 +39,7 @@ export const update = (model: Model, message: Message) =>
     }),
     // A task in a section's drawer opens that task's drawer; it never closes one.
     ClickedDrawerTask: ({ id }) => ({
+      commands: [FocusDrawerHeading()],
       model: modifyFields(model, { drawer: () => openOn({ id, kind: "task" }) }),
     }),
     // Fit frames every measured node in the pane; until both are known it does nothing.
@@ -43,15 +53,17 @@ export const update = (model: Model, message: Message) =>
         }),
       }),
     // The open drawer is the selection. Clicking the node whose drawer is open closes it;
-    // clicking any other node opens that node's drawer.
-    ClickedNode: ({ node }) => ({
-      model: modifyFields(model, {
-        drawer: (drawer) =>
-          Option.exists(selectedNodeOf(drawer), (selected) => nodeEquivalence(selected, node))
-            ? Drawer.Closed()
-            : openOn(node),
-      }),
-    }),
+    // clicking any other node opens that node's drawer and moves focus to its heading. The
+    // click that closes a drawer comes from the node's own button, so focus is already there.
+    ClickedNode: ({ node }) =>
+      Option.exists(selectedNodeOf(model.drawer), (selected) => nodeEquivalence(selected, node))
+        ? { model: modifyFields(model, { drawer: () => Drawer.Closed() }) }
+        : {
+            commands: [FocusDrawerHeading()],
+            model: modifyFields(model, { drawer: () => openOn(node) }),
+          },
+    CompletedFocusDrawerHeading: () => ({ model }),
+    CompletedFocusNode: () => ({ model }),
     HoveredNode: ({ node }) => ({
       model: modifyFields(model, { maybeHovered: () => Option.some(node) }),
     }),

@@ -14,7 +14,10 @@ import { Array, DateTime, HashSet, Match, Option, Schema, String, pipe } from "e
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { defineRouteUnion, literal, mapTo, slash, string } from "foldkit/route";
 
-import { Node, chainOf, judgmentsOf, sectionTitleOf } from "./trace.ts";
+import { Node, chainOf, judgmentsOf, nodeKeyOf, sectionTitleOf } from "./trace.ts";
+
+// NOTE: the buttons here are native buttons with Type("button"). @foldkit/ui's Button.view adds
+// only Tabindex(0) over that, so it is not a dependency.
 
 /** The message constructors the drawer's view needs; the app supplies its own. */
 export interface DrawerMessages<Message> {
@@ -22,6 +25,9 @@ export interface DrawerMessages<Message> {
   readonly onClickTask: (id: TaskId) => Message;
   readonly onClickCommit: (sha: Sha) => Message;
 }
+
+/** The id of the open drawer's heading, which names the drawer and takes focus when it opens. */
+export const DRAWER_HEADING_ID = "drawer-heading";
 
 /** The server's routes the drawer links to. */
 const ServerRoute = defineRouteUnion({ Session: { id: Schema.String } });
@@ -86,11 +92,7 @@ const commitView = <Message>(
     [],
     [
       h.button(
-        [
-          h.Type("button"),
-          h.DataAttribute("commit", commit.sha),
-          h.OnClick(messages.onClickCommit(commit.sha)),
-        ],
+        [h.Type("button"), h.OnClick(messages.onClickCommit(commit.sha))],
         [`${commit.subject} ${shortSha(commit.sha)}`],
       ),
     ],
@@ -113,9 +115,7 @@ const sessionsView = <Message>(task: TraceTask, h: HtmlBuilder<Message>): Html =
       h.h3([], ["Sessions"]),
       h.ul(
         [],
-        Array.map(task.sessions, (id) =>
-          h.li([], [h.a([h.DataAttribute("session", id), h.Href(sessionRouter({ id }))], [id])]),
-        ),
+        Array.map(task.sessions, (id) => h.li([], [h.a([h.Href(sessionRouter({ id }))], [id])])),
       ),
     ],
   );
@@ -198,11 +198,7 @@ const sectionTasksView = <Message>(
               [h.DataAttribute("drawer-task", task.id)],
               [
                 h.button(
-                  [
-                    h.Type("button"),
-                    h.DataAttribute("open-task", task.id),
-                    h.OnClick(messages.onClickTask(task.id)),
-                  ],
+                  [h.Type("button"), h.OnClick(messages.onClickTask(task.id))],
                   [`${task.id} ${task.title}`],
                 ),
                 commitsView(task, h, messages),
@@ -275,9 +271,9 @@ const commitDetailView = <Message>(
   );
 
 /**
- * The drawer open on a node: a dialog with a section's tasks (and a spec section's judgments),
+ * The drawer open on a node: a complementary landmark named by its heading, with a section's tasks (and a spec section's judgments),
  * or a task's commits, sessions, events, gate reasons and judgments, and last the commit clicked
- * in it. A node the trace does not have opens a dialog titled by its id with nothing in it.
+ * in it. A node the trace does not have opens a drawer titled by its id with nothing in it.
  * The drawer is keyed by its node, so no DOM state carries from one node's drawer to another's.
  */
 export const drawerView = <Message>(
@@ -293,25 +289,17 @@ export const drawerView = <Message>(
   });
 
   return h.keyed("aside")(
-    `${node.kind}:${node.id}`,
+    nodeKeyOf(node),
     [
-      h.Role("dialog"),
-      h.AriaLabel(`Details for ${content.title}`),
+      h.AriaLabelledBy(DRAWER_HEADING_ID),
       h.DataAttribute("drawer", node.kind),
       h.DataAttribute("drawer-id", node.id),
     ],
     Array.flatten([
       [
-        h.button(
-          [
-            h.Type("button"),
-            h.AriaLabel("Close"),
-            h.DataAttribute("close", ""),
-            h.OnClick(messages.onClose),
-          ],
-          ["Close"],
-        ),
-        h.h2([], [content.title]),
+        h.button([h.Type("button"), h.OnClick(messages.onClose)], ["Close"]),
+        // Tabindex(-1): the heading takes focus when the drawer opens, but is not a tab stop.
+        h.h2([h.Id(DRAWER_HEADING_ID), h.Tabindex(-1)], [content.title]),
       ],
       content.body,
       Array.fromOption(Option.flatMap(maybeCommitSha, (sha) => commitDetailView(trace, sha, h))),

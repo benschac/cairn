@@ -17,6 +17,9 @@ export const Node = Schema.Union([
 ]).pipe(Schema.toTaggedUnion("kind"));
 export type Node = typeof Node.Type;
 
+/** A node's kind and id, unique across the trace: "section:spec.viewer" or "task:t9". */
+export const nodeKeyOf = (node: Node): string => `${node.kind}:${node.id}`;
+
 export interface Chain {
   readonly prd: HashSet.HashSet<string>;
   readonly spec: HashSet.HashSet<string>;

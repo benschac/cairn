@@ -43,6 +43,8 @@ it("other participants appear with their cursors, and you do not", () => {
     Subscription.emit(presenceWith({ x: 300, y: -40 })),
     expect(role("status")).toHaveText("Here now: Planner (agent), Grace"),
     expect(agentCursor).toHaveText("Planner (agent)"),
+    // The status line names everyone, so the cursor's label is hidden from assistive tech.
+    expect(agentCursor).toHaveAttr("aria-hidden", "true"),
     expect(selector('[data-cursor="human"]')).toBeAbsent(),
   );
 });

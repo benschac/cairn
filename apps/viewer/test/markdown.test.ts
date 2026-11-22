@@ -2,23 +2,23 @@ import { readFileSync } from "node:fs";
 
 import { SectionId } from "@cairn/contract";
 import { it } from "@effect/vitest";
-import { Array, Option, Predicate, Result, String, pipe } from "effect";
+import { Array, Number, Option, Predicate, Result, Schema, String, pipe } from "effect";
 import type { Html } from "foldkit/html";
 import { expect as expectScene, given, scene, selector } from "foldkit/scene";
 import { expect } from "vitest";
 
-import { renderMarkdown } from "../src/markdown.ts";
+import { renderMarkdown, type SectionHooks } from "../src/markdown.ts";
 
 type VNode = NonNullable<Html>;
 
 /** Renders through a real Scene, which supplies the `h` builder, and hands back the vnode tree. */
-const render = (markdown: string): VNode => {
+const render = (markdown: string, hooks?: SectionHooks<never>): VNode => {
   let rendered = Option.none<VNode>();
   scene(
     {
       update: (model: null) => ({ model }),
       view: (_model: null, h) => {
-        const body = renderMarkdown(markdown, h);
+        const body = renderMarkdown(markdown, h, hooks);
         rendered = Option.fromNullOr(body);
         return { body, title: "markdown" };
       },
@@ -256,3 +256,46 @@ it.each(["https://example.com/a", "mailto:a@b.c", "/relative", "#spec.x", "./x.m
     expect(attr(firstTag(render(`[x](${url})`), "a"), "href")).toBe(url);
   },
 );
+
+it.prop(
+  "a heading renders headingOffset levels deeper, and never deeper than h6",
+  {
+    depth: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 6 })),
+    offset: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 6 })),
+  },
+  ({ depth, offset }) => {
+    const root = render(`${String.repeat(depth)("#")} Title {#spec.title}`, {
+      headingOffset: offset,
+    });
+    expect(textOf(firstTag(root, `h${Number.min(depth + offset, 6)}`))).toBe("Title");
+  },
+);
+
+it('without an offset "# " is an h1', () => {
+  expect(tags(render("# Title {#prd.title}"))).toContain("h1");
+});
+
+it("wrapTitle wraps a section heading's title, and the decoration stays outside it", () => {
+  let wrapped: ReadonlyArray<string> = [];
+  scene(
+    {
+      update: (model: null) => ({ model }),
+      view: (_model: null, h) => {
+        const body = renderMarkdown("## Some `code` title {#spec.some}\n\n## Plain", h, {
+          decorate: () => [h.span([h.DataAttribute("badge", "")], ["badge"])],
+          wrapTitle: (sectionId, title) => {
+            wrapped = Array.append(wrapped, sectionId);
+            return [h.button([h.DataAttribute("title-of", sectionId)], title)];
+          },
+        });
+        return { body, title: "markdown" };
+      },
+    },
+    given(null),
+    expectScene(selector('[data-section="spec.some"] button')).toHaveText("Some code title"),
+    expectScene(selector('[data-section="spec.some"] button [data-badge]')).toBeAbsent(),
+    expectScene(selector('[data-section="spec.some"] [data-badge]')).toExist(),
+  );
+  // Only the heading with a section id is wrapped.
+  expect(Array.dedupe(wrapped)).toEqual(["spec.some"]);
+});

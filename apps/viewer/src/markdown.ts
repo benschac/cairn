@@ -26,7 +26,8 @@ const KEY_LINE_PATTERN = /^([^:]*): \s*$/u;
 
 const SAFE_HREF_PATTERN = /^(?:https?:|mailto:|[#/.?]|[^:]*$)/iu;
 
-type Rendered = ReadonlyArray<Html | string>;
+/** Rendered markdown: elements and bare text. */
+export type Rendered = ReadonlyArray<Html | string>;
 
 /** The text of a node and everything under it. */
 const textOf = (node: Nodes): string => {
@@ -97,12 +98,16 @@ const checkbox = (checked: boolean | null | undefined): ReadonlyArray<string> =>
 
 const isSectionId = Schema.is(SectionId);
 
-/** What a caller adds to a heading whose `{#id}` is a section ID. */
+/** What a caller adds to a heading whose `{#id}` is a section ID, and how deep headings start. */
 export interface SectionHooks<Message> {
   /** Attributes for the heading. */
   readonly attributesOf?: (sectionId: SectionId) => ReadonlyArray<Attribute<Message>>;
   /** Nodes at the end of the heading. */
   readonly decorate?: (sectionId: SectionId) => ReadonlyArray<Html>;
+  /** What the heading's title renders as, such as a button holding it. */
+  readonly wrapTitle?: (sectionId: SectionId, title: Rendered) => Rendered;
+  /** Levels added to every heading, so "# " can render below the page's own h1; h6 is the deepest. */
+  readonly headingOffset?: number;
 }
 
 /** What every renderer below reads: the builder and the caller's section hooks. */
@@ -110,6 +115,8 @@ interface RenderContext<Message> {
   readonly h: HtmlBuilder<Message>;
   readonly attributesOf: (sectionId: SectionId) => ReadonlyArray<Attribute<Message>>;
   readonly decorate: (sectionId: SectionId) => ReadonlyArray<Html>;
+  readonly wrapTitle: (sectionId: SectionId, title: Rendered) => Rendered;
+  readonly headingOffset: number;
 }
 
 const renderInline = <Message>(
@@ -159,7 +166,7 @@ const tableView = <Message>(context: RenderContext<Message>, node: Table): Html 
 };
 
 const headingView = <Message>(context: RenderContext<Message>, node: Heading): Html => {
-  const { h, attributesOf, decorate } = context;
+  const { h, attributesOf, decorate, headingOffset, wrapTitle } = context;
   const maybeId = firstGroup(HEADING_ID_PATTERN)(textOf(node));
   const children = Option.isSome(maybeId)
     ? Array.match(node.children, {
@@ -168,10 +175,14 @@ const headingView = <Message>(context: RenderContext<Message>, node: Heading): H
       })
     : node.children;
   const tag = Option.getOrElse(
-    Array.get([h.h1, h.h2, h.h3, h.h4, h.h5, h.h6], node.depth - 1),
+    Array.get([h.h1, h.h2, h.h3, h.h4, h.h5, h.h6], node.depth - 1 + headingOffset),
     () => h.h6,
   );
   const maybeSectionId = Option.filter(maybeId, isSectionId);
+  const title = renderInline(
+    context,
+    Array.filter(children, (child) => child.type !== "text" || child.value !== ""),
+  );
   return tag(
     Option.match(maybeId, {
       onNone: () => [],
@@ -182,10 +193,10 @@ const headingView = <Message>(context: RenderContext<Message>, node: Heading): H
         ),
     }),
     Array.appendAll(
-      renderInline(
-        context,
-        Array.filter(children, (child) => child.type !== "text" || child.value !== ""),
-      ),
+      Option.match(maybeSectionId, {
+        onNone: () => title,
+        onSome: (sectionId) => wrapTitle(sectionId, title),
+      }),
       Option.match(maybeSectionId, { onNone: () => [], onSome: decorate }),
     ),
   );
@@ -276,11 +287,19 @@ const renderBlocks = <Message>(
 export const renderMarkdown = <Message>(
   markdown: string,
   h: HtmlBuilder<Message>,
-  { attributesOf = () => [], decorate = () => [] }: SectionHooks<Message> = {},
+  {
+    attributesOf = () => [],
+    decorate = () => [],
+    headingOffset = 0,
+    wrapTitle = (_sectionId, title) => title,
+  }: SectionHooks<Message> = {},
 ): Html => {
   const tree: Root = fromMarkdown(markdown, {
     extensions: [gfm()],
     mdastExtensions: [gfmFromMarkdown()],
   });
-  return h.div([h.Class("markdown")], renderBlocks({ attributesOf, decorate, h }, tree.children));
+  return h.div(
+    [h.Class("markdown")],
+    renderBlocks({ attributesOf, decorate, h, headingOffset, wrapTitle }, tree.children),
+  );
 };
