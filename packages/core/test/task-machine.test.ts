@@ -1,20 +1,50 @@
 import { Task, TaskEventType, TaskStatus } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
 import { createEffectActor, sendAndAwait } from "@xstate/effect";
-import { Effect, Schema } from "effect";
+import { Array, Effect, Option, Order, Record, Schema } from "effect";
 import { initialTransition, transition } from "xstate";
 import { getShortestPaths } from "xstate/graph";
 
 import { statusOf, taskMachine } from "../src/index.ts";
 
-const decodeTask = Schema.decodeUnknownSync(Task);
-
-const migration = decodeTask({
+const migration = Schema.decodeSync(Task)({
   gated: true,
   id: "task-1",
   section: "prd.data-model",
   title: "Add the sessions table",
 });
+
+/** The lifecycle as a table: the status each event leads to. An event missing from a row is ignored. */
+const lifecycle = (
+  gated: boolean,
+): Record.ReadonlyRecord<TaskStatus, Record.ReadonlyRecord<string, TaskStatus>> => ({
+  blocked_on_human: { approve: "done" },
+  done: { land: "landed" },
+  failed: {},
+  landed: {},
+  pending: { start: "running" },
+  running: { finish: gated ? "blocked_on_human" : "done" },
+});
+
+it.prop(
+  "each status takes the events its lifecycle lists and ignores every other event",
+  [Task],
+  ([task]) => {
+    const table = lifecycle(task.gated);
+    for (const { state } of getShortestPaths(taskMachine, { input: task })) {
+      const before = statusOf(state);
+      for (const type of TaskEventType.literals) {
+        const [after] = transition(taskMachine, state, { type });
+        const expected = Option.getOrElse(Record.get(table[before], type), () => before);
+        expect({ before, type, after: statusOf(after) }).toStrictEqual({
+          before,
+          type,
+          after: expected,
+        });
+      }
+    }
+  },
+);
 
 it.prop(
   "a gated task is done only after a human approves it",
@@ -32,24 +62,15 @@ it.prop(
   },
 );
 
-it.prop(
-  "an ungated task never waits for a human",
-  [Task, Schema.Array(TaskEventType)],
-  ([task, events]) => {
-    let [snapshot] = initialTransition(taskMachine, { ...task, gated: false });
-    for (const type of events) {
-      [snapshot] = transition(taskMachine, snapshot, { type });
-      expect(statusOf(snapshot)).not.toBe("blocked_on_human");
-    }
-  },
-);
-
 it("a gated task can reach every status in the contract", () => {
-  const reached = getShortestPaths(taskMachine, { input: migration }).map((path) =>
+  const reached = Array.map(getShortestPaths(taskMachine, { input: migration }), (path) =>
     statusOf(path.state),
   );
-  expect(new Set(reached)).toStrictEqual(
-    new Set(TaskStatus.literals.filter((status) => status !== "failed")),
+  expect(Array.sort(Array.dedupe(reached), Order.String)).toStrictEqual(
+    Array.sort(
+      Array.filter(TaskStatus.literals, (status) => status !== "failed"),
+      Order.String,
+    ),
   );
 });
 

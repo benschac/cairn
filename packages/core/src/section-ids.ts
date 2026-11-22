@@ -1,81 +1,121 @@
 import type { SectionPrefix } from "@cairn/contract";
+import { Array, HashSet, Option, String, pipe } from "effect";
 
 const FENCE = /^\s*(?:```|~~~)/u;
 const HEADING = /^(#{1,6})[ \t]+(.*?)[ \t]*$/u;
 const TRAILING_ID = /[ \t]*\{#([^}\s]+)\}$/u;
 
-interface Line {
-  readonly id: string | undefined;
+interface Heading {
+  readonly id: Option.Option<string>;
   readonly level: number;
   readonly text: string;
 }
 
-const headingOf = (line: string): Line | undefined => {
-  const heading = HEADING.exec(line);
-  if (heading === null) {
-    return undefined;
-  }
-  const [, hashes = "", rest = ""] = heading;
-  const id = TRAILING_ID.exec(rest);
-  return {
-    id: id?.[1],
-    level: hashes.length,
-    text: id === null ? rest : rest.slice(0, id.index),
-  };
+interface Ancestor {
+  readonly id: string;
+  readonly level: number;
+}
+
+interface Assigned {
+  readonly added: readonly string[];
+  readonly ancestors: readonly Ancestor[];
+  readonly taken: HashSet.HashSet<string>;
+}
+
+const headingOf = (line: string): Option.Option<Heading> =>
+  pipe(
+    line,
+    String.match(HEADING),
+    Option.map(([, hashes = "", rest = ""]) => ({
+      id: pipe(rest, String.match(TRAILING_ID), Option.flatMap(Array.get(1))),
+      level: hashes.length,
+      text: pipe(rest, String.replace(TRAILING_ID, "")),
+    })),
+  );
+
+const slugOf = (text: string): string =>
+  pipe(
+    text,
+    String.toLowerCase,
+    String.replaceAll(/[^a-z0-9]+/gu, "-"),
+    String.replaceAll(/^-|-$/gu, ""),
+    Option.liftPredicate(String.isNonEmpty),
+    Option.getOrElse(() => "section"),
+  );
+
+/** `base`, or the first of `base-2`, `base-3`, ... that is not taken. */
+const unusedId = (taken: HashSet.HashSet<string>, base: string, copy = 1): string => {
+  const id = copy === 1 ? base : `${base}-${copy}`;
+  return HashSet.has(taken, id) ? unusedId(taken, base, copy + 1) : id;
 };
 
-const slugOf = (text: string) =>
-  text
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/gu, "-")
-    .replaceAll(/^-|-$/gu, "") || "section";
+/** A level-1 heading titles the document, so it never namespaces a section. */
+const namespaceOf = (ancestors: readonly Ancestor[], prefix: SectionPrefix): string =>
+  pipe(
+    Array.findLast(ancestors, (ancestor) => ancestor.level >= 2),
+    Option.map((ancestor) => ancestor.id),
+    Option.getOrElse(() => prefix),
+  );
 
-const headingsOf = (lines: readonly string[]) => {
-  let fenced = false;
-  return lines.map((line) => {
-    if (FENCE.test(line)) {
-      fenced = !fenced;
-      return undefined;
-    }
-    return fenced ? undefined : headingOf(line);
-  });
-};
+const headingsOf = (lines: readonly string[]): readonly Option.Option<Heading>[] =>
+  Array.mapAccum(lines, false, (fenced, line) =>
+    FENCE.test(line)
+      ? [!fenced, Option.none()]
+      : [fenced, fenced ? Option.none() : headingOf(line)],
+  )[1];
+
+const idsOf = (headings: readonly Option.Option<Heading>[]): string[] =>
+  Array.getSomes(
+    Array.map(
+      headings,
+      Option.flatMap((heading) => heading.id),
+    ),
+  );
+
+const linesOf = String.split("\n");
 
 export const assignSectionIds = (
   markdown: string,
   prefix: SectionPrefix,
 ): { readonly added: readonly string[]; readonly markdown: string } => {
-  const lines = markdown.split("\n");
+  const lines = linesOf(markdown);
   const headings = headingsOf(lines);
-  const taken = new Set(headings.flatMap((heading) => heading?.id ?? []));
-  const added: string[] = [];
-  const parents: (string | undefined)[] = [];
+  const initial: Assigned = {
+    added: [],
+    ancestors: [],
+    taken: HashSet.fromIterable(idsOf(headings)),
+  };
 
-  const result = lines.map((line, index) => {
-    const heading = headings[index];
-    if (heading === undefined) {
-      return line;
+  const assign = (
+    state: Assigned,
+    line: string,
+    found: Option.Option<Heading>,
+  ): [Assigned, string] => {
+    if (Option.isNone(found)) {
+      return [state, line];
     }
-    parents.length = heading.level;
-    const parent = parents.slice(2).findLast((id) => id !== undefined);
-    let id = heading.id;
-    if (id === undefined) {
-      const base = `${parent ?? prefix}.${slugOf(heading.text)}`;
-      id = base;
-      for (let copy = 2; taken.has(id); copy += 1) {
-        id = `${base}-${copy}`;
-      }
-      taken.add(id);
-      added.push(id);
+    const { id: existing, level, text } = found.value;
+    const ancestors = Array.filter(state.ancestors, (above) => above.level < level);
+    if (Option.isSome(existing)) {
+      const id = existing.value;
+      return [{ ...state, ancestors: Array.append(ancestors, { id, level }) }, line];
     }
-    parents[heading.level] = id;
-    return heading.id === undefined
-      ? `${"#".repeat(heading.level)} ${heading.text} {#${id}}`
-      : line;
-  });
+    const id = unusedId(state.taken, `${namespaceOf(ancestors, prefix)}.${slugOf(text)}`);
+    const next: Assigned = {
+      added: Array.append(state.added, id),
+      ancestors: Array.append(ancestors, { id, level }),
+      taken: HashSet.add(state.taken, id),
+    };
+    return [next, `${String.repeat(level)("#")} ${text} {#${id}}`];
+  };
 
-  return { added, markdown: result.join("\n") };
+  const [{ added }, result] = Array.mapAccum(
+    Array.zip(lines, headings),
+    initial,
+    (state, [line, found]) => assign(state, line, found),
+  );
+  return { added, markdown: Array.join(result, "\n") };
 };
 
 export const sectionIdsOf = (markdown: string): readonly string[] =>
-  headingsOf(markdown.split("\n")).flatMap((heading) => heading?.id ?? []);
+  idsOf(headingsOf(linesOf(markdown)));

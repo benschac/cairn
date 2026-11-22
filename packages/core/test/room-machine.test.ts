@@ -1,31 +1,37 @@
 import { Cursor, Participant } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Schema } from "effect";
+import { Array, Option, Schema } from "effect";
 import { initialTransition, transition } from "xstate";
 
 import { roomMachine } from "../src/index.ts";
 
-const RoomEvent = Schema.Union([
-  Schema.Struct({ participant: Participant, type: Schema.Literal("joined") }),
-  Schema.Struct({ id: Schema.Literals(["a", "b", "c"]), type: Schema.Literal("left") }),
-  Schema.Struct({
-    cursor: Cursor,
-    id: Schema.Literals(["a", "b", "c"]),
-    type: Schema.Literal("moved"),
-  }),
-]);
+const Member = Schema.Literals(["a", "b"]);
+const Stranger = Schema.Literal("c");
 
-const Known = Schema.Struct({
-  ...Participant.fields,
-  id: Schema.Literals(["a", "b", "c"]),
-});
+const eventsFor = <Id extends Schema.Top>(id: Id) =>
+  [
+    Schema.Struct({ id, type: Schema.Literal("left") }),
+    Schema.Struct({ cursor: Cursor, id, type: Schema.Literal("moved") }),
+  ] as const;
 
 const History = Schema.Array(
   Schema.Union([
-    Schema.Struct({ participant: Known, type: Schema.Literal("joined") }),
-    ...RoomEvent.members.slice(1),
+    Schema.Struct({
+      participant: Schema.Struct({ ...Participant.fields, id: Member }),
+      type: Schema.Literal("joined"),
+    }),
+    ...eventsFor(Schema.Union([Member, Stranger])),
   ]),
 );
+
+const StrangerEvent = Schema.Union(eventsFor(Stranger));
+
+const replay = (events: typeof History.Type) =>
+  Array.reduce(
+    events,
+    initialTransition(roomMachine)[0],
+    (snapshot, event) => transition(roomMachine, snapshot, event)[0],
+  );
 
 it.prop(
   "a room lists each participant once, with cursors on the surface",
@@ -35,9 +41,8 @@ it.prop(
     for (const event of events) {
       [snapshot] = transition(roomMachine, snapshot, event);
       const { participants } = snapshot.context;
-      expect(new Set(participants.map((participant) => participant.id)).size).toBe(
-        participants.length,
-      );
+      const ids = Array.map(participants, ({ id }) => id);
+      expect(Array.dedupe(ids)).toStrictEqual(ids);
       for (const { cursor } of participants) {
         if (cursor !== null) {
           expect(cursor.x).toBeGreaterThanOrEqual(0);
@@ -47,16 +52,25 @@ it.prop(
         }
       }
       if (event.type === "left") {
-        expect(participants.map((participant) => participant.id)).not.toContain(event.id);
+        expect(ids).not.toContain(event.id);
       }
-      if (
-        event.type === "moved" &&
-        participants.some((participant) => participant.id === event.id)
-      ) {
-        expect(
-          participants.find((participant) => participant.id === event.id)?.cursor,
-        ).not.toBeNull();
+      if (event.type === "moved") {
+        const mover = Array.findFirst(participants, ({ id }) => id === event.id);
+        if (Option.isSome(mover)) {
+          expect(mover.value.cursor).not.toBeNull();
+        }
       }
     }
+  },
+);
+
+it.prop(
+  "a room ignores events about someone who is not in it",
+  [History, StrangerEvent],
+  ([events, stranger]) => {
+    const before = replay(events);
+    const [after] = transition(roomMachine, before, stranger);
+    expect(after.value).toBe("open");
+    expect(after.context).toStrictEqual(before.context);
   },
 );

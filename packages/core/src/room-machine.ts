@@ -1,14 +1,11 @@
 import { Participant, RoomEvents } from "@cairn/contract";
 import type { Cursor } from "@cairn/contract";
 import { setupEffect } from "@xstate/effect";
-import { Schema } from "effect";
+import { Array, Number, Schema, Struct } from "effect";
 
-const clamp = (value: number) => Math.min(1, Math.max(0, value));
+const toSurface = Number.clamp({ maximum: 1, minimum: 0 });
 
-const onSurface = (cursor: Cursor): Cursor => ({
-  x: clamp(cursor.x),
-  y: clamp(cursor.y),
-});
+const onSurface = (cursor: Cursor): Cursor => Struct.evolve(cursor, { x: toSurface, y: toSurface });
 
 export const roomMachine = setupEffect({
   schemas: {
@@ -24,26 +21,22 @@ export const roomMachine = setupEffect({
       on: {
         joined: ({ context, event }) => ({
           context: {
-            participants: [
-              ...context.participants.filter(
-                (participant) => participant.id !== event.participant.id,
-              ),
-              {
-                ...event.participant,
-                cursor:
-                  event.participant.cursor === null ? null : onSurface(event.participant.cursor),
-              },
-            ],
+            participants: Array.append(
+              Array.filter(context.participants, ({ id }) => id !== event.participant.id),
+              Struct.evolve(event.participant, {
+                cursor: (cursor) => (cursor === null ? null : onSurface(cursor)),
+              }),
+            ),
           },
         }),
         left: ({ context, event }) => ({
           context: {
-            participants: context.participants.filter((participant) => participant.id !== event.id),
+            participants: Array.filter(context.participants, ({ id }) => id !== event.id),
           },
         }),
         moved: ({ context, event }) => ({
           context: {
-            participants: context.participants.map((participant) =>
+            participants: Array.map(context.participants, (participant) =>
               participant.id === event.id
                 ? { ...participant, cursor: onSurface(event.cursor) }
                 : participant,

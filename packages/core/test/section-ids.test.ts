@@ -1,6 +1,6 @@
 import { SECTION_ID, SectionPrefix } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Schema } from "effect";
+import { Array, Schema, String } from "effect";
 
 import { assignSectionIds, sectionIdsOf } from "../src/index.ts";
 
@@ -13,41 +13,26 @@ const Words = Schema.Literals([
   "2 phases",
 ]);
 
-const Line = Schema.Union([
-  Schema.Struct({
-    kind: Schema.Literal("heading"),
-    level: Schema.Literals([1, 2, 3, 4]),
-    text: Words,
-  }),
-  Schema.Struct({
+const Line = Schema.TaggedUnion({
+  fence: {},
+  heading: { level: Schema.Literals([1, 2, 3, 4]), text: Words },
+  identified: {
     id: Schema.Literals(["prd.saved-views", "spec.saved-views.persist", "prd.api"]),
-    kind: Schema.Literal("identified"),
     level: Schema.Literals([2, 3]),
     text: Words,
-  }),
-  Schema.Struct({ kind: Schema.Literal("prose"), text: Words }),
-  Schema.Struct({ kind: Schema.Literal("fence") }),
-]);
+  },
+  prose: { text: Words },
+});
+
+const renderLine = Line.match({
+  fence: () => "```",
+  heading: ({ level, text }) => `${String.repeat(level)("#")} ${text}`,
+  identified: ({ id, level, text }) => `${String.repeat(level)("#")} ${text} {#${id}}`,
+  prose: ({ text }) => `${text} # not a heading`,
+});
 
 const render = (lines: readonly (typeof Line.Type)[]) =>
-  lines
-    .map((line) => {
-      switch (line.kind) {
-        case "heading": {
-          return `${"#".repeat(line.level)} ${line.text}`;
-        }
-        case "identified": {
-          return `${"#".repeat(line.level)} ${line.text} {#${line.id}}`;
-        }
-        case "prose": {
-          return `${line.text} # not a heading`;
-        }
-        default: {
-          return "```";
-        }
-      }
-    })
-    .join("\n");
+  Array.join(Array.map(lines, renderLine), "\n");
 
 const Document = { lines: Schema.Array(Line), prefix: SectionPrefix };
 
@@ -59,11 +44,11 @@ it.prop("assigning IDs twice changes nothing the second time", Document, ({ line
 });
 
 it.prop("existing IDs and every other line are left as written", Document, ({ lines, prefix }) => {
-  const before = render(lines).split("\n");
-  const after = assignSectionIds(render(lines), prefix).markdown.split("\n");
+  const before = String.split(render(lines), "\n");
+  const after = String.split(assignSectionIds(render(lines), prefix).markdown, "\n");
   expect(after).toHaveLength(before.length);
   for (const [index, line] of before.entries()) {
-    const isBareHeading = lines[index]?.kind === "heading";
+    const isBareHeading = Line.guards.heading(lines[index]);
     if (!isBareHeading) {
       expect(after[index]).toBe(line);
     } else if (after[index] !== line) {
@@ -77,9 +62,9 @@ it.prop("every new ID is well formed and no ID is added twice", Document, ({ lin
   for (const id of added) {
     expect(id).toMatch(SECTION_ID);
   }
-  expect(new Set(added).size).toBe(added.length);
+  expect(Array.dedupe(added)).toStrictEqual(added);
   for (const id of added) {
-    expect(sectionIdsOf(markdown).filter((existing) => existing === id)).toHaveLength(1);
+    expect(Array.filter(sectionIdsOf(markdown), (existing) => existing === id)).toHaveLength(1);
   }
 });
 
@@ -88,7 +73,7 @@ it("a section takes its parent section's ID as its namespace", () => {
     ["# Plan", "## Saved views", "### Persist filter state", "## Saved views"].join("\n"),
     "spec",
   );
-  expect(markdown.split("\n")).toEqual([
+  expect(String.split(markdown, "\n")).toEqual([
     "# Plan {#spec.plan}",
     "## Saved views {#spec.saved-views}",
     "### Persist filter state {#spec.saved-views.persist-filter-state}",
