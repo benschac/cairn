@@ -42,6 +42,14 @@ const rectOf = (box: DOMRect): Rect => ({
 const findLayer = (): Option.Option<Element> =>
   Option.fromNullOr(document.querySelector("[data-canvas-layer]"));
 
+/**
+ * The scale the layer is painted at, which is the viewport's zoom. Reading it from the element
+ * rather than the model keeps it in step with the rects measured beside it: the model can be a
+ * frame ahead of what has been painted. `measure` yields nothing for a scale it cannot use.
+ */
+const scaleOf = (layer: Element): number =>
+  new DOMMatrixReadOnly(getComputedStyle(layer).transform).a;
+
 /** The node key of a `[data-section]` or `[data-task]` element. */
 const keyOf = (element: Element): Option.Option<string> =>
   Option.orElse(Option.fromNullOr(element.getAttribute("data-section")), () =>
@@ -61,8 +69,7 @@ const measureLayer = (): Option.Option<Positions> =>
           })),
       ),
     );
-    // The layer is not scaled yet; the viewport's zoom goes here once the model holds it.
-    return measure(rectOf(layer.getBoundingClientRect()), 1, elements);
+    return measure(rectOf(layer.getBoundingClientRect()), scaleOf(layer), elements);
   });
 
 /** One tick on the next animation frame, after the first render has reached the DOM. */

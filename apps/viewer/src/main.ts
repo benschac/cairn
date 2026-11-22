@@ -7,6 +7,17 @@ import type { Attribute, Document, Html, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
 import { modifyFields } from "foldkit/struct";
 
+import {
+  PanZoomCanvas,
+  VIEWPORT_ATTRIBUTE,
+  boundsOf,
+  canvasMessages,
+  fitViewport,
+  originViewport,
+  transformOf,
+  viewportAttribute,
+  type Viewport,
+} from "./canvas.ts";
 import { curvesOf, Positions, type EdgeKind } from "./curves.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { renderMarkdown } from "./markdown.ts";
@@ -23,6 +34,8 @@ import {
 } from "./trace.ts";
 
 export const Message = defineMessageUnion({
+  ...canvasMessages,
+  ClickedFit: {},
   ClickedNode: { node: Node },
   HoveredNode: { node: Node },
   LeftNode: {},
@@ -36,6 +49,16 @@ const nodeEquivalence = Schema.toEquivalence(Node);
 
 export const update = (model: Model, message: Message) =>
   Message.match<Update.Return<Model, Message>>(message, {
+    // Fit frames every measured node in the pane; until both are known it does nothing.
+    ClickedFit: () =>
+      Option.match(Option.all({ bounds: boundsOf(model.positions), pane: model.maybePane }), {
+        onNone: () => ({ model }),
+        onSome: ({ bounds, pane }) => ({
+          model: modifyFields(model, {
+            viewport: () => fitViewport(bounds, pane.width, pane.height),
+          }),
+        }),
+      }),
     // Clicking the selected node clears the selection; clicking any other node selects it.
     ClickedNode: ({ node }) => ({
       model: modifyFields(model, {
@@ -51,6 +74,12 @@ export const update = (model: Model, message: Message) =>
     LeftNode: () => ({ model: modifyFields(model, { maybeHovered: () => Option.none() }) }),
     MeasuredLayout: ({ positions }) => ({
       model: modifyFields(model, { positions: () => positions }),
+    }),
+    MeasuredPane: ({ size }) => ({
+      model: modifyFields(model, { maybePane: () => Option.some(size) }),
+    }),
+    PannedOrZoomed: ({ viewport }) => ({
+      model: modifyFields(model, { viewport: () => viewport }),
     }),
     ReceivedPresence: ({ presence }) => ({
       model: modifyFields(model, {
@@ -76,10 +105,12 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
   commands: [LoadTrace()],
   model: {
     maybeHovered: Option.none(),
+    maybePane: Option.none(),
     maybeSelected: Option.none(),
     participants: [],
     positions: {},
     trace: TraceData.Loading(),
+    viewport: originViewport,
     you: Option.none(),
   },
 });
@@ -157,6 +188,8 @@ const nodeAttributes = (
 ): ReadonlyArray<Attribute<Message>> =>
   Array.appendAll(
     [
+      // `nopan`: a drag that starts on a node selects its text instead of panning the canvas.
+      h.Class("nopan"),
       h.OnMouseEnter(Message.HoveredNode({ node })),
       h.OnMouseLeave(Message.LeftNode()),
       h.OnClick(Message.ClickedNode({ node })),
@@ -292,6 +325,7 @@ const edgesView = (
 const columnsView = (
   trace: Trace,
   positions: Positions,
+  viewport: Viewport,
   maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -314,10 +348,27 @@ const columnsView = (
     );
   // The canvas is the pane; the layer inside it holds everything that pans and zooms.
   return h.div(
-    [h.DataAttribute("canvas", ""), h.Style({ position: "relative" })],
+    [
+      h.DataAttribute("canvas", ""),
+      h.Attribute(VIEWPORT_ATTRIBUTE, viewportAttribute(viewport)),
+      h.OnMount(PanZoomCanvas()),
+      h.Style({
+        height: "calc(100vh - 160px)",
+        "min-height": "320px",
+        overflow: "hidden",
+        position: "relative",
+      }),
+    ],
     [
       h.div(
-        [h.DataAttribute("canvas-layer", ""), h.Style({ position: "relative" })],
+        [
+          h.DataAttribute("canvas-layer", ""),
+          h.Style({
+            position: "relative",
+            transform: transformOf(viewport),
+            "transform-origin": "0 0",
+          }),
+        ],
         [
           h.div(
             [
@@ -363,18 +414,23 @@ const loadingView = (h: HtmlBuilder<Message>): Html =>
 
 const alertView = (error: string, h: HtmlBuilder<Message>): Html => h.p([h.Role("alert")], [error]);
 
+const fitButton = (h: HtmlBuilder<Message>): Html =>
+  h.button([h.Type("button"), h.OnClick(Message.ClickedFit())], ["Fit to view"]);
+
 const traceView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> => {
   const maybeActive = Option.orElse(model.maybeHovered, () => model.maybeSelected);
+  // The Fit button and the canvas, shown whenever there is a trace to pan over.
+  const canvas = (trace: Trace): ReadonlyArray<Html> => [
+    fitButton(h),
+    columnsView(trace, model.positions, model.viewport, maybeActive, h),
+  ];
   return AsyncData.match(model.trace, {
     onFailure: (error) => [alertView(error, h)],
     onIdle: () => [loadingView(h)],
     onLoading: () => [loadingView(h)],
-    onRefreshing: (data) => [columnsView(data, model.positions, maybeActive, h)],
-    onStale: ({ data, error }) => [
-      alertView(error, h),
-      columnsView(data, model.positions, maybeActive, h),
-    ],
-    onSuccess: (data) => [columnsView(data, model.positions, maybeActive, h)],
+    onRefreshing: canvas,
+    onStale: ({ data, error }) => Array.prepend(canvas(data), alertView(error, h)),
+    onSuccess: canvas,
   });
 };
 

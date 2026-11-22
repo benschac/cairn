@@ -9,6 +9,7 @@ import { demoTrace } from "../src/demo.ts";
 import { TraceNotDecoded, TraceNotLoaded, decodeTrace, describeTraceError } from "../src/load.ts";
 import { LoadTrace, Message, init, update, view } from "../src/main.ts";
 import { TraceData } from "../src/model.ts";
+import { mounted } from "./fixtures.ts";
 
 const columns = [
   expect(selector('[data-column="prd"]')).toExist(),
@@ -87,6 +88,7 @@ it("a loaded trace renders the columns and no loading state", () => {
   scene(
     { update, view },
     given(withTrace(TraceData.Success({ data: demoTrace }))),
+    mounted,
     ...columns,
     expect(selector("[data-loading]")).toBeAbsent(),
     expect(role("alert")).toBeAbsent(),
@@ -97,6 +99,7 @@ it("a failed reload shows the alert above the last good trace", () => {
   scene(
     { update, view },
     given(withTrace(TraceData.Stale({ data: demoTrace, error: "network down" }))),
+    mounted,
     expect(role("alert")).toHaveText("network down"),
     ...columns,
   );

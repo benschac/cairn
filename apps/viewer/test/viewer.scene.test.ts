@@ -9,6 +9,7 @@ import {
 import { expect as assert, it } from "@effect/vitest";
 import { Array, HashSet, Number, Option, Record, Schema, Struct, pipe } from "effect";
 import {
+  Mount,
   Subscription,
   all,
   click,
@@ -22,16 +23,25 @@ import {
 } from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
 
+import {
+  MAX_ZOOM,
+  MIN_ZOOM,
+  PanZoomCanvas,
+  Viewport,
+  boundsOf,
+  fitViewport,
+  originViewport,
+  transformOf,
+  viewportAttribute,
+} from "../src/canvas.ts";
 import { demoTrace } from "../src/demo.ts";
 import { Message, init, update, view } from "../src/main.ts";
 import { curvesOf, type Positions } from "../src/curves.ts";
 import { TraceData } from "../src/model.ts";
 import { columnOf, stackLayoutOf } from "../src/stacks.ts";
 import { chainOf, isInChain, sectionStatusOf, type Chain, type Node } from "../src/trace.ts";
+import { loaded, mounted, paneSize } from "./fixtures.ts";
 
-const loaded = modifyFields(init().model, {
-  trace: () => TraceData.Success({ data: demoTrace }),
-});
 const status = (id: SectionId) => Option.getOrThrow(sectionStatusOf(demoTrace, id));
 const task = (id: string) => selector(`[data-task="${id}"]`);
 const hasStatus = (section: { readonly id: SectionId }) =>
@@ -41,6 +51,7 @@ it("the trace shows as PRD, spec and stack columns", () => {
   scene(
     { update, view },
     given(loaded),
+    mounted,
     expect(selector('[data-column="prd"]')).toExist(),
     expect(selector('[data-column="spec"]')).toExist(),
     expect(selector('[data-column="stacks"]')).toExist(),
@@ -59,6 +70,7 @@ it("a PRD heading and a spec heading carry their rollup badge", () => {
   scene(
     { update, view },
     given(loaded),
+    mounted,
     expect(selector(`[data-section="${prd.id}"] [data-badge]`)).toHaveAttr(
       "data-status",
       status(prd.id),
@@ -74,6 +86,7 @@ it("task t9 shows its branch, model and status", () => {
   scene(
     { update, view },
     given(loaded),
+    mounted,
     expect(task("t9")).toContainText("cairn-mvp/09-trailer-schema"),
     expect(task("t9")).toContainText("sonnet"),
     expect(selector('[data-task="t9"] [data-status]')).toHaveAttr("data-status", "done"),
@@ -86,6 +99,7 @@ it("a gated task shows the gate marker", () => {
   scene(
     { update, view },
     given(loaded),
+    mounted,
     expect(selector('[data-task="t1"] [data-gate]')).toExist(),
   );
 });
@@ -109,6 +123,7 @@ it("every task sits in a higher grid row than each of its dependencies", () => {
   scene(
     { update, view },
     given(loaded),
+    mounted,
     expect(task(dependent)).toHaveStyle("grid-row", String(gridRow(dependent))),
     expect(task(dependency)).toHaveStyle("grid-row", String(gridRow(dependency))),
     expect(task(dependent)).toHaveStyle("grid-column", String(at(dependent).column)),
@@ -150,6 +165,7 @@ it("a flag or unsure judgment marks its task and section, dimmed when stale; a p
   scene(
     { update, view },
     given(modifyFields(loaded, { trace: () => TraceData.Success({ data: trace }) })),
+    mounted,
     ...Array.flatMap(cases, ({ id, stale, verdict }) => {
       const mark = selector(`[data-task="${id}"] [data-judgment]`);
       return verdict === "pass"
@@ -171,6 +187,7 @@ it("other participants appear with their cursors, and you do not", () => {
   scene(
     { update, view },
     given(loaded),
+    mounted,
     expect(role("status")).toHaveText("Nobody else is here."),
     Subscription.emit(
       Message.ReceivedPresence({
@@ -241,6 +258,7 @@ it("hovering a spec section highlights exactly its chain and dims the rest; leav
   scene(
     { update, view },
     given(loaded),
+    mounted,
     expectAll(all.selector("[data-dimmed]")).toBeEmpty(),
     hover(heading(specSection.id)),
     highlighted(heading(specSection.id)),
@@ -262,6 +280,7 @@ it("hovering a task highlights its sections", () => {
   scene(
     { update, view },
     given(loaded),
+    mounted,
     hover(task(chainTask)),
     highlighted(task(chainTask)),
     highlighted(heading(firstOf(expected.spec))),
@@ -274,6 +293,7 @@ it("clicking keeps the highlight after leaving, and clicking again clears it", (
   scene(
     { update, view },
     given(loaded),
+    mounted,
     hover(heading(specSection.id)),
     click(heading(specSection.id)),
     left,
@@ -291,6 +311,7 @@ it("hovering something else previews it over the selection", () => {
   scene(
     { update, view },
     given(loaded),
+    mounted,
     click(heading(specSection.id)),
     hover(task(unrelated)),
     highlighted(task(unrelated)),
@@ -348,6 +369,7 @@ it("the columns sit inside one canvas layer that also holds the edges", () => {
   scene(
     { update, view },
     given(loaded),
+    mounted,
     expect(selector("[data-canvas] [data-canvas-layer]")).toExist(),
     expect(selector("[data-canvas-layer] [data-column]")).toExist(),
     expect(selector("[data-canvas-layer] [data-edges]")).toExist(),
@@ -356,13 +378,14 @@ it("the columns sit inside one canvas layer that also holds the edges", () => {
 });
 
 it("with nothing measured no edge is drawn", () => {
-  scene({ update, view }, given(loaded), expect(selector("[data-edge]")).toBeAbsent());
+  scene({ update, view }, given(loaded), mounted, expect(selector("[data-edge]")).toBeAbsent());
 });
 
 it("measured nodes get a path per link, dashed only across columns", () => {
   scene(
     { update, view },
     given(loaded),
+    mounted,
     measured,
     expect(edge(solidCurve.id)).toHaveAttr("data-kind", solidCurve.kind),
     expect(edge(solidCurve.id)).toHaveAttr("d", solidCurve.path),
@@ -378,6 +401,7 @@ it("a measurement replaces the previous one, and edges to unmeasured nodes are n
   scene(
     { update, view },
     given(loaded),
+    mounted,
     measured,
     expect(edge(solidCurve.id)).toExist(),
     Subscription.emit(Message.MeasuredLayout({ positions: {} })),
@@ -389,6 +413,7 @@ it("hovering a chain highlights its edges and dims the others; leaving clears", 
   scene(
     { update, view },
     given(loaded),
+    mounted,
     measured,
     hover(heading(specSection.id)),
     expect(edge(insideChain.id)).toHaveAttr("data-highlighted", "true"),
@@ -401,5 +426,105 @@ it("hovering a chain highlights its edges and dims the others; leaving clears", 
     left,
     expect(selector("[data-edge][data-highlighted]")).toBeAbsent(),
     expect(selector("[data-edge][data-dimmed]")).toBeAbsent(),
+  );
+});
+
+// Pan and zoom. The library runs in the pane's mount, which Scene cannot start, so a test answers
+// for it with the message the library would send.
+const layer = selector("[data-canvas-layer]");
+const pane = selector("[data-canvas]");
+const fit = role("button", { name: "Fit to view" });
+
+it("the pane is mounted on and the layer starts at the origin viewport", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    Mount.expectExact(PanZoomCanvas),
+    mounted,
+    expect(pane).toHaveStyle("overflow", "hidden"),
+    expect(pane).toHaveAttr("data-viewport", viewportAttribute(originViewport)),
+    expect(layer).toHaveStyle("transform", transformOf(originViewport)),
+    expect(layer).toHaveStyle("transform-origin", "0 0"),
+    expect(selector("[data-canvas] [data-canvas-layer] [data-edges]")).toExist(),
+  );
+});
+
+it.prop(
+  "a pan or zoom moves the layer and the pane's viewport attribute",
+  { viewport: Viewport },
+  ({ viewport }) => {
+    scene(
+      { update, view },
+      given(loaded),
+      Mount.resolve(PanZoomCanvas, Message.PannedOrZoomed({ viewport })),
+      expect(layer).toHaveStyle("transform", transformOf(viewport)),
+      expect(pane).toHaveAttr("data-viewport", viewportAttribute(viewport)),
+    );
+  },
+  // Each run renders the whole demo trace, so a few runs cover it.
+  { arbitrary: { runs: 10 }, timeout: 30_000 },
+);
+
+it("the pane does not mount before there is a trace to pan over", () => {
+  scene(
+    { update, view },
+    given(init().model),
+    expect(pane).toBeAbsent(),
+    expect(fit).toBeAbsent(),
+    Mount.expectNone(),
+  );
+});
+
+it("clicking Fit sets the viewport that frames every measured node", () => {
+  const fitted = fitViewport(Option.getOrThrow(boundsOf(boxes)), paneSize.width, paneSize.height);
+  assert(fitted).not.toEqual(originViewport);
+  assert(fitted.zoom).toBeGreaterThanOrEqual(MIN_ZOOM);
+  assert(fitted.zoom).toBeLessThanOrEqual(MAX_ZOOM);
+  scene(
+    { update, view },
+    given(loaded),
+    mounted,
+    measured,
+    click(fit),
+    expect(layer).toHaveStyle("transform", transformOf(fitted)),
+    expect(pane).toHaveAttr("data-viewport", viewportAttribute(fitted)),
+  );
+});
+
+it("Fit does nothing until the nodes are measured and the pane has a size", () => {
+  const panned: Viewport = { x: 5, y: 7, zoom: 1.5 };
+  scene(
+    { update, view },
+    given(loaded),
+    Mount.resolve(PanZoomCanvas, Message.PannedOrZoomed({ viewport: panned })),
+    // No pane size yet, though the nodes are measured.
+    measured,
+    click(fit),
+    expect(layer).toHaveStyle("transform", transformOf(panned)),
+  );
+  scene(
+    { update, view },
+    given(loaded),
+    mounted,
+    // The pane is sized, but nothing is measured.
+    click(fit),
+    expect(layer).toHaveStyle("transform", transformOf(originViewport)),
+  );
+});
+
+it("a panned canvas keeps its nodes clickable and marked so a drag on them selects text", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    Mount.resolve(
+      PanZoomCanvas,
+      Message.PannedOrZoomed({ viewport: { x: -300, y: 40, zoom: 0.5 } }),
+    ),
+    expect(task(chainTask)).toHaveClass("nopan"),
+    expect(heading(specSection.id)).toHaveClass("nopan"),
+    expect(pane).not.toHaveClass("nopan"),
+    click(heading(specSection.id)),
+    highlighted(task(chainTask)),
+    expect(layer).toHaveStyle("transform", transformOf({ x: -300, y: 40, zoom: 0.5 })),
   );
 });

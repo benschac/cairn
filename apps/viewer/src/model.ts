@@ -2,6 +2,7 @@ import { Participant, ParticipantId, Trace } from "@cairn/contract";
 import { Schema } from "effect";
 import { AsyncData } from "foldkit";
 
+import { Size, Viewport } from "./canvas.ts";
 import { Positions } from "./curves.ts";
 import { Node } from "./trace.ts";
 
@@ -11,10 +12,14 @@ export type TraceData = typeof TraceData.schema.Type;
 
 export const Model = Schema.Struct({
   maybeHovered: Schema.Option(Node),
+  /** The canvas pane's size, once its mount has measured it. */
+  maybePane: Schema.Option(Size),
   maybeSelected: Schema.Option(Node),
   participants: Schema.Array(Participant),
   positions: Positions,
   trace: TraceData.schema,
+  /** Where the canvas layer sits in its pane. */
+  viewport: Viewport,
   you: Schema.Option(ParticipantId),
 });
 export type Model = typeof Model.Type;
