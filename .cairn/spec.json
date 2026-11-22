@@ -1192,7 +1192,7 @@
       "dependsOn": [],
       "defers": [],
       "context": [],
-      "tasks": ["t55"],
+      "tasks": ["t10", "t55"],
       "summary": "Defines the judgments.json schema: the model that answered, and per target and question a verdict, the answer behind it, a message and the hash of the judged input.",
       "requirements": [
         {
@@ -3356,7 +3356,7 @@
       "dependsOn": ["spec.status.derivation"],
       "defers": [],
       "context": [],
-      "tasks": ["t33"],
+      "tasks": ["t10", "t33"],
       "summary": "A section's status is rolled up from its linked tasks and descendants by an ordered first-match rule list.",
       "requirements": [
         {
