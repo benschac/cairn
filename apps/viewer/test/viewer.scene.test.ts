@@ -1,5 +1,6 @@
-import { ManifestTask } from "@cairn/contract";
+import { ManifestTask, ParticipantId } from "@cairn/contract";
 import { it } from "@effect/vitest";
+import { Option } from "effect";
 import { Subscription, click, expect, given, role, scene, selector, text } from "foldkit/scene";
 
 import { Message, init, update, view } from "../src/main.ts";
@@ -31,11 +32,21 @@ it("other participants appear with their cursors, and you do not", () => {
       Message.ReceivedPresence({
         presence: {
           participants: [
-            { cursor: { x: 0.1, y: 0.1 }, id: "p1", kind: "human", name: "Ada" },
-            { cursor: { x: 0.25, y: 0.5 }, id: "p2", kind: "agent", name: "Planner" },
-            { cursor: null, id: "p3", kind: "human", name: "Grace" },
+            {
+              cursor: Option.some({ x: 0.1, y: 0.1 }),
+              id: ParticipantId.make("p1"),
+              kind: "human",
+              name: "Ada",
+            },
+            {
+              cursor: Option.some({ x: 0.25, y: 0.5 }),
+              id: ParticipantId.make("p2"),
+              kind: "agent",
+              name: "Planner",
+            },
+            { cursor: Option.none(), id: ParticipantId.make("p3"), kind: "human", name: "Grace" },
           ],
-          you: "p1",
+          you: ParticipantId.make("p1"),
         },
       }),
     ),

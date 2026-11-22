@@ -1,4 +1,4 @@
-import { Array, Result, Schema, String, pipe } from "effect";
+import { Array, Option, Result, Schema, String, pipe } from "effect";
 
 import { SpecSectionId, TaskId } from "./ids.ts";
 
@@ -49,20 +49,26 @@ export const formatTrailers = (trailers: Trailers): string =>
 
 const TRAILER_LINE = /^Cairn-(Task|Section|Session):[ \t]*(.*?)[ \t]*$/u;
 
+const TrailerKey = Schema.Literals(["Task", "Section", "Session"]);
+type TrailerKey = typeof TrailerKey.Type;
+const decodeTrailerKey = Schema.decodeUnknownOption(TrailerKey);
+
 /** A `Cairn-<key>: <value>` line, or a failure for any other line. */
-const readTrailer = (line: string): Result.Result<{ key: string; value: string }, void> => {
-  const match = TRAILER_LINE.exec(line);
-  return match === null
-    ? Result.failVoid
-    : Result.succeed({ key: match[1] ?? "", value: match[2] ?? "" });
-};
+const readTrailer = (line: string): Result.Result<{ key: TrailerKey; value: string }, void> =>
+  pipe(
+    String.match(TRAILER_LINE)(line),
+    Option.flatMap(([, key, value = ""]) =>
+      Option.map(decodeTrailerKey(key), (decoded) => ({ key: decoded, value })),
+    ),
+    Result.fromOption(() => undefined),
+  );
 
 const refuse = (reason: TrailerFailure, detail: string) => new TrailerError({ detail, reason });
 
 /** The value of a trailer that has to appear exactly once. */
 const single = (
   values: ReadonlyArray<string>,
-  key: string,
+  key: TrailerKey,
   missing: TrailerFailure,
   duplicate: TrailerFailure,
 ): Result.Result<string, TrailerError> =>
@@ -79,11 +85,12 @@ const decodeTrailers = Schema.decodeUnknownResult(Trailers);
 /** Reads the Cairn trailers out of a commit message. Other lines are ignored. */
 export const parseTrailers = (message: string): Result.Result<Trailers, TrailerError> =>
   Result.gen(function* () {
-    const found = Array.groupBy(
-      Array.filterMap(String.split(message, /\r?\n/u), readTrailer),
-      ({ key }) => key,
-    );
-    const values = (key: string) => Array.map(found[key] ?? [], ({ value }) => value);
+    const trailers = Array.filterMap(String.split(message, /\r?\n/u), readTrailer);
+    const values = (key: TrailerKey) =>
+      Array.map(
+        Array.filter(trailers, (trailer) => trailer.key === key),
+        ({ value }) => value,
+      );
     const taskId = yield* single(values("Task"), "Task", "missing-task", "duplicate-task");
     const sessionId = yield* single(
       values("Session"),

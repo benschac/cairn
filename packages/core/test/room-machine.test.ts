@@ -5,8 +5,11 @@ import { initialTransition, transition } from "xstate";
 
 import { roomMachine } from "../src/index.ts";
 
-const Member = Schema.Literals(["a", "b"]);
-const Stranger = Schema.Literal("c");
+const Member = Schema.Literals(["a", "b"]).pipe(Schema.brand("ParticipantId"));
+const Stranger = Schema.Literal("c").pipe(Schema.brand("ParticipantId"));
+
+const OnSurface = Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 }));
+const isOnSurface = Schema.is(Cursor.mapFields(() => ({ x: OnSurface, y: OnSurface })));
 
 const eventsFor = <Id extends Schema.Top>(id: Id) =>
   [
@@ -44,22 +47,15 @@ it.prop(
       const { participants } = snapshot.context;
       const ids = Array.map(participants, ({ id }) => id);
       expect(Array.dedupe(ids)).toStrictEqual(ids);
-      Array.forEach(participants, ({ cursor }) => {
-        if (cursor !== null) {
-          expect(cursor.x).toBeGreaterThanOrEqual(0);
-          expect(cursor.x).toBeLessThanOrEqual(1);
-          expect(cursor.y).toBeGreaterThanOrEqual(0);
-          expect(cursor.y).toBeLessThanOrEqual(1);
-        }
+      Array.forEach(Array.getSomes(Array.map(participants, ({ cursor }) => cursor)), (cursor) => {
+        expect(isOnSurface(cursor)).toBe(true);
       });
       if (event.type === "left") {
         expect(ids).not.toContain(event.id);
       }
       if (event.type === "moved") {
         const mover = Array.findFirst(participants, ({ id }) => id === event.id);
-        if (Option.isSome(mover)) {
-          expect(mover.value.cursor).not.toBeNull();
-        }
+        expect(Option.exists(mover, ({ cursor }) => Option.isNone(cursor))).toBe(false);
       }
       return snapshot;
     });

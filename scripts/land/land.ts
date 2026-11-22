@@ -22,9 +22,8 @@ import {
   Logger,
   Option,
   Path,
-  Predicate,
-  Record,
   Ref,
+  Result,
   Runtime,
   Schedule,
   Schema,
@@ -43,7 +42,6 @@ import {
   orderStack,
   PULL_FIELDS,
   PullRequest,
-  type Ordered,
 } from "./plan.ts";
 
 const TRUNK = "main";
@@ -58,12 +56,12 @@ class MissingTopBranch extends Schema.TaggedError<MissingTopBranch>()("MissingTo
 }) {
   override readonly [Runtime.errorReported] = false;
   override get message() {
-    return `Name the top branch of the stack with --branch (current branch: ${this.current || "none"})`;
+    return `Name the top branch of the stack with --branch (current branch: ${String.isEmpty(this.current) ? "none" : this.current})`;
   }
 }
 
 class TooManyPullRequests extends Schema.TaggedError<TooManyPullRequests>()("TooManyPullRequests", {
-  limit: Schema.Finite,
+  limit: Schema.Int,
 }) {
   override readonly [Runtime.errorReported] = false;
   override get message() {
@@ -81,8 +79,8 @@ class StackNotFound extends Schema.TaggedError<StackNotFound>()("StackNotFound",
 }
 
 class StackBlocked extends Schema.TaggedError<StackBlocked>()("StackBlocked", {
-  blocked: Schema.Finite,
-  total: Schema.Finite,
+  blocked: Schema.Int,
+  total: Schema.Int,
 }) {
   override readonly [Runtime.errorReported] = false;
   override get message() {
@@ -91,7 +89,7 @@ class StackBlocked extends Schema.TaggedError<StackBlocked>()("StackBlocked", {
 }
 
 class PushRefused extends Schema.TaggedError<PushRefused>()("PushRefused", {
-  restored: Schema.Finite,
+  restored: Schema.Int,
   detail: Schema.String,
 }) {
   override readonly [Runtime.errorReported] = false;
@@ -101,7 +99,7 @@ class PushRefused extends Schema.TaggedError<PushRefused>()("PushRefused", {
 }
 
 class MergeNotRecorded extends Schema.TaggedError<MergeNotRecorded>()("MergeNotRecorded", {
-  numbers: Schema.Array(Schema.Finite),
+  numbers: Schema.Array(Schema.Int),
 }) {
   override readonly [Runtime.errorReported] = false;
   override get message() {
@@ -116,7 +114,7 @@ class MergeNotRecorded extends Schema.TaggedError<MergeNotRecorded>()("MergeNotR
 class CommandFailed extends Schema.TaggedError<CommandFailed>()("CommandFailed", {
   command: Schema.String,
   args: Schema.Array(Schema.String),
-  exitCode: Schema.Finite,
+  exitCode: Schema.Int,
   stderr: Schema.String,
 }) {
   override readonly [Runtime.errorReported] = false;
@@ -176,7 +174,10 @@ const land = Effect.fn("land")(function* ({
       );
   };
 
-  const top = Option.isSome(branch) ? branch.value : yield* sh("git", ["branch", "--show-current"]);
+  const top = yield* Option.match(branch, {
+    onNone: () => sh("git", ["branch", "--show-current"]),
+    onSome: Effect.succeed,
+  });
   if (String.isEmpty(top) || top === TRUNK) return yield* new MissingTopBranch({ current: top });
 
   yield* sh("git", ["fetch", "--quiet", REMOTE]);
@@ -193,51 +194,44 @@ const land = Effect.fn("land")(function* ({
   ]).pipe(Effect.flatMap(decodePullRequests));
   if (pulls.length === LIST_LIMIT) return yield* new TooManyPullRequests({ limit: LIST_LIMIT });
 
-  const ordered: Ordered = orderStack(pulls, top, TRUNK);
-  if (!ordered.ok) return yield* new StackNotFound({ reason: ordered.reason });
-  const { stack } = ordered;
+  const stack = yield* Effect.fromResult(
+    Result.mapError(orderStack(pulls, top, TRUNK), (reason) => new StackNotFound({ reason })),
+  );
   const tip = Array.lastNonEmpty(stack).headRefOid;
 
   // Ask git about each pull request and the one below it once, then answer chainBreak from the results.
   const pairs = links(stack, trunkOid);
   const answers = yield* Effect.forEach(pairs, ([a, b]) => isAncestor(a, b), { concurrency: 4 });
-  const ancestry = Record.fromEntries(
-    Array.map(Array.zip(pairs, answers), ([[a, b], answer]) => [`${a}..${b}`, answer] as const),
-  );
-  const broken = chainBreak(stack, trunkOid, (a, b) =>
-    Option.getOrElse(Record.get(ancestry, `${a}..${b}`), () => false),
-  );
+  const broken = chainBreak(stack, trunkOid, answers);
   // The merge commits each pull request adds over the one below it, as "<sha> <subject>".
   const merges = yield* Effect.forEach(
     pairs,
     ([a, b]) =>
       sh("git", ["log", "--merges", "--format=%h %s", `${a}..${b}`]).pipe(
-        Effect.map((out) => (String.isNonEmpty(out) ? String.split(out, "\n") : [])),
+        Effect.map((out) => Array.filter(String.split(out, "\n"), String.isNonEmpty)),
       ),
     { concurrency: 4 },
   );
 
-  const rows = Array.map(Array.zip(stack, merges), ([pull, merged]) => {
-    const brokenReason =
-      pull === broken
-        ? Option.some(
-            pull === stack[0]
-              ? `does not sit on the current ${TRUNK}`
-              : "does not sit on the pull request below it",
-          )
-        : Option.none<string>();
-    const mergeReason = Option.fromUndefinedOr(mergeBlocker(merged));
+  const rows = Array.zipWith(stack, merges, (pull, merged) => {
+    const brokenReason = Option.contains(broken, pull)
+      ? Option.some(
+          pull === Array.headNonEmpty(stack)
+            ? `does not sit on the current ${TRUNK}`
+            : "does not sit on the pull request below it",
+        )
+      : Option.none<string>();
     return {
       pull,
       checks: checkSummary(pull),
       reasons: Array.flatten([
-        Option.toArray(brokenReason),
-        Option.toArray(mergeReason),
+        Array.fromOption(brokenReason),
+        Array.fromOption(mergeBlocker(merged)),
         blockers(pull),
       ]),
     };
   });
-  const blocked = Array.filter(rows, (row) => Array.isReadonlyArrayNonEmpty(row.reasons)).length;
+  const blocked = Array.countBy(rows, (row) => Array.isReadonlyArrayNonEmpty(row.reasons));
 
   const report = Array.prepend(
     Array.flatMap(rows, ({ pull, checks, reasons }) =>
@@ -253,7 +247,7 @@ const land = Effect.fn("land")(function* ({
   );
   yield* Console.log(Array.join(report, "\n"));
   if (blocked > 0) {
-    if (Predicate.isNotUndefined(broken) || Array.some(merges, Array.isReadonlyArrayNonEmpty)) {
+    if (Option.isSome(broken) || Array.some(merges, Array.isReadonlyArrayNonEmpty)) {
       yield* Console.log(
         "Rebase and resubmit first: gt sync, gt restack, gt submit --stack, then wait for the checks. Do not merge a base branch in.",
       );
@@ -289,7 +283,8 @@ const land = Effect.fn("land")(function* ({
     // No force: git refuses unless this is a fast-forward of the remote main.
     Effect.andThen(sh("git", ["push", REMOTE, `${tip}:refs/heads/${TRUNK}`])),
     Effect.catchTags({
-      CommandFailed: (failed) => restore(failed.stderr || failed.message),
+      CommandFailed: (failed) =>
+        restore(String.isNonEmpty(failed.stderr) ? failed.stderr : failed.message),
       PlatformError: (failed) => restore(failed.message),
     }),
   );
@@ -303,8 +298,11 @@ const land = Effect.fn("land")(function* ({
   const poll = Effect.gen(function* () {
     yield* Effect.sleep(MERGE_POLL);
     const waiting = yield* Ref.get(open);
-    const states = yield* Effect.forEach(waiting, stateOf, { concurrency: "unbounded" });
-    const still = Array.filter(waiting, (_, i) => states[i] !== "MERGED");
+    const still = yield* Effect.filter(
+      waiting,
+      (pull) => Effect.map(stateOf(pull), (state) => state !== "MERGED"),
+      { concurrency: "unbounded" },
+    );
     yield* Ref.set(open, still);
     return still;
   });

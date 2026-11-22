@@ -13,10 +13,12 @@ import {
   FileSystem,
   Layer,
   Logger,
+  Number,
   Option,
   Order,
   Path,
   pipe,
+  Predicate,
   Record,
   Result,
   Runtime,
@@ -24,6 +26,9 @@ import {
   String,
 } from "effect";
 import { Command, Flag } from "effect/cli";
+import { Yaml } from "effect/encoding";
+
+import { escapeCell } from "../agent-sources/markdown.ts";
 
 const INDEX = ".agent_sources/effect/index.md";
 const REFRESH = "node scripts/effect-api/refresh-effect-api.ts";
@@ -38,26 +43,24 @@ class IndexFailed extends Schema.TaggedError<IndexFailed>()("IndexFailed", {
   }
 }
 
-const Manifest = Schema.Struct({
-  version: Schema.optionalKey(Schema.String),
-  dependencies: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
-  devDependencies: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
-});
-const decodeManifest = Schema.decodeUnknownEffect(Schema.fromJsonString(Manifest));
+// A record field that may be absent, decoded as an empty record.
+const Pins = Schema.Record(Schema.String, Schema.String).pipe(
+  Schema.withDecodingDefaultKey(Effect.succeed({})),
+);
+const decodeManifest = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Schema.Struct({ dependencies: Pins, devDependencies: Pins })),
+);
+const decodeInstalled = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Schema.Struct({ version: Schema.String })),
+);
+const decodeWorkspace = Schema.decodeUnknownEffect(
+  Schema.Struct({
+    packages: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+    catalog: Pins,
+  }),
+);
 
 const fail = (reason: string) => Effect.fail(new IndexFailed({ reason }));
-
-const unquote = (text: string) => pipe(text, String.trim, String.replace(/^(["'])(.*)\1$/, "$2"));
-
-// The indented lines of one top-level block of pnpm-workspace.yaml, trimmed. The file is flat enough not to need a YAML parser.
-const yamlBlock = (text: string, key: string) =>
-  pipe(
-    String.split(text, "\n"),
-    Array.dropWhile((line) => line !== `${key}:`),
-    Array.drop(1),
-    Array.takeWhile((line) => /^\s+\S/.test(line)),
-    Array.map((line) => String.trim(line)),
-  );
 
 // The first sentence of a file's leading JSDoc block, or "" when it has none. Reference directives may precede the block.
 // The paragraph runs from the first non-empty line to the next blank line or tag.
@@ -82,7 +85,7 @@ const summaryOf = (text: string) => {
     String.match(/^.*?[.!?](?=\s|$)/),
     Option.map((match) => match[0]),
     Option.getOrElse(() => prose),
-    String.replaceAll("|", "\\|"),
+    escapeCell,
   );
 };
 
@@ -97,26 +100,16 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
     const relative = path.relative(repo, dir);
     return String.isEmpty(relative) ? "." : relative;
   };
-  const readManifest = (file: string) =>
-    fs.readFileString(file).pipe(Effect.flatMap(decodeManifest));
 
   // The workspaces that can declare an Effect dependency: the root and each folder a workspace glob names.
   const workspaceYaml = yield* fs.readFileString(path.join(repo, "pnpm-workspace.yaml"));
-  const globs = Array.map(yamlBlock(workspaceYaml, "packages"), (item) =>
-    unquote(String.slice(1)(item)),
-  );
-  const catalog = Record.fromEntries(
-    Array.filterMap(yamlBlock(workspaceYaml, "catalog"), (entry) =>
-      Option.match(String.search(entry, /:\s/), {
-        onNone: () => Result.failVoid,
-        onSome: (colon) =>
-          Result.succeed([
-            unquote(String.slice(0, colon)(entry)),
-            unquote(String.slice(colon + 1)(entry)),
-          ] as const),
+  const { packages: globs, catalog } = yield* Effect.try({
+    try: () => Yaml.parse(workspaceYaml),
+    catch: (cause) =>
+      new IndexFailed({
+        reason: `pnpm-workspace.yaml is not valid YAML: ${Predicate.isError(cause) ? cause.message : "unknown error"}`,
       }),
-    ),
-  );
+  }).pipe(Effect.flatMap(decodeWorkspace));
   const nested = yield* Effect.forEach(
     globs,
     Effect.fnUntraced(function* (glob) {
@@ -142,48 +135,65 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
   const declared = yield* Effect.forEach(
     workspaces,
     Effect.fnUntraced(function* (dir) {
-      const manifest = yield* readManifest(path.join(dir, "package.json"));
+      const manifest = yield* fs
+        .readFileString(path.join(dir, "package.json"))
+        .pipe(Effect.flatMap(decodeManifest));
       const effectDeps = Array.filter(
-        Record.toEntries({ ...manifest.dependencies, ...manifest.devDependencies }),
+        Record.toEntries(
+          Record.union(manifest.dependencies, manifest.devDependencies, (_, dev) => dev),
+        ),
         ([name]) => name === "effect" || String.startsWith("@effect/")(name),
       );
       return yield* Effect.forEach(
         effectDeps,
         Effect.fnUntraced(function* ([name, spec]) {
-          const pin = spec === "catalog:" ? catalog[name] : spec;
-          if (pin === undefined) {
-            return yield* fail(
-              `${shown(dir)} pins ${name} to the catalog, which has no entry for it`,
-            );
-          }
+          const pin = yield* Effect.fromOption(
+            spec === "catalog:" ? Record.get(catalog, name) : Option.some(spec),
+            () =>
+              new IndexFailed({
+                reason: `${shown(dir)} pins ${name} to the catalog, which has no entry for it`,
+              }),
+          );
           const found = yield* Effect.findFirst(
             Array.map(searchPath(dir), (parent) => path.join(parent, "node_modules", name)),
             (candidate) => fs.exists(path.join(candidate, "package.json")),
+          ).pipe(
+            Effect.flatMap((candidate) =>
+              Effect.fromOption(
+                candidate,
+                () =>
+                  new IndexFailed({
+                    reason: `${name} is not installed for ${shown(dir)}; run pnpm install`,
+                  }),
+              ),
+            ),
           );
-          if (Option.isNone(found)) {
-            return yield* fail(`${name} is not installed for ${shown(dir)}; run pnpm install`);
-          }
-          const installed = yield* readManifest(path.join(found.value, "package.json"));
-          const version = installed.version ?? "";
+          const { version } = yield* fs
+            .readFileString(path.join(found, "package.json"))
+            .pipe(Effect.flatMap(decodeInstalled));
           if (version !== pin) {
             return yield* fail(
               `${shown(dir)} pins ${name}@${pin} but ${version} is installed; run pnpm install`,
             );
           }
           // pnpm links each workspace's copy into the store, so two links name one copy when their real paths agree.
-          const real = yield* fs.realPath(found.value);
-          return { name, version, dir: found.value, real };
+          const real = yield* fs.realPath(found);
+          return { name, version, dir: found, real };
         }),
       );
     }),
   );
   const byName = Array.groupBy(Array.flatten(declared), (pkg) => pkg.name);
   const packages = yield* Effect.forEach(Record.toEntries(byName), ([name, copies]) => {
-    const [first] = copies;
-    const other = Array.findFirst(copies, (copy) => copy.real !== first.real);
-    return Option.isSome(other)
-      ? fail(`${name} resolves to two copies: ${shown(first.real)} and ${shown(other.value.real)}`)
-      : Effect.succeed(first);
+    const first = Array.headNonEmpty(copies);
+    return Option.match(
+      Array.findFirst(copies, (copy) => copy.real !== first.real),
+      {
+        onNone: () => Effect.succeed(first),
+        onSome: (other) =>
+          fail(`${name} resolves to two copies: ${shown(first.real)} and ${shown(other.real)}`),
+      },
+    );
   });
   // The core package leads; the scoped packages follow by name.
   const ordered = Array.sortBy(
@@ -214,7 +224,7 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
         Effect.fnUntraced(function* (module) {
           const declarations = yield* fs.readFileString(path.join(dist, `${module}.d.ts`));
           const lines = String.split(declarations, "\n");
-          const count = Array.filter(lines, (line) => exported.test(line)).length;
+          const count = Array.countBy(lines, (line) => exported.test(line));
           // The compiler drops a module's leading JSDoc when imports follow it, so read the shipped source first.
           const source = path.join(pkg.dir, "src", `${module}.ts`);
           const sourceText = (yield* fs.exists(source)) ? yield* fs.readFileString(source) : "";
@@ -245,7 +255,7 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
       const guides = yield* Effect.filter(["AGENTS.md", "ai-docs", "README.md"], (guide) =>
         fs.exists(path.join(pkg.dir, guide)),
       );
-      const exports = Array.reduce(rows, 0, (sum, { count }) => sum + count);
+      const exports = Number.sumAll(Array.map(rows, ({ count }) => count));
       return {
         rows,
         total: `| ${pkg.name} | ${pkg.version} | ${rows.length} | ${exports} | \`${location}/dist\` |`,

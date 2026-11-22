@@ -1,6 +1,6 @@
 // Markdown helpers shared by the scripts that index agent sources.
 
-import { Array, Option, String } from "effect";
+import { Array, Option, pipe, String } from "effect";
 
 export interface Heading {
   readonly name: string;
@@ -24,22 +24,26 @@ export const headingsOf = (lines: ReadonlyArray<string>): ReadonlyArray<Heading>
     lines,
     Option.none<string>(),
     (fence, line, i): readonly [Option.Option<string>, Option.Option<Heading>] => {
-      const marker = FENCE.exec(line);
-      if (marker !== null) {
-        const [, run = "", info = ""] = marker;
-        const next = Option.match(fence, {
-          onNone: () => Option.some(run),
-          onSome: (open) => (closes(open, run, info) ? Option.none() : fence),
-        });
-        return [next, Option.none()];
-      }
-      const heading = Option.isNone(fence)
-        ? Option.map(Option.fromNullishOr(HEADING.exec(line)?.[1]), (name) => ({
-            name,
-            start: i + 1,
-          }))
-        : Option.none();
-      return [fence, heading];
+      return Option.match(String.match(FENCE)(line), {
+        onSome: ([, run = "", info = ""]) => {
+          const next = Option.match(fence, {
+            onNone: () => Option.some(run),
+            onSome: (open) => (closes(open, run, info) ? Option.none() : fence),
+          });
+          return [next, Option.none()];
+        },
+        onNone: () => {
+          const heading = Option.isNone(fence)
+            ? pipe(
+                line,
+                String.match(HEADING),
+                Option.flatMap(Array.get(1)),
+                Option.map((name) => ({ name, start: i + 1 })),
+              )
+            : Option.none();
+          return [fence, heading];
+        },
+      });
     },
   );
   return Array.getSomes(found);

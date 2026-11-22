@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { SectionId } from "@cairn/contract";
 import { it } from "@effect/vitest";
-import { Array, Option, Predicate, String, pipe } from "effect";
+import { Array, Option, Predicate, Result, String, pipe } from "effect";
 import type { Html } from "foldkit/html";
 import { expect as expectScene, given, scene, selector } from "foldkit/scene";
 import { expect } from "vitest";
@@ -10,23 +10,22 @@ import { expect } from "vitest";
 import { renderMarkdown } from "../src/markdown.ts";
 
 type VNode = NonNullable<Html>;
-type Rendered = Html;
 
 /** Renders through a real Scene, which supplies the `h` builder, and hands back the vnode tree. */
 const render = (markdown: string): VNode => {
-  let rendered: Rendered = null;
+  let rendered = Option.none<VNode>();
   scene(
     {
       update: (model: null) => ({ model }),
       view: (_model: null, h) => {
-        rendered = renderMarkdown(markdown, h);
-        return { body: rendered, title: "markdown" };
+        const body = renderMarkdown(markdown, h);
+        rendered = Option.fromNullOr(body);
+        return { body, title: "markdown" };
       },
     },
     given(null),
   );
-  if (rendered === null) throw new Error("nothing rendered");
-  return rendered;
+  return Option.getOrThrow(rendered);
 };
 
 const children = (node: VNode): ReadonlyArray<VNode | string> => node.children ?? [];
@@ -40,7 +39,11 @@ const textOf = (node: VNode | string): string =>
     : (node.text ?? Array.join(Array.map(children(node), textOf), ""));
 
 const attr = (node: VNode, name: string): unknown =>
-  node.data?.attrs?.[name] ?? node.data?.props?.[name];
+  pipe(
+    Option.fromNullishOr(node.data?.attrs?.[name]),
+    Option.orElse(() => Option.fromNullishOr(node.data?.props?.[name])),
+    Option.getOrUndefined,
+  );
 
 const tagOf = (element: VNode) =>
   pipe(
@@ -59,9 +62,9 @@ const spec = readFileSync(new URL("../../../.cairn/spec.md", import.meta.url), "
 const prd = readFileSync(new URL("../../../.cairn/prd.md", import.meta.url), "utf8");
 
 const sectionsIn = (source: string) =>
-  Array.flatMap(walk(render(source)), (element) => {
+  Array.filterMap(walk(render(source)), (element) => {
     const id = attr(element, "data-section");
-    return Predicate.isString(id) ? [{ element, id }] : [];
+    return Predicate.isString(id) ? Result.succeed({ element, id }) : Result.failVoid;
   });
 
 const headingIds = (source: string) =>
@@ -70,7 +73,8 @@ const headingIds = (source: string) =>
     String.replaceAll(/^```[\s\S]*?^```/gmu, ""),
     String.matchAll(/^#{1,6}[ \t]+.*\{#([^}\s]+)\}[ \t]*$/gmu),
     Array.fromIterable,
-    Array.map((match) => match[1]),
+    Array.map(Array.get(1)),
+    Array.getSomes,
   );
 
 it.prop(
@@ -183,9 +187,8 @@ it("renders a GFM table with a header row and body rows", () => {
     Array.join(["| Name | Role |", "| :--- | ---: |", "| Ada | human |", "| Bot | agent |"], "\n"),
   );
   const names = tags(root);
-  expect(Array.filter(names, (tag) => tag === "th")).toHaveLength(2);
-  expect(Array.filter(names, (tag) => tag === "td")).toHaveLength(4);
-  expect(Array.filter(names, (tag) => tag === "tr")).toHaveLength(3);
+  const count = (tag: string) => Array.countBy(names, (name) => name === tag);
+  expect(Array.map(["th", "td", "tr"], count)).toEqual([2, 4, 3]);
   expect(textOf(root)).toBe("NameRoleAdahumanBotagent");
 });
 
@@ -221,7 +224,7 @@ it.each(hostile)("raw HTML never becomes an element: %s", (source) => {
     Array.forEach(["script", "img", "iframe", "b"], (tag) => {
       expect(names).not.toContain(tag);
     });
-    expect(Array.filter(names, (tag) => tag === "div")).toHaveLength(1);
+    expect(Array.countBy(names, (tag) => tag === "div")).toBe(1);
     expect(textOf(render(markdown))).not.toContain("<");
   });
 });

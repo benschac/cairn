@@ -33,23 +33,29 @@ export const Cursor = Schema.Struct({
 });
 export type Cursor = typeof Cursor.Type;
 
+/** A participant's id, handed out by the room. */
+export const ParticipantId = Schema.NonEmptyString.pipe(Schema.brand("ParticipantId"));
+export type ParticipantId = typeof ParticipantId.Type;
+
+/** A participant. The wire carries a missing cursor as `null`; decoded, it is an `Option`. */
 export const Participant = Schema.Struct({
-  cursor: Schema.NullOr(Cursor),
-  id: Schema.NonEmptyString,
+  cursor: Schema.OptionFromNullOr(Cursor),
+  id: ParticipantId,
   kind: ParticipantKind,
   name: Schema.NonEmptyString,
 });
 export type Participant = typeof Participant.Type;
 
+/** The room machine's events. A machine validates decoded values, so they carry the participant as its type. */
 export const RoomEvents = {
-  joined: Schema.Struct({ participant: Participant }),
-  left: Schema.Struct({ id: Schema.NonEmptyString }),
-  moved: Schema.Struct({ cursor: Cursor, id: Schema.NonEmptyString }),
+  joined: Schema.Struct({ participant: Schema.toType(Participant) }),
+  left: Schema.Struct({ id: ParticipantId }),
+  moved: Schema.Struct({ cursor: Cursor, id: ParticipantId }),
 };
 
 export const Presence = Schema.Struct({
   participants: Schema.Array(Participant),
-  you: Schema.NonEmptyString,
+  you: ParticipantId,
 });
 export type Presence = typeof Presence.Type;
 

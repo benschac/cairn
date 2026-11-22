@@ -1,4 +1,4 @@
-import { CursorJson, ParticipantKind, PresenceJson } from "@cairn/contract";
+import { CursorJson, ParticipantId, ParticipantKind, PresenceJson } from "@cairn/contract";
 import { roomMachine } from "@cairn/core";
 import { createEffectActor, send, snapshots } from "@xstate/effect";
 import type { EffectActor } from "@xstate/effect";
@@ -26,7 +26,7 @@ export class Room extends Context.Service<
   {
     readonly actor: EffectActor<typeof roomMachine>;
     /** Adds a participant for the life of the current scope and returns its id. */
-    readonly join: (query: PresenceQuery) => Effect.Effect<string, never, Scope.Scope>;
+    readonly join: (query: PresenceQuery) => Effect.Effect<ParticipantId, never, Scope.Scope>;
   }
 >()("@cairn/cli/Room") {
   static readonly layer = Layer.effect(
@@ -36,11 +36,11 @@ export class Room extends Context.Service<
       const count = yield* Ref.make(0);
       const join = Effect.fn("Room.join")(function* ({ kind, name }: PresenceQuery) {
         const n = yield* Ref.updateAndGet(count, Number.increment);
-        const id = `p${n}`;
+        const id = ParticipantId.make(`p${n}`);
         yield* Effect.acquireRelease(
           send(actor, {
             participant: {
-              cursor: null,
+              cursor: Option.none(),
               id,
               kind,
               name: Option.getOrElse(name, () => `Guest ${n}`),

@@ -1,6 +1,6 @@
 import { Presence } from "@cairn/contract";
-import type { ManifestTask, Participant } from "@cairn/contract";
-import { Array, Boolean, Option } from "effect";
+import type { ManifestTask, Participant, ParticipantKind } from "@cairn/contract";
+import { Array, Boolean, Match, Option } from "effect";
 import type { Runtime, Update } from "foldkit";
 import type { Document, Html, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
@@ -23,13 +23,13 @@ export const update = (model: Model, message: Message) =>
     ReceivedPresence: ({ presence }) => ({
       model: modifyFields(model, {
         participants: () => presence.participants,
-        you: () => presence.you,
+        you: () => Option.some(presence.you),
       }),
     }),
   });
 
 export const init: Runtime.ApplicationInit<Model, Message> = () => ({
-  model: { onlyWaiting: false, participants: [], rows: demoRows, you: null },
+  model: { onlyWaiting: false, participants: [], rows: demoRows, you: Option.none() },
 });
 
 const isWaiting = (row: ManifestTask) => row.status === "blocked_on_human";
@@ -38,12 +38,19 @@ const visibleRows = (model: Model) =>
   model.onlyWaiting ? Array.filter(model.rows, isWaiting) : model.rows;
 
 const labelOf = (participant: Participant) =>
-  participant.kind === "agent" ? `${participant.name} (agent)` : participant.name;
+  Match.value(participant.kind).pipe(
+    Match.when("agent", () => `${participant.name} (agent)`),
+    Match.when("human", () => participant.name),
+    Match.exhaustive,
+  );
 
-const cursorColor = { agent: "#7c3aed", human: "#0f766e" };
+const cursorColor = { agent: "#7c3aed", human: "#0f766e" } satisfies Record<
+  ParticipantKind,
+  string
+>;
 
 const cursorView = (participant: Participant, h: HtmlBuilder<Message>): Option.Option<Html> =>
-  Option.map(Option.fromNullishOr(participant.cursor), (cursor) =>
+  Option.map(participant.cursor, (cursor) =>
     h.div(
       [
         h.DataAttribute("cursor", participant.kind),
@@ -70,7 +77,10 @@ const presentText = (others: ReadonlyArray<Participant>) =>
   });
 
 export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
-  const others = Array.filter(model.participants, (participant) => participant.id !== model.you);
+  const others = Array.filter(
+    model.participants,
+    (participant) => !Option.contains(model.you, participant.id),
+  );
   return {
     body: h.main(
       [],

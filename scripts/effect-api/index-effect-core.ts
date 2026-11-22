@@ -24,6 +24,8 @@ import {
 } from "effect";
 import { Command, Flag } from "effect/cli";
 
+import { escapeCell } from "../agent-sources/markdown.ts";
+
 const INDEX = ".agent_sources/effect/core-index.md";
 const REFRESH = "node scripts/effect-api/index-effect-core.ts";
 
@@ -58,12 +60,12 @@ const summarize = (block: ReadonlyArray<string>) => {
         String.isNonEmpty(line) && !String.startsWith("@")(line) && !String.startsWith("**")(line),
     ),
   );
-  const text = pipe(prose, Array.join(" "), String.replaceAll("|", "\\|"));
+  const text = pipe(prose, Array.join(" "), escapeCell);
   const sentence = pipe(
     String.search(text, /\.(\s|$)/),
     Option.match({ onNone: () => text, onSome: (end) => String.slice(0, end + 1)(text) }),
   );
-  return sentence.length > 140 ? `${String.slice(0, 137)(sentence)}...` : sentence;
+  return String.length(sentence) > 140 ? `${String.takeLeft(sentence, 137)}...` : sentence;
 };
 
 interface Export {

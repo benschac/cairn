@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { Array } from "effect";
+import { Array, Option, Record, Result } from "effect";
 
 import {
   blockers,
@@ -45,14 +45,14 @@ await test("orderStack follows base branches from the top down to the trunk, bot
     pull(2, "b", "a"),
   ];
   const ordered = orderStack(pulls, "c", "main");
-  assert.ok(ordered.ok);
-  assert.deepEqual(numbers(ordered.stack), [1, 2, 3]);
+  assert.ok(Result.isSuccess(ordered));
+  assert.deepEqual(numbers(ordered.success), [1, 2, 3]);
 });
 
 const reason = (pulls: PullRequest[], top: string) => {
   const ordered = orderStack(pulls, top, "main");
-  assert.ok(!ordered.ok);
-  return ordered.reason;
+  assert.ok(Result.isFailure(ordered));
+  return ordered.failure;
 };
 
 await test("orderStack stops at a missing link instead of landing part of a stack", () => {
@@ -63,9 +63,8 @@ await test("orderStack stops at a missing link instead of landing part of a stac
 });
 
 await test("orderStack ignores a fork whose branch has the same name", () => {
-  assert.equal(
-    orderStack([pull(7, "a", "main", { isCrossRepository: true })], "a", "main").ok,
-    false,
+  assert.ok(
+    Result.isFailure(orderStack([pull(7, "a", "main", { isCrossRepository: true })], "a", "main")),
   );
 });
 
@@ -130,33 +129,54 @@ await test("links pairs each head with the trunk or the head below it", () => {
   ]);
 });
 
+// The number of the pull request chainBreak names, asking `isAncestor` what land.ts asks git.
+const broken = (
+  pulls: readonly PullRequest[],
+  trunk: string,
+  isAncestor: (a: string, b: string) => boolean,
+) =>
+  Option.map(
+    chainBreak(
+      pulls,
+      trunk,
+      Array.map(links(pulls, trunk), ([a, b]) => isAncestor(a, b)),
+    ),
+    (p) => p.number,
+  );
+
 await test("chainBreak names the first pull request that is not a straight line from the trunk", () => {
   const stack = [pull(1, "a", "main"), pull(2, "b", "a"), pull(3, "c", "b")];
-  const line = ["trunk", "oid-1", "oid-2", "oid-3"];
+  const rank = Record.fromEntries(
+    Array.map(["trunk", "oid-1", "oid-2", "oid-3"], (oid, i) => [oid, i] as const),
+  );
   const linear = (a: string, b: string) =>
-    line.indexOf(a) >= 0 && line.indexOf(a) < line.indexOf(b);
-  assert.equal(chainBreak(stack, "trunk", linear), undefined);
+    Option.match(Option.all([Record.get(rank, a), Record.get(rank, b)]), {
+      onNone: () => false,
+      onSome: ([ra, rb]) => ra < rb,
+    });
+  assert.deepEqual(broken(stack, "trunk", linear), Option.none());
   // The trunk moved: the bottom no longer sits on it.
-  assert.equal(chainBreak(stack, "new-trunk", linear)?.number, 1);
+  assert.deepEqual(broken(stack, "new-trunk", linear), Option.some(1));
   // The middle was rebased without the top.
   const staleTop = (a: string, b: string) =>
     a === "oid-2" && b === "oid-3" ? false : linear(a, b);
-  assert.equal(chainBreak(stack, "trunk", staleTop)?.number, 3);
-  // A pull request with no commits of its own has nothing to land.
-  assert.equal(
-    chainBreak([pull(1, "a", "main", { headRefOid: "trunk" })], "trunk", linear)?.number,
-    1,
+  assert.deepEqual(broken(stack, "trunk", staleTop), Option.some(3));
+  // A pull request with no commits of its own has nothing to land, though git counts a commit as its own ancestor.
+  const reflexive = (a: string, b: string) => a === b || linear(a, b);
+  assert.deepEqual(
+    broken([pull(1, "a", "main", { headRefOid: "trunk" })], "trunk", reflexive),
+    Option.some(1),
   );
 });
 
 await test("mergeBlocker refuses a pull request whose commits include a merge, naming the first one", () => {
-  assert.equal(mergeBlocker([]), undefined);
+  assert.ok(Option.isNone(mergeBlocker([])));
   assert.match(
-    mergeBlocker(["d3bb427 Merge commit 'd181060' into HEAD"]) ?? "",
+    Option.getOrThrow(mergeBlocker(["d3bb427 Merge commit 'd181060' into HEAD"])),
     /has 1 merge commit \(d3bb427 Merge commit 'd181060' into HEAD\); rebase/,
   );
   assert.match(
-    mergeBlocker(["aaa Merge a", "bbb Merge b"]) ?? "",
+    Option.getOrThrow(mergeBlocker(["aaa Merge a", "bbb Merge b"])),
     /has 2 merge commits \(aaa Merge a, \.\.\.\)/,
   );
 });

@@ -1,6 +1,6 @@
 import { Trace } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, HashSet, Option, Order, Schema } from "effect";
+import { Array, HashSet, Number, Option, Order, Schema } from "effect";
 
 import { Node, chainOf, isInChain } from "../src/trace.ts";
 
@@ -115,9 +115,7 @@ it.prop("an unknown node has an empty chain", [Shape], ([shape]) => {
     [taskNode("t999"), sectionNode("spec.nowhere"), sectionNode("prd.nowhere")],
     (node) => {
       const chain = chainOf(trace, node);
-      expect(HashSet.size(chain.prd) + HashSet.size(chain.spec) + HashSet.size(chain.tasks)).toBe(
-        0,
-      );
+      expect(Number.sumAll(Array.map([chain.prd, chain.spec, chain.tasks], HashSet.size))).toBe(0);
       expect(isInChain(chain, node)).toBe(false);
     },
   );

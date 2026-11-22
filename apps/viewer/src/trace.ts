@@ -58,10 +58,13 @@ export const chainOf = (trace: Trace, node: Node): Chain => {
       },
     );
 
-  const prdChain = (id: string): Chain => {
-    if (!Array.some(trace.prd.sections, (section) => section.id === id)) {
-      return empty();
-    }
+  const prdChain = (id: string): Chain =>
+    Option.match(
+      Array.findFirst(trace.prd.sections, (section) => section.id === id),
+      { onNone: empty, onSome: () => linkedToPrd(id) },
+    );
+
+  const linkedToPrd = (id: string): Chain => {
     const spec = HashSet.fromIterable<string>(
       Array.map(
         Array.filter(trace.spec.sections, (section) => Array.contains(section.keys.implements, id)),

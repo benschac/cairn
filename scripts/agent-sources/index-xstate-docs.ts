@@ -105,8 +105,7 @@ interface Output {
 const indexXStateDocs = Effect.fn("indexXStateDocs")(function* ({ check }: { check: boolean }) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const repoUrl = yield* path.fromFileUrl(new URL("../../", import.meta.url));
-  const repo = path.resolve(repoUrl);
+  const repo = yield* path.fromFileUrl(new URL("../../", import.meta.url));
   const manifest = yield* fs
     .readFileString(path.join(repo, OWNER, "package.json"))
     .pipe(Effect.flatMap(decodeManifest));
@@ -127,17 +126,18 @@ const indexXStateDocs = Effect.fn("indexXStateDocs")(function* ({ check }: { che
 
   // The installed copy of a package the owning workspace pins, checked against that pin.
   const installed = Effect.fn("installed")(function* (name: string) {
-    const found = yield* Effect.findFirst(
+    const dir = yield* Effect.findFirst(
       [path.join(repo, OWNER, "node_modules", name), path.join(repo, "node_modules", name)],
       (candidate) => fs.exists(path.join(candidate, "package.json")),
+    ).pipe(
+      Effect.flatMap((found) =>
+        Effect.fromOption(
+          found,
+          () =>
+            new XStateNotInstalled({ pkg: name, reason: `${name} is not installed for ${OWNER}` }),
+        ),
+      ),
     );
-    if (Option.isNone(found)) {
-      return yield* new XStateNotInstalled({
-        pkg: name,
-        reason: `${name} is not installed for ${OWNER}`,
-      });
-    }
-    const dir = found.value;
     const { version } = yield* fs
       .readFileString(path.join(dir, "package.json"))
       .pipe(Effect.flatMap(decodeInstalled));

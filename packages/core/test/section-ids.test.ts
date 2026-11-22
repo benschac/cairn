@@ -64,7 +64,7 @@ it.prop("every new ID is well formed and no ID is added twice", Document, ({ lin
   });
   expect(Array.dedupe(added)).toStrictEqual(added);
   Array.forEach(added, (id) => {
-    expect(Array.filter(sectionIdsOf(markdown), (existing) => existing === id)).toHaveLength(1);
+    expect(Array.countBy(sectionIdsOf(markdown), (existing) => existing === id)).toBe(1);
   });
 });
 

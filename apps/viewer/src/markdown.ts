@@ -11,7 +11,7 @@ import type {
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
-import { Array, Match, Option, Predicate, String, pipe } from "effect";
+import { Array, Match, Option, Predicate, String, Struct, pipe } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 /** The keys that start a spec section, in the order the format lists them. */
@@ -76,6 +76,12 @@ const keyRowsOf = (node: RootContent): Option.Option<ReadonlyArray<KeyRow>> =>
     ? Option.all(Array.map(node.children, keyRowOf))
     : Option.none();
 
+/** A heading's last text without its trailing `{#id}`. */
+const stripId = (child: PhrasingContent): PhrasingContent =>
+  child.type === "text"
+    ? Struct.evolve(child, { value: String.replace(headingIdPattern, "") })
+    : child;
+
 const checkbox = (checked: boolean | null | undefined): ReadonlyArray<string> =>
   Predicate.isBoolean(checked) ? [checked ? "[x] " : "[ ] "] : [];
 
@@ -87,32 +93,29 @@ export const renderMarkdown = <Message>(markdown: string, h: HtmlBuilder<Message
 
   const inline = (nodes: ReadonlyArray<PhrasingContent>): Rendered => Array.flatMap(nodes, render);
 
-  const rows = (
-    table: ReadonlyArray<TableRow>,
-    align: ReadonlyArray<AlignType | undefined>,
-  ): ReadonlyArray<Html> =>
-    Array.map(table, (row, rowIndex) =>
-      h.tr(
-        [],
-        Array.map(row.children, (cell, column) => {
-          const cellAlign = align[column];
-          const attributes = Predicate.isNotNullish(cellAlign)
-            ? [h.Style({ "text-align": cellAlign })]
-            : [];
-          return (rowIndex === 0 ? h.th : h.td)(attributes, inline(cell.children));
-        }),
+  const tableRow = (cellTag: typeof h.th, align: ReadonlyArray<AlignType>, row: TableRow): Html =>
+    h.tr(
+      [],
+      Array.map(row.children, (cell, column) =>
+        cellTag(
+          pipe(
+            Array.get(align, column),
+            Option.flatMap(Option.fromNullOr),
+            Option.map((cellAlign) => h.Style({ "text-align": cellAlign })),
+            Array.fromOption,
+          ),
+          inline(cell.children),
+        ),
       ),
     );
 
   const heading = (node: Heading): Html => {
     const maybeId = firstGroup(headingIdPattern)(textOf(node));
-    const lastIndex = node.children.length - 1;
     const children = Option.isSome(maybeId)
-      ? Array.map(node.children, (child, index) =>
-          index === lastIndex && child.type === "text"
-            ? { ...child, value: String.replace(headingIdPattern, "")(child.value) }
-            : child,
-        )
+      ? Array.match(node.children, {
+          onEmpty: () => node.children,
+          onNonEmpty: Array.modifyLastNonEmpty(stripId),
+        })
       : node.children;
     const tag = Option.getOrElse(
       Array.get([h.h1, h.h2, h.h3, h.h4, h.h5, h.h6], node.depth - 1),
@@ -175,9 +178,18 @@ export const renderMarkdown = <Message>(markdown: string, h: HtmlBuilder<Message
       table: (node) => [
         h.table(
           [],
-          Array.matchLeft(rows(node.children, node.align ?? []), {
+          Array.matchLeft(node.children, {
             onEmpty: () => [h.thead([]), h.tbody([])],
-            onNonEmpty: (head, body) => [h.thead([], [head]), h.tbody([], body)],
+            onNonEmpty: (head, body) => {
+              const align = node.align ?? [];
+              return [
+                h.thead([], [tableRow(h.th, align, head)]),
+                h.tbody(
+                  [],
+                  Array.map(body, (row) => tableRow(h.td, align, row)),
+                ),
+              ];
+            },
           }),
         ),
       ],
