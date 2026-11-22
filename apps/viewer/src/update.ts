@@ -16,11 +16,11 @@ const nodeEquivalence = Schema.toEquivalence(Node);
 export const update = (model: Model, message: Message) =>
   Message.match<Update.Return<Model, Message>>(message, {
     ClickedCommit: ({ sha }) => ({
-      model: modifyFields(model, { maybeCommit: () => Option.some(sha) }),
+      model: modifyFields(model, { maybeSelectedCommitSha: () => Option.some(sha) }),
     }),
     // Fit frames every measured node in the pane; until both are known it does nothing.
     ClickedFit: () =>
-      Option.match(Option.all({ bounds: boundsOf(model.positions), pane: model.maybePane }), {
+      Option.match(Option.all({ bounds: boundsOf(model.positions), pane: model.maybePaneSize }), {
         onNone: () => ({ model }),
         onSome: ({ bounds, pane }) => ({
           model: modifyFields(model, {
@@ -32,17 +32,19 @@ export const update = (model: Model, message: Message) =>
     // clicking any other node selects it.
     ClickedNode: ({ node }) => ({
       model: modifyFields(model, {
-        maybeCommit: () => Option.none(),
+        maybeSelectedCommitSha: () => Option.none(),
         maybeDrawer: () => Option.some(node),
         maybeSelected: (maybeSelected) =>
-          Option.exists(maybeSelected, (selected) => nodeEquivalence(selected, node))
-            ? Option.none()
-            : Option.some(node),
+          Option.liftPredicate(
+            node,
+            (clicked) =>
+              !Option.exists(maybeSelected, (selected) => nodeEquivalence(selected, clicked)),
+          ),
       }),
     }),
     ClosedDrawer: () => ({
       model: modifyFields(model, {
-        maybeCommit: () => Option.none(),
+        maybeSelectedCommitSha: () => Option.none(),
         maybeDrawer: () => Option.none(),
       }),
     }),
@@ -54,7 +56,7 @@ export const update = (model: Model, message: Message) =>
       model: modifyFields(model, { positions: () => positions }),
     }),
     MeasuredPane: ({ size }) => ({
-      model: modifyFields(model, { maybePane: () => Option.some(size) }),
+      model: modifyFields(model, { maybePaneSize: () => Option.some(size) }),
     }),
     PannedOrZoomed: ({ viewport }) => ({
       model: modifyFields(model, { viewport: () => viewport }),
@@ -62,7 +64,7 @@ export const update = (model: Model, message: Message) =>
     ReceivedPresence: ({ presence }) => ({
       model: modifyFields(model, {
         participants: () => presence.participants,
-        you: () => Option.some(presence.you),
+        maybeYou: () => Option.some(presence.you),
       }),
     }),
     SettledLoadTrace: ({ result }) => ({

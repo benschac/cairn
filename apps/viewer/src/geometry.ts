@@ -35,7 +35,7 @@ export const Size = Schema.Struct({
 export type Size = typeof Size.Type;
 
 /** A measured element: its node key (the section or task id) and its box on screen. */
-export type Measured = { readonly key: string; readonly rect: Rect };
+export type Measured = Readonly<{ key: string; rect: Rect }>;
 
 /** A scale the layer can divide by: finite and above zero. */
 const isUsableScale = Schema.is(Schema.Finite.check(Schema.isGreaterThan(0)));

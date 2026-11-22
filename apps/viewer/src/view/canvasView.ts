@@ -6,16 +6,19 @@ import { PanZoomCanvas, VIEWPORT_ATTRIBUTE, transformOf, viewportAttribute } fro
 import type { Positions, Viewport } from "../geometry.ts";
 import { renderMarkdown } from "../markdown.ts";
 import type { Message } from "../message.ts";
-import { chainOf, judgmentMarkOf, sectionStatusOf, type Chain, type Node } from "../trace.ts";
+import { chainOf, type Chain, type Node } from "../trace.ts";
 import { cursorsView } from "./cursorsView.ts";
 import { edgesView } from "./edgesView.ts";
-import { badgeView, judgmentView, nodeAttributes } from "./nodeView.ts";
+import { judgmentMarkViews, nodeAttributes, sectionBadgeViews } from "./nodeView.ts";
 import { stacksView } from "./stacksView.ts";
 
 type ColumnName = "prd" | "spec" | "stacks";
 
-const column = (name: ColumnName, children: ReadonlyArray<Html>, h: HtmlBuilder<Message>): Html =>
-  h.section([h.DataAttribute("column", name), h.Style({ overflow: "visible" })], children);
+const columnView = (
+  name: ColumnName,
+  children: ReadonlyArray<Html>,
+  h: HtmlBuilder<Message>,
+): Html => h.section([h.DataAttribute("column", name), h.Style({ overflow: "visible" })], children);
 
 /** The PRD, the spec and the stacks side by side, each section and task a node in the chain. */
 const columnsGridView = (
@@ -25,18 +28,12 @@ const columnsGridView = (
 ): Html => {
   const sectionAttributes = (sectionId: SectionId) =>
     nodeAttributes(maybeChain, { id: sectionId, kind: "section" }, h);
-  const badged = (sectionId: SectionId): ReadonlyArray<Html> =>
-    Array.fromOption(
-      Option.map(sectionStatusOf(trace, sectionId), (status) => badgeView(status, h)),
-    );
-  const specDecorated = (sectionId: SectionId): ReadonlyArray<Html> =>
+  const sectionBadges = (sectionId: SectionId): ReadonlyArray<Html> =>
+    sectionBadgeViews(trace, sectionId, h);
+  const specSectionMarks = (sectionId: SectionId): ReadonlyArray<Html> =>
     Array.appendAll(
-      badged(sectionId),
-      Array.fromOption(
-        Option.map(judgmentMarkOf(trace, { id: sectionId, kind: "section" }), (mark) =>
-          judgmentView(mark, h),
-        ),
-      ),
+      sectionBadges(sectionId),
+      judgmentMarkViews(trace, { id: sectionId, kind: "section" }, h),
     );
   return h.div(
     [
@@ -47,27 +44,27 @@ const columnsGridView = (
       }),
     ],
     [
-      column(
+      columnView(
         "prd",
         [
           renderMarkdown(trace.prd.markdown, h, {
             attributesOf: sectionAttributes,
-            decorate: badged,
+            decorate: sectionBadges,
           }),
         ],
         h,
       ),
-      column(
+      columnView(
         "spec",
         [
           renderMarkdown(trace.spec.markdown, h, {
             attributesOf: sectionAttributes,
-            decorate: specDecorated,
+            decorate: specSectionMarks,
           }),
         ],
         h,
       ),
-      column("stacks", [stacksView(trace, maybeChain, h)], h),
+      columnView("stacks", [stacksView(trace, maybeChain, h)], h),
     ],
   );
 };

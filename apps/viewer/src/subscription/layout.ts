@@ -83,10 +83,10 @@ const layoutMessages = Stream.mergeAll([nextFrame, layerResized, windowResized],
 
 export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
   layout: entry(
-    { traceLoaded: Schema.Boolean },
+    { isTraceLoaded: Schema.Boolean },
     {
-      dependenciesToStream: ({ traceLoaded }) => (traceLoaded ? layoutMessages : Stream.empty),
-      modelToDependencies: (model) => ({ traceLoaded: AsyncData.hasData(model.trace) }),
+      dependenciesToStream: ({ isTraceLoaded }) => (isTraceLoaded ? layoutMessages : Stream.empty),
+      modelToDependencies: (model) => ({ isTraceLoaded: AsyncData.hasData(model.trace) }),
     },
   ),
 }));

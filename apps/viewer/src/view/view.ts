@@ -9,7 +9,7 @@ import type { Model } from "../model.ts";
 import { canvasView } from "./canvasView.ts";
 import { labelOf } from "./cursorsView.ts";
 
-const presentText = (others: ReadonlyArray<Participant>) =>
+const presenceText = (others: ReadonlyArray<Participant>) =>
   Array.match(others, {
     onEmpty: () => "Nobody else is here.",
     onNonEmpty: (present) => `Here now: ${Array.join(Array.map(present, labelOf), ", ")}`,
@@ -28,7 +28,7 @@ const drawerViews = (model: Model, trace: Trace, h: HtmlBuilder<Message>): Reado
     onSome: (node) =>
       Array.prepend(
         Array.fromOption(
-          Option.flatMap(model.maybeCommit, (sha) => commitDetailView(trace, sha, h)),
+          Option.flatMap(model.maybeSelectedCommitSha, (sha) => commitDetailView(trace, sha, h)),
         ),
         drawerView(trace, node, h, drawerMessages),
       ),
@@ -44,7 +44,10 @@ const fitButton = (h: HtmlBuilder<Message>): Html =>
 
 /** Everyone in the room but you. */
 const othersOf = (model: Model): ReadonlyArray<Participant> =>
-  Array.filter(model.participants, (participant) => !Option.contains(model.you, participant.id));
+  Array.filter(
+    model.participants,
+    (participant) => !Option.contains(model.maybeYou, participant.id),
+  );
 
 const traceView = (
   model: Model,
@@ -74,7 +77,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
     body: h.main(
       [],
       Array.flatten([
-        [h.h1([], ["Cairn"]), h.p([h.Role("status")], [presentText(others)])],
+        [h.h1([], ["Cairn"]), h.p([h.Role("status")], [presenceText(others)])],
         traceView(model, others, h),
       ]),
     ),

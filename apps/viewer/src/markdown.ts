@@ -17,22 +17,22 @@ import { Array, Match, Option, Predicate, Schema, String, Struct, pipe } from "e
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
 /** The keys that start a spec section, in the order the format lists them. */
-export const sectionKeys = ["Implements", "Files", "Depends on", "Defers", "Context"] as const;
+export const SECTION_KEYS = ["Implements", "Files", "Depends on", "Defers", "Context"] as const;
 
-const headingIdPattern = /\s*\{#([^\s{}]+)\}\s*$/u;
+const HEADING_ID_PATTERN = /\s*\{#([^\s{}]+)\}\s*$/u;
 
 /** "Key: " with nothing after it but whitespace; the IDs follow as inline code. */
-const keyLinePattern = /^([^:]*): \s*$/u;
+const KEY_LINE_PATTERN = /^([^:]*): \s*$/u;
 
-const safeHref = /^(?:https?:|mailto:|[#/.?]|[^:]*$)/iu;
+const SAFE_HREF_PATTERN = /^(?:https?:|mailto:|[#/.?]|[^:]*$)/iu;
 
 type Rendered = ReadonlyArray<Html | string>;
 
 /** The text of a node and everything under it. */
 const textOf = (node: Nodes): string => {
-  if ("value" in node) {
+  if (Predicate.hasProperty(node, "value")) {
     return node.value;
-  } else if ("children" in node) {
+  } else if (Predicate.hasProperty(node, "children")) {
     return Array.join(Array.map(node.children, textOf), "");
   } else {
     return "";
@@ -42,10 +42,10 @@ const textOf = (node: Nodes): string => {
 const firstGroup = (pattern: RegExp) => (text: string) =>
   Option.flatMap(String.match(pattern)(text), (match) => Array.get(match, 1));
 
-type KeyRow = { readonly key: string; readonly ids: ReadonlyArray<string> };
+type KeyRow = Readonly<{ key: string; ids: ReadonlyArray<string> }>;
 
 const keyOf = (text: string): Option.Option<string> =>
-  Option.filter(firstGroup(keyLinePattern)(text), (key) => Array.contains(sectionKeys, key));
+  Option.filter(firstGroup(KEY_LINE_PATTERN)(text), (key) => Array.contains(SECTION_KEYS, key));
 
 /** An inline code ID, or a comma between IDs; anything else means the line is not a key row. */
 const idsOf = Match.type<PhrasingContent>().pipe(
@@ -58,20 +58,23 @@ const idsOf = Match.type<PhrasingContent>().pipe(
 );
 
 /** Reads "- Key: `id`, `id`" as a key and its IDs. */
-const keyRowOf = (item: ListItem): Option.Option<KeyRow> => {
-  const [paragraph, ...more] = item.children;
-  if (paragraph?.type !== "paragraph" || Array.isReadonlyArrayNonEmpty(more)) {
-    return Option.none();
-  }
-  const [head, ...rest] = paragraph.children;
-  if (head?.type !== "text") {
-    return Option.none();
-  }
-  return Option.all({
-    ids: Option.map(Option.all(Array.map(rest, idsOf)), Array.flatten),
-    key: keyOf(head.value),
+const keyRowOf = (item: ListItem): Option.Option<KeyRow> =>
+  Array.matchLeft(item.children, {
+    onEmpty: () => Option.none(),
+    onNonEmpty: (paragraph, more) =>
+      paragraph.type === "paragraph" && Array.isReadonlyArrayEmpty(more)
+        ? Array.matchLeft(paragraph.children, {
+            onEmpty: () => Option.none(),
+            onNonEmpty: (head, rest) =>
+              head.type === "text"
+                ? Option.all({
+                    ids: Option.map(Option.all(Array.map(rest, idsOf)), Array.flatten),
+                    key: keyOf(head.value),
+                  })
+                : Option.none(),
+          })
+        : Option.none(),
   });
-};
 
 const keyRowsOf = (node: RootContent): Option.Option<ReadonlyArray<KeyRow>> =>
   node.type === "list" && node.ordered !== true
@@ -81,11 +84,16 @@ const keyRowsOf = (node: RootContent): Option.Option<ReadonlyArray<KeyRow>> =>
 /** A heading's last text without its trailing `{#id}`. */
 const stripId = (child: PhrasingContent): PhrasingContent =>
   child.type === "text"
-    ? Struct.evolve(child, { value: String.replace(headingIdPattern, "") })
+    ? Struct.evolve(child, { value: String.replace(HEADING_ID_PATTERN, "") })
     : child;
 
 const checkbox = (checked: boolean | null | undefined): ReadonlyArray<string> =>
-  Predicate.isBoolean(checked) ? [checked ? "[x] " : "[ ] "] : [];
+  Match.value(checked).pipe(
+    Match.withReturnType<ReadonlyArray<string>>(),
+    Match.when(true, () => ["[x] "]),
+    Match.when(false, () => ["[ ] "]),
+    Match.orElse(() => []),
+  );
 
 const isSectionId = Schema.is(SectionId);
 
@@ -104,7 +112,7 @@ interface RenderContext<Message> {
   readonly decorate: (sectionId: SectionId) => ReadonlyArray<Html>;
 }
 
-const inline = <Message>(
+const renderInline = <Message>(
   context: RenderContext<Message>,
   nodes: ReadonlyArray<PhrasingContent>,
 ): Rendered => Array.flatMap(nodes, (node) => render(context, node));
@@ -125,7 +133,7 @@ const tableRow = <Message>(
           Option.map((cellAlign) => context.h.Style({ "text-align": cellAlign })),
           Array.fromOption,
         ),
-        inline(context, cell.children),
+        renderInline(context, cell.children),
       ),
     ),
   );
@@ -137,7 +145,7 @@ const tableView = <Message>(context: RenderContext<Message>, node: Table): Html 
     Array.matchLeft(node.children, {
       onEmpty: () => [h.thead([]), h.tbody([])],
       onNonEmpty: (head, body) => {
-        const align = node.align ?? [];
+        const align = Option.getOrElse(Option.fromNullishOr(node.align), () => []);
         return [
           h.thead([], [tableRow(context, h.th, align, head)]),
           h.tbody(
@@ -150,9 +158,9 @@ const tableView = <Message>(context: RenderContext<Message>, node: Table): Html 
   );
 };
 
-const heading = <Message>(context: RenderContext<Message>, node: Heading): Html => {
+const headingView = <Message>(context: RenderContext<Message>, node: Heading): Html => {
   const { h, attributesOf, decorate } = context;
-  const maybeId = firstGroup(headingIdPattern)(textOf(node));
+  const maybeId = firstGroup(HEADING_ID_PATTERN)(textOf(node));
   const children = Option.isSome(maybeId)
     ? Array.match(node.children, {
         onEmpty: () => node.children,
@@ -174,7 +182,7 @@ const heading = <Message>(context: RenderContext<Message>, node: Heading): Html 
         ),
     }),
     Array.appendAll(
-      inline(
+      renderInline(
         context,
         Array.filter(children, (child) => child.type !== "text" || child.value !== ""),
       ),
@@ -193,7 +201,7 @@ const languageClass = <Message>(h: HtmlBuilder<Message>, lang: string | null | u
     Array.fromOption,
   );
 
-const chips = <Message>(h: HtmlBuilder<Message>, keyRows: ReadonlyArray<KeyRow>): Html =>
+const keyRowsView = <Message>(h: HtmlBuilder<Message>, keyRows: ReadonlyArray<KeyRow>): Html =>
   h.div(
     [h.DataAttribute("keys", "")],
     Array.map(keyRows, ({ key, ids }) =>
@@ -221,13 +229,16 @@ const render = <Message>(context: RenderContext<Message>, content: Nodes): Rende
           [h.code(languageClass(h, node.lang), [node.value])],
         ),
       ],
-      delete: (node) => [h.del([], inline(context, node.children))],
-      emphasis: (node) => [h.em([], inline(context, node.children))],
-      heading: (node) => [heading(context, node)],
-      image: (node) => [node.alt ?? ""],
+      delete: (node) => [h.del([], renderInline(context, node.children))],
+      emphasis: (node) => [h.em([], renderInline(context, node.children))],
+      heading: (node) => [headingView(context, node)],
+      image: (node) => [Option.getOrElse(Option.fromNullishOr(node.alt), () => "")],
       inlineCode: (node) => [h.code([], [node.value])],
       link: (node) => [
-        h.a(safeHref.test(node.url) ? [h.Href(node.url)] : [], inline(context, node.children)),
+        h.a(
+          SAFE_HREF_PATTERN.test(node.url) ? [h.Href(node.url)] : [],
+          renderInline(context, node.children),
+        ),
       ],
       list: (node) => [
         (node.ordered === true ? h.ol : h.ul)([], renderBlocks(context, node.children)),
@@ -235,9 +246,9 @@ const render = <Message>(context: RenderContext<Message>, content: Nodes): Rende
       listItem: (node) => [
         h.li([], Array.appendAll(checkbox(node.checked), renderBlocks(context, node.children))),
       ],
-      paragraph: (node) => [h.p([], inline(context, node.children))],
+      paragraph: (node) => [h.p([], renderInline(context, node.children))],
       root: (node) => renderBlocks(context, node.children),
-      strong: (node) => [h.strong([], inline(context, node.children))],
+      strong: (node) => [h.strong([], renderInline(context, node.children))],
       table: (node) => [tableView(context, node)],
       text: (node) => [node.value],
       thematicBreak: () => [h.hr([])],
@@ -258,7 +269,7 @@ const renderBlocks = <Message>(
     );
     return Option.match(followsHeading ? keyRowsOf(node) : Option.none(), {
       onNone: () => render(context, node),
-      onSome: (keyRows) => [chips(context.h, keyRows)],
+      onSome: (keyRows) => [keyRowsView(context.h, keyRows)],
     });
   });
 

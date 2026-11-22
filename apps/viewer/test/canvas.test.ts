@@ -182,7 +182,7 @@ it.prop(
     );
     expect(reconcile(reported, echoed)).toEqual({
       reported: Array.drop(reported, first + 1),
-      sync: false,
+      shouldSync: false,
     });
   },
 );
@@ -195,7 +195,7 @@ it.prop(
     if (wasReported) {
       return;
     }
-    expect(reconcile(reported, fromModel)).toEqual({ reported: [], sync: true });
+    expect(reconcile(reported, fromModel)).toEqual({ reported: [], shouldSync: true });
   },
 );
 

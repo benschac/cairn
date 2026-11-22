@@ -23,7 +23,7 @@ export interface Chain {
   readonly tasks: HashSet.HashSet<string>;
 }
 
-const empty = (): Chain => ({
+const emptyChain = (): Chain => ({
   prd: HashSet.empty(),
   spec: HashSet.empty(),
   tasks: HashSet.empty(),
@@ -49,17 +49,20 @@ export const chainOf = (trace: Trace, node: Node): Chain => {
     section.id,
     section.keys.implements,
   ]);
-  const implementedBy = (id: string): ReadonlyArray<string> =>
+  const prdSectionsImplementedBy = (id: string): ReadonlyArray<string> =>
     Option.getOrElse(Record.get(implementsOf, id), () => []);
 
   const taskChain = (id: string): Chain =>
     Option.match(
       Array.findFirst(trace.tasks, (task) => task.id === id),
       {
-        onNone: empty,
+        onNone: emptyChain,
         onSome: (task) => ({
           prd: HashSet.fromIterable(
-            Array.appendAll(task.prdSections, Array.flatMap(task.specSections, implementedBy)),
+            Array.appendAll(
+              task.prdSections,
+              Array.flatMap(task.specSections, prdSectionsImplementedBy),
+            ),
           ),
           spec: HashSet.fromIterable(task.specSections),
           tasks: HashSet.make(task.id),
@@ -70,7 +73,7 @@ export const chainOf = (trace: Trace, node: Node): Chain => {
   const prdChain = (id: string): Chain =>
     Option.match(
       Array.findFirst(trace.prd.sections, (section) => section.id === id),
-      { onNone: empty, onSome: () => linkedToPrd(id) },
+      { onNone: emptyChain, onSome: () => linkedToPrd(id) },
     );
 
   const linkedToPrd = (id: string): Chain => {
@@ -96,7 +99,7 @@ export const chainOf = (trace: Trace, node: Node): Chain => {
 
   const specChain = (id: string): Chain =>
     Option.match(Record.get(implementsOf, id), {
-      onNone: empty,
+      onNone: emptyChain,
       onSome: (implemented) => ({
         prd: HashSet.fromIterable(implemented),
         spec: HashSet.make(id),
@@ -122,15 +125,12 @@ export const isInChain = (chain: Chain, node: Node): boolean =>
   });
 /** A section's title, or its id when the trace has no section with that id. */
 export const sectionTitleOf = (trace: Trace, id: SectionId): string =>
-  Option.getOrElse(
-    Option.map(
-      Array.findFirst(
-        Array.appendAll(trace.prd.sections, trace.spec.sections),
-        (candidate) => candidate.id === id,
-      ),
-      (found) => found.title,
+  Option.match(
+    Array.findFirst(
+      Array.appendAll(trace.prd.sections, trace.spec.sections),
+      (candidate) => candidate.id === id,
     ),
-    () => id,
+    { onNone: () => id, onSome: (found) => found.title },
   );
 
 /** The rollup status of a section, or none when the trace has none for it. */

@@ -26,7 +26,7 @@ import {
   PanZoomCanvas,
   boundsOf,
   fitViewport,
-  originViewport,
+  ORIGIN_VIEWPORT,
   transformOf,
   viewportAttribute,
 } from "../src/canvas.ts";
@@ -408,8 +408,8 @@ it("the pane is mounted on and the layer starts at the origin viewport", () => {
     Mount.expectExact(PanZoomCanvas),
     mounted,
     expect(pane).toHaveStyle("overflow", "hidden"),
-    expect(pane).toHaveAttr("data-viewport", viewportAttribute(originViewport)),
-    expect(layer).toHaveStyle("transform", transformOf(originViewport)),
+    expect(pane).toHaveAttr("data-viewport", viewportAttribute(ORIGIN_VIEWPORT)),
+    expect(layer).toHaveStyle("transform", transformOf(ORIGIN_VIEWPORT)),
     expect(layer).toHaveStyle("transform-origin", "0 0"),
     expect(selector("[data-canvas] [data-canvas-layer] [data-edges]")).toExist(),
   );
@@ -443,7 +443,7 @@ it("the pane does not mount before there is a trace to pan over", () => {
 
 it("clicking Fit sets the viewport that frames every measured node", () => {
   const fitted = fitViewport(Option.getOrThrow(boundsOf(boxes)), paneSize.width, paneSize.height);
-  assert(fitted).not.toEqual(originViewport);
+  assert(fitted).not.toEqual(ORIGIN_VIEWPORT);
   assert(fitted.zoom).toBeGreaterThanOrEqual(MIN_ZOOM);
   assert(fitted.zoom).toBeLessThanOrEqual(MAX_ZOOM);
   scene(
@@ -474,7 +474,7 @@ it("Fit does nothing until the nodes are measured and the pane has a size", () =
     mounted,
     // The pane is sized, but nothing is measured.
     click(fit),
-    expect(layer).toHaveStyle("transform", transformOf(originViewport)),
+    expect(layer).toHaveStyle("transform", transformOf(ORIGIN_VIEWPORT)),
   );
 });
 

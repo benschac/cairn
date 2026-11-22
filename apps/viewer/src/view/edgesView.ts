@@ -8,7 +8,7 @@ import type { Message } from "../message.ts";
 import { columnOf, stackLayoutOf } from "../stacks.ts";
 import { isInChain, type Chain } from "../trace.ts";
 
-const edgeColor = {
+const EDGE_COLOR = {
   dependency: "#b45309",
   implements: "#64748b",
   parent: "#334155",
@@ -37,7 +37,7 @@ const edgeView = (
       [
         h.D(curve.path),
         h.Fill("none"),
-        h.Stroke(edgeColor[curve.kind]),
+        h.Stroke(EDGE_COLOR[curve.kind]),
         h.StrokeWidth(Option.contains(maybeInChain, true) ? "2.5" : "1.5"),
         h.Opacity(Option.contains(maybeInChain, false) ? "0.15" : "1"),
       ],

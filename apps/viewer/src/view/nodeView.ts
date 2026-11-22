@@ -1,9 +1,16 @@
-import type { SectionStatus } from "@cairn/contract";
+import type { SectionId, SectionStatus, Trace } from "@cairn/contract";
 import { Array, Option } from "effect";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
 import { Message } from "../message.ts";
-import { isInChain, type Chain, type JudgmentMark, type Node } from "../trace.ts";
+import {
+  isInChain,
+  judgmentMarkOf,
+  sectionStatusOf,
+  type Chain,
+  type JudgmentMark,
+  type Node,
+} from "../trace.ts";
 
 export const badgeView = (status: SectionStatus, h: HtmlBuilder<Message>): Html =>
   h.span(
@@ -15,7 +22,7 @@ export const badgeView = (status: SectionStatus, h: HtmlBuilder<Message>): Html 
     [status],
   );
 
-export const judgmentView = (mark: JudgmentMark, h: HtmlBuilder<Message>): Html =>
+export const judgmentMarkView = (mark: JudgmentMark, h: HtmlBuilder<Message>): Html =>
   h.span(
     [
       h.DataAttribute("judgment", mark.verdict),
@@ -25,8 +32,24 @@ export const judgmentView = (mark: JudgmentMark, h: HtmlBuilder<Message>): Html 
     [mark.verdict],
   );
 
-const highlightedBackground = "#fef08a";
-const dimmedOpacity = "0.35";
+/** The badge for a section's rollup status; nothing when the trace has none for it. */
+export const sectionBadgeViews = (
+  trace: Trace,
+  id: SectionId,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> =>
+  Array.fromOption(Option.map(sectionStatusOf(trace, id), (status) => badgeView(status, h)));
+
+/** The marker for a node's worst judgment; nothing when it has none. */
+export const judgmentMarkViews = (
+  trace: Trace,
+  node: Node,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> =>
+  Array.fromOption(Option.map(judgmentMarkOf(trace, node), (mark) => judgmentMarkView(mark, h)));
+
+const HIGHLIGHTED_BACKGROUND = "#fef08a";
+const DIMMED_OPACITY = "0.35";
 
 /**
  * The hover and click handlers every node carries and, while a chain is active, the
@@ -49,7 +72,10 @@ export const nodeAttributes = (
       onNone: () => [],
       onSome: (chain) =>
         isInChain(chain, node)
-          ? [h.DataAttribute("highlighted", "true"), h.Style({ background: highlightedBackground })]
-          : [h.DataAttribute("dimmed", "true"), h.Style({ opacity: dimmedOpacity })],
+          ? [
+              h.DataAttribute("highlighted", "true"),
+              h.Style({ background: HIGHLIGHTED_BACKGROUND }),
+            ]
+          : [h.DataAttribute("dimmed", "true"), h.Style({ opacity: DIMMED_OPACITY })],
     }),
   );

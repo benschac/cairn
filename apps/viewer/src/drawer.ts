@@ -17,10 +17,10 @@ import { defineRouteUnion, literal, mapTo, slash, string } from "foldkit/route";
 import { Node, chainOf, judgmentsOf, sectionTitleOf } from "./trace.ts";
 
 /** The message constructors the drawer's view needs; the app supplies its own. */
-export interface DrawerMessages<M> {
-  readonly onClose: M;
-  readonly onClickTask: (id: TaskId) => M;
-  readonly onClickCommit: (sha: Sha) => M;
+export interface DrawerMessages<Message> {
+  readonly onClose: Message;
+  readonly onClickTask: (id: TaskId) => Message;
+  readonly onClickCommit: (sha: Sha) => Message;
 }
 
 /** The server's routes the drawer links to. */
@@ -51,7 +51,7 @@ const answerText = Match.type<TraceJudgment["answer"]>().pipe(
 
 const gateText = (required: boolean): string => (required ? "human required" : "no human gate");
 
-const judgmentView = <M>(judgment: TraceJudgment, h: HtmlBuilder<M>): Html =>
+const judgmentView = <Message>(judgment: TraceJudgment, h: HtmlBuilder<Message>): Html =>
   h.li(
     [
       h.DataAttribute("drawer-judgment", judgment.question),
@@ -65,7 +65,7 @@ const judgmentView = <M>(judgment: TraceJudgment, h: HtmlBuilder<M>): Html =>
     ],
   );
 
-const judgmentsView = <M>(trace: Trace, node: Node, h: HtmlBuilder<M>): Html =>
+const judgmentsView = <Message>(trace: Trace, node: Node, h: HtmlBuilder<Message>): Html =>
   h.section(
     [h.DataAttribute("drawer-part", "judgments")],
     [
@@ -77,7 +77,11 @@ const judgmentsView = <M>(trace: Trace, node: Node, h: HtmlBuilder<M>): Html =>
     ],
   );
 
-const commitView = <M>(commit: TraceCommit, h: HtmlBuilder<M>, messages: DrawerMessages<M>): Html =>
+const commitView = <Message>(
+  commit: TraceCommit,
+  h: HtmlBuilder<Message>,
+  messages: DrawerMessages<Message>,
+): Html =>
   h.li(
     [],
     [
@@ -92,13 +96,17 @@ const commitView = <M>(commit: TraceCommit, h: HtmlBuilder<M>, messages: DrawerM
     ],
   );
 
-const commitsView = <M>(task: TraceTask, h: HtmlBuilder<M>, messages: DrawerMessages<M>): Html =>
+const commitsView = <Message>(
+  task: TraceTask,
+  h: HtmlBuilder<Message>,
+  messages: DrawerMessages<Message>,
+): Html =>
   h.ul(
     [h.DataAttribute("drawer-part", "commits")],
     Array.map(task.commits, (commit) => commitView(commit, h, messages)),
   );
 
-const sessionsView = <M>(task: TraceTask, h: HtmlBuilder<M>): Html =>
+const sessionsView = <Message>(task: TraceTask, h: HtmlBuilder<Message>): Html =>
   h.section(
     [h.DataAttribute("drawer-part", "sessions")],
     [
@@ -112,7 +120,7 @@ const sessionsView = <M>(task: TraceTask, h: HtmlBuilder<M>): Html =>
     ],
   );
 
-const eventsView = <M>(task: TraceTask, h: HtmlBuilder<M>): Html =>
+const eventsView = <Message>(task: TraceTask, h: HtmlBuilder<Message>): Html =>
   h.section(
     [h.DataAttribute("drawer-part", "events")],
     [
@@ -130,7 +138,7 @@ const eventsView = <M>(task: TraceTask, h: HtmlBuilder<M>): Html =>
   );
 
 /** The gate the plan set and the gate in effect, each with its reasons. */
-const gateView = <M>(task: TraceTask, h: HtmlBuilder<M>): Html =>
+const gateView = <Message>(task: TraceTask, h: HtmlBuilder<Message>): Html =>
   h.section(
     [h.DataAttribute("drawer-part", "gate")],
     [
@@ -154,11 +162,11 @@ const gateView = <M>(task: TraceTask, h: HtmlBuilder<M>): Html =>
     ],
   );
 
-const taskDetailView = <M>(
+const taskDetailView = <Message>(
   trace: Trace,
   task: TraceTask,
-  h: HtmlBuilder<M>,
-  messages: DrawerMessages<M>,
+  h: HtmlBuilder<Message>,
+  messages: DrawerMessages<Message>,
 ): ReadonlyArray<Html> => [
   h.section(
     [h.DataAttribute("drawer-part", "commits-section")],
@@ -170,11 +178,11 @@ const taskDetailView = <M>(
   judgmentsView(trace, { id: task.id, kind: "task" }, h),
 ];
 
-const sectionTasksView = <M>(
+const sectionTasksView = <Message>(
   trace: Trace,
   taskIds: HashSet.HashSet<string>,
-  h: HtmlBuilder<M>,
-  messages: DrawerMessages<M>,
+  h: HtmlBuilder<Message>,
+  messages: DrawerMessages<Message>,
 ): Html =>
   h.section(
     [h.DataAttribute("drawer-part", "tasks")],
@@ -211,11 +219,11 @@ interface DrawerContent {
 }
 
 /** A section's tasks and, for a spec section, its judgments. */
-const sectionContent = <M>(
+const sectionContent = <Message>(
   trace: Trace,
   section: typeof Node.cases.section.Type,
-  h: HtmlBuilder<M>,
-  messages: DrawerMessages<M>,
+  h: HtmlBuilder<Message>,
+  messages: DrawerMessages<Message>,
 ): DrawerContent => ({
   body: Array.appendAll(
     [sectionTasksView(trace, chainOf(trace, section).tasks, h, messages)],
@@ -225,11 +233,11 @@ const sectionContent = <M>(
 });
 
 /** A task's detail, or nothing under its id when the trace does not have it. */
-const taskContent = <M>(
+const taskContent = <Message>(
   trace: Trace,
   id: TaskId,
-  h: HtmlBuilder<M>,
-  messages: DrawerMessages<M>,
+  h: HtmlBuilder<Message>,
+  messages: DrawerMessages<Message>,
 ): DrawerContent =>
   Option.match(
     Array.findFirst(trace.tasks, (candidate) => candidate.id === id),
@@ -247,11 +255,11 @@ const taskContent = <M>(
  * or a task's commits, sessions, events, gate reasons and judgments. A node the trace does not
  * have opens a dialog titled by its id with nothing in it.
  */
-export const drawerView = <M>(
+export const drawerView = <Message>(
   trace: Trace,
   node: Node,
-  h: HtmlBuilder<M>,
-  messages: DrawerMessages<M>,
+  h: HtmlBuilder<Message>,
+  messages: DrawerMessages<Message>,
 ): Html => {
   const content = Node.match(node, {
     section: (section) => sectionContent(trace, section, h, messages),
@@ -284,10 +292,10 @@ export const drawerView = <M>(
 };
 
 /** In the demo the commit is already in the trace, so its detail is its subject and files. */
-export const commitDetailView = <M>(
+export const commitDetailView = <Message>(
   trace: Trace,
   sha: Sha,
-  h: HtmlBuilder<M>,
+  h: HtmlBuilder<Message>,
 ): Option.Option<Html> =>
   Option.map(
     Array.findFirst(

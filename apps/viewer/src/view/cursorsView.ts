@@ -11,7 +11,7 @@ export const labelOf = (participant: Participant) =>
     Match.exhaustive,
   );
 
-const cursorColor = { agent: "#7c3aed", human: "#0f766e" } satisfies Record.ReadonlyRecord<
+const CURSOR_COLOR = { agent: "#7c3aed", human: "#0f766e" } satisfies Record.ReadonlyRecord<
   ParticipantKind,
   string
 >;
@@ -27,7 +27,7 @@ const cursorView = (
       [
         h.DataAttribute("cursor", participant.kind),
         h.Style({
-          background: cursorColor[participant.kind],
+          background: CURSOR_COLOR[participant.kind],
           "border-radius": "0 10px 10px 10px",
           color: "white",
           font: "12px system-ui, sans-serif",

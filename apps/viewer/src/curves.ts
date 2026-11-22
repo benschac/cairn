@@ -1,6 +1,6 @@
 import { SectionId, type TaskId, type Trace } from "@cairn/contract";
 import { Position, getBezierPath } from "@xyflow/system";
-import { Array, HashSet, Match, Option, Record, Schema, pipe } from "effect";
+import { Array, Equivalence, HashSet, Match, Option, Record, Schema, String, pipe } from "effect";
 
 import type { Positions, Rect } from "./geometry.ts";
 import { Node } from "./trace.ts";
@@ -54,7 +54,7 @@ const stacked = (kind: EdgeKind, source: TaskId, target: TaskId, dashed: boolean
 const sectionNode = (id: string): Option.Option<Node> =>
   Option.map(SectionId.makeOption(id), (sectionId) => ({ id: sectionId, kind: "section" }));
 
-const anchor = (rect: Rect, position: Position): { readonly x: number; readonly y: number } =>
+const anchor = (rect: Rect, position: Position): Readonly<{ x: number; y: number }> =>
   Match.value(position).pipe(
     Match.when(Position.Left, () => ({ x: rect.x, y: rect.y + rect.height / 2 })),
     Match.when(Position.Right, () => ({ x: rect.x + rect.width, y: rect.y + rect.height / 2 })),
@@ -72,15 +72,15 @@ const curveOf =
     Option.map(
       Option.all([Record.get(positions, link.source.id), Record.get(positions, link.target.id)]),
       ([from, to]) => {
-        const a = anchor(from, link.sourcePosition);
-        const b = anchor(to, link.targetPosition);
+        const sourceAnchor = anchor(from, link.sourcePosition);
+        const targetAnchor = anchor(to, link.targetPosition);
         const [path] = getBezierPath({
           sourcePosition: link.sourcePosition,
-          sourceX: a.x,
-          sourceY: a.y,
+          sourceX: sourceAnchor.x,
+          sourceY: sourceAnchor.y,
           targetPosition: link.targetPosition,
-          targetX: b.x,
-          targetY: b.y,
+          targetX: targetAnchor.x,
+          targetY: targetAnchor.y,
         });
         return {
           dashed: link.dashed,
@@ -129,7 +129,7 @@ export const curvesOf = (
         Option.fromNullOr(task.parent),
         Option.filter(isTask),
         Option.map((parent) => stacked("parent", parent, task.id, false)),
-        Option.toArray,
+        Array.fromOption,
       ),
       pipe(
         task.dependsOn,
@@ -143,7 +143,7 @@ export const curvesOf = (
 
   return pipe(
     Array.appendAll(implementsLinks, taskLinks),
-    Array.dedupeWith((a, b) => idOf(a) === idOf(b)),
+    Array.dedupeWith(Equivalence.mapInput(String.Equivalence, idOf)),
     Array.map(curveOf(positions)),
     Array.getSomes,
   );

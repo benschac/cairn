@@ -3,13 +3,15 @@ import type { Cursor } from "@cairn/contract";
 import { Effect, Filter, Option, Schema, Stream } from "effect";
 import { Subscription } from "foldkit";
 
-import { VIEWPORT_ATTRIBUTE, cursorOf, originViewport, viewportOfAttribute } from "../canvas.ts";
+import { cursorOf, paneViewportOf } from "../canvas.ts";
 import { rectOf } from "../geometry.ts";
 import { Message } from "../message.ts";
 import type { Model } from "../model.ts";
 
 const decodePresence = Schema.decodeUnknownOption(PresenceJson);
-const encodeCursor = Schema.encodeEffect(CursorJson);
+// A cursor is two finite numbers and always encodes, so the encoder cannot fail, as with the
+// viewport attribute in canvas.ts.
+const encodeCursor = Schema.encodeSync(CursorJson);
 
 const presenceUrl = () =>
   `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/presence${location.search}`;
@@ -19,7 +21,7 @@ const openSocket = Effect.acquireRelease(
   (socket) => Effect.sync(() => socket.close()),
 );
 
-const receivedPresence = (socket: WebSocket) =>
+const presenceUpdates = (socket: WebSocket) =>
   Stream.fromEventListener<MessageEvent>(socket, "message").pipe(
     Stream.filterMap(Filter.fromPredicateOption((event) => decodePresence(event.data))),
     Stream.map((presence) => Message.ReceivedPresence({ presence })),
@@ -34,26 +36,18 @@ const cursorAt = (event: PointerEvent): Option.Option<Cursor> =>
     cursorOf(
       { x: event.clientX, y: event.clientY },
       rectOf(pane.getBoundingClientRect()),
-      Option.getOrElse(
-        viewportOfAttribute(pane.getAttribute(VIEWPORT_ATTRIBUTE)),
-        () => originViewport,
-      ),
+      paneViewportOf(pane),
     ),
   );
 
 const sendCursor = (socket: WebSocket) => (cursor: Cursor) =>
-  encodeCursor(cursor).pipe(
-    Effect.flatMap((frame) =>
-      Effect.sync(() => {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(frame);
-        }
-      }),
-    ),
-    Effect.ignore,
-  );
+  Effect.sync(() => {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(encodeCursor(cursor));
+    }
+  });
 
-const sentCursors = (socket: WebSocket) =>
+const sendCursorMoves = (socket: WebSocket) =>
   Stream.fromEventListener<PointerEvent>(document, "pointermove").pipe(
     Stream.filterMap(Filter.fromPredicateOption(cursorAt)),
     Stream.mapEffect(sendCursor(socket)),
@@ -61,7 +55,9 @@ const sentCursors = (socket: WebSocket) =>
   );
 
 const presenceMessages = Stream.unwrap(
-  Effect.map(openSocket, (socket) => Stream.merge(receivedPresence(socket), sentCursors(socket))),
+  Effect.map(openSocket, (socket) =>
+    Stream.merge(presenceUpdates(socket), sendCursorMoves(socket)),
+  ),
 );
 
 export const subscriptions = Subscription.make<Model, Message>()(() => ({

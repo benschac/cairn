@@ -30,7 +30,7 @@ import { Message } from "./message.ts";
 /** Pixels of room Fit leaves around the content. */
 export const FIT_PADDING = 24;
 
-export const originViewport: Viewport = { x: 0, y: 0, zoom: 1 };
+export const ORIGIN_VIEWPORT: Viewport = { x: 0, y: 0, zoom: 1 };
 
 /** The messages the canvas mount sends. */
 type CanvasMessage = typeof Message.MeasuredPane.Type | typeof Message.PannedOrZoomed.Type;
@@ -39,28 +39,37 @@ type CanvasMessage = typeof Message.MeasuredPane.Type | typeof Message.PannedOrZ
 export const transformOf = (viewport: Viewport): string =>
   `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
 
+/** The lowest start and highest end the rects reach along one axis. */
+const extentOf = (
+  rects: Array.NonEmptyReadonlyArray<Rect>,
+  startOf: (rect: Rect) => number,
+  endOf: (rect: Rect) => number,
+): Readonly<{ start: number; end: number }> => ({
+  end: Array.max(Array.map(rects, endOf), Order.Number),
+  start: Array.min(Array.map(rects, startOf), Order.Number),
+});
+
 /** The smallest box around every measured node; none when nothing is measured. */
 export const boundsOf = (positions: Positions): Option.Option<Rect> =>
   Array.match(Record.values(positions), {
     onEmpty: () => Option.none(),
     onNonEmpty: (rects) => {
-      const left = Array.min(
-        Array.map(rects, (rect) => rect.x),
-        Order.Number,
+      const horizontal = extentOf(
+        rects,
+        (rect) => rect.x,
+        (rect) => rect.x + rect.width,
       );
-      const top = Array.min(
-        Array.map(rects, (rect) => rect.y),
-        Order.Number,
+      const vertical = extentOf(
+        rects,
+        (rect) => rect.y,
+        (rect) => rect.y + rect.height,
       );
-      const right = Array.max(
-        Array.map(rects, (rect) => rect.x + rect.width),
-        Order.Number,
-      );
-      const bottom = Array.max(
-        Array.map(rects, (rect) => rect.y + rect.height),
-        Order.Number,
-      );
-      return Option.some({ height: bottom - top, width: right - left, x: left, y: top });
+      return Option.some({
+        height: vertical.end - vertical.start,
+        width: horizontal.end - horizontal.start,
+        x: horizontal.start,
+        y: vertical.start,
+      });
     },
   });
 
@@ -129,27 +138,27 @@ const REPORTED_LIMIT = 64;
 export const reconcile = (
   reported: ReadonlyArray<Viewport>,
   fromModel: Viewport,
-): { readonly reported: ReadonlyArray<Viewport>; readonly sync: boolean } =>
+): Readonly<{ reported: ReadonlyArray<Viewport>; shouldSync: boolean }> =>
   Option.match(
     Array.findFirstIndex(reported, (viewport) => sameViewport(viewport, fromModel)),
     {
-      onNone: () => ({ reported: [], sync: true }),
-      onSome: (at) => ({ reported: Array.drop(reported, at + 1), sync: false }),
+      onNone: () => ({ reported: [], shouldSync: true }),
+      onSome: (at) => ({ reported: Array.drop(reported, at + 1), shouldSync: false }),
     },
   );
 
 /** The viewport the model last gave the pane; the origin before it has given one. */
-const paneViewportOf = (pane: Element): Viewport =>
+export const paneViewportOf = (pane: Element): Viewport =>
   Option.getOrElse(
     viewportOfAttribute(pane.getAttribute(VIEWPORT_ATTRIBUTE)),
-    () => originViewport,
+    () => ORIGIN_VIEWPORT,
   );
 
-const paneSized = (width: number, height: number): CanvasMessage =>
+const measuredPane = (width: number, height: number): CanvasMessage =>
   Message.MeasuredPane({ size: { height, width } });
 
 /** Drag on the pane to pan and scroll to zoom; anything marked `nopan` (the nodes) keeps its clicks and its text selection. */
-const panZoomOptions = {
+const PAN_ZOOM_OPTIONS = {
   connectionInProgress: false,
   lib: "cairn",
   noPanClassName: "nopan",
@@ -174,14 +183,14 @@ interface PanZoomState {
   /** Viewports the library reported that the model has not yet echoed back. */
   readonly reported: MutableRef.MutableRef<ReadonlyArray<Viewport>>;
   /** Whether the mount is moving the library itself, which then reports what the model has. */
-  readonly syncing: MutableRef.MutableRef<boolean>;
+  readonly isSyncing: MutableRef.MutableRef<boolean>;
 }
 
 /** XYPanZoom on the pane, reporting each pan and zoom it makes; destroyed when the scope closes. */
 const attachPanZoom = (
   element: Element,
   queue: Queue.Queue<CanvasMessage, Cause.Done>,
-  { reported, syncing }: PanZoomState,
+  { reported, isSyncing }: PanZoomState,
 ) =>
   Effect.acquireRelease(
     Effect.sync(() => {
@@ -191,7 +200,7 @@ const attachPanZoom = (
         minZoom: MIN_ZOOM,
         onDraggingChange: Function.constVoid,
         onPanZoom: (_event, viewport) => {
-          if (!MutableRef.get(syncing)) {
+          if (!MutableRef.get(isSyncing)) {
             MutableRef.update(reported, (viewports) =>
               Array.takeRight(Array.append(viewports, viewport), REPORTED_LIMIT),
             );
@@ -204,7 +213,7 @@ const attachPanZoom = (
         ],
         viewport: paneViewportOf(element),
       });
-      instance.update(panZoomOptions);
+      instance.update(PAN_ZOOM_OPTIONS);
       return instance;
     }),
     (instance) => Effect.sync(() => instance.destroy()),
@@ -217,7 +226,7 @@ const attachPanZoom = (
 const watchViewportAttribute = (
   element: Element,
   panZoom: PanZoomInstance,
-  { reported, syncing }: PanZoomState,
+  { reported, isSyncing }: PanZoomState,
 ) =>
   Effect.acquireRelease(
     Effect.sync(() => {
@@ -225,13 +234,13 @@ const watchViewportAttribute = (
         const viewport = paneViewportOf(element);
         const next = reconcile(MutableRef.get(reported), viewport);
         MutableRef.set(reported, next.reported);
-        if (next.sync) {
-          MutableRef.set(syncing, true);
+        if (next.shouldSync) {
+          MutableRef.set(isSyncing, true);
           // A DOM callback, not an Effect: the flag must drop even if the library throws.
           try {
             panZoom.syncViewport(viewport);
           } finally {
-            MutableRef.set(syncing, false);
+            MutableRef.set(isSyncing, false);
           }
         }
       });
@@ -249,21 +258,18 @@ const observePaneSize = (element: Element, queue: Queue.Queue<CanvasMessage, Cau
   Effect.gen(function* () {
     yield* Effect.sync(() => {
       const box = element.getBoundingClientRect();
-      Queue.offerUnsafe(queue, paneSized(box.width, box.height));
+      Queue.offerUnsafe(queue, measuredPane(box.width, box.height));
     });
     if (Predicate.hasProperty(globalThis, "ResizeObserver")) {
       yield* Effect.acquireRelease(
         Effect.sync(() => {
-          const resizer = new ResizeObserver((entries) =>
-            Option.match(Array.head(entries), {
-              onNone: Function.constVoid,
-              onSome: (entry) =>
-                Queue.offerUnsafe(
-                  queue,
-                  paneSized(entry.contentRect.width, entry.contentRect.height),
-                ),
-            }),
-          );
+          const resizer = new ResizeObserver((entries) => {
+            const maybeEntry = Array.head(entries);
+            if (Option.isSome(maybeEntry)) {
+              const { contentRect } = maybeEntry.value;
+              Queue.offerUnsafe(queue, measuredPane(contentRect.width, contentRect.height));
+            }
+          });
           resizer.observe(element);
           return resizer;
         }),
@@ -285,7 +291,7 @@ export const PanZoomCanvas = Mount.defineStream("PanZoomCanvas", {
       Effect.gen(function* () {
         const state: PanZoomState = {
           reported: MutableRef.make<ReadonlyArray<Viewport>>([]),
-          syncing: MutableRef.make(false),
+          isSyncing: MutableRef.make(false),
         };
         const panZoom = yield* attachPanZoom(element, queue, state);
         yield* watchViewportAttribute(element, panZoom, state);

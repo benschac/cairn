@@ -11,6 +11,7 @@ import {
   Schema,
   String,
   Struct,
+  Tuple,
   pipe,
 } from "effect";
 
@@ -63,7 +64,7 @@ export const stackLayoutOf = (tasks: ReadonlyArray<StackTask>): StackLayout => {
     );
   const needsOf = (task: StackTask): ReadonlyArray<StackTask> =>
     Array.appendAll(
-      Option.toArray(parentOf(task)),
+      Array.fromOption(parentOf(task)),
       Array.getSomes(Array.map(task.dependsOn, (id) => Record.get(byId, id))),
     );
 
@@ -114,7 +115,7 @@ export const stackLayoutOf = (tasks: ReadonlyArray<StackTask>): StackLayout => {
     heads,
     Array.dedupe,
     (ids) => Array.sort(ids, TaskIdOrder),
-    Array.map((head, index) => [head, index + 1] as const),
+    Array.map((head, index) => Tuple.make(head, index + 1)),
     Record.fromEntries,
   );
 
