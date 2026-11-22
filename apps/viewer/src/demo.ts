@@ -1,33 +1,56 @@
+import { ManifestTask } from "@cairn/contract";
 import { Schema } from "effect";
 
-import { TaskRow } from "./model.ts";
-
-export const demoRows = Schema.decodeUnknownSync(Schema.Array(TaskRow))([
+export const demoRows = Schema.decodeUnknownSync(Schema.Array(ManifestTask))([
   {
+    branch: "demo/01-add-the-sessions-table",
+    commits: [],
+    dependsOn: [],
+    files: [],
+    humanGate: { reasons: ["tag:human"], required: true },
+    id: "t1",
+    model: "sonnet",
+    parent: null,
+    prdSections: ["prd.data-model"],
+    reasoning: "medium",
+    sessions: [],
+    specSections: ["spec.data-model"],
     status: "blocked_on_human",
-    task: {
-      gated: true,
-      id: "task-1",
-      section: "prd.data-model",
-      title: "Add the sessions table",
-    },
+    title: "Add the sessions table",
+    worktree: null,
   },
   {
+    branch: "demo/02-parse-prd-sections",
+    commits: [],
+    dependsOn: [],
+    files: [],
+    humanGate: { reasons: [], required: false },
+    id: "t2",
+    model: "sonnet",
+    parent: null,
+    prdSections: ["prd.plan-command"],
+    reasoning: "medium",
+    sessions: [],
+    specSections: ["spec.plan-command"],
     status: "running",
-    task: {
-      gated: false,
-      id: "task-2",
-      section: "prd.plan-command",
-      title: "Parse PRD sections",
-    },
+    title: "Parse PRD sections",
+    worktree: null,
   },
   {
+    branch: "demo/03-write-the-stack",
+    commits: [],
+    dependsOn: [],
+    files: [],
+    humanGate: { reasons: [], required: false },
+    id: "t3",
+    model: "sonnet",
+    parent: null,
+    prdSections: ["prd.plan-command"],
+    reasoning: "medium",
+    sessions: [],
+    specSections: ["spec.plan-command"],
     status: "pending",
-    task: {
-      gated: false,
-      id: "task-3",
-      section: "prd.plan-command",
-      title: "Write the stack",
-    },
+    title: "Write the stack",
+    worktree: null,
   },
 ]);

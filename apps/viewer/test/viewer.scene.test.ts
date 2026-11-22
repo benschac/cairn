@@ -1,3 +1,4 @@
+import { ManifestTask } from "@cairn/contract";
 import { it } from "@effect/vitest";
 import { Subscription, click, expect, given, role, scene, selector, text } from "foldkit/scene";
 
@@ -44,3 +45,17 @@ it("other participants appear with their cursors, and you do not", () => {
     expect(selector('[data-cursor="human"]')).toBeAbsent(),
   );
 });
+
+it.prop(
+  "the waiting filter shows a task only when it is blocked on a human",
+  [ManifestTask],
+  ([task]) => {
+    const row = selector("li");
+    scene(
+      { update, view },
+      given({ ...init().model, rows: [task] }),
+      click(waiting),
+      task.status === "blocked_on_human" ? expect(row).toExist() : expect(row).toBeAbsent(),
+    );
+  },
+);
