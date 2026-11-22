@@ -1,0 +1,5408 @@
+{
+  "version": 1,
+  "source": ".cairn/spec.md",
+  "prd": ".cairn/prd.md",
+  "manifest": ".cairn/manifest.json",
+  "sections": [
+    {
+      "id": "spec.cairn-mvp-spec",
+      "title": "Cairn MVP spec",
+      "level": 1,
+      "line": 1,
+      "parent": null,
+      "children": [
+        "spec.format",
+        "spec.scope",
+        "spec.package-layout",
+        "spec.libraries",
+        "spec.contract",
+        "spec.sections",
+        "spec.gates",
+        "spec.models",
+        "spec.planning",
+        "spec.lint",
+        "spec.judging",
+        "spec.status",
+        "spec.sessions",
+        "spec.orchestrator-adapter",
+        "spec.cli",
+        "spec.server",
+        "spec.viewer",
+        "spec.acceptance"
+      ],
+      "human": false,
+      "implements": [],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "This spec turns prd.md into code, sets the format that `cairn plan` writes, and lists what is already built.",
+      "requirements": [],
+      "artifacts": [],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.format",
+      "title": "Format",
+      "level": 2,
+      "line": 7,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [],
+      "human": false,
+      "implements": [],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": ["prd.goal", "prd.non-goals-for-v1", "prd.one-day-build-order"],
+      "tasks": ["t17", "t25"],
+      "summary": "Defines the key list that starts each spec section and the rules for how PRD sections count as covered.",
+      "requirements": [
+        {
+          "id": "spec.format#r1",
+          "level": "must",
+          "text": "Each spec section starts with a list of keys, before any prose."
+        },
+        {
+          "id": "spec.format#r2",
+          "level": "must",
+          "text": "IDs in keys are written in backticks and separated by commas."
+        },
+        {
+          "id": "spec.format#r3",
+          "level": "must",
+          "text": "A key applies to its section and every section below it."
+        },
+        {
+          "id": "spec.format#r4",
+          "level": "must",
+          "text": "A PRD section is covered when it, or a section under it, appears in some Implements, Defers or Context key."
+        },
+        {
+          "id": "spec.format#r5",
+          "level": "must",
+          "text": "A Defers or Context key also covers the sections under the one it names."
+        },
+        {
+          "id": "spec.format#r6",
+          "level": "must",
+          "text": "\"Under\" means in the heading tree, not by ID prefix; the top heading does not namespace its children."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.format#config-key:implements",
+          "kind": "config-key",
+          "name": "Implements",
+          "location": null,
+          "description": "Key listing PRD section IDs; used for curves, rollup, coverage.",
+          "values": ["PRD section IDs"]
+        },
+        {
+          "id": "spec.format#config-key:files",
+          "kind": "config-key",
+          "name": "Files",
+          "location": null,
+          "description": "Key listing paths the section will touch; a trailing / is a dir; used for plan-time gate detection.",
+          "values": ["Paths"]
+        },
+        {
+          "id": "spec.format#config-key:depends-on",
+          "kind": "config-key",
+          "name": "Depends on",
+          "location": null,
+          "description": "Key listing spec section IDs; used for stack order.",
+          "values": ["Spec section IDs"]
+        },
+        {
+          "id": "spec.format#config-key:defers",
+          "kind": "config-key",
+          "name": "Defers",
+          "location": null,
+          "description": "Key listing PRD section IDs left for later; used for coverage; the viewer shows them as deferred.",
+          "values": ["PRD section IDs"]
+        },
+        {
+          "id": "spec.format#config-key:context",
+          "kind": "config-key",
+          "name": "Context",
+          "location": null,
+          "description": "Key listing PRD section IDs that need no code; used for coverage; the viewer shows no badge.",
+          "values": ["PRD section IDs"]
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.format#d1",
+          "text": "Coverage follows the heading tree, not ID prefix.",
+          "why": "The top heading does not namespace its children, so prd.goal sits under prd.cairn-mvp."
+        }
+      ]
+    },
+    {
+      "id": "spec.scope",
+      "title": "Scope",
+      "level": 2,
+      "line": 25,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [],
+      "human": false,
+      "implements": [],
+      "files": [],
+      "dependsOn": [],
+      "defers": ["prd.v2-diverging-state", "prd.v2-multiplayer-on-cloudflare", "prd.later"],
+      "context": [],
+      "tasks": ["t41"],
+      "summary": "Scopes the spec to v1 and keeps the already-built presence piece.",
+      "requirements": [
+        {
+          "id": "spec.scope#r1",
+          "level": "must",
+          "text": "`cairn serve` keeps serving `/presence` next to the trace API."
+        }
+      ],
+      "artifacts": [],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.scope#d1",
+          "text": "Cover v1 only; presence is the one v2 piece already built and it stays.",
+          "why": null
+        }
+      ]
+    },
+    {
+      "id": "spec.package-layout",
+      "title": "Package layout",
+      "level": 2,
+      "line": 31,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [],
+      "human": false,
+      "implements": ["prd.implementation-in-effect"],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t22"],
+      "summary": "Lists the packages, the pure-core rule, and the services the CLI uses for IO with live and test implementations.",
+      "requirements": [
+        {
+          "id": "spec.package-layout#r1",
+          "level": "must",
+          "text": "Core takes plain values and does no IO."
+        },
+        {
+          "id": "spec.package-layout#r2",
+          "level": "must",
+          "text": "Only the CLI touches disk, git, the database or a model, through the listed services."
+        },
+        {
+          "id": "spec.package-layout#r3",
+          "level": "must",
+          "text": "The PRD's Clock service is Effect's own Clock, and tests use TestClock."
+        },
+        {
+          "id": "spec.package-layout#r4",
+          "level": "must",
+          "text": "Files go through Effect's FileSystem."
+        },
+        {
+          "id": "spec.package-layout#r5",
+          "level": "must",
+          "text": "Commands use effect/cli."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.package-layout#file:contract",
+          "kind": "file",
+          "name": "contract",
+          "location": "packages/contract",
+          "description": "Schemas, generated JSON Schema, the plain JS entry."
+        },
+        {
+          "id": "spec.package-layout#file:core",
+          "kind": "file",
+          "name": "core",
+          "location": "packages/core",
+          "description": "Pure logic: sections, gates, stack order, lint, status derivation, rollup, redaction, machines."
+        },
+        {
+          "id": "spec.package-layout#file:cli",
+          "kind": "file",
+          "name": "cli",
+          "location": "packages/cli",
+          "description": "Services, commands and the server; two composition roots."
+        },
+        {
+          "id": "spec.package-layout#file:apps-viewer",
+          "kind": "file",
+          "name": "apps/viewer",
+          "location": "apps/viewer",
+          "description": "The Foldkit viewer."
+        },
+        {
+          "id": "spec.package-layout#file:src-main-ts",
+          "kind": "file",
+          "name": "src/main.ts",
+          "location": "packages/cli/src/main.ts",
+          "description": "Composition root for the CLI."
+        },
+        {
+          "id": "spec.package-layout#file:src-serve-ts",
+          "kind": "file",
+          "name": "src/serve.ts",
+          "location": "packages/cli/src/serve.ts",
+          "description": "Composition root for the server."
+        },
+        {
+          "id": "spec.package-layout#service:git",
+          "kind": "service",
+          "name": "Git",
+          "location": null,
+          "description": "Live: git subprocesses. Test: an in-memory commit graph."
+        },
+        {
+          "id": "spec.package-layout#service:tracestore",
+          "kind": "service",
+          "name": "TraceStore",
+          "location": null,
+          "description": "Live: node:sqlite on .cairn/cairn.db. Test: node:sqlite on :memory:."
+        },
+        {
+          "id": "spec.package-layout#service:planner",
+          "kind": "service",
+          "name": "Planner",
+          "location": null,
+          "description": "Live: LanguageModel (see spec.models). Test: scripted replies from fixtures."
+        },
+        {
+          "id": "spec.package-layout#service:judge",
+          "kind": "service",
+          "name": "Judge",
+          "location": null,
+          "description": "Live: DecisionModel (see spec.models). Test: scripted answers."
+        },
+        {
+          "id": "spec.package-layout#service:redactor",
+          "kind": "service",
+          "name": "Redactor",
+          "location": null,
+          "description": "Live: reads .env* and config, calls core. Test: fixed secret set."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.package-layout#d1",
+          "text": "Use Effect's own Clock instead of a separate Clock service.",
+          "why": null
+        }
+      ]
+    },
+    {
+      "id": "spec.libraries",
+      "title": "Libraries",
+      "level": 2,
+      "line": 54,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [],
+      "human": false,
+      "implements": ["prd.implementation-in-effect", "prd.viewer"],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t29", "t42", "t53", "t57"],
+      "summary": "Names the libraries kept and added with versions and uses, the Node built-ins relied on, and the libraries considered and left out.",
+      "requirements": [
+        {
+          "id": "spec.libraries#r1",
+          "level": "must",
+          "text": "Use node:sqlite for cairn.db and path.matchesGlob for gate patterns, which are built into Node 24 and need no package."
+        },
+        {
+          "id": "spec.libraries#r2",
+          "level": "must",
+          "text": "Diffs come from git, so the CLI needs no diff library."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.libraries#library:effect",
+          "kind": "library",
+          "name": "effect",
+          "location": null,
+          "description": "Schema, services, effect/cli, effect/ai, HTTP. Version 4.1.5."
+        },
+        {
+          "id": "spec.libraries#library:xstate",
+          "kind": "library",
+          "name": "xstate",
+          "location": null,
+          "description": "Task and room machines. Version 6.0.0-beta.4."
+        },
+        {
+          "id": "spec.libraries#library:xstate-effect",
+          "kind": "library",
+          "name": "@xstate/effect",
+          "location": null,
+          "description": "Task and room machines. Version 1.0.0-beta.3."
+        },
+        {
+          "id": "spec.libraries#library:foldkit",
+          "kind": "library",
+          "name": "foldkit",
+          "location": null,
+          "description": "The viewer. Version 0.171.0."
+        },
+        {
+          "id": "spec.libraries#library:pierre-diffs",
+          "kind": "library",
+          "name": "@pierre/diffs",
+          "location": null,
+          "description": "Parsing patches into hunks and rendering commit diffs. Version 1.6.4, Apache-2.0."
+        },
+        {
+          "id": "spec.libraries#library:xyflow-system",
+          "kind": "library",
+          "name": "@xyflow/system",
+          "location": null,
+          "description": "Bezier paths, viewport math and pan/zoom for the canvas. Version 1.0.0, MIT."
+        },
+        {
+          "id": "spec.libraries#library:effect-ai-anthropic",
+          "kind": "library",
+          "name": "@effect/ai-anthropic",
+          "location": null,
+          "description": "The live LanguageModel, for the Planner. Version 4.1.5, MIT."
+        },
+        {
+          "id": "spec.libraries#library:effect-ai-typesafe",
+          "kind": "library",
+          "name": "@effect/ai-typesafe",
+          "location": null,
+          "description": "The live DecisionModel (Jev), for the Judge. Version 4.1.5, MIT."
+        },
+        {
+          "id": "spec.libraries#library:mdast-util-from-markdown",
+          "kind": "library",
+          "name": "mdast-util-from-markdown",
+          "location": null,
+          "description": "Markdown to nodes for the viewer. Version 2.1.0, MIT."
+        },
+        {
+          "id": "spec.libraries#library:mdast-util-gfm",
+          "kind": "library",
+          "name": "mdast-util-gfm",
+          "location": null,
+          "description": "Markdown to nodes for the viewer. Version 3.1.0, MIT."
+        },
+        {
+          "id": "spec.libraries#library:micromark-extension-gfm",
+          "kind": "library",
+          "name": "micromark-extension-gfm",
+          "location": null,
+          "description": "Markdown to nodes for the viewer. Version 3.0.0, MIT."
+        },
+        {
+          "id": "spec.libraries#library:node-sqlite",
+          "kind": "library",
+          "name": "node:sqlite",
+          "location": null,
+          "description": "Built into Node 24; used for cairn.db."
+        },
+        {
+          "id": "spec.libraries#function:path-matchesglob",
+          "kind": "function",
+          "name": "path.matchesGlob",
+          "location": null,
+          "description": "Built into Node 24; used for gate patterns."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.libraries#d1",
+          "text": "Leave out @pierre/words.",
+          "why": "It renders markdown to HTML strings through WebAssembly for streaming model output, the viewer would need innerHTML for it, and it knows nothing of {#id} headings; it may suit streaming session logs later."
+        },
+        {
+          "id": "spec.libraries#d2",
+          "text": "Leave out @pierre/highlights.",
+          "why": "It is the WebAssembly highlighter @pierre/diffs can use instead of Shiki, but it is in beta; Shiki's JavaScript engine is the default and is enough for now."
+        },
+        {
+          "id": "spec.libraries#d3",
+          "text": "Leave out a SQLite package such as better-sqlite3.",
+          "why": "node:sqlite needs no native build."
+        },
+        {
+          "id": "spec.libraries#d4",
+          "text": "Leave out Rete, JointJS, Cytoscape, Drawflow and LiteGraph.",
+          "why": "Each owns its scene and graph state, which would put state in two places beside the Foldkit model."
+        },
+        {
+          "id": "spec.libraries#d5",
+          "text": "Leave out elkjs for layout; @dagrejs/dagre (MIT) is the choice when layout stops being fixed.",
+          "why": "elkjs is EPL-2.0 or GPL-3.0 and 8 MB."
+        },
+        {
+          "id": "spec.libraries#d6",
+          "text": "Leave out the AI SDK (ai, @ai-sdk/anthropic, @ai-sdk/typesafe-ai).",
+          "why": "It adds a second schema language and a Promise API beside Effect; effect/ai covers both kinds of model."
+        },
+        {
+          "id": "spec.libraries#d7",
+          "text": "Leave out Cloudflare AI Gateway as a dependency.",
+          "why": "It is a proxy, not a library; baseUrl in config lets a user route through it."
+        },
+        {
+          "id": "spec.libraries#d8",
+          "text": "Leave out Workers AI.",
+          "why": "Cairn runs on the user's machine, not in a Worker."
+        }
+      ]
+    },
+    {
+      "id": "spec.contract",
+      "title": "Contract",
+      "level": 2,
+      "line": 89,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [
+        "spec.contract.section-ids",
+        "spec.contract.manifest",
+        "spec.contract.events",
+        "spec.contract.trailers",
+        "spec.contract.trace",
+        "spec.contract.config",
+        "spec.contract.judgments",
+        "spec.contract.spec-index",
+        "spec.contract.javascript-entry"
+      ],
+      "human": false,
+      "implements": ["prd.contract-package"],
+      "files": ["packages/contract/src/", "packages/contract/schema/"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t7", "t16", "t23"],
+      "summary": "Requires everything a file in .cairn/ holds to be decoded through a contract schema with typed decode errors.",
+      "requirements": [
+        {
+          "id": "spec.contract#r1",
+          "level": "must",
+          "text": "Everything a file in .cairn/ holds is decoded through a schema in the contract package."
+        },
+        {
+          "id": "spec.contract#r2",
+          "level": "must",
+          "text": "A decode failure is a typed error that names the file, the line where there is one, and the field path."
+        }
+      ],
+      "artifacts": [],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.contract.section-ids",
+      "title": "Section IDs",
+      "level": 3,
+      "line": 96,
+      "parent": "spec.contract",
+      "children": [],
+      "human": false,
+      "implements": ["prd.section-ids"],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t4"],
+      "summary": "Adds PrdSectionId and SpecSectionId schemas that also check the prefix.",
+      "requirements": [
+        {
+          "id": "spec.contract.section-ids#r1",
+          "level": "must",
+          "text": "Add PrdSectionId and SpecSectionId, which also check the prefix."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.contract.section-ids#schema:prdsectionid",
+          "kind": "schema",
+          "name": "PrdSectionId",
+          "location": null,
+          "description": "Section ID schema that also checks the PRD prefix."
+        },
+        {
+          "id": "spec.contract.section-ids#schema:specsectionid",
+          "kind": "schema",
+          "name": "SpecSectionId",
+          "location": null,
+          "description": "Section ID schema that also checks the spec prefix."
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.contract.manifest",
+      "title": "Manifest",
+      "level": 3,
+      "line": 102,
+      "parent": "spec.contract",
+      "children": [],
+      "human": false,
+      "implements": ["prd.manifest-schema"],
+      "files": ["packages/contract/src/manifest.ts"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t5", "t6", "t12", "t13"],
+      "summary": "Defines the Manifest, ManifestTask, GateReason and TaskStatus schemas and that status, commits and sessions are only a snapshot.",
+      "requirements": [
+        {
+          "id": "spec.contract.manifest#r1",
+          "level": "must",
+          "text": "TaskStatus gains failed."
+        },
+        {
+          "id": "spec.contract.manifest#r2",
+          "level": "must",
+          "text": "The existing Task schema is replaced by ManifestTask; the machine and the viewer move to it."
+        },
+        {
+          "id": "spec.contract.manifest#r3",
+          "level": "must-not",
+          "text": "Nothing reads status, commits or sessions to decide anything; they are a snapshot Cairn writes."
+        },
+        {
+          "id": "spec.contract.manifest#r4",
+          "level": "must",
+          "text": "Derived status (spec.status.derivation) is the truth."
+        },
+        {
+          "id": "spec.contract.manifest#r5",
+          "level": "must",
+          "text": "Only Cairn writes manifest.json."
+        },
+        {
+          "id": "spec.contract.manifest#r6",
+          "level": "must",
+          "text": "ManifestTask gains dependsOn: the tasks this one needs."
+        },
+        {
+          "id": "spec.contract.manifest#r7",
+          "level": "must",
+          "text": "Task IDs are t1, t2, … in dependency order."
+        },
+        {
+          "id": "spec.contract.manifest#r8",
+          "level": "must",
+          "text": "ManifestTask gains worktree: where the task is built; null is the repo's own checkout."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.contract.manifest#schema:manifest",
+          "kind": "schema",
+          "name": "Manifest",
+          "location": "packages/contract/src/manifest.ts",
+          "description": "The manifest of a feature.",
+          "fields": [
+            {
+              "name": "version",
+              "type": "1",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "feature",
+              "type": "Slug",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "baseBranch",
+              "type": "string",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "tasks",
+              "type": "NonEmptyArray<ManifestTask>",
+              "optional": false,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "id": "spec.contract.manifest#schema:manifesttask",
+          "kind": "schema",
+          "name": "ManifestTask",
+          "location": "packages/contract/src/manifest.ts",
+          "description": "A task in the manifest.",
+          "fields": [
+            {
+              "name": "id",
+              "type": "TaskId",
+              "optional": false,
+              "description": "t1, t2, ... in stack order, bottom first"
+            },
+            {
+              "name": "title",
+              "type": "NonEmptyString",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "prdSections",
+              "type": "NonEmptyArray<PrdSectionId>",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "specSections",
+              "type": "NonEmptyArray<SpecSectionId>",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "files",
+              "type": "Array<string>",
+              "optional": false,
+              "description": "new: the declared files plan-time detection runs on"
+            },
+            {
+              "name": "branch",
+              "type": "string",
+              "optional": false,
+              "description": "<feature>/<NN>-<slug>"
+            },
+            {
+              "name": "parent",
+              "type": "TaskId | null",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "model",
+              "type": "NonEmptyString",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "reasoning",
+              "type": "\"low\" | \"medium\" | \"high\" | \"xhigh\" | \"max\"",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "humanGate",
+              "type": "{ required: boolean; reasons: Array<GateReason> }",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "status",
+              "type": "TaskStatus",
+              "optional": false,
+              "description": "snapshot"
+            },
+            {
+              "name": "commits",
+              "type": "Array<Sha>",
+              "optional": false,
+              "description": "snapshot"
+            },
+            {
+              "name": "sessions",
+              "type": "Array<SessionId>",
+              "optional": false,
+              "description": "snapshot"
+            }
+          ]
+        },
+        {
+          "id": "spec.contract.manifest#type:gatereason",
+          "kind": "type",
+          "name": "GateReason",
+          "location": "packages/contract/src/manifest.ts",
+          "description": "Reason a task is human-gated.",
+          "values": ["tag:human", "path:${string}"]
+        },
+        {
+          "id": "spec.contract.manifest#type:taskstatus",
+          "kind": "type",
+          "name": "TaskStatus",
+          "location": "packages/contract/src/manifest.ts",
+          "description": "Task status.",
+          "values": ["pending", "running", "blocked_on_human", "failed", "done", "landed"]
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.contract.manifest#d1",
+          "text": "status, commits and sessions are a snapshot; derived status is the truth.",
+          "why": "Cairn writes them but nothing reads them to decide anything."
+        }
+      ]
+    },
+    {
+      "id": "spec.contract.events",
+      "title": "Events",
+      "level": 3,
+      "line": 141,
+      "parent": "spec.contract",
+      "children": [],
+      "human": false,
+      "implements": ["prd.orchestrator-contract"],
+      "files": ["packages/contract/src/events.ts"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t8"],
+      "summary": "Defines the Event schema, one JSON object per line of events.jsonl, with a new actor field.",
+      "requirements": [
+        {
+          "id": "spec.contract.events#r1",
+          "level": "must",
+          "text": "events.jsonl holds one JSON object per line."
+        },
+        {
+          "id": "spec.contract.events#r2",
+          "level": "must",
+          "text": "A missing v means 1."
+        },
+        {
+          "id": "spec.contract.events#r3",
+          "level": "must",
+          "text": "ts is ISO 8601, decoded to a DateTime.Utc."
+        },
+        {
+          "id": "spec.contract.events#r4",
+          "level": "must",
+          "text": "A missing actor means orchestrator."
+        },
+        {
+          "id": "spec.contract.events#r5",
+          "level": "must",
+          "text": "Only a human: actor can move a task out of blocked_on_human."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.contract.events#schema:event",
+          "kind": "schema",
+          "name": "Event",
+          "location": "packages/contract/src/events.ts",
+          "description": "One line of events.jsonl.",
+          "fields": [
+            {
+              "name": "v",
+              "type": "1",
+              "optional": true,
+              "description": "missing means 1"
+            },
+            {
+              "name": "ts",
+              "type": "string",
+              "optional": false,
+              "description": "ISO 8601, decoded to a DateTime.Utc"
+            },
+            {
+              "name": "taskId",
+              "type": "TaskId",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "status",
+              "type": "TaskStatus",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "detail",
+              "type": "string",
+              "optional": true,
+              "description": ""
+            },
+            {
+              "name": "actor",
+              "type": "\"orchestrator\" | `human:${string}` | `agent:${string}`",
+              "optional": true,
+              "description": "missing means orchestrator; new, since approvals need it"
+            }
+          ]
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.contract.events#d1",
+          "text": "Add actor to Event.",
+          "why": "Approvals need it."
+        }
+      ]
+    },
+    {
+      "id": "spec.contract.trailers",
+      "title": "Trailers",
+      "level": 3,
+      "line": 161,
+      "parent": "spec.contract",
+      "children": [],
+      "human": false,
+      "implements": ["prd.orchestrator-contract"],
+      "files": ["packages/contract/src/trailers.ts"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t9", "t15"],
+      "summary": "Defines the commit trailer format carrying task, section and session IDs.",
+      "requirements": [
+        {
+          "id": "spec.contract.trailers#r1",
+          "level": "must",
+          "text": "A commit has one Cairn-Task and one Cairn-Session trailer."
+        },
+        {
+          "id": "spec.contract.trailers#r2",
+          "level": "must",
+          "text": "Cairn-Section repeats, once per spec section."
+        },
+        {
+          "id": "spec.contract.trailers#r3",
+          "level": "must",
+          "text": "SessionId matches ^s_[a-z0-9]{6,}$."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.contract.trailers#file:cairn-task",
+          "kind": "file",
+          "name": "Cairn-Task",
+          "location": "packages/contract/src/trailers.ts",
+          "description": "Trailer naming the task, e.g. t1."
+        },
+        {
+          "id": "spec.contract.trailers#file:cairn-section",
+          "kind": "file",
+          "name": "Cairn-Section",
+          "location": "packages/contract/src/trailers.ts",
+          "description": "Trailer naming a spec section; repeats once per section."
+        },
+        {
+          "id": "spec.contract.trailers#file:cairn-session",
+          "kind": "file",
+          "name": "Cairn-Session",
+          "location": "packages/contract/src/trailers.ts",
+          "description": "Trailer naming the session, e.g. s_8f2k1q."
+        },
+        {
+          "id": "spec.contract.trailers#schema:sessionid",
+          "kind": "schema",
+          "name": "SessionId",
+          "location": "packages/contract/src/trailers.ts",
+          "description": "Session ID matching ^s_[a-z0-9]{6,}$."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.contract.trailers#d1",
+          "text": "Cairn-Section repeats rather than holding a list.",
+          "why": "A task can have several spec sections."
+        }
+      ]
+    },
+    {
+      "id": "spec.contract.trace",
+      "title": "Trace",
+      "level": 3,
+      "line": 175,
+      "parent": "spec.contract",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer", "prd.contract-package"],
+      "files": ["packages/contract/src/trace.ts"],
+      "dependsOn": ["spec.contract.manifest", "spec.contract.events", "spec.contract.trailers"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t10"],
+      "summary": "Defines Trace field by field: both documents with their sections, derived tasks with commits and events, section statuses, warnings and judgments, with no positions; the viewer depends only on this schema.",
+      "requirements": [
+        {
+          "id": "spec.contract.trace#r1",
+          "level": "must",
+          "text": "Trace holds version, feature, baseBranch, the PRD and spec as TraceDocuments, tasks in manifest order, a status for every PRD and spec section, warnings and judgments."
+        },
+        {
+          "id": "spec.contract.trace#r2",
+          "level": "must",
+          "text": "A TraceDocument holds the path, the whole markdown and its TraceSections."
+        },
+        {
+          "id": "spec.contract.trace#r3",
+          "level": "must",
+          "text": "A TraceSection holds id, title without the {#id}, level, line, parent, human and its own plus inherited keys; keys are empty in the PRD."
+        },
+        {
+          "id": "spec.contract.trace#r4",
+          "level": "must",
+          "text": "A TraceTask is a ManifestTask with derived status, waiting, the effective gate, TraceCommits and sorted events."
+        },
+        {
+          "id": "spec.contract.trace#r5",
+          "level": "must",
+          "text": "A TraceCommit holds sha, parents, subject, files, the Cairn-Section sections and the Cairn-Session session or null."
+        },
+        {
+          "id": "spec.contract.trace#r6",
+          "level": "must",
+          "text": "A TraceWarning has a kind, a message, and a taskId and sha that may be null."
+        },
+        {
+          "id": "spec.contract.trace#r7",
+          "level": "must",
+          "text": "TraceSection is declared in the contract, not imported from core's Section."
+        },
+        {
+          "id": "spec.contract.trace#r8",
+          "level": "must-not",
+          "text": "The trace carries no positions; the viewer lays everything out."
+        },
+        {
+          "id": "spec.contract.trace#r9",
+          "level": "must",
+          "text": "judgments is empty until the judging work fills it."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.contract.trace#schema:trace",
+          "kind": "schema",
+          "name": "Trace",
+          "location": "packages/contract/src/trace.ts",
+          "description": "What the server sends and the viewer draws."
+        },
+        {
+          "id": "spec.contract.trace#schema:tracedocument",
+          "kind": "schema",
+          "name": "TraceDocument",
+          "location": "packages/contract/src/trace.ts",
+          "description": "The PRD or spec: path, markdown and sections."
+        },
+        {
+          "id": "spec.contract.trace#schema:tracesection",
+          "kind": "schema",
+          "name": "TraceSection",
+          "location": "packages/contract/src/trace.ts",
+          "description": "A section as the viewer sees it."
+        },
+        {
+          "id": "spec.contract.trace#schema:tracetask",
+          "kind": "schema",
+          "name": "TraceTask",
+          "location": "packages/contract/src/trace.ts",
+          "description": "A task with derived status, gate, commits and events."
+        },
+        {
+          "id": "spec.contract.trace#schema:tracecommit",
+          "kind": "schema",
+          "name": "TraceCommit",
+          "location": "packages/contract/src/trace.ts",
+          "description": "A commit with its trailers read."
+        },
+        {
+          "id": "spec.contract.trace#schema:tracewarning",
+          "kind": "schema",
+          "name": "TraceWarning",
+          "location": "packages/contract/src/trace.ts",
+          "description": "A warning from derivation or status."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.contract.trace#t1",
+          "kind": "check",
+          "text": "The demo trace decodes through Trace."
+        }
+      ],
+      "decisions": []
+    },
+    {
+      "id": "spec.contract.config",
+      "title": "Config",
+      "level": 3,
+      "line": 248,
+      "parent": "spec.contract",
+      "children": [],
+      "human": false,
+      "implements": ["prd.human-gates"],
+      "files": ["packages/contract/src/config.ts"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t11", "t55"],
+      "summary": "Defines the Config schema with defaults and that a missing config file decodes to the defaults.",
+      "requirements": [
+        {
+          "id": "spec.contract.config#r1",
+          "level": "must",
+          "text": "A missing .cairn/config.json decodes to the defaults."
+        },
+        {
+          "id": "spec.contract.config#r2",
+          "level": "must",
+          "text": "judge.pass is greater than judge.flag, and all three thresholds lie in [0, 1]."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.contract.config#schema:config",
+          "kind": "schema",
+          "name": "Config",
+          "location": "packages/contract/src/config.ts",
+          "description": "Cairn configuration.",
+          "fields": [
+            {
+              "name": "version",
+              "type": "1",
+              "optional": false,
+              "description": ""
+            },
+            {
+              "name": "humanPaths",
+              "type": "Array<string>",
+              "optional": false,
+              "description": "defaults to the PRD's list"
+            },
+            {
+              "name": "redact",
+              "type": "{ deny: Array<string> }",
+              "optional": false,
+              "description": "defaults to []"
+            },
+            {
+              "name": "planner",
+              "type": "{ model: string }",
+              "optional": false,
+              "description": "defaults to \"claude-opus-5-5\""
+            }
+          ]
+        },
+        {
+          "id": "spec.contract.config#config-key:planner-baseurl",
+          "kind": "config-key",
+          "name": "planner.baseUrl",
+          "location": null,
+          "description": "Optional base URL for the language model client, e.g. a Cloudflare AI Gateway URL."
+        },
+        {
+          "id": "spec.contract.config#config-key:judge-model",
+          "kind": "config-key",
+          "name": "judge.model",
+          "location": null,
+          "description": "Decision model; defaults to jev-1.14.0."
+        },
+        {
+          "id": "spec.contract.config#config-key:judge-baseurl",
+          "kind": "config-key",
+          "name": "judge.baseUrl",
+          "location": null,
+          "description": "Optional base URL for the decision model client."
+        },
+        {
+          "id": "spec.contract.config#config-key:judge-pass",
+          "kind": "config-key",
+          "name": "judge.pass",
+          "location": null,
+          "description": "Probability at or above which a question passes; defaults to 0.8."
+        },
+        {
+          "id": "spec.contract.config#config-key:judge-flag",
+          "kind": "config-key",
+          "name": "judge.flag",
+          "location": null,
+          "description": "Probability below which a question is flagged; defaults to 0.5."
+        },
+        {
+          "id": "spec.contract.config#config-key:judge-minconfidence",
+          "kind": "config-key",
+          "name": "judge.minConfidence",
+          "location": null,
+          "description": "Confidence below which a rating is unsure; defaults to 0.5."
+        },
+        {
+          "id": "spec.contract.config#config-key:judge-maxrounds",
+          "kind": "config-key",
+          "name": "judge.maxRounds",
+          "location": null,
+          "description": "Most split rounds per checkpoint; defaults to 2."
+        },
+        {
+          "id": "spec.contract.config#config-key:judge-models",
+          "kind": "config-key",
+          "name": "judge.models",
+          "location": null,
+          "description": "Model names the manifest uses, each with when to use it; defaults to haiku, sonnet and opus."
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.contract.judgments",
+      "title": "Judgments",
+      "level": 3,
+      "line": 282,
+      "parent": "spec.contract",
+      "children": [],
+      "human": false,
+      "implements": ["prd.judging-the-plan"],
+      "files": ["packages/contract/src/judgments.ts"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t55"],
+      "summary": "Defines the judgments.json schema: the model that answered, and per target and question a verdict, the answer behind it, a message and the hash of the judged input.",
+      "requirements": [
+        {
+          "id": "spec.contract.judgments#r1",
+          "level": "must",
+          "text": "The answer shapes mirror effect/ai RateAnswer, ProbabilityAnswer and Unanswered."
+        },
+        {
+          "id": "spec.contract.judgments#r2",
+          "level": "must",
+          "text": "Only Cairn writes judgments.json."
+        },
+        {
+          "id": "spec.contract.judgments#r3",
+          "level": "must",
+          "text": "A missing judgments.json decodes to no judgments."
+        },
+        {
+          "id": "spec.contract.judgments#r4",
+          "level": "must",
+          "text": "Judgments on drafts that became tasks are keyed by the task's ID once stackOf assigns it."
+        },
+        {
+          "id": "spec.contract.judgments#r5",
+          "level": "must",
+          "text": "A classify answer uses RateAnswer's shape."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.contract.judgments#schema:judgments",
+          "kind": "schema",
+          "name": "Judgments",
+          "location": "packages/contract/src/judgments.ts",
+          "description": "The judgments file: version, model and judgments."
+        },
+        {
+          "id": "spec.contract.judgments#schema:judgment",
+          "kind": "schema",
+          "name": "Judgment",
+          "location": "packages/contract/src/judgments.ts",
+          "description": "One judgment on one question about one target (section, task, split draft or stack), with verdict, action, round, answer, message, inputHash and time."
+        },
+        {
+          "id": "spec.contract.judgments#file:cairn-judgments-json",
+          "kind": "file",
+          "name": ".cairn/judgments.json",
+          "location": null,
+          "description": "Decision-model verdicts on spec sections, tasks and the stack."
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.contract.spec-index",
+      "title": "Spec index",
+      "level": 3,
+      "line": 317,
+      "parent": "spec.contract",
+      "children": [],
+      "human": false,
+      "implements": ["prd.repo-layout"],
+      "files": ["packages/contract/src/spec-index.ts", "packages/cli/src/spec-index.ts"],
+      "dependsOn": ["spec.sections.parsing", "spec.planning.planner-service"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t56", "t63"],
+      "summary": "Defines spec.json, a structured copy of spec.md: derived fields filled by code and prose fields extracted by Planner.index; written by hand until the CLI exists.",
+      "requirements": [
+        {
+          "id": "spec.contract.spec-index#r1",
+          "level": "must",
+          "text": "cairn plan writes spec.json whenever it writes spec.md or manifest.json."
+        },
+        {
+          "id": "spec.contract.spec-index#r2",
+          "level": "must",
+          "text": "Code fills the derived fields from spec.md and manifest.json."
+        },
+        {
+          "id": "spec.contract.spec-index#r3",
+          "level": "must",
+          "text": "Planner.index fills the prose fields, one call per section whose body changed."
+        },
+        {
+          "id": "spec.contract.spec-index#r4",
+          "level": "must",
+          "text": "A section whose body is unchanged keeps its entry."
+        },
+        {
+          "id": "spec.contract.spec-index#r5",
+          "level": "must",
+          "text": "Keys are own keys only, not inherited."
+        },
+        {
+          "id": "spec.contract.spec-index#r6",
+          "level": "must",
+          "text": "Until the CLI exists, spec.json is written by hand in this format."
+        },
+        {
+          "id": "spec.contract.spec-index#r7",
+          "level": "must",
+          "text": "A test kind is one of check, example, property, scene, integration or mutation."
+        },
+        {
+          "id": "spec.contract.spec-index#r8",
+          "level": "must",
+          "text": "A decision's why is null when the spec gives no reason."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.contract.spec-index#schema:specindex",
+          "kind": "schema",
+          "name": "SpecIndex",
+          "location": "packages/contract/src/spec-index.ts",
+          "description": "The spec.json file."
+        },
+        {
+          "id": "spec.contract.spec-index#schema:indexedsection",
+          "kind": "schema",
+          "name": "IndexedSection",
+          "location": "packages/contract/src/spec-index.ts",
+          "description": "One section: derived fields plus summary, requirements, artifacts, tests and decisions."
+        },
+        {
+          "id": "spec.contract.spec-index#file:cairn-spec-json",
+          "kind": "file",
+          "name": ".cairn/spec.json",
+          "location": null,
+          "description": "Structured index of spec.md."
+        },
+        {
+          "id": "spec.contract.spec-index#function:writespecindex",
+          "kind": "function",
+          "name": "writeSpecIndex",
+          "location": "packages/cli/src/spec-index.ts",
+          "description": "The CLI code that writes spec.json whenever `cairn plan` writes spec.md or manifest.json; the spec does not name the function."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.contract.spec-index#d1",
+          "text": "Derive structure in code and extract prose with the Planner.",
+          "why": null
+        }
+      ]
+    },
+    {
+      "id": "spec.contract.javascript-entry",
+      "title": "JavaScript entry",
+      "level": 3,
+      "line": 362,
+      "parent": "spec.contract",
+      "children": [],
+      "human": false,
+      "implements": ["prd.contract-package"],
+      "files": ["packages/contract/src/js.ts", "packages/contract/package.json"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t14", "t15", "t16"],
+      "summary": "Defines @cairn/contract/js, an Effect-free entry of parse, format, append and migrate functions plus shipped types and JSON Schemas.",
+      "requirements": [
+        {
+          "id": "spec.contract.javascript-entry#r1",
+          "level": "must",
+          "text": "@cairn/contract/js exports functions that need no Effect."
+        },
+        {
+          "id": "spec.contract.javascript-entry#r2",
+          "level": "must",
+          "text": "parseManifest, parseEvent and parseConfig return the decoded value or throw a CairnContractError with path and a message."
+        },
+        {
+          "id": "spec.contract.javascript-entry#r3",
+          "level": "must",
+          "text": "formatTrailers returns the trailer block; trailerArgs returns the same as --trailer arguments for git commit."
+        },
+        {
+          "id": "spec.contract.javascript-entry#r4",
+          "level": "must",
+          "text": "appendEvent validates the event and appends it in a single O_APPEND write, so concurrent writers never interleave lines."
+        },
+        {
+          "id": "spec.contract.javascript-entry#r5",
+          "level": "must",
+          "text": "migrateManifest upgrades older versions; version 1 is the only one, so for now it checks the version and returns the input."
+        },
+        {
+          "id": "spec.contract.javascript-entry#r6",
+          "level": "must",
+          "text": "The package ships .d.ts files and schema/{manifest,event,config}.schema.json, generated with Schema.toJsonSchemaDocument."
+        },
+        {
+          "id": "spec.contract.javascript-entry#r7",
+          "level": "must",
+          "text": "cairnDir(cwd) returns the main checkout's .cairn/ the same way the CLI finds it."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.contract.javascript-entry#function:parsemanifest",
+          "kind": "function",
+          "name": "parseManifest",
+          "location": "packages/contract/src/js.ts",
+          "description": "Decodes a manifest or throws CairnContractError.",
+          "signature": "parseManifest(input)"
+        },
+        {
+          "id": "spec.contract.javascript-entry#function:parseevent",
+          "kind": "function",
+          "name": "parseEvent",
+          "location": "packages/contract/src/js.ts",
+          "description": "Decodes an event line or throws CairnContractError.",
+          "signature": "parseEvent(line)"
+        },
+        {
+          "id": "spec.contract.javascript-entry#function:parseconfig",
+          "kind": "function",
+          "name": "parseConfig",
+          "location": "packages/contract/src/js.ts",
+          "description": "Decodes config or throws CairnContractError.",
+          "signature": "parseConfig(input)"
+        },
+        {
+          "id": "spec.contract.javascript-entry#function:formattrailers",
+          "kind": "function",
+          "name": "formatTrailers",
+          "location": "packages/contract/src/js.ts",
+          "description": "Returns the trailer block.",
+          "signature": "formatTrailers({ taskId, sections, sessionId })"
+        },
+        {
+          "id": "spec.contract.javascript-entry#function:trailerargs",
+          "kind": "function",
+          "name": "trailerArgs",
+          "location": "packages/contract/src/js.ts",
+          "description": "Returns the trailers as --trailer arguments for git commit.",
+          "signature": "trailerArgs(...)"
+        },
+        {
+          "id": "spec.contract.javascript-entry#function:appendevent",
+          "kind": "function",
+          "name": "appendEvent",
+          "location": "packages/contract/src/js.ts",
+          "description": "Validates and appends an event in a single O_APPEND write.",
+          "signature": "appendEvent(path, event)"
+        },
+        {
+          "id": "spec.contract.javascript-entry#function:migratemanifest",
+          "kind": "function",
+          "name": "migrateManifest",
+          "location": "packages/contract/src/js.ts",
+          "description": "Upgrades older manifest versions; for now checks the version and returns the input.",
+          "signature": "migrateManifest(input)"
+        },
+        {
+          "id": "spec.contract.javascript-entry#type:cairncontracterror",
+          "kind": "type",
+          "name": "CairnContractError",
+          "location": "packages/contract/src/js.ts",
+          "description": "Error thrown on decode failure, with path (the field path) and a message.",
+          "fields": [
+            {
+              "name": "path",
+              "type": "string",
+              "optional": false,
+              "description": "the field path"
+            },
+            {
+              "name": "message",
+              "type": "string",
+              "optional": false,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "id": "spec.contract.javascript-entry#file:manifest-schema-json",
+          "kind": "file",
+          "name": "manifest.schema.json",
+          "location": "packages/contract/schema/manifest.schema.json",
+          "description": "Generated JSON Schema for the manifest."
+        },
+        {
+          "id": "spec.contract.javascript-entry#file:event-schema-json",
+          "kind": "file",
+          "name": "event.schema.json",
+          "location": "packages/contract/schema/event.schema.json",
+          "description": "Generated JSON Schema for events."
+        },
+        {
+          "id": "spec.contract.javascript-entry#file:config-schema-json",
+          "kind": "file",
+          "name": "config.schema.json",
+          "location": "packages/contract/schema/config.schema.json",
+          "description": "Generated JSON Schema for config."
+        },
+        {
+          "id": "spec.contract.javascript-entry#function:cairndir",
+          "kind": "function",
+          "name": "cairnDir",
+          "location": "packages/contract/src/js.ts",
+          "description": "Returns the main checkout's .cairn/ directory.",
+          "signature": "cairnDir(cwd)"
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.contract.javascript-entry#t1",
+          "kind": "check",
+          "text": "A test regenerates the JSON Schema files and fails if the committed files differ, so pnpm check catches drift."
+        }
+      ],
+      "decisions": []
+    },
+    {
+      "id": "spec.sections",
+      "title": "Sections",
+      "level": 2,
+      "line": 377,
+      "parent": "spec.cairn-mvp-spec",
+      "children": ["spec.sections.parsing", "spec.sections.cairn-ids"],
+      "human": false,
+      "implements": [],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Groups the section parsing and cairn ids specs.",
+      "requirements": [],
+      "artifacts": [],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.sections.parsing",
+      "title": "Parsing",
+      "level": 3,
+      "line": 379,
+      "parent": "spec.sections",
+      "children": [],
+      "human": false,
+      "implements": ["prd.section-ids"],
+      "files": ["packages/core/src/section-ids.ts", "packages/core/src/sections.ts"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t17"],
+      "summary": "sectionsOf(markdown) returns every heading outside a fence as a Section with id, level, title, line, parent, body, human flag and keys.",
+      "requirements": [
+        {
+          "id": "spec.sections.parsing#r1",
+          "level": "must",
+          "text": "sectionsOf(markdown) returns every heading outside a fence."
+        },
+        {
+          "id": "spec.sections.parsing#r2",
+          "level": "must",
+          "text": "Section.title excludes the {#id}."
+        },
+        {
+          "id": "spec.sections.parsing#r3",
+          "level": "must",
+          "text": "Section.line is 1-based, for lint output."
+        },
+        {
+          "id": "spec.sections.parsing#r4",
+          "level": "must",
+          "text": "Section.body runs up to the next heading of any level."
+        },
+        {
+          "id": "spec.sections.parsing#r5",
+          "level": "must",
+          "text": "Section.human is true when its body or an ancestor's body has <!-- human -->."
+        },
+        {
+          "id": "spec.sections.parsing#r6",
+          "level": "must",
+          "text": "Section.keys holds the section's own keys plus inherited ones."
+        },
+        {
+          "id": "spec.sections.parsing#r7",
+          "level": "must",
+          "text": "sectionsOf reuses the fence and heading rules assignSectionIds already has, so both agree on what counts as a heading."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.sections.parsing#function:sectionsof",
+          "location": "packages/core/src/sections.ts",
+          "kind": "function",
+          "name": "sectionsOf",
+          "description": "Returns every heading outside a fence as a Section.",
+          "signature": "sectionsOf(markdown)"
+        },
+        {
+          "id": "spec.sections.parsing#type:section",
+          "location": "packages/core/src/sections.ts",
+          "kind": "type",
+          "name": "Section",
+          "description": "A parsed heading.",
+          "fields": [
+            {
+              "name": "id",
+              "type": "SectionId | undefined",
+              "optional": false,
+              "description": "Section ID"
+            },
+            {
+              "name": "level",
+              "type": "number",
+              "optional": false,
+              "description": "Heading level"
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "optional": false,
+              "description": "Title without the {#id}"
+            },
+            {
+              "name": "line",
+              "type": "number",
+              "optional": false,
+              "description": "1-based, for lint output"
+            },
+            {
+              "name": "parent",
+              "type": "SectionId | undefined",
+              "optional": false,
+              "description": "Parent section ID"
+            },
+            {
+              "name": "body",
+              "type": "string",
+              "optional": false,
+              "description": "Up to the next heading of any level"
+            },
+            {
+              "name": "human",
+              "type": "boolean",
+              "optional": false,
+              "description": "Its body or an ancestor's body has <!-- human -->"
+            },
+            {
+              "name": "keys",
+              "type": "{ implements; files; dependsOn; defers; context }",
+              "optional": false,
+              "description": "Own keys plus inherited ones"
+            }
+          ]
+        },
+        {
+          "id": "spec.sections.parsing#function:assignsectionids",
+          "location": "packages/core/src/section-ids.ts",
+          "kind": "function",
+          "name": "assignSectionIds",
+          "description": "Existing function whose fence and heading rules sectionsOf reuses."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.sections.parsing#d1",
+          "text": "Reuse the fence and heading rules of assignSectionIds rather than defining new ones.",
+          "why": "So both agree on what counts as a heading."
+        }
+      ]
+    },
+    {
+      "id": "spec.sections.cairn-ids",
+      "title": "`cairn ids`",
+      "level": 3,
+      "line": 401,
+      "parent": "spec.sections",
+      "children": [],
+      "human": false,
+      "implements": ["prd.cli", "prd.section-ids"],
+      "files": ["packages/cli/src/commands/ids.ts"],
+      "dependsOn": ["spec.sections.parsing"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t24"],
+      "summary": "cairn ids assigns missing section IDs in prd.md and spec.md, with a --check mode.",
+      "requirements": [
+        {
+          "id": "spec.sections.cairn-ids#r1",
+          "level": "must",
+          "text": "cairn ids runs assignSectionIds on prd.md with prefix prd and on spec.md with prefix spec."
+        },
+        {
+          "id": "spec.sections.cairn-ids#r2",
+          "level": "must",
+          "text": "It writes a file only when IDs were added."
+        },
+        {
+          "id": "spec.sections.cairn-ids#r3",
+          "level": "must",
+          "text": "It prints each added ID."
+        },
+        {
+          "id": "spec.sections.cairn-ids#r4",
+          "level": "must",
+          "text": "With --check it writes nothing and exits 1 if any heading lacks an ID."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.sections.cairn-ids#command:cairn-ids",
+          "location": "packages/cli/src/commands/ids.ts",
+          "kind": "command",
+          "name": "cairn ids",
+          "description": "Assigns missing section IDs in prd.md and spec.md.",
+          "signature": "cairn ids [--check]"
+        },
+        {
+          "id": "spec.sections.cairn-ids#flag:check",
+          "location": null,
+          "kind": "flag",
+          "name": "--check",
+          "description": "Writes nothing and exits 1 if any heading lacks an ID."
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.gates",
+      "title": "Gates",
+      "level": 2,
+      "line": 409,
+      "parent": "spec.cairn-mvp-spec",
+      "children": ["spec.gates.path-matching", "spec.gates.detection"],
+      "human": false,
+      "implements": [],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Groups the gate path matching and detection specs.",
+      "requirements": [],
+      "artifacts": [],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.gates.path-matching",
+      "title": "Path matching",
+      "level": 3,
+      "line": 411,
+      "parent": "spec.gates",
+      "children": [],
+      "human": false,
+      "implements": ["prd.human-gates"],
+      "files": ["packages/core/src/gates.ts"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t18"],
+      "summary": "Gate path patterns use Node path.matchesGlob plus a gitignore rule for slash-less patterns and directory paths.",
+      "requirements": [
+        {
+          "id": "spec.gates.path-matching#r1",
+          "level": "must",
+          "text": "Patterns use path.matchesGlob from Node."
+        },
+        {
+          "id": "spec.gates.path-matching#r2",
+          "level": "must",
+          "text": "A pattern without a / matches the file name in any directory."
+        },
+        {
+          "id": "spec.gates.path-matching#r3",
+          "level": "must",
+          "text": "A declared path ending in / is a directory and matches when a file inside it would."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.gates.path-matching#function:path-matchesglob",
+          "location": null,
+          "kind": "function",
+          "name": "path.matchesGlob",
+          "description": "Node glob matcher used for gate patterns."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.gates.path-matching#d1",
+          "text": "Add one gitignore rule to path.matchesGlob: a pattern without a / matches the file name in any directory.",
+          "why": "Without it, *.sql would miss db/001.sql."
+        }
+      ]
+    },
+    {
+      "id": "spec.gates.detection",
+      "title": "Detection",
+      "level": 3,
+      "line": 418,
+      "parent": "spec.gates",
+      "children": [],
+      "human": false,
+      "implements": ["prd.human-gates"],
+      "files": ["packages/core/src/gates.ts"],
+      "dependsOn": ["spec.gates.path-matching", "spec.sections.parsing", "spec.contract.manifest"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t19"],
+      "summary": "gateOf returns whether a task needs a human gate and the reasons, from tags and path patterns, and status derivation recomputes it after commits.",
+      "requirements": [
+        {
+          "id": "spec.gates.detection#r1",
+          "level": "must",
+          "text": "gateOf(task, sections, config, changedFiles) returns { required, reasons }."
+        },
+        {
+          "id": "spec.gates.detection#r2",
+          "level": "must",
+          "text": "Reason tag:human is given if any linked PRD or spec section has human: true."
+        },
+        {
+          "id": "spec.gates.detection#r3",
+          "level": "must",
+          "text": "Reason path:<pattern> is given for each pattern that matches a file in task.files (plan time) or in changedFiles (after commits)."
+        },
+        {
+          "id": "spec.gates.detection#r4",
+          "level": "must",
+          "text": "The plan stores the plan-time result in humanGate."
+        },
+        {
+          "id": "spec.gates.detection#r5",
+          "level": "must",
+          "text": "Status derivation recomputes the gate with the files the task's commits actually changed, so a hit after commit gates a task the plan did not."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.gates.detection#function:gateof",
+          "location": "packages/core/src/gates.ts",
+          "kind": "function",
+          "name": "gateOf",
+          "description": "Returns the gate decision for a task.",
+          "signature": "gateOf(task, sections, config, changedFiles) returns { required, reasons }"
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.models",
+      "title": "Models",
+      "level": 2,
+      "line": 431,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [],
+      "human": false,
+      "implements": ["prd.implementation-in-effect", "prd.judging-the-plan"],
+      "files": ["packages/cli/src/models.ts"],
+      "dependsOn": ["spec.contract.config"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t29", "t57"],
+      "summary": "Defines the two model services: LanguageModel (Anthropic) for the Planner and DecisionModel (TypeSafe Jev) for the Judge, with keys from the environment, optional base URLs and a pinned Jev version.",
+      "requirements": [
+        {
+          "id": "spec.models#r1",
+          "level": "must",
+          "text": "models.ts builds the LanguageModel and DecisionModel Layers from config, and the CLI composition root provides them."
+        },
+        {
+          "id": "spec.models#r2",
+          "level": "must",
+          "text": "Keys are read with Config.Redacted from ANTHROPIC_API_KEY and TYPESAFE_API_KEY."
+        },
+        {
+          "id": "spec.models#r3",
+          "level": "must-not",
+          "text": "Keys are never written and never logged."
+        },
+        {
+          "id": "spec.models#r4",
+          "level": "must",
+          "text": "The Redactor adds both keys' values to its secret set."
+        },
+        {
+          "id": "spec.models#r5",
+          "level": "must",
+          "text": "A command that calls no model never reads a key."
+        },
+        {
+          "id": "spec.models#r6",
+          "level": "must",
+          "text": "cairn plan without ANTHROPIC_API_KEY fails before it changes any file."
+        },
+        {
+          "id": "spec.models#r7",
+          "level": "must",
+          "text": "planner.baseUrl and judge.baseUrl become each client's apiUrl."
+        },
+        {
+          "id": "spec.models#r8",
+          "level": "must-not",
+          "text": "Cairn ships no gateway and needs no Cloudflare account."
+        },
+        {
+          "id": "spec.models#r9",
+          "level": "must",
+          "text": "The Jev model is pinned to a version, and judgments.json records it."
+        },
+        {
+          "id": "spec.models#r10",
+          "level": "must-not",
+          "text": "No test reads a key or touches the network."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.models#file:models-ts",
+          "kind": "file",
+          "name": "models.ts",
+          "location": "packages/cli/src/models.ts",
+          "description": "Builds both model Layers from config."
+        },
+        {
+          "id": "spec.models#service:languagemodel",
+          "kind": "service",
+          "name": "LanguageModel",
+          "location": null,
+          "description": "effect/ai service for text and schema-decoded objects; live through @effect/ai-anthropic."
+        },
+        {
+          "id": "spec.models#service:decisionmodel",
+          "kind": "service",
+          "name": "DecisionModel",
+          "location": null,
+          "description": "effect/ai service for typed questions with probabilities; live through @effect/ai-typesafe."
+        },
+        {
+          "id": "spec.models#library:effect-ai-anthropic",
+          "kind": "library",
+          "name": "@effect/ai-anthropic",
+          "location": null,
+          "description": "AnthropicLanguageModel.model(planner.model)."
+        },
+        {
+          "id": "spec.models#library:effect-ai-typesafe",
+          "kind": "library",
+          "name": "@effect/ai-typesafe",
+          "location": null,
+          "description": "TypeSafeDecisionModel.model(judge.model)."
+        },
+        {
+          "id": "spec.models#config-key:anthropic-api-key",
+          "kind": "config-key",
+          "name": "ANTHROPIC_API_KEY",
+          "location": null,
+          "description": "Key for the language model."
+        },
+        {
+          "id": "spec.models#config-key:typesafe-api-key",
+          "kind": "config-key",
+          "name": "TYPESAFE_API_KEY",
+          "location": null,
+          "description": "Key for the decision model."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.models#d2",
+          "text": "Support a gateway only through planner.baseUrl and judge.baseUrl.",
+          "why": "Setting them routes calls through a proxy such as Cloudflare AI Gateway; Cairn ships no gateway and needs no Cloudflare account."
+        },
+        {
+          "id": "spec.models#d3",
+          "text": "Pin the Jev model to jev-1.14.0, not jev-latest.",
+          "why": "So the same input gets the same model; judgments.json records it."
+        }
+      ]
+    },
+    {
+      "id": "spec.planning",
+      "title": "Planning",
+      "level": 2,
+      "line": 450,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [
+        "spec.planning.planner-service",
+        "spec.planning.stack-order",
+        "spec.planning.cairn-plan"
+      ],
+      "human": false,
+      "implements": [],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Groups the planner service, stack order and cairn plan specs.",
+      "requirements": [],
+      "artifacts": [],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.planning.planner-service",
+      "title": "Planner service",
+      "level": 3,
+      "line": 452,
+      "parent": "spec.planning",
+      "children": [],
+      "human": false,
+      "implements": ["prd.cli"],
+      "files": ["packages/cli/src/planner.ts", "packages/cli/prompts/"],
+      "dependsOn": ["spec.models"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t28", "t29", "t61"],
+      "summary": "The planner makes five calls through the LanguageModel: spec, tasks, splitSection, splitTask and index, each with a prompt file and one decode retry; model and reasoning are proposals, and the model never decides gates, IDs, branch names or order.",
+      "requirements": [
+        {
+          "id": "spec.planning.planner-service#r1",
+          "level": "must",
+          "text": "The planner makes five calls, each with a prompt file in packages/cli/prompts/."
+        },
+        {
+          "id": "spec.planning.planner-service#r2",
+          "level": "must",
+          "text": "spec(prd) returns spec markdown, with this file as its worked example."
+        },
+        {
+          "id": "spec.planning.planner-service#r3",
+          "level": "must",
+          "text": "tasks(prd, spec) returns TaskDraft[] decoded through the TaskDraft schema."
+        },
+        {
+          "id": "spec.planning.planner-service#r4",
+          "level": "must",
+          "text": "Model and reasoning in a TaskDraft are proposals that routing can replace."
+        },
+        {
+          "id": "spec.planning.planner-service#r5",
+          "level": "must",
+          "text": "splitSection(section, reason) returns two or more sections under the same parent with the same Implements."
+        },
+        {
+          "id": "spec.planning.planner-service#r6",
+          "level": "must",
+          "text": "splitTask(draft, spec, reason) returns two or more TaskDrafts that together cover the draft's spec sections and files."
+        },
+        {
+          "id": "spec.planning.planner-service#r7",
+          "level": "must",
+          "text": "index(section) returns the prose fields of an IndexedSection."
+        },
+        {
+          "id": "spec.planning.planner-service#r8",
+          "level": "must",
+          "text": "A failed decode retries once with the error in the prompt, then fails with a PlannerError."
+        },
+        {
+          "id": "spec.planning.planner-service#r9",
+          "level": "must-not",
+          "text": "The model never decides gates, IDs, branch names or order."
+        },
+        {
+          "id": "spec.planning.planner-service#r10",
+          "level": "must",
+          "text": "The live layer uses the LanguageModel from spec.models."
+        },
+        {
+          "id": "spec.planning.planner-service#r11",
+          "level": "must",
+          "text": "The test layer replays fixtures: this spec.md, the drafts behind manifest.json, this repo's spec.json and scripted splits."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.planning.planner-service#service:planner",
+          "location": "packages/cli/src/planner.ts",
+          "kind": "service",
+          "name": "Planner",
+          "description": "Service with a live layer (effect/ai, Anthropic) and a test layer replaying fixtures."
+        },
+        {
+          "id": "spec.planning.planner-service#function:spec",
+          "location": "packages/cli/src/planner.ts",
+          "kind": "function",
+          "name": "spec",
+          "description": "Returns spec markdown from the PRD.",
+          "signature": "spec(prd)"
+        },
+        {
+          "id": "spec.planning.planner-service#function:tasks",
+          "location": "packages/cli/src/planner.ts",
+          "kind": "function",
+          "name": "tasks",
+          "description": "Returns TaskDraft[] as structured output.",
+          "signature": "tasks(prd, spec)"
+        },
+        {
+          "id": "spec.planning.planner-service#schema:taskdraft",
+          "location": null,
+          "kind": "schema",
+          "name": "TaskDraft",
+          "description": "Schema decoding the structured task output.",
+          "fields": [
+            {
+              "name": "title",
+              "type": "string",
+              "optional": false,
+              "description": "Task title"
+            },
+            {
+              "name": "PRD and spec sections",
+              "type": "section IDs",
+              "optional": false,
+              "description": "Linked sections"
+            },
+            {
+              "name": "files",
+              "type": "string[]",
+              "optional": false,
+              "description": "Files"
+            },
+            {
+              "name": "depends on",
+              "type": "drafts",
+              "optional": false,
+              "description": "The drafts it depends on"
+            },
+            {
+              "name": "model",
+              "type": "string",
+              "optional": false,
+              "description": "Model"
+            },
+            {
+              "name": "reasoning",
+              "type": "string",
+              "optional": false,
+              "description": "Reasoning"
+            }
+          ]
+        },
+        {
+          "id": "spec.planning.planner-service#type:plannererror",
+          "location": null,
+          "kind": "type",
+          "name": "PlannerError",
+          "description": "Error raised when decode fails twice (and on a stack cycle)."
+        },
+        {
+          "id": "spec.planning.planner-service#service:languagemodel",
+          "kind": "service",
+          "name": "LanguageModel",
+          "location": null,
+          "description": "Provided by spec.models."
+        },
+        {
+          "id": "spec.planning.planner-service#function:splitsection",
+          "kind": "function",
+          "name": "splitSection",
+          "location": "packages/cli/src/planner.ts",
+          "description": "Splits a section judged too large.",
+          "signature": "splitSection(section, reason)"
+        },
+        {
+          "id": "spec.planning.planner-service#function:splittask",
+          "kind": "function",
+          "name": "splitTask",
+          "location": "packages/cli/src/planner.ts",
+          "description": "Splits a draft judged too large.",
+          "signature": "splitTask(draft, spec, reason)"
+        },
+        {
+          "id": "spec.planning.planner-service#function:index",
+          "kind": "function",
+          "name": "index",
+          "location": "packages/cli/src/planner.ts",
+          "description": "Extracts the prose fields for spec.json.",
+          "signature": "index(section)"
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.planning.planner-service#d1",
+          "text": "Gates, IDs, branch names and order are deterministic code, not model output.",
+          "why": "They are deterministic and tested."
+        }
+      ]
+    },
+    {
+      "id": "spec.planning.stack-order",
+      "title": "Stack order",
+      "level": 3,
+      "line": 472,
+      "parent": "spec.planning",
+      "children": [],
+      "human": false,
+      "implements": ["prd.human-gates", "prd.cli", "prd.manifest-schema"],
+      "files": ["packages/core/src/stack.ts"],
+      "dependsOn": ["spec.gates.detection"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t20"],
+      "summary": "stackOf orders drafts by dependency and returns a set of stacks: parentOf puts a task on the latest of its dependencies when they share one chain, and starts it from baseBranch after they land when they do not.",
+      "requirements": [
+        {
+          "id": "spec.planning.stack-order#r1",
+          "level": "must",
+          "text": "stackOf(feature, drafts, gates) returns the tasks as a set of stacks."
+        },
+        {
+          "id": "spec.planning.stack-order#r2",
+          "level": "must",
+          "text": "Tasks are topologically sorted by dependency; among tasks whose dependencies are placed, gated ones go first, then planner order."
+        },
+        {
+          "id": "spec.planning.stack-order#r3",
+          "level": "must",
+          "text": "IDs are t1… in that order, and branches are <feature>/<NN>-<slug>."
+        },
+        {
+          "id": "spec.planning.stack-order#r4",
+          "level": "must",
+          "text": "dependsOn is the draft's dependencies, as task IDs."
+        },
+        {
+          "id": "spec.planning.stack-order#r5",
+          "level": "must",
+          "text": "A task with no dependencies has parent null and starts a stack on baseBranch."
+        },
+        {
+          "id": "spec.planning.stack-order#r6",
+          "level": "must",
+          "text": "A task whose dependencies all lie on one chain takes the latest of them as its parent."
+        },
+        {
+          "id": "spec.planning.stack-order#r7",
+          "level": "must",
+          "text": "A task whose dependencies lie on different stacks has parent null and starts from baseBranch once every dependency has landed."
+        },
+        {
+          "id": "spec.planning.stack-order#r8",
+          "level": "must",
+          "text": "A cycle fails with a PlannerError naming the tasks in it."
+        },
+        {
+          "id": "spec.planning.stack-order#r9",
+          "level": "must",
+          "text": "worktreesOf gives each task the worktree of its parent or a dependency when that worktree's latest task is one it depends on and no other task has taken it next; otherwise a new one."
+        },
+        {
+          "id": "spec.planning.stack-order#r10",
+          "level": "must",
+          "text": "The first worktree is the repo's own checkout (null); the rest are wt-1, wt-2, …."
+        },
+        {
+          "id": "spec.planning.stack-order#r11",
+          "level": "must-not",
+          "text": "Tasks that can run at the same time never share a worktree."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.planning.stack-order#function:stackof",
+          "kind": "function",
+          "name": "stackOf",
+          "location": "packages/core/src/stack.ts",
+          "description": "Returns the tasks as a set of stacks.",
+          "signature": "stackOf(feature, drafts, gates)"
+        },
+        {
+          "id": "spec.planning.stack-order#function:parentof",
+          "kind": "function",
+          "name": "parentOf",
+          "location": "packages/core/src/stack.ts",
+          "description": "Sets each task's parent from its dependencies."
+        },
+        {
+          "id": "spec.planning.stack-order#function:worktreesof",
+          "kind": "function",
+          "name": "worktreesOf",
+          "location": "packages/core/src/stack.ts",
+          "description": "Assigns each task a worktree."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.planning.stack-order#d1",
+          "text": "Every ancestor of a task is something it depends on.",
+          "why": "So a gated task has nothing below it but its own dependencies, and tasks on different stacks can be built at the same time."
+        }
+      ]
+    },
+    {
+      "id": "spec.planning.cairn-plan",
+      "title": "`cairn plan`",
+      "level": 3,
+      "line": 774,
+      "parent": "spec.planning",
+      "children": [],
+      "human": false,
+      "implements": ["prd.cli"],
+      "files": ["packages/cli/src/commands/plan.ts"],
+      "dependsOn": [
+        "spec.planning.planner-service",
+        "spec.planning.stack-order",
+        "spec.lint",
+        "spec.sections.cairn-ids",
+        "spec.judging.checkpoints",
+        "spec.contract.spec-index"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t30", "t64"],
+      "summary": "cairn plan assigns IDs, generates or reuses the spec, drafts and orders tasks, lints in memory, confirms and writes manifest.json.",
+      "requirements": [
+        {
+          "id": "spec.planning.cairn-plan#r1",
+          "level": "must",
+          "text": "Assign missing IDs in prd.md."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r2",
+          "level": "must",
+          "text": "If spec.md is missing or --respec is passed, generate it and assign its IDs; otherwise keep the human's edits."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r3",
+          "level": "must",
+          "text": "Draft tasks."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r4",
+          "level": "must",
+          "text": "If TYPESAFE_API_KEY is set, refine the spec and drafts; otherwise print \"Judging skipped: TYPESAFE_API_KEY is not set.\" and keep the drafts."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r5",
+          "level": "must",
+          "text": "Compute gates, order the stack, ask the stack questions, and lint in memory."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r6",
+          "level": "must",
+          "text": "Print what judging changed, then the stack with lint findings and flag or unsure judgments, and ask \"Write manifest.json? [y/N]\"."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r7",
+          "level": "must",
+          "text": "--yes skips the question."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r8",
+          "level": "must",
+          "text": "Refuse to write if lint has errors, or if an existing manifest has a task that is not pending."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r9",
+          "level": "must-not",
+          "text": "Judgments never block the write."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r10",
+          "level": "must",
+          "text": "Write spec.md if it was generated or split, then spec.json, manifest.json and judgments.json."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.planning.cairn-plan#command:cairn-plan",
+          "location": "packages/cli/src/commands/plan.ts",
+          "kind": "command",
+          "name": "cairn plan",
+          "description": "Plans the task stack and writes manifest.json.",
+          "signature": "cairn plan [--respec] [--yes]"
+        },
+        {
+          "id": "spec.planning.cairn-plan#flag:respec",
+          "location": null,
+          "kind": "flag",
+          "name": "--respec",
+          "description": "Regenerate spec.md even if it exists."
+        },
+        {
+          "id": "spec.planning.cairn-plan#flag:yes",
+          "location": null,
+          "kind": "flag",
+          "name": "--yes",
+          "description": "Skips the Write manifest.json? question."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.planning.cairn-plan#d1",
+          "text": "Re-planning a started stack is not supported in the MVP; it is left to v2's rebase flow.",
+          "why": "Re-planning a started stack is v2's rebase flow."
+        }
+      ]
+    },
+    {
+      "id": "spec.lint",
+      "title": "Lint",
+      "level": 2,
+      "line": 789,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [],
+      "human": false,
+      "implements": ["prd.cli", "prd.section-ids"],
+      "files": ["packages/core/src/lint.ts", "packages/cli/src/commands/lint.ts"],
+      "dependsOn": ["spec.sections.parsing", "spec.gates.detection", "spec.planning.stack-order"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t25", "t26", "t27", "t66"],
+      "summary": "lint is a pure function returning findings for eleven rules, printed by a command that exits 1 on any error.",
+      "requirements": [
+        {
+          "id": "spec.lint#r1",
+          "level": "must",
+          "text": "lint(prd, spec, manifest, config) is pure."
+        },
+        {
+          "id": "spec.lint#r2",
+          "level": "must",
+          "text": "It returns findings as { rule, severity, file, line, message }."
+        },
+        {
+          "id": "spec.lint#r3",
+          "level": "must",
+          "text": "The command prints \"file:line rule message\"."
+        },
+        {
+          "id": "spec.lint#r4",
+          "level": "must",
+          "text": "The command exits 1 on any error."
+        },
+        {
+          "id": "spec.lint#r5",
+          "level": "must",
+          "text": "Rule unknown-section (error) fires when: A task or spec key names an ID that no heading has, including a deleted heading."
+        },
+        {
+          "id": "spec.lint#r6",
+          "level": "must",
+          "text": "Rule unmapped-section (error) fires when: A PRD section is not covered (see spec.format)."
+        },
+        {
+          "id": "spec.lint#r7",
+          "level": "must",
+          "text": "Rule missing-id (error) fires when: A heading has no ID. The message says to run cairn ids."
+        },
+        {
+          "id": "spec.lint#r8",
+          "level": "must",
+          "text": "Rule duplicate-id (error) fires when: Two headings share an ID."
+        },
+        {
+          "id": "spec.lint#r9",
+          "level": "must",
+          "text": "Rule wrong-prefix (error) fires when: A spec. ID in prd.md, or the reverse."
+        },
+        {
+          "id": "spec.lint#r10",
+          "level": "must",
+          "text": "Rule bad-parent (error) fires when: A parent that is not in the manifest, or a cycle."
+        },
+        {
+          "id": "spec.lint#r11",
+          "level": "must",
+          "text": "Rule gate-mismatch (error) fires when: humanGate differs from what plan-time detection computes."
+        },
+        {
+          "id": "spec.lint#r12",
+          "level": "must",
+          "text": "Rule gate-too-high (warning) fires when: A gated task sits above an ungated task it does not depend on."
+        },
+        {
+          "id": "spec.lint#r13",
+          "level": "must",
+          "text": "Rule no-commits-landed (warning) fires when: A task is landed with no commits."
+        },
+        {
+          "id": "spec.lint#r14",
+          "level": "must",
+          "text": "index-drift names the section and field that drifted."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.lint#function:lint",
+          "location": "packages/core/src/lint.ts",
+          "kind": "function",
+          "name": "lint",
+          "description": "Pure function returning findings.",
+          "signature": "lint(prd, spec, manifest, config)"
+        },
+        {
+          "id": "spec.lint#type:finding",
+          "location": "packages/core/src/lint.ts",
+          "kind": "type",
+          "name": "Finding",
+          "description": "One lint finding, `{ rule, severity, file, line, message }`; the command prints it as `file:line rule message`.",
+          "fields": [
+            {
+              "name": "rule",
+              "type": "string",
+              "optional": false,
+              "description": "The lint rule that fired, e.g. unknown-section"
+            },
+            {
+              "name": "severity",
+              "type": "\"error\" | \"warning\"",
+              "optional": false,
+              "description": "Any error makes cairn lint exit 1"
+            },
+            {
+              "name": "file",
+              "type": "string",
+              "optional": false,
+              "description": "The file the problem is in, e.g. .cairn/spec.md"
+            },
+            {
+              "name": "line",
+              "type": "number",
+              "optional": false,
+              "description": "1-based line of the problem"
+            },
+            {
+              "name": "message",
+              "type": "string",
+              "optional": false,
+              "description": "What is wrong and how to fix it"
+            }
+          ]
+        },
+        {
+          "id": "spec.lint#command:cairn-lint",
+          "location": "packages/cli/src/commands/lint.ts",
+          "kind": "command",
+          "name": "cairn lint",
+          "description": "Prints findings as file:line rule message and exits 1 on any error."
+        },
+        {
+          "id": "spec.lint#lint-rule:unknown-section",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "unknown-section",
+          "description": "error: fires when A task or spec key names an ID that no heading has, including a deleted heading."
+        },
+        {
+          "id": "spec.lint#lint-rule:unmapped-section",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "unmapped-section",
+          "description": "error: fires when A PRD section is not covered (see spec.format)."
+        },
+        {
+          "id": "spec.lint#lint-rule:missing-id",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "missing-id",
+          "description": "error: fires when A heading has no ID. The message says to run cairn ids."
+        },
+        {
+          "id": "spec.lint#lint-rule:duplicate-id",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "duplicate-id",
+          "description": "error: fires when Two headings share an ID."
+        },
+        {
+          "id": "spec.lint#lint-rule:wrong-prefix",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "wrong-prefix",
+          "description": "error: fires when A spec. ID in prd.md, or the reverse."
+        },
+        {
+          "id": "spec.lint#lint-rule:bad-parent",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "bad-parent",
+          "description": "error: fires when a parent or dependency is not in the manifest, or there is a cycle."
+        },
+        {
+          "id": "spec.lint#lint-rule:parent-mismatch",
+          "kind": "lint-rule",
+          "name": "parent-mismatch",
+          "location": null,
+          "description": "error: fires when parent differs from what parentOf computes from dependsOn."
+        },
+        {
+          "id": "spec.lint#lint-rule:worktree-clash",
+          "kind": "lint-rule",
+          "name": "worktree-clash",
+          "location": null,
+          "description": "error: fires when two tasks share a worktree and neither depends on the other."
+        },
+        {
+          "id": "spec.lint#lint-rule:gate-mismatch",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "gate-mismatch",
+          "description": "error: fires when humanGate differs from what plan-time detection computes."
+        },
+        {
+          "id": "spec.lint#lint-rule:no-commits-landed",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "no-commits-landed",
+          "description": "warning: fires when A task is landed with no commits."
+        },
+        {
+          "id": "spec.lint#lint-rule:index-drift",
+          "kind": "lint-rule",
+          "name": "index-drift",
+          "location": null,
+          "description": "Warning: a derived field in spec.json differs from spec.md or manifest.json."
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.judging",
+      "title": "Judging",
+      "level": 2,
+      "line": 811,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [
+        "spec.judging.questions",
+        "spec.judging.verdicts",
+        "spec.judging.judge-service",
+        "spec.judging.checkpoints",
+        "spec.judging.cairn-judge"
+      ],
+      "human": false,
+      "implements": ["prd.judging-the-plan"],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Judging asks a decision model at each step of the breakdown whether pieces are the right size and which model each task needs; the language model writes and splits, and code keeps every change within bounds.",
+      "requirements": [
+        {
+          "id": "spec.judging#r1",
+          "level": "must",
+          "text": "The language model writes and splits; the decision model decides when to split and which model to use."
+        },
+        {
+          "id": "spec.judging#r2",
+          "level": "must",
+          "text": "Code decides what each answer means and keeps every change within bounds."
+        }
+      ],
+      "artifacts": [],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.judging#d1",
+          "text": "The decision model decides when to split and which model to use; the language model writes and splits.",
+          "why": null
+        }
+      ]
+    },
+    {
+      "id": "spec.judging.questions",
+      "title": "Questions",
+      "level": 3,
+      "line": 817,
+      "parent": "spec.judging",
+      "children": [],
+      "human": false,
+      "implements": [],
+      "files": ["packages/core/src/judging/questions.ts"],
+      "dependsOn": ["spec.sections.parsing", "spec.contract.manifest"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t58"],
+      "summary": "Three Decision.make definitions in core, for spec sections, tasks and the stack, and a pure inputsOf; tasks are asked size, matches, model and reasoning.",
+      "requirements": [
+        {
+          "id": "spec.judging.questions#r1",
+          "level": "must",
+          "text": "The definitions are plain data built with Decision.make and live in core."
+        },
+        {
+          "id": "spec.judging.questions#r2",
+          "level": "must",
+          "text": "inputsOf(prd, spec, manifest) is pure and returns one input per spec section, per task and for the stack."
+        },
+        {
+          "id": "spec.judging.questions#r3",
+          "level": "must",
+          "text": "A section is asked size, faithful and buildable."
+        },
+        {
+          "id": "spec.judging.questions#r4",
+          "level": "must",
+          "text": "A task is asked size, matches, model and reasoning."
+        },
+        {
+          "id": "spec.judging.questions#r5",
+          "level": "must",
+          "text": "model is a classify over the names in judge.models, described by config."
+        },
+        {
+          "id": "spec.judging.questions#r6",
+          "level": "must-not",
+          "text": "The task input does not include the planner's model and reasoning."
+        },
+        {
+          "id": "spec.judging.questions#r7",
+          "level": "must",
+          "text": "The stack is asked complete, ordered and oneFeature."
+        },
+        {
+          "id": "spec.judging.questions#r8",
+          "level": "must",
+          "text": "Each rating level and probability carries a description with an example from this repo's plan."
+        },
+        {
+          "id": "spec.judging.questions#r9",
+          "level": "must-not",
+          "text": "There is no prompt file; the definitions are the prompt."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.judging.questions#function:inputsof",
+          "kind": "function",
+          "name": "inputsOf",
+          "location": "packages/core/src/judging/questions.ts",
+          "description": "Pure; builds one judging input per target.",
+          "signature": "inputsOf(prd, spec, manifest)"
+        },
+        {
+          "id": "spec.judging.questions#schema:sectionquestions",
+          "kind": "schema",
+          "name": "SectionQuestions",
+          "location": "packages/core/src/judging/questions.ts",
+          "description": "The `Decision.make` definition for the section target (the spec does not name it): size, faithful, buildable."
+        },
+        {
+          "id": "spec.judging.questions#schema:taskquestions",
+          "kind": "schema",
+          "name": "TaskQuestions",
+          "location": "packages/core/src/judging/questions.ts",
+          "description": "The `Decision.make` definition for the task target (the spec does not name it): size, matches, model, reasoning."
+        },
+        {
+          "id": "spec.judging.questions#schema:stackquestions",
+          "kind": "schema",
+          "name": "StackQuestions",
+          "location": "packages/core/src/judging/questions.ts",
+          "description": "The `Decision.make` definition for the stack target (the spec does not name it): complete, ordered, oneFeature."
+        },
+        {
+          "id": "spec.judging.questions#table:questions",
+          "kind": "table",
+          "name": "Questions",
+          "location": null,
+          "description": "Target, input, decision, kind and what each question asks."
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.judging.verdicts",
+      "title": "Verdicts",
+      "level": 3,
+      "line": 841,
+      "parent": "spec.judging",
+      "children": [],
+      "human": false,
+      "implements": [],
+      "files": ["packages/core/src/judging/verdicts.ts"],
+      "dependsOn": ["spec.judging.questions", "spec.contract.judgments"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t59"],
+      "summary": "verdictOf turns judging answers into pass, flag or unsure, and routeOf picks the model and reasoning, using Jev only when it is confident.",
+      "requirements": [
+        {
+          "id": "spec.judging.verdicts#r1",
+          "level": "must",
+          "text": "A probability is pass at or above judge.pass, flag below judge.flag, and unsure between."
+        },
+        {
+          "id": "spec.judging.verdicts#r2",
+          "level": "must",
+          "text": "size is unsure below judge.minConfidence, otherwise pass for right and flag for too_small or too_large."
+        },
+        {
+          "id": "spec.judging.verdicts#r3",
+          "level": "must",
+          "text": "An unanswered decision is unsure, with the reason in the message."
+        },
+        {
+          "id": "spec.judging.verdicts#r4",
+          "level": "must",
+          "text": "routeOf returns model and reasoning, each with source judge or planner."
+        },
+        {
+          "id": "spec.judging.verdicts#r5",
+          "level": "must",
+          "text": "A routing answer at or above judge.minConfidence gives Jev's label and pass; a lower one keeps the planner's value and gives unsure."
+        },
+        {
+          "id": "spec.judging.verdicts#r6",
+          "level": "must",
+          "text": "In cairn judge, a confident routing answer that differs from the manifest is a flag."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.judging.verdicts#function:verdictof",
+          "kind": "function",
+          "name": "verdictOf",
+          "location": "packages/core/src/judging/verdicts.ts",
+          "description": "Pure; returns pass, flag or unsure.",
+          "signature": "verdictOf(question, outcome, thresholds, task?)"
+        },
+        {
+          "id": "spec.judging.verdicts#status:pass",
+          "kind": "status",
+          "name": "pass",
+          "location": null,
+          "description": "The answer clears the threshold."
+        },
+        {
+          "id": "spec.judging.verdicts#status:flag",
+          "kind": "status",
+          "name": "flag",
+          "location": null,
+          "description": "The answer says something is wrong."
+        },
+        {
+          "id": "spec.judging.verdicts#status:unsure",
+          "kind": "status",
+          "name": "unsure",
+          "location": null,
+          "description": "Low confidence, a probability between thresholds, or no answer."
+        },
+        {
+          "id": "spec.judging.verdicts#function:routeof",
+          "kind": "function",
+          "name": "routeOf",
+          "location": "packages/core/src/judging/verdicts.ts",
+          "description": "Pure; picks model and reasoning from Jev or the planner.",
+          "signature": "routeOf(answers, draft, thresholds)"
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.judging.verdicts#t1",
+          "kind": "check",
+          "text": "Property: raising a probability never turns pass into flag."
+        },
+        {
+          "id": "spec.judging.verdicts#t2",
+          "kind": "check",
+          "text": "Property: lowering confidence never turns unsure into pass."
+        },
+        {
+          "id": "spec.judging.verdicts#t3",
+          "kind": "check",
+          "text": "Property: an unanswered decision is never pass."
+        },
+        {
+          "id": "spec.judging.verdicts#t4",
+          "kind": "check",
+          "text": "Property: routeOf never returns a model that is not in judge.models."
+        }
+      ],
+      "decisions": []
+    },
+    {
+      "id": "spec.judging.judge-service",
+      "title": "Judge service",
+      "level": 3,
+      "line": 856,
+      "parent": "spec.judging",
+      "children": [],
+      "human": false,
+      "implements": [],
+      "files": ["packages/cli/src/judge.ts"],
+      "dependsOn": ["spec.models", "spec.judging.verdicts"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t60"],
+      "summary": "The Judge hashes each input, keeps unchanged judgments without a call, and asks the rest through DecisionModel.decideSettled, four requests at a time, with typed errors and rate-limit retries.",
+      "requirements": [
+        {
+          "id": "spec.judging.judge-service#r1",
+          "level": "must",
+          "text": "Judge.judge(inputs, previous) returns Judgments."
+        },
+        {
+          "id": "spec.judging.judge-service#r2",
+          "level": "must",
+          "text": "Each target's encoded input is hashed with SHA-256."
+        },
+        {
+          "id": "spec.judging.judge-service#r3",
+          "level": "must",
+          "text": "A previous judgment with the same hash and model is kept without a call."
+        },
+        {
+          "id": "spec.judging.judge-service#r4",
+          "level": "must",
+          "text": "The rest go to DecisionModel.decideSettled, one request per target with all its questions, four at a time."
+        },
+        {
+          "id": "spec.judging.judge-service#r5",
+          "level": "must",
+          "text": "A rate-limit error retries up to three times, waiting the delay the provider gives."
+        },
+        {
+          "id": "spec.judging.judge-service#r6",
+          "level": "must",
+          "text": "Any other AiError fails with a JudgeError naming the target."
+        },
+        {
+          "id": "spec.judging.judge-service#r7",
+          "level": "must",
+          "text": "A missing key fails with a JudgeError naming TYPESAFE_API_KEY."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.judging.judge-service#service:judge",
+          "kind": "service",
+          "name": "Judge",
+          "location": "packages/cli/src/judge.ts",
+          "description": "Live layer on DecisionModel; test layer on DecisionModel.make with a scripted decide."
+        },
+        {
+          "id": "spec.judging.judge-service#function:judge",
+          "kind": "function",
+          "name": "judge",
+          "location": "packages/cli/src/judge.ts",
+          "description": "Judges inputs, reusing unchanged judgments.",
+          "signature": "judge(inputs, previous)"
+        },
+        {
+          "id": "spec.judging.judge-service#type:judgeerror",
+          "kind": "type",
+          "name": "JudgeError",
+          "location": null,
+          "description": "Error naming the target, or TYPESAFE_API_KEY when the key is missing."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.judging.judge-service#t1",
+          "kind": "check",
+          "text": "Tests count the scripted decide calls to show that an unchanged target is not asked again."
+        }
+      ],
+      "decisions": []
+    },
+    {
+      "id": "spec.judging.checkpoints",
+      "title": "Checkpoints",
+      "level": 3,
+      "line": 867,
+      "parent": "spec.judging",
+      "children": [],
+      "human": false,
+      "implements": [],
+      "files": ["packages/cli/src/refine.ts"],
+      "dependsOn": ["spec.judging.judge-service", "spec.planning.planner-service"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t62"],
+      "summary": "refine runs the section, task-size and routing checkpoints, splitting confidently oversized pieces through the Planner within judge.maxRounds and recording every change as a judgment.",
+      "requirements": [
+        {
+          "id": "spec.judging.checkpoints#r1",
+          "level": "must",
+          "text": "refine runs the section, task-size and routing checkpoints in order and returns the refined spec, drafts and judgments."
+        },
+        {
+          "id": "spec.judging.checkpoints#r2",
+          "level": "must",
+          "text": "Sections are split only when cairn plan generated the spec in this run."
+        },
+        {
+          "id": "spec.judging.checkpoints#r3",
+          "level": "must-not",
+          "text": "A spec a human wrote or edited is never rewritten."
+        },
+        {
+          "id": "spec.judging.checkpoints#r4",
+          "level": "must",
+          "text": "A confidently too_large section or draft goes to Planner.splitSection or Planner.splitTask, and its replacements are judged again."
+        },
+        {
+          "id": "spec.judging.checkpoints#r5",
+          "level": "must",
+          "text": "Splitting runs at most judge.maxRounds rounds; anything still too large is a flag."
+        },
+        {
+          "id": "spec.judging.checkpoints#r6",
+          "level": "must",
+          "text": "A split that drops the original's Implements, spec sections or files is discarded and the original kept."
+        },
+        {
+          "id": "spec.judging.checkpoints#r7",
+          "level": "must",
+          "text": "Every change is a judgment with action split or routed, printed before the stack."
+        },
+        {
+          "id": "spec.judging.checkpoints#r8",
+          "level": "must",
+          "text": "The stack checkpoint runs in cairn plan after stackOf and only reports."
+        },
+        {
+          "id": "spec.judging.checkpoints#r9",
+          "level": "must",
+          "text": "Without TYPESAFE_API_KEY, refine returns its input unchanged with no judgments."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.judging.checkpoints#function:refine",
+          "kind": "function",
+          "name": "refine",
+          "location": "packages/cli/src/refine.ts",
+          "description": "Runs the first three checkpoints.",
+          "signature": "refine({ prd, spec, drafts, specGenerated })"
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.judging.checkpoints#t1",
+          "kind": "check",
+          "text": "A scripted too_large answer causes one split."
+        },
+        {
+          "id": "spec.judging.checkpoints#t2",
+          "kind": "check",
+          "text": "A split that drops a spec section is discarded."
+        },
+        {
+          "id": "spec.judging.checkpoints#t3",
+          "kind": "check",
+          "text": "Rounds stop at judge.maxRounds even when every answer is too_large."
+        },
+        {
+          "id": "spec.judging.checkpoints#t4",
+          "kind": "check",
+          "text": "A low-confidence model answer leaves the planner's model."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.judging.checkpoints#d1",
+          "text": "Bound splitting by rounds and by coverage.",
+          "why": null
+        }
+      ]
+    },
+    {
+      "id": "spec.judging.cairn-judge",
+      "title": "`cairn judge`",
+      "level": 3,
+      "line": 889,
+      "parent": "spec.judging",
+      "children": [],
+      "human": false,
+      "implements": [],
+      "files": ["packages/cli/src/commands/judge.ts"],
+      "dependsOn": ["spec.judging.judge-service", "spec.contract.judgments"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t65"],
+      "summary": "cairn judge judges the current spec and manifest, writes judgments.json and prints flag and unsure lines; --fresh asks again and --strict exits 1 on a flag.",
+      "requirements": [
+        {
+          "id": "spec.judging.cairn-judge#r1",
+          "level": "must",
+          "text": "cairn judge judges the current spec.md and manifest.json and writes .cairn/judgments.json."
+        },
+        {
+          "id": "spec.judging.cairn-judge#r2",
+          "level": "must",
+          "text": "It prints one line per flag or unsure as file:line judge:<question> <verdict> <message>, with the probability or the label and confidence."
+        },
+        {
+          "id": "spec.judging.cairn-judge#r3",
+          "level": "must",
+          "text": "Task lines point at the task's first spec section."
+        },
+        {
+          "id": "spec.judging.cairn-judge#r4",
+          "level": "must",
+          "text": "Without --strict the command exits 0 unless it fails."
+        },
+        {
+          "id": "spec.judging.cairn-judge#r5",
+          "level": "must-not",
+          "text": "It never writes manifest.json, spec.md, spec.json or prd.md."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.judging.cairn-judge#command:cairn-judge",
+          "kind": "command",
+          "name": "cairn judge",
+          "location": "packages/cli/src/commands/judge.ts",
+          "description": "Judges the plan and writes judgments.json."
+        },
+        {
+          "id": "spec.judging.cairn-judge#flag:fresh",
+          "kind": "flag",
+          "name": "--fresh",
+          "location": null,
+          "description": "Ignore previous judgments and ask again."
+        },
+        {
+          "id": "spec.judging.cairn-judge#flag:strict",
+          "kind": "flag",
+          "name": "--strict",
+          "location": null,
+          "description": "Exit 1 on any flag."
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.status",
+      "title": "Status",
+      "level": 2,
+      "line": 900,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [
+        "spec.status.task-machine",
+        "spec.status.derivation",
+        "spec.status.section-rollup",
+        "spec.status.cairn-status-and-cairn-approve"
+      ],
+      "human": false,
+      "implements": [],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Groups the task machine, derivation, section rollup and cairn status/approve specs.",
+      "requirements": [],
+      "artifacts": [],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.status.task-machine",
+      "title": "Task machine",
+      "level": 3,
+      "line": 902,
+      "parent": "spec.status",
+      "children": [],
+      "human": false,
+      "implements": ["prd.orchestrator-contract"],
+      "files": ["packages/core/src/task-machine.ts"],
+      "dependsOn": ["spec.contract.manifest"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t5", "t12"],
+      "summary": "The task machine gains a failed state while keeping the gate and land behaviour.",
+      "requirements": [
+        {
+          "id": "spec.status.task-machine#r1",
+          "level": "must",
+          "text": "Add a failed state: running goes there on fail, and start takes it back to running."
+        },
+        {
+          "id": "spec.status.task-machine#r2",
+          "level": "must",
+          "text": "The machine's input is the task plus its effective gate."
+        },
+        {
+          "id": "spec.status.task-machine#r3",
+          "level": "must",
+          "text": "A gated task reaches done only through approve."
+        },
+        {
+          "id": "spec.status.task-machine#r4",
+          "level": "must",
+          "text": "land is ignored outside done."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.status.task-machine#machine-state:failed",
+          "location": "packages/core/src/task-machine.ts",
+          "kind": "machine-state",
+          "name": "failed",
+          "description": "Entered from running on fail; start returns to running."
+        },
+        {
+          "id": "spec.status.task-machine#machine-event:fail",
+          "location": null,
+          "kind": "machine-event",
+          "name": "fail",
+          "description": "Moves running to failed."
+        },
+        {
+          "id": "spec.status.task-machine#machine-event:start",
+          "location": null,
+          "kind": "machine-event",
+          "name": "start",
+          "description": "Takes failed back to running."
+        },
+        {
+          "id": "spec.status.task-machine#machine-event:approve",
+          "location": null,
+          "kind": "machine-event",
+          "name": "approve",
+          "description": "The only way a gated task reaches done."
+        },
+        {
+          "id": "spec.status.task-machine#machine-event:land",
+          "location": null,
+          "kind": "machine-event",
+          "name": "land",
+          "description": "Ignored outside done."
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.status.derivation",
+      "title": "Derivation",
+      "level": 3,
+      "line": 910,
+      "parent": "spec.status",
+      "children": [],
+      "human": false,
+      "implements": ["prd.orchestrator-contract", "prd.human-gates"],
+      "files": ["packages/core/src/derive.ts"],
+      "dependsOn": [
+        "spec.status.task-machine",
+        "spec.contract.events",
+        "spec.contract.trailers",
+        "spec.gates.detection"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t31", "t32", "t34"],
+      "summary": "derive recomputes every task status from manifest, events and commits by folding events through the task machine, with warnings for anything ignored.",
+      "requirements": [
+        {
+          "id": "spec.status.derivation#r1",
+          "level": "must",
+          "text": "derive(manifest, sections, config, events, commits) recomputes every task from scratch each time."
+        },
+        {
+          "id": "spec.status.derivation#r2",
+          "level": "must",
+          "text": "Group commits by their Cairn-Task trailer; the files they change give each task's effective gate."
+        },
+        {
+          "id": "spec.status.derivation#r3",
+          "level": "must",
+          "text": "Sort the task's events by ts, then by status and actor, so the order of lines in the file never matters."
+        },
+        {
+          "id": "spec.status.derivation#r4",
+          "level": "must",
+          "text": "Fold events through the task machine: running sends start; done sends approve from blocked_on_human when the actor is human, and finish otherwise; blocked_on_human sends finish; failed sends fail; landed sends land."
+        },
+        {
+          "id": "spec.status.derivation#r5",
+          "level": "must",
+          "text": "Send land when the task's commits are reachable from baseBranch, or a commit on baseBranch carries the task's trailer (a squash merge)."
+        },
+        {
+          "id": "spec.status.derivation#r6",
+          "level": "must",
+          "text": "An orchestrator that reports done for a gated task still leaves it in blocked_on_human; the machine enforces the gate, not the orchestrator."
+        },
+        {
+          "id": "spec.status.derivation#r7",
+          "level": "must",
+          "text": "Anything the machine ignores becomes a warning in the result, not an error: an illegal transition, an approval from a non-human actor, an event or trailer for an unknown task, a commit on a task branch without trailers, and a branch that landed without approval."
+        },
+        {
+          "id": "spec.status.derivation#r8",
+          "level": "must",
+          "text": "A pending task with a blocked_on_human task below it is marked waiting, so the viewer can show why it has not started."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.status.derivation#function:derive",
+          "location": "packages/core/src/derive.ts",
+          "kind": "function",
+          "name": "derive",
+          "description": "Recomputes every task's status from scratch.",
+          "signature": "derive(manifest, sections, config, events, commits)"
+        },
+        {
+          "id": "spec.status.derivation#status:waiting",
+          "location": null,
+          "kind": "status",
+          "name": "waiting",
+          "description": "A pending task with a blocked_on_human task below it.",
+          "values": ["waiting"]
+        },
+        {
+          "id": "spec.status.derivation#machine-event:finish",
+          "location": null,
+          "kind": "machine-event",
+          "name": "finish",
+          "description": "Sent for a blocked_on_human event, and for a done event unless the task is in blocked_on_human and the actor is human."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.status.derivation#d1",
+          "text": "The machine enforces the gate, not the orchestrator.",
+          "why": null
+        },
+        {
+          "id": "spec.status.derivation#d2",
+          "text": "Ignored machine input yields warnings, not errors.",
+          "why": null
+        }
+      ]
+    },
+    {
+      "id": "spec.status.section-rollup",
+      "title": "Section rollup",
+      "level": 3,
+      "line": 929,
+      "parent": "spec.status",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer"],
+      "files": ["packages/core/src/rollup.ts"],
+      "dependsOn": ["spec.status.derivation"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t33"],
+      "summary": "A section's status is rolled up from its linked tasks and descendants by an ordered first-match rule list.",
+      "requirements": [
+        {
+          "id": "spec.status.section-rollup#r1",
+          "level": "must",
+          "text": "A section's status comes from the tasks linked to it or to any section under it."
+        },
+        {
+          "id": "spec.status.section-rollup#r2",
+          "level": "must",
+          "text": "The first matching rule wins."
+        },
+        {
+          "id": "spec.status.section-rollup#r3",
+          "level": "must",
+          "text": "Rule 1: deferred or context if a spec key says so."
+        },
+        {
+          "id": "spec.status.section-rollup#r4",
+          "level": "must",
+          "text": "Rule 2: unmapped if no task links to it."
+        },
+        {
+          "id": "spec.status.section-rollup#r5",
+          "level": "must",
+          "text": "Rule 3: blocked_on_human, then failed, then running, if any task has that status."
+        },
+        {
+          "id": "spec.status.section-rollup#r6",
+          "level": "must",
+          "text": "Rule 4: landed if all have landed, done if all are done or landed, pending if all are pending."
+        },
+        {
+          "id": "spec.status.section-rollup#r7",
+          "level": "must",
+          "text": "Rule 5: in_progress otherwise."
+        },
+        {
+          "id": "spec.status.section-rollup#r8",
+          "level": "must",
+          "text": "SectionStatus goes in the contract next to TaskStatus."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.status.section-rollup#type:sectionstatus",
+          "location": "packages/contract",
+          "kind": "type",
+          "name": "SectionStatus",
+          "description": "Section status, in the contract next to TaskStatus.",
+          "values": [
+            "deferred",
+            "context",
+            "unmapped",
+            "blocked_on_human",
+            "failed",
+            "running",
+            "landed",
+            "done",
+            "pending",
+            "in_progress"
+          ]
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.status.cairn-status-and-cairn-approve",
+      "title": "`cairn status` and `cairn approve`",
+      "level": 3,
+      "line": 945,
+      "parent": "spec.status",
+      "children": [],
+      "human": false,
+      "implements": ["prd.cli", "prd.human-gates"],
+      "files": [
+        "packages/cli/src/commands/status.ts",
+        "packages/cli/src/commands/approve.ts",
+        "packages/cli/src/git.ts"
+      ],
+      "dependsOn": ["spec.status.derivation"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t21", "t35", "t36"],
+      "summary": "cairn status prints the stack and warnings; cairn approve records a human approval; Git.log reads task branches.",
+      "requirements": [
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#r1",
+          "level": "must",
+          "text": "cairn status prints each stack as a tree, top to bottom, one line per task with status, branch, model and a gate marker, then any warnings."
+        },
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#r7",
+          "level": "must",
+          "text": "A task that waits for another stack to land names what it waits for."
+        },
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#r2",
+          "level": "must",
+          "text": "cairn status --json prints the Trace the server serves."
+        },
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#r3",
+          "level": "must",
+          "text": "cairn status and cairn status --json both refresh the manifest snapshot when it changed."
+        },
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#r4",
+          "level": "must",
+          "text": "cairn approve <taskId> appends { status: \"done\", actor: \"human:<git user.name>\" } and prints the new status."
+        },
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#r5",
+          "level": "must",
+          "text": "cairn approve refuses a task that is not blocked_on_human."
+        },
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#r6",
+          "level": "must",
+          "text": "Git.log reads each task branch with git log --format=%H%x1f%P%x1f%(trailers:key=Cairn-Task,key=Cairn-Section,key=Cairn-Session) and git show --name-only for changed files."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#command:cairn-status",
+          "location": "packages/cli/src/commands/status.ts",
+          "kind": "command",
+          "name": "cairn status",
+          "description": "Prints the stack top to bottom with warnings.",
+          "signature": "cairn status [--json]"
+        },
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#flag:json",
+          "location": null,
+          "kind": "flag",
+          "name": "--json",
+          "description": "Prints the Trace the server serves."
+        },
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#command:cairn-approve",
+          "location": "packages/cli/src/commands/approve.ts",
+          "kind": "command",
+          "name": "cairn approve",
+          "description": "Approves a gated task; the only way to approve a gate.",
+          "signature": "cairn approve <taskId>"
+        },
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#function:git-log",
+          "location": "packages/cli/src/git.ts",
+          "kind": "function",
+          "name": "Git.log",
+          "description": "Reads each task branch with git log and trailers, and git show --name-only for changed files."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.status.cairn-status-and-cairn-approve#d1",
+          "text": "Approval is a CLI command, since the PRD has no way to approve a gate.",
+          "why": "The PRD has no way to approve a gate; this is it."
+        }
+      ]
+    },
+    {
+      "id": "spec.sessions",
+      "title": "Sessions",
+      "level": 2,
+      "line": 957,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [
+        "spec.sessions.trace-store",
+        "spec.sessions.redaction",
+        "spec.sessions.cairn-session"
+      ],
+      "human": false,
+      "implements": [],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Groups the specification of session storage, redaction and the session command.",
+      "requirements": [],
+      "artifacts": [],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.sessions.trace-store",
+      "title": "Trace store",
+      "level": 3,
+      "line": 959,
+      "parent": "spec.sessions",
+      "children": [],
+      "human": false,
+      "implements": ["prd.orchestrator-contract", "prd.repo-layout"],
+      "files": ["packages/cli/src/trace-store.ts", "packages/cli/src/migrations/001-init.sql"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t2"],
+      "summary": "Specifies the SQLite trace store for redacted sessions and their notes, using node:sqlite and numbered migrations.",
+      "requirements": [
+        {
+          "id": "spec.sessions.trace-store#r1",
+          "level": "must",
+          "text": "Use `node:sqlite` so there is no native dependency."
+        },
+        {
+          "id": "spec.sessions.trace-store#r2",
+          "level": "must",
+          "text": "Keep migrations as numbered SQL files tracked with `PRAGMA user_version`."
+        },
+        {
+          "id": "spec.sessions.trace-store#r3",
+          "level": "must",
+          "text": "Attach notes to sessions, never to commits."
+        },
+        {
+          "id": "spec.sessions.trace-store#r4",
+          "level": "must",
+          "text": "Gitignore `cairn.db` so session logs, even redacted, stay on the machine that made them."
+        },
+        {
+          "id": "spec.sessions.trace-store#r5",
+          "level": "must",
+          "text": "The database opens with journal_mode = WAL and a five-second busy_timeout, because tasks running in parallel store sessions at the same time."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.sessions.trace-store#library:node-sqlite",
+          "kind": "library",
+          "name": "node:sqlite",
+          "location": null,
+          "description": "Built-in SQLite module used for the store; no native dependency."
+        },
+        {
+          "id": "spec.sessions.trace-store#table:sessions",
+          "kind": "table",
+          "name": "sessions",
+          "location": "packages/cli/src/migrations/001-init.sql",
+          "description": "Stored redacted agent sessions.",
+          "fields": [
+            {
+              "name": "id",
+              "type": "text primary key",
+              "optional": false,
+              "description": "Session ID, s_..."
+            },
+            {
+              "name": "task_id",
+              "type": "text not null",
+              "optional": false,
+              "description": "Task the session belongs to"
+            },
+            {
+              "name": "agent",
+              "type": "text",
+              "optional": true,
+              "description": "Agent name"
+            },
+            {
+              "name": "model",
+              "type": "text",
+              "optional": true,
+              "description": "Model name"
+            },
+            {
+              "name": "started_at",
+              "type": "text",
+              "optional": true,
+              "description": "Start time"
+            },
+            {
+              "name": "ended_at",
+              "type": "text",
+              "optional": true,
+              "description": "End time"
+            },
+            {
+              "name": "log",
+              "type": "text not null",
+              "optional": false,
+              "description": "Redacted JSONL"
+            },
+            {
+              "name": "redactions",
+              "type": "text not null",
+              "optional": false,
+              "description": "JSON: count per kind"
+            },
+            {
+              "name": "stored_at",
+              "type": "text not null",
+              "optional": false,
+              "description": "Storage time"
+            }
+          ]
+        },
+        {
+          "id": "spec.sessions.trace-store#table:notes",
+          "kind": "table",
+          "name": "notes",
+          "location": "packages/cli/src/migrations/001-init.sql",
+          "description": "Notes attached to sessions.",
+          "fields": [
+            {
+              "name": "id",
+              "type": "integer primary key",
+              "optional": false,
+              "description": "Note ID"
+            },
+            {
+              "name": "session_id",
+              "type": "text not null references sessions (id)",
+              "optional": false,
+              "description": "Owning session"
+            },
+            {
+              "name": "kind",
+              "type": "text not null check (kind in ('note', 'review', 'annotation'))",
+              "optional": false,
+              "description": "Note kind"
+            },
+            {
+              "name": "author",
+              "type": "text not null",
+              "optional": false,
+              "description": "Author"
+            },
+            {
+              "name": "body",
+              "type": "text not null",
+              "optional": false,
+              "description": "Note body"
+            },
+            {
+              "name": "created_at",
+              "type": "text not null",
+              "optional": false,
+              "description": "Creation time"
+            }
+          ]
+        },
+        {
+          "id": "spec.sessions.trace-store#config-key:pragma-user-version",
+          "kind": "config-key",
+          "name": "PRAGMA user_version",
+          "location": null,
+          "description": "Tracks which numbered migration has been applied."
+        },
+        {
+          "id": "spec.sessions.trace-store#file:cairn-db",
+          "kind": "file",
+          "name": "cairn.db",
+          "location": ".cairn/cairn.db",
+          "description": "Gitignored SQLite database holding sessions and notes."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.sessions.trace-store#d1",
+          "text": "Use node:sqlite rather than a native SQLite dependency.",
+          "why": "No native dependency."
+        },
+        {
+          "id": "spec.sessions.trace-store#d2",
+          "text": "Notes attach to sessions, not commits.",
+          "why": null
+        },
+        {
+          "id": "spec.sessions.trace-store#d3",
+          "text": "cairn.db is gitignored.",
+          "why": "Even redacted, session logs stay on the machine that made them."
+        }
+      ]
+    },
+    {
+      "id": "spec.sessions.redaction",
+      "title": "Redaction",
+      "level": 3,
+      "line": 991,
+      "parent": "spec.sessions",
+      "children": [],
+      "human": true,
+      "implements": ["prd.redaction"],
+      "files": ["packages/core/src/redact.ts", "packages/cli/src/redactor.ts"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t1", "t3"],
+      "summary": "Specifies redact(jsonl, secrets), which rewrites every decoded string value in a session log, its secret sources and fail-closed behaviour.",
+      "requirements": [
+        {
+          "id": "spec.sessions.redaction#r1",
+          "level": "must",
+          "text": "`redact` parses each JSONL line, rewrites every string value, and serializes the line again."
+        },
+        {
+          "id": "spec.sessions.redaction#r2",
+          "level": "must",
+          "text": "A line that does not parse fails the whole session."
+        },
+        {
+          "id": "spec.sessions.redaction#r3",
+          "level": "must",
+          "text": "Collect secrets from values in `.env*` files at the repo root and the current environment values for the same names."
+        },
+        {
+          "id": "spec.sessions.redaction#r4",
+          "level": "must",
+          "text": "Skip `.env*` and environment values under 8 characters, so `PORT=3000` does not redact every 3000."
+        },
+        {
+          "id": "spec.sessions.redaction#r5",
+          "level": "must",
+          "text": "Collect secrets from token patterns: Anthropic and OpenAI keys, GitHub tokens, AWS access keys, Slack tokens, bearer tokens, JWTs and PEM private key blocks."
+        },
+        {
+          "id": "spec.sessions.redaction#r6",
+          "level": "must",
+          "text": "Collect secrets from `config.redact.deny`."
+        },
+        {
+          "id": "spec.sessions.redaction#r7",
+          "level": "must",
+          "text": "Replace each match with `[REDACTED:<kind>]`."
+        },
+        {
+          "id": "spec.sessions.redaction#r8",
+          "level": "must",
+          "text": "The result carries a count per kind, stored with the session and printed."
+        },
+        {
+          "id": "spec.sessions.redaction#r9",
+          "level": "must",
+          "text": "Any error fails closed: nothing is written and the command exits non-zero."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.sessions.redaction#function:redact",
+          "kind": "function",
+          "name": "redact",
+          "location": "packages/core/src/redact.ts",
+          "description": "Parses each JSONL line, redacts every string value and re-serializes it; returns the redacted log with counts per kind.",
+          "signature": "redact(jsonl, secrets)"
+        },
+        {
+          "id": "spec.sessions.redaction#config-key:config-redact-deny",
+          "kind": "config-key",
+          "name": "config.redact.deny",
+          "location": null,
+          "description": "User-configured deny values treated as secrets."
+        },
+        {
+          "id": "spec.sessions.redaction#file:env",
+          "kind": "file",
+          "name": ".env*",
+          "location": null,
+          "description": "Env files at the repo root whose values are secrets."
+        },
+        {
+          "id": "spec.sessions.redaction#message:redacted-kind",
+          "kind": "message",
+          "name": "[REDACTED:<kind>]",
+          "location": null,
+          "description": "Replacement text for each redacted match."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.sessions.redaction#t1",
+          "kind": "mutation",
+          "text": "Redaction is a mutation-testing target."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.sessions.redaction#d1",
+          "text": "Redact on decoded string values rather than a regex over raw text.",
+          "why": "Secrets that JSON escaping would hide from a regex are caught."
+        },
+        {
+          "id": "spec.sessions.redaction#d2",
+          "text": "Skip `.env*` and environment values under 8 characters.",
+          "why": "So `PORT=3000` does not redact every 3000."
+        },
+        {
+          "id": "spec.sessions.redaction#d3",
+          "text": "Fail closed on any error.",
+          "why": null
+        }
+      ]
+    },
+    {
+      "id": "spec.sessions.cairn-session",
+      "title": "`cairn session`",
+      "level": 3,
+      "line": 1010,
+      "parent": "spec.sessions",
+      "children": [],
+      "human": false,
+      "implements": ["prd.orchestrator-contract"],
+      "files": ["packages/cli/src/commands/session.ts"],
+      "dependsOn": ["spec.sessions.trace-store", "spec.sessions.redaction"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t37"],
+      "summary": "Specifies the `cairn session put` and `cairn session note` commands.",
+      "requirements": [
+        {
+          "id": "spec.sessions.cairn-session#r1",
+          "level": "must",
+          "text": "`cairn session put` redacts the log, stores it and prints the session ID, generating one if none is given."
+        },
+        {
+          "id": "spec.sessions.cairn-session#r2",
+          "level": "must",
+          "text": "`cairn session note <id> --kind review <text>` adds a note."
+        },
+        {
+          "id": "spec.sessions.cairn-session#r3",
+          "level": "must",
+          "text": "Redaction lives in Cairn, not in each adapter."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.sessions.cairn-session#command:cairn-session-put",
+          "kind": "command",
+          "name": "cairn session put",
+          "location": null,
+          "description": "Redacts, stores and prints the session ID from a JSONL log on stdin.",
+          "signature": "cairn session put --task t1 [--id s_x] < log.jsonl"
+        },
+        {
+          "id": "spec.sessions.cairn-session#command:cairn-session-note",
+          "kind": "command",
+          "name": "cairn session note",
+          "location": null,
+          "description": "Adds a note to a session.",
+          "signature": "cairn session note <id> --kind review <text>"
+        },
+        {
+          "id": "spec.sessions.cairn-session#flag:task",
+          "kind": "flag",
+          "name": "--task",
+          "location": null,
+          "description": "Task the session belongs to, for session put."
+        },
+        {
+          "id": "spec.sessions.cairn-session#flag:id",
+          "kind": "flag",
+          "name": "--id",
+          "location": null,
+          "description": "Optional session ID; generated if absent."
+        },
+        {
+          "id": "spec.sessions.cairn-session#flag:kind",
+          "kind": "flag",
+          "name": "--kind",
+          "location": null,
+          "description": "Note kind for session note."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.sessions.cairn-session#d1",
+          "text": "Redaction lives in Cairn, not in each adapter.",
+          "why": "One implementation to get right and to test."
+        }
+      ]
+    },
+    {
+      "id": "spec.orchestrator-adapter",
+      "title": "Orchestrator adapter",
+      "level": 2,
+      "line": 1021,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [],
+      "human": false,
+      "implements": ["prd.orchestrator-contract"],
+      "files": [],
+      "dependsOn": [
+        "spec.contract.javascript-entry",
+        "spec.sessions.cairn-session",
+        "spec.status.cairn-status-and-cairn-approve"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t38"],
+      "summary": "Lists what the existing orchestrator must do per task using only @cairn/contract/js and the CLI.",
+      "requirements": [
+        {
+          "id": "spec.orchestrator-adapter#r1",
+          "level": "must",
+          "text": "Read the manifest with `parseManifest`."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r2",
+          "level": "must",
+          "text": "Take every task that is `pending` in `cairn status --json` whose dependencies are `done` or `landed`, and whose dependencies off its own chain are `landed`, and run them in parallel; how many run at once is the orchestrator's choice."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r3",
+          "level": "must",
+          "text": "Work in the task's worktree (the repo's own checkout when null, otherwise `git worktree add ../<repo>-<worktree>` the first time), then `gt checkout` the parent branch, or `baseBranch` after `gt sync` when the task has no parent."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r4",
+          "level": "must",
+          "text": "Call `appendEvent` with `running`."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r5",
+          "level": "must",
+          "text": "Run the agent with a new session ID; its first commit is `gt create <branch> -m <message>` and later ones are `gt modify --commit -m <message>`, each message ending with the `formatTrailers` block."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r6",
+          "level": "must",
+          "text": "Pipe the session log to `cairn session put`."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r7",
+          "level": "must",
+          "text": "Call `appendEvent` with `failed`, or `blocked_on_human` when `humanGate.required`, and `done` otherwise."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r8",
+          "level": "must",
+          "text": "A blocked task stops its chain until `cairn approve`."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r9",
+          "level": "must",
+          "text": "The orchestrator uses only `@cairn/contract/js` and the CLI."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r10",
+          "level": "must",
+          "text": "`gt submit --stack` opens or updates one pull request per task, and `gt sync` pulls baseBranch, deletes merged branches and restacks the rest."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r11",
+          "level": "must-not",
+          "text": "Neither Cairn nor the orchestrator rebases a branch by hand; Graphite owns branches, restacking and pull requests."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r12",
+          "level": "must",
+          "text": "Landing is read from git: a squash merge carries the task's trailers onto baseBranch."
+        },
+        {
+          "id": "spec.orchestrator-adapter#r13",
+          "level": "must-not",
+          "text": "No Graphite command runs with `--no-verify`; hooks gate every commit."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.orchestrator-adapter#function:parsemanifest",
+          "kind": "function",
+          "name": "parseManifest",
+          "location": null,
+          "description": "Reads the manifest (from @cairn/contract/js)."
+        },
+        {
+          "id": "spec.orchestrator-adapter#function:appendevent",
+          "kind": "function",
+          "name": "appendEvent",
+          "location": null,
+          "description": "Appends a task event such as running, failed, blocked_on_human or done."
+        },
+        {
+          "id": "spec.orchestrator-adapter#function:trailerargs",
+          "kind": "function",
+          "name": "trailerArgs",
+          "location": null,
+          "description": "Arguments passed to git commit to add trailers."
+        },
+        {
+          "id": "spec.orchestrator-adapter#library:cairn-contract-js",
+          "kind": "library",
+          "name": "@cairn/contract/js",
+          "location": null,
+          "description": "JavaScript entry of the contract used by the orchestrator."
+        },
+        {
+          "id": "spec.orchestrator-adapter#command:cairn-status-json",
+          "kind": "command",
+          "name": "cairn status --json",
+          "location": null,
+          "description": "Source of task statuses for choosing the next task."
+        },
+        {
+          "id": "spec.orchestrator-adapter#command:cairn-session-put",
+          "kind": "command",
+          "name": "cairn session put",
+          "location": null,
+          "description": "Receives the piped session log."
+        },
+        {
+          "id": "spec.orchestrator-adapter#command:cairn-approve",
+          "kind": "command",
+          "name": "cairn approve",
+          "location": null,
+          "description": "Unblocks a task blocked on human review."
+        },
+        {
+          "id": "spec.orchestrator-adapter#status:pending",
+          "kind": "status",
+          "name": "pending",
+          "location": null,
+          "description": "Task status eligible to run."
+        },
+        {
+          "id": "spec.orchestrator-adapter#status:running",
+          "kind": "status",
+          "name": "running",
+          "location": null,
+          "description": "Event appended when the task starts."
+        },
+        {
+          "id": "spec.orchestrator-adapter#status:failed",
+          "kind": "status",
+          "name": "failed",
+          "location": null,
+          "description": "Event appended when the agent fails."
+        },
+        {
+          "id": "spec.orchestrator-adapter#status:blocked-on-human",
+          "kind": "status",
+          "name": "blocked_on_human",
+          "location": null,
+          "description": "Event appended when humanGate.required."
+        },
+        {
+          "id": "spec.orchestrator-adapter#status:done",
+          "kind": "status",
+          "name": "done",
+          "location": null,
+          "description": "Event appended on success without a gate; a done dependency lets tasks on the same chain run."
+        },
+        {
+          "id": "spec.orchestrator-adapter#status:landed",
+          "kind": "status",
+          "name": "landed",
+          "location": null,
+          "description": "Status that lets every dependent run, including tasks on other stacks."
+        },
+        {
+          "id": "spec.orchestrator-adapter#command:gt-create",
+          "kind": "command",
+          "name": "gt create",
+          "location": null,
+          "description": "Creates a task's branch on its parent and makes the first commit."
+        },
+        {
+          "id": "spec.orchestrator-adapter#command:gt-modify-commit",
+          "kind": "command",
+          "name": "gt modify --commit",
+          "location": null,
+          "description": "Adds a commit to the task's branch and restacks the branches above."
+        },
+        {
+          "id": "spec.orchestrator-adapter#command:gt-submit-stack",
+          "kind": "command",
+          "name": "gt submit --stack",
+          "location": null,
+          "description": "Opens or updates one pull request per task."
+        },
+        {
+          "id": "spec.orchestrator-adapter#command:gt-sync",
+          "kind": "command",
+          "name": "gt sync",
+          "location": null,
+          "description": "Pulls baseBranch, deletes merged branches and restacks."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.orchestrator-adapter#d1",
+          "text": "The `adapters` package from the vision comes later; for dogfooding this list is the contract the orchestrator has to meet.",
+          "why": null
+        },
+        {
+          "id": "spec.orchestrator-adapter#d2",
+          "text": "Stacks are managed with Graphite.",
+          "why": null
+        }
+      ]
+    },
+    {
+      "id": "spec.cli",
+      "title": "CLI",
+      "level": 2,
+      "line": 1039,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [],
+      "human": false,
+      "implements": ["prd.cli", "prd.repo-layout"],
+      "files": [
+        "packages/cli/src/main.ts",
+        "packages/cli/src/commands/init.ts",
+        "packages/cli/package.json"
+      ],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t22", "t23"],
+      "summary": "Specifies the single cairn binary built with effect/cli and the cairn init command.",
+      "requirements": [
+        {
+          "id": "spec.cli#r1",
+          "level": "must",
+          "text": "Ship one `cairn` binary built with `effect/cli`."
+        },
+        {
+          "id": "spec.cli#r2",
+          "level": "must",
+          "text": "Each command finds .cairn/ in the repo's main checkout, from git rev-parse --path-format=absolute --git-common-dir, not from the current worktree."
+        },
+        {
+          "id": "spec.cli#r3",
+          "level": "must",
+          "text": "`cairn init` creates `.cairn/` with a PRD template, an empty `events.jsonl` and the default `config.json`."
+        },
+        {
+          "id": "spec.cli#r4",
+          "level": "must",
+          "text": "`cairn init` adds `.cairn/cairn.db` to `.gitignore`."
+        },
+        {
+          "id": "spec.cli#r5",
+          "level": "must-not",
+          "text": "`cairn init` overwrites an existing `.cairn/`; it refuses."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.cli#command:cairn",
+          "kind": "command",
+          "name": "cairn",
+          "location": null,
+          "description": "The single CLI binary, built with effect/cli."
+        },
+        {
+          "id": "spec.cli#command:cairn-init",
+          "kind": "command",
+          "name": "cairn init",
+          "location": null,
+          "description": "Creates .cairn/ with PRD template, empty events.jsonl and default config.json; adds .cairn/cairn.db to .gitignore; refuses to overwrite.",
+          "signature": "cairn init"
+        },
+        {
+          "id": "spec.cli#library:effect-cli",
+          "kind": "library",
+          "name": "effect/cli",
+          "location": null,
+          "description": "Library the binary is built with."
+        },
+        {
+          "id": "spec.cli#file:cairn-events-jsonl",
+          "kind": "file",
+          "name": ".cairn/events.jsonl",
+          "location": ".cairn/events.jsonl",
+          "description": "Empty event log created by init."
+        },
+        {
+          "id": "spec.cli#file:cairn-config-json",
+          "kind": "file",
+          "name": ".cairn/config.json",
+          "location": ".cairn/config.json",
+          "description": "Default config created by init."
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.server",
+      "title": "Server",
+      "level": 2,
+      "line": 1048,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [],
+      "human": false,
+      "implements": ["prd.cli", "prd.viewer"],
+      "files": ["packages/cli/src/serve.ts", "packages/cli/src/api.ts"],
+      "dependsOn": ["spec.status.cairn-status-and-cairn-approve", "spec.sessions.trace-store"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t34", "t39", "t40", "t41", "t67"],
+      "summary": "Specifies the cairn serve HTTP and WebSocket routes on port 4310 and how the viewer polls them.",
+      "requirements": [
+        {
+          "id": "spec.server#r1",
+          "level": "must",
+          "text": "`cairn serve` runs the existing server on port 4310 with the listed routes."
+        },
+        {
+          "id": "spec.server#r2",
+          "level": "must",
+          "text": "`GET /api/trace` returns the `Trace` with an `ETag` from a hash of the inputs."
+        },
+        {
+          "id": "spec.server#r3",
+          "level": "must",
+          "text": "`GET /api/sessions/:id` returns the redacted session and its notes."
+        },
+        {
+          "id": "spec.server#r4",
+          "level": "must",
+          "text": "`GET /api/commits/:sha` returns `git show --patch` output as text, which `parsePatchFiles` reads."
+        },
+        {
+          "id": "spec.server#r5",
+          "level": "must",
+          "text": "`WS /presence` is unchanged."
+        },
+        {
+          "id": "spec.server#r6",
+          "level": "must",
+          "text": "`GET /*` serves the built viewer; in dev, Vite serves it and proxies `/api`."
+        },
+        {
+          "id": "spec.server#r7",
+          "level": "must",
+          "text": "The viewer polls `/api/trace` every two seconds with `If-None-Match`."
+        },
+        {
+          "id": "spec.server#r8",
+          "level": "must",
+          "text": "`Trace` is a contract schema (see spec.contract.trace) so the server encodes and the viewer decodes the same type."
+        },
+        {
+          "id": "spec.server#r9",
+          "level": "may",
+          "text": "A file watcher replaces polling later."
+        },
+        {
+          "id": "spec.server#r10",
+          "level": "must",
+          "text": "Each judgment in the Trace carries stale: boolean, true when its inputHash no longer matches the recomputed inputsOf."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.server#command:cairn-serve",
+          "kind": "command",
+          "name": "cairn serve",
+          "location": null,
+          "description": "Runs the server on port 4310.",
+          "signature": "cairn serve"
+        },
+        {
+          "id": "spec.server#route:get-api-trace",
+          "kind": "route",
+          "name": "GET /api/trace",
+          "location": null,
+          "description": "The Trace: both documents' markdown and sections, derived tasks, section statuses, commits, events, judgments and warnings, with an ETag from a hash of the inputs.",
+          "signature": "GET /api/trace"
+        },
+        {
+          "id": "spec.server#route:get-api-sessions-id",
+          "kind": "route",
+          "name": "GET /api/sessions/:id",
+          "location": null,
+          "description": "The redacted session and its notes.",
+          "signature": "GET /api/sessions/:id"
+        },
+        {
+          "id": "spec.server#route:get-api-commits-sha",
+          "kind": "route",
+          "name": "GET /api/commits/:sha",
+          "location": null,
+          "description": "git show --patch output as text.",
+          "signature": "GET /api/commits/:sha"
+        },
+        {
+          "id": "spec.server#route:ws-presence",
+          "kind": "route",
+          "name": "WS /presence",
+          "location": null,
+          "description": "Presence WebSocket, unchanged.",
+          "signature": "WS /presence"
+        },
+        {
+          "id": "spec.server#route:get",
+          "kind": "route",
+          "name": "GET /*",
+          "location": null,
+          "description": "The built viewer; in dev Vite serves it and proxies /api.",
+          "signature": "GET /*"
+        },
+        {
+          "id": "spec.server#schema:trace",
+          "kind": "schema",
+          "name": "Trace",
+          "location": "packages/contract",
+          "description": "The contract schema from spec.contract.trace, shared by server and viewer."
+        },
+        {
+          "id": "spec.server#function:parsepatchfiles",
+          "kind": "function",
+          "name": "parsePatchFiles",
+          "location": null,
+          "description": "Reads the patch text from /api/commits/:sha."
+        },
+        {
+          "id": "spec.server#config-key:port-4310",
+          "kind": "config-key",
+          "name": "port 4310",
+          "location": null,
+          "description": "Port cairn serve listens on."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.server#d1",
+          "text": "Poll /api/trace every two seconds with If-None-Match; a file watcher can replace polling later.",
+          "why": "The PRD allows either."
+        }
+      ]
+    },
+    {
+      "id": "spec.viewer",
+      "title": "Viewer",
+      "level": 2,
+      "line": 1070,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [
+        "spec.viewer.model-and-messages",
+        "spec.viewer.markdown-rendering",
+        "spec.viewer.curves",
+        "spec.viewer.presence",
+        "spec.viewer.detail-panel",
+        "spec.viewer.diff-view",
+        "spec.viewer.demo-data"
+      ],
+      "human": false,
+      "implements": [],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Groups the viewer specification.",
+      "requirements": [],
+      "artifacts": [],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.viewer.model-and-messages",
+      "title": "Model and messages",
+      "level": 3,
+      "line": 1072,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer"],
+      "files": [
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/src/trace.ts",
+        "apps/viewer/src/load.ts",
+        "apps/viewer/src/stacks.ts"
+      ],
+      "dependsOn": ["spec.contract.trace", "spec.viewer.markdown-rendering"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t13", "t43", "t45", "t46", "t47", "t67"],
+      "summary": "Specifies the viewer model, its messages, the pure chainOf function and the three-column layout.",
+      "requirements": [
+        {
+          "id": "spec.viewer.model-and-messages#r1",
+          "level": "must",
+          "text": "The model holds the trace, the hovered node, the selected node, the drawer, the measured node positions and the canvas viewport."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r2",
+          "level": "must",
+          "text": "`chainOf(trace, node)` is pure and returns the PRD sections, spec sections and tasks linked to a node, in both directions."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r3",
+          "level": "must",
+          "text": "Hovering highlights the chain; clicking selects it."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r4",
+          "level": "must",
+          "text": "Layout is PRD, spec, then the stacks."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r5",
+          "level": "must",
+          "text": "Each section heading carries its rollup badge, and each task node shows branch, model, status and a gate marker."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r6",
+          "level": "must",
+          "text": "A spec section or task node with a flag or unsure judgment shows a judgment marker, dimmed when the judgment is stale."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r7",
+          "level": "must",
+          "text": "The stacks area is a node graph, one column per chain, read bottom to top."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r8",
+          "level": "must",
+          "text": "Under cairn serve, a subscription in load.ts fetches /api/trace every two seconds with If-None-Match."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r9",
+          "level": "must",
+          "text": "A 200 is decoded through the Trace schema and sends ReceivedTrace; a 304 sends nothing."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r10",
+          "level": "must",
+          "text": "A network or decode error sends FailedToLoadTrace, and the view shows the error above the last good trace."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r11",
+          "level": "must",
+          "text": "The demo build (vite build --mode demo) loads demo-trace.json once and never polls."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r12",
+          "level": "must",
+          "text": "stackLayoutOf(tasks) is pure and gives each task a column and a row."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r13",
+          "level": "must",
+          "text": "A task with no parent starts a new column; at a fork the first child by ID continues the column and each other child starts a new column right after it; columns are ordered by the ID of their first task."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r14",
+          "level": "must",
+          "text": "A task's row is its wave: 1 with no dependencies, otherwise 1 more than its highest dependency; row 1 is at the bottom."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r15",
+          "level": "must",
+          "text": "A parent and child are joined by a curve from the parent's top edge to the child's bottom edge; a dependency on another column is a dashed curve."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.model-and-messages#message:receivedtrace",
+          "kind": "message",
+          "name": "ReceivedTrace",
+          "location": "apps/viewer/src/main.ts",
+          "description": "Viewer message."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#message:failedtoloadtrace",
+          "kind": "message",
+          "name": "FailedToLoadTrace",
+          "location": null,
+          "description": "Viewer message sent when loading the trace fails."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#message:hoverednode",
+          "kind": "message",
+          "name": "HoveredNode",
+          "location": "apps/viewer/src/main.ts",
+          "description": "Viewer message."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#message:leftnode",
+          "kind": "message",
+          "name": "LeftNode",
+          "location": "apps/viewer/src/main.ts",
+          "description": "Viewer message."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#message:clickednode",
+          "kind": "message",
+          "name": "ClickedNode",
+          "location": "apps/viewer/src/main.ts",
+          "description": "Viewer message."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#message:clickedcommit",
+          "kind": "message",
+          "name": "ClickedCommit",
+          "location": "apps/viewer/src/main.ts",
+          "description": "Viewer message."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#message:receivedcommit",
+          "kind": "message",
+          "name": "ReceivedCommit",
+          "location": "apps/viewer/src/main.ts",
+          "description": "Viewer message."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#message:closeddrawer",
+          "kind": "message",
+          "name": "ClosedDrawer",
+          "location": "apps/viewer/src/main.ts",
+          "description": "Viewer message."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#message:measuredlayout",
+          "kind": "message",
+          "name": "MeasuredLayout",
+          "location": "apps/viewer/src/main.ts",
+          "description": "Viewer message."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#message:pannedorzoomed",
+          "kind": "message",
+          "name": "PannedOrZoomed",
+          "location": "apps/viewer/src/main.ts",
+          "description": "Viewer message."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#function:chainof",
+          "kind": "function",
+          "name": "chainOf",
+          "location": "apps/viewer/src/trace.ts",
+          "description": "Pure function returning PRD sections, spec sections and tasks linked to a node in both directions.",
+          "signature": "chainOf(trace, node)"
+        },
+        {
+          "id": "spec.viewer.model-and-messages#file:load-ts",
+          "kind": "file",
+          "name": "load.ts",
+          "location": "apps/viewer/src/load.ts",
+          "description": "The trace-loading subscription."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#function:stacklayoutof",
+          "kind": "function",
+          "name": "stackLayoutOf",
+          "location": "apps/viewer/src/stacks.ts",
+          "description": "Pure; gives each task a column and a row.",
+          "signature": "stackLayoutOf(tasks)"
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.model-and-messages#t1",
+          "kind": "property",
+          "text": "Every task sits above all of its dependencies; a task and its parent share a column; no two tasks share a column and a row."
+        }
+      ],
+      "decisions": []
+    },
+    {
+      "id": "spec.viewer.markdown-rendering",
+      "title": "Markdown rendering",
+      "level": 3,
+      "line": 1093,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer"],
+      "files": ["apps/viewer/src/markdown.ts"],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t42"],
+      "summary": "Specifies how the viewer renders markdown to Foldkit nodes without innerHTML.",
+      "requirements": [
+        {
+          "id": "spec.viewer.markdown-rendering#r1",
+          "level": "must",
+          "text": "Parse with `mdast-util-from-markdown` plus GFM tables and map the nodes to Foldkit's `h` builders."
+        },
+        {
+          "id": "spec.viewer.markdown-rendering#r2",
+          "level": "must-not",
+          "text": "Use `innerHTML`."
+        },
+        {
+          "id": "spec.viewer.markdown-rendering#r3",
+          "level": "must",
+          "text": "Each heading's `{#id}` becomes its element ID and `data-section` attribute."
+        },
+        {
+          "id": "spec.viewer.markdown-rendering#r4",
+          "level": "must",
+          "text": "The key list at the top of a spec section renders as small chips."
+        },
+        {
+          "id": "spec.viewer.markdown-rendering#r5",
+          "level": "must",
+          "text": "HTML comments are dropped."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.markdown-rendering#library:mdast-util-from-markdown",
+          "kind": "library",
+          "name": "mdast-util-from-markdown",
+          "location": null,
+          "description": "Markdown parser, with GFM tables."
+        },
+        {
+          "id": "spec.viewer.markdown-rendering#function:h",
+          "kind": "function",
+          "name": "h",
+          "location": null,
+          "description": "Foldkit element builders the nodes map to."
+        },
+        {
+          "id": "spec.viewer.markdown-rendering#config-key:data-section",
+          "kind": "config-key",
+          "name": "data-section",
+          "location": null,
+          "description": "Attribute on heading elements carrying the section ID."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.viewer.markdown-rendering#d1",
+          "text": "Render with no innerHTML.",
+          "why": "A PRD cannot inject markup, and Scene tests see the rendered text."
+        }
+      ]
+    },
+    {
+      "id": "spec.viewer.curves",
+      "title": "Canvas and curves",
+      "level": 3,
+      "line": 1100,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer"],
+      "files": [
+        "apps/viewer/src/layout.ts",
+        "apps/viewer/src/curves.ts",
+        "apps/viewer/src/canvas.ts"
+      ],
+      "dependsOn": ["spec.viewer.model-and-messages"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t48", "t49", "t50"],
+      "summary": "Specifies the single canvas of three columns built on @xyflow/system, with measured positions, pure Bezier curves and XYPanZoom in a Foldkit Mount.",
+      "requirements": [
+        {
+          "id": "spec.viewer.curves#r1",
+          "level": "must",
+          "text": "The three columns sit on one canvas built from `@xyflow/system`."
+        },
+        {
+          "id": "spec.viewer.curves#r2",
+          "level": "must",
+          "text": "Foldkit renders every node and edge; the library supplies geometry and gestures, never DOM or state."
+        },
+        {
+          "id": "spec.viewer.curves#r3",
+          "level": "must",
+          "text": "A subscription measures every `[data-section]` and `[data-task]` element on load and resize and sends `MeasuredLayout`."
+        },
+        {
+          "id": "spec.viewer.curves#r4",
+          "level": "must",
+          "text": "Positions are in canvas coordinates so pan and zoom do not invalidate them."
+        },
+        {
+          "id": "spec.viewer.curves#r5",
+          "level": "must",
+          "text": "`curvesOf(trace, positions)` is pure and returns one edge per link, with its path from `getBezierPath`."
+        },
+        {
+          "id": "spec.viewer.curves#r6",
+          "level": "must",
+          "text": "PRD to spec and spec to task links run from a node's right edge to the next node's left edge; links in the stacks area run from a task's top edge to the bottom edge of the task above it, solid for a parent and dashed for a dependency on another column."
+        },
+        {
+          "id": "spec.viewer.curves#r7",
+          "level": "must",
+          "text": "The view draws edges in one SVG layer and dims those outside the highlighted chain."
+        },
+        {
+          "id": "spec.viewer.curves#r8",
+          "level": "must",
+          "text": "`XYPanZoom` runs in a Foldkit `Mount` on the canvas pane; its `onPanZoom` callback sends `PannedOrZoomed` with the viewport, and the model holds it."
+        },
+        {
+          "id": "spec.viewer.curves#r9",
+          "level": "must",
+          "text": "When the model's viewport changes for another reason, such as fitting the selected chain with `getViewportForBounds`, the mount calls `syncViewport`."
+        },
+        {
+          "id": "spec.viewer.curves#r10",
+          "level": "must",
+          "text": "`destroy` runs on unmount."
+        },
+        {
+          "id": "spec.viewer.curves#r11",
+          "level": "must-not",
+          "text": "Support dragging nodes, drawing connections and automatic layout in v1."
+        },
+        {
+          "id": "spec.viewer.curves#r12",
+          "level": "should",
+          "text": "When dragging comes, start as a small pointer handler that sends `DraggedNode`."
+        },
+        {
+          "id": "spec.viewer.curves#r13",
+          "level": "may",
+          "text": "Use `XYDrag` and `XYHandle` only if snapping or connection drawing needs them."
+        },
+        {
+          "id": "spec.viewer.curves#r14",
+          "level": "should",
+          "text": "When automatic layout comes, place nodes with `@dagrejs/dagre` as a pure function called from `update`."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.curves#library:xyflow-system",
+          "kind": "library",
+          "name": "@xyflow/system",
+          "location": null,
+          "description": "Framework-agnostic core under React Flow and Svelte Flow; supplies geometry and gestures."
+        },
+        {
+          "id": "spec.viewer.curves#library:dagrejs-dagre",
+          "kind": "library",
+          "name": "@dagrejs/dagre",
+          "location": null,
+          "description": "Future automatic layout, called as a pure function from update."
+        },
+        {
+          "id": "spec.viewer.curves#function:curvesof",
+          "kind": "function",
+          "name": "curvesOf",
+          "location": "apps/viewer/src/curves.ts",
+          "description": "Pure; returns one edge per link, PRD to spec to task, with its path.",
+          "signature": "curvesOf(trace, positions)"
+        },
+        {
+          "id": "spec.viewer.curves#function:getbezierpath",
+          "kind": "function",
+          "name": "getBezierPath",
+          "location": null,
+          "description": "From @xyflow/system; computes the edge path."
+        },
+        {
+          "id": "spec.viewer.curves#function:getviewportforbounds",
+          "kind": "function",
+          "name": "getViewportForBounds",
+          "location": null,
+          "description": "From @xyflow/system; fits the selected chain."
+        },
+        {
+          "id": "spec.viewer.curves#function:xypanzoom",
+          "kind": "function",
+          "name": "XYPanZoom",
+          "location": null,
+          "description": "Pan and zoom handler run in a Foldkit Mount."
+        },
+        {
+          "id": "spec.viewer.curves#function:syncviewport",
+          "kind": "function",
+          "name": "syncViewport",
+          "location": null,
+          "description": "Called by the mount when the model viewport changes for another reason."
+        },
+        {
+          "id": "spec.viewer.curves#function:destroy",
+          "kind": "function",
+          "name": "destroy",
+          "location": null,
+          "description": "Runs on unmount."
+        },
+        {
+          "id": "spec.viewer.curves#function:xydrag",
+          "kind": "function",
+          "name": "XYDrag",
+          "location": null,
+          "description": "Not in v1; used only if snapping is needed."
+        },
+        {
+          "id": "spec.viewer.curves#function:xyhandle",
+          "kind": "function",
+          "name": "XYHandle",
+          "location": null,
+          "description": "Not in v1; used only if connection drawing is needed."
+        },
+        {
+          "id": "spec.viewer.curves#message:measuredlayout",
+          "kind": "message",
+          "name": "MeasuredLayout",
+          "location": null,
+          "description": "Sent by the measuring subscription with positions."
+        },
+        {
+          "id": "spec.viewer.curves#message:pannedorzoomed",
+          "kind": "message",
+          "name": "PannedOrZoomed",
+          "location": null,
+          "description": "Sent by onPanZoom with the viewport."
+        },
+        {
+          "id": "spec.viewer.curves#message:draggednode",
+          "kind": "message",
+          "name": "DraggedNode",
+          "location": null,
+          "description": "Future message from a node-drag pointer handler."
+        },
+        {
+          "id": "spec.viewer.curves#function:onpanzoom",
+          "kind": "function",
+          "name": "onPanZoom",
+          "location": null,
+          "description": "XYPanZoom callback that sends PannedOrZoomed."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.viewer.curves#d1",
+          "text": "Build the canvas on @xyflow/system the way React Flow does, with Foldkit rendering every node and edge.",
+          "why": "The library supplies geometry and gestures, never DOM or state."
+        },
+        {
+          "id": "spec.viewer.curves#d2",
+          "text": "Defer dragging nodes, drawing connections and automatic layout from v1.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.curves#d3",
+          "text": "Use XYDrag and XYHandle only if snapping or connection drawing needs them.",
+          "why": null
+        }
+      ]
+    },
+    {
+      "id": "spec.viewer.presence",
+      "title": "Presence on the canvas",
+      "level": 3,
+      "line": 1114,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.v2-multiplayer-on-cloudflare.presence", "prd.viewer"],
+      "files": [
+        "apps/viewer/src/presence.ts",
+        "apps/viewer/src/canvas.ts",
+        "packages/core/src/room-machine.ts"
+      ],
+      "dependsOn": ["spec.viewer.curves"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t51"],
+      "summary": "Presence cursors move from window fractions to canvas coordinates, drawn inside the transformed canvas layer so they line up across windows with different pan and zoom.",
+      "requirements": [
+        {
+          "id": "spec.viewer.presence#r1",
+          "level": "must",
+          "text": "A cursor is a point in canvas coordinates, converted from the pointer with toCanvas(point, viewport), built on pointToRendererPoint."
+        },
+        {
+          "id": "spec.viewer.presence#r2",
+          "level": "must",
+          "text": "Each cursor is drawn inside the canvas's transformed layer, so it sits over the same node in every window."
+        },
+        {
+          "id": "spec.viewer.presence#r3",
+          "level": "must",
+          "text": "A cursor label is scaled by 1 / zoom so it stays the same size on screen."
+        },
+        {
+          "id": "spec.viewer.presence#r4",
+          "level": "must",
+          "text": "The Cursor schema keeps { x, y }; its meaning changes from window fractions to canvas coordinates."
+        },
+        {
+          "id": "spec.viewer.presence#r5",
+          "level": "must-not",
+          "text": "The room machine does not clamp cursors to [0, 1]."
+        },
+        {
+          "id": "spec.viewer.presence#r6",
+          "level": "must-not",
+          "text": "A pointer outside the canvas pane sends no move."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.presence#function:tocanvas",
+          "kind": "function",
+          "name": "toCanvas",
+          "location": "apps/viewer/src/canvas.ts",
+          "description": "Converts a screen point to canvas coordinates with the current viewport.",
+          "signature": "toCanvas(point, viewport)"
+        },
+        {
+          "id": "spec.viewer.presence#function:toscreen",
+          "kind": "function",
+          "name": "toScreen",
+          "location": "apps/viewer/src/canvas.ts",
+          "description": "Converts a canvas point back to screen coordinates."
+        },
+        {
+          "id": "spec.viewer.presence#library:xyflow-system",
+          "kind": "library",
+          "name": "@xyflow/system",
+          "location": null,
+          "description": "pointToRendererPoint for the conversion."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.presence#t1",
+          "kind": "property",
+          "text": "toScreen(toCanvas(p, v), v) returns p for any viewport v."
+        },
+        {
+          "id": "spec.viewer.presence#t2",
+          "kind": "scene",
+          "text": "With two participants and different viewports, the other participant's cursor is at the same canvas position."
+        }
+      ],
+      "decisions": []
+    },
+    {
+      "id": "spec.viewer.detail-panel",
+      "title": "Detail panel",
+      "level": 3,
+      "line": 1128,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer", "prd.acceptance-criteria"],
+      "files": ["apps/viewer/src/drawer.ts"],
+      "dependsOn": ["spec.viewer.model-and-messages"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t52", "t67"],
+      "summary": "Specifies the drawer shown on clicking a section or task and the two-click path from section to commit.",
+      "requirements": [
+        {
+          "id": "spec.viewer.detail-panel#r1",
+          "level": "must",
+          "text": "Clicking a PRD or spec section opens the drawer with its tasks, and each task lists its commits."
+        },
+        {
+          "id": "spec.viewer.detail-panel#r2",
+          "level": "must",
+          "text": "Clicking a commit loads its diff."
+        },
+        {
+          "id": "spec.viewer.detail-panel#r3",
+          "level": "must",
+          "text": "Clicking a task shows its commits, sessions (linked to `/api/sessions/:id`), events timeline, gate reasons and judgments."
+        },
+        {
+          "id": "spec.viewer.detail-panel#r4",
+          "level": "must",
+          "text": "A spec section's drawer lists its judgments."
+        },
+        {
+          "id": "spec.viewer.detail-panel#r5",
+          "level": "must",
+          "text": "Each judgment shows its question, verdict, message and the probability or label and confidence behind it."
+        }
+      ],
+      "artifacts": [],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.viewer.diff-view",
+      "title": "Diff view",
+      "level": 3,
+      "line": 1138,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer"],
+      "files": ["apps/viewer/src/diff.ts", "apps/viewer/package.json"],
+      "dependsOn": ["spec.viewer.detail-panel", "spec.server"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t53", "t54"],
+      "summary": "Specifies rendering commit diffs with @pierre/diffs parsePatchFiles and FileDiff in a Foldkit Mount, with its options and tests.",
+      "requirements": [
+        {
+          "id": "spec.viewer.diff-view#r1",
+          "level": "must",
+          "text": "`ReceivedCommit` carries the patch text."
+        },
+        {
+          "id": "spec.viewer.diff-view#r2",
+          "level": "must",
+          "text": "`parsePatchFiles` from `@pierre/diffs` turns the patch into `ParsedPatch`."
+        },
+        {
+          "id": "spec.viewer.diff-view#r3",
+          "level": "must-not",
+          "text": "Cairn's code parse hunks itself; it reads the structure."
+        },
+        {
+          "id": "spec.viewer.diff-view#r4",
+          "level": "must",
+          "text": "Each file renders through `@pierre/diffs`' vanilla `FileDiff` class inside a Foldkit `Mount`."
+        },
+        {
+          "id": "spec.viewer.diff-view#r5",
+          "level": "must",
+          "text": "The mount calls `render({ fileDiff, containerWrapper })`, calls `setOptions` when the model changes, and calls `cleanUp()` on unmount."
+        },
+        {
+          "id": "spec.viewer.diff-view#r6",
+          "level": "must",
+          "text": "`diffStyle` is `unified` in the drawer, with a toggle for `split`; the toggle is model state."
+        },
+        {
+          "id": "spec.viewer.diff-view#r7",
+          "level": "must",
+          "text": "`lineDiffType` is `word-alt`, the default."
+        },
+        {
+          "id": "spec.viewer.diff-view#r8",
+          "level": "must",
+          "text": "`hunkSeparators` is `line-info`, the default."
+        },
+        {
+          "id": "spec.viewer.diff-view#r9",
+          "level": "must",
+          "text": "Light and dark follow `themeType: \"system\"`."
+        },
+        {
+          "id": "spec.viewer.diff-view#r10",
+          "level": "must",
+          "text": "Files touched by a human-gated path are listed first, with the matching pattern as a label."
+        },
+        {
+          "id": "spec.viewer.diff-view#r11",
+          "level": "may",
+          "text": "Line annotations through `setLineAnnotations` for review notes from `cairn.db` later."
+        },
+        {
+          "id": "spec.viewer.diff-view#r12",
+          "level": "may",
+          "text": "Expanding context via `loadDiffFiles` and a route returning both versions of a file waits until someone asks."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.diff-view#library:pierre-diffs",
+          "kind": "library",
+          "name": "@pierre/diffs",
+          "location": null,
+          "description": "Diff parsing and rendering library."
+        },
+        {
+          "id": "spec.viewer.diff-view#function:parsepatchfiles",
+          "kind": "function",
+          "name": "parsePatchFiles",
+          "location": null,
+          "description": "Turns patch text into ParsedPatch."
+        },
+        {
+          "id": "spec.viewer.diff-view#type:parsedpatch",
+          "kind": "type",
+          "name": "ParsedPatch",
+          "location": null,
+          "description": "What `parsePatchFiles` returns: the commit message as `patchMetadata`, then one `FileDiffMetadata` per file with its hunks. The spec does not name the other fields.",
+          "fields": [
+            {
+              "name": "patchMetadata",
+              "type": "string",
+              "optional": false,
+              "description": "The commit message"
+            },
+            {
+              "name": "files",
+              "type": "FileDiffMetadata[]",
+              "optional": false,
+              "description": "One per file with its hunks"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.diff-view#type:filediffmetadata",
+          "kind": "type",
+          "name": "FileDiffMetadata",
+          "location": null,
+          "description": "Per-file diff with its hunks."
+        },
+        {
+          "id": "spec.viewer.diff-view#function:filediff",
+          "kind": "function",
+          "name": "FileDiff",
+          "location": null,
+          "description": "Vanilla class that renders a file diff."
+        },
+        {
+          "id": "spec.viewer.diff-view#function:render",
+          "kind": "function",
+          "name": "render",
+          "location": null,
+          "description": "Mount call that renders the diff.",
+          "signature": "render({ fileDiff, containerWrapper })"
+        },
+        {
+          "id": "spec.viewer.diff-view#function:setoptions",
+          "kind": "function",
+          "name": "setOptions",
+          "location": null,
+          "description": "Called when the model changes."
+        },
+        {
+          "id": "spec.viewer.diff-view#function:cleanup",
+          "kind": "function",
+          "name": "cleanUp",
+          "location": null,
+          "description": "Called on unmount.",
+          "signature": "cleanUp()"
+        },
+        {
+          "id": "spec.viewer.diff-view#function:loaddifffiles",
+          "kind": "function",
+          "name": "loadDiffFiles",
+          "location": null,
+          "description": "Needed later to expand context."
+        },
+        {
+          "id": "spec.viewer.diff-view#function:setlineannotations",
+          "kind": "function",
+          "name": "setLineAnnotations",
+          "location": null,
+          "description": "Later carries review-note line annotations."
+        },
+        {
+          "id": "spec.viewer.diff-view#option:diffstyle",
+          "kind": "option",
+          "name": "diffStyle",
+          "location": null,
+          "description": "unified in the drawer, with a toggle for split.",
+          "values": ["unified", "split"]
+        },
+        {
+          "id": "spec.viewer.diff-view#option:linedifftype",
+          "kind": "option",
+          "name": "lineDiffType",
+          "location": null,
+          "description": "Highlights changed words in a line; default.",
+          "values": ["word-alt"]
+        },
+        {
+          "id": "spec.viewer.diff-view#option:hunkseparators",
+          "kind": "option",
+          "name": "hunkSeparators",
+          "location": null,
+          "description": "Hunk separator style; default.",
+          "values": ["line-info"]
+        },
+        {
+          "id": "spec.viewer.diff-view#option:themetype",
+          "kind": "option",
+          "name": "themeType",
+          "location": null,
+          "description": "Light and dark follow the system.",
+          "values": ["system"]
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.diff-view#t1",
+          "kind": "scene",
+          "text": "Scene tests check that the right files mount with the right options."
+        },
+        {
+          "id": "spec.viewer.diff-view#t2",
+          "kind": "example",
+          "text": "A unit test checks the patch-to-files step against real `git show` output."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.diff-view#d1",
+          "text": "Use @pierre/diffs structures and its vanilla FileDiff in a Mount rather than parsing hunks in Cairn.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.diff-view#d2",
+          "text": "Keep hunkSeparators at line-info and defer expanding context.",
+          "why": "A diff parsed from a patch has only the patch's lines; expanding needs loadDiffFiles and a route returning both file versions."
+        },
+        {
+          "id": "spec.viewer.diff-view#d3",
+          "text": "Scene tests check mount element and options, not the diff inside.",
+          "why": "Snabbdom hooks do not fire in Scene tests."
+        }
+      ]
+    },
+    {
+      "id": "spec.viewer.demo-data",
+      "title": "Demo data",
+      "level": 3,
+      "line": 1159,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer"],
+      "files": ["apps/viewer/src/demo.ts", "apps/viewer/src/demo-trace.json"],
+      "dependsOn": ["spec.contract.trace"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t44"],
+      "summary": "Specifies that the demo loads a Trace generated from this repo's own .cairn/ in place of hand-written rows.",
+      "requirements": [
+        {
+          "id": "spec.viewer.demo-data#r1",
+          "level": "must",
+          "text": "The demo and the deployed site load a `Trace` built from this repo's own `.cairn/` by `cairn status --json`."
+        },
+        {
+          "id": "spec.viewer.demo-data#r2",
+          "level": "must",
+          "text": "This replaces the three hand-written rows in `demo.ts`."
+        },
+        {
+          "id": "spec.viewer.demo-data#r3",
+          "level": "may",
+          "text": "Until the CLI exists, the fixture is written by hand."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.demo-data#command:cairn-status-json",
+          "kind": "command",
+          "name": "cairn status --json",
+          "location": null,
+          "description": "Produces the Trace fixture."
+        }
+      ],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.acceptance",
+      "title": "Acceptance",
+      "level": 2,
+      "line": 1167,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [],
+      "human": false,
+      "implements": ["prd.acceptance-criteria"],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t38"],
+      "summary": "Maps each PRD acceptance criterion to how it is checked.",
+      "requirements": [
+        {
+          "id": "spec.acceptance#r1",
+          "level": "must",
+          "text": "Check three or more stacked tasks on a RinkSide feature with a dogfood run, keeping `cairn status` output with the feature."
+        },
+        {
+          "id": "spec.acceptance#r2",
+          "level": "must",
+          "text": "`cairn status` warns on a commit without trailers or with a session missing from `cairn.db`."
+        },
+        {
+          "id": "spec.acceptance#r3",
+          "level": "must",
+          "text": "No child leaves `pending` before a human approves its gated parent."
+        },
+        {
+          "id": "spec.acceptance#r4",
+          "level": "must",
+          "text": "Correct status and two clicks to commits are checked by rollup property tests and a Scene test that clicks a section and then a commit."
+        },
+        {
+          "id": "spec.acceptance#r5",
+          "level": "must",
+          "text": "Lint catches orphaned and unmapped sections, tested for `unknown-section` and `unmapped-section`."
+        },
+        {
+          "id": "spec.acceptance#r6",
+          "level": "must",
+          "text": "An oversized draft is broken down before printing, checked by a refine test whose plan output lists the split."
+        },
+        {
+          "id": "spec.acceptance#r7",
+          "level": "must",
+          "text": "A model changes only when Jev is confident, checked by a routeOf property test and a refine test."
+        },
+        {
+          "id": "spec.acceptance#r8",
+          "level": "must",
+          "text": "A changed task's judgment shows stale, checked by a trace test."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.acceptance#lint-rule:unknown-section",
+          "kind": "lint-rule",
+          "name": "unknown-section",
+          "location": null,
+          "description": "Lint rule for orphaned sections."
+        },
+        {
+          "id": "spec.acceptance#lint-rule:unmapped-section",
+          "kind": "lint-rule",
+          "name": "unmapped-section",
+          "location": null,
+          "description": "Lint rule for unmapped sections."
+        },
+        {
+          "id": "spec.acceptance#command:cairn-status",
+          "kind": "command",
+          "name": "cairn status",
+          "location": null,
+          "description": "Warns on commit without trailers or with a session missing from cairn.db."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.acceptance#t1",
+          "kind": "integration",
+          "text": "Dogfood run: three or more stacked tasks on a RinkSide feature, with `cairn status` output kept with the feature."
+        },
+        {
+          "id": "spec.acceptance#t2",
+          "kind": "example",
+          "text": "`cairn status` warns on a commit without trailers or with a session missing from `cairn.db`."
+        },
+        {
+          "id": "spec.acceptance#t3",
+          "kind": "property",
+          "text": "Derivation property test: no child leaves `pending` before a human approves its gated parent."
+        },
+        {
+          "id": "spec.acceptance#t4",
+          "kind": "property",
+          "text": "Rollup property tests for correct status."
+        },
+        {
+          "id": "spec.acceptance#t5",
+          "kind": "scene",
+          "text": "A Scene test clicks a section and then a commit."
+        },
+        {
+          "id": "spec.acceptance#t6",
+          "kind": "example",
+          "text": "Lint tests for `unknown-section` and `unmapped-section`."
+        }
+      ],
+      "decisions": []
+    }
+  ]
+}

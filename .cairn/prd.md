@@ -1,12 +1,12 @@
-# Cairn MVP
+# Cairn MVP {#prd.cairn-mvp}
 
 A local tool that traces a feature from PRD to spec to stacked diffs to commits to agent sessions, and renders that trace as a read-only canvas. Built to be shippable in one day and dogfooded on RinkSide.
 
-## Goal
+## Goal {#prd.goal}
 
 Given a markdown PRD in a repo, produce a spec and a stack manifest, let the existing orchestrator execute the stack, and show a live view of which PRD sections are done, in progress, blocked, or waiting on a human. Every commit links back to its PRD section and to the agent session that produced it.
 
-## Non-goals for v1
+## Non-goals for v1 {#prd.non-goals-for-v1}
 
 - No rich editor (Tiptap etc). Users edit markdown in their own editor.
 - No real-time multi-user collaboration (v2, see multiplayer).
@@ -14,18 +14,20 @@ Given a markdown PRD in a repo, produce a spec and a stack manifest, let the exi
 - No hosted service, auth, or multi-repo support.
 - No replacement of the existing orchestrator. This tool wraps it.
 
-## Repo layout
+## Repo layout {#prd.repo-layout}
 
 ```text
 .cairn/
   prd.md            # source PRD, human-authored
   spec.md           # generated spec, editable
+  spec.json         # structured index of spec.md: keys, requirements and artifacts per section
   manifest.json     # stack plan + links + status
   events.jsonl      # append-only status events from orchestrator
+  judgments.json    # decision-model verdicts on spec sections, tasks and the stack
   cairn.db          # SQLite: sessions keyed by ID, notes, annotations
 ```
 
-## Section IDs
+## Section IDs {#prd.section-ids}
 
 Every heading in `prd.md` and `spec.md` carries a stable ID using a trailing attribute:
 
@@ -41,7 +43,7 @@ Rules:
 - `cairn ids` adds missing IDs in place and never rewrites existing ones.
 - Renaming a heading keeps its ID. Deleting a heading with linked tasks is a lint error.
 
-## Manifest schema
+## Manifest schema {#prd.manifest-schema}
 
 ```json
 {
@@ -56,6 +58,8 @@ Rules:
       "specSections": ["spec.saved-views.persist"],
       "branch": "saved-views/01-schema",
       "parent": null,
+      "dependsOn": [],
+      "worktree": null,
       "model": "opus",
       "reasoning": "high",
       "humanGate": { "required": true, "reasons": ["tag:human", "path:migrations/"] },
@@ -69,21 +73,26 @@ Rules:
 
 Status values: `pending`, `running`, `blocked_on_human`, `failed`, `done`, `landed`.
 
-## CLI
+The plan is a set of stacks that can be built at the same time, not one long stack. `dependsOn` lists the tasks a task needs. A task with no dependencies starts its own stack on `baseBranch`. A task whose dependencies all sit on one stack goes on top of the latest of them. A task that needs work from two stacks starts from `baseBranch` once that work has landed. Tasks on different stacks run in parallel, each with its own agent.
+
+`worktree` says where a task is built. Tasks that run one after another share a checkout; only work that can run at the same time needs its own. A task takes over the worktree of a task it depends on when it can, and gets a new one otherwise. `null` is the repo's own checkout. Two tasks share a worktree only when one depends on the other, so tasks running at once never collide.
+
+## CLI {#prd.cli}
 
 - `cairn init` creates `.cairn/` and a PRD template.
 - `cairn ids` assigns missing section IDs in `prd.md` and `spec.md`.
-- `cairn plan` calls a model to generate `spec.md` from `prd.md`, then generates `manifest.json`: tasks, stack order, parent links, model and reasoning level per task, human gates. Prints the plan and waits for approval.
-- `cairn lint` checks that every task references real section IDs, every PRD section maps to at least one task, and gated tasks sit as low in the stack as their dependencies allow.
+- `cairn plan` calls a model to generate `spec.md` and `spec.json` from `prd.md`, then generates `manifest.json`: tasks, stack order, parent links, model and reasoning level per task, human gates. A decision model checks the breakdown at each step (see judging the plan). Prints the plan with what judging changed and reported, and waits for approval.
+- `cairn lint` checks that every task references real section IDs, every PRD section maps to at least one task, and every task's parent follows from its dependencies, so nothing sits below a gated task except what it depends on.
+- `cairn judge` judges the current spec and manifest again and writes `judgments.json`.
 - `cairn status` prints the manifest as a tree with status.
 - `cairn serve` starts the local viewer.
 
-## Orchestrator contract
+## Orchestrator contract {#prd.orchestrator-contract}
 
 The existing orchestrator reads `manifest.json` and runs tasks. It must:
 
 1. Append one line to `events.jsonl` per state change: `{"ts", "taskId", "status", "detail"}`.
-2. Create each task's branch on top of its parent branch.
+2. Start every task whose dependencies are `done` or `landed`, and whose dependencies on other stacks are `landed`. Run ready tasks in parallel, each in its `worktree`. Stacks are managed with Graphite: each task is one diff, created with `gt create` on top of its parent, or on `baseBranch` when it has no parent. Graphite owns branches, restacking and pull requests; neither Cairn nor the orchestrator rebases a branch by hand.
 3. Add commit trailers to every commit:
 
    ```text
@@ -98,7 +107,7 @@ The existing orchestrator reads `manifest.json` and runs tasks. It must:
 
 Cairn derives manifest status from `events.jsonl` and git, so the orchestrator never edits `manifest.json` directly.
 
-## Human gates
+## Human gates {#prd.human-gates}
 
 A task is gated if either is true:
 
@@ -122,13 +131,38 @@ Default high-trust patterns in `.cairn/config.json`:
 
 Detection runs twice: at plan time against declared files, and post-commit against the actual diff. A post-commit hit on an ungated task flips it to `blocked_on_human`.
 
-Planner rule: gated tasks go at the bottom of the stack, so the human reviews them before dependent branches land.
+Planner rule: nothing sits below a gated task except what it depends on, so the human reviews it before dependent branches land, and unrelated work is never held up behind it.
 
-## Redaction
+## Judging the plan {#prd.judging-the-plan}
+
+A plan can pass lint and still be wrong: a task too big for one agent session, a task given a stronger model than it needs, a spec section that drifts from the PRD, a stack that bundles two features. Lint checks structure. Judging uses a decision model at each step of breaking the PRD down, so the plan a human approves is already sized right and routed to the right models.
+
+The decision model is TypeSafe's Jev, built for typed decisions with calibrated confidence rather than text. The language model writes; Jev decides. Every answer comes with probabilities and a confidence, and code, not the model, decides what an answer means, using thresholds in `.cairn/config.json`.
+
+Checkpoints in `cairn plan`:
+
+1. After the spec is written: is each section sized right? A section judged too large is broken down into smaller sections. Is it faithful to the PRD sections it implements, and could an agent build it without asking a question? Those are reported.
+2. After tasks are drafted: is each task one reviewable diff? A task judged too large is broken down into smaller tasks, and the new tasks are judged again.
+3. Once tasks are the right size: which model and reasoning level does each task need? Jev's choice replaces the planner's when Jev is confident.
+4. The stack as a whole: does it build every PRD section, can each task be built and tested with only the tasks below it, and is it one feature? Those are reported.
+
+Rules:
+
+- A low-confidence answer never acts. It is reported as `unsure`, and the planner's draft stands.
+- Breaking down is bounded: at most two rounds, so planning always ends.
+- Judging never decides gates, IDs, branch names or order. Those stay deterministic.
+- Judging shapes the draft before a human sees it. The plan output shows what was broken down and which models were changed, and why. The human still approves the plan.
+- A spec section a human wrote or edited is never rewritten. Judging only reports on it.
+- After the manifest is written, `cairn judge` reports on it again and changes nothing. `cairn judge --strict` exits non-zero on a flag, for CI.
+- Jev's key comes from `TYPESAFE_API_KEY` and is never stored. Without a key, Cairn plans with the planner's drafts as they are and says that judging was skipped.
+- Each judgment records a hash of what it judged. When the section or task changes, the judgment is stale, and `cairn judge` asks again only for what changed.
+- The model version is pinned in config and recorded in `judgments.json`, so a decision can be traced to the model that made it.
+
+## Redaction {#prd.redaction}
 
 Before writing session JSONL, strip values matching env var names from `.env*`, common token patterns (API keys, bearer tokens, private keys), and anything in a user-supplied deny list. Log redaction counts per file. Fail closed: if redaction errors, do not write the session.
 
-## Viewer
+## Viewer {#prd.viewer}
 
 Local web app served by `cairn serve`, read-only, polling or file-watching `.cairn/` and git.
 
@@ -136,27 +170,29 @@ Layout:
 
 - Left column: rendered `prd.md`. Each section shows a status badge rolled up from its tasks.
 - Middle column: rendered `spec.md` with the same badges.
-- Right column: the stack as nodes ordered bottom to top, with branch name, model, status, and a human-gate marker.
+- Right column: the stacks as a node graph, one column per stack, each read bottom to top and joined by curves, with branch name, model, status, and a human-gate marker on each node. A task that needs work from another stack has a dashed curve to it.
 - Curves: SVG bezier curves linking PRD section to spec section to task node. Hovering any node highlights its full chain.
-- Task detail panel: commits with links to diffs, session files, events timeline, and gate reasons.
+- Task detail panel: commits with links to diffs, session files, events timeline, gate reasons, and judgments.
+- Judgment markers: a spec section or task node with a `flag` or `unsure` judgment shows a marker. Stale judgments are shown as stale.
 
 Suggested stack: Foldkit SPA for the viewer, a markdown renderer that preserves heading IDs, and a tiny Node server exposing `.cairn/` files and `git log --format` with trailers, plus reads from `cairn.db`.
 
-## Implementation in Effect
+## Implementation in Effect {#prd.implementation-in-effect}
 
 The CLI and local server are written in Effect, so every side effect is a typed service that tests can swap out.
 
 - Schemas: manifest, events, config, and commit trailers are Effect Schema definitions. Every file read from `.cairn/` is decoded through them, and failures are typed errors naming the bad field.
-- Services as Layers: `Git` (branches, log, trailers), `TraceStore` (`cairn.db`), `Planner` (model calls), `Orchestrator` (adapter to the user's runner), `Redactor`, and `Clock`.
-- Composition: one composition root per entrypoint (CLI, server). Live Layers in production; test Layers (fake git, in-memory SQLite, scripted planner) in tests.
+- Services as Layers: `Git` (branches, log, trailers), `TraceStore` (`cairn.db`), `Planner` (model calls that write the spec and tasks), `Judge` (decision-model calls that judge them), `Orchestrator` (adapter to the user's runner), `Redactor`, and `Clock`.
+- Models: two kinds, each behind an `effect/ai` service. A language model writes (`LanguageModel`, for `Planner`); a decision model judges (`DecisionModel`, for `Judge`). Swapping a provider changes one Layer. Each can take a base URL, so a user can route calls through a gateway such as Cloudflare AI Gateway; Cairn does not require one.
+- Composition: one composition root per entrypoint (CLI, server). Live Layers in production; test Layers (fake git, in-memory SQLite, scripted planner, scripted judge) in tests.
 - Tests: `@effect/vitest` with `it.effect` and `it.layer`. Status derivation, gate detection, and lint run against test Layers with no real repo.
 - Viewer: Foldkit. Interaction logic (selection, chain highlighting, drawer state) lives in the pure update function and is unit tested without a render loop. Rendering only draws.
 
-## Contract package
+## Contract package {#prd.contract-package}
 
 `@cairn/contract` is the single source of truth for everything an orchestrator reads or writes, and it must work from plain JavaScript.
 
-- Effect Schema definitions for manifest, events, config, and trailers.
+- Effect Schema definitions for manifest, events, config, trailers, and judgments.
 - Generated JSON Schema files, so any language can validate `.cairn/` files.
 - Plain JS entry points: `parseManifest(json)`, `parseEvent(line)`, `formatTrailers(task)`. Each returns a result or throws an error naming the bad field. Callers need no Effect knowledge.
 - Shipped `.d.ts` types, so JS users get editor autocomplete and checked JSDoc.
@@ -164,24 +200,29 @@ The CLI and local server are written in Effect, so every side effect is a typed 
 
 Adapters for Claude subagents, Pi, and plain shell scripts import only this package.
 
-## Acceptance criteria
+## Acceptance criteria {#prd.acceptance-criteria}
 
 - Running `cairn init`, `cairn plan`, and the orchestrator on a real RinkSide feature produces a manifest with at least three stacked tasks.
 - Every commit on those branches has Cairn trailers, including a `Cairn-Session` ID that resolves to a redacted session in `cairn.db`.
 - A task touching a migrations path is gated and its children do not start until it is approved.
 - The viewer shows correct status for every PRD section, and clicking a PRD section reaches its commits in two clicks or fewer.
 - `cairn lint` catches an orphaned section ID and an unmapped PRD section.
+- A drafted task judged too large is broken down before the plan is printed, and the plan output says so.
+- A task's model is changed only when Jev is confident; otherwise the planner's choice stands and is reported as `unsure`.
+- A judgment on a task that has since changed shows as stale.
+- With no `TYPESAFE_API_KEY`, `cairn plan` still writes the manifest and says that judging was skipped.
 
-## One-day build order
+## One-day build order {#prd.one-day-build-order}
 
 1. Section ID parser and `cairn ids` (1h).
 2. Manifest schema, `cairn plan` prompt, and `cairn lint` (2h).
-3. Orchestrator contract: events, trailers, session IDs in `cairn.db`, redaction (2h).
-4. Status derivation from events and git (1h).
-5. Viewer: three columns, badges, curves, detail panel (3h).
-6. Dogfood on one RinkSide feature and fix what breaks (1h).
+3. Judging: questions, verdicts, `cairn judge` (1h).
+4. Orchestrator contract: events, trailers, session IDs in `cairn.db`, redaction (2h).
+5. Status derivation from events and git (1h).
+6. Viewer: three columns, badges, curves, detail panel, judgment markers (3h).
+7. Dogfood on one RinkSide feature and fix what breaks (1h).
 
-## v2: diverging state
+## v2: diverging state {#prd.v2-diverging-state}
 
 v2 lets humans and agents change the PRD and statuses at the same time, and keeps work correct when the PRD moves mid-stack. Each kind of state gets the strategy that fits it.
 
@@ -194,12 +235,12 @@ v2 lets humans and agents change the PRD and statuses at the same time, and keep
 
 Yjs stays an option for the editor if Loro's bindings fall short. Strategies can coexist per field.
 
-### Versioning and branching
+### Versioning and branching {#prd.v2-diverging-state.versioning-and-branching}
 
 - Every PRD change is a Loro version. The manifest records `prdVersion`, the version it was planned from.
 - Draft PRD changes happen on a Loro fork and merge back when approved, mirroring how the stack works in git.
 
-### Rebase flow
+### Rebase flow {#prd.v2-diverging-state.rebase-flow}
 
 When the PRD head moves past `manifest.prdVersion`:
 
@@ -210,17 +251,17 @@ When the PRD head moves past `manifest.prdVersion`:
 5. Restack only the affected branches and their dependents. Untouched branches keep their commits.
 6. Update `prdVersion` once the stack is consistent.
 
-### v2 acceptance criteria
+### v2 acceptance criteria {#prd.v2-diverging-state.v2-acceptance-criteria}
 
 - A human editing a section while an agent writes its status loses neither change.
 - Editing one PRD section mid-stack marks only that section's chain stale.
 - A rebase restacks only the affected branches.
 
-## v2: multiplayer on Cloudflare
+## v2: multiplayer on Cloudflare {#prd.v2-multiplayer-on-cloudflare}
 
 A feature's PRD, spec, and stack live in a shared room. Humans and agents see each other's cursors and every change as it happens. Git and code stay on each machine; the room holds the document, statuses, and presence.
 
-### Architecture
+### Architecture {#prd.v2-multiplayer-on-cloudflare.architecture}
 
 - One Durable Object per room (one feature). It holds the Loro document, applies updates, and fans them out over hibernatable WebSockets.
 - Storage: Durable Object SQLite for updates and snapshots. R2 for version snapshots and opt-in redacted sessions.
@@ -229,7 +270,7 @@ A feature's PRD, spec, and stack live in a shared room. Humans and agents see ea
 - Offline: the viewer still works on local files. Loro merges edits made while disconnected.
 - Deploy: Worker, Durable Object namespace, R2 bucket, and the Foldkit site, all defined in Alchemy. Room tokens live in each room's storage, so no signing key is needed yet. Model keys never reach the server.
 
-### Presence
+### Presence {#prd.v2-multiplayer-on-cloudflare.presence}
 
 Presence is ephemeral and never persisted. Each participant broadcasts:
 
@@ -249,13 +290,13 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 - Agents: a labeled caret on the section they work from, a pulse on their stack node, and the file they are in. Agent presence comes from orchestrator events, so agents need no browser.
 - Heartbeats: every 5 s. Three missed marks the actor away. For an agent, its task goes `stalled` (new status) and its lease is released.
 
-### Permissions
+### Permissions {#prd.v2-multiplayer-on-cloudflare.permissions}
 
 - Each room has one token: a plain string assigned when the room is created. Anyone with it can join.
 - Clients declare whether they are a human or an agent. Gate approvals are only accepted from human clients and record who approved.
 - This is trust-based and fine for v2. Signed, scoped tokens come later.
 
-### Multiplayer acceptance criteria
+### Multiplayer acceptance criteria {#prd.v2-multiplayer-on-cloudflare.multiplayer-acceptance-criteria}
 
 - Two humans and one agent see each other's cursors and edits in under 250 ms p95 within one region.
 - Killing an agent process marks it away and stalls its task within 15 s.
@@ -263,10 +304,10 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 - Clients that edit offline converge on reconnect with no lost edits, property tested with random edits and partitions.
 - `alchemy deploy` brings up a working room from an empty Cloudflare account.
 
-## Later
+## Later {#prd.later}
 
 - Rich editing beyond markdown: embeds, comments, and inline diffs.
 - An inbox view of agent activity across rooms.
 - Drift detection that flags or proposes spec updates when code diverges.
 - Cost per section and per model.
-- Adapters for Vercel Board and other agent message boards.
+- Judging during a run: before a task starts, and on its diff after it is done.- Adapters for Vercel Board and other agent message boards.
