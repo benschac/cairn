@@ -614,13 +614,14 @@ flowchart BT
   subgraph s26["Stack 26 · viewer"]
     direction BT
     t45["t45 · 45-viewer-columns<br/>Show the trace as PRD, spec and stack columns, with the stack layout<br/>wt-14"]
-    t46["t46 · 46-trace-polling<br/>Load the trace from /api/trace and poll it<br/>wt-14"]
+    t46["t46 · 46-trace-polling<br/>Load the demo trace through a command<br/>wt-14"]
     t47["t47 · 47-chain-highlight<br/>Highlight the chain on hover and select it on click<br/>wt-14"]
     t48["t48 · 48-curves-of<br/>Compute bezier curves between linked nodes<br/>wt-14"]
     t49["t49 · 49-curves-overlay<br/>Measure node positions and draw the curves<br/>wt-14"]
     t50["t50 · 50-canvas-pan-zoom<br/>Pan and zoom the canvas with XYPanZoom<br/>wt-14"]
     t51["t51 · 51-canvas-presence<br/>Keep presence cursors in canvas coordinates<br/>wt-14"]
     t52["t52 · 52-detail-drawer<br/>Open the detail drawer from sections and tasks<br/>wt-14"]
+    t68["t68 · 68-api-trace-polling<br/>Poll /api/trace under cairn serve<br/>wt-14"]
   end
   subgraph s27["Stack 27 · viewer"]
     direction BT
@@ -731,6 +732,8 @@ flowchart BT
   t49 --> t50
   t50 --> t51
   t51 --> t52
+  t52 --> t68
+  t39 -.-> t68
   t41 -.-> t53
   t52 -.-> t53
   t53 --> t54
@@ -756,7 +759,7 @@ flowchart BT
   t27 --> t66
   t54 --> t67
   class t1,t3,t20,t31,t32,t58,t60,t62 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67 sonnet
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68 sonnet
   class t11,t24,t27,t44,t56,t66 haiku
   class t1,t2,t3 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
@@ -1070,7 +1073,7 @@ Each judgment in the `Trace` carries `stale: boolean`. The server recomputes `in
 - Files: `apps/viewer/src/model.ts`, `apps/viewer/src/main.ts`, `apps/viewer/src/trace.ts`, `apps/viewer/src/load.ts`, `apps/viewer/src/stacks.ts`
 - Depends on: `spec.contract.trace`, `spec.viewer.markdown-rendering`
 
-The model holds the trace, the hovered node, the selected node, the drawer, the measured node positions and the canvas viewport. Messages: `ReceivedTrace`, `FailedToLoadTrace`, `HoveredNode`, `LeftNode`, `ClickedNode`, `ClickedCommit`, `ReceivedCommit`, `ClosedDrawer`, `MeasuredLayout`, `PannedOrZoomed`.
+The model holds the trace, the hovered node, the selected node, the drawer, the measured node positions and the canvas viewport. Messages: `SettledLoadTrace`, `HoveredNode`, `LeftNode`, `ClickedNode`, `ClickedCommit`, `ReceivedCommit`, `ClosedDrawer`, `MeasuredLayout`, `PannedOrZoomed`, `MeasuredPane`, `ClickedFit`.
 
 `chainOf(trace, node)` is pure: the PRD sections, spec sections and tasks linked to a node, in both directions. Hovering highlights the chain; clicking selects it.
 
@@ -1083,7 +1086,7 @@ The stacks area is a node graph, one column per chain, read bottom to top. `stac
 - Within a column, a parent and its child are joined by a curve from the parent's top edge to the child's bottom edge. A dependency on another column is a dashed curve, drawn the same way. Both come from `curvesOf` (see `spec.viewer.curves`).
 
 Properties: every task sits above all of its dependencies; a task and its parent share a column; two tasks never share a column and a row.
-Loading: under `cairn serve`, a subscription in `load.ts` fetches `/api/trace` every two seconds with `If-None-Match` (see `spec.server`). A `200` is decoded through the `Trace` schema and sends `ReceivedTrace`; a `304` sends nothing; a network or decode error sends `FailedToLoadTrace`, and the view shows the error above the last good trace. The demo build (`vite build --mode demo`) loads `demo-trace.json` once and never polls.
+Loading: under `cairn serve`, a subscription in `load.ts` fetches `/api/trace` every two seconds with `If-None-Match` (see `spec.server`). A `200` is decoded through the `Trace` schema and sends `SettledLoadTrace` with the trace; a `304` sends nothing; a network or decode error sends `SettledLoadTrace` with the error, and the view shows the error above the last good trace. The demo build (`vite build --mode demo`) loads `demo-trace.json` once and never polls.
 
 ### Markdown rendering {#spec.viewer.markdown-rendering}
 

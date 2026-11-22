@@ -118,7 +118,7 @@
         "reasons": []
       },
       "status": "done",
-      "commits": ["76aa977d0837241dc3b74549b0327a5d2ae73749"],
+      "commits": ["aac4cc66a090184742eb9d551501e1118c543cb6"],
       "sessions": ["s_mm9ti7hg"]
     },
     {
@@ -166,7 +166,7 @@
         "reasons": []
       },
       "status": "done",
-      "commits": ["c544bf24a0b817eddcf69272cd4fcb2202693542"],
+      "commits": ["52896578107294f8cb80f5b9fe6620a70290cf21"],
       "sessions": ["s_c8dwmnm7"]
     },
     {
@@ -218,7 +218,7 @@
         "reasons": []
       },
       "status": "done",
-      "commits": ["9ac2398e32389dbdbfd834337d57961a00533b20"],
+      "commits": ["dbbf65570b323dd897e331bd87ee22d03a950af1"],
       "sessions": ["s_1o461e6i"]
     },
     {
@@ -292,7 +292,7 @@
         "reasons": []
       },
       "status": "done",
-      "commits": ["0994228f58a6816214f88f1097e16006250016de"],
+      "commits": ["95822bd2f3dfb1f4da1ddd4944c70315f7309474"],
       "sessions": ["s_wgn3te8k"]
     },
     {
@@ -975,7 +975,7 @@
         "reasons": []
       },
       "status": "done",
-      "commits": ["5bcf86940b291624f80e1e4c0cce5ed9437f3f98"],
+      "commits": ["3d09b7510e794ff43db92c887e0c3fbbc9be9a14"],
       "sessions": ["s_acsa6xwd"]
     },
     {
@@ -995,7 +995,7 @@
         "reasons": []
       },
       "status": "done",
-      "commits": ["c6a1d8a4063adf66b825c2d3a13c56f632c8c6ff"],
+      "commits": ["f57f451a094b86236a1ea200a00a9f3a6bd5c228"],
       "sessions": ["s_yyldg8lo"]
     },
     {
@@ -1019,7 +1019,7 @@
         "reasons": []
       },
       "status": "done",
-      "commits": ["bbabe8e142838ad9de05c2a0f87aa167580578dd"],
+      "commits": ["d9c22e51785b955c9e9455f6552c37593a14c25e"],
       "sessions": ["s_eyyug75v"]
     },
     {
@@ -1034,7 +1034,8 @@
         "apps/viewer/src/demo.ts",
         "apps/viewer/test/viewer.scene.test.ts",
         "apps/viewer/src/stacks.ts",
-        "apps/viewer/test/stacks.test.ts"
+        "apps/viewer/test/stacks.test.ts",
+        "apps/viewer/src/markdown.ts"
       ],
       "branch": "cairn-mvp/45-viewer-columns",
       "parent": null,
@@ -1046,20 +1047,21 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["3d880faa9d41f75aebce064a39976b46fa52b016"],
+      "sessions": ["s_nt6t25bn"]
     },
     {
       "id": "t46",
-      "title": "Load the trace from /api/trace and poll it",
+      "title": "Load the demo trace through a command",
       "prdSections": ["prd.viewer"],
       "specSections": ["spec.viewer.model-and-messages"],
       "files": [
         "apps/viewer/src/load.ts",
         "apps/viewer/src/main.ts",
         "apps/viewer/src/model.ts",
-        "apps/viewer/test/load.test.ts"
+        "apps/viewer/test/load.test.ts",
+        "apps/viewer/test/viewer.scene.test.ts"
       ],
       "branch": "cairn-mvp/46-trace-polling",
       "parent": "t45",
@@ -1071,9 +1073,9 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["f93c7e39a4639c367f11e30270bda8ec09e885ec"],
+      "sessions": ["s_26z03r0h"]
     },
     {
       "id": "t47",
@@ -1083,7 +1085,8 @@
       "files": [
         "apps/viewer/src/model.ts",
         "apps/viewer/src/main.ts",
-        "apps/viewer/test/viewer.scene.test.ts"
+        "apps/viewer/test/viewer.scene.test.ts",
+        "apps/viewer/src/markdown.ts"
       ],
       "branch": "cairn-mvp/47-chain-highlight",
       "parent": "t46",
@@ -1095,9 +1098,9 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["811f5475db3c9779a5acf96616e18ee04a88b5e0"],
+      "sessions": ["s_nq5tyg25"]
     },
     {
       "id": "t48",
@@ -1119,9 +1122,9 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["3503a62f480d0ce104a66e8bb05da64a0d7a9e87"],
+      "sessions": ["s_f9jykxsg"]
     },
     {
       "id": "t49",
@@ -1132,7 +1135,8 @@
         "apps/viewer/src/layout.ts",
         "apps/viewer/src/model.ts",
         "apps/viewer/src/main.ts",
-        "apps/viewer/test/viewer.scene.test.ts"
+        "apps/viewer/test/viewer.scene.test.ts",
+        "apps/viewer/src/entry.ts"
       ],
       "branch": "cairn-mvp/49-curves-overlay",
       "parent": "t48",
@@ -1144,9 +1148,9 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["dff2a5047d6d8ebbd1247376232db06a9e5291fc"],
+      "sessions": ["s_qomlypd5"]
     },
     {
       "id": "t50",
@@ -1157,7 +1161,9 @@
         "apps/viewer/src/canvas.ts",
         "apps/viewer/src/model.ts",
         "apps/viewer/src/main.ts",
-        "apps/viewer/test/viewer.scene.test.ts"
+        "apps/viewer/test/viewer.scene.test.ts",
+        "apps/viewer/test/load.test.ts",
+        "apps/viewer/src/markdown.ts"
       ],
       "branch": "cairn-mvp/50-canvas-pan-zoom",
       "parent": "t49",
@@ -1169,9 +1175,12 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": [
+        "2d8d8ece35c675a835907fec5f6f6ce45a85f517",
+        "4adcd3738250c2f4f853bcf79107b1e7a5faf8d9"
+      ],
+      "sessions": ["s_u2jl8hnv"]
     },
     {
       "id": "t51",
@@ -1185,7 +1194,8 @@
         "apps/viewer/test/canvas.test.ts",
         "apps/viewer/test/presence.scene.test.ts",
         "packages/core/src/room-machine.ts",
-        "packages/core/test/room-machine.test.ts"
+        "packages/core/test/room-machine.test.ts",
+        "apps/viewer/test/viewer.scene.test.ts"
       ],
       "branch": "cairn-mvp/51-canvas-presence",
       "parent": "t50",
@@ -1197,9 +1207,9 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["ddb28b0379ee3845fd22d57bad95e021d845829f"],
+      "sessions": ["s_k6qtvavl"]
     },
     {
       "id": "t52",
@@ -1215,6 +1225,30 @@
       "branch": "cairn-mvp/52-detail-drawer",
       "parent": "t51",
       "dependsOn": ["t51"],
+      "worktree": "wt-14",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "done",
+      "commits": ["d99eb2f9236e617245adb76d4f1c9c81f364c8bc"],
+      "sessions": ["s_j0wjjtjd"]
+    },
+    {
+      "id": "t68",
+      "title": "Poll /api/trace under cairn serve",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.model-and-messages"],
+      "files": [
+        "apps/viewer/src/load.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/test/load.test.ts"
+      ],
+      "branch": "cairn-mvp/68-api-trace-polling",
+      "parent": "t52",
+      "dependsOn": ["t52", "t39"],
       "worktree": "wt-14",
       "model": "sonnet",
       "reasoning": "medium",

@@ -4437,7 +4437,7 @@
       "dependsOn": ["spec.contract.trace", "spec.viewer.markdown-rendering"],
       "defers": [],
       "context": [],
-      "tasks": ["t13", "t43", "t45", "t46", "t47", "t67"],
+      "tasks": ["t13", "t43", "t45", "t46", "t47", "t67", "t68"],
       "summary": "Specifies the viewer model, its messages, the pure chainOf function and the three-column layout.",
       "requirements": [
         {
@@ -4483,12 +4483,12 @@
         {
           "id": "spec.viewer.model-and-messages#r9",
           "level": "must",
-          "text": "A 200 is decoded through the Trace schema and sends ReceivedTrace; a 304 sends nothing."
+          "text": "A 200 is decoded through the Trace schema and sends SettledLoadTrace with the trace; a 304 sends nothing."
         },
         {
           "id": "spec.viewer.model-and-messages#r10",
           "level": "must",
-          "text": "A network or decode error sends FailedToLoadTrace, and the view shows the error above the last good trace."
+          "text": "A network or decode error sends SettledLoadTrace with the error, and the view shows the error above the last good trace."
         },
         {
           "id": "spec.viewer.model-and-messages#r11",
@@ -4518,18 +4518,11 @@
       ],
       "artifacts": [
         {
-          "id": "spec.viewer.model-and-messages#message:receivedtrace",
+          "id": "spec.viewer.model-and-messages#message:settledloadtrace",
           "kind": "message",
-          "name": "ReceivedTrace",
+          "name": "SettledLoadTrace",
           "location": "apps/viewer/src/main.ts",
-          "description": "Viewer message."
-        },
-        {
-          "id": "spec.viewer.model-and-messages#message:failedtoloadtrace",
-          "kind": "message",
-          "name": "FailedToLoadTrace",
-          "location": null,
-          "description": "Viewer message sent when loading the trace fails."
+          "description": "Viewer message carrying the trace, or the error, once loading it settles."
         },
         {
           "id": "spec.viewer.model-and-messages#message:hoverednode",
