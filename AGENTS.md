@@ -42,6 +42,14 @@ lookup: Effect probably already has it.
   signature from memory.
 - A script under `scripts/` is an Effect program run by `NodeRuntime.runMain`
   with `NodeServices.layer`; see `scripts/land/land.ts`.
+- `lint/effect-core-plugin.mjs` enforces `core/no-native-sort`,
+  `core/no-set-dedupe` and `core/no-yield-in-loop` in files that import
+  Effect. A `yield*` loop that must stop early or poll may stay a loop with
+  `// loop: <reason>` on the line above it. `tsconfig.base.json` makes the
+  `@effect/tsgo` diagnostics for platform globals (`Date`, `console`,
+  `Math.random`, timers, `fetch`, `JSON`, `process.env`), `new Promise`,
+  try/catch in `Effect.gen`, `extends Error` and `Effect.all` over a `map`
+  errors. `pnpm test:lint` proves the rules fire.
 - After an Effect upgrade or a new `@effect/*` dependency, run
   `node scripts/effect-api/refresh-effect-api.ts` and
   `node scripts/effect-api/index-effect-core.ts`; after an XState upgrade,

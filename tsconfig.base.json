@@ -20,7 +20,34 @@
       {
         "name": "@effect/language-service",
         "ignoreEffectWarningsInTscExitCode": false,
-        "allowedUnstableApis": ["@effect/vitest"]
+        "allowedUnstableApis": ["@effect/vitest"],
+        "diagnosticSeverity": {
+          "abortControllerInEffect": "error",
+          "allOfMapToForEach": "error",
+          "cryptoRandomUUID": "error",
+          "cryptoRandomUUIDInEffect": "error",
+          "extendsNativeError": "error",
+          "globalConsole": "error",
+          "globalConsoleInEffect": "error",
+          "globalDate": "error",
+          "globalDateInEffect": "error",
+          "globalErrorInEffectCatch": "error",
+          "globalErrorInEffectFailure": "error",
+          "globalFetch": "error",
+          "globalFetchInEffect": "error",
+          "globalJson": "error",
+          "globalJsonInEffect": "error",
+          "globalRandom": "error",
+          "globalRandomInEffect": "error",
+          "globalTimers": "error",
+          "globalTimersInEffect": "error",
+          "instanceOfSchema": "error",
+          "newPromise": "error",
+          "processEnv": "error",
+          "processEnvInEffect": "error",
+          "tryCatchInEffectGen": "error",
+          "yieldInCallArgument": "error"
+        }
       }
     ]
   }

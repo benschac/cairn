@@ -30,6 +30,17 @@
       "inputs": ["scripts/land/**", "package.json"],
       "outputs": []
     },
+    "//#test:lint": {
+      "inputs": [
+        "lint/**",
+        "oxlint.config.ts",
+        "tsconfig.json",
+        "tsconfig.base.json",
+        "packages/cli/tsconfig.json",
+        "package.json"
+      ],
+      "outputs": []
+    },
     "//#check:effect-api": {
       "inputs": [
         "scripts/effect-api/**",

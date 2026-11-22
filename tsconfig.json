@@ -19,7 +19,19 @@
           "effect/Path",
           "effect/process/ChildProcess",
           "effect/process/ChildProcessSpawner"
-        ]
+        ],
+        "diagnosticSeverity": {
+          "cryptoRandomUUID": "off",
+          "extendsNativeError": "off",
+          "globalConsole": "off",
+          "globalDate": "off",
+          "globalFetch": "off",
+          "globalJson": "off",
+          "globalRandom": "off",
+          "globalTimers": "off",
+          "newPromise": "off",
+          "processEnv": "off"
+        }
       }
     ]
   },
