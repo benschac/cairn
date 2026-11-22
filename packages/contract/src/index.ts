@@ -3,16 +3,8 @@ import { Schema } from "effect";
 import { SectionId, TaskId } from "./ids.ts";
 
 export * from "./ids.ts";
+export * from "./manifest.ts";
 export * from "./trailers.ts";
-
-export const TaskStatus = Schema.Literals([
-  "pending",
-  "running",
-  "blocked_on_human",
-  "done",
-  "landed",
-]);
-export type TaskStatus = typeof TaskStatus.Type;
 
 export const Task = Schema.Struct({
   gated: Schema.Boolean,
