@@ -7,15 +7,26 @@ import {
   type TaskId,
 } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Number, Option, Record, Schema, Struct } from "effect";
-import { Subscription, expect, given, role, scene, selector } from "foldkit/scene";
+import { Array, HashSet, Number, Option, Record, Schema, Struct, pipe } from "effect";
+import {
+  Subscription,
+  all,
+  click,
+  expect,
+  expectAll,
+  given,
+  hover,
+  role,
+  scene,
+  selector,
+} from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
 import { Message, init, update, view } from "../src/main.ts";
 import { TraceData } from "../src/model.ts";
 import { stackLayoutOf } from "../src/stacks.ts";
-import { sectionStatusOf } from "../src/trace.ts";
+import { chainOf, sectionStatusOf, type Chain, type Node } from "../src/trace.ts";
 
 const loaded = modifyFields(init().model, {
   trace: () => TraceData.Success({ data: demoTrace }),
@@ -186,5 +197,104 @@ it("other participants appear with their cursors, and you do not", () => {
     expect(selector('[data-cursor="agent"]')).toHaveText("Planner (agent)"),
     expect(selector('[data-cursor="agent"]')).toHaveStyle("left", "25%"),
     expect(selector('[data-cursor="human"]')).toBeAbsent(),
+  );
+});
+// A spec section whose chain has tasks and PRD sections, and a task outside that chain.
+const { chain, specSection, unrelated } = Option.getOrThrow(
+  Array.findFirst(demoTrace.spec.sections, (section) => {
+    const node: Node = { id: section.id, kind: "section" };
+    const sectionChain = chainOf(demoTrace, node);
+    return pipe(
+      Array.findFirst(
+        demoTrace.tasks,
+        (candidate) => !HashSet.has(sectionChain.tasks, candidate.id),
+      ),
+      Option.filter(
+        () => !HashSet.isEmpty(sectionChain.tasks) && !HashSet.isEmpty(sectionChain.prd),
+      ),
+      Option.map((outside) => ({ chain: sectionChain, specSection: node, unrelated: outside.id })),
+    );
+  }),
+);
+const heading = (id: string) => selector(`[data-section="${id}"]`);
+const firstOf = (ids: HashSet.HashSet<string>) =>
+  Option.getOrThrow(Array.head(Array.fromIterable(ids)));
+const chainTask = Option.getOrThrow(
+  Array.findFirst(demoTrace.tasks, (candidate) => HashSet.has(chain.tasks, candidate.id)),
+).id;
+const chainPrd = firstOf(chain.prd);
+// foldkit/scene has hover but no step for the mouse leaving, so send what OnMouseLeave sends.
+const left = Subscription.emit(Message.LeftNode());
+const highlighted = (target: ReturnType<typeof selector>) =>
+  expect(target).toHaveAttr("data-highlighted", "true");
+const sizeOf = (nodes: Chain) =>
+  Number.sumAll(Array.map([nodes.prd, nodes.spec, nodes.tasks], HashSet.size));
+// Every PRD section, spec section and task is a node.
+const nodeCount = Number.sumAll([
+  demoTrace.prd.sections.length,
+  demoTrace.spec.sections.length,
+  demoTrace.tasks.length,
+]);
+
+it("hovering a spec section highlights exactly its chain and dims the rest; leaving clears", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    expectAll(all.selector("[data-dimmed]")).toBeEmpty(),
+    hover(heading(specSection.id)),
+    highlighted(heading(specSection.id)),
+    highlighted(task(chainTask)),
+    highlighted(heading(chainPrd)),
+    expect(task(unrelated)).toHaveAttr("data-dimmed", "true"),
+    expect(selector(`[data-task="${unrelated}"][data-highlighted]`)).toBeAbsent(),
+    expectAll(all.selector("[data-highlighted]")).toHaveCount(sizeOf(chain)),
+    expectAll(all.selector("[data-dimmed]")).toHaveCount(nodeCount - sizeOf(chain)),
+    left,
+    expectAll(all.selector("[data-highlighted]")).toBeEmpty(),
+    expectAll(all.selector("[data-dimmed]")).toBeEmpty(),
+  );
+});
+
+it("hovering a task highlights its sections", () => {
+  const expected = chainOf(demoTrace, { id: chainTask, kind: "task" });
+  assert(HashSet.isEmpty(expected.spec)).toBe(false);
+  scene(
+    { update, view },
+    given(loaded),
+    hover(task(chainTask)),
+    highlighted(task(chainTask)),
+    highlighted(heading(firstOf(expected.spec))),
+    highlighted(heading(firstOf(expected.prd))),
+    expectAll(all.selector("[data-highlighted]")).toHaveCount(sizeOf(expected)),
+  );
+});
+
+it("clicking keeps the highlight after leaving, and clicking again clears it", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    hover(heading(specSection.id)),
+    click(heading(specSection.id)),
+    left,
+    highlighted(task(chainTask)),
+    expect(task(unrelated)).toHaveAttr("data-dimmed", "true"),
+    // A leave with nothing hovered is ignored: the selection stays.
+    left,
+    highlighted(task(chainTask)),
+    click(heading(specSection.id)),
+    expectAll(all.selector("[data-highlighted]")).toBeEmpty(),
+  );
+});
+
+it("hovering something else previews it over the selection", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    click(heading(specSection.id)),
+    hover(task(unrelated)),
+    highlighted(task(unrelated)),
+    expect(task(chainTask)).toHaveAttr("data-dimmed", "true"),
+    left,
+    highlighted(task(chainTask)),
   );
 });

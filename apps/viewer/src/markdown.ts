@@ -13,7 +13,7 @@ import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
 import { SectionId } from "@cairn/contract";
 import { Array, Match, Option, Predicate, Schema, String, Struct, pipe } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
+import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
 /** The keys that start a spec section, in the order the format lists them. */
 export const sectionKeys = ["Implements", "Files", "Depends on", "Defers", "Context"] as const;
@@ -88,11 +88,18 @@ const checkbox = (checked: boolean | null | undefined): ReadonlyArray<string> =>
 
 const isSectionId = Schema.is(SectionId);
 
-/** `decorate` adds nodes to the end of a heading whose `{#id}` is a section ID. */
+/** What a caller adds to a heading whose `{#id}` is a section ID. */
+export interface SectionHooks<Message> {
+  /** Attributes for the heading. */
+  readonly attributesOf?: (sectionId: SectionId) => ReadonlyArray<Attribute<Message>>;
+  /** Nodes at the end of the heading. */
+  readonly decorate?: (sectionId: SectionId) => ReadonlyArray<Html>;
+}
+
 export const renderMarkdown = <Message>(
   markdown: string,
   h: HtmlBuilder<Message>,
-  decorate: (sectionId: SectionId) => ReadonlyArray<Html> = () => [],
+  { attributesOf = () => [], decorate = () => [] }: SectionHooks<Message> = {},
 ): Html => {
   const tree: Root = fromMarkdown(markdown, {
     extensions: [gfm()],
@@ -129,18 +136,19 @@ export const renderMarkdown = <Message>(
       Array.get([h.h1, h.h2, h.h3, h.h4, h.h5, h.h6], node.depth - 1),
       () => h.h6,
     );
+    const maybeSectionId = Option.filter(maybeId, isSectionId);
     return tag(
       Option.match(maybeId, {
         onNone: () => [],
-        onSome: (id) => [h.Id(id), h.DataAttribute("section", id)],
+        onSome: (id) =>
+          Array.appendAll(
+            [h.Id(id), h.DataAttribute("section", id)],
+            Option.match(maybeSectionId, { onNone: () => [], onSome: attributesOf }),
+          ),
       }),
       Array.appendAll(
         inline(Array.filter(children, (child) => child.type !== "text" || child.value !== "")),
-        pipe(
-          maybeId,
-          Option.filter(isSectionId),
-          Option.match({ onNone: () => [], onSome: decorate }),
-        ),
+        Option.match(maybeSectionId, { onNone: () => [], onSome: decorate }),
       ),
     );
   };

@@ -3,7 +3,7 @@ import type { Participant, ParticipantKind, SectionId, SectionStatus } from "@ca
 import { Array, Effect, Match, Number, Option, Record, Schema } from "effect";
 import { AsyncData, Command } from "foldkit";
 import type { Runtime, Update } from "foldkit";
-import type { Document, Html, HtmlBuilder } from "foldkit/html";
+import type { Attribute, Document, Html, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
 import { modifyFields } from "foldkit/struct";
 
@@ -11,16 +11,42 @@ import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { TraceData, type Model } from "./model.ts";
 import { stackLayoutOf, type StackPosition } from "./stacks.ts";
-import { judgmentMarkOf, sectionStatusOf, type JudgmentMark } from "./trace.ts";
+import {
+  Node,
+  chainOf,
+  isInChain,
+  judgmentMarkOf,
+  sectionStatusOf,
+  type Chain,
+  type JudgmentMark,
+} from "./trace.ts";
 
 export const Message = defineMessageUnion({
+  ClickedNode: { node: Node },
+  HoveredNode: { node: Node },
+  LeftNode: {},
   ReceivedPresence: { presence: Presence },
   SettledLoadTrace: { result: Schema.Result(Schema.toType(Trace), Schema.String) },
 });
 export type Message = typeof Message.Type;
 
+const nodeEquivalence = Schema.toEquivalence(Node);
+
 export const update = (model: Model, message: Message) =>
   Message.match<Update.Return<Model, Message>>(message, {
+    // Clicking the selected node clears the selection; clicking any other node selects it.
+    ClickedNode: ({ node }) => ({
+      model: modifyFields(model, {
+        maybeSelected: (maybeSelected) =>
+          Option.exists(maybeSelected, (selected) => nodeEquivalence(selected, node))
+            ? Option.none()
+            : Option.some(node),
+      }),
+    }),
+    HoveredNode: ({ node }) => ({
+      model: modifyFields(model, { maybeHovered: () => Option.some(node) }),
+    }),
+    LeftNode: () => ({ model: modifyFields(model, { maybeHovered: () => Option.none() }) }),
     ReceivedPresence: ({ presence }) => ({
       model: modifyFields(model, {
         participants: () => presence.participants,
@@ -43,7 +69,13 @@ export const LoadTrace = Command.define("LoadTrace", {
 
 export const init: Runtime.ApplicationInit<Model, Message> = () => ({
   commands: [LoadTrace()],
-  model: { participants: [], trace: TraceData.Loading(), you: Option.none() },
+  model: {
+    maybeHovered: Option.none(),
+    maybeSelected: Option.none(),
+    participants: [],
+    trace: TraceData.Loading(),
+    you: Option.none(),
+  },
 });
 
 const labelOf = (participant: Participant) =>
@@ -105,6 +137,33 @@ const judgmentView = (mark: JudgmentMark, h: HtmlBuilder<Message>): Html =>
     [mark.verdict],
   );
 
+const highlightedBackground = "#fef08a";
+const dimmedOpacity = "0.35";
+
+/**
+ * The hover and click handlers every node carries and, while a chain is active, the
+ * attributes that highlight a node in it or dim a node outside it.
+ */
+const nodeAttributes = (
+  maybeChain: Option.Option<Chain>,
+  node: Node,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Attribute<Message>> =>
+  Array.appendAll(
+    [
+      h.OnMouseEnter(Message.HoveredNode({ node })),
+      h.OnMouseLeave(Message.LeftNode()),
+      h.OnClick(Message.ClickedNode({ node })),
+    ],
+    Option.match(maybeChain, {
+      onNone: () => [],
+      onSome: (chain) =>
+        isInChain(chain, node)
+          ? [h.DataAttribute("highlighted", "true"), h.Style({ background: highlightedBackground })]
+          : [h.DataAttribute("dimmed", "true"), h.Style({ opacity: dimmedOpacity })],
+    }),
+  );
+
 type ColumnName = "prd" | "spec" | "stacks";
 
 const column = (name: ColumnName, children: ReadonlyArray<Html>, h: HtmlBuilder<Message>): Html =>
@@ -116,7 +175,11 @@ const column = (name: ColumnName, children: ReadonlyArray<Html>, h: HtmlBuilder<
 /** Where a task without a position would sit. stackLayoutOf places every task it is given. */
 const origin: StackPosition = { column: 1, row: 1 };
 
-const stacksView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
+const stacksView = (
+  trace: Trace,
+  maybeChain: Option.Option<Chain>,
+  h: HtmlBuilder<Message>,
+): Html => {
   const layout = stackLayoutOf(trace.tasks);
   const top = Array.reduce(Record.values(layout), 1, (highest, position) =>
     Number.max(highest, position.row),
@@ -129,17 +192,20 @@ const stacksView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
     Array.map(trace.tasks, (task) => {
       const position = Option.getOrElse(Record.get(layout, task.id), () => origin);
       return h.div(
-        [
-          h.DataAttribute("task", task.id),
-          h.Style({
-            border: "1px solid #94a3b8",
-            "border-radius": "6px",
-            "grid-column": String(position.column),
-            // Row 1 is the bottom, so everything a task needs sits below it.
-            "grid-row": String(top - position.row + 1),
-            padding: "6px 8px",
-          }),
-        ],
+        Array.appendAll(
+          [
+            h.DataAttribute("task", task.id),
+            h.Style({
+              border: "1px solid #94a3b8",
+              "border-radius": "6px",
+              "grid-column": String(position.column),
+              // Row 1 is the bottom, so everything a task needs sits below it.
+              "grid-row": String(top - position.row + 1),
+              padding: "6px 8px",
+            }),
+          ],
+          nodeAttributes(maybeChain, { id: task.id, kind: "task" }, h),
+        ),
         Array.flatten([
           [
             h.strong([], [task.id]),
@@ -160,7 +226,16 @@ const stacksView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
   );
 };
 
-const columnsView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
+/** The columns, with the chain of the hovered node, or else the selected one, highlighted. */
+const columnsView = (
+  trace: Trace,
+  maybeActive: Option.Option<Node>,
+  h: HtmlBuilder<Message>,
+): Html => {
+  // One chain per render: every node reads it.
+  const maybeChain = Option.map(maybeActive, (active) => chainOf(trace, active));
+  const sectionAttributes = (sectionId: SectionId) =>
+    nodeAttributes(maybeChain, { id: sectionId, kind: "section" }, h);
   const badged = (sectionId: SectionId): ReadonlyArray<Html> =>
     Array.fromOption(
       Option.map(sectionStatusOf(trace, sectionId), (status) => badgeView(status, h)),
@@ -183,9 +258,27 @@ const columnsView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
       }),
     ],
     [
-      column("prd", [renderMarkdown(trace.prd.markdown, h, badged)], h),
-      column("spec", [renderMarkdown(trace.spec.markdown, h, specDecorated)], h),
-      column("stacks", [stacksView(trace, h)], h),
+      column(
+        "prd",
+        [
+          renderMarkdown(trace.prd.markdown, h, {
+            attributesOf: sectionAttributes,
+            decorate: badged,
+          }),
+        ],
+        h,
+      ),
+      column(
+        "spec",
+        [
+          renderMarkdown(trace.spec.markdown, h, {
+            attributesOf: sectionAttributes,
+            decorate: specDecorated,
+          }),
+        ],
+        h,
+      ),
+      column("stacks", [stacksView(trace, maybeChain, h)], h),
     ],
   );
 };
@@ -195,15 +288,17 @@ const loadingView = (h: HtmlBuilder<Message>): Html =>
 
 const alertView = (error: string, h: HtmlBuilder<Message>): Html => h.p([h.Role("alert")], [error]);
 
-const traceView = (trace: TraceData, h: HtmlBuilder<Message>): ReadonlyArray<Html> =>
-  AsyncData.match(trace, {
+const traceView = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> => {
+  const maybeActive = Option.orElse(model.maybeHovered, () => model.maybeSelected);
+  return AsyncData.match(model.trace, {
     onFailure: (error) => [alertView(error, h)],
     onIdle: () => [loadingView(h)],
     onLoading: () => [loadingView(h)],
-    onRefreshing: (data) => [columnsView(data, h)],
-    onStale: ({ data, error }) => [alertView(error, h), columnsView(data, h)],
-    onSuccess: (data) => [columnsView(data, h)],
+    onRefreshing: (data) => [columnsView(data, maybeActive, h)],
+    onStale: ({ data, error }) => [alertView(error, h), columnsView(data, maybeActive, h)],
+    onSuccess: (data) => [columnsView(data, maybeActive, h)],
   });
+};
 
 export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
   const others = Array.filter(
@@ -215,7 +310,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
       [],
       Array.flatten([
         [h.h1([], ["Cairn"]), h.p([h.Role("status")], [presentText(others)])],
-        traceView(model.trace, h),
+        traceView(model, h),
         Array.getSomes(Array.map(others, (participant) => cursorView(participant, h))),
       ]),
     ),
