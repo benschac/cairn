@@ -13,9 +13,13 @@ import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
 import { Message, init, update, view } from "../src/main.ts";
+import { TraceData } from "../src/model.ts";
 import { stackLayoutOf } from "../src/stacks.ts";
 import { sectionStatusOf } from "../src/trace.ts";
 
+const loaded = modifyFields(init().model, {
+  trace: () => TraceData.Success({ data: demoTrace }),
+});
 const status = (id: SectionId) => Option.getOrThrow(sectionStatusOf(demoTrace, id));
 const task = (id: string) => selector(`[data-task="${id}"]`);
 const hasStatus = (section: { readonly id: SectionId }) =>
@@ -24,7 +28,7 @@ const hasStatus = (section: { readonly id: SectionId }) =>
 it("the trace shows as PRD, spec and stack columns", () => {
   scene(
     { update, view },
-    given(init().model),
+    given(loaded),
     expect(selector('[data-column="prd"]')).toExist(),
     expect(selector('[data-column="spec"]')).toExist(),
     expect(selector('[data-column="stacks"]')).toExist(),
@@ -42,7 +46,7 @@ it("a PRD heading and a spec heading carry their rollup badge", () => {
   );
   scene(
     { update, view },
-    given(init().model),
+    given(loaded),
     expect(selector(`[data-section="${prd.id}"] [data-badge]`)).toHaveAttr(
       "data-status",
       status(prd.id),
@@ -57,7 +61,7 @@ it("a PRD heading and a spec heading carry their rollup badge", () => {
 it("task t9 shows its branch, model and status", () => {
   scene(
     { update, view },
-    given(init().model),
+    given(loaded),
     expect(task("t9")).toContainText("cairn-mvp/09-trailer-schema"),
     expect(task("t9")).toContainText("sonnet"),
     expect(selector('[data-task="t9"] [data-status]')).toHaveAttr("data-status", "done"),
@@ -69,7 +73,7 @@ it("task t9 shows its branch, model and status", () => {
 it("a gated task shows the gate marker", () => {
   scene(
     { update, view },
-    given(init().model),
+    given(loaded),
     expect(selector('[data-task="t1"] [data-gate]')).toExist(),
   );
 });
@@ -92,7 +96,7 @@ it("every task sits in a higher grid row than each of its dependencies", () => {
   const { dependency, dependent } = Option.getOrThrow(Array.head(edges));
   scene(
     { update, view },
-    given(init().model),
+    given(loaded),
     expect(task(dependent)).toHaveStyle("grid-row", String(gridRow(dependent))),
     expect(task(dependency)).toHaveStyle("grid-row", String(gridRow(dependency))),
     expect(task(dependent)).toHaveStyle("grid-column", String(at(dependent).column)),
@@ -133,7 +137,7 @@ it("a flag or unsure judgment marks its task and section, dimmed when stale; a p
   });
   scene(
     { update, view },
-    given(modifyFields(init().model, { trace: () => trace })),
+    given(modifyFields(loaded, { trace: () => TraceData.Success({ data: trace }) })),
     ...Array.flatMap(cases, ({ id, stale, verdict }) => {
       const mark = selector(`[data-task="${id}"] [data-judgment]`);
       return verdict === "pass"
@@ -154,7 +158,7 @@ it("a flag or unsure judgment marks its task and section, dimmed when stale; a p
 it("other participants appear with their cursors, and you do not", () => {
   scene(
     { update, view },
-    given(init().model),
+    given(loaded),
     expect(role("status")).toHaveText("Nobody else is here."),
     Subscription.emit(
       Message.ReceivedPresence({

@@ -1,19 +1,21 @@
-import { Presence } from "@cairn/contract";
+import { Presence, Trace } from "@cairn/contract";
 import type { Participant, ParticipantKind, SectionId, SectionStatus } from "@cairn/contract";
-import { Array, Match, Number, Option, Record } from "effect";
+import { Array, Effect, Match, Number, Option, Record, Schema } from "effect";
+import { AsyncData, Command } from "foldkit";
 import type { Runtime, Update } from "foldkit";
 import type { Document, Html, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
 import { modifyFields } from "foldkit/struct";
 
-import { demoTrace } from "./demo.ts";
+import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { renderMarkdown } from "./markdown.ts";
-import type { Model } from "./model.ts";
+import { TraceData, type Model } from "./model.ts";
 import { stackLayoutOf, type StackPosition } from "./stacks.ts";
 import { judgmentMarkOf, sectionStatusOf, type JudgmentMark } from "./trace.ts";
 
 export const Message = defineMessageUnion({
   ReceivedPresence: { presence: Presence },
+  SettledLoadTrace: { result: Schema.Result(Schema.toType(Trace), Schema.String) },
 });
 export type Message = typeof Message.Type;
 
@@ -25,10 +27,23 @@ export const update = (model: Model, message: Message) =>
         you: () => Option.some(presence.you),
       }),
     }),
+    SettledLoadTrace: ({ result }) => ({
+      model: modifyFields(model, { trace: AsyncData.settle(result) }),
+    }),
   });
 
+export const LoadTrace = Command.define("LoadTrace", {
+  messages: [Message.SettledLoadTrace],
+  execute: loadDemoTrace.pipe(
+    Effect.mapError(describeTraceError),
+    Effect.result,
+    Effect.map((result) => Message.SettledLoadTrace({ result })),
+  ),
+});
+
 export const init: Runtime.ApplicationInit<Model, Message> = () => ({
-  model: { participants: [], trace: demoTrace, you: Option.none() },
+  commands: [LoadTrace()],
+  model: { participants: [], trace: TraceData.Loading(), you: Option.none() },
 });
 
 const labelOf = (participant: Participant) =>
@@ -101,8 +116,7 @@ const column = (name: ColumnName, children: ReadonlyArray<Html>, h: HtmlBuilder<
 /** Where a task without a position would sit. stackLayoutOf places every task it is given. */
 const origin: StackPosition = { column: 1, row: 1 };
 
-const stacksView = (model: Model, h: HtmlBuilder<Message>): Html => {
-  const { trace } = model;
+const stacksView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
   const layout = stackLayoutOf(trace.tasks);
   const top = Array.reduce(Record.values(layout), 1, (highest, position) =>
     Number.max(highest, position.row),
@@ -146,12 +160,7 @@ const stacksView = (model: Model, h: HtmlBuilder<Message>): Html => {
   );
 };
 
-export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
-  const others = Array.filter(
-    model.participants,
-    (participant) => !Option.contains(model.you, participant.id),
-  );
-  const { trace } = model;
+const columnsView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
   const badged = (sectionId: SectionId): ReadonlyArray<Html> =>
     Array.fromOption(
       Option.map(sectionStatusOf(trace, sectionId), (status) => badgeView(status, h)),
@@ -165,30 +174,50 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
         ),
       ),
     );
+  return h.div(
+    [
+      h.Style({
+        display: "grid",
+        gap: "24px",
+        "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)",
+      }),
+    ],
+    [
+      column("prd", [renderMarkdown(trace.prd.markdown, h, badged)], h),
+      column("spec", [renderMarkdown(trace.spec.markdown, h, specDecorated)], h),
+      column("stacks", [stacksView(trace, h)], h),
+    ],
+  );
+};
+
+const loadingView = (h: HtmlBuilder<Message>): Html =>
+  h.p([h.DataAttribute("loading", "")], ["Loading the trace..."]);
+
+const alertView = (error: string, h: HtmlBuilder<Message>): Html => h.p([h.Role("alert")], [error]);
+
+const traceView = (trace: TraceData, h: HtmlBuilder<Message>): ReadonlyArray<Html> =>
+  AsyncData.match(trace, {
+    onFailure: (error) => [alertView(error, h)],
+    onIdle: () => [loadingView(h)],
+    onLoading: () => [loadingView(h)],
+    onRefreshing: (data) => [columnsView(data, h)],
+    onStale: ({ data, error }) => [alertView(error, h), columnsView(data, h)],
+    onSuccess: (data) => [columnsView(data, h)],
+  });
+
+export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
+  const others = Array.filter(
+    model.participants,
+    (participant) => !Option.contains(model.you, participant.id),
+  );
   return {
     body: h.main(
       [],
-      Array.appendAll(
-        [
-          h.h1([], ["Cairn"]),
-          h.p([h.Role("status")], [presentText(others)]),
-          h.div(
-            [
-              h.Style({
-                display: "grid",
-                gap: "24px",
-                "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)",
-              }),
-            ],
-            [
-              column("prd", [renderMarkdown(trace.prd.markdown, h, badged)], h),
-              column("spec", [renderMarkdown(trace.spec.markdown, h, specDecorated)], h),
-              column("stacks", [stacksView(model, h)], h),
-            ],
-          ),
-        ],
+      Array.flatten([
+        [h.h1([], ["Cairn"]), h.p([h.Role("status")], [presentText(others)])],
+        traceView(model.trace, h),
         Array.getSomes(Array.map(others, (participant) => cursorView(participant, h))),
-      ),
+      ]),
     ),
     title: "Cairn",
   };
