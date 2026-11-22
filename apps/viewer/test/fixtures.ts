@@ -6,7 +6,9 @@ import { modifyFields } from "foldkit/struct";
 import { PanZoomCanvas } from "../src/canvas.ts";
 import { FocusDrawerHeading, FocusNode } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
+import type { Positions } from "../src/geometry.ts";
 import { init } from "../src/init.ts";
+import { MeasureLayout } from "../src/layout.ts";
 import { Message } from "../src/message.ts";
 import { TraceData } from "../src/model.ts";
 import { sectionTitleOf } from "../src/trace.ts";
@@ -20,11 +22,30 @@ export const loaded = modifyFields(init().model, {
 export const paneSize = { height: 600, width: 1200 };
 
 /**
- * Scene tests run no hooks, so the canvas pane's mount stays pending until the test answers for
- * it with the message the library would send first.
+ * Scene tests run no hooks, so the layer's mount stays pending until the test answers for it with
+ * the message the mount would send first: the positions it measured.
  */
-// oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-export const mounted = Mount.resolve(PanZoomCanvas, Message.MeasuredPane({ size: paneSize }));
+export const layerMountedWith = (positions: Positions) =>
+  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+  Mount.resolve(MeasureLayout, Message.MeasuredLayout({ positions }));
+
+/** The layer's mount answering that no node is measured yet. */
+export const layerMounted = layerMountedWith({});
+
+/**
+ * The canvas pane's mount stays pending until the test answers for it with the message the library
+ * would send first. This also answers for the layer's mount, with the nodes measured at `positions`.
+ */
+export const mountedWith = (positions: Positions) =>
+  Mount.resolveAll(
+    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+    [PanZoomCanvas, Message.MeasuredPane({ size: paneSize })],
+    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+    [MeasureLayout, Message.MeasuredLayout({ positions })],
+  );
+
+/** The pane sized and nothing measured. */
+export const mounted = mountedWith({});
 
 /** Opening a drawer moves focus to its heading; the test answers for the focus. */
 export const focusedDrawerHeading = Command.resolve(

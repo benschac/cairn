@@ -36,6 +36,7 @@ import { curvesOf } from "../src/curves.ts";
 import { demoTrace } from "../src/demo.ts";
 import { MAX_ZOOM, MIN_ZOOM, Viewport, type Positions } from "../src/geometry.ts";
 import { init } from "../src/init.ts";
+import { MeasureLayout } from "../src/layout.ts";
 import { Message } from "../src/message.ts";
 import { TraceData } from "../src/model.ts";
 import { columnOf, stackLayoutOf } from "../src/stacks.ts";
@@ -44,8 +45,10 @@ import { update } from "../src/update.ts";
 import { view } from "../src/view/view.ts";
 import {
   focusedDrawerHeading,
+  layerMounted,
   loaded,
   mounted,
+  mountedWith,
   paneSize,
   sectionButton,
   taskButton,
@@ -318,7 +321,8 @@ const boxes: Positions = Record.fromEntries(
   ),
 );
 const allCurves = curvesOf(demoTrace, boxes, columnOf(stackLayoutOf(demoTrace.tasks)));
-const measured = Subscription.emit(Message.MeasuredLayout({ positions: boxes }));
+// The layer's mount measures it, which Scene cannot start, so a test answers for it.
+const measured = Mount.resolve(MeasureLayout, Message.MeasuredLayout({ positions: boxes }));
 const edge = (id: string) => selector(`[data-edge="${id}"]`);
 // An edge counts as in the chain only when both of its ends are, so these straddle it.
 const straddling = (sourceIn: boolean) =>
@@ -366,8 +370,7 @@ it("measured nodes get a path per link, dashed only across columns", () => {
   scene(
     { update, view },
     given(loaded),
-    mounted,
-    measured,
+    mountedWith(boxes),
     expect(edge(solidCurve.id)).toHaveAttr("data-kind", solidCurve.kind),
     expect(edge(solidCurve.id)).toHaveAttr("d", solidCurve.path),
     expect(selector(`[data-edge="${solidCurve.id}"][stroke-dasharray]`)).toBeAbsent(),
@@ -382,9 +385,9 @@ it("a measurement replaces the previous one, and edges to unmeasured nodes are n
   scene(
     { update, view },
     given(loaded),
-    mounted,
-    measured,
+    mountedWith(boxes),
     expect(edge(solidCurve.id)).toExist(),
+    // The mount's stream keeps sending as the layer changes, which Scene has no step for.
     Subscription.emit(Message.MeasuredLayout({ positions: {} })),
     expect(selector("[data-edge]")).toBeAbsent(),
   );
@@ -394,8 +397,7 @@ it("hovering a chain highlights its edges and dims the others; leaving clears", 
   scene(
     { update, view },
     given(loaded),
-    mounted,
-    measured,
+    mountedWith(boxes),
     hover(heading(specSection.id)),
     expect(edge(insideChain.id)).toHaveAttr("data-highlighted", "true"),
     expect(edge(outsideChain.id)).toHaveAttr("data-dimmed", "true"),
@@ -420,7 +422,7 @@ it("the pane is mounted on and the layer starts at the origin viewport", () => {
   scene(
     { update, view },
     given(loaded),
-    Mount.expectExact(PanZoomCanvas),
+    Mount.expectExact(PanZoomCanvas, MeasureLayout),
     mounted,
     expect(pane).toHaveStyle("overflow", "hidden"),
     expect(pane).toHaveAttr("data-viewport", viewportAttribute(ORIGIN_VIEWPORT)),
@@ -438,6 +440,7 @@ it.prop(
       { update, view },
       given(loaded),
       Mount.resolve(PanZoomCanvas, Message.PannedOrZoomed({ viewport })),
+      layerMounted,
       expect(layer).toHaveStyle("transform", transformOf(viewport)),
       expect(pane).toHaveAttr("data-viewport", viewportAttribute(viewport)),
     );
@@ -445,6 +448,17 @@ it.prop(
   // Each run renders the whole demo trace, so a few runs cover it.
   { arbitrary: { runs: 10 }, timeout: 30_000 },
 );
+
+it("the layer is measured once the trace is loaded, and not before", () => {
+  scene({ update, view }, given(init().model), expect(layer).toBeAbsent(), Mount.expectNone());
+  scene(
+    { update, view },
+    given(loaded),
+    expect(layer).toExist(),
+    Mount.expectHas(MeasureLayout),
+    mounted,
+  );
+});
 
 it("the pane does not mount before there is a trace to pan over", () => {
   scene(
@@ -464,8 +478,7 @@ it("clicking Fit sets the viewport that frames every measured node", () => {
   scene(
     { update, view },
     given(loaded),
-    mounted,
-    measured,
+    mountedWith(boxes),
     click(fit),
     expect(layer).toHaveStyle("transform", transformOf(fitted)),
     expect(pane).toHaveAttr("data-viewport", viewportAttribute(fitted)),
@@ -501,6 +514,7 @@ it("a panned canvas keeps its nodes clickable and marked so a drag on them selec
       PanZoomCanvas,
       Message.PannedOrZoomed({ viewport: { x: -300, y: 40, zoom: 0.5 } }),
     ),
+    layerMounted,
     expect(task(chainTask)).toHaveClass("nopan"),
     expect(heading(specSection.id)).toHaveClass("nopan"),
     expect(pane).not.toHaveClass("nopan"),

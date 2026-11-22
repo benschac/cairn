@@ -4,6 +4,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { PanZoomCanvas, VIEWPORT_ATTRIBUTE, transformOf, viewportAttribute } from "../canvas.ts";
 import type { Positions, Viewport } from "../geometry.ts";
+import { MeasureLayout } from "../layout.ts";
 import { renderMarkdown, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
 import { chainOf, type Chain, type Node } from "../trace.ts";
@@ -111,6 +112,7 @@ const canvasLayerView = (
   h.div(
     [
       h.DataAttribute("canvas-layer", ""),
+      h.OnMount(MeasureLayout()),
       h.Style({
         position: "relative",
         transform: transformOf(viewport),
