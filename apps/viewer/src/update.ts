@@ -7,7 +7,7 @@ import { boundsOf, fitViewport } from "./canvas.ts";
 import { FocusDrawerHeading, FocusNode } from "./command.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
-import { Drawer, selectedNodeOf, type Model } from "./model.ts";
+import { Drawer, PresenceConnection, selectedNodeOf, type Model } from "./model.ts";
 import { Node } from "./trace.ts";
 
 // UPDATE
@@ -62,8 +62,19 @@ export const update = (model: Model, message: Message) =>
             commands: [FocusDrawerHeading()],
             model: modifyFields(model, { drawer: () => openOn(node) }),
           },
+    // The room is unknown once the socket is gone, so nobody is shown and you are no one.
+    ClosedPresence: () => ({
+      model: modifyFields(model, {
+        maybeYou: () => Option.none(),
+        participants: () => [],
+        presenceConnection: () => PresenceConnection.Disconnected(),
+      }),
+    }),
     CompletedFocusDrawerHeading: () => ({ model }),
     CompletedFocusNode: () => ({ model }),
+    FailedPanZoomCanvas: ({ reason }) => ({
+      model: modifyFields(model, { maybePanZoomFailure: () => Option.some(reason) }),
+    }),
     HoveredNode: ({ node }) => ({
       model: modifyFields(model, { maybeHovered: () => Option.some(node) }),
     }),
@@ -73,6 +84,9 @@ export const update = (model: Model, message: Message) =>
     }),
     MeasuredPane: ({ size }) => ({
       model: modifyFields(model, { maybePaneSize: () => Option.some(size) }),
+    }),
+    OpenedPresence: () => ({
+      model: modifyFields(model, { presenceConnection: () => PresenceConnection.Connected() }),
     }),
     PannedOrZoomed: ({ viewport }) => ({
       model: modifyFields(model, { viewport: () => viewport }),

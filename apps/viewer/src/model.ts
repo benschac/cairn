@@ -27,14 +27,25 @@ export const selectedNodeOf = (drawer: Drawer): Option.Option<Node> =>
     Open: ({ node }) => Option.some(node),
   });
 
+/** The presence socket: opening, open, or closed or failed; a closed socket is not reopened. */
+export const PresenceConnection = defineTaggedUnion({
+  Connected: {},
+  Connecting: {},
+  Disconnected: {},
+});
+export type PresenceConnection = typeof PresenceConnection.Type;
+
 export const Model = Schema.Struct({
   drawer: Drawer,
   maybeHovered: Schema.Option(Node),
   /** The canvas pane's size, once its mount has measured it. */
   maybePaneSize: Schema.Option(Size),
+  /** Why pan and zoom did not start on the canvas pane; none while it works. */
+  maybePanZoomFailure: Schema.Option(Schema.String),
   maybeYou: Schema.Option(ParticipantId),
   participants: Schema.Array(Participant),
   positions: Positions,
+  presenceConnection: PresenceConnection,
   trace: TraceData.schema,
   /** Where the canvas layer sits in its pane. */
   viewport: Viewport,

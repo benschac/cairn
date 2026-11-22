@@ -8,7 +8,8 @@ import { rectOf } from "../geometry.ts";
 import { Message } from "../message.ts";
 import type { Model } from "../model.ts";
 
-const decodePresence = Schema.decodeUnknownOption(PresenceJson);
+/** The presence in a socket frame; none for a frame that is not text or is not a presence. */
+export const decodePresenceFrame = Schema.decodeUnknownOption(PresenceJson);
 // A cursor is two finite numbers and always encodes, so the encoder cannot fail, as with the
 // viewport attribute in canvas.ts.
 const encodeCursor = Schema.encodeSync(CursorJson);
@@ -23,9 +24,18 @@ const openSocket = Effect.acquireRelease(
 
 const presenceUpdates = (socket: WebSocket) =>
   Stream.fromEventListener<MessageEvent>(socket, "message").pipe(
-    Stream.filterMap(Filter.fromPredicateOption((event) => decodePresence(event.data))),
+    Stream.filterMap(Filter.fromPredicateOption((event) => decodePresenceFrame(event.data))),
     Stream.map((presence) => Message.ReceivedPresence({ presence })),
   );
+
+/** What the socket's own events say: it opened, or it closed or failed (an error is followed by a close). */
+const connectionChanges = (socket: WebSocket) => {
+  const event = (name: "close" | "error" | "open") => Stream.fromEventListener<Event>(socket, name);
+  return Stream.merge(
+    Stream.map(event("open"), () => Message.OpenedPresence()),
+    Stream.map(Stream.merge(event("close"), event("error")), () => Message.ClosedPresence()),
+  );
+};
 
 /**
  * The canvas point under the pointer, read with the viewport the model last gave the pane, so the
@@ -56,7 +66,10 @@ const sendCursorMoves = (socket: WebSocket) =>
 
 const presenceMessages = Stream.unwrap(
   Effect.map(openSocket, (socket) =>
-    Stream.merge(presenceUpdates(socket), sendCursorMoves(socket)),
+    Stream.merge(
+      presenceUpdates(socket),
+      Stream.merge(connectionChanges(socket), sendCursorMoves(socket)),
+    ),
   ),
 );
 

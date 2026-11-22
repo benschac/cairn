@@ -5,14 +5,21 @@ import type { Document, Html, HtmlBuilder } from "foldkit/html";
 
 import { drawerView, type DrawerMessages } from "../drawer.ts";
 import { Message } from "../message.ts";
-import { Drawer, type Model } from "../model.ts";
+import { Drawer, PresenceConnection, type Model } from "../model.ts";
 import { canvasView } from "./canvasView.ts";
 import { labelOf } from "./cursorsView.ts";
 
-const presenceText = (others: ReadonlyArray<Participant>) =>
+const joinedText = (others: ReadonlyArray<Participant>) =>
   Array.match(others, {
     onEmpty: () => "Nobody else is here.",
     onNonEmpty: (present) => `Here now: ${Array.join(Array.map(present, labelOf), ", ")}`,
+  });
+
+const presenceText = (model: Model, others: ReadonlyArray<Participant>) =>
+  PresenceConnection.match(model.presenceConnection, {
+    Connected: () => joinedText(others),
+    Connecting: () => joinedText(others),
+    Disconnected: () => "The presence connection is lost. Other participants are not shown.",
   });
 
 const drawerMessages: DrawerMessages<Message> = {
@@ -85,7 +92,10 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
     body: h.main(
       [],
       Array.flatten([
-        [h.h1([], ["Cairn"]), h.p([h.Role("status")], [presenceText(others)])],
+        [h.h1([], ["Cairn"]), h.p([h.Role("status")], [presenceText(model, others)])],
+        Array.map(Array.fromOption(model.maybePanZoomFailure), (reason) =>
+          alertView(`Pan and zoom are unavailable: ${reason}`, h),
+        ),
         traceView(model, others, h),
       ]),
     ),

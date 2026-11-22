@@ -33,7 +33,10 @@ export const FIT_PADDING = 24;
 export const ORIGIN_VIEWPORT: Viewport = { x: 0, y: 0, zoom: 1 };
 
 /** The messages the canvas mount sends. */
-type CanvasMessage = typeof Message.MeasuredPane.Type | typeof Message.PannedOrZoomed.Type;
+export type CanvasMessage =
+  | typeof Message.FailedPanZoomCanvas.Type
+  | typeof Message.MeasuredPane.Type
+  | typeof Message.PannedOrZoomed.Type;
 
 /** The CSS transform that puts the canvas layer at the viewport. Pair it with `transform-origin: 0 0`. */
 export const transformOf = (viewport: Viewport): string =>
@@ -179,42 +182,52 @@ const PAN_ZOOM_OPTIONS = {
 };
 
 /** What the library and the attribute watcher share while the pane is mounted. */
-interface PanZoomState {
+export interface PanZoomState {
   /** Viewports the library reported that the model has not yet echoed back. */
   readonly reported: MutableRef.MutableRef<ReadonlyArray<Viewport>>;
   /** Whether the mount is moving the library itself, which then reports what the model has. */
   readonly isSyncing: MutableRef.MutableRef<boolean>;
 }
 
-/** XYPanZoom on the pane, reporting each pan and zoom it makes; destroyed when the scope closes. */
-const attachPanZoom = (
+/** The sentence for whatever the library threw while starting. */
+const describePanZoomError = (cause: unknown): string =>
+  Predicate.isError(cause) ? cause.message : globalThis.String(cause);
+
+/**
+ * XYPanZoom on the pane, reporting each pan and zoom it makes; destroyed when the scope closes.
+ * Fails with the reason when the library throws while starting.
+ */
+export const attachPanZoom = (
   element: Element,
   queue: Queue.Queue<CanvasMessage, Cause.Done>,
   { reported, isSyncing }: PanZoomState,
 ) =>
   Effect.acquireRelease(
-    Effect.sync(() => {
-      const instance = XYPanZoom({
-        domNode: element,
-        maxZoom: MAX_ZOOM,
-        minZoom: MIN_ZOOM,
-        onDraggingChange: Function.constVoid,
-        onPanZoom: (_event, viewport) => {
-          if (!MutableRef.get(isSyncing)) {
-            MutableRef.update(reported, (viewports) =>
-              Array.takeRight(Array.append(viewports, viewport), REPORTED_LIMIT),
-            );
-            Queue.offerUnsafe(queue, Message.PannedOrZoomed({ viewport }));
-          }
-        },
-        translateExtent: [
-          [-Infinity, -Infinity],
-          [Infinity, Infinity],
-        ],
-        viewport: paneViewportOf(element),
-      });
-      instance.update(PAN_ZOOM_OPTIONS);
-      return instance;
+    Effect.try({
+      catch: describePanZoomError,
+      try: () => {
+        const instance = XYPanZoom({
+          domNode: element,
+          maxZoom: MAX_ZOOM,
+          minZoom: MIN_ZOOM,
+          onDraggingChange: Function.constVoid,
+          onPanZoom: (_event, viewport) => {
+            if (!MutableRef.get(isSyncing)) {
+              MutableRef.update(reported, (viewports) =>
+                Array.takeRight(Array.append(viewports, viewport), REPORTED_LIMIT),
+              );
+              Queue.offerUnsafe(queue, Message.PannedOrZoomed({ viewport }));
+            }
+          },
+          translateExtent: [
+            [-Infinity, -Infinity],
+            [Infinity, Infinity],
+          ],
+          viewport: paneViewportOf(element),
+        });
+        instance.update(PAN_ZOOM_OPTIONS);
+        return instance;
+      },
     }),
     (instance) => Effect.sync(() => instance.destroy()),
   );
@@ -280,7 +293,7 @@ const observePaneSize = (element: Element, queue: Queue.Queue<CanvasMessage, Cau
 
 /**
  * Pan and zoom on the canvas pane. The library reports each change as `PannedOrZoomed` and the pane's
- * size as `MeasuredPane`. Mount arguments are fixed when the element appears, so the model's
+ * size as `MeasuredPane`; `FailedPanZoomCanvas` says why the library did not start. Mount arguments are fixed when the element appears, so the model's
  * viewport reaches the mount through the pane's `data-viewport` attribute. The library, the
  * attribute watcher and the size observer are each released when the pane goes, even if a later
  * one fails to start.
@@ -293,10 +306,22 @@ export const PanZoomCanvas = Mount.defineStream("PanZoomCanvas", {
           reported: MutableRef.make<ReadonlyArray<Viewport>>([]),
           isSyncing: MutableRef.make(false),
         };
-        const panZoom = yield* attachPanZoom(element, queue, state);
-        yield* watchViewportAttribute(element, panZoom, state);
+        // Without pan and zoom the pane still reports its size, so Fit and the layout keep working.
+        const maybePanZoom = yield* attachPanZoom(element, queue, state).pipe(
+          Effect.asSome,
+          Effect.catch((reason) =>
+            Effect.sync(() => {
+              Queue.offerUnsafe(queue, Message.FailedPanZoomCanvas({ reason }));
+              return Option.none<PanZoomInstance>();
+            }),
+          ),
+        );
+        yield* Option.match(maybePanZoom, {
+          onNone: () => Effect.void,
+          onSome: (panZoom) => watchViewportAttribute(element, panZoom, state),
+        });
         yield* observePaneSize(element, queue);
       }),
     ),
-  messages: [Message.MeasuredPane, Message.PannedOrZoomed],
+  messages: [Message.FailedPanZoomCanvas, Message.MeasuredPane, Message.PannedOrZoomed],
 });

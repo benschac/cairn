@@ -13,13 +13,19 @@ export const Message = defineMessageUnion({
   ClickedDrawerTask: { id: TaskId },
   ClickedFit: {},
   ClickedNode: { node: Node },
+  /** The presence socket closed or failed. */
+  ClosedPresence: {},
   CompletedFocusDrawerHeading: {},
   CompletedFocusNode: {},
+  /** The canvas mount could not start pan and zoom. */
+  FailedPanZoomCanvas: { reason: Schema.String },
   HoveredNode: { node: Node },
   LeftNode: {},
   MeasuredLayout: { positions: Positions },
   /** The canvas mount measured the pane. */
   MeasuredPane: { size: Size },
+  /** The presence socket opened. */
+  OpenedPresence: {},
   /** The canvas mount reports each pan and zoom. */
   PannedOrZoomed: { viewport: Viewport },
   ReceivedPresence: { presence: Presence },
