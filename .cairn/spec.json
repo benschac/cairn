@@ -4777,16 +4777,9 @@
           "description": "Viewer message."
         },
         {
-          "id": "spec.viewer.model-and-messages#message:clickedcommit",
+          "id": "spec.viewer.model-and-messages#message:receivedpatch",
           "kind": "message",
-          "name": "ClickedCommit",
-          "location": "apps/viewer/src/main.ts",
-          "description": "Viewer message."
-        },
-        {
-          "id": "spec.viewer.model-and-messages#message:receivedcommit",
-          "kind": "message",
-          "name": "ReceivedCommit",
+          "name": "ReceivedPatch",
           "location": "apps/viewer/src/main.ts",
           "description": "Viewer message."
         },

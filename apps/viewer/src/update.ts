@@ -1,3 +1,4 @@
+import type { Sha, TaskId, Trace } from "@cairn/contract";
 import { Array, Boolean, Effect, Option, Record, Schema } from "effect";
 import { AsyncData, Command } from "foldkit";
 import type { Update } from "foldkit";
@@ -11,6 +12,7 @@ import {
   fitViewport,
   type Insets,
 } from "./canvas.ts";
+import { codeScreenOf, filesOf, ownerOf, taskOf } from "./codeView.ts";
 import { FocusDrawerHeading, FocusNode, FocusSearchInput, ScrollSearchResult } from "./command.ts";
 import { DragState, canvasDeltaOf, moveBy, nudgeOf } from "./drag.ts";
 import { DRAWER_WIDTH } from "./drawer.ts";
@@ -18,7 +20,7 @@ import type { Rect } from "./geometry.ts";
 import { isPinned, pin, togglePin } from "./highlight.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
-import { Drawer, PresenceConnection, selectedNodeOf, type Model } from "./model.ts";
+import { Drawer, PresenceConnection, Screen, selectedNodeOf, type Model } from "./model.ts";
 import {
   NO_SEARCH,
   blockKeyOf,
@@ -35,7 +37,26 @@ import { Node } from "./trace.ts";
 
 const nodeEquivalence = Schema.toEquivalence(Node);
 
-const openOn = (node: Node): Drawer => Drawer.Open({ maybeCommitSha: Option.none(), node });
+const openOn = (node: Node): Drawer => Drawer.Open({ node });
+
+/** The trace, once it has loaded; the code view reads tasks and commits from it. */
+const traceOf = (model: Model): Option.Option<Trace> => AsyncData.getData(model.trace);
+
+/** The code view with what is shown of a task, when the trace has that task and commit. */
+const codeOn = (model: Model, id: TaskId, maybeSha: Option.Option<Sha>): Model =>
+  Option.match(
+    Option.flatMap(traceOf(model), (trace) => codeScreenOf(trace, id, maybeSha)),
+    { onNone: () => model, onSome: (screen) => modifyFields(model, { screen: () => screen }) },
+  );
+
+/** The task the code view is on, and what is shown of it. */
+const shownIn = (model: Model) =>
+  Option.flatMap(Option.liftPredicate(model.screen, Screen.guards.Code), (code) =>
+    Option.map(
+      Option.flatMap(traceOf(model), (trace) => taskOf(trace, code.taskId)),
+      (task) => ({ code, task }),
+    ),
+  );
 
 /** The drag this pointer is making; none while nothing is dragged or another pointer drags. */
 const dragByPointer = (drag: DragState, pointerId: number) =>
@@ -134,14 +155,39 @@ export const update = (model: Model, message: Message) =>
           model: modifyFields(model, { drawer: () => Drawer.Closed() }),
         }),
       }),
-    // A commit is clicked in the open drawer; with the drawer closed there is none to click.
-    ClickedCommit: ({ sha }) => ({
-      model: Drawer.match(model.drawer, {
-        Closed: () => model,
-        Open: ({ node }) =>
-          modifyFields(model, {
-            drawer: () => Drawer.Open({ maybeCommitSha: Option.some(sha), node }),
-          }),
+    // Back to the canvas changes only the screen: pins, offsets, the drawer and the viewport stayed.
+    ClickedBackToCanvas: () => ({ model: modifyFields(model, { screen: () => Screen.Canvas() }) }),
+    // "Open code" and a drawer commit open the code view; a task or commit the trace lacks opens nothing.
+    ClickedOpenCode: ({ id, maybeSha }) => ({ model: codeOn(model, id, maybeSha) }),
+    // The tree selects within the code view; with the canvas showing there is no tree to click.
+    ClickedTreeCommit: ({ sha }) => ({
+      model: Option.match(shownIn(model), {
+        onNone: () => model,
+        onSome: () =>
+          Option.match(
+            Option.flatMap(traceOf(model), (trace) => ownerOf(trace, sha)),
+            { onNone: () => model, onSome: (task) => codeOn(model, task.id, Option.some(sha)) },
+          ),
+      }),
+    }),
+    ClickedTreeFile: ({ path }) => ({
+      model: Option.match(
+        Option.filter(shownIn(model), ({ code, task }) =>
+          Array.contains(filesOf(task, code.shown), path),
+        ),
+        {
+          onNone: () => model,
+          onSome: ({ code }) =>
+            modifyFields(model, {
+              screen: () => Screen.Code({ ...code, maybeFile: Option.some(path) }),
+            }),
+        },
+      ),
+    }),
+    ClickedTreeTask: ({ id }) => ({
+      model: Option.match(shownIn(model), {
+        onNone: () => model,
+        onSome: () => codeOn(model, id, Option.none()),
       }),
     }),
     // A task in a section's drawer opens that task's drawer and pins it; it never closes a drawer

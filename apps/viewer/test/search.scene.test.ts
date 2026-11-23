@@ -380,7 +380,7 @@ it("a refresh that removes every match leaves no marks, outline or chain", () =>
 
 // Scene tests cannot lay anything out, so give each node a box.
 const centerOf = { height: 80, width: 200, x: 1000, y: 400 };
-const open = Drawer.Open({ maybeCommitSha: Option.none(), node: judgments });
+const open = Drawer.Open({ node: judgments });
 const zoomed = modifyFields(loaded, {
   drawer: () => open,
   viewport: () => ({ x: 0, y: 0, zoom: 0.5 }),

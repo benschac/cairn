@@ -7,9 +7,10 @@ import { Positions, Size, Viewport } from "./geometry.ts";
 import { Node } from "./trace.ts";
 
 export const Message = defineMessageUnion({
+  /** The code view's "Back to canvas" button. */
+  ClickedBackToCanvas: {},
   /** The drawer's Close button. */
   ClickedCloseDrawer: {},
-  ClickedCommit: { sha: Sha },
   /** A task listed in a section's drawer. */
   ClickedDrawerTask: { id: TaskId },
   ClickedFit: {},
@@ -17,12 +18,20 @@ export const Message = defineMessageUnion({
   ClickedClearPins: {},
   /** Anywhere on a node, or its title button: pins or unpins it. */
   ClickedNode: { node: Node },
+  /** "Open code" on a task in the drawer, or a commit listed there: the code view on that task. */
+  ClickedOpenCode: { id: TaskId, maybeSha: Schema.Option(Sha) },
   /** A click on a move handle, which stops there so it never reaches the node it sits on. */
   ClickedMoveHandle: {},
   /** The button that puts every moved document and task card back where the layout put it. */
   ClickedResetLayout: {},
   /** A result in the search list: it becomes the active result and is brought into view. */
   ClickedSearchResult: { node: Node },
+  /** A commit in the code view's tree. */
+  ClickedTreeCommit: { sha: Sha },
+  /** A file in the code view's tree. */
+  ClickedTreeFile: { path: Schema.String },
+  /** A task in the code view's tree. */
+  ClickedTreeTask: { id: TaskId },
   /** The toggle that draws every curve, or only the active chain's. */
   ClickedShowAllCurves: {},
   /** The search input's text changed. */

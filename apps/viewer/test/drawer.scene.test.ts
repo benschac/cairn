@@ -26,6 +26,7 @@ import { chainOf, sectionTitleOf, type Node } from "../src/trace.ts";
 import { update as appUpdate } from "../src/update.ts";
 import { view as appView } from "../src/view/view.ts";
 import {
+  canvasEnded,
   focusedDrawerHeading,
   focusedNode,
   loaded,
@@ -41,7 +42,7 @@ const sectionNode = (id: string): Node => ({
 const taskNode = (id: TaskId): Node => ({ id, kind: "task" });
 
 const messages: DrawerMessages<Message> = {
-  onClickCommit: (sha) => Message.ClickedCommit({ sha }),
+  onOpenCode: (id, maybeSha) => Message.ClickedOpenCode({ id, maybeSha }),
   onClickTask: (id) => Message.ClickedDrawerTask({ id }),
   onClose: Message.ClickedCloseDrawer(),
 };
@@ -90,7 +91,7 @@ interface DrawerModel {
 }
 
 const view = (model: DrawerModel, h: HtmlBuilder<Message>): Html =>
-  drawerView(trace, model.node, Option.none(), h, messages);
+  drawerView(trace, model.node, h, messages);
 const update = (model: DrawerModel, _message: Message) => ({ model });
 
 const open = (node: Node) => given<DrawerModel>({ node });
@@ -258,7 +259,7 @@ it("the open drawer floats over the right of the canvas with its own scroll, out
   );
 });
 
-it("clicking a section opens the drawer, then a commit shows its files: two clicks", () => {
+it("clicking a section opens the drawer, then a commit opens it in the code view: two clicks", () => {
   scene(
     app,
     given(loaded),
@@ -267,29 +268,17 @@ it("clicking a section opens the drawer, then a commit shows its files: two clic
     focusedDrawerHeading,
     expect(specDrawer).toHaveAttr("data-drawer-id", spec),
     click(within(drawerTask(task.id), commitButton(commit.sha))),
-    expect(selector(`[data-commit-detail="${commit.sha}"]`)).toExist(),
-    ...Array.map(commit.files, (file) =>
-      expect(selector(`[data-commit-detail="${commit.sha}"]`)).toContainText(file),
-    ),
-    click(closeButton),
-    focusedNode,
-    expect(selector("[data-commit-detail]")).toBeAbsent(),
+    ...canvasEnded(),
+    expect(selector(`[data-tree-commit="${commit.sha}"]`)).toHaveAttr("aria-current", "true"),
   );
 });
 
-it("a commit click that is not in the trace opens no detail, and a task click in the drawer switches tasks", () => {
-  const unknown = appUpdate(
-    modifyFields(loaded, {
-      drawer: () => Drawer.Open({ maybeCommitSha: Option.none(), node: sectionNode(spec) }),
-    }),
-    Message.ClickedCommit({ sha: Sha.make(String.repeat(40)("f")) }),
-  ).model;
+it("a task click in a section drawer switches tasks", () => {
   scene(
     app,
-    given(unknown),
+    given(modifyFields(loaded, { drawer: () => Drawer.Open({ node: sectionNode(spec) }) })),
     mounted,
     expect(specDrawer).toExist(),
-    expect(selector("[data-commit-detail]")).toBeAbsent(),
     click(within(specDrawer, drawerTaskButton)),
     focusedDrawerHeading,
     expect(taskDrawer).toHaveAttr("data-drawer-id", task.id),
@@ -345,15 +334,23 @@ it("closing the drawer keeps the pin; clicking the node again clears it", () => 
   );
 });
 
-it("a commit click while the drawer is closed leaves the model unchanged", () => {
-  assert(appUpdate(loaded, Message.ClickedCommit({ sha: commit.sha })).model).toBe(loaded);
+it("opening code on a commit the task does not hold, or a task the trace lacks, changes nothing", () => {
+  const stranger = Sha.make(String.repeat(40)("f"));
+  assert(
+    appUpdate(loaded, Message.ClickedOpenCode({ id: task.id, maybeSha: Option.some(stranger) }))
+      .model,
+  ).toBe(loaded);
+  assert(
+    appUpdate(loaded, Message.ClickedOpenCode({ id: TaskId.make("nope"), maybeSha: Option.none() }))
+      .model,
+  ).toBe(loaded);
 });
 
 it.prop(
   "a task clicked in a drawer opens that task's drawer, whatever was open, never closing it",
   { drawer: Drawer, id: TaskId },
   ({ drawer: openBefore, id }) => {
-    const opened = Drawer.Open({ maybeCommitSha: Option.none(), node: taskNode(id) });
+    const opened = Drawer.Open({ node: taskNode(id) });
     // Whatever was open, and that same task's drawer, which a click on its node would close.
     Array.forEach([openBefore, opened], (before) => {
       const next = appUpdate(
@@ -378,18 +375,6 @@ it("a task clicked in the section drawer opens its drawer, and a click on its no
     expect(taskCard).toHaveAttr("data-highlighted", "true"),
     click(taskCardButton),
     expect(role("complementary")).toBeAbsent(),
-  );
-});
-
-it("the clicked commit's detail sits inside the drawer", () => {
-  scene(
-    app,
-    given(loaded),
-    mounted,
-    click(taskCardButton),
-    focusedDrawerHeading,
-    click(within(taskDrawer, commitButton(commit.sha))),
-    expect(within(taskDrawer, selector(`[data-commit-detail="${commit.sha}"]`))).toExist(),
   );
 });
 
