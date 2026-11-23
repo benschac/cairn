@@ -1283,8 +1283,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["8253cdf767e4ccd20f015f71041f765766390c40"],
       "sessions": []
     },
     {
@@ -1308,8 +1308,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["96fda37338b9ed763974be23f0cb52b711aaa80b"],
       "sessions": []
     },
     {
@@ -1751,8 +1751,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["04212bcb98c2b71f1fb94f18366720aecec38978"],
       "sessions": []
     },
     {
@@ -1781,8 +1781,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["f4394702e7d42ac96286996b6b8c1165b9b4fbb6"],
       "sessions": []
     },
     {
@@ -1805,8 +1805,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["ec996e6015e75c6e88948b5a9dd87f27588c0394"],
       "sessions": []
     },
     {
@@ -1829,8 +1829,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["6f2fc61443358329b50bd4d0ce18fe97cb245a03"],
       "sessions": []
     },
     {
