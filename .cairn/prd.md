@@ -172,7 +172,7 @@ Layout:
 - Middle column: rendered `spec.md` with the same badges.
 - Right column: the stacks as a node graph, one column per stack, each read bottom to top and joined by curves, with branch name, model, status, and a human-gate marker on each node. A task that needs work from another stack has a dashed curve to it.
 - Curves: SVG bezier curves linking PRD section to spec section to task node. Hovering any node highlights its full chain.
-- Task detail panel: commits (each opens the code view), session files, events timeline, gate reasons, and judgments.
+- Task detail panel: the task's diff and its commits (each opens the code view), session files, events timeline, gate reasons, and judgments.
 - Judgment markers: a spec section or task node with a `flag` or `unsure` judgment shows a marker. Stale judgments are shown as stale.
 
 Suggested stack: Foldkit SPA for the viewer, a markdown renderer that preserves heading IDs, and a tiny Node server exposing `.cairn/` files and `git log --format` with trailers, plus reads from `cairn.db`.
@@ -198,9 +198,13 @@ It opens from a task or a commit in the detail panel and fills the window. "Back
 
 Layout:
 
-- Left: the stacks as a tree. Each stack lists its tasks from the bottom up, with status and gate marker; each task lists its commits; the selected commit lists the files it changed as a directory tree. Selecting a task selects its latest commit; selecting a file scrolls the diff to it.
-- Middle: the selected commit's diff, every file in one scroll. Files on gated paths come first, labelled with the pattern that gated them.
-- Right: the agent session that made the commit, found through its `Cairn-Session` trailer. Prompts, replies and tool calls in order, each tool call on one line (its name and its file or command) until opened. Redactions show where they were made.
+- Left: the stacks as a tree. Each stack lists its tasks from the bottom up, with status and gate marker; each task lists its commits; the selected task or commit lists the files it changed as a directory tree. Selecting a task shows its whole diff, selecting a commit shows that commit alone, and selecting a file scrolls the diff to it.
+- Middle: the selected task's diff: everything its branch adds on top of its parent, the stacked diff as it is reviewed in its pull request. Selecting one of its commits narrows the diff to that commit. Every file is in one scroll. Files on gated paths come first, labelled with the pattern that gated them.
+- Right: the agent session that made the selected commit, or the task's latest commit when the whole task is shown, found through its `Cairn-Session` trailer. Prompts, replies and tool calls in order, each tool call on one line (its name and its file or command) until opened. Redactions show where they were made.
+
+A task's diff runs from the parent of its first commit to its last commit, so it reads the same before and after the branch lands and is deleted.
+
+Code in a diff is syntax-highlighted by its file's language, in the same colours as code blocks in the documents, in both the unified and the split view. A file in a language Cairn cannot highlight shows as plain text, with its added and removed lines still marked.
 
 Code and conversation link both ways:
 
@@ -239,6 +243,7 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - Running `cairn init`, `cairn plan`, and the orchestrator on a real RinkSide feature produces a manifest with at least three stacked tasks.
 - Every commit on those branches has Cairn trailers, including a `Cairn-Session` ID that resolves to a redacted session in `cairn.db`.
 - A task touching a migrations path is gated and its children do not start until it is approved.
+- Opening a task in the code view shows its whole stacked diff with syntax-highlighted code, and each of its commits can be shown alone.
 - Fuzzy search finds abbreviated and mistyped titles and prose, marks the matched text, and brings the selected result and its chain into view; clearing it preserves pins and the drawer.
 - The viewer shows correct status for every PRD section, and clicking a PRD section reaches its commits in two clicks or fewer.
 - `cairn lint` catches an orphaned section ID and an unmapped PRD section.
@@ -349,4 +354,3 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 - Cost per section and per model.
 - Judging during a run: before a task starts, and on its diff after it is done.
 - Adapters for Vercel Board and other agent message boards.
-- A task's whole branch as one diff in the code view, rather than one commit at a time.

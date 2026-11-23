@@ -65,15 +65,15 @@ Already installed, and kept:
 
 New:
 
-| Library                                                                 | Version             | License    | Used for                                                |
-| ----------------------------------------------------------------------- | ------------------- | ---------- | ------------------------------------------------------- |
-| `@pierre/diffs`                                                         | 1.6.4               | Apache-2.0 | Parsing patches into hunks and rendering commit diffs   |
-| `@pierre/highlights`                                                    | 0.5.2               | Apache-2.0 | Syntax colours for fenced code in the viewer            |
-| `pele`                                                                  | 1.13.0              | MIT        | Drawing Mermaid diagrams as SVG in the viewer           |
-| `@xyflow/system`                                                        | 1.0.0               | MIT        | Bezier paths, viewport math and pan/zoom for the canvas |
-| `@effect/ai-anthropic`                                                  | 4.1.5               | MIT        | The live `LanguageModel`, for the `Planner`             |
-| `@effect/ai-typesafe`                                                   | 4.1.5               | MIT        | The live `DecisionModel` (Jev), for the `Judge`         |
-| `mdast-util-from-markdown`, `mdast-util-gfm`, `micromark-extension-gfm` | 2.1.0, 3.1.0, 3.0.0 | MIT        | Markdown to nodes for the viewer                        |
+| Library                                                                 | Version             | License    | Used for                                                       |
+| ----------------------------------------------------------------------- | ------------------- | ---------- | -------------------------------------------------------------- |
+| `@pierre/diffs`                                                         | 1.6.4               | Apache-2.0 | Parsing patches into hunks and rendering task and commit diffs |
+| `@pierre/highlights`                                                    | 0.5.2               | Apache-2.0 | Syntax colours for fenced code in the viewer                   |
+| `pele`                                                                  | 1.13.0              | MIT        | Drawing Mermaid diagrams as SVG in the viewer                  |
+| `@xyflow/system`                                                        | 1.0.0               | MIT        | Bezier paths, viewport math and pan/zoom for the canvas        |
+| `@effect/ai-anthropic`                                                  | 4.1.5               | MIT        | The live `LanguageModel`, for the `Planner`                    |
+| `@effect/ai-typesafe`                                                   | 4.1.5               | MIT        | The live `DecisionModel` (Jev), for the `Judge`                |
+| `mdast-util-from-markdown`, `mdast-util-gfm`, `micromark-extension-gfm` | 2.1.0, 3.1.0, 3.0.0 | MIT        | Markdown to nodes for the viewer                               |
 
 Built into Node 24, so no package: `node:sqlite` for `cairn.db`, and `path.matchesGlob` for gate patterns. Diffs come from `git`, so the CLI needs no diff library.
 
@@ -81,7 +81,7 @@ Considered and left out:
 
 - `@pierre/words` renders markdown to HTML strings through WebAssembly and is built for streaming model output. It drops raw HTML and checks URLs, but its output is still a string, so the viewer would need `innerHTML` for the whole document, and its hooks take and return HTML strings, so the `{#id}` headings, their `data-section` attributes and the title buttons that send Messages would have to be rebuilt from strings. Its Mermaid plugin needs `pele` anyway, and its code plugin needs `@pierre/highlights`; the viewer uses both directly. It may suit streaming session logs later.
 - `mermaid` for diagrams: 123 MB unpacked with d3, cytoscape and elkjs behind it, and an asynchronous render that needs a DOM. `pele` draws the same syntax (Mermaid 12.1.0) synchronously from one dependency-free package, and escapes the diagram text itself.
-- Shiki, through `@pierre/diffs`, for code blocks: it loads grammars asynchronously, so a block would need a Model field and Messages to arrive after the first render. `@pierre/highlights` returns tokens synchronously, and the view turns them into spans with no `innerHTML`. It is in beta, so its version is pinned exactly; `@pierre/diffs` can still use Shiki or Highlights for commit diffs.
+- Shiki, through `@pierre/diffs`, for code blocks: it loads grammars asynchronously, so a block would need a Model field and Messages to arrive after the first render. `@pierre/highlights` returns tokens synchronously, and the view turns them into spans with no `innerHTML`. It is in beta, so its version is pinned exactly. Diffs use it too: `@pierre/diffs` takes `preferredHighlighter: "highlights"`, so one set of lexers colours both fences and diffs and Shiki is never loaded.
 - A SQLite package such as `better-sqlite3`, since `node:sqlite` needs no native build.
 - Rete, JointJS, Cytoscape, Drawflow and LiteGraph. Each owns its scene and graph state, which would put state in two places beside the Foldkit model.
 - `elkjs` for layout: EPL-2.0 or GPL-3.0 and 8 MB. `@dagrejs/dagre` (MIT) is the choice when layout stops being fixed.
@@ -676,9 +676,10 @@ flowchart BT
   end
   subgraph s27["Stack 27 · viewer"]
     direction BT
-    t53["t53 · 53-diff-parse<br/>Parse commit patches with @pierre/diffs<br/>wt-14"]
-    t54["t54 · 54-diff-render<br/>Render commit diffs in the drawer<br/>wt-14"]
-    t67["t67 · 67-judgment-markers<br/>Show judgments in the trace and the viewer<br/>wt-14"]
+    t75["t75 · 75-code-screen<br/>Open the code view with the stack tree<br/>wt-21"]
+    t53["t53 · 53-diff-parse<br/>Fetch and parse task and commit patches with @pierre/diffs<br/>wt-21"]
+    t54["t54 · 54-diff-render<br/>Render task and commit diffs with syntax highlighting in the code view<br/>wt-21"]
+    t67["t67 · 67-judgment-markers<br/>Show judgments in the trace and the viewer<br/>wt-21"]
   end
   subgraph s28["Stack 28 · contract"]
     direction BT
@@ -714,6 +715,24 @@ flowchart BT
     t69["t69 · 69-fuzzy-matching<br/>Index and rank fuzzy matches for titles, IDs and branches<br/>wt-19"]
     t70["t70 · 70-search-interaction<br/>Add search navigation and temporary chain highlighting<br/>wt-19"]
     t71["t71 · 71-prose-search<br/>Search markdown prose with snippets and inline match highlights<br/>wt-19"]
+  end
+  subgraph s36["Stack 36 · server"]
+    direction BT
+    t74["t74 · 74-patch-routes<br/>Serve commit and task patches from git<br/>wt-20"]
+  end
+  subgraph s37["Stack 37 · contract"]
+    direction BT
+    t76["t76 · 76-session-schema<br/>Add the Session schema<br/>wt-22"]
+    t77["t77 · 77-session-reader<br/>Read Claude Code session logs into a Session<br/>wt-22"]
+  end
+  subgraph s38["Stack 38 · server"]
+    direction BT
+    t78["t78 · 78-session-route<br/>Serve sessions from cairn.db<br/>wt-23"]
+  end
+  subgraph s39["Stack 39 · viewer"]
+    direction BT
+    t79["t79 · 79-session-pane<br/>Draw the session pane<br/>wt-24"]
+    t80["t80 · 80-attribution<br/>Mark each hunk with the turn that wrote it<br/>wt-24"]
   end
   main --> t1
   main --> t2
@@ -791,8 +810,8 @@ flowchart BT
   t51 --> t52
   t52 --> t68
   t39 -.-> t68
-  t41 -.-> t53
-  t52 -.-> t53
+  t52 --> t75
+  t75 --> t53
   t53 --> t54
   t11 --> t55
   t17 -.-> t56
@@ -818,8 +837,17 @@ flowchart BT
   t52 --> t69
   t69 --> t70
   t70 --> t71
-  class t1,t3,t20,t31,t32,t58,t60,t62 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71 sonnet
+  main --> t74
+  t9 --> t76
+  t76 --> t77
+  t2 -.-> t78
+  t74 -.-> t78
+  t77 -.-> t78
+  t54 -.-> t79
+  t76 -.-> t79
+  t79 --> t80
+  class t1,t3,t20,t31,t32,t58,t60,t62,t80 opus
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t74,t75,t76,t77,t78,t79 sonnet
   class t11,t24,t27,t44,t56,t66 haiku
   class t1,t2,t3 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
@@ -1128,6 +1156,27 @@ One `cairn` binary built with `effect/cli`. Each command finds `.cairn/` in the 
 
 `cairn init` creates `.cairn/` with a PRD template, an empty `events.jsonl` and the default `config.json`, and adds `.cairn/cairn.db` to `.gitignore`. It refuses to overwrite an existing `.cairn/`.
 
+## Patch routes {#spec.patch-routes}
+
+- Implements: `prd.code-view`
+- Files: `packages/cli/src/api.ts`, `packages/cli/src/serve.ts`, `packages/cli/test/api.test.ts`, `apps/viewer/vite.config.ts`
+
+The code view reads its diffs from two routes. They need only git, so they ship on the server `pnpm dev` already runs, before the rest of the API; `spec.server` adds its routes beside them.
+
+| Route                        | Returns                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| `GET /api/commits/:sha`      | `git show --patch <sha>`: the commit's header and message, then its patch                  |
+| `GET /api/diffs/:base/:head` | `git diff --patch <base> <head>`: everything `head` changes on top of `base`, as one patch |
+
+- Each SHA decodes through the contract's `Sha`, 40 lowercase hex characters. Anything else is `400` and never reaches git.
+- Git runs as a child process with an argument list, never through a shell.
+- A SHA git does not know is `404`. Any other git failure is `500` with git's message.
+- The body is `text/plain`. A patch for a pair of SHAs never changes, so it carries `Cache-Control: max-age=31536000, immutable`.
+
+In dev, Vite proxies `/api` to the server, as it proxies `/presence`.
+
+Tests run against a temporary repository with two commits: the commit route returns the second commit's message and patch, the range route returns the change between them, and a malformed SHA, an unknown SHA and a range with an unknown end give `400`, `404` and `404`.
+
 ## Server {#spec.server}
 
 - Implements: `prd.cli`, `prd.viewer`, `prd.code-view`
@@ -1136,13 +1185,14 @@ One `cairn` binary built with `effect/cli`. Each command finds `.cairn/` in the 
 
 `cairn serve` runs the existing server on port 4310 with these routes:
 
-| Route                   | Returns                                                                                                                                                               |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/trace`        | The `Trace`: both documents' markdown and sections, the derived tasks, section statuses, commits, events, judgments and warnings. An `ETag` from a hash of the inputs |
-| `GET /api/sessions/:id` | The `Session`: the stored log read by `sessionOf`, with its redaction counts and notes. `404` for an unknown ID                                                       |
-| `GET /api/commits/:sha` | `git show --patch` output as text, which `parsePatchFiles` reads                                                                                                      |
-| `WS /presence`          | Unchanged                                                                                                                                                             |
-| `GET /*`                | The built viewer. In dev, Vite serves it and proxies `/api`                                                                                                           |
+| Route                        | Returns                                                                                                                                                               |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/trace`             | The `Trace`: both documents' markdown and sections, the derived tasks, section statuses, commits, events, judgments and warnings. An `ETag` from a hash of the inputs |
+| `GET /api/sessions/:id`      | The `Session`: the stored log read by `sessionOf`, with its redaction counts and notes. `404` for an unknown ID                                                       |
+| `GET /api/commits/:sha`      | `git show --patch` output as text, which `parsePatchFiles` reads (see `spec.patch-routes`)                                                                            |
+| `GET /api/diffs/:base/:head` | `git diff --patch` output as text for a task's whole diff (see `spec.patch-routes`)                                                                                   |
+| `WS /presence`               | Unchanged                                                                                                                                                             |
+| `GET /*`                     | The built viewer. In dev, Vite serves it and proxies `/api`                                                                                                           |
 
 The viewer polls `/api/trace` every two seconds with `If-None-Match` (the viewer side is in `spec.viewer.model-and-messages`). A file watcher can replace polling later; the PRD allows either.
 
@@ -1158,7 +1208,7 @@ Each judgment in the `Trace` carries `stale: boolean`. The server recomputes `in
 - Files: `apps/viewer/src/model.ts`, `apps/viewer/src/main.ts`, `apps/viewer/src/trace.ts`, `apps/viewer/src/load.ts`, `apps/viewer/src/stacks.ts`
 - Depends on: `spec.contract.trace`, `spec.viewer.markdown-rendering`
 
-The model holds the trace, the hovered node, the pins, the drawer, whether all curves are shown, the drag in progress, each moved item's offset, the measured node positions, the canvas viewport, the screen (the canvas or the code view, see `spec.viewer.code-view`) and the patches and sessions loaded so far. The drawer is closed, or open on a node. Messages: `SettledLoadTrace`, `HoveredNode`, `LeftNode`, `ClickedNode`, `ClickedClearPins`, `ClickedShowAllCurves`, `ClickedDrawerTask`, `ClickedCommit`, `ReceivedCommit`, `ClickedCloseDrawer`, `MeasuredLayout`, `PannedOrZoomed`, `MeasuredPane`, `ClickedFit`, `PressedMoveHandle`, `MovedDragPointer`, `ReleasedDragPointer`, `PressedArrowOnMoveHandle`, `ClickedMoveHandle`, `SuppressedClickAfterDrag`, `PressedAfterDrag`, `ClickedResetLayout`, `ClickedOpenCode`, `ClickedBackToCanvas`, `ClickedTreeTask`, `ClickedTreeCommit`, `ClickedTreeFile`, `ReceivedSession`, `ClickedDiffStyle`, `ClickedTurn`, `ClickedHunkMark`.
+The model holds the trace, the hovered node, the pins, the drawer, whether all curves are shown, the drag in progress, each moved item's offset, the measured node positions, the canvas viewport, the screen (the canvas or the code view, see `spec.viewer.code-view`) and the patches and sessions loaded so far. The drawer is closed, or open on a node. Messages: `SettledLoadTrace`, `HoveredNode`, `LeftNode`, `ClickedNode`, `ClickedClearPins`, `ClickedShowAllCurves`, `ClickedDrawerTask`, `ClickedCommit`, `ReceivedPatch`, `ClickedCloseDrawer`, `MeasuredLayout`, `PannedOrZoomed`, `MeasuredPane`, `ClickedFit`, `PressedMoveHandle`, `MovedDragPointer`, `ReleasedDragPointer`, `PressedArrowOnMoveHandle`, `ClickedMoveHandle`, `SuppressedClickAfterDrag`, `PressedAfterDrag`, `ClickedResetLayout`, `ClickedOpenCode`, `ClickedBackToCanvas`, `ClickedTreeTask`, `ClickedTreeCommit`, `ClickedTreeFile`, `ReceivedSession`, `ClickedDiffStyle`, `ClickedTurn`, `ClickedHunkMark`.
 
 `chainOf(trace, node)` is pure: the PRD sections, spec sections and tasks linked to a node, in both directions. Hovering previews the chain. Clicking anywhere on a node pins its chain in the next free colour from a fixed palette and opens the node's drawer; clicking it again unpins it and closes its drawer if the drawer is on it. Several pins stay lit at once, each in its colour: a node takes the fill of the top chain holding it and a stripe down its left edge for each pin holding it, and a curve takes the colour of the top pin holding both its ends. The hover preview sits on top of the pins and never hides them. Closing the drawer keeps the pins; "Clear pins" removes them all. Pins are local to one window for now.
 
@@ -1293,36 +1343,36 @@ Clicking a task shows its commits, its sessions with their redaction counts, eve
 - Files: `apps/viewer/src/codeView.ts`, `apps/viewer/src/view/codeView.ts`, `apps/viewer/src/view/treeView.ts`
 - Depends on: `spec.viewer.detail-panel`
 
-The model's `screen` is `Canvas`, or `Code` with the selected task, commit and file. Pins, offsets, the drawer and the viewport stay in the model while the code view is open, so "Back to canvas" (`ClickedBackToCanvas`) returns to the canvas as it was: the canvas mounts start again and read the viewport back from the model.
+The model's `screen` is `Canvas`, or `Code` with the selected task, what is shown of it (`WholeTask`, or `OneCommit` with its SHA) and the selected file. Pins, offsets, the drawer and the viewport stay in the model while the code view is open, so "Back to canvas" (`ClickedBackToCanvas`) returns to the canvas as it was: the canvas mounts start again and read the viewport back from the model.
 
 Two ways in, each sending `ClickedOpenCode` with a task and an optional commit:
 
-- "Open code" on a task in the drawer opens its latest commit.
+- "Open code" on a task in the drawer opens its whole diff.
 - A commit in the drawer opens that commit.
 
 A task with no commits opens with a middle pane that says so.
 
-The screen is three panes across the window, under a top bar with "Back to canvas", the task's ID and branch, the commit's subject and short SHA, and the diff style toggle:
+The screen is three panes across the window, under a top bar with "Back to canvas", the task's ID and branch, then for the whole task its commit count and short `base..head`, or for one commit its subject and short SHA, and the diff style toggle:
 
-- Tree, 280px wide, with its own scroll. Stacks in `stackLayoutOf` column order, each headed by the branch it starts from. Under each stack, its tasks from the bottom of the stack up, each with ID, title, status and gate marker; under each task, its commits, oldest first. The selected commit's files show under it as a directory tree, where a directory with one child joins it (`src/view/`). `ClickedTreeTask` selects a task's latest commit, `ClickedTreeCommit` a commit and `ClickedTreeFile` a file. Every row is a button, so the tree can be walked with Tab, and the selected row has `aria-current`.
+- Tree, 280px wide, with its own scroll. Stacks in `stackLayoutOf` column order, each headed by the branch it starts from. Under each stack, its tasks from the bottom of the stack up, each with ID, title, status and gate marker; under each task, its commits, oldest first. The selected task's or commit's files show under it as a directory tree, where a directory with one child joins it (`src/view/`); a whole task's files are the union of its commits' files. `ClickedTreeTask` selects a task's whole diff, `ClickedTreeCommit` one commit and `ClickedTreeFile` a file. Every row is a button, so the tree can be walked with Tab, and the selected row has `aria-current`.
 - Diff, the rest of the width: see `spec.viewer.diff-view`.
-- Session, 420px wide, with its own scroll: see `spec.viewer.session-view`.
+- Session, 420px wide, with its own scroll: see `spec.viewer.session-view`. For a whole task it shows the session of the task's latest commit.
 
-Loading: selecting a commit fetches `/api/commits/:sha` and sends `ReceivedCommit` with the patch or the error. When the commit has a session not yet loaded, it fetches `/api/sessions/:id` and sends `ReceivedSession` with the `Session`, decoded through its schema, or the error. The model keeps each patch and session it has received, keyed by SHA and session ID, so going back to a commit draws it without a fetch. A failed fetch shows its error in its pane and is tried again the next time the commit is selected.
+Loading: selecting a whole task fetches `/api/diffs/:base/:head`, where `head` is its newest commit and `base` the first parent of its oldest; selecting one commit fetches `/api/commits/:sha` (see `spec.patch-routes`). Either sends `ReceivedPatch` with the route's path and the patch text or the error. When the selected commit has a session not yet loaded, it fetches `/api/sessions/:id` and sends `ReceivedSession` with the `Session`, decoded through its schema, or the error. The model keeps each patch and session it has received, keyed by route path and session ID, so going back to a task or commit draws it without a fetch. A failed fetch shows its error in its pane and is tried again the next time it is selected.
 
 In the demo build there is no server: the tree works, and the diff and session panes say they need `cairn serve`.
 
-Tests: Scene tests open the code view from a drawer commit and from "Open code", select a task, a commit and a file in the tree and check the selection and the requests, and go back to the canvas and find the pins as they were.
+Tests: Scene tests open the code view from a drawer commit and from "Open code", select a task, a commit and a file in the tree and check the selection and the route each requests, and go back to the canvas and find the pins as they were.
 
 ### Diff view {#spec.viewer.diff-view}
 
 - Implements: `prd.viewer`, `prd.code-view`
-- Files: `apps/viewer/src/diff.ts`, `apps/viewer/package.json`
-- Depends on: `spec.viewer.code-view`, `spec.server`
+- Files: `apps/viewer/src/diff.ts`, `apps/viewer/src/view/diffView.ts`, `apps/viewer/package.json`
+- Depends on: `spec.viewer.code-view`, `spec.patch-routes`
 
-`ReceivedCommit` carries the patch text. `parsePatchFiles` from `@pierre/diffs` turns it into `ParsedPatch`: the commit message as `patchMetadata`, then one `FileDiffMetadata` per file with its hunks. Cairn's code reads that structure; it does not parse hunks itself.
+`ReceivedPatch` carries the patch text: `git show` output for one commit, `git diff` output for a whole task. `parsePatchFiles` from `@pierre/diffs` turns it into `ParsedPatch`: for a commit, the commit message as `patchMetadata`, then one `FileDiffMetadata` per file with its hunks; a whole task's patch has no message. Cairn's code reads that structure; it does not parse hunks itself.
 
-The selected commit renders in the code view's middle pane through `@pierre/diffs`' vanilla `CodeView`, a virtualized list that owns its own DOM, inside one Foldkit `Mount`. Each file is one `diff` item with the ID `diff:<path>`, under a sticky header with its path. The mount creates the list, calls `setup` on its element and `setItems` with the commit's files, and calls `cleanUp()` on unmount. The element is keyed by the commit's SHA, so another commit gets a new list.
+The selected task or commit renders in the code view's middle pane through `@pierre/diffs`' vanilla `CodeView`, a virtualized list that owns its own DOM, inside one Foldkit `Mount`. Each file is one `diff` item with the ID `diff:<path>`, under a sticky header with its path. The mount creates the list, calls `setup` on its element and `setItems` with the commit's files, and calls `cleanUp()` on unmount. The element is keyed by the patch's route path, so another task or commit gets a new list.
 
 Mount arguments are fixed when the element appears, so later model changes reach the list the way the viewport reaches the canvas mount: through attributes on the element, which a `MutationObserver` in the mount watches. A change to `data-diff-style` calls `setOptions`, `data-file` scrolls to that file's item with `scrollTo`, and `data-turn` is the highlighted turn (see `spec.viewer.attribution`).
 
@@ -1332,10 +1382,13 @@ Options:
 - `lineDiffType`: `word-alt`, the default, which highlights changed words in a line.
 - `hunkSeparators`: `line-info`, the default. A diff parsed from a patch has only the patch's lines, so expanding context needs `loadDiffFiles` and a route that returns both versions of a file. That waits until someone asks for it.
 - Light and dark follow `themeType: "system"`.
+- `preferredHighlighter`: `highlights`, with `theme: { light: "pierre-light", dark: "pierre-dark" }`.
+
+Code in a diff is syntax-highlighted. With the Highlights backend a diff uses the same lexers and the same light palette as fenced code in the documents (`spec.viewer.markdown-rendering`). Each file's language is the one `@pierre/diffs` infers from its path; a language with no lexer is plain text and keeps its added and removed marks. Highlighting happens inside the mount, which owns that DOM, so it needs no Message. `diffOptionsOf(style)` in `diff.ts` is pure and gives the options the mount passes, so a unit test can check them.
 
 The files touched by a human-gated path are listed first, in the list and in the tree, with the matching pattern as a label. Review notes from `cairn.db` can later use the same line annotations as the turn marks.
 
-Snabbdom hooks do not fire in Scene tests, so a Scene sees the mount element and not the diff inside it. Scene tests check the mount element's key and attributes. A unit test checks the patch-to-files step against real `git show` output.
+Snabbdom hooks do not fire in Scene tests, so a Scene sees the mount element and not the diff inside it. Scene tests check the mount element's key and attributes. Unit tests check the patch-to-files step against real `git show` and `git diff` output, and that `diffOptionsOf` names the Highlights backend and both themes.
 
 ### Session pane {#spec.viewer.session-view}
 
@@ -1396,5 +1449,6 @@ The demo, and the site deployed from it, loads a `Trace` built from this repo's 
 | A model changes only when Jev is confident           | `routeOf` property test and a `refine` test with a low-confidence `model` answer                          |
 | A changed task's judgment shows stale                | Trace test: edit a task and check `stale`                                                                 |
 | Planning without `TYPESAFE_API_KEY` still writes     | `cairn plan` test with no key: manifest written, skip message printed                                     |
+| A task's stacked diff opens highlighted              | Patch route tests; a Scene opens a task and finds its range requested and mounted; `diffOptionsOf` test   |
 | Hunks reach the turn that wrote them                 | `attributionOf` property test; a story sends `ClickedHunkMark` and a Scene finds the turn                 |
 | Fuzzy search finds and highlights text and its chain | Matching properties and Scene tests for navigation, markdown spans, refresh, and preserving pins on clear |
