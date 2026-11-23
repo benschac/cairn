@@ -282,6 +282,9 @@ export const update = (model: Model, message: Message) =>
       ...selectedResult(model, node),
       commands: [FocusSearchInput()],
     }),
+    ClickedDiffStyle: ({ style }) => ({
+      model: modifyFields(model, { diffStyle: () => style }),
+    }),
     ClickedShowAllCurves: () => ({
       model: modifyFields(model, { isShowingAllCurves: Boolean.not }),
     }),
@@ -300,6 +303,7 @@ export const update = (model: Model, message: Message) =>
     CompletedFocusNode: () => ({ model }),
     CompletedFocusSearchInput: () => ({ model }),
     CompletedScrollSearchResult: () => ({ model }),
+    CompletedRenderDiff: () => ({ model }),
     FailedPanZoomCanvas: ({ reason }) => ({
       model: modifyFields(model, { maybePanZoomFailure: () => Option.some(reason) }),
     }),

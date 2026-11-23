@@ -11,6 +11,7 @@ import { LoadTrace } from "./update.ts";
 export const init: Runtime.ApplicationInit<Model, Message> = () => ({
   commands: [LoadTrace()],
   model: {
+    diffStyle: "unified",
     drag: DragState.Idle(),
     drawer: Drawer.Closed(),
     isShowingAllCurves: false,

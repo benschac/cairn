@@ -9,6 +9,7 @@ import {
   expect,
   expectAll,
   given,
+  Mount,
   role,
   scene,
   selector,
@@ -18,6 +19,7 @@ import { modifyFields } from "foldkit/struct";
 
 import { FetchPatch, FocusDrawerHeading, FocusNode } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
+import { RenderDiff } from "../src/diff.ts";
 import { DRAWER_HEADING_ID, drawerView, type DrawerMessages } from "../src/drawer.ts";
 import { init } from "../src/init.ts";
 import { Message } from "../src/message.ts";
@@ -273,6 +275,12 @@ it("clicking a section opens the drawer, then a commit opens it in the code view
       FetchPatch({ path: `/api/commits/${commit.sha}` }),
       // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
       Message.ReceivedPatch({ path: `/api/commits/${commit.sha}`, result: Result.succeed("") }),
+    ),
+    // The loaded patch is empty text, which the diff mount answers for like any other.
+    Mount.resolve(
+      RenderDiff,
+      // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+      Message.CompletedRenderDiff(),
     ),
     expect(selector(`[data-tree-commit="${commit.sha}"]`)).toHaveAttr("aria-current", "true"),
   );

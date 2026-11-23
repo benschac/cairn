@@ -4,11 +4,14 @@ import { defineMessageUnion } from "foldkit/message";
 
 import { ArrowKey, ClientPoint, Movable, PointerId } from "./drag.ts";
 import { Positions, Size, Viewport } from "./geometry.ts";
+import { DiffStyle } from "./model.ts";
 import { Node } from "./trace.ts";
 
 export const Message = defineMessageUnion({
   /** The code view's "Back to canvas" button. */
   ClickedBackToCanvas: {},
+  /** One of the diff style toggle's two buttons. */
+  ClickedDiffStyle: { style: DiffStyle },
   /** The drawer's Close button. */
   ClickedCloseDrawer: {},
   /** A task listed in a section's drawer. */
@@ -42,6 +45,8 @@ export const Message = defineMessageUnion({
   CompletedFocusNode: {},
   CompletedFocusSearchInput: {},
   CompletedScrollSearchResult: {},
+  /** The diff mount parsed the patch and drew it, or put the reason it could not in the pane. */
+  CompletedRenderDiff: {},
   /** The canvas mount could not start pan and zoom. */
   FailedPanZoomCanvas: { reason: Schema.String },
   HoveredNode: { node: Node },
