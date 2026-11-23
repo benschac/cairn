@@ -31,7 +31,6 @@ import { BLOCKS_ATTRIBUTE } from "../src/layout.ts";
 import { Message } from "../src/message.ts";
 import { Drawer, TraceData, type Model } from "../src/model.ts";
 import { searchTrace } from "../src/search.ts";
-import { columnOf, stackLayoutOf } from "../src/stacks.ts";
 import { chainOf, isInChain, nodeKeyOf, type Chain, type Node } from "../src/trace.ts";
 import { update } from "../src/update.ts";
 import { view } from "../src/view/view.ts";
@@ -459,7 +458,7 @@ it("only the lit chain's curves are drawn, and the unrelated ones stay unlit", (
   );
   const chain = chainOf(demoTrace, judgments);
   const inChain = Array.filter(
-    curvesOf(demoTrace, boxes, columnOf(stackLayoutOf(demoTrace.tasks))),
+    curvesOf(demoTrace, boxes),
     (curve) => isInChain(chain, curve.source) && isInChain(chain, curve.target),
   );
   assert(Array.isReadonlyArrayNonEmpty(inChain)).toBe(true);

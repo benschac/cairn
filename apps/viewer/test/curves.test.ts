@@ -4,7 +4,6 @@ import { expect, it } from "@effect/vitest";
 import { Array, Hash, HashSet, Option, Order, Record, Schema, String, Struct, pipe } from "effect";
 
 import { demoTrace } from "../src/demo.ts";
-import { stackLayoutOf } from "../src/stacks.ts";
 import { type Curve, type EdgeKind, curvesOf } from "../src/curves.ts";
 import type { Positions } from "../src/geometry.ts";
 
@@ -90,8 +89,6 @@ const measure = (keys: ReadonlyArray<string>, omit: ReadonlyArray<boolean>): Pos
     ),
   );
 
-const columnOf = (taskId: string): number => hash(taskId) % 3;
-
 const sortedIds = (ids: ReadonlyArray<string>): ReadonlyArray<string> =>
   Array.sort(ids, Order.String);
 
@@ -102,11 +99,7 @@ const idsOf = (curves: ReadonlyArray<Curve>): ReadonlyArray<string> =>
 type Link = readonly [string, string, string];
 
 /** The curve ids the trace calls for, worked out without looking at curvesOf. */
-const expectedIds = (
-  trace: Trace,
-  positions: Positions,
-  column: (id: string) => number,
-): ReadonlyArray<string> => {
+const expectedIds = (trace: Trace, positions: Positions): ReadonlyArray<string> => {
   const tasks = HashSet.fromIterable<string>(Array.map(trace.tasks, (task) => task.id));
   const isTask = (id: string): boolean => HashSet.has(tasks, id);
   const links = Array.flatten<ReadonlyArray<ReadonlyArray<Link>>>([
@@ -123,7 +116,7 @@ const expectedIds = (
         Array.map(
           Array.filter(
             task.dependsOn,
-            (dependency) => isTask(dependency) && column(dependency) !== column(task.id),
+            (dependency) => isTask(dependency) && dependency !== task.parent,
           ),
           (dependency) => ["dependency", dependency, task.id] as const,
         ),
@@ -141,9 +134,9 @@ const expectedIds = (
   );
 };
 
-const draw = (trace: Trace, omit: ReadonlyArray<boolean>, column = columnOf) => {
+const draw = (trace: Trace, omit: ReadonlyArray<boolean>) => {
   const positions = measure(keysOf(trace), omit);
-  return { curves: curvesOf(trace, positions, column), positions };
+  return { curves: curvesOf(trace, positions), positions };
 };
 
 it.prop(
@@ -152,7 +145,7 @@ it.prop(
   ([generated, omit]) => {
     const trace = linked(generated);
     const { curves, positions } = draw(trace, omit);
-    expect(idsOf(curves)).toEqual(expectedIds(trace, positions, columnOf));
+    expect(idsOf(curves)).toEqual(expectedIds(trace, positions));
   },
 );
 
@@ -177,7 +170,7 @@ it.prop(
 );
 
 it.prop("with nothing measured there are no edges", [Trace], ([generated]) => {
-  expect(curvesOf(linked(generated), {}, columnOf)).toEqual([]);
+  expect(curvesOf(linked(generated), {})).toEqual([]);
 });
 
 const byKind = (curves: ReadonlyArray<Curve>, kind: EdgeKind) =>
@@ -206,25 +199,57 @@ it.prop(
 );
 
 it.prop(
-  "parent edges are solid, dependency edges are dashed, and only dependencies across columns are drawn",
+  "parent edges are solid, and the edge of every other dependency is dashed",
   [Trace, Schema.Array(Schema.Boolean)],
   ([generated, omit]) => {
-    const { curves } = draw(linked(generated), omit);
+    const trace = linked(generated);
+    const { curves } = draw(trace, omit);
     expect(Array.every(byKind(curves, "parent"), (curve) => !curve.dashed)).toBe(true);
     expect(Array.every(byKind(curves, "implements"), (curve) => !curve.dashed)).toBe(true);
     expect(Array.every(byKind(curves, "specifies"), (curve) => !curve.dashed)).toBe(true);
     expect(
       Array.every(
         byKind(curves, "dependency"),
-        (curve) => curve.dashed && columnOf(curve.source.id) !== columnOf(curve.target.id),
+        // Ids can repeat in a generated trace, so this asks of each task, not of each id.
+        (curve) =>
+          curve.dashed &&
+          Array.some(
+            trace.tasks,
+            (task) =>
+              task.id === curve.target.id &&
+              task.parent !== curve.source.id &&
+              Array.contains(task.dependsOn, curve.source.id),
+          ),
       ),
     ).toBe(true);
   },
 );
 
-it.prop("a dependency within one column draws nothing", [Trace], ([generated]) => {
-  const { curves } = draw(linked(generated), [], () => 0);
+it.prop("a dependency on the parent draws only the parent's solid edge", [Trace], ([generated]) => {
+  const trace = linked(generated);
+  const onParents = Struct.evolve(trace, {
+    tasks: Array.map((task) =>
+      Struct.evolve(task, { dependsOn: () => Option.toArray(Option.fromNullOr(task.parent)) }),
+    ),
+  });
+  const { curves } = draw(onParents, []);
   expect(byKind(curves, "dependency")).toEqual([]);
+  const known = HashSet.fromIterable(Array.map(trace.tasks, (task) => task.id));
+  expect(idsOf(byKind(curves, "parent"))).toEqual(
+    pipe(
+      trace.tasks,
+      Array.flatMap((task) =>
+        Array.map(
+          Option.toArray(
+            Option.filter(Option.fromNullOr(task.parent), (parent) => HashSet.has(known, parent)),
+          ),
+          (parent) => `parent:${parent}>${task.id}`,
+        ),
+      ),
+      Array.dedupe,
+      sortedIds,
+    ),
+  );
 });
 
 it.prop(
@@ -243,9 +268,9 @@ it.prop(
       ),
     });
     const positions = measure(Array.append(keysOf(trace), "ghost"), []);
-    expect(byKind(curvesOf(orphaned, positions, columnOf), "parent")).toEqual([]);
-    expect(byKind(curvesOf(orphaned, positions, columnOf), "dependency")).toEqual([]);
-    expect(byKind(curvesOf(stray, positions, columnOf), "parent")).toHaveLength(
+    expect(byKind(curvesOf(orphaned, positions), "parent")).toEqual([]);
+    expect(byKind(curvesOf(orphaned, positions), "dependency")).toEqual([]);
+    expect(byKind(curvesOf(stray, positions), "parent")).toHaveLength(
       Array.dedupe(Array.map(trace.tasks, (task) => task.id)).length,
     );
   },
@@ -276,26 +301,20 @@ it.prop(
   },
 );
 
-it("the demo trace gives a solid edge per parent and a dashed one per cross-column dependency", () => {
-  const layout = stackLayoutOf(demoTrace.tasks);
-  const column = (id: TaskId): number =>
-    Option.match(Record.get(layout, id), {
-      onNone: () => 0,
-      onSome: (position) => position.column,
-    });
+it("the demo trace gives a solid edge per parent and a dashed one per other dependency", () => {
   const known = HashSet.fromIterable(Array.map(demoTrace.tasks, (task) => task.id));
-  const curves = curvesOf(demoTrace, measure(keysOf(demoTrace), []), column);
+  const curves = curvesOf(demoTrace, measure(keysOf(demoTrace), []));
   const parentIds = Array.flatMap(demoTrace.tasks, (task) =>
     Array.map(
       Option.toArray(Option.fromNullOr(task.parent)),
       (parent) => `parent:${parent}>${task.id}`,
     ),
   );
-  const crossingIds = Array.flatMap(demoTrace.tasks, (task) =>
+  const otherIds = Array.flatMap(demoTrace.tasks, (task) =>
     Array.map(
       Array.filter(
         task.dependsOn,
-        (dependency) => HashSet.has(known, dependency) && column(dependency) !== column(task.id),
+        (dependency) => HashSet.has(known, dependency) && dependency !== task.parent,
       ),
       (dependency) => `dependency:${dependency}>${task.id}`,
     ),
@@ -303,7 +322,7 @@ it("the demo trace gives a solid edge per parent and a dashed one per cross-colu
   expect(idsOf(Array.filter(curves, (curve) => curve.kind === "parent" && !curve.dashed))).toEqual(
     sortedIds(parentIds),
   );
-  expect(idsOf(Array.filter(curves, (curve) => curve.dashed))).toEqual(sortedIds(crossingIds));
+  expect(idsOf(Array.filter(curves, (curve) => curve.dashed))).toEqual(sortedIds(otherIds));
   expect(Array.isReadonlyArrayNonEmpty(parentIds)).toBe(true);
-  expect(Array.isReadonlyArrayNonEmpty(crossingIds)).toBe(true);
+  expect(Array.isReadonlyArrayNonEmpty(otherIds)).toBe(true);
 });

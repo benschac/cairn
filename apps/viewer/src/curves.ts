@@ -96,14 +96,10 @@ const curveOf =
 /**
  * One curve per link in the trace. PRD to spec and spec to task run from a right edge to a left
  * edge. In the stacks the lower task (the parent, or the dependency) is the source: its top edge
- * meets the upper task's bottom edge. A dependency is drawn only when it crosses columns, and is
- * dashed. A link whose endpoints are not both measured is skipped.
+ * meets the upper task's bottom edge. A parent is a solid curve and every other dependency a dashed
+ * one, as in the plan's stack diagram. A link whose endpoints are not both measured is skipped.
  */
-export const curvesOf = (
-  trace: Trace,
-  positions: Positions,
-  columnOf: (taskId: TaskId) => number,
-): ReadonlyArray<Curve> => {
+export const curvesOf = (trace: Trace, positions: Positions): ReadonlyArray<Curve> => {
   const taskIds = HashSet.fromIterable(Array.map(trace.tasks, (task) => task.id));
   const isTask = (id: TaskId): boolean => HashSet.has(taskIds, id);
 
@@ -133,9 +129,7 @@ export const curvesOf = (
       ),
       pipe(
         task.dependsOn,
-        Array.filter(
-          (dependency) => isTask(dependency) && columnOf(dependency) !== columnOf(task.id),
-        ),
+        Array.filter((dependency) => isTask(dependency) && dependency !== task.parent),
         Array.map((dependency) => stacked("dependency", dependency, task.id, true)),
       ),
     ]),

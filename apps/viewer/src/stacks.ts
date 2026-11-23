@@ -21,7 +21,7 @@ export const StackTask = ManifestTask.mapFields(
 );
 export type StackTask = typeof StackTask.Type;
 
-/** The links `stackLayoutOf` reads. */
+/** The links `stackLayoutOf` reads. The code view's stack tree orders its columns by it. */
 export type LayoutTask = Pick<StackTask, "dependsOn" | "id" | "parent">;
 
 const Place = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));

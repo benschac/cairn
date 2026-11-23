@@ -18,7 +18,6 @@ import { BLOCKS_ATTRIBUTE, MeasureLayout } from "../layout.ts";
 import { renderMarkdown, type Marks, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
 import { blockKeyFor, blockKeyOf, type SearchResult } from "../search.ts";
-import { stackLayoutOf } from "../stacks.ts";
 import type { Node } from "../trace.ts";
 import { cursorsView } from "./cursorsView.ts";
 import { edgesView } from "./edgesView.ts";
@@ -318,7 +317,7 @@ const canvasLayerView = (
     Array.appendAll(
       [
         columnsGridView(trace, maybeHovered, pins, results, maybeActive, offsets, h),
-        edgesView(trace, positions, stackLayoutOf(trace.tasks), lit, isShowingAllCurves, h),
+        edgesView(trace, positions, lit, isShowingAllCurves, h),
       ],
       cursorsView(others, viewport.zoom, h),
     ),
