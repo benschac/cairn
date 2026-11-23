@@ -82,53 +82,96 @@ const othersOf = (model: Model): ReadonlyArray<Participant> =>
     (participant) => !Option.contains(model.maybeYou, participant.id),
   );
 
-const traceView = (
+/** What the trace's state puts on the page: lines and buttons for the toolbar, and the canvas and drawer over the whole screen. */
+interface TraceParts {
+  readonly toolbar: ReadonlyArray<Html>;
+  readonly screen: ReadonlyArray<Html>;
+}
+
+const traceParts = (
   model: Model,
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
-): ReadonlyArray<Html> => {
+): TraceParts => {
   // The Fit button, the canvas and the drawer, shown whenever there is a trace to pan over.
-  const canvas = (trace: Trace): ReadonlyArray<Html> =>
-    Array.appendAll(
-      [
-        fitButton(h),
-        showAllCurvesButton(model.isShowingAllCurves, h),
-        clearPinsButton(model.pins, h),
-        canvasView(
-          trace,
-          model.positions,
-          model.viewport,
-          model.maybeHovered,
-          model.pins,
-          model.isShowingAllCurves,
-          others,
-          h,
-        ),
-      ],
+  const loaded = (trace: Trace): TraceParts => ({
+    screen: Array.prepend(
       drawerViews(model, trace, h),
-    );
-  return AsyncData.match(model.trace, {
-    onFailure: (error) => [alertView(error, h)],
-    onIdle: () => [loadingView(h)],
-    onLoading: () => [loadingView(h)],
-    onRefreshing: canvas,
-    onStale: ({ data, error }) => Array.prepend(canvas(data), alertView(error, h)),
-    onSuccess: canvas,
+      canvasView(
+        trace,
+        model.positions,
+        model.viewport,
+        model.maybeHovered,
+        model.pins,
+        model.isShowingAllCurves,
+        others,
+        h,
+      ),
+    ),
+    toolbar: [
+      fitButton(h),
+      showAllCurvesButton(model.isShowingAllCurves, h),
+      clearPinsButton(model.pins, h),
+    ],
   });
+  const alertOnly = (error: string): TraceParts => ({
+    screen: [],
+    toolbar: [alertView(error, h)],
+  });
+  const loading: TraceParts = { screen: [], toolbar: [loadingView(h)] };
+  return AsyncData.match(model.trace, {
+    onFailure: alertOnly,
+    onIdle: () => loading,
+    onLoading: () => loading,
+    onRefreshing: loaded,
+    onStale: ({ data, error }) => {
+      const parts = loaded(data);
+      return { screen: parts.screen, toolbar: Array.prepend(parts.toolbar, alertView(error, h)) };
+    },
+    onSuccess: loaded,
+  });
+};
+
+/** A compact panel in the top left corner, over the canvas and outside its layer. */
+const toolbarStyle = {
+  background: "#ffffff",
+  border: "1px solid #cbd5e1",
+  "border-radius": "8px",
+  "box-shadow": "0 2px 8px rgba(15, 23, 42, 0.15)",
+  "box-sizing": "border-box",
+  left: "12px",
+  "max-width": "360px",
+  padding: "8px 12px",
+  position: "fixed",
+  top: "12px",
+  "z-index": "20",
 };
 
 export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
   const others = othersOf(model);
+  const parts = traceParts(model, others, h);
   return {
     body: h.main(
       [],
-      Array.flatten([
-        [h.h1([], ["Cairn"]), h.p([h.Role("status")], [presenceText(model, others)])],
-        Array.map(Array.fromOption(model.maybePanZoomFailure), (reason) =>
-          alertView(`Pan and zoom are unavailable: ${reason}`, h),
+      Array.prepend(
+        parts.screen,
+        h.header(
+          [h.DataAttribute("toolbar", ""), h.Style(toolbarStyle)],
+          Array.flatten([
+            [
+              h.h1([h.Style({ "font-size": "16px", margin: "0 0 4px" })], ["Cairn"]),
+              h.p(
+                [h.Role("status"), h.Style({ margin: "0 0 8px" })],
+                [presenceText(model, others)],
+              ),
+            ],
+            Array.map(Array.fromOption(model.maybePanZoomFailure), (reason) =>
+              alertView(`Pan and zoom are unavailable: ${reason}`, h),
+            ),
+            parts.toolbar,
+          ]),
         ),
-        traceView(model, others, h),
-      ]),
+      ),
     ),
     title: "Cairn",
   };

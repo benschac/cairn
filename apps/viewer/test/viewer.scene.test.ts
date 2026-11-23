@@ -741,6 +741,27 @@ it("the canvas and its columns are named regions, and the page has one h1", () =
   );
 });
 
+it("the pane fills the viewport, and the toolbar floats over it outside the canvas layer", () => {
+  const toolbar = selector("[data-toolbar]");
+  scene(
+    { update, view },
+    given(loaded),
+    mounted,
+    expect(pane).toHaveStyle("position", "fixed"),
+    expect(pane).toHaveStyle("top", "0"),
+    expect(pane).toHaveStyle("left", "0"),
+    expect(pane).toHaveStyle("width", "100vw"),
+    expect(pane).toHaveStyle("height", "100vh"),
+    expect(toolbar).toHaveStyle("position", "fixed"),
+    expect(toolbar).toHaveStyle("z-index", "20"),
+    expect(within(toolbar, role("heading", { level: 1 }))).toHaveText("Cairn"),
+    expect(within(toolbar, role("status"))).toExist(),
+    expect(within(toolbar, fit)).toExist(),
+    expect(selector("[data-canvas] [data-toolbar]")).toBeAbsent(),
+    expect(selector("[data-canvas-layer] [data-toolbar]")).toBeAbsent(),
+  );
+});
+
 it("the loading line is a status", () => {
   scene(
     { update, view },

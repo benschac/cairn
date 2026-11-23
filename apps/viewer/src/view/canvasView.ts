@@ -166,10 +166,13 @@ export const canvasView = (
       h.Attribute(VIEWPORT_ATTRIBUTE, viewportAttribute(viewport)),
       h.OnMount(PanZoomCanvas()),
       h.Style({
-        height: "calc(100vh - 160px)",
-        "min-height": "320px",
+        // The pane is the whole screen: the toolbar and the drawer float over it.
+        height: "100vh",
+        left: "0",
         overflow: "hidden",
-        position: "relative",
+        position: "fixed",
+        top: "0",
+        width: "100vw",
       }),
     ],
     [

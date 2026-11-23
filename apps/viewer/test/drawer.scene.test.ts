@@ -239,6 +239,25 @@ it("clicking a task node opens its drawer, still selects its chain, and close sh
   );
 });
 
+it("the open drawer floats over the right of the canvas with its own scroll, outside the layer", () => {
+  scene(
+    app,
+    given(loaded),
+    mounted,
+    click(taskCardButton),
+    focusedDrawerHeading,
+    expect(taskDrawer).toHaveStyle("position", "fixed"),
+    expect(taskDrawer).toHaveStyle("right", "0"),
+    expect(taskDrawer).toHaveStyle("top", "0"),
+    expect(taskDrawer).toHaveStyle("bottom", "0"),
+    expect(taskDrawer).toHaveStyle("width", "420px"),
+    expect(taskDrawer).toHaveStyle("overflow-y", "auto"),
+    expect(taskDrawer).toHaveStyle("z-index", "10"),
+    expect(selector("[data-canvas] [data-drawer]")).toBeAbsent(),
+    expect(selector("[data-canvas-layer] [data-drawer]")).toBeAbsent(),
+  );
+});
+
 it("clicking a section opens the drawer, then a commit shows its files: two clicks", () => {
   scene(
     app,

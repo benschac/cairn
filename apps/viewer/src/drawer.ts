@@ -294,6 +294,22 @@ export const drawerView = <Message>(
       h.AriaLabelledBy(DRAWER_HEADING_ID),
       h.DataAttribute("drawer", node.kind),
       h.DataAttribute("drawer-id", node.id),
+      // A panel over the right of the canvas with its own scroll: it does not push the page.
+      h.Style({
+        background: "#ffffff",
+        "border-left": "1px solid #cbd5e1",
+        bottom: "0",
+        "box-shadow": "-4px 0 16px rgba(15, 23, 42, 0.15)",
+        "box-sizing": "border-box",
+        "max-width": "100vw",
+        "overflow-y": "auto",
+        padding: "12px 16px",
+        position: "fixed",
+        right: "0",
+        top: "0",
+        width: "420px",
+        "z-index": "10",
+      }),
     ],
     Array.flatten([
       [
