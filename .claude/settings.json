@@ -11,5 +11,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "foldkit-skills@foldkit": true
   }
 }
