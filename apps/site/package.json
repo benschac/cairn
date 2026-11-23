@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "deploy": "alchemy deploy",
-    "plan": "alchemy plan",
+    "deploy": "alchemy deploy --stage prod --yes",
+    "plan": "alchemy plan --stage prod",
     "typecheck": "effect-tsgo tsc --noEmit"
   },
   "dependencies": {

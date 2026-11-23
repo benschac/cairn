@@ -120,9 +120,12 @@ still honours `--no-verify`. CI in `.github/workflows/ci.yml` runs
   Messages, one `update` and one `view`. Test it with a Scene from
   `foldkit/scene`: click what a person clicks and assert on what the view shows.
 - `apps/site`: the Alchemy stack that hosts the demo on Cloudflare. It is
-  declared in `alchemy.run.ts` and deploys the viewer. Nothing deploys on
-  commit; `pnpm --filter @cairn/site run deploy` needs the owner's Cloudflare
-  credentials, which never go in the repo.
+  declared in `alchemy.run.ts` and deploys the viewer to `prdtrace.com`.
+  CI deploys the `prod` stage on every push to `main` that passes
+  `pnpm check`, with the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
+  repository secrets, which the owner manages. A deploy from a laptop,
+  `pnpm --filter @cairn/site run deploy`, uses the owner's default Alchemy
+  profile in `~/.alchemy`. No token goes in the repo or in an env file.
 
 - `packages/cli`: the process that runs on the user's machine. For now it is
   the presence server: a WebSocket at `/presence` that feeds the room machine

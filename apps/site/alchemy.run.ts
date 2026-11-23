@@ -11,6 +11,7 @@ export default Alchemy.Stack(
   Effect.gen(function* () {
     const demo = yield* Cloudflare.Website.Foldkit("Demo", {
       rootDir: "../viewer",
+      domain: { name: "prdtrace.com", redirects: ["www.prdtrace.com"] },
     });
     return { url: demo.url };
   }),
