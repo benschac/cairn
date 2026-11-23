@@ -19,6 +19,7 @@ import { MeasureLayout } from "../src/layout.ts";
 import { Message } from "../src/message.ts";
 import { TraceData, type Model } from "../src/model.ts";
 import { sectionTitleOf } from "../src/trace.ts";
+import { taskHeadingOf } from "../src/view/stacksView.ts";
 import { view } from "../src/view/view.ts";
 
 /** A fresh model holding the demo trace. */
@@ -111,11 +112,13 @@ export const sequence = (models: ReadonlyArray<Model>) => {
 export const sectionButton = (column: "PRD" | "Spec", id: SectionId) =>
   within(role("region", { name: column }), role("button", { name: sectionTitleOf(demoTrace, id) }));
 
-/** The button holding a task's id and title, in the Stacks column of the demo trace. */
-export const taskButton = (id: TaskId) =>
-  within(
-    role("region", { name: "Stacks" }),
-    role("button", {
-      name: `${id} ${Option.getOrThrow(Array.findFirst(demoTrace.tasks, (task) => task.id === id)).title}`,
-    }),
+/** The button holding a task's heading and title, in the Stacks column of the demo trace. */
+export const taskButton = (id: TaskId) => {
+  const task = Option.getOrThrow(
+    Array.findFirst(demoTrace.tasks, (candidate) => candidate.id === id),
   );
+  return within(
+    role("region", { name: "Stacks" }),
+    role("button", { name: `${taskHeadingOf(demoTrace, task)} ${task.title}` }),
+  );
+};

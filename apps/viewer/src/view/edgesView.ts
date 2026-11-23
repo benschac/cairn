@@ -6,7 +6,6 @@ import { curvesOf, type Curve, type EdgeKind } from "../curves.ts";
 import type { Positions } from "../geometry.ts";
 import { PIN_PALETTE, pinColorsOf, type LitChain } from "../highlight.ts";
 import type { Message } from "../message.ts";
-import { columnOf, type StackLayout } from "../stacks.ts";
 import { isInChain } from "../trace.ts";
 
 const EDGE_COLOR = {
@@ -60,18 +59,16 @@ const edgeView = (curve: Curve, lit: ReadonlyArray<LitChain>, h: HtmlBuilder<Mes
  * One SVG path per curve between measured nodes. Only the curves of lit chains are drawn, the
  * pinned ones and the hovered one, so the canvas shows no curves until a node is pinned or
  * hovered. With `isShowingAllCurves` every curve is drawn and those outside the lit chains are
- * dimmed. Lit curves are drawn last, so they sit on top. `layout` places the tasks in their
- * columns.
+ * dimmed. Lit curves are drawn last, so they sit on top.
  */
 export const edgesView = (
   trace: Trace,
   positions: Positions,
-  layout: StackLayout,
   lit: ReadonlyArray<LitChain>,
   isShowingAllCurves: boolean,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const curves = curvesOf(trace, positions, columnOf(layout));
+  const curves = curvesOf(trace, positions);
   const isLitCurve = (curve: Curve) =>
     Array.isReadonlyArrayNonEmpty(chainsHoldingCurve(lit, curve));
   const inLitChain = Array.filter(curves, isLitCurve);

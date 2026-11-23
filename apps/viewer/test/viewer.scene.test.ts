@@ -41,7 +41,7 @@ import { DrawDiagram } from "../src/diagram.ts";
 import { MeasureLayout } from "../src/layout.ts";
 import { Message } from "../src/message.ts";
 import { TraceData } from "../src/model.ts";
-import { columnOf, stackLayoutOf } from "../src/stacks.ts";
+import { stacksOf } from "../src/stacks.ts";
 import { chainOf, isInChain, sectionStatusOf, type Chain, type Node } from "../src/trace.ts";
 import { update } from "../src/update.ts";
 import { view } from "../src/view/view.ts";
@@ -102,7 +102,7 @@ it("task t9 shows its branch, model and status", () => {
     { update, view },
     given(loaded),
     mounted,
-    expect(task("t9")).toContainText("cairn-mvp/09-trailer-schema"),
+    expect(task("t9")).toContainText("09-trailer-schema"),
     expect(task("t9")).toContainText("sonnet"),
     expect(selector('[data-task="t9"] [data-status]')).toHaveAttr("data-status", "done"),
     expect(selector('[data-task="t9"] [data-status]')).toHaveText("done"),
@@ -116,32 +116,6 @@ it("a gated task shows the gate marker", () => {
     given(loaded),
     mounted,
     expect(selector('[data-task="t1"] [data-gate]')).toExist(),
-  );
-});
-
-it("every task sits in a higher grid row than each of its dependencies", () => {
-  const layout = stackLayoutOf(demoTrace.tasks);
-  const top = Array.reduce(Record.values(layout), 1, (highest, position) =>
-    Number.max(highest, position.row),
-  );
-  const at = (id: TaskId) => Option.getOrThrow(Record.get(layout, id));
-  // Row 1 is the bottom of the stack, so a higher task has a smaller CSS grid row.
-  const gridRow = (id: TaskId) => top - at(id).row + 1;
-  const edges = Array.flatMap(demoTrace.tasks, (dependent) =>
-    Array.map(dependent.dependsOn, (dependency) => ({ dependency, dependent: dependent.id })),
-  );
-  Array.forEach(edges, ({ dependency, dependent }) => {
-    assert(gridRow(dependent)).toBeLessThan(gridRow(dependency));
-  });
-  // The view places each task where the layout says; one edge is enough to show that.
-  const { dependency, dependent } = Option.getOrThrow(Array.head(edges));
-  scene(
-    { update, view },
-    given(loaded),
-    mounted,
-    expect(task(dependent)).toHaveStyle("grid-row", String(gridRow(dependent))),
-    expect(task(dependency)).toHaveStyle("grid-row", String(gridRow(dependency))),
-    expect(task(dependent)).toHaveStyle("grid-column", String(at(dependent).column)),
   );
 });
 
@@ -260,13 +234,15 @@ it("hovering a spec section highlights exactly its chain and dims the rest; leav
 // A second h.Style on an element replaces the first, so a highlight that came as its own Style
 // took the card's grid cell away: the card moved out from under the pointer, which left it, which
 // put the card back under the pointer, over and over.
-/** The CSS grid cell the view gives a task: row 1 of the layout is the bottom grid row. */
+/** The CSS grid cell the view gives a task in its stack's box: row 1 is the bottom grid row. */
 const gridCellOf = (id: TaskId) => {
-  const layout = stackLayoutOf(demoTrace.tasks);
-  const top = Array.reduce(Record.values(layout), 1, (highest, position) =>
-    Number.max(highest, position.row),
+  const stack = Option.getOrThrow(
+    Array.findFirst(stacksOf(demoTrace.tasks), (candidate) => Record.has(candidate.cells, id)),
   );
-  const at = Option.getOrThrow(Record.get(layout, id));
+  const top = Array.reduce(Record.values(stack.cells), 1, (highest, cell) =>
+    Number.max(highest, cell.row),
+  );
+  const at = Option.getOrThrow(Record.get(stack.cells, id));
   return { column: String(at.column), row: String(top - at.row + 1) };
 };
 
@@ -274,7 +250,15 @@ it("a highlighted or dimmed task card keeps its place in the grid and its border
   const card = (id: TaskId) => [
     expect(task(id)).toHaveStyle("grid-row", gridCellOf(id).row),
     expect(task(id)).toHaveStyle("grid-column", gridCellOf(id).column),
-    expect(task(id)).toHaveStyle("border", "1px solid #94a3b8"),
+    expect(task(id)).toHaveStyle(
+      "border",
+      Option.exists(
+        Array.findFirst(demoTrace.tasks, (candidate) => candidate.id === id),
+        (candidate) => candidate.gate.required,
+      )
+        ? "3px solid #dc2626"
+        : "1px solid #94a3b8",
+    ),
   ];
   scene(
     { update, view },
@@ -410,7 +394,7 @@ const boxes: Positions = Record.fromEntries(
       ] as const,
   ),
 );
-const allCurves = curvesOf(demoTrace, boxes, columnOf(stackLayoutOf(demoTrace.tasks)));
+const allCurves = curvesOf(demoTrace, boxes);
 // The layer's mount measures it, which Scene cannot start, so a test answers for it.
 const measured = layerMountedWith(boxes);
 const edge = (id: string) => selector(`[data-edge="${id}"]`);

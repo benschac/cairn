@@ -1,5 +1,5 @@
 import type { SectionId, SectionStatus, Trace } from "@cairn/contract";
-import { Array, Option, Record } from "effect";
+import { Array, Option, Record, String } from "effect";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
 import {
@@ -15,7 +15,7 @@ import {
 } from "../highlight.ts";
 import { Message } from "../message.ts";
 import type { Rendered } from "../markdown.ts";
-import { segmentsOf, type Range } from "../range.ts";
+import { segmentsOf, withinOf, type Range } from "../range.ts";
 import type { FieldKind } from "../search.ts";
 import {
   judgmentMarkOf,
@@ -42,7 +42,7 @@ export const judgmentMarkView = (mark: JudgmentMark, h: HtmlBuilder<Message>): H
   h.span(
     [
       h.DataAttribute("judgment", mark.verdict),
-      h.DataAttribute("stale", String(mark.stale)),
+      h.DataAttribute("stale", `${mark.stale}`),
       h.Style({ "font-size": "11px", "margin-left": "8px", opacity: mark.stale ? "0.4" : "1" }),
     ],
     [mark.stale ? `${mark.verdict} (stale)` : mark.verdict],
@@ -97,7 +97,7 @@ export const nodeButtonView = (
       h.Type("button"),
       h.Class("nopan"),
       h.DataAttribute("node-button", nodeKeyOf(node)),
-      h.AriaPressed(String(isPinned(pins, node))),
+      h.AriaPressed(`${isPinned(pins, node)}`),
       h.OnFocus(Message.HoveredNode({ node })),
       h.OnBlur(Message.LeftNode()),
       h.Style(PLAIN_BUTTON_STYLE),
@@ -152,6 +152,30 @@ export const fieldView = (
     {
       onNone: () => [text],
       onSome: (match) => markedView(match.text, match.ranges, h),
+    },
+  );
+
+/**
+ * A field's text from `start` on, such as a branch without its feature prefix, with the matches
+ * in that part marked.
+ */
+export const fieldFromView = (
+  search: NodeSearch,
+  field: FieldKind,
+  text: string,
+  start: number,
+  h: HtmlBuilder<Message>,
+): Rendered =>
+  Option.match(
+    Option.filter(search.maybeMatch, (match) => match.field === field),
+    {
+      onNone: () => [String.slice(start)(text)],
+      onSome: (match) =>
+        markedView(
+          String.slice(start)(match.text),
+          withinOf(match.ranges, start, String.length(match.text)),
+          h,
+        ),
     },
   );
 
