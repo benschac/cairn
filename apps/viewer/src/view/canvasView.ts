@@ -4,12 +4,12 @@ import { createLazy, type Html, type HtmlBuilder } from "foldkit/html";
 
 import { PanZoomCanvas, VIEWPORT_ATTRIBUTE, transformOf, viewportAttribute } from "../canvas.ts";
 import type { Positions, Viewport } from "../geometry.ts";
+import { litChainsOf, type Pin } from "../highlight.ts";
 import { MeasureLayout } from "../layout.ts";
 import { renderMarkdown, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
-import { selectedNodeOf, type Drawer } from "../model.ts";
 import { stackLayoutOf } from "../stacks.ts";
-import { chainOf, type Chain, type Node } from "../trace.ts";
+import type { Node } from "../trace.ts";
 import { cursorsView } from "./cursorsView.ts";
 import { edgesView } from "./edgesView.ts";
 import {
@@ -21,17 +21,6 @@ import {
 import { stacksView } from "./stacksView.ts";
 
 type ColumnName = "prd" | "spec" | "stacks";
-
-/** The chain of the hovered node, or else the selected one. */
-const chainOfActive = (
-  trace: Trace,
-  maybeHovered: Option.Option<Node>,
-  maybeSelected: Option.Option<Node>,
-): Option.Option<Chain> =>
-  Option.map(
-    Option.orElse(maybeHovered, () => maybeSelected),
-    (active) => chainOf(trace, active),
-  );
 
 const COLUMN_LABEL = { prd: "PRD", spec: "Spec", stacks: "Stacks" } satisfies Record<
   ColumnName,
@@ -59,23 +48,22 @@ const HEADING_OFFSET = 1;
  * The PRD, the spec and the stacks side by side, each section and task a node in the chain.
  *
  * Parsing the markdown dominates a render, so `columnsLazy` rebuilds this only when the trace,
- * the hovered node, the drawer or `h` changes: not on a pan, a zoom, a cursor or a measurement.
- * It takes the Model's own fields and derives the selection and the chain in here, because a
- * fresh `Option` of either each render would never be reference-equal.
+ * the hovered node, the pins or `h` changes: not on a pan, a zoom, a cursor, a measurement or
+ * the drawer. It takes the Model's own fields and derives the lit chains in here, because a fresh
+ * array of them each render would never be reference-equal.
  */
 const columnsGridView = (
   trace: Trace,
   maybeHovered: Option.Option<Node>,
-  drawer: Drawer,
+  pins: ReadonlyArray<Pin>,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const maybeSelected = selectedNodeOf(drawer);
-  const maybeChain = chainOfActive(trace, maybeHovered, maybeSelected);
+  const lit = litChainsOf(trace, pins, maybeHovered);
   const sectionTitle = (sectionId: SectionId, title: Rendered): Rendered => [
-    nodeButtonView({ id: sectionId, kind: "section" }, maybeSelected, title, h),
+    nodeButtonView({ id: sectionId, kind: "section" }, pins, title, h),
   ];
   const sectionAttributes = (sectionId: SectionId) =>
-    nodeAttributes(maybeChain, { id: sectionId, kind: "section" }, h);
+    nodeAttributes(lit, { id: sectionId, kind: "section" }, h);
   const sectionBadges = (sectionId: SectionId): ReadonlyArray<Html> =>
     sectionBadgeViews(trace, sectionId, h);
   const specSectionMarks = (sectionId: SectionId): ReadonlyArray<Html> =>
@@ -116,7 +104,7 @@ const columnsGridView = (
         ],
         h,
       ),
-      columnView("stacks", [stacksView(trace, maybeChain, maybeSelected, h)], h),
+      columnView("stacks", [stacksView(trace, lit, pins, h)], h),
     ],
   );
 };
@@ -130,12 +118,12 @@ const canvasLayerView = (
   positions: Positions,
   viewport: Viewport,
   maybeHovered: Option.Option<Node>,
-  drawer: Drawer,
+  pins: ReadonlyArray<Pin>,
   isShowingAllCurves: boolean,
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const maybeChain = chainOfActive(trace, maybeHovered, selectedNodeOf(drawer));
+  const lit = litChainsOf(trace, pins, maybeHovered);
   return h.div(
     [
       h.DataAttribute("canvas-layer", ""),
@@ -150,21 +138,21 @@ const canvasLayerView = (
     ],
     Array.appendAll(
       [
-        columnsLazy(columnsGridView, [trace, maybeHovered, drawer, h]),
-        edgesView(trace, positions, stackLayoutOf(trace.tasks), maybeChain, isShowingAllCurves, h),
+        columnsLazy(columnsGridView, [trace, maybeHovered, pins, h]),
+        edgesView(trace, positions, stackLayoutOf(trace.tasks), lit, isShowingAllCurves, h),
       ],
       cursorsView(others, viewport.zoom, h),
     ),
   );
 };
 
-/** The columns and their edges, and the other participants' cursors, with the chain of the hovered node, or else the selected one, highlighted. */
+/** The columns and their edges, and the other participants' cursors, with each pinned chain lit in its colour and the hovered node's chain lit over them. */
 export const canvasView = (
   trace: Trace,
   positions: Positions,
   viewport: Viewport,
   maybeHovered: Option.Option<Node>,
-  drawer: Drawer,
+  pins: ReadonlyArray<Pin>,
   isShowingAllCurves: boolean,
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
@@ -190,7 +178,7 @@ export const canvasView = (
         positions,
         viewport,
         maybeHovered,
-        drawer,
+        pins,
         isShowingAllCurves,
         others,
         h,

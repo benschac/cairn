@@ -33,6 +33,7 @@ import {
   viewportAttribute,
 } from "../src/canvas.ts";
 import { curvesOf } from "../src/curves.ts";
+import { HOVER_FILL, PIN_PALETTE } from "../src/highlight.ts";
 import { demoTrace } from "../src/demo.ts";
 import { MAX_ZOOM, MIN_ZOOM, Viewport, type Positions } from "../src/geometry.ts";
 import { init } from "../src/init.ts";
@@ -323,7 +324,7 @@ it("clicking keeps the highlight after leaving, and clicking again clears it", (
   );
 });
 
-it("hovering something else previews it over the selection", () => {
+it("hovering something else previews its chain on top of the pins, which stay lit", () => {
   scene(
     { update, view },
     given(loaded),
@@ -332,9 +333,63 @@ it("hovering something else previews it over the selection", () => {
     focusedDrawerHeading,
     hover(task(unrelated)),
     highlighted(task(unrelated)),
-    expect(task(chainTask)).toHaveAttr("data-dimmed", "true"),
+    expect(task(unrelated)).toHaveStyle("background", HOVER_FILL),
+    highlighted(task(chainTask)),
+    expect(task(chainTask)).toHaveAttr("data-pins", "blue"),
     left,
     highlighted(task(chainTask)),
+    expect(task(unrelated)).toHaveAttr("data-dimmed", "true"),
+  );
+});
+
+it("two pins light their chains in their own colours; a node in both shows both", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    mountedWith(boxes),
+    click(specButton),
+    focusedDrawerHeading,
+    click(taskButton(unrelated)),
+    focusedDrawerHeading,
+    left,
+    // The spec section's chain holds chainTask; the second pin's holds unrelated.
+    expect(task(chainTask)).toHaveAttr("data-pins", "blue"),
+    expect(task(chainTask)).toHaveStyle("background", PIN_PALETTE.blue.fill),
+    expect(task(unrelated)).toHaveAttr("data-pins", "rose"),
+    expect(task(unrelated)).toHaveStyle("background", PIN_PALETTE.rose.fill),
+    expect(edge(insideChain.id)).toHaveAttr("data-pin", "blue"),
+    expect(edge(insideChain.id)).toHaveAttr("stroke", PIN_PALETTE.blue.stroke),
+    expect(selector('[data-edge][data-pin="rose"]')).toExist(),
+    expect(selector("[data-edge][data-dimmed]")).toBeAbsent(),
+    // Pinning chainTask too puts it in two pinned chains: both colours show as stripes.
+    click(taskButton(chainTask)),
+    focusedDrawerHeading,
+    expect(task(chainTask)).toHaveAttr("data-pins", "blue green"),
+    expect(task(chainTask)).toHaveStyle(
+      "box-shadow",
+      `inset 4px 0 0 ${PIN_PALETTE.blue.stroke}, inset 8px 0 0 ${PIN_PALETTE.green.stroke}`,
+    ),
+    click(role("button", { name: "Clear pins (3)" })),
+    expectAll(all.selector("[data-pins]")).toBeEmpty(),
+    expect(selector("[data-edge]")).toBeAbsent(),
+    expect(role("button", { name: "Clear pins" })).toBeDisabled(),
+  );
+});
+
+it("clicking anywhere on a task card pins it, not only its title", () => {
+  const branch = selector(`[data-task="${unrelated}"] [data-field="branch"]`);
+  scene(
+    { update, view },
+    given(loaded),
+    mounted,
+    click(branch),
+    focusedDrawerHeading,
+    left,
+    expect(taskButton(unrelated)).toHaveAttr("aria-pressed", "true"),
+    highlighted(task(unrelated)),
+    click(branch),
+    expect(taskButton(unrelated)).toHaveAttr("aria-pressed", "false"),
+    expectAll(all.selector("[data-highlighted]")).toBeEmpty(),
   );
 });
 
@@ -644,7 +699,7 @@ it("focusing a node's button highlights its chain as hovering does; blurring cle
   );
 });
 
-it("the button of the node whose drawer is open is pressed, and no other", () => {
+it("the button of each pinned node is pressed, and no other", () => {
   scene(
     { update, view },
     given(loaded),
@@ -657,8 +712,12 @@ it("the button of the node whose drawer is open is pressed, and no other", () =>
     expect(taskButton(chainTask)).toHaveAttr("aria-pressed", "false"),
     click(taskButton(chainTask)),
     focusedDrawerHeading,
-    expect(specButton).toHaveAttr("aria-pressed", "false"),
+    expect(specButton).toHaveAttr("aria-pressed", "true"),
     expect(taskButton(chainTask)).toHaveAttr("aria-pressed", "true"),
+    expectAll(all.role("button", { pressed: true })).toHaveCount(2),
+    click(specButton),
+    expect(specButton).toHaveAttr("aria-pressed", "false"),
+    expectAll(all.role("button", { pressed: true })).toHaveCount(1),
   );
 });
 

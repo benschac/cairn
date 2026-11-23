@@ -12,6 +12,7 @@ import { init } from "../src/init.ts";
 import { loadDemoTrace } from "../src/load.ts";
 import { Message } from "../src/message.ts";
 import { Drawer, PresenceConnection, TraceData, selectedNodeOf } from "../src/model.ts";
+import { PinColor } from "../src/highlight.ts";
 import { Node } from "../src/trace.ts";
 import { LoadTrace, update } from "../src/update.ts";
 
@@ -95,18 +96,85 @@ it.prop(
 );
 
 it.prop(
-  "clicking the open node closes its drawer and moves no focus",
+  "clicking a node pins it, and clicking it again unpins it, closes its drawer and moves no focus",
   { node: Node },
   ({ node }) => {
     story(
       update,
-      given(opened(node)),
+      given(ordinary),
+      message(Message.ClickedNode({ node })),
+      focusedHeading,
+      model((next) => assert(next.pins).toEqual([{ color: "blue", node }])),
       message(Message.ClickedNode({ node })),
       Command.expectNone(),
-      model((next) => assert(next.drawer).toEqual(Drawer.Closed())),
+      model((next) => {
+        assert(next.drawer).toEqual(Drawer.Closed());
+        assert(next.pins).toEqual([]);
+      }),
     );
   },
 );
+
+it("each pin takes the next free colour, and an unpinned colour is reused first", () => {
+  story(
+    update,
+    given(ordinary),
+    message(Message.ClickedNode({ node: taskNode })),
+    focusedHeading,
+    message(Message.ClickedNode({ node: sectionNode })),
+    focusedHeading,
+    model((next) =>
+      assert(next.pins).toEqual([
+        { color: "blue", node: taskNode },
+        { color: "rose", node: sectionNode },
+      ]),
+    ),
+    message(Message.ClickedNode({ node: taskNode })),
+    // The section's drawer is open, so unpinning the task leaves it open.
+    model((next) => assert(selectedNodeOf(next.drawer)).toEqual(Option.some(sectionNode))),
+    message(Message.ClickedNode({ node: taskNode })),
+    focusedHeading,
+    model((next) =>
+      assert(next.pins).toEqual([
+        { color: "rose", node: sectionNode },
+        { color: "blue", node: taskNode },
+      ]),
+    ),
+  );
+});
+
+it.prop(
+  "with every colour taken, colours repeat in order",
+  { ids: Schema.Array(TaskId).check(Schema.isMinLength(7), Schema.isUnique()) },
+  ({ ids }) => {
+    const pinned = Array.reduce(
+      ids,
+      ordinary,
+      (current, id) => update(current, Message.ClickedNode({ node: { id, kind: "task" } })).model,
+    );
+    assert(Array.map(pinned.pins, (pin) => pin.color)).toEqual(
+      Array.map(ids, (_id, index) => PinColor.literals[index % PinColor.literals.length]),
+    );
+  },
+  { arbitrary: { runs: 20 } },
+);
+
+it("clearing the pins unpins every node and leaves the drawer", () => {
+  story(
+    update,
+    given(ordinary),
+    message(Message.ClickedNode({ node: taskNode })),
+    focusedHeading,
+    message(Message.ClickedNode({ node: sectionNode })),
+    focusedHeading,
+    message(Message.ClickedClearPins()),
+    Command.expectNone(),
+    model((next) => {
+      assert(next.pins).toEqual([]);
+      assert(selectedNodeOf(next.drawer)).toEqual(Option.some(sectionNode));
+    }),
+  );
+});
 
 it("clicking another node swaps the drawer to it", () => {
   story(
@@ -177,6 +245,11 @@ it.prop(
       given(opened(sectionNode)),
       message(Message.ClickedDrawerTask({ id })),
       focusedHeading,
+      model((next) => assert(next.pins).toEqual([{ color: "blue", node: { id, kind: "task" } }])),
+      // Clicking it in the drawer again keeps it pinned.
+      message(Message.ClickedDrawerTask({ id })),
+      focusedHeading,
+      model((next) => assert(next.pins).toHaveLength(1)),
       model((next) =>
         assert(selectedNodeOf(next.drawer)).toEqual(Option.some({ id, kind: "task" })),
       ),

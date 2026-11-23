@@ -12,6 +12,9 @@ export const Message = defineMessageUnion({
   /** A task listed in a section's drawer. */
   ClickedDrawerTask: { id: TaskId },
   ClickedFit: {},
+  /** Clears every pin. */
+  ClickedClearPins: {},
+  /** Anywhere on a node, or its title button: pins or unpins it. */
   ClickedNode: { node: Node },
   /** The toggle that draws every curve, or only the active chain's. */
   ClickedShowAllCurves: {},

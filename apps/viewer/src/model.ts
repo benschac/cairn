@@ -4,6 +4,7 @@ import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
 
 import { Positions, Size, Viewport } from "./geometry.ts";
+import { Pin } from "./highlight.ts";
 import { Node } from "./trace.ts";
 
 /** The trace as it loads: nothing yet, a failure, the trace, or the last good trace beside a failure. */
@@ -46,6 +47,8 @@ export const Model = Schema.Struct({
   maybePanZoomFailure: Schema.Option(Schema.String),
   maybeYou: Schema.Option(ParticipantId),
   participants: Schema.Array(Participant),
+  /** The pinned nodes, in the order they were pinned; each chain stays lit in its pin's colour. */
+  pins: Schema.Array(Pin),
   positions: Positions,
   presenceConnection: PresenceConnection,
   trace: TraceData.schema,

@@ -4,6 +4,7 @@ import { AsyncData } from "foldkit";
 import type { Document, Html, HtmlBuilder } from "foldkit/html";
 
 import { drawerView, type DrawerMessages } from "../drawer.ts";
+import type { Pin } from "../highlight.ts";
 import { Message } from "../message.ts";
 import { Drawer, PresenceConnection, type Model } from "../model.ts";
 import { canvasView } from "./canvasView.ts";
@@ -47,6 +48,22 @@ const alertView = (error: string, h: HtmlBuilder<Message>): Html => h.p([h.Role(
 const fitButton = (h: HtmlBuilder<Message>): Html =>
   h.button([h.Type("button"), h.OnClick(Message.ClickedFit())], ["Fit to view"]);
 
+/** Unpins every node, and says how many are pinned; disabled while none is. */
+const clearPinsButton = (pins: ReadonlyArray<Pin>, h: HtmlBuilder<Message>): Html =>
+  h.button(
+    [
+      h.Type("button"),
+      h.Disabled(Array.isReadonlyArrayEmpty(pins)),
+      h.OnClick(Message.ClickedClearPins()),
+    ],
+    [
+      Array.match(pins, {
+        onEmpty: () => "Clear pins",
+        onNonEmpty: (pinned) => `Clear pins (${Array.length(pinned)})`,
+      }),
+    ],
+  );
+
 /** Pressed while every curve is drawn; released, only the hovered or selected chain's are. */
 const showAllCurvesButton = (isShowingAllCurves: boolean, h: HtmlBuilder<Message>): Html =>
   h.button(
@@ -76,12 +93,13 @@ const traceView = (
       [
         fitButton(h),
         showAllCurvesButton(model.isShowingAllCurves, h),
+        clearPinsButton(model.pins, h),
         canvasView(
           trace,
           model.positions,
           model.viewport,
           model.maybeHovered,
-          model.drawer,
+          model.pins,
           model.isShowingAllCurves,
           others,
           h,

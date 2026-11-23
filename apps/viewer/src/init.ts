@@ -16,6 +16,7 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
     maybePanZoomFailure: Option.none(),
     maybeYou: Option.none(),
     participants: [],
+    pins: [],
     positions: {},
     presenceConnection: PresenceConnection.Connecting(),
     trace: TraceData.Loading(),

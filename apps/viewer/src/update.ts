@@ -5,6 +5,7 @@ import { modifyFields } from "foldkit/struct";
 
 import { boundsOf, fitViewport } from "./canvas.ts";
 import { FocusDrawerHeading, FocusNode } from "./command.ts";
+import { isPinned, pin, togglePin } from "./highlight.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
 import { Drawer, PresenceConnection, selectedNodeOf, type Model } from "./model.ts";
@@ -37,10 +38,15 @@ export const update = (model: Model, message: Message) =>
           }),
       }),
     }),
-    // A task in a section's drawer opens that task's drawer; it never closes one.
+    // A task in a section's drawer opens that task's drawer and pins it; it never closes a drawer
+    // or unpins a task.
+    ClickedClearPins: () => ({ model: modifyFields(model, { pins: () => [] }) }),
     ClickedDrawerTask: ({ id }) => ({
       commands: [FocusDrawerHeading()],
-      model: modifyFields(model, { drawer: () => openOn({ id, kind: "task" }) }),
+      model: modifyFields(model, {
+        drawer: () => openOn({ id, kind: "task" }),
+        pins: (pins) => pin(pins, { id, kind: "task" }),
+      }),
     }),
     // Fit frames every measured node in the pane; until both are known it does nothing.
     ClickedFit: () =>
@@ -52,15 +58,26 @@ export const update = (model: Model, message: Message) =>
           }),
         }),
       }),
-    // The open drawer is the selection. Clicking the node whose drawer is open closes it;
-    // clicking any other node opens that node's drawer and moves focus to its heading. The
-    // click that closes a drawer comes from the node's own button, so focus is already there.
+    // Clicking a node pins its chain in the next free colour, opens the node's drawer and moves
+    // focus to its heading. Clicking a pinned node unpins it, and closes the drawer if the drawer
+    // is open on it; a drawer open on another node stays.
     ClickedNode: ({ node }) =>
-      Option.exists(selectedNodeOf(model.drawer), (selected) => nodeEquivalence(selected, node))
-        ? { model: modifyFields(model, { drawer: () => Drawer.Closed() }) }
+      isPinned(model.pins, node)
+        ? {
+            model: modifyFields(model, {
+              drawer: (drawer) =>
+                Option.exists(selectedNodeOf(drawer), (selected) => nodeEquivalence(selected, node))
+                  ? Drawer.Closed()
+                  : drawer,
+              pins: (pins) => togglePin(pins, node),
+            }),
+          }
         : {
             commands: [FocusDrawerHeading()],
-            model: modifyFields(model, { drawer: () => openOn(node) }),
+            model: modifyFields(model, {
+              drawer: () => openOn(node),
+              pins: (pins) => togglePin(pins, node),
+            }),
           },
     ClickedShowAllCurves: () => ({
       model: modifyFields(model, { isShowingAllCurves: Boolean.not }),

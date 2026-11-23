@@ -307,7 +307,7 @@ it("clicking another node swaps the drawer and the highlight to it", () => {
   );
 });
 
-it("closing the drawer clears the selection's highlight", () => {
+it("closing the drawer keeps the pin; clicking the node again clears it", () => {
   scene(
     app,
     given(loaded),
@@ -317,6 +317,10 @@ it("closing the drawer clears the selection's highlight", () => {
     click(closeButton),
     focusedNode,
     expect(role("complementary")).toBeAbsent(),
+    expect(specButton).toHaveAttr("aria-pressed", "true"),
+    expect(selector("[data-highlighted]")).toExist(),
+    click(specButton),
+    expect(specButton).toHaveAttr("aria-pressed", "false"),
     expectAll(all.selector("[data-highlighted]")).toBeEmpty(),
     expectAll(all.selector("[data-dimmed]")).toBeEmpty(),
   );
