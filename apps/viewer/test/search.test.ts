@@ -8,6 +8,7 @@ import {
   indexOf,
   search,
   searchTrace,
+  segmentsOf,
   type SearchContent,
   type SearchResult,
 } from "../src/search.ts";
@@ -185,3 +186,31 @@ it("reuses the index until the searchable content changes", () => {
   };
   expect(indexOf(renamed)).not.toBe(first);
 });
+
+it.prop(
+  "the segments of a result's text rejoin to the text, and the marked ones are its ranges",
+  { query: Text, titles: Schema.Array(Text) },
+  ({ query, titles }) => {
+    Array.forEach(
+      search(buildIndex(contentOf(Array.map(titles, textOf))), textOf(query)),
+      (result) => {
+        const segments = segmentsOf(result.text, result.ranges);
+        expect(
+          Array.join(
+            Array.map(segments, (segment) => segment.text),
+            "",
+          ),
+        ).toBe(result.text);
+        expect(
+          Array.map(
+            Array.filter(segments, (segment) => segment.isMatch),
+            (segment) => segment.text,
+          ),
+        ).toEqual(
+          Array.map(result.ranges, (range) => String.slice(range.start, range.end)(result.text)),
+        );
+        expect(Array.every(segments, (segment) => String.isNonEmpty(segment.text))).toBe(true);
+      },
+    );
+  },
+);

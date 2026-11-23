@@ -7,7 +7,7 @@ import type { Html } from "foldkit/html";
 import { expect, given, scene, selector } from "foldkit/scene";
 import { expect as assert } from "vitest";
 
-import { renderMarkdown, type SectionHooks } from "../src/markdown.ts";
+import { renderMarkdown, treeOf, type SectionHooks } from "../src/markdown.ts";
 
 type VNode = NonNullable<Html>;
 
@@ -417,4 +417,11 @@ it("a diagram's key changes with its source and its line, and two identical diag
   assert(diagramKeys(`# Moved\n\n${a}`)).not.toEqual([original]);
   const twice = diagramKeys(`${a}\n\n${a}`);
   assert(Array.length(Array.dedupe(twice))).toBe(2);
+});
+
+it("a document is parsed once while its text is the same", () => {
+  const source = "# Title {#spec.title}\n\nText.";
+  assert(treeOf(source)).toBe(treeOf(source));
+  assert(treeOf(source)).not.toBe(treeOf(`${source} More.`));
+  assert(treeOf(source)).toBe(treeOf(source));
 });

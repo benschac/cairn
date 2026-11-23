@@ -1,18 +1,25 @@
 import type { SectionId, TaskId } from "@cairn/contract";
 import { Array, Option } from "effect";
 import { Command, Mount, role, within } from "foldkit/scene";
+import type { Document, HtmlBuilder } from "foldkit/html";
 import { modifyFields } from "foldkit/struct";
 
 import { PanZoomCanvas } from "../src/canvas.ts";
-import { FocusDrawerHeading, FocusNode } from "../src/command.ts";
+import {
+  FocusDrawerHeading,
+  FocusNode,
+  FocusSearchInput,
+  ScrollSearchResult,
+} from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
 import { DrawDiagram } from "../src/diagram.ts";
 import type { Positions } from "../src/geometry.ts";
 import { init } from "../src/init.ts";
 import { MeasureLayout } from "../src/layout.ts";
 import { Message } from "../src/message.ts";
-import { TraceData } from "../src/model.ts";
+import { TraceData, type Model } from "../src/model.ts";
 import { sectionTitleOf } from "../src/trace.ts";
+import { view } from "../src/view/view.ts";
 
 /** A fresh model holding the demo trace. */
 export const loaded = modifyFields(init().model, {
@@ -65,6 +72,33 @@ export const focusedDrawerHeading = Command.resolve(
 /** Closing a drawer moves focus back to its node's button; the test answers for the focus. */
 // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
 export const focusedNode = Command.resolve(FocusNode, Message.CompletedFocusNode());
+
+/** Moving the active search result scrolls the list to it; the test answers for the scroll. */
+export const scrolledSearchResult = Command.resolve(
+  ScrollSearchResult,
+  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+  Message.CompletedScrollSearchResult(),
+);
+
+/** Clicking a search result takes focus from the input, so it is moved back; the test answers for it. */
+export const focusedSearchInput = Command.resolve(
+  FocusSearchInput,
+  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+  Message.CompletedFocusSearchInput(),
+);
+
+/**
+ * `Lazy.expectAllReused` renders twice with the same Model; this view hands each render the next
+ * Model of a sequence, so the second render is one frame later.
+ */
+export const sequence = (models: ReadonlyArray<Model>) => {
+  let render = 0;
+  return (_model: Model, h: HtmlBuilder<Message>): Document => {
+    const model = Option.getOrThrow(Array.get(models, render % models.length));
+    render += 1;
+    return view(model, h);
+  };
+};
 
 /** The button holding a section's title, in the PRD or the Spec column of the demo trace. */
 export const sectionButton = (column: "PRD" | "Spec", id: SectionId) =>

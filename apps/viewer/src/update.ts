@@ -1,15 +1,24 @@
-import { Boolean, Effect, Option, Schema } from "effect";
+import { Array, Boolean, Effect, Option, Record, Schema } from "effect";
 import { AsyncData, Command } from "foldkit";
 import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 
-import { boundsOf, fitViewport } from "./canvas.ts";
-import { FocusDrawerHeading, FocusNode } from "./command.ts";
+import {
+  TOOLBAR_MARGIN,
+  TOOLBAR_WIDTH,
+  boundsOf,
+  centerViewport,
+  fitViewport,
+  type Insets,
+} from "./canvas.ts";
+import { FocusDrawerHeading, FocusNode, FocusSearchInput, ScrollSearchResult } from "./command.ts";
 import { DragState, canvasDeltaOf, moveBy, nudgeOf } from "./drag.ts";
+import { DRAWER_WIDTH } from "./drawer.ts";
 import { isPinned, pin, togglePin } from "./highlight.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
 import { Drawer, PresenceConnection, selectedNodeOf, type Model } from "./model.ts";
+import { NO_SEARCH, chosen, moved, queried, refreshed, type SearchState } from "./search.ts";
 import { Node } from "./trace.ts";
 
 // UPDATE
@@ -30,6 +39,47 @@ const idleAfterRelease = (model: Model): Model =>
   DragState.guards.Released(model.drag)
     ? modifyFields(model, { drag: () => DragState.Idle() })
     : model;
+
+/** What covers the pane's edges: the toolbar on the left, and the drawer on the right while it is open. */
+const insetsOf = (drawer: Drawer): Insets => ({
+  left: TOOLBAR_MARGIN + TOOLBAR_WIDTH,
+  right: Drawer.match(drawer, { Closed: () => 0, Open: () => DRAWER_WIDTH }),
+});
+
+/**
+ * Brings the result waiting to be seen into the middle of what the pane shows, at the zoom it has.
+ * Until layout has measured the node and the pane its size, it keeps waiting; the measurements
+ * include a moved card's offset.
+ */
+const centeredOnSearch = (model: Model): Model =>
+  Option.match(
+    Option.flatMap(
+      Option.all({ node: model.search.maybeToCenter, pane: model.maybePaneSize }),
+      ({ node, pane }) =>
+        Option.map(Record.get(model.positions, node.id), (rect) =>
+          centerViewport(rect, model.viewport, pane, insetsOf(model.drawer)),
+        ),
+    ),
+    {
+      onNone: () => model,
+      onSome: (viewport) =>
+        modifyFields(model, {
+          search: (search) => modifyFields(search, { maybeToCenter: () => Option.none() }),
+          viewport: () => viewport,
+        }),
+    },
+  );
+
+/** A result chosen by Enter or a click: it is active, and the canvas moves to it. */
+const selectedResult = (model: Model, node: Node) => ({
+  model: centeredOnSearch(modifyFields(model, { search: (search) => chosen(search, node) })),
+});
+
+/** The model with this search, and the list scrolled to its active result so it is not offscreen. */
+const searchedWith = (model: Model, search: SearchState) => ({
+  commands: Array.map(Array.fromOption(search.maybeActive), (node) => ScrollSearchResult({ node })),
+  model: modifyFields(model, { search: () => search }),
+});
 
 /** No buttons held: the pointer is up, whether or not its release was heard. */
 const NO_BUTTONS = 0;
@@ -98,10 +148,18 @@ export const update = (model: Model, message: Message) =>
           },
     ClickedMoveHandle: () => ({ model }),
     ClickedResetLayout: () => ({ model: modifyFields(model, { offsets: () => ({}) }) }),
+    // A click takes focus from the input, so it goes back: the keyboard stays in search.
+    ClickedSearchResult: ({ node }) => ({
+      ...selectedResult(model, node),
+      commands: [FocusSearchInput()],
+    }),
     ClickedShowAllCurves: () => ({
       model: modifyFields(model, { isShowingAllCurves: Boolean.not }),
     }),
     // The room is unknown once the socket is gone, so nobody is shown and you are no one.
+    // A new query makes the first result active, so the list goes back to it.
+    ChangedSearchQuery: ({ query }) =>
+      searchedWith(model, queried(model.search, AsyncData.getData(model.trace), query)),
     ClosedPresence: () => ({
       model: modifyFields(model, {
         maybeYou: () => Option.none(),
@@ -111,6 +169,8 @@ export const update = (model: Model, message: Message) =>
     }),
     CompletedFocusDrawerHeading: () => ({ model }),
     CompletedFocusNode: () => ({ model }),
+    CompletedFocusSearchInput: () => ({ model }),
+    CompletedScrollSearchResult: () => ({ model }),
     FailedPanZoomCanvas: ({ reason }) => ({
       model: modifyFields(model, { maybePanZoomFailure: () => Option.some(reason) }),
     }),
@@ -119,7 +179,7 @@ export const update = (model: Model, message: Message) =>
     }),
     LeftNode: () => ({ model: modifyFields(model, { maybeHovered: () => Option.none() }) }),
     MeasuredLayout: ({ positions }) => ({
-      model: modifyFields(model, { positions: () => positions }),
+      model: centeredOnSearch(modifyFields(model, { positions: () => positions })),
     }),
     // The pointer's move since it was last seen, in canvas units at the current zoom, so the item
     // stays under the pointer however far the canvas is zoomed.
@@ -142,7 +202,7 @@ export const update = (model: Model, message: Message) =>
       }),
     }),
     MeasuredPane: ({ size }) => ({
-      model: modifyFields(model, { maybePaneSize: () => Option.some(size) }),
+      model: centeredOnSearch(modifyFields(model, { maybePaneSize: () => Option.some(size) })),
     }),
     OpenedPresence: () => ({
       model: modifyFields(model, { presenceConnection: () => PresenceConnection.Connected() }),
@@ -168,6 +228,15 @@ export const update = (model: Model, message: Message) =>
             drag: () => DragState.Dragging({ movable, pointer, pointerId }),
           }),
     }),
+    PressedSearchArrowDown: () => searchedWith(model, moved(model.search, 1)),
+    PressedSearchArrowUp: () => searchedWith(model, moved(model.search, -1)),
+    PressedSearchEnter: () =>
+      Option.match(model.search.maybeActive, {
+        onNone: () => ({ model }),
+        onSome: (node) => selectedResult(model, node),
+      }),
+    // Clearing leaves the pins, the drawer, the documents, the tasks and the viewport as they are.
+    PressedSearchEscape: () => ({ model: modifyFields(model, { search: () => NO_SEARCH }) }),
     PannedOrZoomed: ({ viewport }) => ({
       model: modifyFields(model, { viewport: () => viewport }),
     }),
@@ -184,9 +253,15 @@ export const update = (model: Model, message: Message) =>
       }),
     }),
     SuppressedClickAfterDrag: () => ({ model: idleAfterRelease(model) }),
-    SettledLoadTrace: ({ result }) => ({
-      model: modifyFields(model, { trace: AsyncData.settle(result) }),
-    }),
+    // A refreshed trace is searched again: a result that is gone loses its marks and its chain.
+    SettledLoadTrace: ({ result }) => {
+      const settled = modifyFields(model, { trace: AsyncData.settle(result) });
+      return {
+        model: modifyFields(settled, {
+          search: (search) => refreshed(search, AsyncData.getData(settled.trace)),
+        }),
+      };
+    },
   });
 
 // COMMAND

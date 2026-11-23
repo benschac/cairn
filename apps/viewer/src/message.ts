@@ -21,12 +21,18 @@ export const Message = defineMessageUnion({
   ClickedMoveHandle: {},
   /** The button that puts every moved document and task card back where the layout put it. */
   ClickedResetLayout: {},
+  /** A result in the search list: it becomes the active result and is brought into view. */
+  ClickedSearchResult: { node: Node },
   /** The toggle that draws every curve, or only the active chain's. */
   ClickedShowAllCurves: {},
+  /** The search input's text changed. */
+  ChangedSearchQuery: { query: Schema.String },
   /** The presence socket closed or failed. */
   ClosedPresence: {},
   CompletedFocusDrawerHeading: {},
   CompletedFocusNode: {},
+  CompletedFocusSearchInput: {},
+  CompletedScrollSearchResult: {},
   /** The canvas mount could not start pan and zoom. */
   FailedPanZoomCanvas: { reason: Schema.String },
   HoveredNode: { node: Node },
@@ -41,6 +47,14 @@ export const Message = defineMessageUnion({
    * earlier pointer is up, so a drag still in progress missed its release.
    */
   PressedAfterDrag: { isPrimaryPointer: Schema.Boolean },
+  /** In the search input: down to the next result. */
+  PressedSearchArrowDown: {},
+  /** In the search input: up to the previous result. */
+  PressedSearchArrowUp: {},
+  /** In the search input: selects the active result. */
+  PressedSearchEnter: {},
+  /** In the search input: clears the search. */
+  PressedSearchEscape: {},
   /** An arrow key went down on a move handle. */
   PressedArrowOnMoveHandle: { key: ArrowKey, movable: Movable },
   /** The primary button or a touch went down on a move handle. */
