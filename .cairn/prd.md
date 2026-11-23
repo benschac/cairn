@@ -172,7 +172,7 @@ Layout:
 - Middle column: rendered `spec.md` with the same badges.
 - Right column: the stacks, drawn the way the spec draws its own stack diagram (see Stacks below).
 - Curves: SVG bezier curves linking PRD section to spec section to task node. Hovering any node highlights its full chain.
-- Task detail panel: commits with links to diffs, session files, events timeline, gate reasons, and judgments.
+- Task detail panel: the task's diff and its commits (each opens the code view), session files, events timeline, gate reasons, and judgments.
 - Judgment markers: a spec section or task node with a `flag` or `unsure` judgment shows a marker. Stale judgments are shown as stale.
 
 Suggested stack: Foldkit SPA for the viewer, a markdown renderer that preserves heading IDs, and a tiny Node server exposing `.cairn/` files and `git log --format` with trailers, plus reads from `cairn.db`.
@@ -203,6 +203,31 @@ Search the current feature locally across PRD and spec section titles and IDs, t
 
 Ship this in three diffs: matching titles/IDs/branches; search controls, navigation and chain highlighting; then prose snippets and inline highlights. The full feature is complete only after all three.
 
+## Code view {#prd.code-view}
+
+The canvas shows where the work stands. The code view shows the work itself: the code each task changed, beside the agent conversation that changed it. It is read-only, like the rest of the viewer.
+
+It opens from a task or a commit in the detail panel and fills the window. "Back to canvas" returns to the canvas as it was left, with its pins and layout.
+
+Layout:
+
+- Left: the stacks as a tree. Each stack lists its tasks from the bottom up, with status and gate marker; each task lists its commits; the selected task or commit lists the files it changed as a directory tree. Selecting a task shows its whole diff, selecting a commit shows that commit alone, and selecting a file scrolls the diff to it.
+- Middle: the selected task's diff: everything its branch adds on top of its parent, the stacked diff as it is reviewed in its pull request. Selecting one of its commits narrows the diff to that commit. Every file is in one scroll. Files on gated paths come first, labelled with the pattern that gated them.
+- Right: the agent session that made the selected commit, or the task's latest commit when the whole task is shown, found through its `Cairn-Session` trailer. Prompts, replies and tool calls in order, each tool call on one line (its name and its file or command) until opened. Redactions show where they were made.
+
+A task's diff runs from the parent of its first commit to its last commit, so it reads the same before and after the branch lands and is deleted.
+
+Code in a diff is syntax-highlighted by its file's language, in the same colours as code blocks in the documents, in both the unified and the split view. A file in a language Cairn cannot highlight shows as plain text, with its added and removed lines still marked.
+
+Code and conversation link both ways:
+
+- Each hunk is marked with the turn that wrote it. Clicking the mark scrolls the session to that tool call and opens it.
+- Clicking an edit in the session marks the hunks it wrote and scrolls the diff to the first.
+- A hunk is matched to the session's file edits by file and by the lines it adds or removes. A line written another way, by a shell command, a formatter or a code generator, matches no edit; its hunk says it is not traced to a turn, and the session is still shown.
+- A commit with no session, or with a session Cairn cannot read, shows its diff alone and says why.
+
+Cairn reads Claude Code session logs first. Other agents' logs come with their adapters.
+
 ## Implementation in Effect {#prd.implementation-in-effect}
 
 The CLI and local server are written in Effect, so every side effect is a typed service that tests can swap out.
@@ -231,6 +256,7 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - Running `cairn init`, `cairn plan`, and the orchestrator on a real RinkSide feature produces a manifest with at least three stacked tasks.
 - Every commit on those branches has Cairn trailers, including a `Cairn-Session` ID that resolves to a redacted session in `cairn.db`.
 - A task touching a migrations path is gated and its children do not start until it is approved.
+- Opening a task in the code view shows its whole stacked diff with syntax-highlighted code, and each of its commits can be shown alone.
 - Fuzzy search finds abbreviated and mistyped titles and prose, marks the matched text, and brings the selected result and its chain into view; clearing it preserves pins and the drawer.
 - The viewer shows correct status for every PRD section, and clicking a PRD section reaches its commits in two clicks or fewer.
 - `cairn lint` catches an orphaned section ID and an unmapped PRD section.
@@ -238,6 +264,7 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - A task's model is changed only when Jev is confident; otherwise the planner's choice stands and is reported as `unsure`.
 - A judgment on a task that has since changed shows as stale.
 - With no `TYPESAFE_API_KEY`, `cairn plan` still writes the manifest and says that judging was skipped.
+- In the code view, a hunk an agent wrote with its edit tools reaches the tool call that wrote it in one click, and a hunk written another way says it is not traced.
 
 ## One-day build order {#prd.one-day-build-order}
 
@@ -338,4 +365,5 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 - An inbox view of agent activity across rooms.
 - Drift detection that flags or proposes spec updates when code diverges.
 - Cost per section and per model.
-- Judging during a run: before a task starts, and on its diff after it is done.- Adapters for Vercel Board and other agent message boards.
+- Judging during a run: before a task starts, and on its diff after it is done.
+- Adapters for Vercel Board and other agent message boards.

@@ -26,6 +26,7 @@
         "spec.sessions",
         "spec.orchestrator-adapter",
         "spec.cli",
+        "spec.patch-routes",
         "spec.server",
         "spec.viewer",
         "spec.acceptance"
@@ -479,6 +480,7 @@
         "spec.contract.events",
         "spec.contract.trailers",
         "spec.contract.trace",
+        "spec.contract.session",
         "spec.contract.config",
         "spec.contract.judgments",
         "spec.contract.spec-index",
@@ -1059,10 +1061,79 @@
       "decisions": []
     },
     {
+      "id": "spec.contract.session",
+      "title": "Session",
+      "level": 3,
+      "line": 254,
+      "parent": "spec.contract",
+      "children": [],
+      "human": false,
+      "implements": ["prd.code-view"],
+      "files": ["packages/contract/src/session.ts"],
+      "dependsOn": ["spec.contract.trailers"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t76"],
+      "summary": "Defines Session, what GET /api/sessions/:id sends: its turns (prompt, reply, tool with file edits), skipped-line count, redaction counts and notes.",
+      "requirements": [
+        {
+          "id": "spec.contract.session#r1",
+          "level": "must",
+          "text": "`Session` holds version, id, taskId, format (`claude-code` or `unknown`), turns in log order, skipped, redactions per kind and notes."
+        },
+        {
+          "id": "spec.contract.session#r2",
+          "level": "must",
+          "text": "A turn is a prompt, a reply or a tool turn; a tool turn holds name, target, input, output, failed and its file edits."
+        },
+        {
+          "id": "spec.contract.session#r3",
+          "level": "must",
+          "text": "A `FileEdit` holds a path relative to the agent's checkout and the lines it added and removed."
+        },
+        {
+          "id": "spec.contract.session#r4",
+          "level": "must",
+          "text": "Turn IDs are unique within a session; the schema refuses a duplicate."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.contract.session#type:session",
+          "kind": "type",
+          "name": "Session",
+          "location": "packages/contract/src/session.ts",
+          "description": "The session the session pane draws."
+        },
+        {
+          "id": "spec.contract.session#type:turn",
+          "kind": "type",
+          "name": "Turn",
+          "location": null,
+          "description": "PromptTurn, ReplyTurn or ToolTurn."
+        },
+        {
+          "id": "spec.contract.session#type:fileedit",
+          "kind": "type",
+          "name": "FileEdit",
+          "location": null,
+          "description": "Lines one tool call wrote and removed in one file."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.contract.session#d1",
+          "text": "cairn.db keeps the redacted log as the agent wrote it; Session is how Cairn reads it.",
+          "why": "A better reader later needs no migration."
+        }
+      ]
+    },
+    {
       "id": "spec.contract.config",
       "title": "Config",
       "level": 3,
-      "line": 254,
+      "line": 302,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1183,7 +1254,7 @@
       "id": "spec.contract.judgments",
       "title": "Judgments",
       "level": 3,
-      "line": 288,
+      "line": 336,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1251,7 +1322,7 @@
       "id": "spec.contract.spec-index",
       "title": "Spec index",
       "level": 3,
-      "line": 323,
+      "line": 371,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1347,7 +1418,7 @@
       "id": "spec.contract.javascript-entry",
       "title": "JavaScript entry",
       "level": 3,
-      "line": 368,
+      "line": 416,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1516,7 +1587,7 @@
       "id": "spec.sections",
       "title": "Sections",
       "level": 2,
-      "line": 383,
+      "line": 431,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.sections.parsing", "spec.sections.cairn-ids"],
       "human": false,
@@ -1536,7 +1607,7 @@
       "id": "spec.sections.parsing",
       "title": "Parsing",
       "level": 3,
-      "line": 385,
+      "line": 433,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -1671,7 +1742,7 @@
       "id": "spec.sections.cairn-ids",
       "title": "`cairn ids`",
       "level": 3,
-      "line": 407,
+      "line": 455,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -1728,7 +1799,7 @@
       "id": "spec.gates",
       "title": "Gates",
       "level": 2,
-      "line": 415,
+      "line": 463,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.gates.path-matching", "spec.gates.detection"],
       "human": false,
@@ -1748,7 +1819,7 @@
       "id": "spec.gates.path-matching",
       "title": "Path matching",
       "level": 3,
-      "line": 417,
+      "line": 465,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -1798,7 +1869,7 @@
       "id": "spec.gates.detection",
       "title": "Detection",
       "level": 3,
-      "line": 424,
+      "line": 472,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -1853,7 +1924,7 @@
       "id": "spec.models",
       "title": "Models",
       "level": 2,
-      "line": 437,
+      "line": 485,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -1985,7 +2056,7 @@
       "id": "spec.planning",
       "title": "Planning",
       "level": 2,
-      "line": 456,
+      "line": 504,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.planning.planner-service",
@@ -2009,7 +2080,7 @@
       "id": "spec.planning.planner-service",
       "title": "Planner service",
       "level": 3,
-      "line": 458,
+      "line": 506,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2198,7 +2269,7 @@
       "id": "spec.planning.stack-order",
       "title": "Stack order",
       "level": 3,
-      "line": 478,
+      "line": 526,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2313,7 +2384,7 @@
       "id": "spec.planning.cairn-plan",
       "title": "`cairn plan`",
       "level": 3,
-      "line": 788,
+      "line": 861,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2420,7 +2491,7 @@
       "id": "spec.lint",
       "title": "Lint",
       "level": 2,
-      "line": 803,
+      "line": 876,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -2643,7 +2714,7 @@
       "id": "spec.judging",
       "title": "Judging",
       "level": 2,
-      "line": 825,
+      "line": 898,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.judging.questions",
@@ -2686,7 +2757,7 @@
       "id": "spec.judging.questions",
       "title": "Questions",
       "level": 3,
-      "line": 831,
+      "line": 904,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2789,7 +2860,7 @@
       "id": "spec.judging.verdicts",
       "title": "Verdicts",
       "level": 3,
-      "line": 855,
+      "line": 928,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2899,7 +2970,7 @@
       "id": "spec.judging.judge-service",
       "title": "Judge service",
       "level": 3,
-      "line": 870,
+      "line": 943,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2984,7 +3055,7 @@
       "id": "spec.judging.checkpoints",
       "title": "Checkpoints",
       "level": 3,
-      "line": 881,
+      "line": 954,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3086,7 +3157,7 @@
       "id": "spec.judging.cairn-judge",
       "title": "`cairn judge`",
       "level": 3,
-      "line": 903,
+      "line": 976,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3154,7 +3225,7 @@
       "id": "spec.status",
       "title": "Status",
       "level": 2,
-      "line": 914,
+      "line": 987,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.status.task-machine",
@@ -3179,7 +3250,7 @@
       "id": "spec.status.task-machine",
       "title": "Task machine",
       "level": 3,
-      "line": 916,
+      "line": 989,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3256,7 +3327,7 @@
       "id": "spec.status.derivation",
       "title": "Derivation",
       "level": 3,
-      "line": 924,
+      "line": 997,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3357,7 +3428,7 @@
       "id": "spec.status.section-rollup",
       "title": "Section rollup",
       "level": 3,
-      "line": 943,
+      "line": 1016,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3438,7 +3509,7 @@
       "id": "spec.status.cairn-status-and-cairn-approve",
       "title": "`cairn status` and `cairn approve`",
       "level": 3,
-      "line": 959,
+      "line": 1032,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3535,12 +3606,13 @@
       "id": "spec.sessions",
       "title": "Sessions",
       "level": 2,
-      "line": 971,
+      "line": 1044,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.sessions.trace-store",
         "spec.sessions.redaction",
-        "spec.sessions.cairn-session"
+        "spec.sessions.cairn-session",
+        "spec.sessions.reading"
       ],
       "human": false,
       "implements": [],
@@ -3559,7 +3631,7 @@
       "id": "spec.sessions.trace-store",
       "title": "Trace store",
       "level": 3,
-      "line": 973,
+      "line": 1046,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -3751,7 +3823,7 @@
       "id": "spec.sessions.redaction",
       "title": "Redaction",
       "level": 3,
-      "line": 1005,
+      "line": 1078,
       "parent": "spec.sessions",
       "children": [],
       "human": true,
@@ -3869,7 +3941,7 @@
       "id": "spec.sessions.cairn-session",
       "title": "`cairn session`",
       "level": 3,
-      "line": 1024,
+      "line": 1097,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -3946,10 +4018,76 @@
       ]
     },
     {
+      "id": "spec.sessions.reading",
+      "title": "Reading a session",
+      "level": 3,
+      "line": 1108,
+      "parent": "spec.sessions",
+      "children": [],
+      "human": false,
+      "implements": ["prd.code-view"],
+      "files": ["packages/core/src/session.ts"],
+      "dependsOn": ["spec.contract.session"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t77"],
+      "summary": "sessionOf(log, stored) in core reads a redacted Claude Code JSONL log into a Session, decoding only the fields it uses and taking file edits from toolUseResult.",
+      "requirements": [
+        {
+          "id": "spec.sessions.reading#r1",
+          "level": "must",
+          "text": "`sessionOf` is pure and returns a `Session` from the redacted JSONL and the stored row."
+        },
+        {
+          "id": "spec.sessions.reading#r2",
+          "level": "must",
+          "text": "User text lines are prompts, tool_result blocks are the output of the matching tool turn, and assistant lines give a reply per text block and a tool turn per tool_use block."
+        },
+        {
+          "id": "spec.sessions.reading#r3",
+          "level": "must",
+          "text": "Edits come from `toolUseResult`: `structuredPatch` + and - lines, or every line of a created file's content, with paths relative to the line's `cwd`."
+        },
+        {
+          "id": "spec.sessions.reading#r4",
+          "level": "must",
+          "text": "A line of a read type that does not decode is skipped and counted; a log with no readable lines is `format: \"unknown\"`."
+        },
+        {
+          "id": "spec.sessions.reading#r5",
+          "level": "must",
+          "text": "The Claude Code line schemas live in core, not the contract."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.sessions.reading#function:sessionof",
+          "kind": "function",
+          "name": "sessionOf",
+          "location": "packages/core/src/session.ts",
+          "description": "Reads a stored log into a Session.",
+          "signature": "sessionOf(log, stored)"
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.sessions.reading#t1",
+          "kind": "example",
+          "text": "A fixture trimmed from one of this repo's sessions and run through redact, checked turn by turn."
+        },
+        {
+          "id": "spec.sessions.reading#t2",
+          "kind": "property",
+          "text": "Every tool_use ID gives exactly one tool turn, and each edit's added and removed are exactly the + and - lines of its patch."
+        }
+      ],
+      "decisions": []
+    },
+    {
       "id": "spec.orchestrator-adapter",
       "title": "Orchestrator adapter",
       "level": 2,
-      "line": 1035,
+      "line": 1133,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4170,7 +4308,7 @@
       "id": "spec.cli",
       "title": "CLI",
       "level": 2,
-      "line": 1053,
+      "line": 1151,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4254,19 +4392,111 @@
       "decisions": []
     },
     {
-      "id": "spec.server",
-      "title": "Server",
+      "id": "spec.patch-routes",
+      "title": "Patch routes",
       "level": 2,
-      "line": 1062,
+      "line": 1160,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
-      "implements": ["prd.cli", "prd.viewer"],
-      "files": ["packages/cli/src/serve.ts", "packages/cli/src/api.ts"],
-      "dependsOn": ["spec.status.cairn-status-and-cairn-approve", "spec.sessions.trace-store"],
+      "implements": ["prd.code-view"],
+      "files": [
+        "packages/cli/src/api.ts",
+        "packages/cli/src/serve.ts",
+        "packages/cli/test/api.test.ts",
+        "apps/viewer/vite.config.ts"
+      ],
+      "dependsOn": [],
       "defers": [],
       "context": [],
-      "tasks": ["t34", "t39", "t40", "t41", "t67"],
+      "tasks": ["t74"],
+      "summary": "Two git-backed routes on the dev server, GET /api/commits/:sha and GET /api/diffs/:base/:head, return a commit's patch and a task's whole diff as text for the code view.",
+      "requirements": [
+        {
+          "id": "spec.patch-routes#r1",
+          "level": "must",
+          "text": "`GET /api/commits/:sha` returns `git show --patch <sha>` as text."
+        },
+        {
+          "id": "spec.patch-routes#r2",
+          "level": "must",
+          "text": "`GET /api/diffs/:base/:head` returns `git diff --patch <base> <head>` as text."
+        },
+        {
+          "id": "spec.patch-routes#r3",
+          "level": "must",
+          "text": "Each SHA decodes through the contract's `Sha`; anything else is `400` and never reaches git."
+        },
+        {
+          "id": "spec.patch-routes#r4",
+          "level": "must",
+          "text": "Git runs as a child process with an argument list, never through a shell."
+        },
+        {
+          "id": "spec.patch-routes#r5",
+          "level": "must",
+          "text": "A SHA git does not know is `404`; any other git failure is `500` with git's message."
+        },
+        {
+          "id": "spec.patch-routes#r6",
+          "level": "must",
+          "text": "The body is `text/plain` with `Cache-Control: max-age=31536000, immutable`."
+        },
+        {
+          "id": "spec.patch-routes#r7",
+          "level": "must",
+          "text": "In dev, Vite proxies `/api` to the server, as it proxies `/presence`."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.patch-routes#route:get-api-commits-sha",
+          "kind": "route",
+          "name": "GET /api/commits/:sha",
+          "location": "packages/cli/src/api.ts",
+          "description": "One commit's header, message and patch."
+        },
+        {
+          "id": "spec.patch-routes#route:get-api-diffs-base-head",
+          "kind": "route",
+          "name": "GET /api/diffs/:base/:head",
+          "location": "packages/cli/src/api.ts",
+          "description": "Everything head changes on top of base, as one patch."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.patch-routes#t1",
+          "kind": "example",
+          "text": "Against a temporary repository with two commits: the commit route returns the second commit's message and patch, the range route the change between them, and a malformed SHA, an unknown SHA and a range with an unknown end give 400, 404 and 404."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.patch-routes#d1",
+          "text": "Ship the patch routes on the existing presence server before the rest of the API.",
+          "why": "They need only git, so the code view can show real diffs before status derivation and the trace store exist."
+        }
+      ]
+    },
+    {
+      "id": "spec.server",
+      "title": "Server",
+      "level": 2,
+      "line": 1181,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [],
+      "human": false,
+      "implements": ["prd.cli", "prd.viewer", "prd.code-view"],
+      "files": ["packages/cli/src/serve.ts", "packages/cli/src/api.ts"],
+      "dependsOn": [
+        "spec.status.cairn-status-and-cairn-approve",
+        "spec.sessions.trace-store",
+        "spec.sessions.reading"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t34", "t39", "t40", "t41", "t67", "t78"],
       "summary": "Specifies the cairn serve HTTP and WebSocket routes on port 4310 and how the viewer polls them.",
       "requirements": [
         {
@@ -4318,6 +4548,11 @@
           "id": "spec.server#r10",
           "level": "must",
           "text": "Each judgment in the Trace carries stale: boolean, true when its inputHash no longer matches the recomputed inputsOf."
+        },
+        {
+          "id": "spec.server#r11",
+          "level": "must",
+          "text": "`GET /api/diffs/:base/:head` returns a task's whole diff; both patch routes are specified in `spec.patch-routes`."
         }
       ],
       "artifacts": [
@@ -4404,7 +4639,7 @@
       "id": "spec.viewer",
       "title": "Viewer",
       "level": 2,
-      "line": 1084,
+      "line": 1204,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.viewer.model-and-messages",
@@ -4416,7 +4651,10 @@
         "spec.viewer.stacks",
         "spec.viewer.presence",
         "spec.viewer.detail-panel",
+        "spec.viewer.code-view",
         "spec.viewer.diff-view",
+        "spec.viewer.session-view",
+        "spec.viewer.attribution",
         "spec.viewer.demo-data"
       ],
       "human": false,
@@ -4436,7 +4674,7 @@
       "id": "spec.viewer.model-and-messages",
       "title": "Model and messages",
       "level": 3,
-      "line": 1086,
+      "line": 1206,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4450,7 +4688,7 @@
       "dependsOn": ["spec.contract.trace", "spec.viewer.markdown-rendering"],
       "defers": [],
       "context": [],
-      "tasks": ["t13", "t43", "t45", "t46", "t47", "t67", "t68"],
+      "tasks": ["t13", "t43", "t45", "t46", "t47", "t68", "t67"],
       "summary": "Specifies the viewer model, its messages, the pure chainOf function and the three-column layout.",
       "requirements": [
         {
@@ -4596,7 +4834,7 @@
       "id": "spec.viewer.markdown-rendering",
       "title": "Markdown rendering",
       "level": 3,
-      "line": 1102,
+      "line": 1222,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4708,7 +4946,7 @@
       "decisions": [],
       "title": "Fuzzy matching",
       "level": 3,
-      "line": 1111,
+      "line": 1231,
       "parent": "spec.viewer",
       "children": [],
       "implements": ["prd.viewer.fuzzy-search"],
@@ -4770,7 +5008,7 @@
       "decisions": [],
       "title": "Search controls and chain highlighting",
       "level": 3,
-      "line": 1130,
+      "line": 1250,
       "parent": "spec.viewer",
       "children": [],
       "implements": ["prd.viewer.fuzzy-search"],
@@ -4841,7 +5079,7 @@
       "decisions": [],
       "title": "Prose search and inline highlights",
       "level": 3,
-      "line": 1152,
+      "line": 1272,
       "parent": "spec.viewer",
       "children": [],
       "implements": ["prd.viewer.fuzzy-search"],
@@ -4862,7 +5100,7 @@
       "id": "spec.viewer.curves",
       "title": "Canvas and curves",
       "level": 3,
-      "line": 1174,
+      "line": 1294,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5064,7 +5302,7 @@
       "id": "spec.viewer.stacks",
       "title": "Stacks",
       "level": 3,
-      "line": 1192,
+      "line": 1312,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5208,7 +5446,7 @@
       "id": "spec.viewer.presence",
       "title": "Presence on the canvas",
       "level": 3,
-      "line": 1229,
+      "line": 1349,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5297,7 +5535,7 @@
       "id": "spec.viewer.detail-panel",
       "title": "Detail panel",
       "level": 3,
-      "line": 1243,
+      "line": 1363,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5340,25 +5578,128 @@
       "decisions": []
     },
     {
-      "id": "spec.viewer.diff-view",
-      "title": "Diff view",
+      "id": "spec.viewer.code-view",
+      "title": "Code view",
       "level": 3,
-      "line": 1253,
+      "line": 1373,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
-      "implements": ["prd.viewer"],
-      "files": ["apps/viewer/src/diff.ts", "apps/viewer/package.json"],
-      "dependsOn": ["spec.viewer.detail-panel", "spec.server"],
+      "implements": ["prd.code-view"],
+      "files": [
+        "apps/viewer/src/codeView.ts",
+        "apps/viewer/src/view/codeView.ts",
+        "apps/viewer/src/view/treeView.ts"
+      ],
+      "dependsOn": ["spec.viewer.detail-panel"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t75"],
+      "summary": "The code view screen: a stack tree, the selected task's whole diff or one commit's diff, and the session pane, opened from the drawer and left with Back to canvas.",
+      "requirements": [
+        {
+          "id": "spec.viewer.code-view#r1",
+          "level": "must",
+          "text": "`screen` is `Canvas`, or `Code` with the selected task, `WholeTask` or `OneCommit` with its SHA, and the selected file."
+        },
+        {
+          "id": "spec.viewer.code-view#r2",
+          "level": "must",
+          "text": "Pins, offsets, the drawer and the viewport survive the code view, so Back to canvas returns the canvas as it was."
+        },
+        {
+          "id": "spec.viewer.code-view#r3",
+          "level": "must",
+          "text": "\"Open code\" on a task opens its whole diff; a commit in the drawer opens that commit."
+        },
+        {
+          "id": "spec.viewer.code-view#r4",
+          "level": "must",
+          "text": "The tree lists stacks in stackLayoutOf column order, tasks bottom up and commits oldest first; ClickedTreeTask selects a whole task, ClickedTreeCommit one commit and ClickedTreeFile a file."
+        },
+        {
+          "id": "spec.viewer.code-view#r5",
+          "level": "must",
+          "text": "Every tree row is a button and the selected row has aria-current."
+        },
+        {
+          "id": "spec.viewer.code-view#r6",
+          "level": "must",
+          "text": "A whole task fetches /api/diffs/:base/:head (head its newest commit, base the first parent of its oldest); one commit fetches /api/commits/:sha; either sends ReceivedPatch with the route path."
+        },
+        {
+          "id": "spec.viewer.code-view#r7",
+          "level": "must",
+          "text": "Patches and sessions are kept by route path and session ID, so returning to a selection draws it without a fetch; a failed fetch is retried on the next selection."
+        },
+        {
+          "id": "spec.viewer.code-view#r8",
+          "level": "must",
+          "text": "In the demo build the tree works and the diff and session panes say they need cairn serve."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.code-view#message:clickedopencode",
+          "kind": "message",
+          "name": "ClickedOpenCode",
+          "location": null,
+          "description": "Opens the code view on a task and an optional commit."
+        },
+        {
+          "id": "spec.viewer.code-view#message:clickedbacktocanvas",
+          "kind": "message",
+          "name": "ClickedBackToCanvas",
+          "location": null,
+          "description": "Returns to the canvas."
+        },
+        {
+          "id": "spec.viewer.code-view#message:receivedpatch",
+          "kind": "message",
+          "name": "ReceivedPatch",
+          "location": null,
+          "description": "A route path and its patch text or error."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.code-view#t1",
+          "kind": "scene",
+          "text": "Open the code view from a drawer commit and from Open code, select a task, a commit and a file and check the selection and the route each requests, and go back to the canvas and find the pins as they were."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.code-view#d1",
+          "text": "A task's diff runs from the first parent of its oldest commit to its newest commit.",
+          "why": "It reads the same before and after the branch lands and is deleted."
+        }
+      ]
+    },
+    {
+      "id": "spec.viewer.diff-view",
+      "title": "Diff view",
+      "level": 3,
+      "line": 1400,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer", "prd.code-view"],
+      "files": [
+        "apps/viewer/src/diff.ts",
+        "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/package.json"
+      ],
+      "dependsOn": ["spec.viewer.code-view", "spec.patch-routes"],
       "defers": [],
       "context": [],
       "tasks": ["t53", "t54"],
-      "summary": "Specifies rendering commit diffs with @pierre/diffs parsePatchFiles and FileDiff in a Foldkit Mount, with its options and tests.",
+      "summary": "Renders a task's whole diff or one commit's diff with @pierre/diffs: parsePatchFiles into FileDiffMetadata, one vanilla CodeView in a Foldkit Mount, syntax-highlighted through the Highlights backend.",
       "requirements": [
         {
           "id": "spec.viewer.diff-view#r1",
           "level": "must",
-          "text": "`ReceivedCommit` carries the patch text."
+          "text": "`ReceivedPatch` carries the patch text: `git show` output for one commit, `git diff` output for a whole task."
         },
         {
           "id": "spec.viewer.diff-view#r2",
@@ -5373,17 +5714,17 @@
         {
           "id": "spec.viewer.diff-view#r4",
           "level": "must",
-          "text": "Each file renders through `@pierre/diffs`' vanilla `FileDiff` class inside a Foldkit `Mount`."
+          "text": "The selection renders through one vanilla `CodeView` inside a Foldkit `Mount`, one `diff` item per file with ID `diff:<path>` under a sticky path header."
         },
         {
           "id": "spec.viewer.diff-view#r5",
           "level": "must",
-          "text": "The mount calls `render({ fileDiff, containerWrapper })`, calls `setOptions` when the model changes, and calls `cleanUp()` on unmount."
+          "text": "The mount calls `setup` and `setItems`, watches `data-diff-style`, `data-file` and `data-turn` with a MutationObserver, and calls `cleanUp()` on unmount; the element is keyed by the patch's route path."
         },
         {
           "id": "spec.viewer.diff-view#r6",
           "level": "must",
-          "text": "`diffStyle` is `unified` in the drawer, with a toggle for `split`; the toggle is model state."
+          "text": "`diffStyle` is `unified`, with a toggle for `split`; the toggle is model state."
         },
         {
           "id": "spec.viewer.diff-view#r7",
@@ -5403,15 +5744,20 @@
         {
           "id": "spec.viewer.diff-view#r10",
           "level": "must",
-          "text": "Files touched by a human-gated path are listed first, with the matching pattern as a label."
+          "text": "Code is syntax-highlighted with `preferredHighlighter: \"highlights\"` and `theme: { light: \"pierre-light\", dark: \"pierre-dark\" }`, the same lexers and light palette as fenced code; a language with no lexer is plain text and keeps its added and removed marks."
         },
         {
           "id": "spec.viewer.diff-view#r11",
-          "level": "may",
-          "text": "Line annotations through `setLineAnnotations` for review notes from `cairn.db` later."
+          "level": "must",
+          "text": "`diffOptionsOf(style)` in `diff.ts` is pure and gives the options the mount passes."
         },
         {
           "id": "spec.viewer.diff-view#r12",
+          "level": "must",
+          "text": "Files touched by a human-gated path are listed first, in the list and in the tree, with the matching pattern as a label."
+        },
+        {
+          "id": "spec.viewer.diff-view#r13",
           "level": "may",
           "text": "Expanding context via `loadDiffFiles` and a route returning both versions of a file waits until someone asks."
         }
@@ -5422,7 +5768,7 @@
           "kind": "library",
           "name": "@pierre/diffs",
           "location": null,
-          "description": "Diff parsing and rendering library."
+          "description": "Diff parsing, rendering and highlighting library."
         },
         {
           "id": "spec.viewer.diff-view#function:parsepatchfiles",
@@ -5432,27 +5778,6 @@
           "description": "Turns patch text into ParsedPatch."
         },
         {
-          "id": "spec.viewer.diff-view#type:parsedpatch",
-          "kind": "type",
-          "name": "ParsedPatch",
-          "location": null,
-          "description": "What `parsePatchFiles` returns: the commit message as `patchMetadata`, then one `FileDiffMetadata` per file with its hunks. The spec does not name the other fields.",
-          "fields": [
-            {
-              "name": "patchMetadata",
-              "type": "string",
-              "optional": false,
-              "description": "The commit message"
-            },
-            {
-              "name": "files",
-              "type": "FileDiffMetadata[]",
-              "optional": false,
-              "description": "One per file with its hunks"
-            }
-          ]
-        },
-        {
           "id": "spec.viewer.diff-view#type:filediffmetadata",
           "kind": "type",
           "name": "FileDiffMetadata",
@@ -5460,72 +5785,35 @@
           "description": "Per-file diff with its hunks."
         },
         {
-          "id": "spec.viewer.diff-view#function:filediff",
+          "id": "spec.viewer.diff-view#function:codeview",
           "kind": "function",
-          "name": "FileDiff",
+          "name": "CodeView",
           "location": null,
-          "description": "Vanilla class that renders a file diff."
+          "description": "Vanilla virtualized list of file diffs that owns its DOM."
         },
         {
-          "id": "spec.viewer.diff-view#function:render",
+          "id": "spec.viewer.diff-view#function:diffoptionsof",
           "kind": "function",
-          "name": "render",
-          "location": null,
-          "description": "Mount call that renders the diff.",
-          "signature": "render({ fileDiff, containerWrapper })"
+          "name": "diffOptionsOf",
+          "location": "apps/viewer/src/diff.ts",
+          "description": "The CodeView options for a diff style.",
+          "signature": "diffOptionsOf(style)"
         },
         {
-          "id": "spec.viewer.diff-view#function:setoptions",
-          "kind": "function",
-          "name": "setOptions",
+          "id": "spec.viewer.diff-view#option:preferredhighlighter",
+          "kind": "option",
+          "name": "preferredHighlighter",
           "location": null,
-          "description": "Called when the model changes."
-        },
-        {
-          "id": "spec.viewer.diff-view#function:cleanup",
-          "kind": "function",
-          "name": "cleanUp",
-          "location": null,
-          "description": "Called on unmount.",
-          "signature": "cleanUp()"
-        },
-        {
-          "id": "spec.viewer.diff-view#function:loaddifffiles",
-          "kind": "function",
-          "name": "loadDiffFiles",
-          "location": null,
-          "description": "Needed later to expand context."
-        },
-        {
-          "id": "spec.viewer.diff-view#function:setlineannotations",
-          "kind": "function",
-          "name": "setLineAnnotations",
-          "location": null,
-          "description": "Later carries review-note line annotations."
+          "description": "The Highlights backend, shared with fenced code.",
+          "values": ["highlights"]
         },
         {
           "id": "spec.viewer.diff-view#option:diffstyle",
           "kind": "option",
           "name": "diffStyle",
           "location": null,
-          "description": "unified in the drawer, with a toggle for split.",
+          "description": "unified, with a toggle for split.",
           "values": ["unified", "split"]
-        },
-        {
-          "id": "spec.viewer.diff-view#option:linedifftype",
-          "kind": "option",
-          "name": "lineDiffType",
-          "location": null,
-          "description": "Highlights changed words in a line; default.",
-          "values": ["word-alt"]
-        },
-        {
-          "id": "spec.viewer.diff-view#option:hunkseparators",
-          "kind": "option",
-          "name": "hunkSeparators",
-          "location": null,
-          "description": "Hunk separator style; default.",
-          "values": ["line-info"]
         },
         {
           "id": "spec.viewer.diff-view#option:themetype",
@@ -5540,29 +5828,178 @@
         {
           "id": "spec.viewer.diff-view#t1",
           "kind": "scene",
-          "text": "Scene tests check that the right files mount with the right options."
+          "text": "Scene tests check the mount element's key and attributes."
         },
         {
           "id": "spec.viewer.diff-view#t2",
           "kind": "example",
-          "text": "A unit test checks the patch-to-files step against real `git show` output."
+          "text": "Unit tests check the patch-to-files step against real `git show` and `git diff` output."
+        },
+        {
+          "id": "spec.viewer.diff-view#t3",
+          "kind": "example",
+          "text": "`diffOptionsOf` names the Highlights backend and both themes."
         }
       ],
       "decisions": [
         {
           "id": "spec.viewer.diff-view#d1",
-          "text": "Use @pierre/diffs structures and its vanilla FileDiff in a Mount rather than parsing hunks in Cairn.",
+          "text": "Use @pierre/diffs structures and its vanilla CodeView in a Mount rather than parsing hunks in Cairn.",
           "why": null
         },
         {
           "id": "spec.viewer.diff-view#d2",
-          "text": "Keep hunkSeparators at line-info and defer expanding context.",
-          "why": "A diff parsed from a patch has only the patch's lines; expanding needs loadDiffFiles and a route returning both file versions."
+          "text": "Highlight diffs with the Highlights backend rather than Shiki.",
+          "why": "One set of lexers colours both fences and diffs, and the light palette matches the documents."
         },
         {
           "id": "spec.viewer.diff-view#d3",
-          "text": "Scene tests check mount element and options, not the diff inside.",
+          "text": "Scene tests check mount element and attributes, not the diff inside.",
           "why": "Snabbdom hooks do not fire in Scene tests."
+        }
+      ]
+    },
+    {
+      "id": "spec.viewer.session-view",
+      "title": "Session pane",
+      "level": 3,
+      "line": 1426,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.code-view"],
+      "files": ["apps/viewer/src/view/sessionView.ts"],
+      "dependsOn": ["spec.contract.session", "spec.viewer.code-view", "spec.server"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t79"],
+      "summary": "The session pane draws the selected commit's session: notes and redaction counts, prompts and replies as markdown, and each tool call as one line that opens.",
+      "requirements": [
+        {
+          "id": "spec.viewer.session-view#r1",
+          "level": "must",
+          "text": "A commit with no session, and a session with format unknown, each say so; a non-zero skipped count shows at the bottom."
+        },
+        {
+          "id": "spec.viewer.session-view#r2",
+          "level": "must",
+          "text": "Prompts and replies render through the markdown renderer, told apart by a label and a rule, not colour alone."
+        },
+        {
+          "id": "spec.viewer.session-view#r3",
+          "level": "must",
+          "text": "A tool turn is one button line with its name, target and failed or edits marks; ClickedTurn opens it with input and output cut at 200 lines."
+        },
+        {
+          "id": "spec.viewer.session-view#r4",
+          "level": "must",
+          "text": "[REDACTED:<kind>] renders as a chip naming the kind."
+        },
+        {
+          "id": "spec.viewer.session-view#r5",
+          "level": "must",
+          "text": "Each turn has the ID turn-<id>, and a highlighted turn from the diff side scrolls into view."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.session-view#message:clickedturn",
+          "kind": "message",
+          "name": "ClickedTurn",
+          "location": null,
+          "description": "Opens a tool turn and highlights its hunks."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.session-view#t1",
+          "kind": "scene",
+          "text": "Over a fixture Session: turns in order, a failed tool call's mark, opening a tool turn, a redaction chip, and the unknown-format and no-session messages."
+        }
+      ],
+      "decisions": []
+    },
+    {
+      "id": "spec.viewer.attribution",
+      "title": "Hunks and turns",
+      "level": 3,
+      "line": 1442,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.code-view"],
+      "files": ["apps/viewer/src/attribution.ts"],
+      "dependsOn": ["spec.viewer.diff-view", "spec.viewer.session-view"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t80"],
+      "summary": "attributionOf(files, session) traces each hunk's changed lines to the last tool turn whose edit wrote them, and the diff and session pane link through those marks.",
+      "requirements": [
+        {
+          "id": "spec.viewer.attribution#r1",
+          "level": "must",
+          "text": "An added line is traced to the last tool turn, in log order, with an edit to the same path whose added holds the same text; a removed line likewise through removed."
+        },
+        {
+          "id": "spec.viewer.attribution#r2",
+          "level": "must",
+          "text": "Lines compare exactly; blank lines are not traced and do not count."
+        },
+        {
+          "id": "spec.viewer.attribution#r3",
+          "level": "must",
+          "text": "A hunk is traced, partly traced or untraced by how many of its counted lines are traced."
+        },
+        {
+          "id": "spec.viewer.attribution#r4",
+          "level": "must",
+          "text": "Each hunk carries a line annotation with a button per turn; ClickedHunkMark opens and scrolls to that turn and marks all its hunks active."
+        },
+        {
+          "id": "spec.viewer.attribution#r5",
+          "level": "must",
+          "text": "ClickedTurn on a turn with edits scrolls the diff to its first hunk."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.attribution#function:attributionof",
+          "kind": "function",
+          "name": "attributionOf",
+          "location": "apps/viewer/src/attribution.ts",
+          "description": "Hunks to turns and turns to hunks.",
+          "signature": "attributionOf(files, session)"
+        },
+        {
+          "id": "spec.viewer.attribution#message:clickedhunkmark",
+          "kind": "message",
+          "name": "ClickedHunkMark",
+          "location": null,
+          "description": "Highlights the turn a hunk mark names."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.attribution#t1",
+          "kind": "property",
+          "text": "Applying generated edit sequences and diffing with parseDiffFromFile traces every added line to the last edit that wrote it, and lines added outside the session stay untraced."
+        },
+        {
+          "id": "spec.viewer.attribution#t2",
+          "kind": "example",
+          "text": "A real commit of this repo against its session has every hunk traced."
+        },
+        {
+          "id": "spec.viewer.attribution#t3",
+          "kind": "scene",
+          "text": "A story sends ClickedHunkMark and the turn is open and active in the session pane."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.attribution#d1",
+          "text": "Take the last edit that wrote a line.",
+          "why": "The turn whose text survived gets the line when a session edits it twice."
         }
       ]
     },
@@ -5570,7 +6007,7 @@
       "id": "spec.viewer.demo-data",
       "title": "Demo data",
       "level": 3,
-      "line": 1274,
+      "line": 1462,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5614,7 +6051,7 @@
       "id": "spec.acceptance",
       "title": "Acceptance",
       "level": 2,
-      "line": 1282,
+      "line": 1470,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
