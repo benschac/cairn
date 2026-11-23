@@ -1262,21 +1262,23 @@
     },
     {
       "id": "t53",
-      "title": "Parse commit patches with @pierre/diffs",
-      "prdSections": ["prd.viewer"],
+      "title": "Fetch and parse task and commit patches with @pierre/diffs",
+      "prdSections": ["prd.viewer", "prd.code-view"],
       "specSections": ["spec.viewer.diff-view", "spec.libraries"],
       "files": [
         "apps/viewer/src/diff.ts",
+        "apps/viewer/src/command.ts",
+        "apps/viewer/src/update.ts",
         "apps/viewer/package.json",
         "apps/viewer/test/diff.test.ts",
         "apps/viewer/test/fixtures/"
       ],
       "branch": "cairn-mvp/53-diff-parse",
-      "parent": null,
-      "dependsOn": ["t41", "t52"],
-      "worktree": "wt-14",
+      "parent": "t75",
+      "dependsOn": ["t75"],
+      "worktree": "wt-21",
       "model": "sonnet",
-      "reasoning": "low",
+      "reasoning": "medium",
       "humanGate": {
         "required": false,
         "reasons": []
@@ -1287,20 +1289,19 @@
     },
     {
       "id": "t54",
-      "title": "Render commit diffs in the drawer",
-      "prdSections": ["prd.viewer", "prd.acceptance-criteria"],
+      "title": "Render task and commit diffs with syntax highlighting in the code view",
+      "prdSections": ["prd.viewer", "prd.code-view"],
       "specSections": ["spec.viewer.diff-view"],
       "files": [
         "apps/viewer/src/diff.ts",
-        "apps/viewer/src/drawer.ts",
-        "apps/viewer/src/model.ts",
-        "apps/viewer/src/main.ts",
-        "apps/viewer/test/drawer.scene.test.ts"
+        "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/src/view/codeView.ts",
+        "apps/viewer/test/diff-view.scene.test.ts"
       ],
       "branch": "cairn-mvp/54-diff-render",
       "parent": "t53",
       "dependsOn": ["t53"],
-      "worktree": "wt-14",
+      "worktree": "wt-21",
       "model": "sonnet",
       "reasoning": "high",
       "humanGate": {
@@ -1591,7 +1592,7 @@
       "branch": "cairn-mvp/67-judgment-markers",
       "parent": "t54",
       "dependsOn": ["t54"],
-      "worktree": "wt-14",
+      "worktree": "wt-21",
       "model": "sonnet",
       "reasoning": "medium",
       "humanGate": {
@@ -1720,6 +1721,178 @@
       "dependsOn": ["t72"],
       "worktree": "wt-20",
       "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t74",
+      "title": "Serve commit and task patches from git",
+      "prdSections": ["prd.code-view"],
+      "specSections": ["spec.patch-routes"],
+      "files": [
+        "packages/cli/src/api.ts",
+        "packages/cli/src/serve.ts",
+        "packages/cli/test/api.test.ts",
+        "apps/viewer/vite.config.ts"
+      ],
+      "branch": "cairn-mvp/74-patch-routes",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-25",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t75",
+      "title": "Open the code view with the stack tree",
+      "prdSections": ["prd.code-view"],
+      "specSections": ["spec.viewer.code-view"],
+      "files": [
+        "apps/viewer/src/codeView.ts",
+        "apps/viewer/src/view/codeView.ts",
+        "apps/viewer/src/view/treeView.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/drawer.ts",
+        "apps/viewer/src/view/view.ts",
+        "apps/viewer/test/code-view.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/75-code-screen",
+      "parent": "t52",
+      "dependsOn": ["t52"],
+      "worktree": "wt-21",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t76",
+      "title": "Add the Session schema",
+      "prdSections": ["prd.code-view", "prd.contract-package"],
+      "specSections": ["spec.contract.session"],
+      "files": [
+        "packages/contract/src/session.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/session.test.ts"
+      ],
+      "branch": "cairn-mvp/76-session-schema",
+      "parent": "t9",
+      "dependsOn": ["t9"],
+      "worktree": "wt-22",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t77",
+      "title": "Read Claude Code session logs into a Session",
+      "prdSections": ["prd.code-view"],
+      "specSections": ["spec.sessions.reading"],
+      "files": [
+        "packages/core/src/session.ts",
+        "packages/core/test/session.test.ts",
+        "packages/core/test/fixtures/"
+      ],
+      "branch": "cairn-mvp/77-session-reader",
+      "parent": "t76",
+      "dependsOn": ["t76"],
+      "worktree": "wt-22",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t78",
+      "title": "Serve sessions from cairn.db",
+      "prdSections": ["prd.code-view"],
+      "specSections": ["spec.server"],
+      "files": ["packages/cli/src/api.ts", "packages/cli/test/api.test.ts"],
+      "branch": "cairn-mvp/78-session-route",
+      "parent": null,
+      "dependsOn": ["t2", "t74", "t77"],
+      "worktree": "wt-23",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t79",
+      "title": "Draw the session pane",
+      "prdSections": ["prd.code-view"],
+      "specSections": ["spec.viewer.session-view"],
+      "files": [
+        "apps/viewer/src/view/sessionView.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/session-view.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/79-session-pane",
+      "parent": null,
+      "dependsOn": ["t54", "t76"],
+      "worktree": "wt-24",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t80",
+      "title": "Mark each hunk with the turn that wrote it",
+      "prdSections": ["prd.code-view"],
+      "specSections": ["spec.viewer.attribution"],
+      "files": [
+        "apps/viewer/src/attribution.ts",
+        "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/src/view/sessionView.ts",
+        "apps/viewer/test/attribution.test.ts"
+      ],
+      "branch": "cairn-mvp/80-attribution",
+      "parent": "t79",
+      "dependsOn": ["t79"],
+      "worktree": "wt-24",
+      "model": "opus",
       "reasoning": "high",
       "humanGate": {
         "required": false,

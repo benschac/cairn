@@ -105,7 +105,7 @@ it("an abbreviation lists ranked results with their kind, title and matched fiel
     mounted,
     expect(searchBox).toHaveAttr("aria-expanded", "false"),
     expect(status).toHaveText(""),
-    typed("stkord"),
+    typed("stkorder"),
     scrolledSearchResult,
     expect(searchBox).toHaveAttr("aria-expanded", "true"),
     expect(status).toHaveText("2 results."),
@@ -339,7 +339,7 @@ it("a refresh keeps the active result while it matches and moves on when it is r
     { update, view },
     given(loaded),
     mounted,
-    typed("stkord"),
+    typed("stkorder"),
     scrolledSearchResult,
     pressed("ArrowDown"),
     scrolledSearchResult,
@@ -364,12 +364,12 @@ it("a refresh that removes every match leaves no marks, outline or chain", () =>
         sections: (sections) => Array.filter(sections, (section) => section.id !== stackOrder.id),
       }),
   });
-  assert(searchTrace(trace, "stkord")).toEqual([]);
+  assert(searchTrace(trace, "stkorder")).toEqual([]);
   scene(
     { update, view },
     given(loaded),
     mounted,
-    typed("stkord"),
+    typed("stkorder"),
     scrolledSearchResult,
     refreshedWith(trace),
     expect(status).toHaveText("No results."),
