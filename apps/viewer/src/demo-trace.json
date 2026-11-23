@@ -502,7 +502,7 @@
     },
     {
       "id": "prd.code-view",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "prd.implementation-in-effect",
@@ -606,7 +606,7 @@
     },
     {
       "id": "spec.contract.session",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.contract.config",
@@ -718,7 +718,7 @@
     },
     {
       "id": "spec.sessions",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.sessions.trace-store",
@@ -734,7 +734,7 @@
     },
     {
       "id": "spec.sessions.reading",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.orchestrator-adapter",
@@ -746,7 +746,7 @@
     },
     {
       "id": "spec.patch-routes",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.server",
@@ -794,11 +794,11 @@
     },
     {
       "id": "spec.viewer.code-view",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.viewer.diff-view",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.viewer.session-view",
@@ -3630,14 +3630,57 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/package.json",
+            "apps/viewer/src/command.ts",
+            "apps/viewer/src/diff.ts",
+            "apps/viewer/src/env.d.ts",
+            "apps/viewer/src/init.ts",
+            "apps/viewer/src/load.ts",
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/codeView.ts",
+            "apps/viewer/src/view/view.ts",
+            "apps/viewer/test/code-view.scene.test.ts",
+            "apps/viewer/test/diff.test.ts",
+            "apps/viewer/test/drawer.scene.test.ts",
+            "apps/viewer/test/fixtures/commit.patch",
+            "apps/viewer/test/fixtures/range.patch",
+            "apps/viewer/tsconfig.json",
+            "pnpm-lock.yaml"
+          ],
+          "parents": ["0d34de08c74f6ee0668934e7ceb6eb7088f8700c"],
+          "sections": ["spec.viewer.diff-view"],
+          "session": null,
+          "sha": "81955097b1960ed275cb2ffd432073d49c4633ec",
+          "subject": "Fetch and parse task and commit patches with @pierre/diffs"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t53",
+          "ts": "2026-11-23T18:43:36.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t53",
+          "ts": "2026-11-23T18:43:36.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t54",
@@ -3661,14 +3704,51 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/diff.ts",
+            "apps/viewer/src/init.ts",
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/codeView.ts",
+            "apps/viewer/src/view/diffView.ts",
+            "apps/viewer/src/view/view.ts",
+            "apps/viewer/test/code-view.scene.test.ts",
+            "apps/viewer/test/diff-view.scene.test.ts",
+            "apps/viewer/test/diff.test.ts",
+            "apps/viewer/test/drawer.scene.test.ts"
+          ],
+          "parents": ["81955097b1960ed275cb2ffd432073d49c4633ec"],
+          "sections": ["spec.viewer.diff-view"],
+          "session": null,
+          "sha": "cdd4ae6b6ca31a752d29b57a77eab35ddd1aab90",
+          "subject": "Draw task and commit diffs with syntax highlighting in the code view"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t54",
+          "ts": "2026-11-23T18:55:16.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t54",
+          "ts": "2026-11-23T18:55:16.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t55",
@@ -4217,15 +4297,45 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/vite.config.ts",
+            "packages/cli/src/api.ts",
+            "packages/cli/src/serve.ts",
+            "packages/cli/test/api.test.ts",
+            "packages/cli/tsconfig.json"
+          ],
+          "parents": ["e0418caeacae8f9bd2e8621e22f6b24b021629f4"],
+          "sections": ["spec.patch-routes"],
+          "session": null,
+          "sha": "46369776a0a999926e97add86da2671615c8c486",
+          "subject": "Serve commit and task patches from git"
+        }
+      ],
       "sessions": [],
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "events": []
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t74",
+          "ts": "2026-11-23T18:25:51.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t74",
+          "ts": "2026-11-23T18:25:51.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t75",
@@ -4253,15 +4363,59 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": [
+        {
+          "files": [
+            ".cairn/spec.json",
+            ".cairn/spec.md",
+            "apps/viewer/src/codeView.ts",
+            "apps/viewer/src/demo-trace.json",
+            "apps/viewer/src/drawer.ts",
+            "apps/viewer/src/init.ts",
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/codeView.ts",
+            "apps/viewer/src/view/treeView.ts",
+            "apps/viewer/src/view/view.ts",
+            "apps/viewer/test/code-view.scene.test.ts",
+            "apps/viewer/test/codeView.test.ts",
+            "apps/viewer/test/drawer.scene.test.ts",
+            "apps/viewer/test/fixtures.ts",
+            "apps/viewer/test/lazy.test.ts",
+            "apps/viewer/test/search.scene.test.ts",
+            "apps/viewer/test/story.test.ts"
+          ],
+          "parents": ["46369776a0a999926e97add86da2671615c8c486"],
+          "sections": ["spec.viewer.code-view"],
+          "session": null,
+          "sha": "7d9f693054a138341adfe4d2c018354617bb4ddc",
+          "subject": "Open the code view with its stack tree"
+        }
+      ],
       "sessions": [],
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "events": []
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t75",
+          "ts": "2026-11-23T18:34:55.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t75",
+          "ts": "2026-11-23T18:34:55.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t76",
@@ -4283,15 +4437,43 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": [
+        {
+          "files": [
+            "packages/contract/src/index.ts",
+            "packages/contract/src/session.ts",
+            "packages/contract/test/session.test.ts"
+          ],
+          "parents": ["7d9f693054a138341adfe4d2c018354617bb4ddc"],
+          "sections": ["spec.contract.session"],
+          "session": null,
+          "sha": "875aeccd314bd54241aa334c4882d1fd17f6ef4a",
+          "subject": "Add the Session schema to the contract"
+        }
+      ],
       "sessions": [],
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "events": []
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t76",
+          "ts": "2026-11-23T18:37:28.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t76",
+          "ts": "2026-11-23T18:37:28.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t77",
@@ -4313,15 +4495,44 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": [
+        {
+          "files": [
+            "packages/core/src/index.ts",
+            "packages/core/src/session.ts",
+            "packages/core/test/fixtures/session.jsonl",
+            "packages/core/test/session.test.ts"
+          ],
+          "parents": ["875aeccd314bd54241aa334c4882d1fd17f6ef4a"],
+          "sections": ["spec.sessions.reading"],
+          "session": null,
+          "sha": "0d34de08c74f6ee0668934e7ceb6eb7088f8700c",
+          "subject": "Read Claude Code session logs into a Session"
+        }
+      ],
       "sessions": [],
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "events": []
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t77",
+          "ts": "2026-11-23T18:49:04.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t77",
+          "ts": "2026-11-23T18:49:04.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t78",
