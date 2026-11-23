@@ -52,6 +52,13 @@ export const mountedWith = (positions: Positions) =>
     [DrawDiagram, Message.MeasuredLayout({ positions })],
   );
 
+/** Leaving the canvas ends its mounts; a scene has to acknowledge each. */
+export const canvasEnded = () => [
+  Mount.expectEnded(PanZoomCanvas),
+  Mount.expectEnded(MeasureLayout),
+  Mount.expectEnded(DrawDiagram),
+];
+
 /** The pane sized and nothing measured. */
 export const mounted = mountedWith({});
 

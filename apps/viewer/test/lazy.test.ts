@@ -40,7 +40,7 @@ it("a pan or zoom reuses the columns instead of parsing the markdown again", () 
 
 it("a pan with a drawer open reuses the columns", () => {
   const open = modifyFields(loaded, {
-    drawer: () => Drawer.Open({ maybeCommitSha: Option.none(), node: hovered }),
+    drawer: () => Drawer.Open({ node: hovered }),
   });
   const openFrame = (x: number) =>
     modifyFields(open, { viewport: () => ({ x, y: x, zoom: 1 + x }) });

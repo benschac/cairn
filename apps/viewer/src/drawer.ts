@@ -10,10 +10,11 @@ import {
   type TraceJudgment,
   type TraceTask,
 } from "@cairn/contract";
-import { Array, DateTime, HashSet, Match, Option, Schema, String, pipe } from "effect";
+import { Array, DateTime, HashSet, Match, Option, Schema, pipe } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { defineRouteUnion, literal, mapTo, slash, string } from "foldkit/route";
 
+import { shortSha } from "./codeView.ts";
 import { Node, chainOf, judgmentsOf, nodeKeyOf, sectionTitleOf } from "./trace.ts";
 
 // NOTE: the buttons here are native buttons with Type("button"). @foldkit/ui's Button.view adds
@@ -23,7 +24,8 @@ import { Node, chainOf, judgmentsOf, nodeKeyOf, sectionTitleOf } from "./trace.t
 export interface DrawerMessages<Message> {
   readonly onClose: Message;
   readonly onClickTask: (id: TaskId) => Message;
-  readonly onClickCommit: (sha: Sha) => Message;
+  /** "Open code" on a task, or a commit listed under it: the code view on that task. */
+  readonly onOpenCode: (id: TaskId, maybeSha: Option.Option<Sha>) => Message;
 }
 
 /** The id of the open drawer's heading, which names the drawer and takes focus when it opens. */
@@ -38,8 +40,6 @@ const sessionRouter = pipe(
   slash(string("id")),
   mapTo(ServerRoute.Session),
 );
-
-const shortSha = (sha: Sha): string => String.takeLeft(sha, 7);
 
 const isSpecSection = Schema.is(SpecSectionId);
 
@@ -84,6 +84,7 @@ const judgmentsView = <Message>(trace: Trace, node: Node, h: HtmlBuilder<Message
   );
 
 const commitView = <Message>(
+  task: TraceTask,
   commit: TraceCommit,
   h: HtmlBuilder<Message>,
   messages: DrawerMessages<Message>,
@@ -92,7 +93,7 @@ const commitView = <Message>(
     [],
     [
       h.button(
-        [h.Type("button"), h.OnClick(messages.onClickCommit(commit.sha))],
+        [h.Type("button"), h.OnClick(messages.onOpenCode(task.id, Option.some(commit.sha)))],
         [`${commit.subject} ${shortSha(commit.sha)}`],
       ),
     ],
@@ -105,7 +106,7 @@ const commitsView = <Message>(
 ): Html =>
   h.ul(
     [h.DataAttribute("drawer-part", "commits")],
-    Array.map(task.commits, (commit) => commitView(commit, h, messages)),
+    Array.map(task.commits, (commit) => commitView(task, commit, h, messages)),
   );
 
 const sessionsView = <Message>(task: TraceTask, h: HtmlBuilder<Message>): Html =>
@@ -168,6 +169,10 @@ const taskDetailView = <Message>(
   h: HtmlBuilder<Message>,
   messages: DrawerMessages<Message>,
 ): ReadonlyArray<Html> => [
+  h.button(
+    [h.Type("button"), h.OnClick(messages.onOpenCode(task.id, Option.none()))],
+    ["Open code"],
+  ),
   h.section(
     [h.DataAttribute("drawer-part", "commits-section")],
     [h.h3([], ["Commits"]), commitsView(task, h, messages)],
@@ -246,40 +251,14 @@ const taskContent = <Message>(
     },
   );
 
-/** In the demo the commit is already in the trace, so its detail is its subject and files. */
-const commitDetailView = <Message>(
-  trace: Trace,
-  sha: Sha,
-  h: HtmlBuilder<Message>,
-): Option.Option<Html> =>
-  Option.map(
-    Array.findFirst(
-      Array.flatMap(trace.tasks, (task) => task.commits),
-      (commit) => commit.sha === sha,
-    ),
-    (commit) =>
-      h.section(
-        [h.DataAttribute("commit-detail", commit.sha)],
-        [
-          h.h3([], [commit.subject]),
-          h.ul(
-            [],
-            Array.map(commit.files, (file) => h.li([], [file])),
-          ),
-        ],
-      ),
-  );
-
 /**
  * The drawer open on a node: a complementary landmark named by its heading, with a section's tasks (and a spec section's judgments),
- * or a task's commits, sessions, events, gate reasons and judgments, and last the commit clicked
- * in it. A node the trace does not have opens a drawer titled by its id with nothing in it.
+ * or a task's "Open code" button, commits, sessions, events, gate reasons and judgments. A node the trace does not have opens a drawer titled by its id with nothing in it.
  * The drawer is keyed by its node, so no DOM state carries from one node's drawer to another's.
  */
 export const drawerView = <Message>(
   trace: Trace,
   node: Node,
-  maybeCommitSha: Option.Option<Sha>,
   h: HtmlBuilder<Message>,
   messages: DrawerMessages<Message>,
 ): Html => {
@@ -318,7 +297,6 @@ export const drawerView = <Message>(
         h.h2([h.Id(DRAWER_HEADING_ID), h.Tabindex(-1)], [content.title]),
       ],
       content.body,
-      Array.fromOption(Option.flatMap(maybeCommitSha, (sha) => commitDetailView(trace, sha, h))),
     ]),
   );
 };

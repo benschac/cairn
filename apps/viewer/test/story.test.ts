@@ -1,4 +1,4 @@
-import { ParticipantId, SectionId, Sha, TaskId } from "@cairn/contract";
+import { ParticipantId, SectionId, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option, Record, Result, Schema } from "effect";
 import { Command, given, message, model, story } from "foldkit/story";
@@ -43,8 +43,7 @@ const sectionNode: Node = {
   kind: "section",
 };
 const ordinary = init().model;
-const opened = (node: Node) =>
-  modifyFields(ordinary, { drawer: () => Drawer.Open({ maybeCommitSha: Option.none(), node }) });
+const opened = (node: Node) => modifyFields(ordinary, { drawer: () => Drawer.Open({ node }) });
 
 // LOADING
 
@@ -219,31 +218,6 @@ it("closing a closed drawer does nothing", () => {
     model((next) => assert(next).toBe(ordinary)),
   );
 });
-
-it.prop("a commit click while the drawer is closed is ignored", { sha: Sha }, ({ sha }) => {
-  story(
-    update,
-    given(ordinary),
-    message(Message.ClickedCommit({ sha })),
-    Command.expectNone(),
-    model((next) => assert(next).toBe(ordinary)),
-  );
-});
-
-it.prop(
-  "a commit click in an open drawer records the sha, even one the trace does not hold",
-  { node: Node, sha: Sha },
-  ({ node, sha }) => {
-    story(
-      update,
-      given(opened(node)),
-      message(Message.ClickedCommit({ sha })),
-      model((next) =>
-        assert(next.drawer).toEqual(Drawer.Open({ maybeCommitSha: Option.some(sha), node })),
-      ),
-    );
-  },
-);
 
 it.prop(
   "a task clicked in a drawer opens that task and focuses the heading",

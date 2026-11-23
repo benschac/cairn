@@ -6,7 +6,8 @@ import type { Document, Html, HtmlBuilder } from "foldkit/html";
 import { drawerView, type DrawerMessages } from "../drawer.ts";
 import type { Pin } from "../highlight.ts";
 import { Message } from "../message.ts";
-import { Drawer, PresenceConnection, type Model } from "../model.ts";
+import { Drawer, PresenceConnection, Screen, type Model } from "../model.ts";
+import { codeView, type CodeMessages } from "./codeView.ts";
 import { canvasView } from "./canvasView.ts";
 import { labelOf } from "./cursorsView.ts";
 
@@ -24,7 +25,7 @@ const presenceText = (model: Model, others: ReadonlyArray<Participant>) =>
   });
 
 const drawerMessages: DrawerMessages<Message> = {
-  onClickCommit: (sha) => Message.ClickedCommit({ sha }),
+  onOpenCode: (id, maybeSha) => Message.ClickedOpenCode({ id, maybeSha }),
   onClickTask: (id) => Message.ClickedDrawerTask({ id }),
   onClose: Message.ClickedCloseDrawer(),
 };
@@ -33,10 +34,15 @@ const drawerMessages: DrawerMessages<Message> = {
 const drawerViews = (model: Model, trace: Trace, h: HtmlBuilder<Message>): ReadonlyArray<Html> =>
   Drawer.match(model.drawer, {
     Closed: () => [],
-    Open: ({ maybeCommitSha, node }) => [
-      drawerView(trace, node, maybeCommitSha, h, drawerMessages),
-    ],
+    Open: ({ node }) => [drawerView(trace, node, h, drawerMessages)],
   });
+
+const codeMessages: CodeMessages<Message> = {
+  onBack: Message.ClickedBackToCanvas(),
+  onClickCommit: (sha) => Message.ClickedTreeCommit({ sha }),
+  onClickFile: (path) => Message.ClickedTreeFile({ path }),
+  onClickTask: (id) => Message.ClickedTreeTask({ id }),
+};
 
 const loadingView = (h: HtmlBuilder<Message>): Html =>
   h.p([h.Role("status"), h.DataAttribute("loading", "")], ["Loading the trace..."]);
@@ -154,7 +160,22 @@ const toolbarStyle = {
   "z-index": "20",
 };
 
-export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
+export const view = (model: Model, h: HtmlBuilder<Message>): Document =>
+  Screen.match(model.screen, {
+    Canvas: () => canvasScreenView(model, h),
+    Code: (code) => ({
+      body: h.main(
+        [],
+        Option.match(AsyncData.getData(model.trace), {
+          onNone: () => [loadingView(h)],
+          onSome: (trace) => [codeView(trace, code, h, codeMessages)],
+        }),
+      ),
+      title: "Cairn",
+    }),
+  });
+
+const canvasScreenView = (model: Model, h: HtmlBuilder<Message>): Document => {
   const others = othersOf(model);
   const parts = traceParts(model, others, h);
   return {
