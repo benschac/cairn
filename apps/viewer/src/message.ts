@@ -15,6 +15,8 @@ export const Message = defineMessageUnion({
   ClickedFit: {},
   /** Clears every pin. */
   ClickedClearPins: {},
+  /** A result in the search list, by pointer: selects it as Enter does. */
+  ClickedSearchResult: { node: Node },
   /** Anywhere on a node, or its title button: pins or unpins it. */
   ClickedNode: { node: Node },
   /** A click on a move handle, which stops there so it never reaches the node it sits on. */
@@ -27,6 +29,12 @@ export const Message = defineMessageUnion({
   ClosedPresence: {},
   CompletedFocusDrawerHeading: {},
   CompletedFocusNode: {},
+  /** Focus went back to the search input after a result was clicked. */
+  CompletedFocusSearch: {},
+  /** The active search result was scrolled into view in the result list. */
+  CompletedScrollSearchResult: {},
+  /** The search input's text changed, by typing, pasting or its own clear control. */
+  EditedSearchQuery: { query: Schema.String },
   /** The canvas mount could not start pan and zoom. */
   FailedPanZoomCanvas: { reason: Schema.String },
   HoveredNode: { node: Node },
@@ -41,6 +49,14 @@ export const Message = defineMessageUnion({
    * earlier pointer is up, so a drag still in progress missed its release.
    */
   PressedAfterDrag: { isPrimaryPointer: Schema.Boolean },
+  /** Down arrow in the search input: the next result. */
+  PressedSearchArrowDown: {},
+  /** Up arrow in the search input: the previous result. */
+  PressedSearchArrowUp: {},
+  /** Enter in the search input: selects the active result. */
+  PressedSearchEnter: {},
+  /** Escape in the search input: clears the search. */
+  PressedSearchEscape: {},
   /** An arrow key went down on a move handle. */
   PressedArrowOnMoveHandle: { key: ArrowKey, movable: Movable },
   /** The primary button or a touch went down on a move handle. */

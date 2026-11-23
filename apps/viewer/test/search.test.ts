@@ -5,9 +5,13 @@ import { Array, Option, Schema, String, pipe } from "effect";
 import { demoTrace } from "../src/demo.ts";
 import {
   buildIndex,
+  firstActive,
   indexOf,
+  reconcileActive,
   search,
   searchTrace,
+  segmentsOf,
+  stepActive,
   type SearchContent,
   type SearchResult,
 } from "../src/search.ts";
@@ -186,4 +190,95 @@ it("reuses the index until the searchable content changes", () => {
     tasks: Array.map(demoTrace.tasks, (task) => ({ ...task, title: `${task.title} again` })),
   };
   expect(indexOf(renamed)).not.toBe(first);
+});
+
+it.prop(
+  "a result's segments join back into its text, and the marked ones are exactly its ranges",
+  { query: Parts, titles: Schema.Array(Parts) },
+  (generated) => {
+    const query = textOf(generated.query);
+    const results = search(buildIndex(contentOf(Array.map(generated.titles, textOf))), query);
+    Array.forEach(results, (result) => {
+      const segments = segmentsOf(result.text, result.ranges);
+      expect(
+        Array.join(
+          Array.map(segments, (segment) => segment.text),
+          "",
+        ),
+      ).toBe(result.text);
+      expect(
+        Array.join(
+          Array.map(
+            Array.filter(segments, (segment) => segment.isMatch),
+            (segment) => segment.text,
+          ),
+          "",
+        ),
+      ).toBe(
+        Array.join(
+          Array.map(result.ranges, (range) =>
+            pipe(result.text, String.slice(range.start, range.end)),
+          ),
+          "",
+        ),
+      );
+      expect(Array.every(segments, (segment) => String.isNonEmpty(segment.text))).toBe(true);
+    });
+  },
+);
+
+it("segments of text with no ranges are the text, and of nothing are none", () => {
+  expect(segmentsOf("abc", [])).toEqual([{ isMatch: false, text: "abc" }]);
+  expect(segmentsOf("", [])).toEqual([]);
+  expect(segmentsOf("abcd", [{ end: 2, start: 1 }])).toEqual([
+    { isMatch: false, text: "a" },
+    { isMatch: true, text: "b" },
+    { isMatch: false, text: "cd" },
+  ]);
+});
+
+const Steps = Schema.Array(Schema.Literals([1, -1] as const));
+
+it.prop(
+  "arrow steps stay on the results, stop at both ends and never move against their direction",
+  { steps: Steps, titles: Schema.Array(Parts), query: Parts },
+  (generated) => {
+    const results = search(
+      buildIndex(contentOf(Array.map(generated.titles, textOf))),
+      textOf(generated.query),
+    );
+    const order = Array.map(results, (result) => result.node.id);
+    Array.reduce(generated.steps, firstActive(results), (maybeActive, step) => {
+      const next = stepActive(results, maybeActive, step);
+      Option.match(next, {
+        onNone: () => expect(results).toEqual([]),
+        onSome: (node) => {
+          const from = Option.flatMap(maybeActive, (active) =>
+            Array.findFirstIndex(order, (id) => id === active.id),
+          );
+          const to = Array.findFirstIndex(order, (id) => id === node.id);
+          expect(Option.isSome(to)).toBe(true);
+          Option.match(Option.all({ from, to }), {
+            onNone: () => undefined,
+            onSome: ({ from: at, to: now }) => {
+              expect(now).toBe(Math.min(Math.max(at + step, 0), order.length - 1));
+            },
+          });
+        },
+      });
+      return next;
+    });
+  },
+);
+
+it("an active node that still matches is kept, and otherwise the first result is chosen", () => {
+  const results = search(buildIndex(contentOf(["alpha one", "alpha two", "alpha three"])), "alpha");
+  const second = Option.getOrThrow(Array.get(results, 1)).node;
+  expect(reconcileActive(results, Option.some(second))).toEqual(Option.some(second));
+  expect(reconcileActive(Array.drop(results, 2), Option.some(second))).toEqual(
+    firstActive(Array.drop(results, 2)),
+  );
+  expect(reconcileActive(results, Option.none())).toEqual(firstActive(results));
+  expect(reconcileActive([], Option.some(second))).toEqual(Option.none());
+  expect(stepActive([], Option.none(), 1)).toEqual(Option.none());
 });

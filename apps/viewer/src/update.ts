@@ -1,16 +1,26 @@
-import { Boolean, Effect, Option, Schema } from "effect";
+import { Array, Boolean, Effect, Equal, Option, Record, Schema, String } from "effect";
 import { AsyncData, Command } from "foldkit";
 import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 
-import { boundsOf, fitViewport } from "./canvas.ts";
-import { FocusDrawerHeading, FocusNode } from "./command.ts";
+import { TOOLBAR_MARGIN, TOOLBAR_WIDTH, boundsOf, centreViewport, fitViewport } from "./canvas.ts";
+import { FocusDrawerHeading, FocusNode, FocusSearch, ScrollSearchResult } from "./command.ts";
+import { DRAWER_WIDTH } from "./drawer.ts";
 import { DragState, canvasDeltaOf, moveBy, nudgeOf } from "./drag.ts";
 import { isPinned, pin, togglePin } from "./highlight.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
 import { Drawer, PresenceConnection, selectedNodeOf, type Model } from "./model.ts";
-import { Node } from "./trace.ts";
+import {
+  EMPTY_SEARCH,
+  firstActive,
+  reconcileActive,
+  resultOf,
+  searchTrace,
+  stepActive,
+  type Search,
+} from "./search.ts";
+import { Node, nodeKeyOf } from "./trace.ts";
 
 // UPDATE
 
@@ -33,6 +43,93 @@ const idleAfterRelease = (model: Model): Model =>
 
 /** No buttons held: the pointer is up, whether or not its release was heard. */
 const NO_BUTTONS = 0;
+
+/**
+ * The query's results over the loaded trace; none while there is no trace. This is the one place a
+ * query is matched, so a keystroke or a refresh matches once, not once per render.
+ */
+const resultsOf = (model: Model, query: string) =>
+  Option.match(AsyncData.getData(model.trace), {
+    onNone: () => [],
+    onSome: (trace) => (String.isEmpty(String.trim(query)) ? [] : searchTrace(trace, query)),
+  });
+
+/** A new query starts on its first result. */
+const searchedFor = (model: Model, query: string): Search => {
+  const results = resultsOf(model, query);
+  return { maybeActive: firstActive(results), query, results };
+};
+
+/** The search after the trace changed: the same query, with the active result kept while it matches. */
+const searchRefreshed = (model: Model): Search => {
+  const results = resultsOf(model, model.search.query);
+  return {
+    maybeActive: reconcileActive(results, model.search.maybeActive),
+    query: model.search.query,
+    results,
+  };
+};
+
+/** The pane pixels the toolbar covers at the left, and the open drawer at the right. */
+const coveredBy = (model: Model) => ({
+  left: TOOLBAR_MARGIN + TOOLBAR_WIDTH,
+  right: Drawer.guards.Open(model.drawer) ? DRAWER_WIDTH : 0,
+});
+
+/**
+ * Pans the canvas to put the node in the middle of what the toolbar and drawer leave clear, at the
+ * zoom it has. A node or pane that is not measured yet leaves the viewport alone and the centring
+ * pending, so the first measurement that has both finishes it.
+ */
+const centredOn = (model: Model, node: Node): Model =>
+  Option.match(
+    Option.all({ pane: model.maybePaneSize, rect: Record.get(model.positions, node.id) }),
+    {
+      onNone: () => modifyFields(model, { maybeCentring: () => Option.some(node) }),
+      onSome: ({ pane, rect }) =>
+        modifyFields(model, {
+          maybeCentring: () => Option.none(),
+          viewport: (viewport) => centreViewport(viewport, rect, pane, coveredBy(model)),
+        }),
+    },
+  );
+
+/** Finishes a pending centring once the measurements allow. */
+const centringFinished = (model: Model): Model =>
+  Option.match(model.maybeCentring, {
+    onNone: () => model,
+    onSome: (node) => centredOn(model, node),
+  });
+
+/** Selecting a result makes it the active one and brings it to the middle of the canvas. */
+const resultSelected = (model: Model, node: Node): Model =>
+  Option.isSome(resultOf(model.search.results, node))
+    ? centredOn(
+        modifyFields(model, {
+          search: (search) => modifyFields(search, { maybeActive: () => Option.some(node) }),
+        }),
+        node,
+      )
+    : model;
+
+/** Scrolls the list to the active result, when there is one. */
+const scrollToActive = (search: Search) =>
+  Array.fromOption(Option.map(search.maybeActive, (node) => ScrollSearchResult({ node })));
+
+/** An arrow key moves the active result one step; the list ends stop it. */
+const stepped = (model: Model, step: 1 | -1): Update.Return<Model, Message> => {
+  const maybeActive = stepActive(model.search.results, model.search.maybeActive, step);
+  const maybeMoved = Option.filter(
+    maybeActive,
+    (node) => !Option.exists(model.search.maybeActive, (active) => nodeEquivalence(active, node)),
+  );
+  return {
+    commands: Array.fromOption(Option.map(maybeMoved, (node) => ScrollSearchResult({ node }))),
+    model: modifyFields(model, {
+      search: (search) => modifyFields(search, { maybeActive: () => maybeActive }),
+    }),
+  };
+};
 
 export const update = (model: Model, message: Message) =>
   Message.match<Update.Return<Model, Message>>(message, {
@@ -97,6 +194,11 @@ export const update = (model: Model, message: Message) =>
             }),
           },
     ClickedMoveHandle: () => ({ model }),
+    // A click takes focus from the input, so focus goes back to it for the keys to keep working.
+    ClickedSearchResult: ({ node }) => ({
+      commands: [FocusSearch()],
+      model: resultSelected(model, node),
+    }),
     ClickedResetLayout: () => ({ model: modifyFields(model, { offsets: () => ({}) }) }),
     ClickedShowAllCurves: () => ({
       model: modifyFields(model, { isShowingAllCurves: Boolean.not }),
@@ -111,6 +213,17 @@ export const update = (model: Model, message: Message) =>
     }),
     CompletedFocusDrawerHeading: () => ({ model }),
     CompletedFocusNode: () => ({ model }),
+    CompletedFocusSearch: () => ({ model }),
+    CompletedScrollSearchResult: () => ({ model }),
+    // A new query starts on its first result and drops a centring still waiting for the last one.
+    // The list keeps its scroll through an edit, so the new first result is scrolled to.
+    EditedSearchQuery: ({ query }) => {
+      const search = searchedFor(model, query);
+      return {
+        commands: scrollToActive(search),
+        model: modifyFields(model, { maybeCentring: () => Option.none(), search: () => search }),
+      };
+    },
     FailedPanZoomCanvas: ({ reason }) => ({
       model: modifyFields(model, { maybePanZoomFailure: () => Option.some(reason) }),
     }),
@@ -119,7 +232,7 @@ export const update = (model: Model, message: Message) =>
     }),
     LeftNode: () => ({ model: modifyFields(model, { maybeHovered: () => Option.none() }) }),
     MeasuredLayout: ({ positions }) => ({
-      model: modifyFields(model, { positions: () => positions }),
+      model: centringFinished(modifyFields(model, { positions: () => positions })),
     }),
     // The pointer's move since it was last seen, in canvas units at the current zoom, so the item
     // stays under the pointer however far the canvas is zoomed.
@@ -142,7 +255,7 @@ export const update = (model: Model, message: Message) =>
       }),
     }),
     MeasuredPane: ({ size }) => ({
-      model: modifyFields(model, { maybePaneSize: () => Option.some(size) }),
+      model: centringFinished(modifyFields(model, { maybePaneSize: () => Option.some(size) })),
     }),
     OpenedPresence: () => ({
       model: modifyFields(model, { presenceConnection: () => PresenceConnection.Connected() }),
@@ -168,6 +281,21 @@ export const update = (model: Model, message: Message) =>
             drag: () => DragState.Dragging({ movable, pointer, pointerId }),
           }),
     }),
+    PressedSearchArrowDown: () => stepped(model, 1),
+    PressedSearchArrowUp: () => stepped(model, -1),
+    PressedSearchEnter: () => ({
+      model: Option.match(model.search.maybeActive, {
+        onNone: () => model,
+        onSome: (node) => resultSelected(model, node),
+      }),
+    }),
+    // Clearing the search leaves the pins, the drawer and the viewport as they are.
+    PressedSearchEscape: () => ({
+      model: modifyFields(model, {
+        maybeCentring: () => Option.none(),
+        search: () => EMPTY_SEARCH,
+      }),
+    }),
     PannedOrZoomed: ({ viewport }) => ({
       model: modifyFields(model, { viewport: () => viewport }),
     }),
@@ -184,9 +312,24 @@ export const update = (model: Model, message: Message) =>
       }),
     }),
     SuppressedClickAfterDrag: () => ({ model: idleAfterRelease(model) }),
-    SettledLoadTrace: ({ result }) => ({
-      model: modifyFields(model, { trace: AsyncData.settle(result) }),
-    }),
+    // A new trace is matched again for the same query; the active result and a pending centring
+    // stay only while their node is still a result.
+    SettledLoadTrace: ({ result }) => {
+      const settled = modifyFields(model, { trace: AsyncData.settle(result) });
+      const search = searchRefreshed(settled);
+      const hasMoved = !Equal.equals(
+        Option.map(model.search.maybeActive, nodeKeyOf),
+        Option.map(search.maybeActive, nodeKeyOf),
+      );
+      return {
+        commands: hasMoved ? scrollToActive(search) : [],
+        model: modifyFields(settled, {
+          maybeCentring: (maybeCentring) =>
+            Option.filter(maybeCentring, (node) => Option.isSome(resultOf(search.results, node))),
+          search: () => search,
+        }),
+      };
+    },
   });
 
 // COMMAND

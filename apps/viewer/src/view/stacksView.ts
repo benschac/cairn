@@ -3,11 +3,12 @@ import { Array, Number, Option, Record } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { Movable, offsetStyleOf, type Offsets } from "../drag.ts";
-import type { LitChain, Pin } from "../highlight.ts";
+import { searchMatchOf, type LitChain, type Pin } from "../highlight.ts";
 import type { Message } from "../message.ts";
+import type { Search } from "../search.ts";
 import { stackLayoutOf, type StackPosition } from "../stacks.ts";
 import { moveHandleView } from "./moveHandleView.ts";
-import { judgmentMarkViews, nodeAttributes, nodeButtonView } from "./nodeView.ts";
+import { fieldTextView, judgmentMarkViews, nodeAttributes, nodeButtonView } from "./nodeView.ts";
 
 /** Where a task without a position would sit. stackLayoutOf places every task it is given. */
 const UNPLACED_TASK_POSITION: StackPosition = { column: 1, row: 1 };
@@ -26,10 +27,13 @@ const taskCardView = (
   topRow: number,
   lit: ReadonlyArray<LitChain>,
   pins: ReadonlyArray<Pin>,
+  search: Search,
   offsets: Offsets,
   h: HtmlBuilder<Message>,
 ): Html => {
   const movable = Movable.Task({ id: task.id });
+  const node = { id: task.id, kind: "task" } as const;
+  const maybeResult = searchMatchOf(search, node);
   const cellStyle = {
     border: "1px solid #94a3b8",
     "border-radius": "6px",
@@ -44,7 +48,8 @@ const taskCardView = (
     Array.prepend(
       nodeAttributes(
         lit,
-        { id: task.id, kind: "task" },
+        search,
+        node,
         h,
         Record.union(cellStyle, offsetStyleOf(offsets, movable), (_own, offset) => offset),
       ),
@@ -54,12 +59,18 @@ const taskCardView = (
       [
         h.span([h.Style(TASK_HANDLE_STYLE)], [moveHandleView(movable, `Move ${task.id}`, h)]),
         nodeButtonView(
-          { id: task.id, kind: "task" },
+          node,
           pins,
-          [h.strong([], [task.id]), ` ${task.title}`],
+          Array.appendAll(
+            [h.strong([], fieldTextView(maybeResult, "id", task.id, h)), " "],
+            fieldTextView(maybeResult, "title", task.title, h),
+          ),
           h,
         ),
-        h.div([h.DataAttribute("field", "branch")], [task.branch]),
+        h.div(
+          [h.DataAttribute("field", "branch")],
+          fieldTextView(maybeResult, "branch", task.branch, h),
+        ),
         h.div([h.DataAttribute("field", "model")], [task.model]),
         h.div([h.DataAttribute("status", task.status)], [task.status]),
       ],
@@ -73,6 +84,7 @@ export const stacksView = (
   trace: Trace,
   lit: ReadonlyArray<LitChain>,
   pins: ReadonlyArray<Pin>,
+  search: Search,
   offsets: Offsets,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -98,6 +110,7 @@ export const stacksView = (
         topRow,
         lit,
         pins,
+        search,
         offsets,
         h,
       ),

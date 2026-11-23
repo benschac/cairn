@@ -24,7 +24,7 @@ import {
 } from "effect";
 import { Mount } from "foldkit";
 
-import { MAX_ZOOM, MIN_ZOOM, Viewport, type Positions, type Rect } from "./geometry.ts";
+import { MAX_ZOOM, MIN_ZOOM, Viewport, type Positions, type Rect, type Size } from "./geometry.ts";
 import { Message } from "./message.ts";
 
 /** Pixels of room Fit leaves around the content. */
@@ -89,6 +89,38 @@ export const fitViewport = (bounds: Rect, width: number, height: number): Viewpo
     x: fits(bounds.width, width) ? centred.x : FIT_PADDING - bounds.x * zoom,
     y: fits(bounds.height, height) ? centred.y : FIT_PADDING - bounds.y * zoom,
     zoom,
+  };
+};
+
+/** Pixels between the toolbar and the edge of the pane. */
+export const TOOLBAR_MARGIN = 12;
+
+/** Pixels the toolbar is wide at most. */
+export const TOOLBAR_WIDTH = 360;
+
+/** The pane pixels the toolbar and the drawer cover, at the left and at the right. */
+export interface Covered {
+  readonly left: number;
+  readonly right: number;
+}
+
+/**
+ * The viewport that puts the middle of `rect`, a node's box in canvas coordinates, in the middle
+ * of the part of the pane the toolbar and the drawer leave clear, at the zoom the viewport has.
+ * Where they cover the whole width the pane's own middle is used.
+ */
+export const centreViewport = (
+  viewport: Viewport,
+  rect: Rect,
+  pane: Size,
+  covered: Covered,
+): Viewport => {
+  const clear = pane.width - covered.left - covered.right;
+  const middleX = clear > 0 ? covered.left + clear / 2 : pane.width / 2;
+  return {
+    x: middleX - (rect.x + rect.width / 2) * viewport.zoom,
+    y: pane.height / 2 - (rect.y + rect.height / 2) * viewport.zoom,
+    zoom: viewport.zoom,
   };
 };
 

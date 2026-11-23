@@ -7,8 +7,10 @@ import { drawerView, type DrawerMessages } from "../drawer.ts";
 import type { Pin } from "../highlight.ts";
 import { Message } from "../message.ts";
 import { Drawer, PresenceConnection, type Model } from "../model.ts";
+import { TOOLBAR_MARGIN, TOOLBAR_WIDTH } from "../canvas.ts";
 import { canvasView } from "./canvasView.ts";
 import { labelOf } from "./cursorsView.ts";
+import { searchView } from "./searchView.ts";
 
 const joinedText = (others: ReadonlyArray<Participant>) =>
   Array.match(others, {
@@ -107,6 +109,7 @@ const traceParts = (
         model.viewport,
         model.maybeHovered,
         model.pins,
+        model.search,
         model.isShowingAllCurves,
         model.offsets,
         model.drag,
@@ -115,6 +118,7 @@ const traceParts = (
       ),
     ),
     toolbar: [
+      searchView(trace, model.search, h),
       fitButton(h),
       resetLayoutButton(h),
       showAllCurvesButton(model.isShowingAllCurves, h),
@@ -146,11 +150,11 @@ const toolbarStyle = {
   "border-radius": "8px",
   "box-shadow": "0 2px 8px rgba(15, 23, 42, 0.15)",
   "box-sizing": "border-box",
-  left: "12px",
-  "max-width": "360px",
+  left: `${TOOLBAR_MARGIN}px`,
+  "max-width": `${TOOLBAR_WIDTH}px`,
   padding: "8px 12px",
   position: "fixed",
-  top: "12px",
+  top: `${TOOLBAR_MARGIN}px`,
   "z-index": "20",
 };
 

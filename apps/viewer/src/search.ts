@@ -43,22 +43,45 @@ export type SearchContent = typeof SearchContent.Type;
 const sameContent = Schema.toEquivalence(SearchContent);
 
 /** A half-open range of UTF-16 code units in a field's text. */
-export interface Range {
-  readonly end: number;
-  readonly start: number;
-}
+export const Range = Schema.Struct({ end: Schema.Int, start: Schema.Int });
+export type Range = typeof Range.Type;
 
 /** One node's best match: the field it matched, how, and where in that field's text. */
-export interface SearchResult {
-  readonly field: FieldKind;
-  readonly matchClass: MatchClass;
-  readonly node: Node;
+export const SearchResult = Schema.Struct({
+  field: FieldKind,
+  matchClass: MatchClass,
+  node: Node,
   /** Sorted, non-overlapping, on code point boundaries of `text`. */
-  readonly ranges: ReadonlyArray<Range>;
+  ranges: Schema.Array(Range),
   /** Higher is better, comparable within one match class and field kind. */
-  readonly score: number;
-  readonly text: string;
-}
+  score: Schema.Finite,
+  text: Schema.String,
+});
+export type SearchResult = typeof SearchResult.Type;
+
+/**
+ * A window's search: the query, what it matched and the result the arrow keys stand on. The
+ * results are derived once when the query or the trace changes; the active node is always one of
+ * them, or none while there are none.
+ */
+export const Search = Schema.Struct({
+  maybeActive: Schema.Option(Node),
+  query: Schema.String,
+  results: Schema.Array(SearchResult),
+});
+export type Search = typeof Search.Type;
+
+/** No query, no results and nothing active. */
+export const EMPTY_SEARCH: Search = { maybeActive: Option.none(), query: "", results: [] };
+
+/** The id of the search input, which the results' pointer selection keeps focus in. */
+export const SEARCH_INPUT_ID = "search-input";
+
+/** The id of the result list the input controls. */
+export const SEARCH_LISTBOX_ID = "search-results";
+
+/** The id of a result's option, which the input names as its active descendant. */
+export const searchOptionIdOf = (node: Node): string => `search-option-${nodeKeyOf(node)}`;
 
 /** A lower-cased code point and the source range it came from. */
 interface Char {
@@ -459,3 +482,79 @@ export const search = (index: SearchIndex, query: string): ReadonlyArray<SearchR
 /** The results for a query over a trace, building the index only if the content changed. */
 export const searchTrace = (trace: Trace, query: string): ReadonlyArray<SearchResult> =>
   search(indexOf(trace), query);
+
+/** A stretch of a field's text, and whether the query matched it. */
+export interface Segment {
+  readonly isMatch: boolean;
+  readonly text: string;
+}
+
+/**
+ * A field's text cut at the ends of its matched ranges, in order, without empty pieces. Joining the
+ * segments gives the text back, and joining the matched ones gives the matched characters.
+ */
+export const segmentsOf = (text: string, ranges: ReadonlyArray<Range>): ReadonlyArray<Segment> => {
+  const { end, segments } = Array.reduce(
+    ranges,
+    { end: 0, segments: Array.empty<Segment>() },
+    (cut, range) => ({
+      end: range.end,
+      segments: Array.appendAll(cut.segments, [
+        { isMatch: false, text: String.slice(cut.end, range.start)(text) },
+        { isMatch: true, text: String.slice(range.start, range.end)(text) },
+      ]),
+    }),
+  );
+  return Array.filter(
+    Array.append(segments, { isMatch: false, text: String.slice(end)(text) }),
+    (segment) => String.isNonEmpty(segment.text),
+  );
+};
+
+const sameNode = (left: Node, right: Node): boolean => nodeKeyOf(left) === nodeKeyOf(right);
+
+/** The node's result, when the query matched it. */
+export const resultOf = (
+  results: ReadonlyArray<SearchResult>,
+  node: Node,
+): Option.Option<SearchResult> => Array.findFirst(results, (result) => sameNode(result.node, node));
+
+/** The best result's node: where a new query starts, and none when nothing matched. */
+export const firstActive = (results: ReadonlyArray<SearchResult>): Option.Option<Node> =>
+  Option.map(Array.head(results), (result) => result.node);
+
+/** The active node once the results change: kept while it still matches, else the first. */
+export const reconcileActive = (
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
+): Option.Option<Node> =>
+  Option.orElse(
+    Option.filter(maybeActive, (active) => Option.isSome(resultOf(results, active))),
+    () => firstActive(results),
+  );
+
+/**
+ * The result an arrow key moves to, one step down the list or up it. The list ends stop the
+ * walk, and with nothing active the first result is where it starts.
+ */
+export const stepActive = (
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
+  step: 1 | -1,
+): Option.Option<Node> =>
+  Option.orElse(
+    Option.flatMap(
+      Option.flatMap(maybeActive, (active) =>
+        Array.findFirstIndex(results, (result) => sameNode(result.node, active)),
+      ),
+      (at) =>
+        Option.map(
+          Array.get(
+            results,
+            Number.clamp(at + step, { maximum: Array.length(results) - 1, minimum: 0 }),
+          ),
+          (result) => result.node,
+        ),
+    ),
+    () => firstActive(results),
+  );

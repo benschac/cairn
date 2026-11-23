@@ -12,17 +12,19 @@ import {
   type Offsets,
 } from "../drag.ts";
 import type { Positions, Viewport } from "../geometry.ts";
-import { litChainsOf, type Pin } from "../highlight.ts";
+import { litChainsOf, searchMatchOf, type Pin } from "../highlight.ts";
 import { diagramView } from "../diagram.ts";
 import { MeasureLayout } from "../layout.ts";
 import { renderMarkdown, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
+import type { Search } from "../search.ts";
 import { stackLayoutOf } from "../stacks.ts";
 import type { Node } from "../trace.ts";
 import { cursorsView } from "./cursorsView.ts";
 import { edgesView } from "./edgesView.ts";
 import {
   judgmentMarkViews,
+  markedTextView,
   nodeAttributes,
   nodeButtonView,
   sectionBadgeViews,
@@ -58,24 +60,44 @@ const HEADING_OFFSET = 1;
 /**
  * The PRD's or the spec's markdown, each section a node in the chain.
  *
- * Parsing the markdown dominates a render, so `documentLazy` rebuilds this only when the trace,
- * the hovered node, the pins or `h` changes: not on a pan, a zoom, a cursor, a measurement, the
- * drawer or a move. It takes the Model's own fields and derives the lit chains in here, because a
- * fresh array of them each render would never be reference-equal.
+ * Rendering the markdown is the costly part of a render, so `documentLazy` rebuilds this only when
+ * the trace, the hovered node, the pins, the search or `h` changes: not on a pan, a zoom, a cursor,
+ * a measurement, the drawer or a move. A search changes how the columns look on every keystroke,
+ * and the parsed markdown is kept (see `treeOf`), so a keystroke renders the columns again
+ * without parsing them. It takes the Model's own fields and derives the lit chains in here,
+ * because a fresh array of them each render would never be reference-equal.
+ *
+ * A section the search matched by its title shows that title as plain text with the matched
+ * characters marked; the other headings keep their formatting.
  */
 const documentBodyView = (
   document: SectionPrefix,
   trace: Trace,
   maybeHovered: Option.Option<Node>,
   pins: ReadonlyArray<Pin>,
+  search: Search,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const lit = litChainsOf(trace, pins, maybeHovered);
-  const sectionTitle = (sectionId: SectionId, title: Rendered): Rendered => [
-    nodeButtonView({ id: sectionId, kind: "section" }, pins, title, h),
-  ];
+  const lit = litChainsOf(trace, pins, search.maybeActive, maybeHovered);
+  const sectionTitle = (sectionId: SectionId, title: Rendered): Rendered => {
+    const node: Node = { id: sectionId, kind: "section" };
+    return [
+      nodeButtonView(
+        node,
+        pins,
+        Option.match(
+          Option.filter(searchMatchOf(search, node), (result) => result.field === "title"),
+          {
+            onNone: () => title,
+            onSome: (result) => markedTextView(result.text, result.ranges, h),
+          },
+        ),
+        h,
+      ),
+    ];
+  };
   const sectionAttributes = (sectionId: SectionId) =>
-    nodeAttributes(lit, { id: sectionId, kind: "section" }, h);
+    nodeAttributes(lit, search, { id: sectionId, kind: "section" }, h);
   const diagram = (source: string, key: string) => diagramView(h, source, key);
   const sectionBadges = (sectionId: SectionId): ReadonlyArray<Html> =>
     sectionBadgeViews(trace, sectionId, h);
@@ -120,9 +142,18 @@ const stacksColumnView = (
   trace: Trace,
   maybeHovered: Option.Option<Node>,
   pins: ReadonlyArray<Pin>,
+  search: Search,
   offsets: Offsets,
   h: HtmlBuilder<Message>,
-): Html => stacksView(trace, litChainsOf(trace, pins, maybeHovered), pins, offsets, h);
+): Html =>
+  stacksView(
+    trace,
+    litChainsOf(trace, pins, search.maybeActive, maybeHovered),
+    pins,
+    search,
+    offsets,
+    h,
+  );
 
 const stacksLazy = createLazy();
 
@@ -140,6 +171,7 @@ const documentColumnView = (
   trace: Trace,
   maybeHovered: Option.Option<Node>,
   pins: ReadonlyArray<Pin>,
+  search: Search,
   offsets: Offsets,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -154,7 +186,7 @@ const documentColumnView = (
         `${COLUMN_LABEL[document]} · ${documentPathOf(document, trace)}`,
         h,
       ),
-      documentLazy(document, documentBodyView, [document, trace, maybeHovered, pins, h]),
+      documentLazy(document, documentBodyView, [document, trace, maybeHovered, pins, search, h]),
     ],
     h,
   );
@@ -165,6 +197,7 @@ const columnsGridView = (
   trace: Trace,
   maybeHovered: Option.Option<Node>,
   pins: ReadonlyArray<Pin>,
+  search: Search,
   offsets: Offsets,
   h: HtmlBuilder<Message>,
 ): Html =>
@@ -177,12 +210,12 @@ const columnsGridView = (
       }),
     ],
     [
-      documentColumnView("prd", trace, maybeHovered, pins, offsets, h),
-      documentColumnView("spec", trace, maybeHovered, pins, offsets, h),
+      documentColumnView("prd", trace, maybeHovered, pins, search, offsets, h),
+      documentColumnView("spec", trace, maybeHovered, pins, search, offsets, h),
       columnView(
         "stacks",
         {},
-        [stacksLazy(stacksColumnView, [trace, maybeHovered, pins, offsets, h])],
+        [stacksLazy(stacksColumnView, [trace, maybeHovered, pins, search, offsets, h])],
         h,
       ),
     ],
@@ -210,13 +243,14 @@ const canvasLayerView = (
   viewport: Viewport,
   maybeHovered: Option.Option<Node>,
   pins: ReadonlyArray<Pin>,
+  search: Search,
   isShowingAllCurves: boolean,
   offsets: Offsets,
   drag: DragState,
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const lit = litChainsOf(trace, pins, maybeHovered);
+  const lit = litChainsOf(trace, pins, search.maybeActive, maybeHovered);
   return h.div(
     Array.flatten([
       [
@@ -243,7 +277,7 @@ const canvasLayerView = (
     ]),
     Array.appendAll(
       [
-        columnsGridView(trace, maybeHovered, pins, offsets, h),
+        columnsGridView(trace, maybeHovered, pins, search, offsets, h),
         edgesView(trace, positions, stackLayoutOf(trace.tasks), lit, isShowingAllCurves, h),
       ],
       cursorsView(others, viewport.zoom, h),
@@ -251,13 +285,18 @@ const canvasLayerView = (
   );
 };
 
-/** The columns and their edges, and the other participants' cursors, with each pinned chain lit in its colour and the hovered node's chain lit over them. */
+/**
+ * The columns and their edges, and the other participants' cursors, with each pinned chain lit in
+ * its colour, the active search result's chain over the pins and the hovered node's chain over
+ * them all.
+ */
 export const canvasView = (
   trace: Trace,
   positions: Positions,
   viewport: Viewport,
   maybeHovered: Option.Option<Node>,
   pins: ReadonlyArray<Pin>,
+  search: Search,
   isShowingAllCurves: boolean,
   offsets: Offsets,
   drag: DragState,
@@ -289,6 +328,7 @@ export const canvasView = (
         viewport,
         maybeHovered,
         pins,
+        search,
         isShowingAllCurves,
         offsets,
         drag,

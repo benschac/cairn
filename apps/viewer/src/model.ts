@@ -6,6 +6,7 @@ import { defineTaggedUnion } from "foldkit/schema";
 import { DragState, Offsets } from "./drag.ts";
 import { Positions, Size, Viewport } from "./geometry.ts";
 import { Pin } from "./highlight.ts";
+import { Search } from "./search.ts";
 import { Node } from "./trace.ts";
 
 /** The trace as it loads: nothing yet, a failure, the trace, or the last good trace beside a failure. */
@@ -43,6 +44,11 @@ export const Model = Schema.Struct({
   drawer: Drawer,
   /** Every curve is drawn, not only the active chain's. Off at first, so the canvas starts clear. */
   isShowingAllCurves: Schema.Boolean,
+  /**
+   * A selected search result the canvas has yet to centre on, because its node or the pane is not
+   * measured. It centres on the first measurement that has both, and is dropped with the result.
+   */
+  maybeCentring: Schema.Option(Node),
   maybeHovered: Schema.Option(Node),
   /** The canvas pane's size, once its mount has measured it. */
   maybePaneSize: Schema.Option(Size),
@@ -54,6 +60,8 @@ export const Model = Schema.Struct({
   pins: Schema.Array(Pin),
   positions: Positions,
   presenceConnection: PresenceConnection,
+  /** This window's search. It is never shared and changes nothing but how this window looks. */
+  search: Search,
   trace: TraceData.schema,
   /** How far each moved document and task card sits from where the layout put it. Not kept across reloads. */
   offsets: Offsets,

@@ -14,7 +14,18 @@ import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
 import { SectionId } from "@cairn/contract";
-import { Array, Hash, Match, Option, Predicate, Schema, String, Struct, pipe } from "effect";
+import {
+  Array,
+  Hash,
+  Match,
+  MutableRef,
+  Option,
+  Predicate,
+  Schema,
+  String,
+  Struct,
+  pipe,
+} from "effect";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
 import { codeBlockView } from "./code.ts";
@@ -295,6 +306,41 @@ const renderBlocks = <Message>(
     });
   });
 
+interface Parsed {
+  readonly markdown: string;
+  readonly tree: Root;
+}
+
+/** The documents the cache keeps: the PRD and the spec, with room for a refresh in between. */
+const PARSED_LIMIT = 4;
+
+const parsed = MutableRef.make<ReadonlyArray<Parsed>>([]);
+
+/**
+ * The syntax tree of some markdown. Parsing dominates a render, and a search changes how the
+ * documents look on every keystroke without changing what they say, so a tree is kept for as long
+ * as its text is one of the last few rendered.
+ */
+export const treeOf = (markdown: string): Root =>
+  Option.match(
+    Array.findFirst(MutableRef.get(parsed), (entry) =>
+      String.Equivalence(entry.markdown, markdown),
+    ),
+    {
+      onNone: () => {
+        const tree: Root = fromMarkdown(markdown, {
+          extensions: [gfm()],
+          mdastExtensions: [gfmFromMarkdown()],
+        });
+        MutableRef.update(parsed, (entries) =>
+          Array.takeRight(Array.append(entries, { markdown, tree }), PARSED_LIMIT),
+        );
+        return tree;
+      },
+      onSome: (entry) => entry.tree,
+    },
+  );
+
 export const renderMarkdown = <Message>(
   markdown: string,
   h: HtmlBuilder<Message>,
@@ -306,10 +352,7 @@ export const renderMarkdown = <Message>(
     wrapTitle = (_sectionId, title) => title,
   }: SectionHooks<Message> = {},
 ): Html => {
-  const tree: Root = fromMarkdown(markdown, {
-    extensions: [gfm()],
-    mdastExtensions: [gfmFromMarkdown()],
-  });
+  const tree = treeOf(markdown);
   return h.div(
     [h.Class("markdown")],
     renderBlocks(

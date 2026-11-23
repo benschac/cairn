@@ -4,7 +4,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { curvesOf, type Curve, type EdgeKind } from "../curves.ts";
 import type { Positions } from "../geometry.ts";
-import { PIN_PALETTE, pinColorsOf, type LitChain } from "../highlight.ts";
+import { PIN_PALETTE, SEARCH_STROKE, pinColorsOf, type LitChain } from "../highlight.ts";
 import type { Message } from "../message.ts";
 import { columnOf, type StackLayout } from "../stacks.ts";
 import { isInChain } from "../trace.ts";
@@ -24,27 +24,31 @@ const chainsHoldingCurve = (lit: ReadonlyArray<LitChain>, curve: Curve): Readonl
   );
 
 /**
- * One curve's path. In a lit chain it is highlighted, in the colour of the top pin holding it, or
- * in its kind's colour when only the hovered chain holds it. Outside every lit chain it is dimmed,
- * and with nothing lit it is plain.
+ * One curve's path. In a lit chain it is highlighted, in the colour of the top pin holding it, in
+ * the search's stroke when the active result's chain holds it and no pin does, or in its kind's
+ * colour when only the hovered chain holds it. A chain holds a curve only when it holds both its
+ * ends, so a curve between two chains is never lit. Outside every lit chain it is dimmed, and with
+ * nothing lit it is plain.
  */
 const edgeView = (curve: Curve, lit: ReadonlyArray<LitChain>, h: HtmlBuilder<Message>): Html => {
   const holding = chainsHoldingCurve(lit, curve);
   const isHighlighted = Array.isReadonlyArrayNonEmpty(holding);
   const isDimmed = Array.isReadonlyArrayNonEmpty(lit) && !isHighlighted;
   const maybePinColor = Array.last(pinColorsOf(holding));
+  const isInSearchChain = Array.some(holding, ({ source }) => source === "search");
   return h.path(
     Array.flatten([
       [h.DataAttribute("edge", curve.id), h.DataAttribute("kind", curve.kind)],
       isHighlighted ? [h.DataAttribute("highlighted", "true")] : [],
       isDimmed ? [h.DataAttribute("dimmed", "true")] : [],
+      isInSearchChain ? [h.DataAttribute("search-chain", "true")] : [],
       Array.fromOption(Option.map(maybePinColor, (color) => h.DataAttribute("pin", color))),
       [
         h.D(curve.path),
         h.Fill("none"),
         h.Stroke(
           Option.match(maybePinColor, {
-            onNone: () => EDGE_COLOR[curve.kind],
+            onNone: () => (isInSearchChain ? SEARCH_STROKE : EDGE_COLOR[curve.kind]),
             onSome: (color) => PIN_PALETTE[color].stroke,
           }),
         ),

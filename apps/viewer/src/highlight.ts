@@ -1,6 +1,7 @@
 import type { Trace } from "@cairn/contract";
 import { Array, Option, Record, Schema } from "effect";
 
+import { resultOf, type Search, type SearchResult } from "./search.ts";
 import { Node, chainOf, isInChain, type Chain } from "./trace.ts";
 
 /** The colours a pinned chain takes, in the order new pins take them. */
@@ -19,6 +20,12 @@ export const PIN_PALETTE = {
 
 /** The fill of the hovered node's chain, which is a preview and has no pin colour. */
 export const HOVER_FILL = "#fef08a";
+
+/** The fill of the active search result's chain: a preview with no pin colour, unlike the hover's. */
+export const SEARCH_FILL = "#e7e5e4";
+
+/** The stroke of a curve in the active search result's chain, when no pin holds it. */
+export const SEARCH_STROKE = "#44403c";
 
 /** A node whose chain stays lit in its colour until the node is clicked again or the pins are cleared. */
 export const Pin = Schema.Struct({ color: PinColor, node: Node });
@@ -52,33 +59,65 @@ export const togglePin = (pins: ReadonlyArray<Pin>, node: Node): ReadonlyArray<P
 export const pin = (pins: ReadonlyArray<Pin>, node: Node): ReadonlyArray<Pin> =>
   isPinned(pins, node) ? pins : togglePin(pins, node);
 
-/** A chain lit on the canvas: a pin's, in its colour, or the hovered node's, which has none. */
+/** What lights a chain: a pin, the active search result or the hovered node. */
+export type LitSource = "hover" | "pin" | "search";
+
+/**
+ * A chain lit on the canvas: a pin's, in its colour, or the active search result's or the hovered
+ * node's, which have none.
+ */
 export interface LitChain {
   readonly chain: Chain;
   readonly maybeColor: Option.Option<PinColor>;
+  readonly source: LitSource;
 }
 
 /**
- * The pinned chains in the order they were pinned, then the hovered node's on top: hovering adds a
- * preview and never hides a pin. Empty while nothing is pinned or hovered.
+ * The pinned chains in the order they were pinned, then the active search result's, then the
+ * hovered node's on top: searching and hovering add previews and never hide a pin, and hovering
+ * stays above a search. Each chain is its own; they are never merged. Empty while nothing is
+ * pinned, searched or hovered.
  */
 export const litChainsOf = (
   trace: Trace,
   pins: ReadonlyArray<Pin>,
+  maybeSearched: Option.Option<Node>,
   maybeHovered: Option.Option<Node>,
-): ReadonlyArray<LitChain> =>
-  Array.appendAll(
-    Array.map(pins, (each) => ({
-      chain: chainOf(trace, each.node),
-      maybeColor: Option.some(each.color),
-    })),
+): ReadonlyArray<LitChain> => {
+  const preview = (source: LitSource, maybeNode: Option.Option<Node>): ReadonlyArray<LitChain> =>
     Array.fromOption(
-      Option.map(maybeHovered, (node) => ({
+      Option.map(maybeNode, (node) => ({
         chain: chainOf(trace, node),
         maybeColor: Option.none<PinColor>(),
+        source,
       })),
-    ),
-  );
+    );
+  return Array.flatten([
+    Array.map(pins, (each): LitChain => ({
+      chain: chainOf(trace, each.node),
+      maybeColor: Option.some(each.color),
+      source: "pin",
+    })),
+    preview("search", maybeSearched),
+    preview("hover", maybeHovered),
+  ]);
+};
+
+/** How a node stands in the search: the active result, another direct match, or neither. */
+export type SearchRole = "active" | "match" | "none";
+
+/** The search result that matched the node directly, if any. */
+export const searchMatchOf = (search: Search, node: Node): Option.Option<SearchResult> =>
+  resultOf(search.results, node);
+
+export const searchRoleOf = (search: Search, node: Node): SearchRole =>
+  Option.match(searchMatchOf(search, node), {
+    onNone: () => "none",
+    onSome: () =>
+      Option.exists(search.maybeActive, (active) => nodeEquivalence(active, node))
+        ? "active"
+        : "match",
+  });
 
 /** The lit chains a node is in, bottom to top. */
 export const chainsHolding = (lit: ReadonlyArray<LitChain>, node: Node): ReadonlyArray<LitChain> =>
