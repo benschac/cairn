@@ -22,6 +22,13 @@
       "skillPath": "skills/ask-emil/SKILL.md",
       "computedHash": "e7a92fe034a4151a27fbe2fad8813ffd18a9c98d6db8689930a1fdb3a7d536f5"
     },
+    "board": {
+      "source": "vercel/board",
+      "commit": "371a557916f8f1fb5feb0bc6603ed8396ed34e82",
+      "sourceType": "github",
+      "skillPath": "skills/board/SKILL.md",
+      "computedHash": "88c2450e0d1742a7949c22fdc84671a24d438ab9b031b1b3dd5ad4141e4c16ca"
+    },
     "break-ui": {
       "source": "emilkowalski/skills",
       "commit": "64eb3deb9a5fbfa041faf783e0bc3fd635872e9c",
