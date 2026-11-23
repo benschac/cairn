@@ -20,6 +20,7 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
     maybeYou: Option.none(),
     offsets: {},
     participants: [],
+    patches: {},
     pins: [],
     positions: {},
     presenceConnection: PresenceConnection.Connecting(),

@@ -29,6 +29,14 @@ export const Shown = defineTaggedUnion({
 });
 export type Shown = typeof Shown.Type;
 
+/** A patch route's text as it loads: on its way, refused or unreachable with why, or here. */
+export const PatchData = defineTaggedUnion({
+  Failed: { message: Schema.String },
+  Loaded: { text: Schema.String },
+  Loading: {},
+});
+export type PatchData = typeof PatchData.Type;
+
 /**
  * The screen: the canvas, or the code view on a task with what is shown of it and the file
  * selected in it. Everything the canvas needs stays in the model while the code view is open.
@@ -68,6 +76,8 @@ export const Model = Schema.Struct({
   maybePanZoomFailure: Schema.Option(Schema.String),
   maybeYou: Schema.Option(ParticipantId),
   participants: Schema.Array(Participant),
+  /** The patches the code view has asked for, by route path. A loaded one is never fetched again. */
+  patches: Schema.Record(Schema.String, PatchData),
   /** The pinned nodes, in the order they were pinned; each chain stays lit in its pin's colour. */
   pins: Schema.Array(Pin),
   positions: Positions,

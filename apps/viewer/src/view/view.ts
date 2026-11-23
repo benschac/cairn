@@ -174,7 +174,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document =>
         [],
         Option.match(AsyncData.getData(model.trace), {
           onNone: () => [loadingView(h)],
-          onSome: (trace) => [codeView(trace, code, h, codeMessages)],
+          onSome: (trace) => [codeView(trace, code, model.patches, h, codeMessages)],
         }),
       ),
       title: "Cairn",

@@ -1,8 +1,9 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { Command, Dom } from "foldkit";
 
 import { DRAWER_HEADING_ID } from "./drawer.ts";
 import { Message } from "./message.ts";
+import { fetchPatch } from "./load.ts";
 import { Node, nodeKeyOf } from "./trace.ts";
 
 /** A node's button on the canvas, which focus returns to when its drawer closes. */
@@ -52,5 +53,16 @@ export const FocusNode = Command.define("FocusNode", {
     Dom.focus(nodeButtonSelector(node)).pipe(
       Effect.ignore,
       Effect.as(Message.CompletedFocusNode()),
+    ),
+});
+
+/** Fetches a patch route's text and reports it, or why it could not be had. */
+export const FetchPatch = Command.define("FetchPatch", {
+  args: { path: Schema.String },
+  messages: [Message.ReceivedPatch],
+  execute: ({ path }) =>
+    fetchPatch(path).pipe(
+      Effect.result,
+      Effect.map((result) => Message.ReceivedPatch({ path, result })),
     ),
 });

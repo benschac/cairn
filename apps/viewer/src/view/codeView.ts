@@ -1,9 +1,11 @@
 import type { Trace, TraceTask } from "@cairn/contract";
-import { Array, Option } from "effect";
+import { Array, Option, Record, Result } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
+import { parsePatch, describePatchNotParsed, type PatchFiles } from "../diff.ts";
+import { isDemoBuild } from "../load.ts";
 import { patchPathOf, rangeOf, shortSha, shownCommitOf, taskOf } from "../codeView.ts";
-import { Shown, type CodeScreen } from "../model.ts";
+import { PatchData, Shown, type CodeScreen } from "../model.ts";
 import { treeView, type TreeMessages } from "./treeView.ts";
 
 /** The message constructors the code view's view needs; the app supplies its own. */
@@ -72,10 +74,50 @@ const barView = <Message>(
     ),
   );
 
+/** What the parsed patch holds, for now: how many files, and each one's path and change type. */
+const filesView = <Message>(patch: PatchFiles, h: HtmlBuilder<Message>): Html =>
+  h.div(
+    [],
+    [
+      h.p([h.DataAttribute("file-count", "")], [filesText(Array.length(patch.files))]),
+      h.ul(
+        [],
+        Array.map(patch.files, (file) =>
+          h.li([h.DataAttribute("diff-file", file.name)], [`${file.name} (${file.type})`]),
+        ),
+      ),
+    ],
+  );
+
+const filesText = (count: number): string => (count === 1 ? "1 file" : `${count} files`);
+
+/** The patch as it stands: not asked for, loading, failed, or loaded and parsed. */
+const patchView = <Message>(
+  patches: Record<string, PatchData>,
+  path: string,
+  h: HtmlBuilder<Message>,
+): Html =>
+  isDemoBuild()
+    ? h.p([], ["The diff needs `cairn serve`."])
+    : Option.match(Record.get(patches, path), {
+        onNone: () => h.p([], ["Loading the diff."]),
+        onSome: (data) =>
+          PatchData.match(data, {
+            Failed: ({ message }) => h.p([h.Role("alert")], [message]),
+            Loaded: ({ text }) =>
+              Result.match(parsePatch(text), {
+                onFailure: (error) => h.p([h.Role("alert")], [describePatchNotParsed(error)]),
+                onSuccess: (patch) => filesView(patch, h),
+              }),
+            Loading: () => h.p([], ["Loading the diff."]),
+          }),
+      });
+
 /** The middle pane: where the diff for what is shown will be drawn, or why there is none. */
 const diffPane = <Message>(
   task: Option.Option<TraceTask>,
   code: CodeScreen,
+  patches: Record<string, PatchData>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.section(
@@ -106,7 +148,7 @@ const diffPane = <Message>(
                   ),
                   h.DataAttribute("patch-path", path),
                 ),
-                [path],
+                [patchView(patches, path, h)],
               ),
           }),
       }),
@@ -152,6 +194,7 @@ const sessionPane = <Message>(
 export const codeView = <Message>(
   trace: Trace,
   code: CodeScreen,
+  patches: Record<string, PatchData>,
   h: HtmlBuilder<Message>,
   messages: CodeMessages<Message>,
 ): Html => {
@@ -174,7 +217,11 @@ export const codeView = <Message>(
       barView(task, code, h, messages),
       h.div(
         [h.Style({ display: "flex", flex: "1", "min-height": "0" })],
-        [treeView(trace, code, h, messages), diffPane(task, code, h), sessionPane(task, code, h)],
+        [
+          treeView(trace, code, h, messages),
+          diffPane(task, code, patches, h),
+          sessionPane(task, code, h),
+        ],
       ),
     ],
   );
