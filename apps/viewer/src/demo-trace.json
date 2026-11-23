@@ -494,7 +494,7 @@
     },
     {
       "id": "prd.viewer.stacks",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "prd.viewer.fuzzy-search",
@@ -778,11 +778,11 @@
     },
     {
       "id": "spec.viewer.curves",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.viewer.stacks",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.viewer.presence",
@@ -4136,14 +4136,45 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            ".cairn/spec.md",
+            "apps/viewer/src/demo-trace.json",
+            "apps/viewer/src/stacks.ts",
+            "apps/viewer/test/stack-layout.test.ts",
+            "apps/viewer/test/stacks.test.ts",
+            "apps/viewer/turbo.json"
+          ],
+          "parents": ["462cc0ca2a4d2355b0f84cf1dee26e799569397d"],
+          "sections": ["spec.viewer.stacks"],
+          "session": null,
+          "sha": "cf0ca7b98ec52e2ba64e13eeb3e6f218a7af8e34",
+          "subject": "Group the tasks into stacks and levels"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t69",
+          "ts": "2026-11-23T21:50:52.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t69",
+          "ts": "2026-11-23T21:50:52.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t70",
@@ -4168,14 +4199,50 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/curves.ts",
+            "apps/viewer/src/stacks.ts",
+            "apps/viewer/src/view/canvasView.ts",
+            "apps/viewer/src/view/edgesView.ts",
+            "apps/viewer/src/view/nodeView.ts",
+            "apps/viewer/src/view/stacksView.ts",
+            "apps/viewer/test/curves.test.ts",
+            "apps/viewer/test/fixtures.ts",
+            "apps/viewer/test/search.scene.test.ts",
+            "apps/viewer/test/stacks.scene.test.ts",
+            "apps/viewer/test/viewer.scene.test.ts"
+          ],
+          "parents": ["cf0ca7b98ec52e2ba64e13eeb3e6f218a7af8e34"],
+          "sections": ["spec.viewer.stacks"],
+          "session": null,
+          "sha": "76db0c46c296cb97032eacaddfb7755bdcdc23a1",
+          "subject": "Draw the stacks as boxes over the base branch"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t70",
+          "ts": "2026-11-23T21:58:00.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t70",
+          "ts": "2026-11-23T21:58:00.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t71",
