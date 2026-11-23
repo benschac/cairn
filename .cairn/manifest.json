@@ -1618,9 +1618,9 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["02d2cdf0c5e1db3a3f21a1deaca2173568c5ab04"],
+      "sessions": ["s_a708be3b01"]
     },
     {
       "id": "t70",
