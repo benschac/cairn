@@ -7,7 +7,8 @@ import type { Html } from "foldkit/html";
 import { expect, given, scene, selector } from "foldkit/scene";
 import { expect as assert } from "vitest";
 
-import { renderMarkdown, type SectionHooks } from "../src/markdown.ts";
+import { documentOf, renderMarkdown, treeOf, type SectionHooks } from "../src/markdown.ts";
+import type { Range } from "../src/range.ts";
 
 type VNode = NonNullable<Html>;
 
@@ -417,4 +418,146 @@ it("a diagram's key changes with its source and its line, and two identical diag
   assert(diagramKeys(`# Moved\n\n${a}`)).not.toEqual([original]);
   const twice = diagramKeys(`${a}\n\n${a}`);
   assert(Array.length(Array.dedupe(twice))).toBe(2);
+});
+
+// SEARCH MARKS
+
+/** Renders with these ranges of one block marked, as the search marks a match. */
+const renderMarked = (
+  markdown: string,
+  marksOf: (blockKey: string) => ReadonlyArray<Range>,
+): VNode => {
+  let rendered = Option.none<VNode>();
+  scene(
+    {
+      update: (model: null) => ({ model }),
+      view: (_model: null, h) => {
+        const body = renderMarkdown(markdown, h, {
+          markView: (text) => h.mark([h.DataAttribute("search-match", "")], [text]),
+          marksOf,
+        });
+        rendered = Option.fromNullOr(body);
+        return { body, title: "markdown" };
+      },
+    },
+    given(null),
+  );
+  return Option.getOrThrow(rendered);
+};
+
+const keysOf = (markdown: string): ReadonlyArray<string> =>
+  Array.map(Array.flatten(Record.values(documentOf(markdown).proseOf)), (block) => block.key);
+
+const markTexts = (node: VNode): ReadonlyArray<string> =>
+  Array.map(
+    Array.filter(walk(node), (element) => tagOf(element) === "mark"),
+    textOf,
+  );
+
+const sample =
+  "## S {#spec.s}\n\nSome **bold phrase** with [a link](https://example.com/x) inside.";
+
+it("a block's text has an offset map to the text and inline code nodes that show it", () => {
+  const markdown = "## S {#spec.s}\n\nUse `inline code` with **bold** and *more*.";
+  const [block] = Option.getOrThrow(Record.get(documentOf(markdown).proseOf, "spec.s"));
+  assert(block?.text).toBe("Use inline code with bold and more.");
+  assert(
+    Array.map(block?.leaves ?? [], (leaf) =>
+      pipe(block?.text ?? "", String.slice(leaf.start, leaf.end)),
+    ),
+  ).toEqual(["Use ", "inline code", " with ", "bold", " and ", "more", "."]);
+  // Text nodes map to the source they were read from; inline code to its fence and text.
+  assert(
+    Array.map(block?.leaves ?? [], (leaf) =>
+      pipe(markdown, String.slice(leaf.sourceStart, leaf.sourceEnd)),
+    ),
+  ).toEqual(["Use ", "`inline code`", " with ", "bold", " and ", "more", "."]);
+});
+
+it("marks split across bold text and a link keep the formatting, the link and the text", () => {
+  const [key] = keysOf(sample);
+  const range = { end: 28, start: 5 };
+  const marked = renderMarked(sample, (block) => (block === key ? [range] : []));
+  // "bold phrase" in the strong, " with " between them and "a link" inside the anchor.
+  assert(markTexts(marked)).toEqual(["bold phrase", " with ", "a link"]);
+  assert(markTexts(firstTag(marked, "strong"))).toEqual(["bold phrase"]);
+  const anchor = firstTag(marked, "a");
+  assert(markTexts(anchor)).toEqual(["a link"]);
+  assert(attr(anchor, "href")).toBe("https://example.com/x");
+  assert(textOf(firstTag(marked, "p"))).toBe("Some bold phrase with a link inside.");
+  // Nothing outside the match is marked, and the heading keeps its id and section.
+  assert(attr(firstTag(marked, "h2"), "id")).toBe("spec.s");
+  assert(attr(firstTag(marked, "h2"), "data-section")).toBe("spec.s");
+  assert(attr(firstTag(marked, "p"), "data-block")).toBe(key);
+});
+
+it("a block with no ranges renders as it does with no search at all", () => {
+  const plain = render(sample);
+  assert(renderMarked(sample, () => [])).toEqual(plain);
+  assert(markTexts(plain)).toEqual([]);
+});
+
+it("a heading's inline formatting survives a mark on its title", () => {
+  const markdown = "## Some `code` title {#spec.some}";
+  const key = "heading:spec.some";
+  assert(documentOf(markdown).headings["spec.some"]?.key).toBe(key);
+  const marked = renderMarked(markdown, (block) => (block === key ? [{ end: 15, start: 5 }] : []));
+  assert(textOf(firstTag(marked, "h2"))).toBe("Some code title");
+  assert(markTexts(marked)).toEqual(["code", " title"]);
+  assert(markTexts(firstTag(marked, "code"))).toEqual(["code"]);
+});
+
+it("a table cell is marked inside its cell", () => {
+  const markdown = "## T {#spec.t}\n\n| a | b |\n| - | - |\n| one **two** | three |";
+  const key = Option.getOrThrow(
+    Array.findFirst(keysOf(markdown), (candidate) =>
+      Option.exists(
+        Array.findFirst(
+          Array.flatten(Record.values(documentOf(markdown).proseOf)),
+          (block) => block.key === candidate && block.text === "one two",
+        ),
+        () => true,
+      ),
+    ),
+  );
+  const marked = renderMarked(markdown, (block) => (block === key ? [{ end: 7, start: 2 }] : []));
+  const cell = Option.getOrThrow(
+    Array.findFirst(walk(marked), (element) => attr(element, "data-block") === key),
+  );
+  assert(tagOf(cell)).toBe("td");
+  assert(markTexts(cell)).toEqual(["e ", "two"]);
+  assert(textOf(cell)).toBe("one two");
+});
+
+it("marking every block of the PRD and spec changes none of their text and marks each block", () => {
+  Array.forEach([prd, spec], (source) => {
+    const keys = keysOf(source);
+    const lengths = Record.fromEntries(
+      Array.map(Array.flatten(Record.values(documentOf(source).proseOf)), (block) => [
+        block.key,
+        String.length(block.text),
+      ]),
+    );
+    const marked = renderMarked(source, (block) =>
+      Option.match(Record.get(lengths, block), {
+        onNone: () => [],
+        onSome: (end) => [{ end, start: 0 }],
+      }),
+    );
+    assert(textOf(marked)).toBe(textOf(render(source)));
+    assert(Array.length(markTexts(marked))).toBeGreaterThanOrEqual(Array.length(keys));
+    // Every mark is inside a block: a paragraph or a cell.
+    assert(
+      Array.every(
+        Array.filter(walk(marked), (element) => attr(element, "data-block") !== undefined),
+        (element) => tagOf(element) === "p" || tagOf(element) === "td" || tagOf(element) === "th",
+      ),
+    ).toBe(true);
+  });
+});
+
+it("the syntax tree is the one the document was parsed into, once per text", () => {
+  assert(treeOf(sample)).toBe(documentOf(sample).tree);
+  assert(documentOf(sample)).toBe(documentOf(sample));
+  assert(documentOf(sample)).not.toBe(documentOf(`${sample} more`));
 });

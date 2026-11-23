@@ -73,16 +73,18 @@ export const judgmentMarkViews = (
 /** The highlighter's yellow behind the characters a query matched. */
 const MARK_STYLE = { background: "#fde047", color: "#1c1917", "border-radius": "2px" };
 
-/** Text with the characters a query matched in `mark` elements, which carry no other change. */
+/** The element for a stretch of text a query matched: a `mark`, which carries no other change. */
+export const markView = (text: string, h: HtmlBuilder<Message>): Html =>
+  h.mark([h.DataAttribute("search-match", ""), h.Style(MARK_STYLE)], [text]);
+
+/** Text with the characters a query matched in `mark` elements. */
 export const markedTextView = (
   text: string,
   ranges: ReadonlyArray<Range>,
   h: HtmlBuilder<Message>,
 ): Rendered =>
   Array.map(segmentsOf(text, ranges), (segment) =>
-    segment.isMatch
-      ? h.mark([h.DataAttribute("search-match", ""), h.Style(MARK_STYLE)], [segment.text])
-      : segment.text,
+    segment.isMatch ? markView(segment.text, h) : segment.text,
   );
 
 /**

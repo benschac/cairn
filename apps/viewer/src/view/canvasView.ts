@@ -12,10 +12,11 @@ import {
   type Offsets,
 } from "../drag.ts";
 import type { Positions, Viewport } from "../geometry.ts";
-import { litChainsOf, searchMatchOf, type Pin } from "../highlight.ts";
+import { litChainsOf, type Pin } from "../highlight.ts";
 import { diagramView } from "../diagram.ts";
 import { MeasureLayout } from "../layout.ts";
 import { renderMarkdown, type Rendered } from "../markdown.ts";
+import type { Range } from "../range.ts";
 import type { Message } from "../message.ts";
 import type { Search } from "../search.ts";
 import { stackLayoutOf } from "../stacks.ts";
@@ -24,7 +25,7 @@ import { cursorsView } from "./cursorsView.ts";
 import { edgesView } from "./edgesView.ts";
 import {
   judgmentMarkViews,
-  markedTextView,
+  markView,
   nodeAttributes,
   nodeButtonView,
   sectionBadgeViews,
@@ -54,6 +55,17 @@ const columnView = (
     children,
   );
 
+/**
+ * The ranges each result matched, by the key of the heading or paragraph they are in. A result's
+ * best field is the only one marked on the canvas, the same one its snippet shows.
+ */
+const matchedRangesOf = (search: Search): Record.ReadonlyRecord<string, ReadonlyArray<Range>> =>
+  Record.fromEntries(
+    Array.flatMap(search.results, (result) =>
+      Array.map(Array.fromOption(result.maybeBlock), (block) => [block, result.ranges] as const),
+    ),
+  );
+
 /** The page has its own h1, so a document's "# " heading renders as an h2. */
 const HEADING_OFFSET = 1;
 
@@ -67,8 +79,8 @@ const HEADING_OFFSET = 1;
  * without parsing them. It takes the Model's own fields and derives the lit chains in here,
  * because a fresh array of them each render would never be reference-equal.
  *
- * A section the search matched by its title shows that title as plain text with the matched
- * characters marked; the other headings keep their formatting.
+ * The search marks what it matched in place: the ranges of each matched heading or paragraph go
+ * to the markdown, which splits them across the formatting inside it.
  */
 const documentBodyView = (
   document: SectionPrefix,
@@ -79,22 +91,13 @@ const documentBodyView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const lit = litChainsOf(trace, pins, search.maybeActive, maybeHovered);
-  const sectionTitle = (sectionId: SectionId, title: Rendered): Rendered => {
-    const node: Node = { id: sectionId, kind: "section" };
-    return [
-      nodeButtonView(
-        node,
-        pins,
-        Option.match(
-          Option.filter(searchMatchOf(search, node), (result) => result.field === "title"),
-          {
-            onNone: () => title,
-            onSome: (result) => markedTextView(result.text, result.ranges, h),
-          },
-        ),
-        h,
-      ),
-    ];
+  const sectionTitle = (sectionId: SectionId, title: Rendered): Rendered => [
+    nodeButtonView({ id: sectionId, kind: "section" }, pins, title, h),
+  ];
+  const matchedRanges = matchedRangesOf(search);
+  const marks = {
+    markView: (text: string) => markView(text, h),
+    marksOf: (blockKey: string) => Option.getOrElse(Record.get(matchedRanges, blockKey), () => []),
   };
   const sectionAttributes = (sectionId: SectionId) =>
     nodeAttributes(lit, search, { id: sectionId, kind: "section" }, h);
@@ -110,6 +113,7 @@ const documentBodyView = (
     Match.withReturnType<Html>(),
     Match.when("prd", () =>
       renderMarkdown(trace.prd.markdown, h, {
+        ...marks,
         attributesOf: sectionAttributes,
         decorate: sectionBadges,
         diagramView: diagram,
@@ -119,6 +123,7 @@ const documentBodyView = (
     ),
     Match.when("spec", () =>
       renderMarkdown(trace.spec.markdown, h, {
+        ...marks,
         attributesOf: sectionAttributes,
         decorate: specSectionMarks,
         diagramView: diagram,

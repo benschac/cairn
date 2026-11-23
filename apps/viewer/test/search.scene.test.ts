@@ -1,4 +1,4 @@
-import { TaskId } from "@cairn/contract";
+import { SectionId, TaskId, type Trace } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, HashSet, Option, Record, Result, Schema, String, Struct, pipe } from "effect";
 import type { Document, HtmlBuilder } from "foldkit/html";
@@ -31,16 +31,16 @@ import {
   toScreen,
   viewportAttribute,
 } from "../src/canvas.ts";
-import { FocusSearch, ScrollSearchResult } from "../src/command.ts";
+import { FocusSearch, MeasureSearchBlock, ScrollSearchResult } from "../src/command.ts";
 import { curvesOf } from "../src/curves.ts";
 import { demoTrace } from "../src/demo.ts";
 import { DRAWER_WIDTH } from "../src/drawer.ts";
 import { Movable } from "../src/drag.ts";
 import { MAX_ZOOM, MIN_ZOOM, Viewport, type Positions } from "../src/geometry.ts";
 import { HOVER_FILL, PIN_PALETTE, SEARCH_FILL } from "../src/highlight.ts";
-import { treeOf } from "../src/markdown.ts";
+import { documentOf, treeOf } from "../src/markdown.ts";
 import { Message } from "../src/message.ts";
-import { Drawer, type Model } from "../src/model.ts";
+import { Drawer, TraceData, type Model } from "../src/model.ts";
 import { searchOptionIdOf, searchTrace, type SearchResult } from "../src/search.ts";
 import { columnOf, stackLayoutOf } from "../src/stacks.ts";
 import { Node, chainOf, isInChain, nodeKeyOf } from "../src/trace.ts";
@@ -88,7 +88,18 @@ const refocused = Command.resolve(FocusSearch, Message.CompletedFocusSearch());
 const elementOf = (node: Node) =>
   selector(node.kind === "section" ? `[data-section="${node.id}"]` : `[data-task="${node.id}"]`);
 const optionOf = (node: Node) => selector(`[data-search-result="${node.id}"]`);
-const marks = (node: Node) => within(elementOf(node), selector("mark"));
+/** The marks of a result: in its own element, or in the paragraph or cell its prose match is. */
+const marks = (node: Node) =>
+  Option.match(
+    Option.flatMap(
+      Array.findFirst(results, (result) => nodeKeyOf(result.node) === nodeKeyOf(node)),
+      (result) => (result.field === "prose" ? result.maybeBlock : Option.none()),
+    ),
+    {
+      onNone: () => within(elementOf(node), selector("mark")),
+      onSome: (block) => selector(`[data-block="${block}"] mark`),
+    },
+  );
 const buttonOf = (node: Node) =>
   Node.match(node, {
     section: ({ id }) =>
@@ -221,15 +232,21 @@ it("arrow keys move the active result and its chain, bounded at the ends, and En
   );
 });
 
+/** A query with a handful of results, so walking the whole list stays quick. */
+const FEW = "fuzzy search";
+const fewResults = searchTrace(demoTrace, FEW);
+
 it("walking down the list stops at its last result", () => {
-  const last = Option.getOrThrow(Array.last(results));
-  const downs = Array.makeBy(results.length + 3, () => [key("ArrowDown"), scrolled] as const);
+  assert(fewResults.length).toBeGreaterThan(2);
+  assert(fewResults.length).toBeLessThan(12);
+  const last = Option.getOrThrow(Array.last(fewResults));
+  const downs = Array.makeBy(fewResults.length, () => [key("ArrowDown"), scrolled] as const);
   scene(
     { update, view },
     given(loaded),
     mounted,
-    ...typedFindingResults(QUERY),
-    ...Array.flatMap(Array.take(downs, results.length - 1), (step) => step),
+    ...typedFindingResults(FEW),
+    ...Array.flatMap(Array.take(downs, fewResults.length - 1), (step) => step),
     expect(input).toHaveAttr("aria-activedescendant", searchOptionIdOf(last.node)),
     key("ArrowDown"),
     expect(input).toHaveAttr("aria-activedescendant", searchOptionIdOf(last.node)),
@@ -787,4 +804,167 @@ it("a new query or a new active result rebuilds the columns, but no document is 
   assert(treeOf(demoTrace.prd.markdown)).toBe(treeOf(demoTrace.prd.markdown));
   assert(treeOf(demoTrace.spec.markdown)).toBe(treeOf(demoTrace.spec.markdown));
   assert(treeOf(demoTrace.spec.markdown)).not.toBe(treeOf(demoTrace.prd.markdown));
+});
+
+// Prose.
+
+const PROBE_ID = Schema.decodeSync(SectionId)("prd.search-probe");
+const probeNode: Node = { id: PROBE_ID, kind: "section" };
+const probeMarkdown = `${demoTrace.prd.markdown}
+
+## Search probe {#prd.search-probe}
+
+Some **bold phrase** with [a link](https://example.com/probe) inside a probe paragraph.
+`;
+const probeTrace: Trace = {
+  ...demoTrace,
+  prd: {
+    ...demoTrace.prd,
+    markdown: probeMarkdown,
+    sections: Array.append(demoTrace.prd.sections, {
+      human: false,
+      id: PROBE_ID,
+      keys: { context: [], defers: [], dependsOn: [], files: [], implements: [] },
+      level: 2,
+      line: 1,
+      parent: null,
+      title: "Search probe",
+    }),
+  },
+};
+const probeModel = modifyFields(loaded, { trace: () => TraceData.Success({ data: probeTrace }) });
+const PROSE_QUERY = "bold phrase with a link";
+const probeResult = Option.getOrThrow(Array.get(searchTrace(probeTrace, PROSE_QUERY), 0));
+const probeBlock = Option.getOrThrow(probeResult.maybeBlock);
+const probeParagraph = selector(`[data-block="${probeBlock}"]`);
+const probeBoxes: Positions = Record.set(boxes, PROBE_ID, {
+  height: 20,
+  width: 100,
+  x: 910,
+  y: 700,
+});
+/** Where the probe paragraph sits once measured, far from its section. */
+const probeRect = { height: 40, width: 300, x: 1500, y: 2400 };
+
+it("finds prose across bold text and a link, marks the snippet and the paragraph, and keeps the formatting", () => {
+  assert(documentOf(probeMarkdown).byStart).toBeDefined();
+  assert(probeResult.node).toEqual(probeNode);
+  assert(probeResult.field).toBe("prose");
+  scene(
+    { update, view },
+    given(probeModel),
+    mountedWith(probeBoxes),
+    ...typedFindingResults(PROSE_QUERY),
+    // The result names its kind and section, and shows the matched prose with the match marked.
+    expect(optionOf(probeNode)).toContainText("PRD"),
+    expect(optionOf(probeNode)).toContainText("Search probe"),
+    expect(within(optionOf(probeNode), selector("[data-matched-field]"))).toContainText("prose"),
+    expect(within(optionOf(probeNode), selector("mark"))).toHaveText(PROSE_QUERY),
+    // The paragraph marks the same text, split across the bold text, the text between and the link.
+    expectAll(all.selector(`[data-block="${probeBlock}"] mark`)).toHaveCount(3),
+    expect(within(probeParagraph, selector("strong mark"))).toHaveText("bold phrase"),
+    expect(within(probeParagraph, selector("a mark"))).toHaveText("a link"),
+    expect(within(probeParagraph, selector("a"))).toHaveAttr("href", "https://example.com/probe"),
+    expect(within(probeParagraph, selector("a"))).toHaveText("a link"),
+    expect(probeParagraph).toHaveText("Some bold phrase with a link inside a probe paragraph."),
+    // The section is the active result, outlined, and its heading is not marked.
+    expect(elementOf(probeNode)).toHaveAttr("data-search", "active"),
+    expect(within(elementOf(probeNode), selector("mark"))).toBeAbsent(),
+  );
+});
+
+it("selecting a prose result centres its section at once and then its measured paragraph", () => {
+  const zoom = 0.75;
+  scene(
+    { update, view },
+    given(probeModel),
+    mountedWith(probeBoxes),
+    panned({ x: 0, y: 0, zoom }),
+    ...typedFindingResults(PROSE_QUERY),
+    key("Enter"),
+    expect(canvas).toHaveAttr(
+      VIEWPORT_ATTRIBUTE,
+      viewportAttribute(centred(rectOf(probeBoxes, probeNode), zoom, 0)),
+    ),
+    Command.resolve(
+      MeasureSearchBlock,
+      Message.MeasuredSearchBlock({ block: probeBlock, maybeRect: Option.some(probeRect) }),
+    ),
+    expect(canvas).toHaveAttr(VIEWPORT_ATTRIBUTE, viewportAttribute(centred(probeRect, zoom, 0))),
+    expectAll(all.role("button", { pressed: true })).toBeEmpty(),
+    expect(selector("[data-drawer]")).toBeAbsent(),
+  );
+});
+
+it("clearing a prose search removes its marks but not the formatting, the pins or the drawer", () => {
+  scene(
+    { update, view },
+    given(probeModel),
+    mountedWith(probeBoxes),
+    click(buttonOf(pinnedOther)),
+    focusedDrawerHeading,
+    ...typedFindingResults(PROSE_QUERY),
+    key("Enter"),
+    Command.resolve(
+      MeasureSearchBlock,
+      Message.MeasuredSearchBlock({ block: probeBlock, maybeRect: Option.some(probeRect) }),
+    ),
+    expectAll(all.selector("mark")).not.toBeEmpty(),
+    key("Escape"),
+    expectAll(all.selector("mark")).toBeEmpty(),
+    expect(within(probeParagraph, selector("strong"))).toHaveText("bold phrase"),
+    expect(within(probeParagraph, selector("a"))).toHaveAttr("href", "https://example.com/probe"),
+    expect(probeParagraph).toHaveText("Some bold phrase with a link inside a probe paragraph."),
+    expect(elementOf(pinnedOther)).toHaveAttr("data-pins", "blue"),
+    expectAll(all.role("button", { pressed: true })).toHaveCount(1),
+    expect(selector("[data-drawer]")).toExist(),
+  );
+});
+
+it("a heading matched by its title keeps its inline formatting and marks the matched text", () => {
+  const formatted: Node = {
+    id: Schema.decodeSync(SectionId)("spec.sections.cairn-ids"),
+    kind: "section",
+  };
+  const [top] = searchTrace(demoTrace, "cairn ids");
+  assert(top?.field).toBe("title");
+  assert(top?.node).toEqual(formatted);
+  scene(
+    { update, view },
+    given(loaded),
+    mounted,
+    ...typedFindingResults("cairn ids"),
+    expect(within(elementOf(formatted), selector("code"))).toHaveText("cairn ids"),
+    expect(within(elementOf(formatted), selector("code mark"))).toHaveText("cairn ids"),
+    expect(elementOf(formatted)).toHaveAttr("data-search", "active"),
+    // The node button still has its name, so the heading is still a button for the keyboard.
+    expect(within(elementOf(formatted), role("button", { name: "cairn ids" }))).toExist(),
+  );
+});
+
+it("a measured paragraph that is not the active result's, or not found, moves nothing", () => {
+  const selected = run(
+    modifyFields(probeModel, { maybePaneSize: () => Option.some(paneSize) }),
+    Message.MeasuredLayout({ positions: probeBoxes }),
+    Message.EditedSearchQuery({ query: PROSE_QUERY }),
+    Message.PressedSearchEnter(),
+  );
+  const measured = (block: string, maybeRect: Option.Option<typeof probeRect>) =>
+    run(selected, Message.MeasuredSearchBlock({ block, maybeRect })).viewport;
+  assert(measured("prd.other@1", Option.some(probeRect))).toEqual(selected.viewport);
+  assert(measured(probeBlock, Option.none())).toEqual(selected.viewport);
+  assert(measured(probeBlock, Option.some(probeRect))).not.toEqual(selected.viewport);
+  // Only a prose result asks for its paragraph to be measured; a title or a task does not.
+  assert(
+    update(
+      run(probeModel, Message.EditedSearchQuery({ query: "t9" })),
+      Message.PressedSearchEnter(),
+    ).commands,
+  ).toEqual([]);
+  assert(
+    update(
+      run(probeModel, Message.EditedSearchQuery({ query: PROSE_QUERY })),
+      Message.PressedSearchEnter(),
+    ).commands,
+  ).toHaveLength(1);
 });

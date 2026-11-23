@@ -1,7 +1,8 @@
-import { Effect } from "effect";
-import { Command, Dom } from "foldkit";
+import { Effect, Schema } from "effect";
+import { Command, Dom, Render } from "foldkit";
 
 import { DRAWER_HEADING_ID } from "./drawer.ts";
+import { measureBlock } from "./layout.ts";
 import { Message } from "./message.ts";
 import { SEARCH_INPUT_ID, searchOptionIdOf } from "./search.ts";
 import { Node, nodeKeyOf } from "./trace.ts";
@@ -37,6 +38,19 @@ export const ScrollSearchResult = Command.define("ScrollSearchResult", {
     Dom.scrollIntoViewAfterPaint(`[id="${searchOptionIdOf(node)}"]`, { block: "nearest" }).pipe(
       Effect.ignore,
       Effect.as(Message.CompletedScrollSearchResult()),
+    ),
+});
+
+/**
+ * Measures the paragraph or table cell a selected prose result matched, once the page has painted
+ * the marks, so the canvas can bring that block, not just its section, into view.
+ */
+export const MeasureSearchBlock = Command.define("MeasureSearchBlock", {
+  args: { block: Schema.String },
+  messages: [Message.MeasuredSearchBlock],
+  execute: ({ block }) =>
+    Render.afterPaint.pipe(
+      Effect.map(() => Message.MeasuredSearchBlock({ block, maybeRect: measureBlock(block) })),
     ),
 });
 

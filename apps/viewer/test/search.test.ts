@@ -1,8 +1,9 @@
 import { expect, it } from "@effect/vitest";
-import { TaskId } from "@cairn/contract";
-import { Array, Option, Schema, String, pipe } from "effect";
+import { SectionId, TaskId, type Trace, type TraceSection } from "@cairn/contract";
+import { Array, Number, Option, Record, Schema, String, pipe } from "effect";
 
 import { demoTrace } from "../src/demo.ts";
+import { documentOf, type ProseBlock } from "../src/markdown.ts";
 import {
   buildIndex,
   firstActive,
@@ -11,6 +12,7 @@ import {
   search,
   searchTrace,
   segmentsOf,
+  snippetOf,
   stepActive,
   type SearchContent,
   type SearchResult,
@@ -281,4 +283,357 @@ it("an active node that still matches is kept, and otherwise the first result is
   expect(reconcileActive(results, Option.none())).toEqual(firstActive(results));
   expect(reconcileActive([], Option.some(second))).toEqual(Option.none());
   expect(stepActive([], Option.none(), 1)).toEqual(Option.none());
+});
+
+// PROSE
+
+const sectionOf = (id: string, title: string): TraceSection => ({
+  human: false,
+  id: Schema.decodeSync(SectionId)(id),
+  keys: { context: [], defers: [], dependsOn: [], files: [], implements: [] },
+  level: 2,
+  line: 1,
+  parent: null,
+  title,
+});
+
+/** A trace whose PRD is this markdown, with a section for each id, and no spec or tasks. */
+const proseTrace = (markdown: string, ids: ReadonlyArray<string>): Trace => ({
+  ...demoTrace,
+  prd: {
+    markdown,
+    path: "prd.md",
+    sections: Array.map(ids, (id) => sectionOf(id, id)),
+  },
+  spec: { markdown: "", path: "spec.md", sections: [] },
+  tasks: [],
+});
+
+const lines = (...parts: ReadonlyArray<string>): string => Array.join(parts, "\n");
+
+const proseResults = (trace: Trace, query: string) =>
+  Array.filter(searchTrace(trace, query), (result) => result.field === "prose");
+
+const matched = (result: SearchResult): string =>
+  Array.join(
+    Array.map(result.ranges, (range) => pipe(result.text, String.slice(range.start, range.end))),
+    "",
+  );
+
+const nested = proseTrace(
+  lines(
+    "# Title {#prd.title}",
+    "",
+    "Before any section.",
+    "",
+    "## Parent {#prd.parent}",
+    "",
+    "parent words only",
+    "",
+    "### Child {#prd.child}",
+    "",
+    "child words here",
+    "",
+    "more child words",
+    "",
+    "## Plain heading",
+    "",
+    "orphan words nobody owns",
+  ),
+  ["prd.title", "prd.parent", "prd.child"],
+);
+
+it("prose belongs to the nearest heading, nested sections own their text and unowned text is not searched", () => {
+  const document = documentOf(nested.prd.markdown);
+  expect(
+    Record.map(document.proseOf, (blocks) => Array.map(blocks, (block) => block.text)),
+  ).toEqual({
+    "prd.child": ["child words here", "more child words"],
+    "prd.parent": ["parent words only"],
+    "prd.title": ["Before any section."],
+  });
+  expect(Array.map(proseResults(nested, "words"), (result) => result.node.id)).toEqual([
+    "prd.child",
+    "prd.parent",
+  ]);
+  expect(proseResults(nested, "orphan")).toEqual([]);
+});
+
+it("a match runs across emphasis, a link and inline code, and the text is what a reader sees", () => {
+  const trace = proseTrace(
+    "## S {#prd.s}\n\nUse `inline code` with **bold** and [a link](https://dest.example/hiddenpath) and \\*escaped\\* 😀 end.",
+    ["prd.s"],
+  );
+  const [block] = Option.getOrThrow(Record.get(documentOf(trace.prd.markdown).proseOf, "prd.s"));
+  expect(block?.text).toBe("Use inline code with bold and a link and *escaped* 😀 end.");
+  const [result] = proseResults(trace, "code with bold and a link");
+  expect(result?.text).toBe(block?.text);
+  expect(result === undefined ? "" : matched(result)).toBe("code with bold and a link");
+  expect(result?.matchClass).toBe("contiguous");
+  const [escaped] = proseResults(trace, "*escaped* 😀 end");
+  expect(escaped === undefined ? "" : matched(escaped)).toBe("*escaped* 😀 end");
+  // The link's destination is not text.
+  expect(proseResults(trace, "hiddenpath")).toEqual([]);
+});
+
+it("each table cell is its own block, so a query does not cross cells", () => {
+  const trace = proseTrace(
+    lines("## T {#prd.t}", "", "| left | right |", "| --- | --- |", "| alpha | beta **gamma** |"),
+    ["prd.t"],
+  );
+  expect(
+    Array.map(
+      Option.getOrThrow(Record.get(documentOf(trace.prd.markdown).proseOf, "prd.t")),
+      (block) => block.text,
+    ),
+  ).toEqual(["left", "right", "alpha", "beta gamma"]);
+  expect(proseResults(trace, "beta gamma")).toHaveLength(1);
+  expect(proseResults(trace, "alpha beta")).toEqual([]);
+  expect(proseResults(trace, "right alpha")).toEqual([]);
+});
+
+it("comments, code fences, diagrams, key lists and heading ids are not prose", () => {
+  const trace = proseTrace(
+    lines(
+      "## Section {#prd.hidden-id}",
+      "",
+      "- Implements: `prd.keyed`",
+      "",
+      "<!-- commentword -->",
+      "",
+      "```ts",
+      "const fencedword = 1;",
+      "```",
+      "",
+      "```mermaid",
+      "graph TD; diagramword --> other",
+      "```",
+      "",
+      "<div>htmlword</div>",
+      "",
+      "Visible paragraph.",
+    ),
+    ["prd.hidden-id"],
+  );
+  const texts = Array.map(
+    Option.getOrThrow(Record.get(documentOf(trace.prd.markdown).proseOf, "prd.hidden-id")),
+    (block) => block.text,
+  );
+  expect(texts).toEqual(["Visible paragraph."]);
+  Array.forEach(["commentword", "fencedword", "diagramword", "htmlword", "keyed"], (word) => {
+    expect(proseResults(trace, word)).toEqual([]);
+  });
+  // The heading's id attribute is not part of its title; the id field still finds the section.
+  expect(documentOf(trace.prd.markdown).headings["prd.hidden-id"]?.text).toBe("Section");
+  expect(Array.map(searchTrace(trace, "hidden-id"), (result) => result.field)).toEqual(["id"]);
+});
+
+it("a line break reads as a space, so a phrase matches across it", () => {
+  const trace = proseTrace("## S {#prd.s}\n\nalpha\nbeta  gamma", ["prd.s"]);
+  const [result] = proseResults(trace, "alpha beta");
+  expect(result?.matchClass).toBe("prefix");
+  expect(result === undefined ? "" : matched(result)).toBe("alpha\nbeta");
+});
+
+it("a section's title is its heading as shown, so a formatted heading matches and marks cleanly", () => {
+  const [result] = searchTrace(demoTrace, "cairn ids");
+  expect(result?.field).toBe("title");
+  expect(result?.text).toBe("cairn ids");
+  expect(result?.matchClass).toBe("exact");
+  expect(result?.maybeBlock).toEqual(Option.some("heading:spec.sections.cairn-ids"));
+  expect(
+    Option.map(
+      Array.findFirst(
+        demoTrace.spec.sections,
+        (section) => section.id === "spec.sections.cairn-ids",
+      ),
+      (section) => section.title,
+    ),
+  ).toEqual(Option.some("`cairn ids`"));
+});
+
+it("a node's result is its best block: a title beats prose, and the best of several paragraphs wins", () => {
+  const trace = proseTrace(
+    lines(
+      "## Overview {#prd.s}",
+      "",
+      "the planning of things",
+      "",
+      "planning",
+      "",
+      "planning in a very long paragraph with many many other words around it",
+    ),
+    ["prd.s"],
+  );
+  const results = searchTrace(trace, "planning");
+  expect(results).toHaveLength(1);
+  expect(results[0]?.field).toBe("prose");
+  expect(results[0]?.text).toBe("planning");
+  expect(results[0]?.matchClass).toBe("exact");
+  const titled = searchTrace(
+    proseTrace(lines("## Planning {#prd.s}", "", "planning"), ["prd.s"]),
+    "planning",
+  );
+  // The heading's title is the same class as the paragraph and ranks above it.
+  expect(Array.map(titled, (result) => result.field)).toEqual(["title"]);
+});
+
+it("query edits and refreshes reuse the parsed documents", () => {
+  const prd = documentOf(demoTrace.prd.markdown);
+  const spec = documentOf(demoTrace.spec.markdown);
+  searchTrace(demoTrace, "redact");
+  searchTrace(demoTrace, "redacts");
+  searchTrace({ ...demoTrace, sections: [] }, "redact");
+  expect(documentOf(demoTrace.prd.markdown)).toBe(prd);
+  expect(documentOf(demoTrace.spec.markdown)).toBe(spec);
+  expect(prd.tree).not.toBe(spec.tree);
+});
+
+/** The offsets of each heading in a document's source, and where the document ends. */
+const sectionSpansOf = (
+  markdown: string,
+): Record.ReadonlyRecord<string, readonly [number, number]> => {
+  const document = documentOf(markdown);
+  const starts = Array.getSomes(
+    Array.map(document.tree.children, (child) =>
+      child.type === "heading" ? Option.fromNullishOr(child.position?.start.offset) : Option.none(),
+    ),
+  );
+  return Record.map(document.headings, (heading) => [
+    heading.source.start,
+    Option.getOrElse(
+      Array.findFirst(starts, (start) => start > heading.source.start),
+      () => String.length(markdown),
+    ),
+  ]);
+};
+
+const proseWords = Array.dedupe(
+  Array.filter(
+    Array.flatMap(
+      Array.flatten(Record.values(documentOf(demoTrace.spec.markdown).proseOf)),
+      (block) => String.split(block.text, /[^\p{L}\p{N}]+/u),
+    ),
+    (word) => String.length(word) >= 3,
+  ),
+);
+
+const spans = Record.union(
+  sectionSpansOf(demoTrace.prd.markdown),
+  sectionSpansOf(demoTrace.spec.markdown),
+  (own) => own,
+);
+const demoBlocks = Array.flatMap([demoTrace.prd.markdown, demoTrace.spec.markdown], (markdown) =>
+  Array.flatten(Record.values(documentOf(markdown).proseOf)),
+);
+
+const Pick = Schema.Struct({
+  drop: Schema.Int.check(Schema.isBetween({ maximum: 5, minimum: 0 })),
+  word: Schema.Int.check(Schema.isBetween({ maximum: Array.length(proseWords) - 1, minimum: 0 })),
+});
+
+it.prop(
+  "every range of a prose result maps back to text in the section that owns it",
+  { picks: Schema.Array(Pick).check(Schema.isMinLength(1), Schema.isMaxLength(2)) },
+  ({ picks }) => {
+    const query = Array.join(
+      Array.map(picks, ({ drop, word }) => {
+        const text = Option.getOrElse(Array.get(proseWords, word), () => "");
+        // Dropping a character makes a typo, so the matched word differs from the query.
+        return drop < String.length(text) && drop % 2 === 1
+          ? pipe(text, String.slice(0, drop)) + pipe(text, String.slice(drop + 1))
+          : text;
+      }),
+      " ",
+    );
+    Array.forEach(proseResults(demoTrace, query), (result) => {
+      const block = Option.getOrThrow(
+        Array.findFirst(demoBlocks, (candidate) =>
+          Option.exists(result.maybeBlock, (key) => key === candidate.key),
+        ),
+      ) satisfies ProseBlock;
+      const [from, to] = Option.getOrThrow(Record.get(spans, result.node.id));
+      expect(block.owner).toBe(result.node.id);
+      expect(result.text).toBe(block.text);
+      assertValid([result]);
+      Array.forEach(result.ranges, (range) => {
+        const pieces = Array.filter(
+          block.leaves,
+          (leaf) => leaf.end > range.start && leaf.start < range.end,
+        );
+        // A range is inside the block's text, and the text it covers comes from leaves of the section.
+        expect(pieces.length).toBeGreaterThan(0);
+        Array.forEach(pieces, (leaf) => {
+          const at = leaf.sourceStart + Number.max(range.start - leaf.start, 0);
+          expect(at).toBeGreaterThanOrEqual(from);
+          expect(at).toBeLessThan(to);
+        });
+      });
+      expect(
+        Array.join(
+          Array.map(segmentsOf(result.text, result.ranges), (segment) => segment.text),
+          "",
+        ),
+      ).toBe(block.text);
+    });
+  },
+  // Each sample searches both documents of the demo trace.
+  { arbitrary: { runs: 12 } },
+);
+
+const Filler = Schema.Literals(["a", "😀", "é ", "ab😀 ", "İ"]);
+
+it.prop(
+  "a snippet is bounded, whole characters around the match, and its ranges are the match",
+  {
+    filler: Filler,
+    lead: Schema.Int.check(Schema.isBetween({ maximum: 150, minimum: 0 })),
+    trail: Schema.Int.check(Schema.isBetween({ maximum: 150, minimum: 0 })),
+  },
+  ({ filler, lead, trail }) => {
+    const before = Array.join(
+      Array.makeBy(lead, () => filler),
+      "",
+    );
+    const after = Array.join(
+      Array.makeBy(trail, () => filler),
+      "",
+    );
+    const text = before + "needle" + after;
+    const start = String.length(before);
+    const snippet = snippetOf(text, [{ end: start + 6, start }]);
+    expect(wellFormed(snippet.text)).toBe(true);
+    expect(String.length(snippet.text)).toBeLessThanOrEqual(122);
+    expect(snippet.ranges).toHaveLength(1);
+    expect(
+      Array.join(
+        Array.map(snippet.ranges, (range) =>
+          pipe(snippet.text, String.slice(range.start, range.end)),
+        ),
+        "",
+      ),
+    ).toBe("needle");
+    const body = pipe(snippet.text, String.replaceAll("…", ""));
+    expect(String.includes(body)(text)).toBe(true);
+    if (String.length(text) <= 120) {
+      expect(snippet).toEqual({ ranges: [{ end: start + 6, start }], text });
+    }
+  },
+);
+
+it("a snippet of a long paragraph in the demo trace shows the match in its context", () => {
+  const [result] = proseResults(demoTrace, "extract paragraphs list items table cells");
+  expect(result?.field).toBe("prose");
+  expect(String.length(result?.text ?? "")).toBeGreaterThan(120);
+  expect(String.length(result?.snippet.text ?? "")).toBeLessThanOrEqual(122);
+  // Each word is matched where it is, so the ranges are the words and not the punctuation between.
+  expect(result === undefined ? "" : matched(result)).toBe("Extractparagraphslistitemstablecells");
+  expect(
+    Array.join(
+      Array.map(result?.snippet.ranges ?? [], (range) =>
+        pipe(result?.snippet.text ?? "", String.slice(range.start, range.end)),
+      ),
+      "",
+    ),
+  ).toBe("Extractparagraphslistitemstablecells");
 });

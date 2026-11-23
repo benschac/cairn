@@ -107,7 +107,10 @@ const resultView = (
         [h.DataAttribute("matched-field", result.field), h.Style({ opacity: "0.7" })],
         result.field === "title"
           ? ["title"]
-          : Array.prepend(markedTextView(result.text, result.ranges, h), `${result.field}: `),
+          : Array.prepend(
+              markedTextView(result.snippet.text, result.snippet.ranges, h),
+              `${result.field}: `,
+            ),
       ),
     ],
   );

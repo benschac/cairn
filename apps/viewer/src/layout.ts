@@ -1,8 +1,8 @@
-import { Array, Effect, Option, Predicate, Queue, Schema, Stream } from "effect";
+import { Array, Effect, Option, Predicate, Queue, Record, Schema, Stream } from "effect";
 import { Mount } from "foldkit";
 
 import { OFFSETS_ATTRIBUTE } from "./drag.ts";
-import { Positions, measure, rectOf } from "./geometry.ts";
+import { Positions, measure, rectOf, type Rect } from "./geometry.ts";
 import { Message } from "./message.ts";
 
 /**
@@ -33,6 +33,26 @@ export const measureLayer = (layer: Element): Positions => {
   );
   return measure(rectOf(layer.getBoundingClientRect()), scaleOf(layer), elements);
 };
+
+/**
+ * The box of a searchable block of prose, in canvas coordinates, or none while the block is not on
+ * the page or the layer has no usable scale. It is measured on demand, when a result is selected,
+ * not with every section and task.
+ */
+export const measureBlock = (key: string): Option.Option<Rect> =>
+  Option.flatMap(
+    Option.all({
+      block: Option.fromNullOr(document.querySelector(`[data-block="${key}"]`)),
+      layer: Option.fromNullOr(document.querySelector("[data-canvas-layer]")),
+    }),
+    ({ block, layer }) =>
+      Record.get(
+        measure(rectOf(layer.getBoundingClientRect()), scaleOf(layer), [
+          { key, rect: rectOf(block.getBoundingClientRect()) },
+        ]),
+        key,
+      ),
+  );
 
 /** One tick on the next animation frame, after the render that mounted the layer has reached the DOM. */
 const nextFrame = Stream.callback<void>((queue) =>

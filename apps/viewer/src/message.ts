@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 
 import { ArrowKey, ClientPoint, Movable, PointerId } from "./drag.ts";
-import { Positions, Size, Viewport } from "./geometry.ts";
+import { Positions, Rect, Size, Viewport } from "./geometry.ts";
 import { Node } from "./trace.ts";
 
 export const Message = defineMessageUnion({
@@ -40,6 +40,8 @@ export const Message = defineMessageUnion({
   HoveredNode: { node: Node },
   LeftNode: {},
   MeasuredLayout: { positions: Positions },
+  /** The box of a prose block a selected result matched, in canvas coordinates, once it was on the page. */
+  MeasuredSearchBlock: { block: Schema.String, maybeRect: Schema.Option(Rect) },
   /** A pointer moved anywhere on the page while a drag was in progress, with the buttons it held. */
   MovedDragPointer: { buttons: Schema.Int, pointer: ClientPoint, pointerId: PointerId },
   /** The canvas mount measured the pane. */

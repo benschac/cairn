@@ -4,9 +4,16 @@ import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 
 import { TOOLBAR_MARGIN, TOOLBAR_WIDTH, boundsOf, centreViewport, fitViewport } from "./canvas.ts";
-import { FocusDrawerHeading, FocusNode, FocusSearch, ScrollSearchResult } from "./command.ts";
+import {
+  FocusDrawerHeading,
+  FocusNode,
+  FocusSearch,
+  MeasureSearchBlock,
+  ScrollSearchResult,
+} from "./command.ts";
 import { DRAWER_WIDTH } from "./drawer.ts";
 import { DragState, canvasDeltaOf, moveBy, nudgeOf } from "./drag.ts";
+import type { Rect } from "./geometry.ts";
 import { isPinned, pin, togglePin } from "./highlight.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
@@ -112,6 +119,43 @@ const resultSelected = (model: Model, node: Node): Model =>
       )
     : model;
 
+/** The prose block the active result matched, when its best match is one. */
+const activeBlockOf = (search: Search): Option.Option<string> =>
+  Option.flatMap(search.maybeActive, (active) =>
+    Option.flatMap(
+      Option.filter(resultOf(search.results, active), (result) => result.field === "prose"),
+      (result) => result.maybeBlock,
+    ),
+  );
+
+/**
+ * Selecting a prose result measures the block it matched once the page has painted, to bring
+ * that block into view; the owning section is centred at once and stays the answer until then.
+ */
+const measureActiveBlock = (model: Model) =>
+  Array.fromOption(
+    Option.map(activeBlockOf(model.search), (block) => MeasureSearchBlock({ block })),
+  );
+
+/** The viewport once the active result's block is measured: centred on it, if it is still active. */
+const blockMeasured = (model: Model, block: string, maybeRect: Option.Option<Rect>): Model =>
+  Option.match(
+    Option.all({
+      pane: model.maybePaneSize,
+      rect: Option.filter(maybeRect, () =>
+        Option.exists(activeBlockOf(model.search), (active) => active === block),
+      ),
+    }),
+    {
+      onNone: () => model,
+      onSome: ({ pane, rect }) =>
+        modifyFields(model, {
+          maybeCentring: () => Option.none(),
+          viewport: (viewport) => centreViewport(viewport, rect, pane, coveredBy(model)),
+        }),
+    },
+  );
+
 /** Scrolls the list to the active result, when there is one. */
 const scrollToActive = (search: Search) =>
   Array.fromOption(Option.map(search.maybeActive, (node) => ScrollSearchResult({ node })));
@@ -195,10 +239,13 @@ export const update = (model: Model, message: Message) =>
           },
     ClickedMoveHandle: () => ({ model }),
     // A click takes focus from the input, so focus goes back to it for the keys to keep working.
-    ClickedSearchResult: ({ node }) => ({
-      commands: [FocusSearch()],
-      model: resultSelected(model, node),
-    }),
+    ClickedSearchResult: ({ node }) => {
+      const selected = resultSelected(model, node);
+      return {
+        commands: Array.prepend(measureActiveBlock(selected), FocusSearch()),
+        model: selected,
+      };
+    },
     ClickedResetLayout: () => ({ model: modifyFields(model, { offsets: () => ({}) }) }),
     ClickedShowAllCurves: () => ({
       model: modifyFields(model, { isShowingAllCurves: Boolean.not }),
@@ -231,6 +278,9 @@ export const update = (model: Model, message: Message) =>
       model: modifyFields(model, { maybeHovered: () => Option.some(node) }),
     }),
     LeftNode: () => ({ model: modifyFields(model, { maybeHovered: () => Option.none() }) }),
+    MeasuredSearchBlock: ({ block, maybeRect }) => ({
+      model: blockMeasured(model, block, maybeRect),
+    }),
     MeasuredLayout: ({ positions }) => ({
       model: centringFinished(modifyFields(model, { positions: () => positions })),
     }),
@@ -283,12 +333,13 @@ export const update = (model: Model, message: Message) =>
     }),
     PressedSearchArrowDown: () => stepped(model, 1),
     PressedSearchArrowUp: () => stepped(model, -1),
-    PressedSearchEnter: () => ({
-      model: Option.match(model.search.maybeActive, {
+    PressedSearchEnter: () => {
+      const selected = Option.match(model.search.maybeActive, {
         onNone: () => model,
         onSome: (node) => resultSelected(model, node),
-      }),
-    }),
+      });
+      return { commands: measureActiveBlock(selected), model: selected };
+    },
     // Clearing the search leaves the pins, the drawer and the viewport as they are.
     PressedSearchEscape: () => ({
       model: modifyFields(model, {
