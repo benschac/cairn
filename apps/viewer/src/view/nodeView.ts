@@ -5,14 +5,17 @@ import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 import {
   HOVER_FILL,
   PIN_PALETTE,
+  SEARCH_FILL,
   chainsHolding,
   isPinned,
   pinColorsOf,
   type LitChain,
+  type NodeSearch,
   type Pin,
 } from "../highlight.ts";
 import { Message } from "../message.ts";
 import type { Rendered } from "../markdown.ts";
+import { segmentsOf, type FieldKind, type Range } from "../search.ts";
 import {
   judgmentMarkOf,
   nodeKeyOf,
@@ -104,16 +107,73 @@ export const nodeButtonView = (
 /** A node's CSS properties, by name. */
 export type NodeStyle = Record.ReadonlyRecord<string, string>;
 
+/** What the viewer marks a matched stretch of text with: a fill and an underline, so it is not colour alone. */
+const MARK_STYLE = {
+  background: "#fcd34d",
+  "border-radius": "2px",
+  color: "inherit",
+  "text-decoration": "underline",
+};
+
+/** A field's text with each matched range in a `mark` element. */
+export const markedView = (
+  text: string,
+  ranges: ReadonlyArray<Range>,
+  h: HtmlBuilder<Message>,
+): Rendered =>
+  Array.map(segmentsOf(text, ranges), (segment) =>
+    segment.isMatch
+      ? h.mark([h.DataAttribute("search-match", ""), h.Style(MARK_STYLE)], [segment.text])
+      : segment.text,
+  );
+
+/** The text of one of a node's searched fields: marked where the query matched that field, plain otherwise. */
+export const fieldView = (
+  search: NodeSearch,
+  field: FieldKind,
+  text: string,
+  h: HtmlBuilder<Message>,
+): Rendered =>
+  Option.match(
+    Option.filter(search.maybeMatch, (match) => match.field === field),
+    {
+      onNone: () => [text],
+      onSome: (match) => markedView(match.text, match.ranges, h),
+    },
+  );
+
+/** A rendered title, or its plain text with the matches marked when the query matched the title. */
+export const titleView = (search: NodeSearch, title: Rendered, h: HtmlBuilder<Message>): Rendered =>
+  Option.match(
+    Option.filter(search.maybeMatch, (match) => match.field === "title"),
+    {
+      onNone: () => title,
+      onSome: (match) => markedView(match.text, match.ranges, h),
+    },
+  );
+
+/** The outline of a node the query matched, and a stronger one for the active result. */
+const searchStyleOf = (search: NodeSearch): NodeStyle =>
+  search.isActive
+    ? { outline: "3px solid #b45309", "outline-offset": "2px" }
+    : Option.isSome(search.maybeMatch)
+      ? { outline: "2px dashed #b45309", "outline-offset": "2px" }
+      : {};
+
+/** The fill of the top chain holding a node: a pin's colour, or a preview's. */
+const fillOf = (top: LitChain): string =>
+  Option.match(top.maybeColor, {
+    onNone: () => (top.source === "search" ? SEARCH_FILL : HOVER_FILL),
+    onSome: (color) => PIN_PALETTE[color].fill,
+  });
+
 /**
  * The fill of the top chain holding a node, and one stripe down its left edge per pin holding it,
  * so a node in several pinned flows shows each of their colours.
  */
 const litStyleOf = (holding: Array.NonEmptyReadonlyArray<LitChain>): NodeStyle => {
   const top = Array.lastNonEmpty(holding);
-  const fill = Option.match(top.maybeColor, {
-    onNone: () => HOVER_FILL,
-    onSome: (color) => PIN_PALETTE[color].fill,
-  });
+  const fill = fillOf(top);
   return Array.match(pinColorsOf(holding), {
     onEmpty: () => ({ background: fill }),
     onNonEmpty: (colors) => ({
@@ -143,6 +203,7 @@ const litStyleOf = (holding: Array.NonEmptyReadonlyArray<LitChain>): NodeStyle =
 export const nodeAttributes = (
   lit: ReadonlyArray<LitChain>,
   node: Node,
+  search: NodeSearch,
   h: HtmlBuilder<Message>,
   style: NodeStyle = {},
 ): ReadonlyArray<Attribute<Message>> => {
@@ -159,8 +220,19 @@ export const nodeAttributes = (
       h.OnClick(Message.ClickedNode({ node })),
       h.OnMouseEnter(Message.HoveredNode({ node })),
       h.OnMouseLeave(Message.LeftNode()),
-      h.Style(Record.union(style, litStyle, (_own, highlight) => highlight)),
+      h.Style(
+        Record.union(
+          Record.union(style, litStyle, (_own, highlight) => highlight),
+          searchStyleOf(search),
+          (_own, outline) => outline,
+        ),
+      ),
     ],
+    search.isActive
+      ? [h.DataAttribute("searched", "active")]
+      : Option.isSome(search.maybeMatch)
+        ? [h.DataAttribute("searched", "match")]
+        : [],
     isLit
       ? [h.DataAttribute(Array.isReadonlyArrayNonEmpty(holding) ? "highlighted" : "dimmed", "true")]
       : [],

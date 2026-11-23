@@ -43,22 +43,21 @@ export type SearchContent = typeof SearchContent.Type;
 const sameContent = Schema.toEquivalence(SearchContent);
 
 /** A half-open range of UTF-16 code units in a field's text. */
-export interface Range {
-  readonly end: number;
-  readonly start: number;
-}
+export const Range = Schema.Struct({ end: Schema.Int, start: Schema.Int });
+export type Range = typeof Range.Type;
 
 /** One node's best match: the field it matched, how, and where in that field's text. */
-export interface SearchResult {
-  readonly field: FieldKind;
-  readonly matchClass: MatchClass;
-  readonly node: Node;
+export const SearchResult = Schema.Struct({
+  field: FieldKind,
+  matchClass: MatchClass,
+  node: Node,
   /** Sorted, non-overlapping, on code point boundaries of `text`. */
-  readonly ranges: ReadonlyArray<Range>;
+  ranges: Schema.Array(Range),
   /** Higher is better, comparable within one match class and field kind. */
-  readonly score: number;
-  readonly text: string;
-}
+  score: Schema.Finite,
+  text: Schema.String,
+});
+export type SearchResult = typeof SearchResult.Type;
 
 /** A lower-cased code point and the source range it came from. */
 interface Char {
@@ -434,3 +433,119 @@ export const search = (index: SearchIndex, query: string): ReadonlyArray<SearchR
 /** The results for a query over a trace, building the index only if the content changed. */
 export const searchTrace = (trace: Trace, query: string): ReadonlyArray<SearchResult> =>
   search(indexOf(trace), query);
+
+/** A stretch of a field's text: matched by the query, or not. */
+export interface Segment {
+  readonly isMatch: boolean;
+  readonly text: string;
+}
+
+/** The text cut at the ranges, in order, with the matched stretches marked and no empty stretch. */
+export const segmentsOf = (text: string, ranges: ReadonlyArray<Range>): ReadonlyArray<Segment> => {
+  const [end, cut] = Array.mapAccum(ranges, 0, (from, range) => [
+    range.end,
+    [
+      { isMatch: false, text: String.slice(from, range.start)(text) },
+      { isMatch: true, text: String.slice(range.start, range.end)(text) },
+    ],
+  ]);
+  return Array.filter(
+    Array.append(Array.flatten(cut), { isMatch: false, text: String.slice(end)(text) }),
+    (segment) => String.isNonEmpty(segment.text),
+  );
+};
+
+// SEARCH STATE
+
+/**
+ * This window's search: the query, what it finds, the result whose chain is previewed, and the
+ * result still to be brought into view once layout has measured it.
+ */
+export const SearchState = Schema.Struct({
+  maybeActive: Schema.Option(Node),
+  maybeToCenter: Schema.Option(Node),
+  query: Schema.String,
+  results: Schema.Array(SearchResult),
+});
+export type SearchState = typeof SearchState.Type;
+
+export const NO_SEARCH: SearchState = {
+  maybeActive: Option.none(),
+  maybeToCenter: Option.none(),
+  query: "",
+  results: [],
+};
+
+const sameResults = Schema.toEquivalence(Schema.Array(SearchResult));
+const sameNode = Schema.toEquivalence(Node);
+
+const isFound = (results: ReadonlyArray<SearchResult>, node: Node): boolean =>
+  Array.some(results, (result) => sameNode(result.node, node));
+
+/** The result for a node, if the query matched it directly. */
+export const resultOf = (
+  results: ReadonlyArray<SearchResult>,
+  node: Node,
+): Option.Option<SearchResult> => Array.findFirst(results, (result) => sameNode(result.node, node));
+
+/**
+ * The state for a query over the trace, which is none until one has loaded. The results keep their
+ * reference when the query finds the same, so a view built from them is reused. The active result
+ * is `maybeKept` if it is still found, and otherwise the first result.
+ */
+const derive = (
+  state: SearchState,
+  maybeTrace: Option.Option<Trace>,
+  query: string,
+  maybeKept: Option.Option<Node>,
+): SearchState => {
+  const found = Option.match(maybeTrace, {
+    onNone: () => [],
+    onSome: (trace) => searchTrace(trace, query),
+  });
+  const results = sameResults(state.results, found) ? state.results : found;
+  return {
+    maybeActive: Option.orElse(
+      Option.filter(maybeKept, (node) => isFound(results, node)),
+      () => Option.map(Array.head(results), (first) => first.node),
+    ),
+    maybeToCenter: Option.filter(state.maybeToCenter, (node) => isFound(results, node)),
+    query,
+    results,
+  };
+};
+
+/** A new query starts again at its first result, and brings nothing into view. */
+export const queried = (
+  state: SearchState,
+  maybeTrace: Option.Option<Trace>,
+  query: string,
+): SearchState => ({
+  ...derive(state, maybeTrace, query, Option.none()),
+  maybeToCenter: Option.none(),
+});
+
+/** The same query over a refreshed trace: the active result stays while it is still found. */
+export const refreshed = (state: SearchState, maybeTrace: Option.Option<Trace>): SearchState =>
+  derive(state, maybeTrace, state.query, state.maybeActive);
+
+/** One result up or down the list, stopping at its ends. */
+export const moved = (state: SearchState, step: -1 | 1): SearchState => ({
+  ...state,
+  maybeActive: Option.orElse(
+    Option.flatMap(
+      Option.flatMap(state.maybeActive, (active) =>
+        Array.findFirstIndex(state.results, (result) => sameNode(result.node, active)),
+      ),
+      (index) => Option.map(Array.get(state.results, index + step), (result) => result.node),
+    ),
+    // Past either end there is no result to move to, so the active one stays.
+    () => state.maybeActive,
+  ),
+});
+
+/** A found node becomes the active result and is to be brought into view; any other is ignored. */
+export const chosen = (state: SearchState, node: Node): SearchState =>
+  isFound(state.results, node)
+    ? { ...state, maybeActive: Option.some(node), maybeToCenter: Option.some(node) }
+    : state;

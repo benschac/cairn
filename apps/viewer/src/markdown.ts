@@ -14,7 +14,18 @@ import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
 import { SectionId } from "@cairn/contract";
-import { Array, Hash, Match, Option, Predicate, Schema, String, Struct, pipe } from "effect";
+import {
+  Array,
+  Hash,
+  Match,
+  MutableRef,
+  Option,
+  Predicate,
+  Schema,
+  String,
+  Struct,
+  pipe,
+} from "effect";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
 import { codeBlockView } from "./code.ts";
@@ -295,6 +306,38 @@ const renderBlocks = <Message>(
     });
   });
 
+interface Parsed {
+  readonly markdown: string;
+  readonly tree: Root;
+}
+
+/** How many documents are kept parsed: the PRD and the spec, with room for an edit of each. */
+const PARSED_LIMIT = 4;
+
+const parsed = MutableRef.make<ReadonlyArray<Parsed>>([]);
+
+/**
+ * The tree of a document, parsed once while its text is the same. A render for a new hover, pin or
+ * search result reuses it, so only a change to the document itself parses again.
+ */
+export const treeOf = (markdown: string): Root =>
+  Option.match(
+    Array.findFirst(MutableRef.get(parsed), (entry) => entry.markdown === markdown),
+    {
+      onNone: () => {
+        const tree: Root = fromMarkdown(markdown, {
+          extensions: [gfm()],
+          mdastExtensions: [gfmFromMarkdown()],
+        });
+        MutableRef.update(parsed, (entries) =>
+          Array.takeRight(Array.append(entries, { markdown, tree }), PARSED_LIMIT),
+        );
+        return tree;
+      },
+      onSome: (entry) => entry.tree,
+    },
+  );
+
 export const renderMarkdown = <Message>(
   markdown: string,
   h: HtmlBuilder<Message>,
@@ -306,10 +349,7 @@ export const renderMarkdown = <Message>(
     wrapTitle = (_sectionId, title) => title,
   }: SectionHooks<Message> = {},
 ): Html => {
-  const tree: Root = fromMarkdown(markdown, {
-    extensions: [gfm()],
-    mdastExtensions: [gfmFromMarkdown()],
-  });
+  const tree = treeOf(markdown);
   return h.div(
     [h.Class("markdown")],
     renderBlocks(

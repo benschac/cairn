@@ -136,6 +136,17 @@ export const sectionTitleOf = (trace: Trace, id: SectionId): string =>
     { onNone: () => id, onSome: (found) => found.title },
   );
 
+/** A node's title: a section's, or a task's; the id when the trace has no such node. */
+export const nodeTitleOf = (trace: Trace, node: Node): string =>
+  Node.match(node, {
+    section: ({ id }) => sectionTitleOf(trace, id),
+    task: ({ id }) =>
+      Option.match(
+        Array.findFirst(trace.tasks, (task) => task.id === id),
+        { onNone: () => id, onSome: (task) => task.title },
+      ),
+  });
+
 /** The rollup status of a section, or none when the trace has none for it. */
 export const sectionStatusOf = (trace: Trace, id: SectionId): Option.Option<SectionStatus> =>
   Option.map(

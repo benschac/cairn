@@ -5,6 +5,7 @@ import { ORIGIN_VIEWPORT } from "./canvas.ts";
 import { DragState } from "./drag.ts";
 import type { Message } from "./message.ts";
 import { Drawer, PresenceConnection, TraceData, type Model } from "./model.ts";
+import { NO_SEARCH } from "./search.ts";
 import { LoadTrace } from "./update.ts";
 
 export const init: Runtime.ApplicationInit<Model, Message> = () => ({
@@ -22,6 +23,7 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
     pins: [],
     positions: {},
     presenceConnection: PresenceConnection.Connecting(),
+    search: NO_SEARCH,
     trace: TraceData.Loading(),
     viewport: ORIGIN_VIEWPORT,
   },
