@@ -251,6 +251,54 @@ TraceWarning = {
 
 The viewer is built against this schema and the demo trace, so it does not wait for the CLI or the server. The demo trace has to decode through `Trace`; a test checks it.
 
+### Session {#spec.contract.session}
+
+- Implements: `prd.code-view`
+- Files: `packages/contract/src/session.ts`
+- Depends on: `spec.contract.trailers`
+
+`Session` is what `GET /api/sessions/:id` sends and the session pane draws. `cairn.db` keeps the redacted log as the agent wrote it; `Session` is how Cairn reads it (see `spec.sessions.reading`), so a better reader later needs no migration.
+
+```ts
+Session = {
+  version: 1
+  id: SessionId
+  taskId: TaskId
+  format: "claude-code" | "unknown"
+  turns: Array<Turn> // log order
+  skipped: number // lines of a read type that did not decode
+  redactions: Record<string, number> // count per kind
+  notes: Array<SessionNote>
+}
+
+Turn = PromptTurn | ReplyTurn | ToolTurn
+
+PromptTurn = { kind: "prompt"; id: string; at: DateTime.Utc; text: string } // id: the log line's uuid
+ReplyTurn = { kind: "reply"; id: string; at: DateTime.Utc; text: string }
+
+ToolTurn = {
+  kind: "tool"
+  id: string // the tool call's id, which its result repeats
+  at: DateTime.Utc
+  name: string // "Edit", "Write", "Bash", ...
+  target: string | null // the file path or command, for the one-line summary
+  input: string // the call's input as JSON text
+  output: string // the result's text; empty when no result arrived
+  failed: boolean
+  edits: Array<FileEdit>
+}
+
+FileEdit = {
+  path: string // relative to the checkout the agent ran in
+  added: Array<string> // lines the edit wrote, without the "+"
+  removed: Array<string> // lines it removed, without the "-"
+}
+
+SessionNote = { kind: "note" | "review" | "annotation"; author: string; body: string; at: DateTime.Utc }
+```
+
+Turn IDs are unique within a session; the schema refuses a duplicate.
+
 ### Config {#spec.contract.config}
 
 - Implements: `prd.human-gates`
@@ -661,6 +709,12 @@ flowchart BT
     direction BT
     t64["t64 · 64-plan-checkpoints<br/>Run the checkpoints inside cairn plan<br/>wt-16"]
   end
+  subgraph s35["Stack 35 · viewer search"]
+    direction BT
+    t69["t69 · 69-fuzzy-matching<br/>Index and rank fuzzy matches for titles, IDs and branches<br/>wt-19"]
+    t70["t70 · 70-search-interaction<br/>Add search navigation and temporary chain highlighting<br/>wt-19"]
+    t71["t71 · 71-prose-search<br/>Search markdown prose with snippets and inline match highlights<br/>wt-19"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -761,8 +815,11 @@ flowchart BT
   t60 --> t65
   t27 --> t66
   t54 --> t67
+  t52 --> t69
+  t69 --> t70
+  t70 --> t71
   class t1,t3,t20,t31,t32,t58,t60,t62 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68 sonnet
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71 sonnet
   class t11,t24,t27,t44,t56,t66 haiku
   class t1,t2,t3 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
@@ -1019,6 +1076,31 @@ Redaction is a mutation-testing target, as is gate detection and derivation.
 
 Redaction lives in Cairn, not in each adapter, so there is one implementation to get right and to test.
 
+### Reading a session {#spec.sessions.reading}
+
+- Implements: `prd.code-view`
+- Files: `packages/core/src/session.ts`
+- Depends on: `spec.contract.session`
+
+`sessionOf(log, stored)` in core is pure. It takes the redacted JSONL and the stored row's ID, task, redaction counts and notes, and returns a `Session`. It reads Claude Code's log, decoding each line through a schema of only the fields it uses. Those schemas live in core, not the contract: the format is Claude Code's, not Cairn's.
+
+| Line                                                      | Read as                                                                           |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `type: "user"` whose content is a string or `text` blocks | A prompt                                                                          |
+| `type: "user"` whose content is `tool_result` blocks      | The output of the tool turn with the same `tool_use_id`; `failed` from `is_error` |
+| `type: "assistant"`                                       | A reply per `text` block and a tool turn per `tool_use` block, in block order     |
+| Any other `type`, such as `attachment` or `api-request`   | Skipped and not counted                                                           |
+
+Edits come from `toolUseResult` on the line that carries a tool result:
+
+- An edit or overwrite has `filePath` and `structuredPatch`, a list of hunks whose `lines` start with `+`, `-` or a space. The `+` lines become `added` and the `-` lines `removed`.
+- A new file (`type: "create"`) has `filePath` and `content`, and every line of `content` is added.
+- `path` is `filePath` relative to the line's `cwd`, the checkout the agent ran in, which for a parallel task is its worktree rather than the repo's own checkout. An edit to a file outside `cwd` is left out.
+
+A line of a read type that does not decode is skipped and counted. A log in which no line has a `type`, a `uuid` and a `message` is `format: "unknown"` with no turns. A tool call with no result keeps an empty `output` and no edits.
+
+Tests: a fixture trimmed from one of this repo's sessions and run through `redact`, checked turn by turn; a property that every `tool_use` ID gives exactly one tool turn, and that each edit's `added` and `removed` are exactly the `+` and `-` lines of its patch.
+
 ## Orchestrator adapter {#spec.orchestrator-adapter}
 
 - Implements: `prd.orchestrator-contract`
@@ -1048,16 +1130,16 @@ One `cairn` binary built with `effect/cli`. Each command finds `.cairn/` in the 
 
 ## Server {#spec.server}
 
-- Implements: `prd.cli`, `prd.viewer`
+- Implements: `prd.cli`, `prd.viewer`, `prd.code-view`
 - Files: `packages/cli/src/serve.ts`, `packages/cli/src/api.ts`
-- Depends on: `spec.status.cairn-status-and-cairn-approve`, `spec.sessions.trace-store`
+- Depends on: `spec.status.cairn-status-and-cairn-approve`, `spec.sessions.trace-store`, `spec.sessions.reading`
 
 `cairn serve` runs the existing server on port 4310 with these routes:
 
 | Route                   | Returns                                                                                                                                                               |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/trace`        | The `Trace`: both documents' markdown and sections, the derived tasks, section statuses, commits, events, judgments and warnings. An `ETag` from a hash of the inputs |
-| `GET /api/sessions/:id` | The redacted session and its notes                                                                                                                                    |
+| `GET /api/sessions/:id` | The `Session`: the stored log read by `sessionOf`, with its redaction counts and notes. `404` for an unknown ID                                                       |
 | `GET /api/commits/:sha` | `git show --patch` output as text, which `parsePatchFiles` reads                                                                                                      |
 | `WS /presence`          | Unchanged                                                                                                                                                             |
 | `GET /*`                | The built viewer. In dev, Vite serves it and proxies `/api`                                                                                                           |
@@ -1076,7 +1158,7 @@ Each judgment in the `Trace` carries `stale: boolean`. The server recomputes `in
 - Files: `apps/viewer/src/model.ts`, `apps/viewer/src/main.ts`, `apps/viewer/src/trace.ts`, `apps/viewer/src/load.ts`, `apps/viewer/src/stacks.ts`
 - Depends on: `spec.contract.trace`, `spec.viewer.markdown-rendering`
 
-The model holds the trace, the hovered node, the pins, the drawer, whether all curves are shown, the drag in progress, each moved item's offset, the measured node positions and the canvas viewport. The drawer is closed, or open on a node with the commit clicked in it. Messages: `SettledLoadTrace`, `HoveredNode`, `LeftNode`, `ClickedNode`, `ClickedClearPins`, `ClickedShowAllCurves`, `ClickedDrawerTask`, `ClickedCommit`, `ReceivedCommit`, `ClickedCloseDrawer`, `MeasuredLayout`, `PannedOrZoomed`, `MeasuredPane`, `ClickedFit`, `PressedMoveHandle`, `MovedDragPointer`, `ReleasedDragPointer`, `PressedArrowOnMoveHandle`, `ClickedMoveHandle`, `SuppressedClickAfterDrag`, `PressedAfterDrag`, `ClickedResetLayout`.
+The model holds the trace, the hovered node, the pins, the drawer, whether all curves are shown, the drag in progress, each moved item's offset, the measured node positions, the canvas viewport, the screen (the canvas or the code view, see `spec.viewer.code-view`) and the patches and sessions loaded so far. The drawer is closed, or open on a node. Messages: `SettledLoadTrace`, `HoveredNode`, `LeftNode`, `ClickedNode`, `ClickedClearPins`, `ClickedShowAllCurves`, `ClickedDrawerTask`, `ClickedCommit`, `ReceivedCommit`, `ClickedCloseDrawer`, `MeasuredLayout`, `PannedOrZoomed`, `MeasuredPane`, `ClickedFit`, `PressedMoveHandle`, `MovedDragPointer`, `ReleasedDragPointer`, `PressedArrowOnMoveHandle`, `ClickedMoveHandle`, `SuppressedClickAfterDrag`, `PressedAfterDrag`, `ClickedResetLayout`, `ClickedOpenCode`, `ClickedBackToCanvas`, `ClickedTreeTask`, `ClickedTreeCommit`, `ClickedTreeFile`, `ReceivedSession`, `ClickedDiffStyle`, `ClickedTurn`, `ClickedHunkMark`.
 
 `chainOf(trace, node)` is pure: the PRD sections, spec sections and tasks linked to a node, in both directions. Hovering previews the chain. Clicking anywhere on a node pins its chain in the next free colour from a fixed palette and opens the node's drawer; clicking it again unpins it and closes its drawer if the drawer is on it. Several pins stay lit at once, each in its colour: a node takes the fill of the top chain holding it and a stripe down its left edge for each pin holding it, and a curve takes the colour of the top pin holding both its ends. The hover preview sits on top of the pins and never hides them. Closing the drawer keeps the pins; "Clear pins" removes them all. Pins are local to one window for now.
 
@@ -1099,6 +1181,69 @@ Loading: under `cairn serve`, a subscription in `load.ts` fetches `/api/trace` e
 Parse with `mdast-util-from-markdown` plus GFM tables and map the nodes to Foldkit's `h` builders. No `innerHTML`, so a PRD cannot inject markup, and Scene tests see the rendered text. Each heading's `{#id}` becomes its element ID and `data-section` attribute. The key list at the top of a spec section renders as small chips. HTML comments are dropped.
 
 A fenced block with a language `@pierre/highlights` has a lexer for renders a span per token, coloured inline, and keeps `language-x` on its `code` element. The highlighter is synchronous, so a block needs no Message. Any other language stays plain text. A `mermaid` fence renders through the caller's `diagramView` hook, which for the canvas is an empty placeholder with a `DrawDiagram` Mount. A Mount runs once, when its element is inserted, so the placeholder is keyed by the diagram's source and the line its fence starts on: a diagram that changes gets a new element and is drawn again. The Mount draws the diagram with `pele` (links and images off, text escaped), which is the one place SVG becomes DOM. A diagram that cannot be drawn shows its source and a one-line reason in its place. A diagram changes the height of its column, so the Mount measures the canvas layer once it has drawn and sends `MeasuredLayout`; the layer's own `ResizeObserver` only fires when the layer itself changes size.
+
+### Fuzzy matching {#spec.viewer.fuzzy-matching}
+
+- Implements: `prd.viewer.fuzzy-search`
+- Files: `apps/viewer/src/search.ts`, `apps/viewer/test/search.test.ts`
+- Depends on: `spec.contract.trace`, `spec.viewer.model-and-messages`
+
+Build a pure search index from the loaded Trace: one entry per PRD section, spec section or task, retaining its existing Node identity. Index section titles and IDs and task titles and branch names; no server endpoint, persisted index or new contract field is needed.
+
+Trim the query and match case-insensitively. Support ordered subsequences for abbreviations and a single insertion, deletion, substitution or adjacent transposition for query tokens of at least four characters; shorter tokens require exact, prefix or subsequence matches. Every whitespace-separated query token must match within one indexed field. Rank exact field matches first, then prefixes, contiguous matches, typo matches and subsequences; within a match class prefer titles, then IDs, then branches, then prose. Break remaining ties by score, source order and stable node key.
+
+Return one result per node with its best matching field, score and sorted, non-overlapping, half-open UTF-16 ranges in the original visible text. Case normalization must preserve a mapping back to source positions and never split a surrogate pair. An empty query returns no search results. The same trace and query always produce the same order.
+
+Cache the index by searchable trace content and rebuild it only when that content changes. Query changes reuse the index; status-only refreshes do not trigger markdown parsing. Keep matching and result derivation pure and use installed Effect core APIs. No search dependency is selected or added by this plan.
+
+Tests:
+
+- Results have unique node identities, deterministic order and valid non-overlapping source ranges; normalized matches never split surrogate pairs.
+- Exact titles outrank fuzzy titles; abbreviations and one-edit typos match; blank and unmatched queries, punctuation and mixed-case Unicode are covered.
+
+### Search controls and chain highlighting {#spec.viewer.search-interaction}
+
+- Implements: `prd.viewer.fuzzy-search`
+- Files: `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/init.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/highlight.ts`, `apps/viewer/src/view/view.ts`, `apps/viewer/src/view/canvasView.ts`, `apps/viewer/src/view/nodeView.ts`, `apps/viewer/src/view/stacksView.ts`, `apps/viewer/src/view/edgesView.ts`, `apps/viewer/src/markdown.ts`, `apps/viewer/src/search.ts`, `apps/viewer/test/search.scene.test.ts`
+- Depends on: `spec.viewer.fuzzy-matching`, `spec.viewer.curves`, `spec.viewer.detail-panel`
+
+Add window-local query and active-result state to the Schema-defined Model, with fact-named messages for query edits, result navigation, result selection and clearing. The pure update function derives results and reconciles the active node after trace refresh: retain it if still matched, otherwise choose the first result or none. Query edits reset to the first result; empty and unmatched queries have no active chain.
+
+Render a labelled toolbar search input, result count and ranked result list showing kind, title and matched field. Use accessible combobox/listbox semantics with an active descendant, ArrowUp/ArrowDown navigation bounded at the list ends, Enter to select, pointer selection, and Escape to clear. Handle these keys only in the search control; they must not trigger canvas shortcuts. Announce the count and no-results state without stealing focus.
+
+Selecting a result pans the canvas to its measured node, accounting for current zoom, moved-card offsets and the toolbar or open drawer. Keep keyboard focus in search; if layout has not measured the node, defer centering until it has. Preview its chain through chainOf without dispatching ClickedNode, changing pins or opening or closing the drawer. Only the active result contributes a search chain; never union separate result chains into a synthetic chain.
+
+Mark direct text matches with semantic mark nodes and a separate node outline; related chain members get chain highlighting but no text marks unless they independently match. Preserve pin stripes; hover remains the top preview, above search and pinned fills. Draw a curve as part of a chain only when both endpoints belong to that same chain. Use text labels or outlines as well as colour to identify the active result.
+
+Clearing search removes its marks, outline, results and temporary chain while preserving pins, drawer, document content and task state. Keep the current viewport after clearing. A no-results query shows a message without dimming the entire canvas. Ordinary node selection and pinning continue to work. Keep the existing markdown lazy boundaries effective when queries change.
+
+Tests:
+
+- Type an abbreviation or typo, navigate with arrows, select with Enter and pointer, and assert matching text, active result and connected-chain highlighting.
+- Search, hover and multiple pins coexist; clearing and Escape preserve pins and the drawer; zero matches leave the canvas usable; refreshed and removed results reconcile correctly.
+- Center a result at non-default zoom after dragging, with an open drawer and delayed layout measurement; unrelated edges stay unlit.
+
+### Prose search and inline highlights {#spec.viewer.prose-search}
+
+- Implements: `prd.viewer.fuzzy-search`
+- Files: `apps/viewer/src/search.ts`, `apps/viewer/src/markdown.ts`, `apps/viewer/src/view/canvasView.ts`, `apps/viewer/test/search.test.ts`, `apps/viewer/test/search.scene.test.ts`, `apps/viewer/test/markdown.test.ts`
+- Depends on: `spec.viewer.search-interaction`, `spec.viewer.markdown-rendering`
+
+Extend the index to visible PRD and spec prose, owned by the nearest preceding section heading until the next heading of any level; nested sections own their text and do not duplicate it in their parent. Extract paragraphs, list items, table cells, link labels and inline code from the markdown AST. Exclude HTML/comments, heading ID attributes, link destinations, code fences and Mermaid content; diffs and session logs remain out of scope.
+
+Keep a visible-text-to-AST-text-node offset map for each searchable prose block. Match within a paragraph, list paragraph or table cell, including across emphasis, links and inline code, but not across block or section boundaries. Reuse the fuzzy ranking and source ranges from fuzzy-matching; prose ranks below titles within a match class. Return one result per node, with its best match and a bounded context snippet from the matching block.
+
+Render match ranges as semantic mark nodes in snippets and in document text leaves, splitting ranges across existing inline elements while preserving formatting, safe links, text selection and heading IDs. Do not rewrite source markdown, inject HTML or wrap DOM after rendering. Highlight the best matching field or prose block per result consistently with its snippet. For typo matches, mark the matched source word; for subsequences, mark matched characters.
+
+Parse each changed document once and share its AST and position mapping between indexing and rendering. Query edits only rematch and render marks. Reconcile results and offsets when source content changes. Selecting a prose result brings the matched block into view, falling back to the owning section until block measurement is available; keep code highlighting and diagram mounts stable.
+
+Tests:
+
+- Highlighting preserves the original visible text and every range maps to text in its owning section.
+- Find prose spanning bold text and a link, inspect the highlighted snippet and inline marks, select the matching block, and clear without losing formatting or pins.
+- Nested sections, inline code, tables, escaped markdown and Unicode retain correct offsets; comments, code fences and diagram labels do not match; query changes reuse the parsed AST.
+
+Build order: `t69` → `t70` → `t71`, branching from the existing detail drawer (`t52`) in `wt-19`. This independent viewer branch can be built without waiting for API polling or commit-diff rendering. The matching layer is first, a usable title/ID/branch search follows, and prose completes the PRD requirement. All three tasks remain pending.
 
 ### Canvas and curves {#spec.viewer.curves}
 
@@ -1138,30 +1283,95 @@ Tests: a property that `toScreen(toCanvas(p, v), v)` returns `p` for any viewpor
 - Files: `apps/viewer/src/drawer.ts`
 - Depends on: `spec.viewer.model-and-messages`
 
-Clicking a PRD or spec section opens the drawer with its tasks, and each task lists its commits. Clicking a commit loads its diff (see `spec.viewer.diff-view`). That is the two-click path from section to commit.
+Clicking a PRD or spec section opens the drawer with its tasks, and each task lists its commits. Clicking a commit opens the code view on it (see `spec.viewer.code-view`). That is the two-click path from section to commit.
 
-Clicking a task shows its commits, sessions (linked to `/api/sessions/:id`), events timeline, gate reasons and judgments. A spec section's drawer lists its judgments too. Each judgment shows its question, verdict, message and the probability or label and confidence behind it.
+Clicking a task shows its commits, its sessions with their redaction counts, events timeline, gate reasons and judgments, and an "Open code" button for the code view. A spec section's drawer lists its judgments too. Each judgment shows its question, verdict, message and the probability or label and confidence behind it.
+
+### Code view {#spec.viewer.code-view}
+
+- Implements: `prd.code-view`
+- Files: `apps/viewer/src/codeView.ts`, `apps/viewer/src/view/codeView.ts`, `apps/viewer/src/view/treeView.ts`
+- Depends on: `spec.viewer.detail-panel`
+
+The model's `screen` is `Canvas`, or `Code` with the selected task, commit and file. Pins, offsets, the drawer and the viewport stay in the model while the code view is open, so "Back to canvas" (`ClickedBackToCanvas`) returns to the canvas as it was: the canvas mounts start again and read the viewport back from the model.
+
+Two ways in, each sending `ClickedOpenCode` with a task and an optional commit:
+
+- "Open code" on a task in the drawer opens its latest commit.
+- A commit in the drawer opens that commit.
+
+A task with no commits opens with a middle pane that says so.
+
+The screen is three panes across the window, under a top bar with "Back to canvas", the task's ID and branch, the commit's subject and short SHA, and the diff style toggle:
+
+- Tree, 280px wide, with its own scroll. Stacks in `stackLayoutOf` column order, each headed by the branch it starts from. Under each stack, its tasks from the bottom of the stack up, each with ID, title, status and gate marker; under each task, its commits, oldest first. The selected commit's files show under it as a directory tree, where a directory with one child joins it (`src/view/`). `ClickedTreeTask` selects a task's latest commit, `ClickedTreeCommit` a commit and `ClickedTreeFile` a file. Every row is a button, so the tree can be walked with Tab, and the selected row has `aria-current`.
+- Diff, the rest of the width: see `spec.viewer.diff-view`.
+- Session, 420px wide, with its own scroll: see `spec.viewer.session-view`.
+
+Loading: selecting a commit fetches `/api/commits/:sha` and sends `ReceivedCommit` with the patch or the error. When the commit has a session not yet loaded, it fetches `/api/sessions/:id` and sends `ReceivedSession` with the `Session`, decoded through its schema, or the error. The model keeps each patch and session it has received, keyed by SHA and session ID, so going back to a commit draws it without a fetch. A failed fetch shows its error in its pane and is tried again the next time the commit is selected.
+
+In the demo build there is no server: the tree works, and the diff and session panes say they need `cairn serve`.
+
+Tests: Scene tests open the code view from a drawer commit and from "Open code", select a task, a commit and a file in the tree and check the selection and the requests, and go back to the canvas and find the pins as they were.
 
 ### Diff view {#spec.viewer.diff-view}
 
-- Implements: `prd.viewer`
+- Implements: `prd.viewer`, `prd.code-view`
 - Files: `apps/viewer/src/diff.ts`, `apps/viewer/package.json`
-- Depends on: `spec.viewer.detail-panel`, `spec.server`
+- Depends on: `spec.viewer.code-view`, `spec.server`
 
 `ReceivedCommit` carries the patch text. `parsePatchFiles` from `@pierre/diffs` turns it into `ParsedPatch`: the commit message as `patchMetadata`, then one `FileDiffMetadata` per file with its hunks. Cairn's code reads that structure; it does not parse hunks itself.
 
-Each file renders through `@pierre/diffs`' vanilla `FileDiff` class inside a Foldkit `Mount`, which hands a real element to a library that owns its own DOM. The mount calls `render({ fileDiff, containerWrapper })`, calls `setOptions` when the model changes, and calls `cleanUp()` on unmount.
+The selected commit renders in the code view's middle pane through `@pierre/diffs`' vanilla `CodeView`, a virtualized list that owns its own DOM, inside one Foldkit `Mount`. Each file is one `diff` item with the ID `diff:<path>`, under a sticky header with its path. The mount creates the list, calls `setup` on its element and `setItems` with the commit's files, and calls `cleanUp()` on unmount. The element is keyed by the commit's SHA, so another commit gets a new list.
+
+Mount arguments are fixed when the element appears, so later model changes reach the list the way the viewport reaches the canvas mount: through attributes on the element, which a `MutationObserver` in the mount watches. A change to `data-diff-style` calls `setOptions`, `data-file` scrolls to that file's item with `scrollTo`, and `data-turn` is the highlighted turn (see `spec.viewer.attribution`).
 
 Options:
 
-- `diffStyle`: `unified` in the drawer, with a toggle for `split`. The toggle is model state.
+- `diffStyle`: `unified`, with a toggle for `split` (`ClickedDiffStyle`). The toggle is model state.
 - `lineDiffType`: `word-alt`, the default, which highlights changed words in a line.
 - `hunkSeparators`: `line-info`, the default. A diff parsed from a patch has only the patch's lines, so expanding context needs `loadDiffFiles` and a route that returns both versions of a file. That waits until someone asks for it.
 - Light and dark follow `themeType: "system"`.
 
-The files touched by a human-gated path are listed first, with the matching pattern as a label. Later, the same position data can carry line annotations, through `setLineAnnotations`, for review notes from `cairn.db`.
+The files touched by a human-gated path are listed first, in the list and in the tree, with the matching pattern as a label. Review notes from `cairn.db` can later use the same line annotations as the turn marks.
 
-Snabbdom hooks do not fire in Scene tests, so a Scene sees the mount element and not the diff inside it. Scene tests check that the right files mount with the right options. A unit test checks the patch-to-files step against real `git show` output.
+Snabbdom hooks do not fire in Scene tests, so a Scene sees the mount element and not the diff inside it. Scene tests check the mount element's key and attributes. A unit test checks the patch-to-files step against real `git show` output.
+
+### Session pane {#spec.viewer.session-view}
+
+- Implements: `prd.code-view`
+- Files: `apps/viewer/src/view/sessionView.ts`
+- Depends on: `spec.contract.session`, `spec.viewer.code-view`, `spec.server`
+
+The right pane draws the selected commit's session, named by its `Cairn-Session` trailer. A commit with no session says so. A session with `format: "unknown"` says Cairn cannot read that agent's log yet. The count of `skipped` lines shows at the bottom when it is not zero.
+
+- At the top: the session ID, its notes and the redaction count per kind.
+- A prompt or a reply renders through the markdown renderer (`spec.viewer.markdown-rendering`), which writes no raw HTML, so a session cannot inject markup. A label and a rule tell prompts from replies, not colour alone.
+- A tool turn is one button line: its name, its `target`, and a mark when it failed or wrote edits. `ClickedTurn` opens it, showing its input and output as preformatted text cut at 200 lines with a button for the rest, and highlights its hunks (see `spec.viewer.attribution`).
+- `[REDACTED:<kind>]` in any text renders as a chip naming the kind.
+- Each turn's element has the ID `turn-<id>`. When the highlighted turn changes from the diff side, a command scrolls that element into view.
+
+Tests: Scene tests over a fixture `Session` check that turns are listed in order, a failed tool call shows its mark, clicking a tool turn opens it, a redaction shows as a chip, and an unknown format and a commit with no session show their messages.
+
+### Hunks and turns {#spec.viewer.attribution}
+
+- Implements: `prd.code-view`
+- Files: `apps/viewer/src/attribution.ts`
+- Depends on: `spec.viewer.diff-view`, `spec.viewer.session-view`
+
+`attributionOf(files, session)` is pure. It takes the commit's `FileDiffMetadata` files and its `Session`, and returns the turns that wrote each hunk and the hunks each turn wrote. A hunk is keyed by its file's path and its index in that file.
+
+Per changed line of a hunk:
+
+- An added line is traced to the last tool turn, in log order, with an edit to the same path whose `added` holds the same text. A removed line is traced the same way through `removed`.
+- Lines are compared exactly, so a line a formatter rewrote is not traced to the edit that first wrote it. Blank lines are not traced and do not count.
+- A hunk's turns are the distinct turns of its lines, in log order. A hunk is traced when every counted line is, partly traced when some are, and untraced when none are.
+
+Taking the last edit gives a line to the turn whose text survived when a session edits it twice. The trace carries no commit times, so when a session writes a line, commits, and writes the same text again, the later turn gets it. That is rare enough to wait.
+
+In the diff, each hunk carries a mark as a line annotation on its first changed line: a button per turn ("Turn 14 · Edit", numbered by the turn's place in the session), with "Partly traced" or "Not traced to a turn" where that applies. The mount draws the marks, so a mark's button sends its Message from the mount. `ClickedHunkMark` highlights that turn: the session pane opens it and scrolls to it, and the diff marks every hunk of that turn as active. `ClickedTurn` on a turn with edits does the same from the other side and scrolls the diff to its first hunk.
+
+Tests: a property over generated files and edit sequences applies the edits to a file, diffs the result against the original with `parseDiffFromFile`, and checks that every added line is traced to the last edit that wrote it, and that lines added outside the session are untraced. An example runs a real commit of this repo against its session and finds every hunk traced. The marks live in the library's DOM, so a story sends `ClickedHunkMark` and a Scene finds the turn open and active in the session pane.
 
 ### Demo data {#spec.viewer.demo-data}
 
@@ -1175,14 +1385,16 @@ The demo, and the site deployed from it, loads a `Trace` built from this repo's 
 
 - Implements: `prd.acceptance-criteria`
 
-| PRD criterion                                     | How it is checked                                                                                |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Three or more stacked tasks on a RinkSide feature | Dogfood run; `cairn status` output kept with the feature                                         |
-| Trailers and resolvable sessions                  | `cairn status` warns on a commit without trailers or with a session missing from `cairn.db`      |
-| A migrations task is gated and blocks children    | Derivation property test: no child leaves `pending` before a human approves its gated parent     |
-| Correct status and two clicks to commits          | Rollup property tests; a Scene test clicks a section and then a commit                           |
-| Lint catches orphaned and unmapped sections       | Lint tests for `unknown-section` and `unmapped-section`                                          |
-| An oversized draft is broken down before printing | `refine` test: a scripted `too_large` answer splits a draft, and the plan output lists the split |
-| A model changes only when Jev is confident        | `routeOf` property test and a `refine` test with a low-confidence `model` answer                 |
-| A changed task's judgment shows stale             | Trace test: edit a task and check `stale`                                                        |
-| Planning without `TYPESAFE_API_KEY` still writes  | `cairn plan` test with no key: manifest written, skip message printed                            |
+| PRD criterion                                        | How it is checked                                                                                         |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Three or more stacked tasks on a RinkSide feature    | Dogfood run; `cairn status` output kept with the feature                                                  |
+| Trailers and resolvable sessions                     | `cairn status` warns on a commit without trailers or with a session missing from `cairn.db`               |
+| A migrations task is gated and blocks children       | Derivation property test: no child leaves `pending` before a human approves its gated parent              |
+| Correct status and two clicks to commits             | Rollup property tests; a Scene test clicks a section and then a commit                                    |
+| Lint catches orphaned and unmapped sections          | Lint tests for `unknown-section` and `unmapped-section`                                                   |
+| An oversized draft is broken down before printing    | `refine` test: a scripted `too_large` answer splits a draft, and the plan output lists the split          |
+| A model changes only when Jev is confident           | `routeOf` property test and a `refine` test with a low-confidence `model` answer                          |
+| A changed task's judgment shows stale                | Trace test: edit a task and check `stale`                                                                 |
+| Planning without `TYPESAFE_API_KEY` still writes     | `cairn plan` test with no key: manifest written, skip message printed                                     |
+| Hunks reach the turn that wrote them                 | `attributionOf` property test; a story sends `ClickedHunkMark` and a Scene finds the turn                 |
+| Fuzzy search finds and highlights text and its chain | Matching properties and Scene tests for navigation, markdown spans, refresh, and preserving pins on clear |

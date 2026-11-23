@@ -1601,6 +1601,87 @@
       "status": "pending",
       "commits": [],
       "sessions": []
+    },
+    {
+      "id": "t69",
+      "title": "Index and rank fuzzy matches for titles, IDs and branches",
+      "prdSections": ["prd.viewer.fuzzy-search"],
+      "specSections": ["spec.viewer.fuzzy-matching"],
+      "files": ["apps/viewer/src/search.ts", "apps/viewer/test/search.test.ts"],
+      "branch": "cairn-mvp/69-fuzzy-matching",
+      "parent": "t52",
+      "dependsOn": ["t52"],
+      "worktree": "wt-19",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t70",
+      "title": "Add search navigation and temporary chain highlighting",
+      "prdSections": ["prd.viewer.fuzzy-search"],
+      "specSections": ["spec.viewer.search-interaction"],
+      "files": [
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/init.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/highlight.ts",
+        "apps/viewer/src/view/view.ts",
+        "apps/viewer/src/view/canvasView.ts",
+        "apps/viewer/src/view/nodeView.ts",
+        "apps/viewer/src/view/stacksView.ts",
+        "apps/viewer/src/view/edgesView.ts",
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/src/search.ts",
+        "apps/viewer/test/search.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/70-search-interaction",
+      "parent": "t69",
+      "dependsOn": ["t69"],
+      "worktree": "wt-19",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t71",
+      "title": "Search markdown prose with snippets and inline match highlights",
+      "prdSections": ["prd.viewer.fuzzy-search"],
+      "specSections": ["spec.viewer.prose-search"],
+      "files": [
+        "apps/viewer/src/search.ts",
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/src/view/canvasView.ts",
+        "apps/viewer/test/search.test.ts",
+        "apps/viewer/test/search.scene.test.ts",
+        "apps/viewer/test/markdown.test.ts"
+      ],
+      "branch": "cairn-mvp/71-prose-search",
+      "parent": "t70",
+      "dependsOn": ["t70"],
+      "worktree": "wt-19",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
     }
   ]
 }
