@@ -1,7 +1,49 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM", "DOM.Iterable"]
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "ignoreEffectWarningsInTscExitCode": false,
+        "allowedUnstableApis": [
+          "@effect/vitest",
+          "effect/http/FetchHttpClient",
+          "effect/http/HttpClient"
+        ],
+        "diagnosticSeverity": {
+          "abortControllerInEffect": "error",
+          "allOfMapToForEach": "error",
+          "cryptoRandomUUID": "error",
+          "cryptoRandomUUIDInEffect": "error",
+          "extendsNativeError": "error",
+          "globalConsole": "error",
+          "globalConsoleInEffect": "error",
+          "globalDate": "error",
+          "globalDateInEffect": "error",
+          "globalErrorInEffectCatch": "error",
+          "globalErrorInEffectFailure": "error",
+          "globalFetch": "error",
+          "globalFetchInEffect": "error",
+          "globalJson": "error",
+          "globalJsonInEffect": "error",
+          "globalRandom": "error",
+          "globalRandomInEffect": "error",
+          "globalTimers": "error",
+          "globalTimersInEffect": "error",
+          "instanceOfSchema": "error",
+          "newPromise": "error",
+          "preferEffectArray": "error",
+          "preferEffectRecord": "error",
+          "preferEffectString": "error",
+          "processEnv": "error",
+          "processEnvInEffect": "error",
+          "strictBooleanExpressions": "error",
+          "tryCatchInEffectGen": "error",
+          "yieldInCallArgument": "error"
+        }
+      }
+    ]
   },
   "include": ["src", "test", "vite.config.ts"]
 }

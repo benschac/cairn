@@ -1,6 +1,6 @@
 import { SectionId, Sha, TaskId, TraceJudgment } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, HashSet, Option, Schema, String, Struct } from "effect";
+import { Array, HashSet, Option, Result, Schema, String, Struct } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import {
   Command,
@@ -16,7 +16,7 @@ import {
 } from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
 
-import { FocusDrawerHeading, FocusNode } from "../src/command.ts";
+import { FetchPatch, FocusDrawerHeading, FocusNode } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
 import { DRAWER_HEADING_ID, drawerView, type DrawerMessages } from "../src/drawer.ts";
 import { init } from "../src/init.ts";
@@ -269,6 +269,11 @@ it("clicking a section opens the drawer, then a commit opens it in the code view
     expect(specDrawer).toHaveAttr("data-drawer-id", spec),
     click(within(drawerTask(task.id), commitButton(commit.sha))),
     ...canvasEnded(),
+    Command.resolve(
+      FetchPatch({ path: `/api/commits/${commit.sha}` }),
+      // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+      Message.ReceivedPatch({ path: `/api/commits/${commit.sha}`, result: Result.succeed("") }),
+    ),
     expect(selector(`[data-tree-commit="${commit.sha}"]`)).toHaveAttr("aria-current", "true"),
   );
 });

@@ -12,6 +12,7 @@
   "dependencies": {
     "@cairn/contract": "workspace:*",
     "@effect/platform-browser": "4.1.5",
+    "@pierre/diffs": "1.6.4",
     "@pierre/highlights": "0.5.2",
     "@xyflow/system": "1.0.0",
     "effect": "catalog:",

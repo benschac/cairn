@@ -1,0 +1,118 @@
+commit 52896578107294f8cb80f5b9fe6620a70290cf21
+Author: benjamin <benschac@gmail.com>
+Date:   Sat Nov 21 21:27:03 2026 -0500
+
+    Add the event schema with an actor
+    
+    Add Event, Actor and EventJson for one line of events.jsonl. Decoding
+    fills v as 1 and actor as orchestrator when they are missing; only a
+    human: actor can later approve a blocked task.
+    
+    Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+    Cairn-Task: t8
+    Cairn-Section: spec.contract.events
+    Cairn-Session: s_c8dwmnm7
+
+diff --git a/packages/contract/src/events.ts b/packages/contract/src/events.ts
+new file mode 100644
+index 0000000..20e6554
+--- /dev/null
++++ b/packages/contract/src/events.ts
+@@ -0,0 +1,34 @@
++import { Effect, Schema } from "effect";
++
++import { TaskId, TaskStatus } from "./index.ts";
++
++/**
++ * Who wrote an event. Only a `human:` actor can move a task out of
++ * `blocked_on_human`.
++ */
++export const Actor = Schema.Union([
++  Schema.Literal("orchestrator"),
++  Schema.TemplateLiteral(["human:", Schema.String]),
++  Schema.TemplateLiteral(["agent:", Schema.String]),
++]);
++export type Actor = typeof Actor.Type;
++
++/**
++ * One line of `events.jsonl`.
++ *
++ * Decoding fills the defaults: a missing `v` is `1` and a missing `actor` is
++ * `"orchestrator"`. Encoding writes them out, so a decoded event re-encodes
++ * with `v` and `actor` present. `ts` decodes to a `DateTime.Utc`.
++ */
++export const Event = Schema.Struct({
++  actor: Actor.pipe(Schema.withDecodingDefaultKey(Effect.succeed("orchestrator" as const))),
++  detail: Schema.optionalKey(Schema.String),
++  // index.ts re-exports this module, so these two are read lazily to survive the import cycle.
++  status: Schema.suspend(() => TaskStatus),
++  taskId: Schema.suspend(() => TaskId),
++  ts: Schema.DateTimeUtcFromString,
++  v: Schema.Literal(1).pipe(Schema.withDecodingDefaultKey(Effect.succeed(1 as const))),
++});
++export type Event = typeof Event.Type;
++
++export const EventJson = Schema.fromJsonString(Event);
+diff --git a/packages/contract/src/index.ts b/packages/contract/src/index.ts
+index 20d1cd0..4c135d9 100644
+--- a/packages/contract/src/index.ts
++++ b/packages/contract/src/index.ts
+@@ -55,3 +55,5 @@ export type Presence = typeof Presence.Type;
+ 
+ export const PresenceJson = Schema.fromJsonString(Presence);
+ export const CursorJson = Schema.fromJsonString(Cursor);
++
++export * from "./events.ts";
+diff --git a/packages/contract/test/events.test.ts b/packages/contract/test/events.test.ts
+new file mode 100644
+index 0000000..e92659b
+--- /dev/null
++++ b/packages/contract/test/events.test.ts
+@@ -0,0 +1,47 @@
++import { expect, it } from "@effect/vitest";
++import { DateTime, Exit, Schema } from "effect";
++
++import { Event, EventJson } from "../src/events.ts";
++import { TaskStatus } from "../src/index.ts";
++
++const encode = Schema.encodeSync(EventJson);
++const decode = Schema.decodeUnknownSync(EventJson);
++const decodeExit = Schema.decodeUnknownExit(EventJson);
++
++const line = (fields: Record<string, unknown>) =>
++  JSON.stringify({ status: "running", taskId: "t1", ts: "2026-01-02T03:04:05.000Z", ...fields });
++
++it.prop("an event survives a round trip through a JSON line", [Event], ([event]) => {
++  expect(decode(encode(event))).toEqual(event);
++});
++
++it("a line without v or actor decodes with v 1 and the orchestrator", () => {
++  const event = decode(line({}));
++  expect(event.v).toBe(1);
++  expect(event.actor).toBe("orchestrator");
++  expect(DateTime.toEpochMillis(event.ts)).toBe(Date.parse("2026-01-02T03:04:05.000Z"));
++});
++
++it.prop("every status decodes", [TaskStatus], ([status]) => {
++  expect(decode(line({ status })).status).toBe(status);
++});
++
++it("human and agent actors are kept", () => {
++  expect(decode(line({ actor: "human:ada" })).actor).toBe("human:ada");
++  expect(decode(line({ actor: "agent:s_abc123" })).actor).toBe("agent:s_abc123");
++});
++
++it("lines that must be refused are refused", () => {
++  for (const bad of [
++    line({ actor: "robot:x" }),
++    line({ actor: "human" }),
++    line({ v: 2 }),
++    line({ ts: "yesterday" }),
++    line({ taskId: "" }),
++    line({ status: "nope" }),
++    line({ detail: 5 }),
++    "not json",
++  ]) {
++    expect(Exit.isFailure(decodeExit(bad))).toBe(true);
++  }
++});
