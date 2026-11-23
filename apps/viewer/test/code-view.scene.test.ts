@@ -8,6 +8,7 @@ import {
   expect,
   expectAll,
   given,
+  Mount,
   role,
   scene,
   selector,
@@ -17,6 +18,7 @@ import { modifyFields } from "foldkit/struct";
 import { vi } from "vitest";
 
 import { FetchPatch } from "../src/command.ts";
+import { RenderDiff } from "../src/diff.ts";
 import { demoTrace } from "../src/demo.ts";
 import { init } from "../src/init.ts";
 import { Message } from "../src/message.ts";
@@ -68,6 +70,13 @@ const wholePath = `/api/diffs/${sha("0")}/${sha("b")}`;
 const drawer = role("complementary");
 const commitPath = (value: string) => `/api/commits/${sha(value)}`;
 
+/** The diff mount of a loaded patch answers once it has parsed the patch and drawn it. */
+const drawn = Mount.resolve(
+  RenderDiff,
+  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+  Message.CompletedRenderDiff(),
+);
+
 /** The fetch of a path is answered with its text, or with a failure. */
 const fetched = (path: string, result: Result.Result<string, string>) =>
   // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
@@ -87,6 +96,7 @@ it("Open code on a task opens its whole diff, and its tree row is the current on
     click(within(drawer, openCodeButton)),
     ...canvasEnded(),
     fetched(wholePath, Result.succeed(rangePatch)),
+    drawn,
     expect(treeTask(stacked.id)).toHaveAttr("aria-current", "true"),
     expect(patch).toHaveAttr("data-patch-path", wholePath),
     expect(selector("[data-shown]")).toContainText("2 commits"),
@@ -107,6 +117,7 @@ it("a drawer commit opens that commit, and the session pane shows its session", 
     click(within(drawer, role("button", { name: `First ${String.takeLeft(sha("a"), 7)}` }))),
     ...canvasEnded(),
     fetched(commitPath("a"), Result.succeed(commitPatch)),
+    drawn,
     expect(treeCommit(sha("a"))).toHaveAttr("aria-current", "true"),
     expectAll(all.selector("[aria-current]")).toHaveCount(1),
     expect(patch).toHaveAttr("data-patch-path", `/api/commits/${sha("a")}`),
@@ -127,6 +138,7 @@ it("the tree selects a task, a commit and a file, one current row at a time", ()
     expect(patch).toHaveAttr("data-patch-path", wholePath),
     click(treeCommit(sha("b"))),
     fetched(commitPath("b"), Result.succeed(commitPatch)),
+    drawn,
     expect(treeCommit(sha("b"))).toHaveAttr("aria-current", "true"),
     expect(patch).toHaveAttr("data-patch-path", `/api/commits/${sha("b")}`),
     expect(treeFile("src/a.ts")).toBeAbsent(),
@@ -134,6 +146,7 @@ it("the tree selects a task, a commit and a file, one current row at a time", ()
     click(treeFile("docs/c.md")),
     expectAll(all.selector("[aria-current]")).toHaveCount(2),
     click(treeTask(stacked.id)),
+    Mount.expectEnded(RenderDiff),
     expect(treeTask(stacked.id)).toHaveAttr("aria-current", "true"),
     expectAll(all.selector("[aria-current]")).toHaveCount(1),
     expect(patch).toHaveAttr("data-patch-path", wholePath),
@@ -236,21 +249,6 @@ it("opening a task asks for its patch route once, and shows it loading", () => {
   scene(app, given(opened.model), expect(patch).toContainText("Loading"));
 });
 
-it("a received patch shows how many files it holds, each with its path and change type", () => {
-  scene(
-    app,
-    given(after(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }))),
-    click(treeCommit(sha("b"))),
-    fetched(commitPath("b"), Result.succeed(commitPatch)),
-    expect(patch).toHaveAttr("data-patch-path", commitPath("b")),
-    expect(selector("[data-file-count]")).toContainText("3 files"),
-    expect(selector('[data-diff-file="packages/contract/src/events.ts"]')).toContainText(
-      "packages/contract/src/events.ts (new)",
-    ),
-    expect(selector('[data-diff-file="packages/contract/src/index.ts"]')).toContainText("(change)"),
-  );
-});
-
 it("a failed fetch shows its error, and selecting the path again fetches it again", () => {
   scene(
     app,
@@ -263,10 +261,13 @@ it("a failed fetch shows its error, and selecting the path again fetches it agai
     expect(patch).toContainText("unknown revision"),
     click(treeCommit(sha("a"))),
     fetched(commitPath("a"), Result.succeed(commitPatch)),
-    expect(selector("[data-file-count]")).toContainText("3 files"),
+    expect(patch).toHaveAttr("data-patch-path", commitPath("a")),
+    drawn,
     click(treeTask(stacked.id)),
+    Mount.expectEnded(RenderDiff),
     fetched(wholePath, Result.succeed(rangePatch)),
-    expect(selector("[data-file-count]")).toContainText("2 files"),
+    expect(patch).toHaveAttr("data-patch-path", wholePath),
+    drawn,
   );
 });
 
@@ -278,14 +279,19 @@ it("a loaded path is not fetched again, and a loading one is not fetched twice",
   scene(
     app,
     given(loadedWhole),
+    drawn,
     click(treeCommit(sha("a"))),
+    Mount.expectEnded(RenderDiff),
     fetched(commitPath("a"), Result.succeed(commitPatch)),
+    drawn,
+    // A scene tells mounts apart by name and position, so a loaded patch swapped for another
+    // loaded patch is the same mount to it; the keyed element is checked in diff-view.scene.test.ts.
     click(treeTask(stacked.id)),
     Command.expectNone(),
-    expect(selector("[data-file-count]")).toContainText("2 files"),
+    expect(patch).toHaveAttr("data-patch-path", wholePath),
     click(treeCommit(sha("a"))),
     Command.expectNone(),
-    expect(selector("[data-file-count]")).toContainText("3 files"),
+    expect(patch).toHaveAttr("data-patch-path", commitPath("a")),
   );
   const loading = appUpdate(
     appUpdate(model, Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() })).model,
@@ -294,7 +300,7 @@ it("a loaded path is not fetched again, and a loading one is not fetched twice",
   assert(loading.commands).toBeUndefined();
 });
 
-it("a patch that did not parse shows that, not a throw", () => {
+it("a loaded patch is handed to the mount whatever it holds, since only the mount parses it", () => {
   scene(
     app,
     given(
@@ -303,7 +309,8 @@ it("a patch that did not parse shows that, not a throw", () => {
         Message.ReceivedPatch({ path: wholePath, result: Result.succeed("") }),
       ),
     ),
-    expect(selector("[data-file-count]")).toContainText("0 files"),
+    expect(patch).toHaveAttr("data-patch-path", wholePath),
+    drawn,
   );
 });
 

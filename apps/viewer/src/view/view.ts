@@ -37,8 +37,9 @@ const drawerViews = (model: Model, trace: Trace, h: HtmlBuilder<Message>): Reado
     Open: ({ node }) => [drawerView(trace, node, h, drawerMessages)],
   });
 
-const codeMessages: CodeMessages<Message> = {
+const codeMessages: CodeMessages = {
   onBack: Message.ClickedBackToCanvas(),
+  onDiffStyle: (style) => Message.ClickedDiffStyle({ style }),
   onClickCommit: (sha) => Message.ClickedTreeCommit({ sha }),
   onClickFile: (path) => Message.ClickedTreeFile({ path }),
   onClickTask: (id) => Message.ClickedTreeTask({ id }),
@@ -168,7 +169,9 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document =>
         [],
         Option.match(AsyncData.getData(model.trace), {
           onNone: () => [loadingView(h)],
-          onSome: (trace) => [codeView(trace, code, model.patches, h, codeMessages)],
+          onSome: (trace) => [
+            codeView(trace, code, model.patches, model.diffStyle, h, codeMessages),
+          ],
         }),
       ),
       title: "Cairn",

@@ -182,6 +182,9 @@ export const update = (model: Model, message: Message) =>
           },
     ClickedMoveHandle: () => ({ model }),
     ClickedResetLayout: () => ({ model: modifyFields(model, { offsets: () => ({}) }) }),
+    ClickedDiffStyle: ({ style }) => ({
+      model: modifyFields(model, { diffStyle: () => style }),
+    }),
     ClickedShowAllCurves: () => ({
       model: modifyFields(model, { isShowingAllCurves: Boolean.not }),
     }),
@@ -195,6 +198,7 @@ export const update = (model: Model, message: Message) =>
     }),
     CompletedFocusDrawerHeading: () => ({ model }),
     CompletedFocusNode: () => ({ model }),
+    CompletedRenderDiff: () => ({ model }),
     FailedPanZoomCanvas: ({ reason }) => ({
       model: modifyFields(model, { maybePanZoomFailure: () => Option.some(reason) }),
     }),

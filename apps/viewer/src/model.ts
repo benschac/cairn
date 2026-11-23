@@ -28,6 +28,10 @@ export const Shown = defineTaggedUnion({
 });
 export type Shown = typeof Shown.Type;
 
+/** How the code view lays a diff out: one column, or the old and new side by side. */
+export const DiffStyle = Schema.Literals(["unified", "split"]);
+export type DiffStyle = typeof DiffStyle.Type;
+
 /** A patch route's text as it loads: on its way, refused or unreachable with why, or here. */
 export const PatchData = defineTaggedUnion({
   Failed: { message: Schema.String },
@@ -63,6 +67,8 @@ export const PresenceConnection = defineTaggedUnion({
 export type PresenceConnection = typeof PresenceConnection.Type;
 
 export const Model = Schema.Struct({
+  /** The diff style the code view draws diffs in. */
+  diffStyle: DiffStyle,
   /** The document or task card being dragged by its handle, if any. */
   drag: DragState,
   drawer: Drawer,
