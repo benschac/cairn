@@ -1,12 +1,21 @@
 import { ParticipantId, SectionId, Sha, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Effect, Option, Result, Schema } from "effect";
+import { Array, Effect, Option, Record, Result, Schema } from "effect";
 import { Command, given, message, model, story } from "foldkit/story";
 import { modifyFields } from "foldkit/struct";
 
 import { boundsOf, fitViewport } from "../src/canvas.ts";
 import { FocusDrawerHeading, FocusNode } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
+import {
+  ClientPoint,
+  DragState,
+  Movable,
+  NUDGE_STEP,
+  PointerId,
+  offsetOf,
+  type ArrowKey,
+} from "../src/drag.ts";
 import { Size } from "../src/geometry.ts";
 import { init } from "../src/init.ts";
 import { loadDemoTrace } from "../src/load.ts";
@@ -323,6 +332,270 @@ it("fit frames the measured nodes in the pane", () => {
         fitViewport(Option.getOrThrow(boundsOf({ "t-1": rect })), pane.width, pane.height),
       ),
     ),
+  );
+});
+
+// DRAG
+
+const t9 = Movable.Task({ id: TaskId.make("t9") });
+const prd = Movable.Document({ document: "prd" });
+const pointerId = 1;
+const pressed = (movable: Movable, pointer = { x: 100, y: 100 }) =>
+  message(Message.PressedMoveHandle({ movable, pointer, pointerId }));
+const movedTo = (x: number, y: number, id = pointerId) =>
+  message(Message.MovedDragPointer({ buttons: 1, pointer: { x, y }, pointerId: id }));
+const atZoom = (zoom: number) => modifyFields(ordinary, { viewport: () => ({ x: 0, y: 0, zoom }) });
+
+it("nothing is dragged or moved at first", () => {
+  assert(ordinary.drag).toEqual(DragState.Idle());
+  assert(ordinary.offsets).toEqual({});
+});
+
+it("pressing a grip starts dragging its item with that pointer and moves nothing yet", () => {
+  story(
+    update,
+    given(ordinary),
+    pressed(t9),
+    Command.expectNone(),
+    model((next) => {
+      assert(next.drag).toEqual(
+        DragState.Dragging({ movable: t9, pointer: { x: 100, y: 100 }, pointerId }),
+      );
+      assert(next.offsets).toEqual({});
+    }),
+  );
+});
+
+it.each([
+  { expected: { x: 80, y: -40 }, zoom: 0.5 },
+  { expected: { x: 40, y: -20 }, zoom: 1 },
+  { expected: { x: 20, y: -10 }, zoom: 2 },
+])(
+  "a move at zoom $zoom moves the item by the pointer's move over the zoom",
+  ({ expected, zoom }) => {
+    story(
+      update,
+      given(atZoom(zoom)),
+      pressed(t9),
+      movedTo(140, 80),
+      Command.expectNone(),
+      model((next) => assert(offsetOf(next.offsets, t9)).toEqual(Option.some(expected))),
+    );
+  },
+);
+
+it("moves add up, each at the zoom of its moment", () => {
+  story(
+    update,
+    given(ordinary),
+    pressed(prd),
+    movedTo(110, 100),
+    message(Message.PannedOrZoomed({ viewport: { x: 0, y: 0, zoom: 2 } })),
+    movedTo(130, 120),
+    model((next) => {
+      assert(offsetOf(next.offsets, prd)).toEqual(Option.some({ x: 20, y: 10 }));
+      assert(offsetOf(next.offsets, t9)).toEqual(Option.none());
+    }),
+  );
+});
+
+it("a second drag starts from where the first one left the item", () => {
+  story(
+    update,
+    given(ordinary),
+    pressed(t9),
+    movedTo(130, 100),
+    message(Message.ReleasedDragPointer({ pointerId })),
+    pressed(t9, { x: 0, y: 0 }),
+    movedTo(0, 25),
+    model((next) => assert(offsetOf(next.offsets, t9)).toEqual(Option.some({ x: 30, y: 25 }))),
+  );
+});
+
+it("releasing ends the drag, and a later move changes nothing", () => {
+  story(
+    update,
+    given(ordinary),
+    pressed(t9),
+    movedTo(120, 100),
+    message(Message.ReleasedDragPointer({ pointerId })),
+    model((next) => {
+      assert(next.drag).toEqual(DragState.Released({ pointerId }));
+      assert(offsetOf(next.offsets, t9)).toEqual(Option.some({ x: 20, y: 0 }));
+    }),
+    movedTo(500, 500),
+    model((next) => assert(offsetOf(next.offsets, t9)).toEqual(Option.some({ x: 20, y: 0 }))),
+  );
+});
+
+it.prop(
+  "a move or a release with no drag in progress is ignored",
+  { pointer: ClientPoint, pointerId: PointerId },
+  ({ pointer, pointerId: anyPointer }) => {
+    story(
+      update,
+      given(ordinary),
+      message(Message.MovedDragPointer({ buttons: 1, pointer, pointerId: anyPointer })),
+      model((next) => assert(next).toBe(ordinary)),
+      message(Message.ReleasedDragPointer({ pointerId: anyPointer })),
+      model((next) => assert(next).toBe(ordinary)),
+    );
+  },
+);
+
+it("a move or a release by another pointer is ignored", () => {
+  story(
+    update,
+    given(ordinary),
+    pressed(t9),
+    movedTo(300, 300, pointerId + 1),
+    message(Message.ReleasedDragPointer({ pointerId: pointerId + 1 })),
+    model((next) => {
+      assert(next.offsets).toEqual({});
+      assert(DragState.guards.Dragging(next.drag)).toBe(true);
+    }),
+  );
+});
+
+const released = modifyFields(ordinary, { drag: () => DragState.Released({ pointerId }) });
+const dragging = modifyFields(ordinary, {
+  drag: () => DragState.Dragging({ movable: t9, pointer: { x: 0, y: 0 }, pointerId }),
+});
+
+it.each([
+  { ended: Message.SuppressedClickAfterDrag(), name: "the click the release makes" },
+  { ended: Message.PressedAfterDrag({ isPrimaryPointer: true }), name: "the next press" },
+  {
+    ended: Message.PressedAfterDrag({ isPrimaryPointer: false }),
+    name: "the next key or second finger",
+  },
+])("$name ends a drag that was just released", ({ ended }) => {
+  story(
+    update,
+    given(released),
+    message(ended),
+    Command.expectNone(),
+    model((next) => assert(next.drag).toEqual(DragState.Idle())),
+  );
+});
+
+it.each([
+  { ended: Message.SuppressedClickAfterDrag(), name: "a suppressed click" },
+  { ended: Message.PressedAfterDrag({ isPrimaryPointer: false }), name: "a second finger's press" },
+])("$name is ignored with no drag just released, and during a drag", ({ ended }) => {
+  story(
+    update,
+    given(ordinary),
+    message(ended),
+    model((next) => assert(next).toBe(ordinary)),
+  );
+  story(
+    update,
+    given(dragging),
+    message(ended),
+    model((next) => assert(next).toBe(dragging)),
+  );
+});
+
+it("a move with no button held ends a drag whose release was missed; the item stops following", () => {
+  story(
+    update,
+    given(ordinary),
+    pressed(t9),
+    movedTo(120, 100),
+    // A quick click: the release came before the page listener started, so it was never heard.
+    message(Message.MovedDragPointer({ buttons: 0, pointer: { x: 300, y: 300 }, pointerId })),
+    model((next) => {
+      assert(next.drag).toEqual(DragState.Idle());
+      assert(offsetOf(next.offsets, t9)).toEqual(Option.some({ x: 20, y: 0 }));
+    }),
+    movedTo(500, 500),
+    model((next) => assert(offsetOf(next.offsets, t9)).toEqual(Option.some({ x: 20, y: 0 }))),
+  );
+});
+
+it("a new primary press ends a drag whose release was missed", () => {
+  story(
+    update,
+    given(dragging),
+    message(Message.PressedAfterDrag({ isPrimaryPointer: true })),
+    model((next) => assert(next.drag).toEqual(DragState.Idle())),
+    // The same press then lands on a grip and starts the next drag.
+    pressed(prd),
+    model((next) => assert(DragState.guards.Dragging(next.drag)).toBe(true)),
+  );
+});
+
+it("a press on another grip during a drag is ignored, so a second finger cannot take it over", () => {
+  story(
+    update,
+    given(ordinary),
+    pressed(t9),
+    message(
+      Message.PressedMoveHandle({
+        movable: prd,
+        pointer: { x: 0, y: 0 },
+        pointerId: pointerId + 1,
+      }),
+    ),
+    model((next) =>
+      assert(next.drag).toEqual(
+        DragState.Dragging({ movable: t9, pointer: { x: 100, y: 100 }, pointerId }),
+      ),
+    ),
+    movedTo(110, 100),
+    movedTo(300, 300, pointerId + 1),
+    model((next) => {
+      assert(offsetOf(next.offsets, t9)).toEqual(Option.some({ x: 10, y: 0 }));
+      assert(offsetOf(next.offsets, prd)).toEqual(Option.none());
+    }),
+  );
+});
+
+it("a move after the release moves nothing, and a click on a grip changes nothing", () => {
+  story(
+    update,
+    given(released),
+    movedTo(400, 400),
+    model((next) => assert(next).toBe(released)),
+    message(Message.ClickedMoveHandle()),
+    Command.expectNone(),
+    model((next) => assert(next).toBe(released)),
+  );
+});
+
+const arrow = (key: ArrowKey) => message(Message.PressedArrowOnMoveHandle({ key, movable: t9 }));
+
+it("each arrow key nudges the item one step, at any zoom, and the four cancel out", () => {
+  story(
+    update,
+    given(atZoom(0.5)),
+    arrow("ArrowRight"),
+    model((next) =>
+      assert(offsetOf(next.offsets, t9)).toEqual(Option.some({ x: NUDGE_STEP, y: 0 })),
+    ),
+    arrow("ArrowDown"),
+    model((next) =>
+      assert(offsetOf(next.offsets, t9)).toEqual(Option.some({ x: NUDGE_STEP, y: NUDGE_STEP })),
+    ),
+    arrow("ArrowLeft"),
+    arrow("ArrowUp"),
+    model((next) => assert(offsetOf(next.offsets, t9)).toEqual(Option.some({ x: 0, y: 0 }))),
+  );
+});
+
+it("reset layout clears every offset", () => {
+  story(
+    update,
+    given(ordinary),
+    pressed(t9),
+    movedTo(120, 100),
+    message(Message.ReleasedDragPointer({ pointerId })),
+    message(Message.PressedArrowOnMoveHandle({ key: "ArrowUp", movable: prd })),
+    model((next) => assert(Record.size(next.offsets)).toBe(2)),
+    message(Message.ClickedResetLayout()),
+    Command.expectNone(),
+    model((next) => assert(next.offsets).toEqual({})),
   );
 });
 

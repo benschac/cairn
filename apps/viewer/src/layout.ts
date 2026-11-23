@@ -1,6 +1,7 @@
 import { Array, Effect, Option, Predicate, Queue, Schema, Stream } from "effect";
 import { Mount } from "foldkit";
 
+import { OFFSETS_ATTRIBUTE } from "./drag.ts";
 import { Positions, measure, rectOf } from "./geometry.ts";
 import { Message } from "./message.ts";
 
@@ -56,6 +57,22 @@ const layerResized = (layer: Element): Stream.Stream<void> =>
       )
     : Stream.empty;
 
+/**
+ * A tick whenever a document or task card moves. The view writes every offset to the layer's
+ * offsets attribute, and a moved element changes no size, so neither resize observer sees a move.
+ */
+const itemsMoved = (layer: Element): Stream.Stream<void> =>
+  Stream.callback<void>((queue) =>
+    Effect.acquireRelease(
+      Effect.sync(() => {
+        const observer = new MutationObserver(() => Queue.offerUnsafe(queue, undefined));
+        observer.observe(layer, { attributeFilter: [OFFSETS_ATTRIBUTE], attributes: true });
+        return observer;
+      }),
+      (observer) => Effect.sync(() => observer.disconnect()),
+    ),
+  );
+
 /** A tick on every window resize. Lazy, so the module loads where there is no `window`. */
 const windowResized = Stream.suspend(() => Stream.fromEventListener(window, "resize"));
 
@@ -63,12 +80,13 @@ const samePositions = Schema.toEquivalence(Positions);
 
 /**
  * The positions of every node in the layer it is mounted on: on the first frame after the layer
- * appears, on every window resize and whenever the layer resizes, each time they changed. The
+ * appears, on every window resize, whenever the layer resizes and whenever an item is moved, each
+ * time they changed. A moved item's measured box includes its offset, so the curves follow it. The
  * layer is in the DOM when a Mount runs, so unlike a Subscription it has nothing to wait for.
  */
 export const MeasureLayout = Mount.defineStream("MeasureLayout", {
   execute: ({ element }) =>
-    Stream.mergeAll([nextFrame, layerResized(element), windowResized], {
+    Stream.mergeAll([nextFrame, layerResized(element), itemsMoved(element), windowResized], {
       concurrency: "unbounded",
     }).pipe(
       Stream.map(() => measureLayer(element)),

@@ -3,6 +3,7 @@ import { Option, Schema } from "effect";
 import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
 
+import { DragState, Offsets } from "./drag.ts";
 import { Positions, Size, Viewport } from "./geometry.ts";
 import { Pin } from "./highlight.ts";
 import { Node } from "./trace.ts";
@@ -37,6 +38,8 @@ export const PresenceConnection = defineTaggedUnion({
 export type PresenceConnection = typeof PresenceConnection.Type;
 
 export const Model = Schema.Struct({
+  /** The document or task card being dragged by its handle, if any. */
+  drag: DragState,
   drawer: Drawer,
   /** Every curve is drawn, not only the active chain's. Off at first, so the canvas starts clear. */
   isShowingAllCurves: Schema.Boolean,
@@ -52,6 +55,8 @@ export const Model = Schema.Struct({
   positions: Positions,
   presenceConnection: PresenceConnection,
   trace: TraceData.schema,
+  /** How far each moved document and task card sits from where the layout put it. Not kept across reloads. */
+  offsets: Offsets,
   /** Where the canvas layer sits in its pane. */
   viewport: Viewport,
 });

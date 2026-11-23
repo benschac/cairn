@@ -4699,7 +4699,10 @@
       "files": [
         "apps/viewer/src/layout.ts",
         "apps/viewer/src/curves.ts",
-        "apps/viewer/src/canvas.ts"
+        "apps/viewer/src/canvas.ts",
+        "apps/viewer/src/drag.ts",
+        "apps/viewer/src/subscription/drag.ts",
+        "apps/viewer/src/view/moveHandleView.ts"
       ],
       "dependsOn": ["spec.viewer.model-and-messages"],
       "defers": [],
@@ -4720,7 +4723,7 @@
         {
           "id": "spec.viewer.curves#r3",
           "level": "must",
-          "text": "A subscription measures every `[data-section]` and `[data-task]` element on load and resize and sends `MeasuredLayout`."
+          "text": "A subscription measures every `[data-section]` and `[data-task]` element on load, on resize and after every move, and sends `MeasuredLayout`."
         },
         {
           "id": "spec.viewer.curves#r4",
@@ -4740,7 +4743,7 @@
         {
           "id": "spec.viewer.curves#r7",
           "level": "must",
-          "text": "The view draws edges in one SVG layer and dims those outside the highlighted chain."
+          "text": "The view draws edges in one SVG layer: only the edges of lit chains (the pinned ones and the hovered one) by default, and every edge, dimming those outside the lit chains, while \"Show all curves\" is on."
         },
         {
           "id": "spec.viewer.curves#r8",
@@ -4760,12 +4763,12 @@
         {
           "id": "spec.viewer.curves#r11",
           "level": "must-not",
-          "text": "Support dragging nodes, drawing connections and automatic layout in v1."
+          "text": "Support drawing connections, automatic layout or keeping a layout across reloads in v1."
         },
         {
           "id": "spec.viewer.curves#r12",
-          "level": "should",
-          "text": "When dragging comes, start as a small pointer handler that sends `DraggedNode`."
+          "level": "must",
+          "text": "The PRD and the spec move as whole documents by the bar across their top, and each task card by its grip; a drag tracks the pointer at any zoom, one drag runs at a time, a drag never counts as a click on a node, and \"Reset layout\" clears every offset."
         },
         {
           "id": "spec.viewer.curves#r13",

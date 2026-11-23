@@ -64,6 +64,10 @@ const clearPinsButton = (pins: ReadonlyArray<Pin>, h: HtmlBuilder<Message>): Htm
     ],
   );
 
+/** Puts every moved document and task card back where the layout put it. */
+const resetLayoutButton = (h: HtmlBuilder<Message>): Html =>
+  h.button([h.Type("button"), h.OnClick(Message.ClickedResetLayout())], ["Reset layout"]);
+
 /** Pressed while every curve is drawn; released, only the hovered or selected chain's are. */
 const showAllCurvesButton = (isShowingAllCurves: boolean, h: HtmlBuilder<Message>): Html =>
   h.button(
@@ -93,7 +97,7 @@ const traceParts = (
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): TraceParts => {
-  // The Fit button, the canvas and the drawer, shown whenever there is a trace to pan over.
+  // The toolbar's buttons, the canvas and the drawer, shown whenever there is a trace to pan over.
   const loaded = (trace: Trace): TraceParts => ({
     screen: Array.prepend(
       drawerViews(model, trace, h),
@@ -104,12 +108,15 @@ const traceParts = (
         model.maybeHovered,
         model.pins,
         model.isShowingAllCurves,
+        model.offsets,
+        model.drag,
         others,
         h,
       ),
     ),
     toolbar: [
       fitButton(h),
+      resetLayoutButton(h),
       showAllCurvesButton(model.isShowingAllCurves, h),
       clearPinsButton(model.pins, h),
     ],

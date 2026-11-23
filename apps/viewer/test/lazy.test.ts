@@ -55,3 +55,16 @@ it("changing the hovered node rebuilds the columns", () => {
     "ArgumentsChanged",
   );
 });
+
+/** The model a frame into a drag of the PRD and a task card. */
+const moved = (x: number) =>
+  modifyFields(loaded, {
+    offsets: () => ({ "document:prd": { x, y: 0 }, "task:t9": { x, y: x } }),
+  });
+
+it("a drag frame reuses both documents and rebuilds only the stacks", () => {
+  // One miss is the stacks, which take the offsets; the two document bodies are reused.
+  expect(() =>
+    Lazy.expectAllReused({ model: loaded, view: sequence([moved(0), moved(1)]) }),
+  ).toThrow("1 lazy cache miss on the second render");
+});
