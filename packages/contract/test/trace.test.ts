@@ -12,11 +12,18 @@ const encodeTrace = Schema.encodeSync(Trace);
 const refused = (schema: Schema.Decoder<unknown>, input: unknown) =>
   Exit.isFailure(Schema.decodeUnknownExit(schema)(input));
 
-it.prop("a trace survives a round trip through JSON", [Trace], ([trace]) => {
-  // Compare the JSON text: JSON has no -0, so a generated -0 would fail toEqual for no real reason.
-  const json = encode(trace);
-  expect(encode(decode(json))).toBe(json);
-});
+it.prop(
+  "a trace survives a round trip through JSON",
+  [Trace],
+  ([trace]) => {
+    // Compare the JSON text: JSON has no -0, so a generated -0 would fail toEqual for no real reason.
+    const json = encode(trace);
+    expect(encode(decode(json))).toBe(json);
+  },
+  // A generated trace can be large. The runs take about 300 ms on a laptop but went past the
+  // default 5 s on CI runners busy with the other checks, which failed unrelated pull requests.
+  { timeout: 30_000 },
+);
 
 it("a minimal trace decodes", () => {
   const minimal = {
