@@ -190,6 +190,19 @@ The stacks column is the plan's stack diagram, live. Anyone who knows the diagra
 
 Done when the viewer, opened on this repo, shows the same stacks with the same tasks as the spec's diagram, and a test fails when the two disagree.
 
+### Fuzzy search {#prd.viewer.fuzzy-search}
+
+Search the current feature locally across PRD and spec section titles and IDs, task titles and branch names, then extend it to PRD and spec prose. Search is private to the current viewer window and does not change the documents, task status, pins or other participants' views.
+
+- A toolbar search box shows ranked results with their kind, title and matched field or prose snippet. Matching ignores case, supports abbreviated queries and small typos, and ranks exact matches above fuzzy matches and titles above prose.
+- Highlight the matching characters or words in results and on the canvas. Distinguish a direct text match from a section or task highlighted only because it belongs to the selected result's chain.
+- Arrow keys move through results; Enter selects a result, brings it into view and previews its PRD → spec → task chain. Pointer selection does the same. Existing node clicks still pin chains and open details.
+- Clearing the query or pressing Escape removes search highlights and results while preserving pinned chains and the drawer. An empty query restores the ordinary view; a query with no matches says so and leaves the canvas usable.
+- Prose highlights preserve markdown formatting, links and text selection. Code fences, diagram labels, diffs and session logs are outside this search scope.
+- Recompute results when the trace changes; a removed result must not leave a stale highlight. Searching must not reparse both documents on each keystroke.
+
+Ship this in three diffs: matching titles/IDs/branches; search controls, navigation and chain highlighting; then prose snippets and inline highlights. The full feature is complete only after all three.
+
 ## Implementation in Effect {#prd.implementation-in-effect}
 
 The CLI and local server are written in Effect, so every side effect is a typed service that tests can swap out.
@@ -218,6 +231,7 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - Running `cairn init`, `cairn plan`, and the orchestrator on a real RinkSide feature produces a manifest with at least three stacked tasks.
 - Every commit on those branches has Cairn trailers, including a `Cairn-Session` ID that resolves to a redacted session in `cairn.db`.
 - A task touching a migrations path is gated and its children do not start until it is approved.
+- Fuzzy search finds abbreviated and mistyped titles and prose, marks the matched text, and brings the selected result and its chain into view; clearing it preserves pins and the drawer.
 - The viewer shows correct status for every PRD section, and clicking a PRD section reaches its commits in two clicks or fewer.
 - `cairn lint` catches an orphaned section ID and an unmapped PRD section.
 - A drafted task judged too large is broken down before the plan is printed, and the plan output says so.
@@ -233,7 +247,8 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 4. Orchestrator contract: events, trailers, session IDs in `cairn.db`, redaction (2h).
 5. Status derivation from events and git (1h).
 6. Viewer: three columns, badges, curves, detail panel, judgment markers (3h).
-7. Dogfood on one RinkSide feature and fix what breaks (1h).
+7. Fuzzy search follow-up: title/ID/branch matching, search navigation and chain highlighting, then prose search and inline marks (roughly 2–3 engineering days including verification; separate from the original one-day baseline).
+8. Dogfood on one RinkSide feature and fix what breaks (1h).
 
 ## v2: diverging state {#prd.v2-diverging-state}
 
