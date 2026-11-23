@@ -9,10 +9,17 @@
           "@effect/vitest",
           "@effect/platform-node/NodeHttpServer",
           "@effect/platform-node/NodeRuntime",
+          "@effect/platform-node/NodeServices",
           "@effect/platform-node/NodeSocket",
+          "effect/FileSystem",
+          "effect/Path",
+          "effect/PlatformError",
+          "effect/http/HttpClient",
           "effect/http/HttpRouter",
           "effect/http/HttpServer",
           "effect/http/HttpServerResponse",
+          "effect/process/ChildProcess",
+          "effect/process/ChildProcessSpawner",
           "effect/socket/Socket"
         ]
       }
