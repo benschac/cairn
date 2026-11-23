@@ -1,5 +1,5 @@
 import type { Participant, SectionId, SectionPrefix, Trace } from "@cairn/contract";
-import { Array, Match, Option, Record } from "effect";
+import { Array, Match, Option, Record, String } from "effect";
 import { createKeyedLazy, createLazy, type Html, type HtmlBuilder } from "foldkit/html";
 
 import { PanZoomCanvas, VIEWPORT_ATTRIBUTE, transformOf, viewportAttribute } from "../canvas.ts";
@@ -14,20 +14,20 @@ import {
 import type { Positions, Viewport } from "../geometry.ts";
 import { litChainsOf, nodeSearchOf, type Pin } from "../highlight.ts";
 import { diagramView } from "../diagram.ts";
-import { MeasureLayout } from "../layout.ts";
-import { renderMarkdown, type Rendered } from "../markdown.ts";
+import { BLOCKS_ATTRIBUTE, MeasureLayout } from "../layout.ts";
+import { renderMarkdown, type Marks, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
-import type { SearchResult } from "../search.ts";
+import { blockKeyFor, blockKeyOf, type SearchResult } from "../search.ts";
 import { stackLayoutOf } from "../stacks.ts";
 import type { Node } from "../trace.ts";
 import { cursorsView } from "./cursorsView.ts";
 import { edgesView } from "./edgesView.ts";
 import {
   judgmentMarkViews,
+  matchView,
   nodeAttributes,
   nodeButtonView,
   sectionBadgeViews,
-  titleView,
 } from "./nodeView.ts";
 import { moveBarView } from "./moveHandleView.ts";
 import { stacksView } from "./stacksView.ts";
@@ -57,6 +57,24 @@ const columnView = (
 /** The page has its own h1, so a document's "# " heading renders as an h2. */
 const HEADING_OFFSET = 1;
 
+/** The ranges the results matched in one document's section titles and prose blocks. */
+const marksOf = (document: SectionPrefix, results: ReadonlyArray<SearchResult>): Marks => {
+  const own = Array.filter(
+    results,
+    (result) => result.node.kind === "section" && String.startsWith(`${document}.`)(result.node.id),
+  );
+  return {
+    blocks: Record.fromIterableWith(
+      Array.filter(own, (result) => Option.isSome(result.maybeOffset)),
+      (result) => [`${Option.getOrElse(result.maybeOffset, () => 0)}`, result.ranges],
+    ),
+    titles: Record.fromIterableWith(
+      Array.filter(own, (result) => result.field === "title"),
+      (result) => [result.node.id, result.ranges],
+    ),
+  };
+};
+
 /**
  * The PRD's or the spec's markdown, each section a node in the chain.
  *
@@ -79,13 +97,15 @@ const documentBodyView = (
   const searchOf = (sectionId: SectionId) =>
     nodeSearchOf(results, maybeActive, { id: sectionId, kind: "section" });
   const sectionTitle = (sectionId: SectionId, title: Rendered): Rendered => [
-    nodeButtonView(
-      { id: sectionId, kind: "section" },
-      pins,
-      titleView(searchOf(sectionId), title, h),
-      h,
-    ),
+    nodeButtonView({ id: sectionId, kind: "section" }, pins, title, h),
   ];
+  const marking = {
+    blockAttributesOf: (offset: number) => [
+      h.DataAttribute("block", blockKeyFor(document, offset)),
+    ],
+    marks: marksOf(document, results),
+    markView: (text: string) => matchView(text, h),
+  };
   const sectionAttributes = (sectionId: SectionId) =>
     nodeAttributes(lit, { id: sectionId, kind: "section" }, searchOf(sectionId), h);
   const diagram = (source: string, key: string) => diagramView(h, source, key);
@@ -100,6 +120,7 @@ const documentBodyView = (
     Match.withReturnType<Html>(),
     Match.when("prd", () =>
       renderMarkdown(trace.prd.markdown, h, {
+        ...marking,
         attributesOf: sectionAttributes,
         decorate: sectionBadges,
         diagramView: diagram,
@@ -109,6 +130,7 @@ const documentBodyView = (
     ),
     Match.when("spec", () =>
       renderMarkdown(trace.spec.markdown, h, {
+        ...marking,
         attributesOf: sectionAttributes,
         decorate: specSectionMarks,
         diagramView: diagram,
@@ -245,6 +267,10 @@ const dragStyleOf = (drag: DragState): Record.ReadonlyRecord<string, string> =>
     Released: () => ({}),
   });
 
+/** The keys of the prose blocks the results marked, which change when a block gains or loses marks. */
+const blocksAttribute = (results: ReadonlyArray<SearchResult>): string =>
+  Array.join(Array.getSomes(Array.map(results, blockKeyOf)), " ");
+
 /**
  * The layer holds everything that pans and zooms: the columns, their edges and the cursors. It
  * carries the offsets in an attribute so the layout mount re-measures after every move.
@@ -269,6 +295,7 @@ const canvasLayerView = (
       [
         h.DataAttribute("canvas-layer", ""),
         h.Attribute(OFFSETS_ATTRIBUTE, offsetsAttribute(offsets)),
+        h.Attribute(BLOCKS_ATTRIBUTE, blocksAttribute(results)),
         h.OnMount(MeasureLayout()),
       ],
       DragState.guards.Dragging(drag) ? [h.DataAttribute("dragging", "")] : [],
