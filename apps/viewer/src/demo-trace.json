@@ -498,7 +498,7 @@
     },
     {
       "id": "prd.viewer.fuzzy-search",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "prd.code-view",
@@ -766,15 +766,15 @@
     },
     {
       "id": "spec.viewer.fuzzy-matching",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.viewer.search-interaction",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.viewer.prose-search",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.viewer.curves",
@@ -4193,15 +4193,39 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": [
+        {
+          "files": ["apps/viewer/src/search.ts", "apps/viewer/test/search.test.ts"],
+          "parents": ["35040af22b99a96f1fda28e0840fdef789131bb9"],
+          "sections": ["spec.viewer.fuzzy-matching"],
+          "session": null,
+          "sha": "e01067f3819468ffd9a26f9977e4369a018ad434",
+          "subject": "Index and rank fuzzy matches for titles, IDs and branches"
+        }
+      ],
       "sessions": [],
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "events": []
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t71",
+          "ts": "2026-11-23T17:48:52.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t71",
+          "ts": "2026-11-23T17:48:52.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t72",
@@ -4233,15 +4257,61 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/canvas.ts",
+            "apps/viewer/src/command.ts",
+            "apps/viewer/src/drawer.ts",
+            "apps/viewer/src/highlight.ts",
+            "apps/viewer/src/init.ts",
+            "apps/viewer/src/markdown.ts",
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/search.ts",
+            "apps/viewer/src/trace.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/canvasView.ts",
+            "apps/viewer/src/view/nodeView.ts",
+            "apps/viewer/src/view/searchView.ts",
+            "apps/viewer/src/view/stacksView.ts",
+            "apps/viewer/src/view/view.ts",
+            "apps/viewer/test/fixtures.ts",
+            "apps/viewer/test/lazy.test.ts",
+            "apps/viewer/test/markdown.test.ts",
+            "apps/viewer/test/search.scene.test.ts",
+            "apps/viewer/test/search.test.ts"
+          ],
+          "parents": ["e01067f3819468ffd9a26f9977e4369a018ad434"],
+          "sections": ["spec.viewer.search-interaction"],
+          "session": null,
+          "sha": "9d3a9503af177331f32f8010bfa6e526b9bac675",
+          "subject": "Add search navigation and temporary chain highlighting"
+        }
+      ],
       "sessions": [],
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "events": []
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t72",
+          "ts": "2026-11-23T18:04:17.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t72",
+          "ts": "2026-11-23T18:04:17.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t73",
@@ -4266,15 +4336,51 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/layout.ts",
+            "apps/viewer/src/markdown.ts",
+            "apps/viewer/src/range.ts",
+            "apps/viewer/src/search.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/canvasView.ts",
+            "apps/viewer/src/view/nodeView.ts",
+            "apps/viewer/src/view/searchView.ts",
+            "apps/viewer/test/markdown.test.ts",
+            "apps/viewer/test/search.scene.test.ts",
+            "apps/viewer/test/search.test.ts"
+          ],
+          "parents": ["9d3a9503af177331f32f8010bfa6e526b9bac675"],
+          "sections": ["spec.viewer.prose-search"],
+          "session": null,
+          "sha": "04958681ef27332fb415f03e5f0e0efeafe764b8",
+          "subject": "Search markdown prose with snippets and inline match highlights"
+        }
+      ],
       "sessions": [],
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "events": []
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t73",
+          "ts": "2026-11-23T18:25:47.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t73",
+          "ts": "2026-11-23T18:25:47.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t74",
