@@ -14,11 +14,21 @@ import {
 import { FocusDrawerHeading, FocusNode, FocusSearchInput, ScrollSearchResult } from "./command.ts";
 import { DragState, canvasDeltaOf, moveBy, nudgeOf } from "./drag.ts";
 import { DRAWER_WIDTH } from "./drawer.ts";
+import type { Rect } from "./geometry.ts";
 import { isPinned, pin, togglePin } from "./highlight.ts";
 import { describeTraceError, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
 import { Drawer, PresenceConnection, selectedNodeOf, type Model } from "./model.ts";
-import { NO_SEARCH, chosen, moved, queried, refreshed, type SearchState } from "./search.ts";
+import {
+  NO_SEARCH,
+  blockKeyOf,
+  chosen,
+  moved,
+  queried,
+  refreshed,
+  resultOf,
+  type SearchState,
+} from "./search.ts";
 import { Node } from "./trace.ts";
 
 // UPDATE
@@ -46,25 +56,54 @@ const insetsOf = (drawer: Drawer): Insets => ({
   right: Drawer.match(drawer, { Closed: () => 0, Open: () => DRAWER_WIDTH }),
 });
 
+/** Where a result is seen, and whether that is as close as it gets: a section stands in for an unmeasured block. */
+interface Seen {
+  readonly isFinal: boolean;
+  readonly rect: Rect;
+}
+
+/**
+ * What a result is seen at: its matched prose block once layout has measured it, otherwise the
+ * node that owns it, which is not final while the result has a block still to be measured.
+ */
+const seenAt = (model: Model, node: Node): Option.Option<Seen> => {
+  const maybeKey = Option.flatMap(resultOf(model.search.results, node), blockKeyOf);
+  return Option.orElse(
+    Option.map(
+      Option.flatMap(maybeKey, (key) => Record.get(model.positions, key)),
+      (rect): Seen => ({ isFinal: true, rect }),
+    ),
+    () =>
+      Option.map(Record.get(model.positions, node.id), (rect): Seen => ({
+        isFinal: Option.isNone(maybeKey),
+        rect,
+      })),
+  );
+};
+
 /**
  * Brings the result waiting to be seen into the middle of what the pane shows, at the zoom it has.
- * Until layout has measured the node and the pane its size, it keeps waiting; the measurements
- * include a moved card's offset.
+ * It is its matched prose block when that is measured, and the section that owns the block until it
+ * is: the canvas moves to the section at once and the result stays waiting, so the block it
+ * measures later moves the canvas again. Until layout has measured the node and the pane its size,
+ * it keeps waiting; the measurements include a moved card's offset.
  */
 const centeredOnSearch = (model: Model): Model =>
   Option.match(
     Option.flatMap(
       Option.all({ node: model.search.maybeToCenter, pane: model.maybePaneSize }),
       ({ node, pane }) =>
-        Option.map(Record.get(model.positions, node.id), (rect) =>
-          centerViewport(rect, model.viewport, pane, insetsOf(model.drawer)),
-        ),
+        Option.map(seenAt(model, node), ({ isFinal, rect }) => ({
+          isFinal,
+          viewport: centerViewport(rect, model.viewport, pane, insetsOf(model.drawer)),
+        })),
     ),
     {
       onNone: () => model,
-      onSome: (viewport) =>
+      onSome: ({ isFinal, viewport }) =>
         modifyFields(model, {
-          search: (search) => modifyFields(search, { maybeToCenter: () => Option.none() }),
+          search: (search) =>
+            isFinal ? modifyFields(search, { maybeToCenter: () => Option.none() }) : search,
           viewport: () => viewport,
         }),
     },

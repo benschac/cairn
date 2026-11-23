@@ -1,11 +1,14 @@
-import type { Trace } from "@cairn/contract";
+import { PrdSectionId, type SectionPrefix, type Trace, type TraceSection } from "@cairn/contract";
 import { Array, MutableRef, Number, Option, Order, Record, Schema, String, pipe } from "effect";
 
+import { documentOf, type MarkdownDocument } from "./markdown.ts";
+import { Range, withinOf } from "./range.ts";
 import { Node, nodeKeyOf } from "./trace.ts";
 
 /**
  * Which text of a node matched. Within one match class a title outranks an id, an id a branch,
- * and a branch prose. Nothing indexes prose yet; the prose search adds fields of that kind.
+ * and a branch prose. A section's prose is one field for each paragraph, list paragraph or table
+ * cell under its heading, so a query has to match within one of them.
  */
 export const FieldKind = Schema.Literals(["title", "id", "branch", "prose"]);
 export type FieldKind = typeof FieldKind.Type;
@@ -28,9 +31,23 @@ const classRank: Record.ReadonlyRecord<MatchClass, number> = {
   typo: 3,
 };
 
-/** A piece of visible text a query can match. */
-export const SearchField = Schema.Struct({ kind: FieldKind, text: Schema.String });
+/**
+ * A piece of visible text a query can match. A prose field also says where its block starts in its
+ * document's markdown, which is how the rendered block is found again.
+ */
+export const SearchField = Schema.Struct({
+  kind: FieldKind,
+  maybeOffset: Schema.Option(Schema.Int),
+  text: Schema.String,
+});
 export type SearchField = typeof SearchField.Type;
+
+/** A field that is not a block of prose. */
+export const fieldOf = (kind: FieldKind, text: string): SearchField => ({
+  kind,
+  maybeOffset: Option.none(),
+  text,
+});
 
 /** One node and the text searched for it. Its place in the content is its source order. */
 export const SearchEntry = Schema.Struct({ fields: Schema.Array(SearchField), node: Node });
@@ -42,14 +59,12 @@ export type SearchContent = typeof SearchContent.Type;
 
 const sameContent = Schema.toEquivalence(SearchContent);
 
-/** A half-open range of UTF-16 code units in a field's text. */
-export const Range = Schema.Struct({ end: Schema.Int, start: Schema.Int });
-export type Range = typeof Range.Type;
-
 /** One node's best match: the field it matched, how, and where in that field's text. */
 export const SearchResult = Schema.Struct({
   field: FieldKind,
   matchClass: MatchClass,
+  /** Where the block starts in its document's markdown, when the field is a block of prose. */
+  maybeOffset: Schema.Option(Schema.Int),
   node: Node,
   /** Sorted, non-overlapping, on code point boundaries of `text`. */
   ranges: Schema.Array(Range),
@@ -68,10 +83,15 @@ interface Char {
 
 interface IndexedField {
   readonly chars: ReadonlyArray<Char>;
+  /** The values as one string, which the engine searches natively. */
+  readonly joined: string;
   readonly kind: FieldKind;
+  readonly maybeOffset: Option.Option<number>;
   readonly text: string;
   /** The lower-cased code points of `chars`, which is all a comparison reads. */
   readonly values: ReadonlyArray<string>;
+  /** The indexes into `values` at which a word starts. */
+  readonly wordStarts: ReadonlyArray<number>;
 }
 
 interface IndexedEntry {
@@ -103,27 +123,68 @@ const charsOf = (text: string): ReadonlyArray<Char> => {
   );
 };
 
-/** The searchable text of a trace: titles and ids of both documents' sections, and tasks. */
+/**
+ * A section's fields: its title as the page shows it, its ID, then its prose. The document supplies
+ * the title and the prose, taken from its parse, so a title with inline code reads as it renders.
+ */
+const sectionEntryOf =
+  (document: MarkdownDocument) =>
+  (section: TraceSection): SearchEntry => ({
+    fields: Array.appendAll(
+      [
+        fieldOf(
+          "title",
+          Option.getOrElse(Record.get(document.titles, section.id), () => section.title),
+        ),
+        fieldOf("id", section.id),
+      ],
+      Array.map(
+        Option.getOrElse(Record.get(document.blocks, section.id), () => []),
+        (block): SearchField => ({
+          kind: "prose",
+          maybeOffset: Option.some(block.offset),
+          text: block.text,
+        }),
+      ),
+    ),
+    node: { id: section.id, kind: "section" },
+  });
+
+/**
+ * The searchable text of a trace: titles, ids and prose of both documents' sections, and tasks.
+ * The documents are parsed once per text, here and by the renderer alike.
+ */
 export const searchContentOf = (trace: Trace): SearchContent =>
   Array.appendAll(
-    Array.map(Array.appendAll(trace.prd.sections, trace.spec.sections), (section) => ({
-      fields: [
-        { kind: "title" as const, text: section.title },
-        { kind: "id" as const, text: section.id },
-      ],
-      node: { id: section.id, kind: "section" as const },
-    })),
+    Array.appendAll(
+      Array.map(trace.prd.sections, sectionEntryOf(documentOf(trace.prd.markdown))),
+      Array.map(trace.spec.sections, sectionEntryOf(documentOf(trace.spec.markdown))),
+    ),
     Array.map(trace.tasks, (task) => ({
       fields: [
-        { kind: "title" as const, text: task.title },
-        { kind: "id" as const, text: task.id },
-        { kind: "branch" as const, text: task.branch },
+        fieldOf("title", task.title),
+        fieldOf("id", task.id),
+        fieldOf("branch", task.branch),
       ],
       node: { id: task.id, kind: "task" as const },
     })),
   );
 
 type Values = ReadonlyArray<string>;
+
+/** A query word, or the words joined: the lower-cased code points and the same as one string. */
+interface Token {
+  readonly text: string;
+  readonly values: Values;
+}
+
+const tokenOf = (values: Values): Token => ({ text: Array.join(values, ""), values });
+
+/** What a search compares each field with: the words, and the words as one phrase. */
+interface Query {
+  readonly phrase: Token;
+  readonly tokens: Array.NonEmptyReadonlyArray<Token>;
+}
 
 const valuesOf = (chars: ReadonlyArray<Char>): Values => Array.map(chars, (char) => char.value);
 
@@ -133,30 +194,51 @@ export const buildIndex = (content: SearchContent): SearchIndex => ({
   entries: Array.map(content, (entry) => ({
     fields: Array.map(entry.fields, (field) => {
       const chars = charsOf(field.text);
-      return { ...field, chars, values: valuesOf(chars) };
+      const values = valuesOf(chars);
+      return {
+        ...field,
+        chars,
+        joined: Array.join(values, ""),
+        values,
+        wordStarts: wordStartsOf(values),
+      };
     }),
     key: nodeKeyOf(entry.node),
     node: entry.node,
   })),
 });
 
-const cache = MutableRef.make<Option.Option<SearchIndex>>(Option.none());
+interface Cached {
+  readonly index: SearchIndex;
+  readonly trace: Trace;
+}
+
+const cache = MutableRef.make<Option.Option<Cached>>(Option.none());
 
 /**
  * The index for a trace. It is kept until the searchable content changes, so a refresh that only
- * moves statuses, and every query, reuse it.
+ * moves statuses, and every query, reuse it. The trace a query is over is almost always the one the
+ * last query was over, so that is checked first and the content is only rebuilt for another trace.
  */
-export const indexOf = (trace: Trace): SearchIndex => {
-  const content = searchContentOf(trace);
-  return Option.getOrElse(
-    Option.filter(MutableRef.get(cache), (index) => sameContent(index.content, content)),
-    () => {
-      const index = buildIndex(content);
-      MutableRef.set(cache, Option.some(index));
-      return index;
+export const indexOf = (trace: Trace): SearchIndex =>
+  Option.match(
+    Option.filter(MutableRef.get(cache), (cached) => cached.trace === trace),
+    {
+      onNone: () => {
+        const content = searchContentOf(trace);
+        const index = Option.getOrElse(
+          Option.filter(
+            Option.map(MutableRef.get(cache), (cached) => cached.index),
+            (kept) => sameContent(kept.content, content),
+          ),
+          () => buildIndex(content),
+        );
+        MutableRef.set(cache, Option.some({ index, trace }));
+        return index;
+      },
+      onSome: (cached) => cached.index,
     },
   );
-};
 
 const sameValues = (left: Values, right: Values): boolean =>
   Array.length(left) === Array.length(right) &&
@@ -189,6 +271,10 @@ interface Match {
 const run = (start: number, length: number): ReadonlyArray<number> =>
   Array.makeBy(length, (offset) => start + offset);
 
+/** The `size` values from `start`, or fewer at the end. Unlike dropping first, it copies only the window. */
+const windowAt = (field: Values, start: number, size: number): Values =>
+  Array.getSomes(Array.makeBy(size, (offset) => Array.get(field, start + offset)));
+
 /** Where in the field's values a token sits as a run, from the first start. */
 const runOf = (
   field: Values,
@@ -201,7 +287,7 @@ const runOf = (
     Array.findFirst(
       Array.flatMap(starts, (start) => Array.map(windowSizes, (size) => ({ size, start }))),
       ({ size, start }) => {
-        const window = Array.take(Array.drop(field, start), size);
+        const window = windowAt(field, start, size);
         return Array.length(window) === size && accepts(window);
       },
     ),
@@ -226,30 +312,35 @@ const subsequenceOf = (field: Values, token: Values): Option.Option<Match> => {
     : Option.none();
 };
 
-/** Exact, prefix or contiguous: the matches that need no tolerance. */
-const plainMatch = (field: Values, token: Values): Option.Option<Match> => {
-  const size = Array.length(token);
-  const startsAtHead = Array.filter(
-    Array.makeBy(Array.length(field), (start) => start),
-    (start) =>
-      Option.exists(Array.get(field, start), (value) =>
-        Option.exists(Array.head(token), (head) => head === value),
-      ),
-  );
-  const at = (accepts: (window: Values) => boolean) =>
-    runOf(field, startsAtHead, "contiguous", [size], accepts);
+/** The index among the code points of `joined` of the code unit at `unitIndex`. */
+const valueIndexOf = (joined: string, unitIndex: number): number =>
+  Array.length(Array.fromIterable(String.slice(0, unitIndex)(joined)));
+
+/**
+ * Exact, prefix or contiguous: the matches that need no tolerance. They are searched for in the
+ * field's joined text, which the engine does natively, and only a hit is turned back into indexes.
+ */
+const plainMatch = (field: IndexedField, token: Token): Option.Option<Match> => {
+  const size = Array.length(token.values);
+  const at = (matchClass: MatchClass, start: number): Match => ({
+    indexes: run(start, size),
+    matchClass,
+  });
   return pipe(
     Option.map(
-      Option.liftPredicate(field, (values) => sameValues(values, token)),
-      () => ({ indexes: run(0, size), matchClass: "exact" as const }),
+      Option.liftPredicate(field.joined, (joined) => joined === token.text),
+      () => at("exact", 0),
     ),
     Option.orElse(() =>
-      Option.map(
-        Option.liftPredicate(Array.take(field, size), (head) => sameValues(head, token)),
-        () => ({ indexes: run(0, size), matchClass: "prefix" as const }),
+      Option.map(Option.liftPredicate(field.joined, String.startsWith(token.text)), () =>
+        at("prefix", 0),
       ),
     ),
-    Option.orElse(() => at((window) => sameValues(window, token))),
+    Option.orElse(() =>
+      Option.map(String.indexOf(token.text)(field.joined), (unitIndex) =>
+        at("contiguous", valueIndexOf(field.joined, unitIndex)),
+      ),
+    ),
   );
 };
 
@@ -257,26 +348,78 @@ const plainMatch = (field: Values, token: Values): Option.Option<Match> => {
 const TYPO_LENGTH = 4;
 
 /** A cheap necessary condition for a one-edit match, so most fields skip the window scan. */
-const sharesAllButOne = (field: Values, token: Values): boolean =>
-  Array.length(Array.filter(token, (value) => Array.contains(field, value))) >=
-  Array.length(token) - 1;
+const sharesAllButOne = (field: IndexedField, token: Token): boolean =>
+  Array.length(Array.filter(token.values, (value) => String.includes(value)(field.joined))) >=
+  Array.length(token.values) - 1;
 
-const matchToken = (field: Values, token: Values): Option.Option<Match> => {
-  const size = Array.length(token);
+/**
+ * The starts a one-edit window can have: the start of a word, whose first two characters hold the
+ * token's first or second one, since one edit leaves one of them in place. A typo is a word spelt
+ * a little wrong, so the window does not need to begin inside a word.
+ */
+const typoStarts = (field: IndexedField, token: Token): ReadonlyArray<number> => {
+  const wanted = Array.take(token.values, 2);
+  const isWanted = (index: number) =>
+    Option.exists(Array.get(field.values, index), (value) => Array.contains(wanted, value));
+  return Array.filter(field.wordStarts, (start) => isWanted(start) || isWanted(start + 1));
+};
+
+const isWordCharacter = (value: string): boolean => /[\p{L}\p{M}\p{N}]/u.test(value);
+
+/** The indexes at which a word starts: a word character after something that is not one. */
+const wordStartsOf = (values: Values): ReadonlyArray<number> =>
+  Array.filter(
+    Array.makeBy(Array.length(values), (index) => index),
+    (index) =>
+      Option.exists(Array.get(values, index), isWordCharacter) &&
+      !Option.exists(Array.get(values, index - 1), isWordCharacter),
+  );
+
+/** The match widened to the whole word it sits in, so a typo marks the word the query was aiming at. */
+const wordAround = (field: Values, match: Match): Match =>
+  Option.match(Option.all({ first: Array.head(match.indexes), last: Array.last(match.indexes) }), {
+    onNone: () => match,
+    onSome: ({ first, last }) => {
+      const before = Array.length(
+        Array.takeWhile(Array.reverse(Array.take(field, first)), isWordCharacter),
+      );
+      const after = Array.length(Array.takeWhile(Array.drop(field, last + 1), isWordCharacter));
+      return {
+        indexes: run(first - before, last - first + 1 + before + after),
+        matchClass: match.matchClass,
+      };
+    },
+  });
+
+/**
+ * A token's match in a field. A subsequence is an abbreviation, which only means something in a
+ * short field; in a paragraph it would match nearly any query, so prose has none.
+ */
+const matchToken = (
+  field: IndexedField,
+  token: Token,
+  allowsSubsequence: boolean,
+): Option.Option<Match> => {
+  const size = Array.length(token.values);
   return pipe(
     plainMatch(field, token),
     Option.orElse(() =>
       size >= TYPO_LENGTH && sharesAllButOne(field, token)
-        ? runOf(
-            field,
-            Array.makeBy(Array.length(field) + 1, (start) => start),
-            "typo",
-            [size, size - 1, size + 1],
-            (window) => withinOneEdit(token, window),
+        ? Option.map(
+            runOf(
+              field.values,
+              typoStarts(field, token),
+              "typo",
+              [size, size - 1, size + 1],
+              (window) => withinOneEdit(token.values, window),
+            ),
+            (match) => wordAround(field.values, match),
           )
         : Option.none(),
     ),
-    Option.orElse(() => subsequenceOf(field, token)),
+    Option.orElse(() =>
+      allowsSubsequence ? subsequenceOf(field.values, token.values) : Option.none(),
+    ),
   );
 };
 
@@ -296,42 +439,43 @@ const scoreOf = (tokenLength: number, match: Match): number =>
 const worseClass = (left: MatchClass, right: MatchClass): MatchClass =>
   classRank[left] >= classRank[right] ? left : right;
 
+interface ScoredMatch {
+  readonly match: Match;
+  readonly score: number;
+}
+
 /**
- * Every token has to match this one field. A multi-word query that appears as a phrase counts as
- * a phrase, so an exact title beats a title that merely contains each word.
+ * Every token has to match this one field, and the first that does not ends the search of it. A
+ * multi-word query that appears as a phrase counts as a phrase, so an exact title beats a title
+ * that merely contains each word.
  */
-const matchField = (
-  field: IndexedField,
-  tokens: ReadonlyArray<Values>,
-): Option.Option<FieldMatch> => {
-  const { values } = field;
-  const fieldLength = Array.length(values);
-  const phrase = Array.flatten(Array.intersperse(tokens, [" "]));
+const matchField = (field: IndexedField, query: Query): Option.Option<FieldMatch> => {
+  const fieldLength = Array.length(field.values);
   const asPhrase = Option.map(
-    Option.filter(plainMatch(values, phrase), () => Array.length(tokens) > 1),
+    Array.length(query.tokens) > 1 ? plainMatch(field, query.phrase) : Option.none(),
     (match): FieldMatch => ({
       ...match,
-      score: scoreOf(Array.length(phrase), match) - fieldLength,
+      score: scoreOf(Array.length(query.phrase.values), match) - fieldLength,
     }),
   );
-  const perToken = Option.map(
-    Option.all(
-      Array.map(tokens, (token) =>
-        Option.map(matchToken(values, token), (match) => ({
-          match,
-          score: scoreOf(Array.length(token), match),
-        })),
+  const perToken = () =>
+    Option.map(
+      Array.reduce(query.tokens, Option.some(Array.empty<ScoredMatch>()), (matched, token) =>
+        Option.flatMap(matched, (matches) =>
+          Option.map(matchToken(field, token, field.kind !== "prose"), (match) =>
+            Array.append(matches, { match, score: scoreOf(Array.length(token.values), match) }),
+          ),
+        ),
       ),
-    ),
-    (matches): FieldMatch => ({
-      indexes: Array.flatMap(matches, ({ match }) => match.indexes),
-      matchClass: Array.reduce(matches, "exact" as MatchClass, (worst, { match }) =>
-        worseClass(worst, match.matchClass),
-      ),
-      score: Number.sumAll(Array.map(matches, ({ score }) => score)) - fieldLength,
-    }),
-  );
-  return Option.orElse(asPhrase, () => perToken);
+      (matches): FieldMatch => ({
+        indexes: Array.flatMap(matches, ({ match }) => match.indexes),
+        matchClass: Array.reduce(matches, "exact" as MatchClass, (worst, { match }) =>
+          worseClass(worst, match.matchClass),
+        ),
+        score: Number.sumAll(Array.map(matches, ({ score }) => score)) - fieldLength,
+      }),
+    );
+  return Option.orElse(asPhrase, perToken);
 };
 
 /** Sorted, merged source ranges of the matched characters. */
@@ -358,12 +502,42 @@ const rangesOf = (
     ),
   );
 
+/** How well one field matched: the three things that order matches. */
+interface Quality {
+  readonly kind: FieldKind;
+  readonly matchClass: MatchClass;
+  readonly score: number;
+}
+
 /** Match class first, then title before id before branch before prose, then the higher score. */
-const resultOrder: Order.Order<SearchResult> = Order.combineAll([
-  Order.mapInput(Order.Number, (result: SearchResult) => classRank[result.matchClass]),
-  Order.mapInput(Order.Number, (result: SearchResult) => fieldRank[result.field]),
-  Order.flip(Order.mapInput(Order.Number, (result: SearchResult) => result.score)),
+const qualityOrder: Order.Order<Quality> = Order.combineAll([
+  Order.mapInput(Order.Number, (quality: Quality) => classRank[quality.matchClass]),
+  Order.mapInput(Order.Number, (quality: Quality) => fieldRank[quality.kind]),
+  Order.flip(Order.mapInput(Order.Number, (quality: Quality) => quality.score)),
 ]);
+
+const resultOrder: Order.Order<SearchResult> = Order.mapInput(
+  qualityOrder,
+  (result: SearchResult): Quality => ({
+    kind: result.field,
+    matchClass: result.matchClass,
+    score: result.score,
+  }),
+);
+
+interface Candidate {
+  readonly field: IndexedField;
+  readonly match: FieldMatch;
+}
+
+const candidateOrder: Order.Order<Candidate> = Order.mapInput(
+  qualityOrder,
+  ({ field, match }: Candidate): Quality => ({
+    kind: field.kind,
+    matchClass: match.matchClass,
+    score: match.score,
+  }),
+);
 
 interface Ranked {
   readonly key: string;
@@ -378,82 +552,145 @@ const rankedOrder: Order.Order<Ranked> = Order.combineAll([
   Order.mapInput(Order.String, (ranked: Ranked) => ranked.key),
 ]);
 
-/** The query's whitespace-separated tokens, lower-cased. */
-const tokensOf = (query: string): ReadonlyArray<Values> =>
-  Array.map(Array.filter(String.split(String.trim(query), /\s+/), String.isNonEmpty), (token) =>
-    valuesOf(charsOf(token)),
+/** The query's whitespace-separated tokens, lower-cased; none for a blank query. */
+const queryOf = (text: string): Option.Option<Query> =>
+  Option.map(
+    Array.match(
+      Array.map(Array.filter(String.split(String.trim(text), /\s+/), String.isNonEmpty), (token) =>
+        tokenOf(valuesOf(charsOf(token))),
+      ),
+      { onEmpty: () => Option.none(), onNonEmpty: Option.some },
+    ),
+    (tokens) => ({
+      phrase: tokenOf(
+        Array.flatten(
+          Array.intersperse(
+            Array.map(tokens, (token) => token.values),
+            [" "],
+          ),
+        ),
+      ),
+      tokens,
+    }),
   );
 
-/** The node's best match for the tokens, over all its fields. */
-const bestOf = (
-  entry: IndexedEntry,
-  order: number,
-  tokens: ReadonlyArray<Values>,
-): Option.Option<Ranked> =>
+/**
+ * The node's best match for the query, over all its fields. The fields are compared first and only
+ * the best has its ranges worked out, so a section with many paragraphs pays for one.
+ */
+const bestOf = (entry: IndexedEntry, order: number, query: Query): Option.Option<Ranked> =>
   Option.map(
     Array.head(
       Array.sort(
         Array.getSomes(
           Array.map(entry.fields, (field) =>
-            Option.map(matchField(field, tokens), (match): SearchResult => ({
-              field: field.kind,
-              matchClass: match.matchClass,
-              node: entry.node,
-              ranges: rangesOf(field.chars, match.indexes),
-              score: match.score,
-              text: field.text,
-            })),
+            Option.map(matchField(field, query), (match): Candidate => ({ field, match })),
           ),
         ),
-        resultOrder,
+        candidateOrder,
       ),
     ),
-    (result): Ranked => ({ key: entry.key, order, result }),
+    ({ field, match }): Ranked => ({
+      key: entry.key,
+      order,
+      result: {
+        field: field.kind,
+        matchClass: match.matchClass,
+        maybeOffset: field.maybeOffset,
+        node: entry.node,
+        ranges: rangesOf(field.chars, match.indexes),
+        score: match.score,
+        text: field.text,
+      },
+    }),
   );
 
 /**
  * The nodes a query matches, best first, one result each with the field that matched best. An
  * empty or blank query matches nothing.
  */
-export const search = (index: SearchIndex, query: string): ReadonlyArray<SearchResult> => {
-  const tokens = tokensOf(query);
-  return Array.match(tokens, {
-    onEmpty: () => [],
-    onNonEmpty: () =>
+export const search = (index: SearchIndex, query: string): ReadonlyArray<SearchResult> =>
+  Option.match(queryOf(query), {
+    onNone: () => [],
+    onSome: (parsed) =>
       Array.map(
         Array.sort(
-          Array.getSomes(Array.map(index.entries, (entry, order) => bestOf(entry, order, tokens))),
+          Array.getSomes(Array.map(index.entries, (entry, order) => bestOf(entry, order, parsed))),
           rankedOrder,
         ),
         (ranked) => ranked.result,
       ),
   });
-};
 
-/** The results for a query over a trace, building the index only if the content changed. */
+/**
+ * The results for a query over a trace, building the index only if the content changed. A blank
+ * query matches nothing and builds nothing, so a refresh with no search never touches the prose.
+ */
 export const searchTrace = (trace: Trace, query: string): ReadonlyArray<SearchResult> =>
-  search(indexOf(trace), query);
+  String.isEmpty(String.trim(query)) ? [] : search(indexOf(trace), query);
 
-/** A stretch of a field's text: matched by the query, or not. */
-export interface Segment {
-  readonly isMatch: boolean;
+/** The most text a result's snippet shows, and how much of it comes before the first match. */
+const SNIPPET_LENGTH = 120;
+const SNIPPET_LEAD = 40;
+
+/** A bounded stretch of a matched field, with the ranges that fall in it. */
+export interface Snippet {
+  /** The field's text goes on after the snippet. */
+  readonly isCutAfter: boolean;
+  /** The field's text goes on before the snippet. */
+  readonly isCutBefore: boolean;
+  /** In the snippet's text, not the field's. */
+  readonly ranges: ReadonlyArray<Range>;
   readonly text: string;
 }
 
-/** The text cut at the ranges, in order, with the matched stretches marked and no empty stretch. */
-export const segmentsOf = (text: string, ranges: ReadonlyArray<Range>): ReadonlyArray<Segment> => {
-  const [end, cut] = Array.mapAccum(ranges, 0, (from, range) => [
-    range.end,
-    [
-      { isMatch: false, text: String.slice(from, range.start)(text) },
-      { isMatch: true, text: String.slice(range.start, range.end)(text) },
-    ],
-  ]);
-  return Array.filter(
-    Array.append(Array.flatten(cut), { isMatch: false, text: String.slice(end)(text) }),
-    (segment) => String.isNonEmpty(segment.text),
+/** An index that does not fall inside a surrogate pair: the pair's start when it does. */
+const boundaryAt = (text: string, index: number): number =>
+  Option.exists(String.codePointAt(index)(text), (unit) => unit >= 0xdc00 && unit <= 0xdfff)
+    ? index - 1
+    : index;
+
+/**
+ * The context of a result's best match: its whole text when that is short, otherwise a window of
+ * at most 120 UTF-16 units that starts a little before the first match, cut on code point
+ * boundaries. The ranges are those of the result, cut to the window.
+ */
+export const snippetOf = (result: SearchResult): Snippet => {
+  const length = String.length(result.text);
+  const first = Option.getOrElse(
+    Option.map(Array.head(result.ranges), (range) => range.start),
+    () => 0,
   );
+  const from = boundaryAt(
+    result.text,
+    Number.max(0, Number.min(first - SNIPPET_LEAD, length - SNIPPET_LENGTH)),
+  );
+  const to = boundaryAt(result.text, Number.min(length, from + SNIPPET_LENGTH));
+  return {
+    isCutAfter: to < length,
+    isCutBefore: from > 0,
+    ranges: withinOf(result.ranges, from, to),
+    text: String.slice(from, to)(result.text),
+  };
 };
+
+const isPrdSection = Schema.is(PrdSectionId);
+
+/**
+ * The name of a measured prose block: its document and its offset there. Layout measures a marked
+ * block under this key, so a result can be brought into view at its block and not only its section.
+ */
+export const blockKeyFor = (document: SectionPrefix, offset: number): string =>
+  `${document}:${offset}`;
+
+/** The key of a result's prose block; none for a result that matched a title, an ID or a branch. */
+export const blockKeyOf = (result: SearchResult): Option.Option<string> =>
+  Option.flatMap(result.maybeOffset, (offset) =>
+    Node.match(result.node, {
+      section: ({ id }) => Option.some(blockKeyFor(isPrdSection(id) ? "prd" : "spec", offset)),
+      task: () => Option.none(),
+    }),
+  );
 
 // SEARCH STATE
 
