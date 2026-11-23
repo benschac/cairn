@@ -571,6 +571,8 @@ flowchart BT
     direction BT
     t9["t9 · 09-trailer-schema<br/>Add the trailer and commit schemas<br/>wt-7"]
     t6["t6 · 06-manifest-schema<br/>Add the manifest schema<br/>wt-7"]
+    t76["t76 · 76-session-schema<br/>Add the Session schema<br/>wt-22"]
+    t77["t77 · 77-session-reader<br/>Read Claude Code session logs into a Session<br/>wt-22"]
   end
   subgraph s7["Stack 7 · contract"]
     direction BT
@@ -584,9 +586,9 @@ flowchart BT
     t11["t11 · 11-config-schema<br/>Add the config schema with defaults<br/>wt-8"]
     t28["t28 · 28-planner-service<br/>Add the Planner service with a fixture layer<br/>wt-8"]
     t29["t29 · 29-planner-live<br/>Add the live language model layer and planner prompts<br/>wt-8"]
-    t55["t55 · 55-judgment-schema<br/>Add the judgments file schema and the judge config<br/>wt-15"]
     t57["t57 · 57-decision-model<br/>Add the Jev decision model layer<br/>wt-17"]
     t61["t61 · 61-planner-split<br/>Add the split and index planner calls<br/>wt-17"]
+    t55["t55 · 55-judgment-schema<br/>Add the judgments file schema and the judge config<br/>wt-15"]
   end
   subgraph s9["Stack 9 · status"]
     direction BT
@@ -678,57 +680,49 @@ flowchart BT
     t71["t71 · 71-fuzzy-matching<br/>Index and rank fuzzy matches for titles, IDs and branches<br/>wt-20"]
     t72["t72 · 72-search-interaction<br/>Add search navigation and temporary chain highlighting<br/>wt-20"]
     t73["t73 · 73-prose-search<br/>Search markdown prose with snippets and inline match highlights<br/>wt-20"]
-  end
-  subgraph s25["Stack 25 · viewer"]
-    direction BT
     t75["t75 · 75-code-screen<br/>Open the code view with the stack tree<br/>wt-21"]
     t53["t53 · 53-diff-parse<br/>Fetch and parse task and commit patches with @pierre/diffs<br/>wt-21"]
     t54["t54 · 54-diff-render<br/>Render task and commit diffs with syntax highlighting in the code view<br/>wt-21"]
     t67["t67 · 67-judgment-markers<br/>Show judgments in the trace and the viewer<br/>wt-21"]
   end
-  subgraph s26["Stack 26 · contract"]
+  subgraph s25["Stack 25 · contract"]
     direction BT
     t56["t56 · 56-spec-index-schema<br/>Add the spec index schema<br/>wt-16"]
   end
-  subgraph s27["Stack 27 · judging"]
+  subgraph s26["Stack 26 · judging"]
     direction BT
     t58["t58 · 58-judging-questions<br/>Define the judging questions and their inputs<br/>wt-18"]
   end
-  subgraph s28["Stack 28 · judging"]
+  subgraph s27["Stack 27 · judging"]
     direction BT
     t59["t59 · 59-verdicts<br/>Turn answers into verdicts and routes<br/>wt-18"]
   end
-  subgraph s29["Stack 29 · judging"]
+  subgraph s28["Stack 28 · judging"]
     direction BT
     t60["t60 · 60-judge-service<br/>Add the Judge service with a scripted layer<br/>wt-18"]
     t65["t65 · 65-cairn-judge<br/>Add cairn judge<br/>wt-18"]
   end
-  subgraph s30["Stack 30 · judging"]
+  subgraph s29["Stack 29 · judging"]
     direction BT
     t62["t62 · 62-refine<br/>Refine the spec and drafts at the checkpoints<br/>wt-17"]
   end
-  subgraph s31["Stack 31 · contract"]
+  subgraph s30["Stack 30 · contract"]
     direction BT
     t63["t63 · 63-spec-index-writer<br/>Write spec.json from the spec and manifest<br/>wt-16"]
   end
-  subgraph s32["Stack 32 · planning"]
+  subgraph s31["Stack 31 · planning"]
     direction BT
     t64["t64 · 64-plan-checkpoints<br/>Run the checkpoints inside cairn plan<br/>wt-16"]
   end
-  subgraph s33["Stack 33 · server"]
+  subgraph s32["Stack 32 · patch-routes"]
     direction BT
     t74["t74 · 74-patch-routes<br/>Serve commit and task patches from git<br/>wt-25"]
   end
-  subgraph s34["Stack 34 · contract"]
-    direction BT
-    t76["t76 · 76-session-schema<br/>Add the Session schema<br/>wt-22"]
-    t77["t77 · 77-session-reader<br/>Read Claude Code session logs into a Session<br/>wt-22"]
-  end
-  subgraph s35["Stack 35 · server"]
+  subgraph s33["Stack 33 · server"]
     direction BT
     t78["t78 · 78-session-route<br/>Serve sessions from cairn.db<br/>wt-23"]
   end
-  subgraph s36["Stack 36 · viewer"]
+  subgraph s34["Stack 34 · viewer"]
     direction BT
     t79["t79 · 79-session-pane<br/>Draw the session pane<br/>wt-24"]
     t80["t80 · 80-attribution<br/>Mark each hunk with the turn that wrote it<br/>wt-24"]
