@@ -1672,7 +1672,14 @@
         "apps/viewer/src/view/canvasView.ts",
         "apps/viewer/test/search.test.ts",
         "apps/viewer/test/search.scene.test.ts",
-        "apps/viewer/test/markdown.test.ts"
+        "apps/viewer/test/markdown.test.ts",
+        "apps/viewer/src/command.ts",
+        "apps/viewer/src/layout.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/range.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/view/nodeView.ts",
+        "apps/viewer/src/view/searchView.ts"
       ],
       "branch": "cairn-mvp/71-prose-search",
       "parent": "t70",
@@ -1684,9 +1691,9 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["0dbbe7b8f53a1fd90b7780aa5f7edf0e64ac14c7"],
+      "sessions": ["s_ab27ebbfd7"]
     }
   ]
 }
