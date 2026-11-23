@@ -4,8 +4,9 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { SEARCH_INPUT_ID } from "../command.ts";
 import { Message } from "../message.ts";
-import type { FieldKind, SearchResult, SearchState } from "../search.ts";
+import { snippetOf, type FieldKind, type SearchResult, type SearchState } from "../search.ts";
 import { Node, nodeKeyOf, nodeTitleOf } from "../trace.ts";
+import type { Rendered } from "../markdown.ts";
 import { markedView } from "./nodeView.ts";
 
 const SEARCH_LISTBOX_ID = "search-results";
@@ -40,6 +41,16 @@ const kindLabelOf = (node: Node): string =>
     task: () => "Task",
   });
 
+/** The context of a match: a bounded stretch of the text, marked, with an ellipsis where it is cut. */
+const snippetView = (result: SearchResult, h: HtmlBuilder<Message>): Rendered => {
+  const snippet = snippetOf(result);
+  return Array.flatten([
+    snippet.isCutBefore ? ["…"] : [],
+    markedView(snippet.text, snippet.ranges, h),
+    snippet.isCutAfter ? ["…"] : [],
+  ]);
+};
+
 /** What the query matched, and the matched text itself unless it is the title the row already shows. */
 const matchedFieldView = (result: SearchResult, h: HtmlBuilder<Message>): Html =>
   h.span(
@@ -49,7 +60,7 @@ const matchedFieldView = (result: SearchResult, h: HtmlBuilder<Message>): Html =
     ],
     result.field === "title"
       ? [FIELD_LABEL.title]
-      : Array.prepend(markedView(result.text, result.ranges, h), `${FIELD_LABEL[result.field]}: `),
+      : Array.prepend(snippetView(result, h), `${FIELD_LABEL[result.field]}: `),
   );
 
 const resultView = (

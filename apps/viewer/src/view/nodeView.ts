@@ -15,7 +15,8 @@ import {
 } from "../highlight.ts";
 import { Message } from "../message.ts";
 import type { Rendered } from "../markdown.ts";
-import { segmentsOf, type FieldKind, type Range } from "../search.ts";
+import { segmentsOf, type Range } from "../range.ts";
+import type { FieldKind } from "../search.ts";
 import {
   judgmentMarkOf,
   nodeKeyOf,
@@ -115,6 +116,10 @@ const MARK_STYLE = {
   "text-decoration": "underline",
 };
 
+/** A matched stretch of text. */
+export const matchView = (text: string, h: HtmlBuilder<Message>): Html =>
+  h.mark([h.DataAttribute("search-match", ""), h.Style(MARK_STYLE)], [text]);
+
 /** A field's text with each matched range in a `mark` element. */
 export const markedView = (
   text: string,
@@ -122,9 +127,17 @@ export const markedView = (
   h: HtmlBuilder<Message>,
 ): Rendered =>
   Array.map(segmentsOf(text, ranges), (segment) =>
-    segment.isMatch
-      ? h.mark([h.DataAttribute("search-match", ""), h.Style(MARK_STYLE)], [segment.text])
-      : segment.text,
+    segment.isMatch ? matchView(segment.text, h) : segment.text,
+  );
+
+/** A rendered title, or its plain text with the matches marked when the query matched the title. */
+export const titleView = (search: NodeSearch, title: Rendered, h: HtmlBuilder<Message>): Rendered =>
+  Option.match(
+    Option.filter(search.maybeMatch, (match) => match.field === "title"),
+    {
+      onNone: () => title,
+      onSome: (match) => markedView(match.text, match.ranges, h),
+    },
   );
 
 /** The text of one of a node's searched fields: marked where the query matched that field, plain otherwise. */
@@ -138,16 +151,6 @@ export const fieldView = (
     Option.filter(search.maybeMatch, (match) => match.field === field),
     {
       onNone: () => [text],
-      onSome: (match) => markedView(match.text, match.ranges, h),
-    },
-  );
-
-/** A rendered title, or its plain text with the matches marked when the query matched the title. */
-export const titleView = (search: NodeSearch, title: Rendered, h: HtmlBuilder<Message>): Rendered =>
-  Option.match(
-    Option.filter(search.maybeMatch, (match) => match.field === "title"),
-    {
-      onNone: () => title,
       onSome: (match) => markedView(match.text, match.ranges, h),
     },
   );

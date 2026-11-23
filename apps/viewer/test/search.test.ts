@@ -1,14 +1,17 @@
-import { TaskId } from "@cairn/contract";
+import { SectionId, TaskId } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, Option, Schema, String } from "effect";
+import { Array, Option, Record, Schema, String } from "effect";
 
 import { demoTrace } from "../src/demo.ts";
+import { documentOf } from "../src/markdown.ts";
+import { segmentsOf } from "../src/range.ts";
 import {
   buildIndex,
+  fieldOf,
   indexOf,
   search,
   searchTrace,
-  segmentsOf,
+  snippetOf,
   type SearchContent,
   type SearchResult,
 } from "../src/search.ts";
@@ -18,9 +21,9 @@ import { nodeKeyOf } from "../src/trace.ts";
 const contentOf = (titles: ReadonlyArray<string>): SearchContent =>
   Array.map(titles, (title, index) => ({
     fields: [
-      { kind: "title", text: title },
-      { kind: "id", text: `t${index + 1}` },
-      { kind: "branch", text: `cairn/${index + 1}-branch` },
+      fieldOf("title", title),
+      fieldOf("id", `t${index + 1}`),
+      fieldOf("branch", `cairn/${index + 1}-branch`),
     ],
     node: { id: TaskId.make(`t${index + 1}`), kind: "task" },
   }));
@@ -112,25 +115,15 @@ it("a token shorter than four characters allows no typo", () => {
 it("prefers titles, then ids, then branches, within a match class", () => {
   const index = buildIndex([
     {
-      fields: [
-        { kind: "title", text: "Other" },
-        { kind: "id", text: "t1" },
-        { kind: "branch", text: "cairn/viewer" },
-      ],
+      fields: [fieldOf("title", "Other"), fieldOf("id", "t1"), fieldOf("branch", "cairn/viewer")],
       node: { id: TaskId.make("t1"), kind: "task" },
     },
     {
-      fields: [
-        { kind: "title", text: "viewer" },
-        { kind: "id", text: "t2" },
-      ],
+      fields: [fieldOf("title", "viewer"), fieldOf("id", "t2")],
       node: { id: TaskId.make("t2"), kind: "task" },
     },
     {
-      fields: [
-        { kind: "title", text: "Other" },
-        { kind: "prose", text: "viewer" },
-      ],
+      fields: [fieldOf("title", "Other"), fieldOf("prose", "viewer")],
       node: { id: TaskId.make("t3"), kind: "task" },
     },
   ]);
@@ -214,3 +207,268 @@ it.prop(
     );
   },
 );
+
+// PROSE
+
+const sectionId = Schema.decodeSync(SectionId);
+
+/** One entry per section with prose, its paragraphs, list items and cells as the fields. */
+const proseContentOf = (markdown: string): SearchContent =>
+  Array.map(Record.toEntries(documentOf(markdown).blocks), ([id, blocks]) => ({
+    fields: Array.map(blocks, (block) => ({
+      kind: "prose" as const,
+      maybeOffset: Option.some(block.offset),
+      text: block.text,
+    })),
+    node: { id: sectionId(id), kind: "section" as const },
+  }));
+
+const lines = (parts: ReadonlyArray<string>): string => Array.join(parts, "\n");
+
+const FENCE = "```";
+
+const nested = lines([
+  "## Outer {#spec.outer}",
+  "",
+  "Outer paragraph about **zebra** crossing.",
+  "",
+  "- list item with `inline code` here",
+  "",
+  "| Head | Other |",
+  "| ---- | ----- |",
+  "| cell alpha | cell **beta** |",
+  "",
+  "### Inner {#spec.inner}",
+  "",
+  "Inner paragraph with \\*escaped\\* stars and 😀 emoji.",
+  "",
+  "<!-- hidden comment words -->",
+  "",
+  `${FENCE}ts`,
+  'const fenced = "secret fence";',
+  FENCE,
+  "",
+  `${FENCE}mermaid`,
+  "graph TD; Diagram --> Label",
+  FENCE,
+  "",
+  "## Next {#spec.next}",
+  "",
+  "- Files: `apps/destination.ts`",
+  "",
+  "Next text with [a label](https://example.com/destination).",
+]);
+
+const proseIndex = buildIndex(proseContentOf(nested));
+const foundIn = (query: string) =>
+  Array.map(search(proseIndex, query), (result) => [result.node.id, result.text] as const);
+
+it("a result is one section with its best block, and nested sections own their own text", () => {
+  expect(foundIn("zebra")).toEqual([["spec.outer", "Outer paragraph about zebra crossing."]]);
+  expect(foundIn("emoji")).toEqual([
+    ["spec.inner", "Inner paragraph with *escaped* stars and 😀 emoji."],
+  ]);
+  // The parent's text is not repeated under the nested heading, nor the child's under the parent.
+  expect(Array.map(foundIn("paragraph"), ([id]) => id)).toEqual(["spec.outer", "spec.inner"]);
+});
+
+it("matches inside a paragraph across inline markup, list items, cells and inline code", () => {
+  expect(foundIn("about zebra crossing")).toEqual([
+    ["spec.outer", "Outer paragraph about zebra crossing."],
+  ]);
+  expect(foundIn("inline code here")).toEqual([["spec.outer", "list item with inline code here"]]);
+  expect(foundIn("cell beta")).toEqual([["spec.outer", "cell beta"]]);
+  expect(foundIn("a label")).toEqual([["spec.next", "Next text with a label."]]);
+});
+
+it("prose ranges are valid code unit offsets of the visible text after emoji and escapes", () => {
+  const [result] = search(proseIndex, "stars and");
+  expect(result?.text).toBe("Inner paragraph with *escaped* stars and 😀 emoji.");
+  expect(
+    Array.map(result?.ranges ?? [], (range) =>
+      String.slice(range.start, range.end)(result?.text ?? ""),
+    ),
+  ).toEqual(["stars and"]);
+  const [emoji] = search(proseIndex, "emoji");
+  expect(emoji?.ranges).toEqual([{ end: 49, start: 44 }]);
+});
+
+it("comments, code fences, diagram labels, link destinations and key lists do not match", () => {
+  Array.forEach(
+    ["hidden", "secret", "fenced", "Diagram", "destination", "apps/", "spec.outer"],
+    (query) => {
+      expect(foundIn(query)).toEqual([]);
+    },
+  );
+});
+
+it("a match does not cross a block or a section", () => {
+  expect(foundIn("alpha beta")).toEqual([]);
+  expect(foundIn("zebra alpha")).toEqual([]);
+  expect(foundIn("crossing Inner")).toEqual([]);
+  expect(foundIn("alpha")).toEqual([["spec.outer", "cell alpha"]]);
+});
+
+it("a typo in prose marks the whole word, and prose has no abbreviations", () => {
+  const [typo] = search(proseIndex, "zebrra");
+  expect(typo?.matchClass).toBe("typo");
+  expect(
+    Array.map(typo?.ranges ?? [], (range) =>
+      String.slice(range.start, range.end)(typo?.text ?? ""),
+    ),
+  ).toEqual(["zebra"]);
+  expect(foundIn("zbc")).toEqual([]);
+  // A title is short enough for an abbreviation.
+  expect(titlesOf(["zebra crossing"], "zbc")).toEqual(["zebra crossing"]);
+  const [title] = search(buildIndex(contentOf(["Fuzzy matching"])), "fuzy");
+  expect(title?.ranges).toEqual([{ end: 5, start: 0 }]);
+});
+
+it("a section's best block is the best match, and a title outranks prose of the same class", () => {
+  const index = buildIndex([
+    {
+      fields: [
+        fieldOf("title", "Other"),
+        { kind: "prose", maybeOffset: Option.some(10), text: "an alpha later" },
+        { kind: "prose", maybeOffset: Option.some(30), text: "alpha first" },
+      ],
+      node: { id: TaskId.make("t1"), kind: "task" },
+    },
+    {
+      fields: [fieldOf("title", "alpha"), fieldOf("id", "t2")],
+      node: { id: TaskId.make("t2"), kind: "task" },
+    },
+  ]);
+  const results = search(index, "alpha");
+  expect(Array.map(results, (result) => result.node.id)).toEqual(["t2", "t1"]);
+  expect(results[1]?.maybeOffset).toEqual(Option.some(30));
+});
+
+const only = (results: ReadonlyArray<SearchResult>): SearchResult =>
+  Option.getOrThrow(Array.head(results));
+
+const longText = (middle: string) =>
+  `${Array.join(
+    Array.makeBy(40, () => "word"),
+    " ",
+  )} ${middle} ${Array.join(
+    Array.makeBy(40, () => "word"),
+    " ",
+  )}`;
+
+it("a snippet is bounded, holds the first match and cuts its ranges to itself", () => {
+  const text = longText("needle");
+  const result = only(
+    search(
+      buildIndex([
+        {
+          fields: [{ kind: "prose", maybeOffset: Option.some(0), text }],
+          node: { id: TaskId.make("t1"), kind: "task" },
+        },
+      ]),
+      "needle",
+    ),
+  );
+  const snippet = snippetOf(result);
+  expect(snippet.text.length).toBeLessThanOrEqual(120);
+  expect(snippet.isCutBefore && snippet.isCutAfter).toBe(true);
+  expect(
+    Array.map(snippet.ranges, (range) => String.slice(range.start, range.end)(snippet.text)),
+  ).toEqual(["needle"]);
+  expect(text).toContain(snippet.text);
+  // A short text is its own snippet.
+  const short = only(search(buildIndex(contentOf(["Fuzzy matching"])), "fuzzy"));
+  expect(snippetOf(short)).toEqual({
+    isCutAfter: false,
+    isCutBefore: false,
+    ranges: [{ end: 5, start: 0 }],
+    text: "Fuzzy matching",
+  });
+});
+
+it.prop(
+  "a snippet never splits a surrogate pair and its ranges are its own",
+  {
+    before: Schema.Int.check(Schema.isBetween({ maximum: 90, minimum: 0 })),
+    count: Schema.Int.check(Schema.isBetween({ maximum: 150, minimum: 1 })),
+  },
+  ({ before, count }) => {
+    const text = `${Array.join(
+      Array.makeBy(before, () => "a"),
+      "",
+    )}${Array.join(
+      Array.makeBy(count, () => "😀"),
+      "",
+    )}needle${Array.join(
+      Array.makeBy(count, () => "😀"),
+      "",
+    )}`;
+    const found = only(
+      search(
+        buildIndex([
+          {
+            fields: [{ kind: "prose", maybeOffset: Option.some(0), text }],
+            node: { id: TaskId.make("t1"), kind: "task" },
+          },
+        ]),
+        "needle",
+      ),
+    );
+    const snippet = snippetOf(found);
+    expect(wellFormed(snippet.text)).toBe(true);
+    expect(snippet.text.length).toBeLessThanOrEqual(121);
+    expect(
+      Array.map(snippet.ranges, (range) => String.slice(range.start, range.end)(snippet.text)),
+    ).toEqual(["needle"]);
+  },
+);
+
+it.prop(
+  "every prose result is a block of its section and its ranges are valid text offsets",
+  { paragraphs: Schema.Array(Text), query: Text },
+  ({ paragraphs, query }) => {
+    const markdown = lines(
+      Array.flatMap(paragraphs, (parts, index) => [
+        `## S${index} {#spec.s${index}}`,
+        "",
+        `w${textOf(parts)}w`,
+        "",
+      ]),
+    );
+    const { blocks } = documentOf(markdown);
+    const results = search(buildIndex(proseContentOf(markdown)), textOf(query));
+    assertValid(results);
+    Array.forEach(results, (result) => {
+      expect(
+        Array.some(
+          Option.getOrElse(Record.get(blocks, result.node.id), () => []),
+          (block) =>
+            block.text === result.text &&
+            Option.exists(result.maybeOffset, (offset) => offset === block.offset),
+        ),
+      ).toBe(true);
+    });
+  },
+);
+
+it("query changes reuse the parsed documents and the index", () => {
+  const spec = documentOf(demoTrace.spec.markdown);
+  const prd = documentOf(demoTrace.prd.markdown);
+  const first = indexOf(demoTrace);
+  Array.forEach(["f", "fu", "fuz", "fuzzy", "fuzzy sear"], (query) => {
+    searchTrace(demoTrace, query);
+  });
+  expect(documentOf(demoTrace.spec.markdown)).toBe(spec);
+  expect(documentOf(demoTrace.prd.markdown)).toBe(prd);
+  expect(indexOf(demoTrace)).toBe(first);
+});
+
+it("the demo trace's prose is searchable, and a section's title is the one it renders", () => {
+  const title = only(searchTrace(demoTrace, "cairn plan"));
+  expect(title.field).toBe("title");
+  expect(title.text).toBe("cairn plan");
+  const found = searchTrace(demoTrace, "mermaid fence draws");
+  expect(found.length).toBeGreaterThan(0);
+  expect(Array.every(found, (each) => each.field === "prose")).toBe(true);
+  assertValid(found);
+});

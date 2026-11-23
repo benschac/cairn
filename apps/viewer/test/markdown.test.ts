@@ -2,12 +2,23 @@ import { readFileSync } from "node:fs";
 
 import { SectionId } from "@cairn/contract";
 import { it } from "@effect/vitest";
-import { Array, Number, Option, Predicate, Record, Result, Schema, String, pipe } from "effect";
+import {
+  Array,
+  Number,
+  Option,
+  Order,
+  Predicate,
+  Record,
+  Result,
+  Schema,
+  String,
+  pipe,
+} from "effect";
 import type { Html } from "foldkit/html";
 import { expect, given, scene, selector } from "foldkit/scene";
 import { expect as assert } from "vitest";
 
-import { renderMarkdown, treeOf, type SectionHooks } from "../src/markdown.ts";
+import { documentOf, renderMarkdown, treeOf, type SectionHooks } from "../src/markdown.ts";
 
 type VNode = NonNullable<Html>;
 
@@ -425,3 +436,288 @@ it("a document is parsed once while its text is the same", () => {
   assert(treeOf(source)).not.toBe(treeOf(`${source} More.`));
   assert(treeOf(source)).toBe(treeOf(source));
 });
+
+// MARKS
+
+const lines = (parts: ReadonlyArray<string>): string => Array.join(parts, "\n");
+
+const MARKED_HEADING = "## Zebra {#spec.zebra}\n\n";
+
+/** The offset of the first prose block under a section of `markdown`. */
+const firstBlockOf = (markdown: string, id: string) =>
+  Option.getOrThrow(Option.flatMap(Record.get(documentOf(markdown).blocks, id), Array.head));
+
+const marksIn = (node: VNode) => Array.filter(walk(node), (element) => tagOf(element) === "mark");
+
+it("a match across bold text and a link is cut at each element and stays inside it", () => {
+  const markdown = `${MARKED_HEADING}The zebra has **bold stripes** and [a linked herd](https://example.com/h) that graze.`;
+  const block = firstBlockOf(markdown, "spec.zebra");
+  assert(block.text).toBe("The zebra has bold stripes and a linked herd that graze.");
+  const start = Option.getOrThrow(String.indexOf("stripes")(block.text));
+  const end = Option.getOrThrow(String.indexOf(" herd")(block.text));
+  const root = render(markdown, {
+    marks: { blocks: { [`${block.offset}`]: [{ end, start }] }, titles: {} },
+  });
+  const paragraph = firstTag(root, "p");
+  assert(textOf(paragraph)).toBe(block.text);
+  assert(Array.map(marksIn(paragraph), textOf)).toEqual(["stripes", " and ", "a linked"]);
+  assert(Array.map(marksIn(firstTag(paragraph, "strong")), textOf)).toEqual(["stripes"]);
+  const link = firstTag(paragraph, "a");
+  assert(attr(link, "href")).toBe("https://example.com/h");
+  assert(Array.map(marksIn(link), textOf)).toEqual(["a linked"]);
+  assert(textOf(link)).toBe("a linked herd");
+});
+
+it("a section title keeps its inline code and its id while it is marked", () => {
+  const root = render("## Use `code` here {#spec.zebra}", {
+    marks: { blocks: {}, titles: { "spec.zebra": [{ end: 8, start: 4 }] } },
+  });
+  const heading = firstTag(root, "h2");
+  assert(attr(heading, "id")).toBe("spec.zebra");
+  assert(attr(heading, "data-section")).toBe("spec.zebra");
+  assert(textOf(heading)).toBe("Use code here");
+  assert(Array.map(marksIn(firstTag(heading, "code")), textOf)).toEqual(["code"]);
+});
+
+it("a table cell, a list paragraph and Unicode text are marked at the right offsets", () => {
+  const markdown = lines([
+    "## Zebra {#spec.zebra}",
+    "",
+    "- 😀 first item",
+    "- second 𝒜 item",
+    "",
+    "| Name | Role |",
+    "| ---- | ---- |",
+    "| Ada | the **human** |",
+  ]);
+  const blocks = Option.getOrThrow(Record.get(documentOf(markdown).blocks, "spec.zebra"));
+  assert(Array.map(blocks, (block) => block.text)).toEqual([
+    "😀 first item",
+    "second 𝒜 item",
+    "Name",
+    "Role",
+    "Ada",
+    "the human",
+  ]);
+  // Each block starts where its source does, however many surrogate pairs came before it; a
+  // table cell's source starts at its pipe.
+  Array.forEach(Array.take(blocks, 2), (block) => {
+    assert(String.startsWith(block.text)(String.slice(block.offset)(markdown))).toBe(true);
+  });
+  Array.forEach(Array.drop(blocks, 2), (block) => {
+    assert(String.startsWith("|")(String.slice(block.offset)(markdown))).toBe(true);
+  });
+  // "first" after an emoji, "item" after a mathematical letter, "human" inside bold text.
+  const ranges = [
+    ["😀 first item", { end: 8, start: 3 }],
+    ["second 𝒜 item", { end: 14, start: 10 }],
+    ["the human", { end: 9, start: 4 }],
+  ] as const;
+  const marks = Record.fromIterableWith(
+    Array.filterMap(ranges, ([text, range]) =>
+      Option.match(
+        Array.findFirst(blocks, (block) => block.text === text),
+        {
+          onNone: () => Result.failVoid,
+          onSome: (block) => Result.succeed([`${block.offset}`, [range]] as const),
+        },
+      ),
+    ),
+    (entry) => entry,
+  );
+  const root = render(markdown, { marks: { blocks: marks, titles: {} } });
+  assert(Array.map(marksIn(root), textOf)).toEqual(["first", "item", "human"]);
+  assert(Array.map(marksIn(firstTag(root, "strong")), textOf)).toEqual(["human"]);
+});
+
+it("escaped markdown and inline code are visible text", () => {
+  const markdown = `${MARKED_HEADING}Escaped \\*star\\* and \`code\` &amp; more.`;
+  const [block] = Option.getOrThrow(Record.get(documentOf(markdown).blocks, "spec.zebra"));
+  assert(block?.text).toBe("Escaped *star* and code & more.");
+});
+
+it("comments, code fences, diagram labels, link destinations and key lists are not prose", () => {
+  const markdown = lines([
+    "## Zebra {#spec.zebra}",
+    "",
+    "- Implements: `prd.zebra`",
+    "- Files: `apps/zebra.ts`",
+    "",
+    "Visible [label](https://example.com/destination).",
+    "",
+    "<!-- hidden comment -->",
+    "",
+    fence("ts", "const secret = 1;"),
+    "",
+    fence("mermaid", "flowchart LR\n  Diagram --> Label"),
+  ]);
+  const blocks = Option.getOrThrow(Record.get(documentOf(markdown).blocks, "spec.zebra"));
+  assert(Array.map(blocks, (block) => block.text)).toEqual(["Visible label."]);
+});
+
+it("nested sections own their text, a heading without an id owns none and the parent has no copy", () => {
+  const markdown = lines([
+    "## Outer {#spec.outer}",
+    "",
+    "Outer text.",
+    "",
+    "### Inner {#spec.inner}",
+    "",
+    "Inner text.",
+    "",
+    "### Plain heading",
+    "",
+    "Orphan text.",
+    "",
+    "## Next {#spec.next}",
+    "",
+    "Next text.",
+  ]);
+  const { blocks, titles } = documentOf(markdown);
+  const textsOf = (id: string) =>
+    Array.map(
+      Option.getOrElse(Record.get(blocks, id), () => []),
+      (block) => block.text,
+    );
+  assert(textsOf("spec.outer")).toEqual(["Outer text."]);
+  assert(textsOf("spec.inner")).toEqual(["Inner text."]);
+  assert(textsOf("spec.next")).toEqual(["Next text."]);
+  assert(Record.keys(blocks)).toEqual(["spec.outer", "spec.inner", "spec.next"]);
+  assert(titles).toEqual({ "spec.inner": "Inner", "spec.next": "Next", "spec.outer": "Outer" });
+});
+
+it("a marked document keeps its code blocks and diagram keys as they were", () => {
+  const markdown = lines([
+    "## Zebra {#spec.zebra}",
+    "",
+    "Marked prose.",
+    "",
+    fence("ts", "const x = 1;"),
+    "",
+    fence("mermaid", "flowchart LR\n  A --> B"),
+  ]);
+  const block = firstBlockOf(markdown, "spec.zebra");
+  const keysOf = (hooks: SectionHooks<never>) => {
+    let keys: ReadonlyArray<string> = [];
+    const root = render(markdown, {
+      ...hooks,
+      diagramView: (_source, key) => {
+        keys = Array.append(keys, key);
+        return null;
+      },
+    });
+    return { code: firstTag(root, "pre"), keys, root };
+  };
+  const plain = keysOf({});
+  const marked = keysOf({
+    marks: { blocks: { [`${block.offset}`]: [{ end: 6, start: 0 }] }, titles: {} },
+  });
+  assert(marksIn(marked.root).length).toBe(1);
+  assert(marked.keys).toEqual(plain.keys);
+  assert(marked.code).toEqual(plain.code);
+});
+
+it("only a block that holds marks carries the caller's attributes", () => {
+  const markdown = `${MARKED_HEADING}Marked prose.\n\nPlain prose.`;
+  const [marked] = Option.getOrThrow(Record.get(documentOf(markdown).blocks, "spec.zebra"));
+  scene(
+    {
+      update: (model: null) => ({ model }),
+      view: (_model: null, h) => ({
+        body: renderMarkdown(markdown, h, {
+          blockAttributesOf: (offset) => [h.DataAttribute("block", `${offset}`)],
+          marks: { blocks: { [`${marked?.offset}`]: [{ end: 6, start: 0 }] }, titles: {} },
+        }),
+        title: "markdown",
+      }),
+    },
+    given(null),
+    expect(selector(`[data-block="${marked?.offset}"]`)).toHaveText("Marked prose."),
+    expect(selector("[data-block] mark")).toHaveText("Marked"),
+    expect(selector("p:not([data-block])")).toHaveText("Plain prose."),
+  );
+});
+
+it("parsing for search and for rendering is one parse", () => {
+  const markdown = "## Title {#spec.title}\n\nText.";
+  const document = documentOf(markdown);
+  assert(documentOf(markdown)).toBe(document);
+  assert(treeOf(markdown)).toBe(document.tree);
+  render(markdown);
+  assert(documentOf(markdown)).toBe(document);
+});
+
+const elementsOf = (root: VNode) =>
+  Array.filter(tags(root), (tag) => Predicate.isString(tag) && tag !== "mark");
+
+const Letter = Schema.Literals(["a", "z", "é", "😀", "𝒜"]);
+const Word = Schema.NonEmptyArray(Letter);
+const Piece = Schema.Struct({
+  kind: Schema.Literals(["plain", "strong", "emphasis", "code", "link", "deleted"]),
+  word: Word,
+});
+
+const sourceOf = (piece: typeof Piece.Type): string => {
+  const word = Array.join(piece.word, "");
+  return piece.kind === "strong"
+    ? `**${word}**`
+    : piece.kind === "emphasis"
+      ? `*${word}*`
+      : piece.kind === "code"
+        ? `\`${word}\``
+        : piece.kind === "link"
+          ? `[${word}](https://example.com/${word})`
+          : piece.kind === "deleted"
+            ? `~~${word}~~`
+            : word;
+};
+
+it.prop(
+  "marking keeps the visible text and the elements, and marks exactly the ranges",
+  {
+    cuts: Schema.Array(Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 }))),
+    pieces: Schema.NonEmptyArray(Piece),
+  },
+  ({ cuts, pieces }) => {
+    const visible = Array.join(
+      Array.map(pieces, (piece) => Array.join(piece.word, "")),
+      " ",
+    );
+    const markdown = `${MARKED_HEADING}${Array.join(Array.map(pieces, sourceOf), " ")}`;
+    const block = firstBlockOf(markdown, "spec.zebra");
+    assert(block.text).toBe(visible);
+    // Cut points between code points, in order and apart, paired into ranges.
+    const codePoints = Array.fromIterable(visible);
+    const [, unitOffsets] = Array.mapAccum(Array.append(codePoints, ""), 0, (offset, codePoint) => [
+      offset + codePoint.length,
+      offset,
+    ]);
+    const points = Array.dedupe(
+      Array.sort(
+        Array.map(cuts, (cut) => Math.floor(cut * codePoints.length)),
+        Order.Number,
+      ),
+    );
+    const ranges = Array.getSomes(
+      Array.map(Array.chunksOf(points, 2), ([from, to]) =>
+        Option.all({
+          end: Array.get(unitOffsets, to ?? -1),
+          start: Array.get(unitOffsets, from),
+        }),
+      ),
+    );
+    const plain = render(markdown);
+    const marked = render(markdown, {
+      marks: { blocks: { [`${block.offset}`]: ranges }, titles: {} },
+    });
+    assert(textOf(firstTag(marked, "p"))).toBe(visible);
+    assert(Array.join(Array.map(marksIn(marked), textOf), "")).toBe(
+      Array.join(
+        Array.map(ranges, (range) => String.slice(range.start, range.end)(visible)),
+        "",
+      ),
+    );
+    // Without the marks the elements are the same; a marked leaf is only split into more text.
+    assert(elementsOf(marked)).toEqual(elementsOf(plain));
+  },
+);

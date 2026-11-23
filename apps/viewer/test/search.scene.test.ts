@@ -1,6 +1,6 @@
 import { SectionId, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, HashSet, Number, Option, Record, Result, Schema, Struct } from "effect";
+import { Array, HashSet, Number, Option, Record, Result, Schema, String, Struct } from "effect";
 import {
   Subscription,
   all,
@@ -26,8 +26,10 @@ import { demoTrace } from "../src/demo.ts";
 import { Movable, OFFSETS_ATTRIBUTE, offsetsAttribute } from "../src/drag.ts";
 import type { Positions } from "../src/geometry.ts";
 import { HOVER_FILL, PIN_PALETTE, SEARCH_FILL } from "../src/highlight.ts";
+import { init } from "../src/init.ts";
+import { BLOCKS_ATTRIBUTE } from "../src/layout.ts";
 import { Message } from "../src/message.ts";
-import { Drawer, type Model } from "../src/model.ts";
+import { Drawer, TraceData, type Model } from "../src/model.ts";
 import { searchTrace } from "../src/search.ts";
 import { columnOf, stackLayoutOf } from "../src/stacks.ts";
 import { chainOf, isInChain, nodeKeyOf, type Chain, type Node } from "../src/trace.ts";
@@ -129,15 +131,18 @@ it("an abbreviation lists ranked results with their kind, title and matched fiel
 });
 
 it("a typo marks the matched word, and an exact id marks the id", () => {
+  // The typo also matches prose that says "judgment", under the titles, ids and branches.
+  const found = searchTrace(demoTrace, "judgmnt");
   scene(
     { update, view },
     given(loaded),
     mounted,
     typed("judgmnt"),
     scrolledSearchResult,
-    expect(status).toHaveText("3 results."),
+    expect(status).toHaveText(`${found.length} results.`),
+    // The typo marks the whole word it was aiming at.
     expect(selector('[data-section="spec.contract.judgments"] [data-search-match]')).toHaveText(
-      "Judgment",
+      "Judgments",
     ),
     typed("t55"),
     scrolledSearchResult,
@@ -146,7 +151,7 @@ it("a typo marks the matched word, and an exact id marks the id", () => {
   );
 });
 
-it("the arrow keys move through the results and stop at both ends; Enter selects", () => {
+it("the arrow keys move through the results and stop at the first; Enter selects", () => {
   const union = Struct.evolve(chainOf(demoTrace, judgments), {
     spec: (spec) => HashSet.union(spec, chainOf(demoTrace, t67).spec),
     tasks: (tasks) => HashSet.union(tasks, chainOf(demoTrace, t67).tasks),
@@ -176,8 +181,6 @@ it("the arrow keys move through the results and stop at both ends; Enter selects
     expect(card("t67")).toHaveAttr("data-searched", "active"),
     expect(heading(judgments.id)).toHaveAttr("data-searched", "match"),
     ...chainLit(t67),
-    pressed("ArrowDown"),
-    scrolledSearchResult,
     pressed("ArrowDown"),
     scrolledSearchResult,
     expect(searchBox).toHaveAttr("aria-activedescendant", optionId(t55)),
@@ -331,42 +334,42 @@ it("a refresh keeps the active result while it matches and moves on when it is r
     tasks: (tasks) =>
       Array.map(tasks, (task) => Struct.evolve(task, { status: () => "failed" as const })),
   });
-  const trace = withoutTasks(["t67"]);
+  const trace = withoutTasks(["t20"]);
   scene(
     { update, view },
     given(loaded),
     mounted,
-    typed("judgmnt"),
+    typed("stkord"),
     scrolledSearchResult,
     pressed("ArrowDown"),
     scrolledSearchResult,
-    // Only statuses changed, so t67 is still the active result.
+    // Only statuses changed, so t20 is still the active result.
     refreshedWith(fresh),
-    expect(option(t67)).toHaveAttr("aria-selected", "true"),
-    expect(card("t67")).toHaveAttr("data-searched", "active"),
-    // t67 is gone: its result and its marks go, and the first result is active.
+    expect(option(t20)).toHaveAttr("aria-selected", "true"),
+    expect(card("t20")).toHaveAttr("data-searched", "active"),
+    // t20 is gone: its result and its marks go, and the first result is active.
     refreshedWith(trace),
-    expect(card("t67")).toBeAbsent(),
-    expect(option(t67)).toBeAbsent(),
-    expect(status).toHaveText("2 results."),
-    expect(option(judgments)).toHaveAttr("aria-selected", "true"),
-    expectAll(all.selector("[data-highlighted]")).toHaveCount(sizeOf(chainOf(trace, judgments))),
+    expect(card("t20")).toBeAbsent(),
+    expect(option(t20)).toBeAbsent(),
+    expect(status).toHaveText("1 result."),
+    expect(option(stackOrder)).toHaveAttr("aria-selected", "true"),
+    expectAll(all.selector("[data-highlighted]")).toHaveCount(sizeOf(chainOf(trace, stackOrder))),
   );
 });
 
 it("a refresh that removes every match leaves no marks, outline or chain", () => {
-  const trace = Struct.evolve(withoutTasks(["t55", "t67"]), {
+  const trace = Struct.evolve(withoutTasks(["t20"]), {
     spec: (document) =>
       Struct.evolve(document, {
-        sections: (sections) => Array.filter(sections, (section) => section.id !== judgments.id),
+        sections: (sections) => Array.filter(sections, (section) => section.id !== stackOrder.id),
       }),
   });
-  assert(searchTrace(trace, "judgmnt")).toEqual([]);
+  assert(searchTrace(trace, "stkord")).toEqual([]);
   scene(
     { update, view },
     given(loaded),
     mounted,
-    typed("judgmnt"),
+    typed("stkord"),
     scrolledSearchResult,
     refreshedWith(trace),
     expect(status).toHaveText("No results."),
@@ -540,4 +543,167 @@ it("a pan reuses the columns while a search is active, and so does a query that 
   assert(() =>
     Lazy.expectAllReused({ model: none, view: sequence([searched, queriedTo(loaded, "trailer")]) }),
   ).toThrow("ArgumentsChanged");
+});
+
+// PROSE
+
+const zebraId = Schema.decodeSync(SectionId)("spec.prose-zebra");
+const foalsId = Schema.decodeSync(SectionId)("spec.prose-foals");
+const zebra = { id: zebraId, kind: "section" as const };
+const herd = "The zebra has bold stripes and a linked herd that graze.";
+const herdMarkdown =
+  "The zebra has **bold stripes** and [a linked herd](https://example.com/herd) that graze.";
+
+const proseSection = (id: typeof zebraId, title: string, level: number) => ({
+  human: false,
+  id,
+  keys: { context: [], defers: [], dependsOn: [], files: [], implements: [] },
+  level,
+  line: 1,
+  parent: null,
+  title,
+});
+
+const proseMarkdown = `${demoTrace.spec.markdown}
+
+## Zebra stripes {#spec.prose-zebra}
+
+${herdMarkdown}
+
+### Plain foals {#spec.prose-foals}
+
+Foals follow quietly.
+`;
+
+/** The demo trace with a spec section whose paragraph has bold text and a link in it. */
+const proseTrace = Struct.evolve(demoTrace, {
+  spec: (document) =>
+    Struct.evolve(document, {
+      markdown: () => proseMarkdown,
+      sections: (sections) =>
+        Array.appendAll(sections, [
+          proseSection(zebraId, "Zebra stripes", 2),
+          proseSection(foalsId, "Plain foals", 3),
+        ]),
+    }),
+});
+const proseLoaded = modifyFields(init().model, {
+  trace: () => TraceData.Success({ data: proseTrace }),
+});
+
+const herdOffset = Option.getOrThrow(String.indexOf(herdMarkdown)(proseMarkdown));
+const herdKey = `spec:${herdOffset}`;
+const herdBlock = selector(`[data-block="${herdKey}"]`);
+const herdQuery = "stripes and a linked herd";
+
+/** Layout measuring the zebra section and, when asked, its paragraph. */
+const measuredZebra = (includesBlock: boolean) =>
+  Subscription.emit(
+    Message.MeasuredLayout({
+      positions: {
+        [zebraId]: { height: 30, width: 200, x: 100, y: 1000 },
+        ...(includesBlock ? { [herdKey]: { height: 60, width: 300, x: 120, y: 1100 } } : {}),
+      } satisfies Positions,
+    }),
+  );
+
+it("prose spanning bold text and a link shows as a snippet and is marked inside its formatting", () => {
+  const found = searchTrace(proseTrace, herdQuery);
+  assert(Array.map(found, (result) => nodeKeyOf(result.node))).toEqual([nodeKeyOf(zebra)]);
+  assert(Array.map(found, (result) => result.field)).toEqual(["prose"]);
+  scene(
+    { update, view },
+    given(proseLoaded),
+    mounted,
+    typed(herdQuery),
+    scrolledSearchResult,
+    expect(status).toHaveText("1 result."),
+    expect(option(zebra)).toContainText("Zebra stripes"),
+    expect(simulate.within(option(zebra), selector("[data-search-field]"))).toHaveText(
+      `text: ${herd}`,
+    ),
+    // The snippet marks the one stretch the query matched.
+    expect(
+      simulate.within(option(zebra), selector("[data-search-field] [data-search-match]")),
+    ).toHaveText(herdQuery),
+    // On the canvas the stretch is cut at the elements it crosses and stays inside them.
+    expect(herdBlock).toHaveText(herd),
+    expect(selector(`[data-block="${herdKey}"] strong [data-search-match]`)).toHaveText("stripes"),
+    expectAll(all.selector(`[data-block="${herdKey}"] [data-search-match]`)).toHaveCount(3),
+    expect(selector(`[data-block="${herdKey}"] a [data-search-match]`)).toHaveText("a linked herd"),
+    expect(selector('a[href="https://example.com/herd"]')).toHaveText("a linked herd"),
+    // Only the matched paragraph is marked and named; the layer lists it for measuring.
+    expectAll(all.selector("[data-block]")).toHaveCount(1),
+    expect(layer).toHaveAttr(BLOCKS_ATTRIBUTE, herdKey),
+    expect(heading(zebraId)).toHaveAttr("data-searched", "active"),
+  );
+});
+
+it("selecting a prose result brings its block into view, or its section until the block is measured", () => {
+  // The pane is 1200 by 600 and the toolbar covers 372 on the left, so the middle is (786, 300).
+  scene(
+    { update, view },
+    given(proseLoaded),
+    mounted,
+    typed(herdQuery),
+    scrolledSearchResult,
+    pressed("Enter"),
+    expect(canvas).toHaveAttr(VIEWPORT_ATTRIBUTE, viewportAttribute({ x: 0, y: 0, zoom: 1 })),
+    measuredZebra(true),
+    // The block's centre is (270, 1130).
+    expect(canvas).toHaveAttr(VIEWPORT_ATTRIBUTE, viewportAttribute({ x: 516, y: -830, zoom: 1 })),
+  );
+  scene(
+    { update, view },
+    given(proseLoaded),
+    mounted,
+    typed(herdQuery),
+    scrolledSearchResult,
+    pressed("Enter"),
+    measuredZebra(false),
+    // The block is not measured, so the section's centre (200, 1015) is.
+    expect(canvas).toHaveAttr(VIEWPORT_ATTRIBUTE, viewportAttribute({ x: 586, y: -715, zoom: 1 })),
+    // The result is still waiting for its block: measured, it moves the canvas to the block.
+    measuredZebra(true),
+    expect(canvas).toHaveAttr(VIEWPORT_ATTRIBUTE, viewportAttribute({ x: 516, y: -830, zoom: 1 })),
+    // It has arrived; a later measurement does not pull the canvas back.
+    measuredZebra(false),
+    expect(canvas).toHaveAttr(VIEWPORT_ATTRIBUTE, viewportAttribute({ x: 516, y: -830, zoom: 1 })),
+  );
+});
+
+it("clearing the search removes the marks and keeps the formatting and the pins", () => {
+  scene(
+    { update, view },
+    given(proseLoaded),
+    mounted,
+    click(taskButton(t9.id)),
+    focusedDrawerHeading,
+    typed(herdQuery),
+    scrolledSearchResult,
+    expect(selector("[data-search-match]")).toExist(),
+    pressed("Escape"),
+    expectAll(all.selector("[data-search-match]")).toBeEmpty(),
+    expectAll(all.selector("[data-block]")).toBeEmpty(),
+    expect(layer).toHaveAttr(BLOCKS_ATTRIBUTE, ""),
+    expect(selector('a[href="https://example.com/herd"]')).toHaveText("a linked herd"),
+    expect(selector('[data-column="spec"] strong')).toExist(),
+    expect(card("t9")).toHaveAttr("data-pins", "blue"),
+    expect(drawer).toExist(),
+  );
+});
+
+it("a section title keeps its inline code while the query marks it", () => {
+  const cairnPlan = sectionNode("spec.planning.cairn-plan");
+  scene(
+    { update, view },
+    given(loaded),
+    mounted,
+    typed("cairn plan"),
+    scrolledSearchResult,
+    expect(
+      selector('[data-section="spec.planning.cairn-plan"] code [data-search-match]'),
+    ).toHaveText("cairn plan"),
+    expect(selector(`[data-node-button="${nodeKeyOf(cairnPlan)}"]`)).toHaveText("cairn plan"),
+  );
 });

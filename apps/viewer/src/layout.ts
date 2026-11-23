@@ -13,17 +13,26 @@ import { Message } from "./message.ts";
 const scaleOf = (layer: Element): number =>
   new DOMMatrixReadOnly(getComputedStyle(layer).transform).a;
 
-/** The node key of a `[data-section]` or `[data-task]` element. */
+/**
+ * The layer carries the keys of the prose blocks a search marked in this attribute. A block that
+ * gains marks changes no size, so the layout mount re-measures when the attribute changes.
+ */
+export const BLOCKS_ATTRIBUTE = "data-blocks";
+
+/** The key of a `[data-section]`, `[data-task]` or `[data-block]` element: a section or task ID, or a block's key. */
 const keyOf = (element: Element): Option.Option<string> =>
-  Option.orElse(Option.fromNullOr(element.getAttribute("data-section")), () =>
-    Option.fromNullOr(element.getAttribute("data-task")),
+  Option.orElse(
+    Option.orElse(Option.fromNullOr(element.getAttribute("data-section")), () =>
+      Option.fromNullOr(element.getAttribute("data-task")),
+    ),
+    () => Option.fromNullOr(element.getAttribute("data-block")),
   );
 
-/** Every section and task in the layer, in canvas coordinates. */
+/** Every section, task and marked prose block in the layer, in canvas coordinates. */
 export const measureLayer = (layer: Element): Positions => {
   const elements = Array.getSomes(
     Array.map(
-      Array.fromIterable(layer.querySelectorAll("[data-section], [data-task]")),
+      Array.fromIterable(layer.querySelectorAll("[data-section], [data-task], [data-block]")),
       (element) =>
         Option.map(keyOf(element), (key) => ({
           key,
@@ -58,15 +67,19 @@ const layerResized = (layer: Element): Stream.Stream<void> =>
     : Stream.empty;
 
 /**
- * A tick whenever a document or task card moves. The view writes every offset to the layer's
- * offsets attribute, and a moved element changes no size, so neither resize observer sees a move.
+ * A tick whenever a document or task card moves or the marked blocks change. The view writes every
+ * offset and the marked blocks to the layer's attributes, and neither changes a size, so neither
+ * resize observer sees them.
  */
 const itemsMoved = (layer: Element): Stream.Stream<void> =>
   Stream.callback<void>((queue) =>
     Effect.acquireRelease(
       Effect.sync(() => {
         const observer = new MutationObserver(() => Queue.offerUnsafe(queue, undefined));
-        observer.observe(layer, { attributeFilter: [OFFSETS_ATTRIBUTE], attributes: true });
+        observer.observe(layer, {
+          attributeFilter: [OFFSETS_ATTRIBUTE, BLOCKS_ATTRIBUTE],
+          attributes: true,
+        });
         return observer;
       }),
       (observer) => Effect.sync(() => observer.disconnect()),
@@ -79,8 +92,9 @@ const windowResized = Stream.suspend(() => Stream.fromEventListener(window, "res
 const samePositions = Schema.toEquivalence(Positions);
 
 /**
- * The positions of every node in the layer it is mounted on: on the first frame after the layer
- * appears, on every window resize, whenever the layer resizes and whenever an item is moved, each
+ * The positions of every node in the layer it is mounted on, and of its marked prose blocks: on the
+ * first frame after the layer appears, on every window resize, whenever the layer resizes and
+ * whenever an item is moved or the marked blocks change, each
  * time they changed. A moved item's measured box includes its offset, so the curves follow it. The
  * layer is in the DOM when a Mount runs, so unlike a Subscription it has nothing to wait for.
  */
