@@ -254,6 +254,39 @@ it("hovering a spec section highlights exactly its chain and dims the rest; leav
   );
 });
 
+// A second h.Style on an element replaces the first, so a highlight that came as its own Style
+// took the card's grid cell away: the card moved out from under the pointer, which left it, which
+// put the card back under the pointer, over and over.
+/** The CSS grid cell the view gives a task: row 1 of the layout is the bottom grid row. */
+const gridCellOf = (id: TaskId) => {
+  const layout = stackLayoutOf(demoTrace.tasks);
+  const top = Array.reduce(Record.values(layout), 1, (highest, position) =>
+    Number.max(highest, position.row),
+  );
+  const at = Option.getOrThrow(Record.get(layout, id));
+  return { column: String(at.column), row: String(top - at.row + 1) };
+};
+
+it("a highlighted or dimmed task card keeps its place in the grid and its border", () => {
+  const card = (id: TaskId) => [
+    expect(task(id)).toHaveStyle("grid-row", gridCellOf(id).row),
+    expect(task(id)).toHaveStyle("grid-column", gridCellOf(id).column),
+    expect(task(id)).toHaveStyle("border", "1px solid #94a3b8"),
+  ];
+  scene(
+    { update, view },
+    given(loaded),
+    mounted,
+    hover(task(chainTask)),
+    highlighted(task(chainTask)),
+    expect(task(chainTask)).toHaveStyle("background", "#fef08a"),
+    ...card(chainTask),
+    expect(task(unrelated)).toHaveAttr("data-dimmed", "true"),
+    expect(task(unrelated)).toHaveStyle("opacity", "0.35"),
+    ...card(unrelated),
+  );
+});
+
 it("hovering a task highlights its sections", () => {
   const expected = chainOf(demoTrace, { id: chainTask, kind: "task" });
   assert(HashSet.isEmpty(expected.spec)).toBe(false);

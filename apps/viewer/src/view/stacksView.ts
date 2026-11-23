@@ -22,19 +22,16 @@ const taskCardView = (
 ): Html =>
   h.keyed("div")(
     task.id,
-    Array.appendAll(
-      [
-        h.DataAttribute("task", task.id),
-        h.Style({
-          border: "1px solid #94a3b8",
-          "border-radius": "6px",
-          "grid-column": String(position.column),
-          // Row 1 is the bottom, so everything a task needs sits below it.
-          "grid-row": String(topRow - position.row + 1),
-          padding: "6px 8px",
-        }),
-      ],
-      nodeAttributes(maybeChain, { id: task.id, kind: "task" }, h),
+    Array.prepend(
+      nodeAttributes(maybeChain, { id: task.id, kind: "task" }, h, {
+        border: "1px solid #94a3b8",
+        "border-radius": "6px",
+        "grid-column": String(position.column),
+        // Row 1 is the bottom, so everything a task needs sits below it.
+        "grid-row": String(topRow - position.row + 1),
+        padding: "6px 8px",
+      }),
+      h.DataAttribute("task", task.id),
     ),
     Array.flatten([
       [

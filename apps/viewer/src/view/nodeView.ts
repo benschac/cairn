@@ -1,5 +1,5 @@
 import type { SectionId, SectionStatus, Trace } from "@cairn/contract";
-import { Array, Option, Schema } from "effect";
+import { Array, Option, Record, Schema } from "effect";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
 import { Message } from "../message.ts";
@@ -96,30 +96,42 @@ export const nodeButtonView = (
     title,
   );
 
+/** A node's CSS properties, by name. */
+export type NodeStyle = Record.ReadonlyRecord<string, string>;
+
 /**
- * The hover handlers every node carries and, while a chain is active, the attributes that
- * highlight a node in it or dim a node outside it. Its button carries the click.
+ * The hover handlers every node carries, its style and, while a chain is active, the attributes
+ * that highlight a node in it or dim a node outside it. Its button carries the click.
+ *
+ * An element keeps only its last `h.Style`, so the node's own `style` comes in here and the
+ * highlight is merged into it. A second `Style` would drop the node's own properties: a task
+ * card would lose its grid cell, move out from under the pointer and flicker between hovered and
+ * left.
  */
 export const nodeAttributes = (
   maybeChain: Option.Option<Chain>,
   node: Node,
   h: HtmlBuilder<Message>,
-): ReadonlyArray<Attribute<Message>> =>
-  Array.appendAll(
+  style: NodeStyle = {},
+): ReadonlyArray<Attribute<Message>> => {
+  const maybeInChain = Option.map(maybeChain, (chain) => isInChain(chain, node));
+  const chainStyle: NodeStyle = Option.match(maybeInChain, {
+    onNone: () => ({}),
+    onSome: (inChain) =>
+      inChain ? { background: HIGHLIGHTED_BACKGROUND } : { opacity: DIMMED_OPACITY },
+  });
+  return Array.appendAll(
     [
       // `nopan`: a drag that starts on a node selects its text instead of panning the canvas.
       h.Class("nopan"),
       h.OnMouseEnter(Message.HoveredNode({ node })),
       h.OnMouseLeave(Message.LeftNode()),
+      h.Style(Record.union(style, chainStyle, (_own, chain) => chain)),
     ],
-    Option.match(maybeChain, {
-      onNone: () => [],
-      onSome: (chain) =>
-        isInChain(chain, node)
-          ? [
-              h.DataAttribute("highlighted", "true"),
-              h.Style({ background: HIGHLIGHTED_BACKGROUND }),
-            ]
-          : [h.DataAttribute("dimmed", "true"), h.Style({ opacity: DIMMED_OPACITY })],
-    }),
+    Array.fromOption(
+      Option.map(maybeInChain, (inChain) =>
+        h.DataAttribute(inChain ? "highlighted" : "dimmed", "true"),
+      ),
+    ),
   );
+};
