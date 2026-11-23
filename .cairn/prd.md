@@ -170,12 +170,25 @@ Layout:
 
 - Left column: rendered `prd.md`. Each section shows a status badge rolled up from its tasks.
 - Middle column: rendered `spec.md` with the same badges.
-- Right column: the stacks as a node graph, one column per stack, each read bottom to top and joined by curves, with branch name, model, status, and a human-gate marker on each node. A task that needs work from another stack has a dashed curve to it.
+- Right column: the stacks, drawn the way the spec draws its own stack diagram (see Stacks below).
 - Curves: SVG bezier curves linking PRD section to spec section to task node. Hovering any node highlights its full chain.
 - Task detail panel: commits with links to diffs, session files, events timeline, gate reasons, and judgments.
 - Judgment markers: a spec section or task node with a `flag` or `unsure` judgment shows a marker. Stale judgments are shown as stale.
 
 Suggested stack: Foldkit SPA for the viewer, a markdown renderer that preserves heading IDs, and a tiny Node server exposing `.cairn/` files and `git log --format` with trailers, plus reads from `cairn.db`.
+
+### Stacks {#prd.viewer.stacks}
+
+The stacks column is the plan's stack diagram, live. Anyone who knows the diagram in the spec should find the same picture in the viewer: the same boxes, the same tasks in each, read the same way. Today the column puts each chain in its own grid column and each task in a page-wide row, so a short stack is stretched up the page with gaps in it, unrelated chains sit side by side, and nothing shows where a stack starts.
+
+- One box per stack, labelled `Stack N · <area>`. A stack is a task that starts from the base branch and every task built on it through parent branches. Stacks are numbered in the order of their first task, and the area is the part of the spec that task builds.
+- Inside a box, tasks read bottom to top, each directly above its parent, with no gaps. A fork puts the children side by side in the same box.
+- The base branch (`main`) is drawn under everything. The bottom row holds the stacks that start from it now. A stack that waits for other stacks sits one row above the highest of them. Reading up the page is reading forward in build order, and the stacks in one row can be built at the same time.
+- A solid curve joins a task to its parent; a dashed curve joins it to each other task it depends on.
+- Each task card shows what the diagram shows: ID, branch, title and worktree, the model in its colour (purple opus, blue sonnet, yellow haiku), and a red border and GATE for a human gate. It keeps its status.
+- Hover, pins, Fit and dragging work as they do now. Reset layout puts every card back in this layout.
+
+Done when the viewer, opened on this repo, shows the same stacks with the same tasks as the spec's diagram, and a test fails when the two disagree.
 
 ## Implementation in Effect {#prd.implementation-in-effect}
 

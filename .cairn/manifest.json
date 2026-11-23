@@ -1601,6 +1601,52 @@
       "status": "pending",
       "commits": [],
       "sessions": []
+    },
+    {
+      "id": "t69",
+      "title": "Group the tasks into stacks and levels",
+      "prdSections": ["prd.viewer.stacks"],
+      "specSections": ["spec.viewer.stacks"],
+      "files": ["apps/viewer/src/stacks.ts", "apps/viewer/test/stacks.test.ts"],
+      "branch": "cairn-mvp/69-stacks-of",
+      "parent": "t52",
+      "dependsOn": ["t52"],
+      "worktree": "wt-19",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t70",
+      "title": "Draw the stacks as boxes over the base branch",
+      "prdSections": ["prd.viewer.stacks", "prd.viewer"],
+      "specSections": ["spec.viewer.stacks", "spec.viewer.curves"],
+      "files": [
+        "apps/viewer/src/view/stacksView.ts",
+        "apps/viewer/src/curves.ts",
+        "apps/viewer/src/view/canvasView.ts",
+        "apps/viewer/test/stacks.scene.test.ts",
+        "apps/viewer/test/curves.test.ts"
+      ],
+      "branch": "cairn-mvp/70-stack-boxes",
+      "parent": "t69",
+      "dependsOn": ["t69"],
+      "worktree": "wt-19",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
     }
   ]
 }

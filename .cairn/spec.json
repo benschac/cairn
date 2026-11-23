@@ -471,7 +471,7 @@
       "id": "spec.contract",
       "title": "Contract",
       "level": 2,
-      "line": 89,
+      "line": 92,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.contract.section-ids",
@@ -512,7 +512,7 @@
       "id": "spec.contract.section-ids",
       "title": "Section IDs",
       "level": 3,
-      "line": 96,
+      "line": 99,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -574,7 +574,7 @@
       "id": "spec.contract.manifest",
       "title": "Manifest",
       "level": 3,
-      "line": 105,
+      "line": 108,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -778,7 +778,7 @@
       "id": "spec.contract.events",
       "title": "Events",
       "level": 3,
-      "line": 144,
+      "line": 147,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -876,7 +876,7 @@
       "id": "spec.contract.trailers",
       "title": "Trailers",
       "level": 3,
-      "line": 164,
+      "line": 167,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -947,7 +947,7 @@
       "id": "spec.contract.trace",
       "title": "Trace",
       "level": 3,
-      "line": 178,
+      "line": 181,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1062,7 +1062,7 @@
       "id": "spec.contract.config",
       "title": "Config",
       "level": 3,
-      "line": 251,
+      "line": 254,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1183,7 +1183,7 @@
       "id": "spec.contract.judgments",
       "title": "Judgments",
       "level": 3,
-      "line": 285,
+      "line": 288,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1251,7 +1251,7 @@
       "id": "spec.contract.spec-index",
       "title": "Spec index",
       "level": 3,
-      "line": 320,
+      "line": 323,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1347,7 +1347,7 @@
       "id": "spec.contract.javascript-entry",
       "title": "JavaScript entry",
       "level": 3,
-      "line": 365,
+      "line": 368,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1516,7 +1516,7 @@
       "id": "spec.sections",
       "title": "Sections",
       "level": 2,
-      "line": 380,
+      "line": 383,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.sections.parsing", "spec.sections.cairn-ids"],
       "human": false,
@@ -1536,7 +1536,7 @@
       "id": "spec.sections.parsing",
       "title": "Parsing",
       "level": 3,
-      "line": 382,
+      "line": 385,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -1671,7 +1671,7 @@
       "id": "spec.sections.cairn-ids",
       "title": "`cairn ids`",
       "level": 3,
-      "line": 404,
+      "line": 407,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -1728,7 +1728,7 @@
       "id": "spec.gates",
       "title": "Gates",
       "level": 2,
-      "line": 412,
+      "line": 415,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.gates.path-matching", "spec.gates.detection"],
       "human": false,
@@ -1748,7 +1748,7 @@
       "id": "spec.gates.path-matching",
       "title": "Path matching",
       "level": 3,
-      "line": 414,
+      "line": 417,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -1798,7 +1798,7 @@
       "id": "spec.gates.detection",
       "title": "Detection",
       "level": 3,
-      "line": 421,
+      "line": 424,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -1853,7 +1853,7 @@
       "id": "spec.models",
       "title": "Models",
       "level": 2,
-      "line": 434,
+      "line": 437,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -1985,7 +1985,7 @@
       "id": "spec.planning",
       "title": "Planning",
       "level": 2,
-      "line": 453,
+      "line": 456,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.planning.planner-service",
@@ -2009,7 +2009,7 @@
       "id": "spec.planning.planner-service",
       "title": "Planner service",
       "level": 3,
-      "line": 455,
+      "line": 458,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2198,7 +2198,7 @@
       "id": "spec.planning.stack-order",
       "title": "Stack order",
       "level": 3,
-      "line": 475,
+      "line": 478,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2264,6 +2264,16 @@
           "id": "spec.planning.stack-order#r11",
           "level": "must-not",
           "text": "Tasks that can run at the same time never share a worktree."
+        },
+        {
+          "id": "spec.planning.stack-order#r12",
+          "level": "must",
+          "text": "The spec draws this repo's stacks as a Mermaid diagram from manifest.json: stacks numbered in the order of their first task and named for the second part of that task's first spec section, a solid arrow for a parent, a dashed arrow for any other dependency."
+        },
+        {
+          "id": "spec.planning.stack-order#r13",
+          "level": "must",
+          "text": "The diagram is redrawn whenever the manifest changes; a viewer test fails when the two disagree."
         }
       ],
       "artifacts": [
@@ -2303,7 +2313,7 @@
       "id": "spec.planning.cairn-plan",
       "title": "`cairn plan`",
       "level": 3,
-      "line": 769,
+      "line": 779,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2410,7 +2420,7 @@
       "id": "spec.lint",
       "title": "Lint",
       "level": 2,
-      "line": 784,
+      "line": 794,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -2633,7 +2643,7 @@
       "id": "spec.judging",
       "title": "Judging",
       "level": 2,
-      "line": 806,
+      "line": 816,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.judging.questions",
@@ -2676,7 +2686,7 @@
       "id": "spec.judging.questions",
       "title": "Questions",
       "level": 3,
-      "line": 812,
+      "line": 822,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2779,7 +2789,7 @@
       "id": "spec.judging.verdicts",
       "title": "Verdicts",
       "level": 3,
-      "line": 836,
+      "line": 846,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2889,7 +2899,7 @@
       "id": "spec.judging.judge-service",
       "title": "Judge service",
       "level": 3,
-      "line": 851,
+      "line": 861,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2974,7 +2984,7 @@
       "id": "spec.judging.checkpoints",
       "title": "Checkpoints",
       "level": 3,
-      "line": 862,
+      "line": 872,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3076,7 +3086,7 @@
       "id": "spec.judging.cairn-judge",
       "title": "`cairn judge`",
       "level": 3,
-      "line": 884,
+      "line": 894,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3144,7 +3154,7 @@
       "id": "spec.status",
       "title": "Status",
       "level": 2,
-      "line": 895,
+      "line": 905,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.status.task-machine",
@@ -3169,7 +3179,7 @@
       "id": "spec.status.task-machine",
       "title": "Task machine",
       "level": 3,
-      "line": 897,
+      "line": 907,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3246,7 +3256,7 @@
       "id": "spec.status.derivation",
       "title": "Derivation",
       "level": 3,
-      "line": 905,
+      "line": 915,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3347,7 +3357,7 @@
       "id": "spec.status.section-rollup",
       "title": "Section rollup",
       "level": 3,
-      "line": 924,
+      "line": 934,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3428,7 +3438,7 @@
       "id": "spec.status.cairn-status-and-cairn-approve",
       "title": "`cairn status` and `cairn approve`",
       "level": 3,
-      "line": 940,
+      "line": 950,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3525,7 +3535,7 @@
       "id": "spec.sessions",
       "title": "Sessions",
       "level": 2,
-      "line": 952,
+      "line": 962,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.sessions.trace-store",
@@ -3549,7 +3559,7 @@
       "id": "spec.sessions.trace-store",
       "title": "Trace store",
       "level": 3,
-      "line": 954,
+      "line": 964,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -3741,7 +3751,7 @@
       "id": "spec.sessions.redaction",
       "title": "Redaction",
       "level": 3,
-      "line": 986,
+      "line": 996,
       "parent": "spec.sessions",
       "children": [],
       "human": true,
@@ -3859,7 +3869,7 @@
       "id": "spec.sessions.cairn-session",
       "title": "`cairn session`",
       "level": 3,
-      "line": 1005,
+      "line": 1015,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -3939,7 +3949,7 @@
       "id": "spec.orchestrator-adapter",
       "title": "Orchestrator adapter",
       "level": 2,
-      "line": 1016,
+      "line": 1026,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4160,7 +4170,7 @@
       "id": "spec.cli",
       "title": "CLI",
       "level": 2,
-      "line": 1034,
+      "line": 1044,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4247,7 +4257,7 @@
       "id": "spec.server",
       "title": "Server",
       "level": 2,
-      "line": 1043,
+      "line": 1053,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4394,12 +4404,13 @@
       "id": "spec.viewer",
       "title": "Viewer",
       "level": 2,
-      "line": 1065,
+      "line": 1075,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.viewer.model-and-messages",
         "spec.viewer.markdown-rendering",
         "spec.viewer.curves",
+        "spec.viewer.stacks",
         "spec.viewer.presence",
         "spec.viewer.detail-panel",
         "spec.viewer.diff-view",
@@ -4422,7 +4433,7 @@
       "id": "spec.viewer.model-and-messages",
       "title": "Model and messages",
       "level": 3,
-      "line": 1067,
+      "line": 1077,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4431,8 +4442,7 @@
         "apps/viewer/src/model.ts",
         "apps/viewer/src/main.ts",
         "apps/viewer/src/trace.ts",
-        "apps/viewer/src/load.ts",
-        "apps/viewer/src/stacks.ts"
+        "apps/viewer/src/load.ts"
       ],
       "dependsOn": ["spec.contract.trace", "spec.viewer.markdown-rendering"],
       "defers": [],
@@ -4473,7 +4483,7 @@
         {
           "id": "spec.viewer.model-and-messages#r7",
           "level": "must",
-          "text": "The stacks area is a node graph, one column per chain, read bottom to top."
+          "text": "The stacks area draws the plan's stack diagram, one box per stack in rows over the base branch, laid out by `stacksOf` (see spec.viewer.stacks)."
         },
         {
           "id": "spec.viewer.model-and-messages#r8",
@@ -4494,26 +4504,6 @@
           "id": "spec.viewer.model-and-messages#r11",
           "level": "must",
           "text": "The demo build (vite build --mode demo) loads demo-trace.json once and never polls."
-        },
-        {
-          "id": "spec.viewer.model-and-messages#r12",
-          "level": "must",
-          "text": "stackLayoutOf(tasks) is pure and gives each task a column and a row."
-        },
-        {
-          "id": "spec.viewer.model-and-messages#r13",
-          "level": "must",
-          "text": "A task with no parent starts a new column; at a fork the first child by ID continues the column and each other child starts a new column right after it; columns are ordered by the ID of their first task."
-        },
-        {
-          "id": "spec.viewer.model-and-messages#r14",
-          "level": "must",
-          "text": "A task's row is its wave: 1 with no dependencies, otherwise 1 more than its highest dependency; row 1 is at the bottom."
-        },
-        {
-          "id": "spec.viewer.model-and-messages#r15",
-          "level": "must",
-          "text": "A parent and child are joined by a curve from the parent's top edge to the child's bottom edge; a dependency on another column is a dashed curve."
         }
       ],
       "artifacts": [
@@ -4594,30 +4584,16 @@
           "name": "load.ts",
           "location": "apps/viewer/src/load.ts",
           "description": "The trace-loading subscription."
-        },
-        {
-          "id": "spec.viewer.model-and-messages#function:stacklayoutof",
-          "kind": "function",
-          "name": "stackLayoutOf",
-          "location": "apps/viewer/src/stacks.ts",
-          "description": "Pure; gives each task a column and a row.",
-          "signature": "stackLayoutOf(tasks)"
         }
       ],
-      "tests": [
-        {
-          "id": "spec.viewer.model-and-messages#t1",
-          "kind": "property",
-          "text": "Every task sits above all of its dependencies; a task and its parent share a column; no two tasks share a column and a row."
-        }
-      ],
+      "tests": [],
       "decisions": []
     },
     {
       "id": "spec.viewer.markdown-rendering",
       "title": "Markdown rendering",
       "level": 3,
-      "line": 1088,
+      "line": 1093,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4691,7 +4667,7 @@
       "id": "spec.viewer.curves",
       "title": "Canvas and curves",
       "level": 3,
-      "line": 1095,
+      "line": 1102,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4707,7 +4683,7 @@
       "dependsOn": ["spec.viewer.model-and-messages"],
       "defers": [],
       "context": [],
-      "tasks": ["t48", "t49", "t50"],
+      "tasks": ["t48", "t49", "t50", "t70"],
       "summary": "Specifies the single canvas of three columns built on @xyflow/system, with measured positions, pure Bezier curves and XYPanZoom in a Foldkit Mount.",
       "requirements": [
         {
@@ -4738,7 +4714,7 @@
         {
           "id": "spec.viewer.curves#r6",
           "level": "must",
-          "text": "PRD to spec and spec to task links run from a node's right edge to the next node's left edge; links in the stacks area run from a task's top edge to the bottom edge of the task above it, solid for a parent and dashed for a dependency on another column."
+          "text": "PRD to spec and spec to task links run from a node's right edge to the next node's left edge; links in the stacks area run from a task's top edge to the bottom edge of the task above it, solid for a parent and dashed for every other dependency."
         },
         {
           "id": "spec.viewer.curves#r7",
@@ -4763,7 +4739,7 @@
         {
           "id": "spec.viewer.curves#r11",
           "level": "must-not",
-          "text": "Support drawing connections, automatic layout or keeping a layout across reloads in v1."
+          "text": "Support drawing connections or keeping a layout across reloads in v1."
         },
         {
           "id": "spec.viewer.curves#r12",
@@ -4774,11 +4750,6 @@
           "id": "spec.viewer.curves#r13",
           "level": "may",
           "text": "Use `XYDrag` and `XYHandle` only if snapping or connection drawing needs them."
-        },
-        {
-          "id": "spec.viewer.curves#r14",
-          "level": "should",
-          "text": "When automatic layout comes, place nodes with `@dagrejs/dagre` as a pure function called from `update`."
         }
       ],
       "artifacts": [
@@ -4788,13 +4759,6 @@
           "name": "@xyflow/system",
           "location": null,
           "description": "Framework-agnostic core under React Flow and Svelte Flow; supplies geometry and gestures."
-        },
-        {
-          "id": "spec.viewer.curves#library:dagrejs-dagre",
-          "kind": "library",
-          "name": "@dagrejs/dagre",
-          "location": null,
-          "description": "Future automatic layout, called as a pure function from update."
         },
         {
           "id": "spec.viewer.curves#function:curvesof",
@@ -4891,7 +4855,7 @@
         },
         {
           "id": "spec.viewer.curves#d2",
-          "text": "Defer dragging nodes, drawing connections and automatic layout from v1.",
+          "text": "Defer drawing connections and keeping a layout across reloads from v1.",
           "why": null
         },
         {
@@ -4902,10 +4866,154 @@
       ]
     },
     {
+      "id": "spec.viewer.stacks",
+      "title": "Stacks",
+      "level": 3,
+      "line": 1120,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.stacks"],
+      "files": [
+        "apps/viewer/src/stacks.ts",
+        "apps/viewer/src/curves.ts",
+        "apps/viewer/src/view/stacksView.ts",
+        "apps/viewer/test/stacks.test.ts",
+        "apps/viewer/test/stacks.scene.test.ts"
+      ],
+      "dependsOn": ["spec.viewer.curves"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t69", "t70"],
+      "summary": "Lays the stacks column out like the spec's stack diagram: one labelled box per stack, tasks bottom to top inside it, and the boxes in rows over the base branch by what they wait on.",
+      "requirements": [
+        {
+          "id": "spec.viewer.stacks#r1",
+          "level": "must",
+          "text": "`stacksOf(tasks)` is pure, replaces `stackLayoutOf`, and returns the stacks in number order, each with its number, root, area, level and cells."
+        },
+        {
+          "id": "spec.viewer.stacks#r2",
+          "level": "must",
+          "text": "A root is a task whose parent is null, names no task or would close a cycle; every other task belongs to its parent's stack, so each task is in exactly one stack."
+        },
+        {
+          "id": "spec.viewer.stacks#r3",
+          "level": "must",
+          "text": "Stacks are numbered from 1 in TaskIdOrder of their roots and labelled `Stack N · area`, the area being the second segment of the root's first spec section ID, or `Stack N` when it has none."
+        },
+        {
+          "id": "spec.viewer.stacks#r4",
+          "level": "must",
+          "text": "A task's row in its box is its depth along parent links, so a chain has no gaps; columns in a box follow the first-child-continues rule and are numbered by the ID of their first task."
+        },
+        {
+          "id": "spec.viewer.stacks#r5",
+          "level": "must",
+          "text": "A stack's level is 1 when it waits on no other stack, otherwise one more than the highest level among the stacks it waits on; a dependency that names no task or closes a cycle between stacks is ignored."
+        },
+        {
+          "id": "spec.viewer.stacks#r6",
+          "level": "must",
+          "text": "The view stacks the levels bottom to top, each a row of its stacks in number order aligned to the bottom, over a bar labelled with the base branch that is not a node."
+        },
+        {
+          "id": "spec.viewer.stacks#r7",
+          "level": "must",
+          "text": "A stack is a light grey box with its label and a CSS grid of its cells, only as tall as its deepest chain."
+        },
+        {
+          "id": "spec.viewer.stacks#r8",
+          "level": "must",
+          "text": "A task card shows its ID, branch without the feature prefix, GATE when gated, title, worktree (`main checkout` for null) and status, with a band in the model's colour and a red border when gated; the fill and left stripes stay the pins'."
+        },
+        {
+          "id": "spec.viewer.stacks#r9",
+          "level": "must",
+          "text": "`curvesOf` drops its `columnOf` argument: a parent is a solid curve and every other dependency a dashed one."
+        },
+        {
+          "id": "spec.viewer.stacks#r10",
+          "level": "must",
+          "text": "A card still moves by its grip and Reset layout returns it to its cell."
+        },
+        {
+          "id": "spec.viewer.stacks#r11",
+          "level": "must-not",
+          "text": "Move a whole stack box in this section."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.stacks#function:stacksof",
+          "kind": "function",
+          "name": "stacksOf",
+          "location": "apps/viewer/src/stacks.ts",
+          "description": "Pure; groups the tasks into numbered, labelled stacks with a level and a cell per task.",
+          "signature": "stacksOf(tasks)"
+        },
+        {
+          "id": "spec.viewer.stacks#type:stack",
+          "kind": "type",
+          "name": "Stack",
+          "location": "apps/viewer/src/stacks.ts",
+          "description": "A stack: number, root, area, level and the cells of its tasks."
+        },
+        {
+          "id": "spec.viewer.stacks#function:stacksview",
+          "kind": "function",
+          "name": "stacksView",
+          "location": "apps/viewer/src/view/stacksView.ts",
+          "description": "Draws the levels of stack boxes over the base branch bar."
+        },
+        {
+          "id": "spec.viewer.stacks#file:stacks-scene-test-ts",
+          "kind": "file",
+          "name": "stacks.scene.test.ts",
+          "location": "apps/viewer/test/stacks.scene.test.ts",
+          "description": "Scene test of the boxes, labels, cells, base branch bar, GATE and worktree on the demo trace."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.stacks#t1",
+          "kind": "property",
+          "text": "Every task is in exactly one stack; a child shares its parent's stack one row above it; no two tasks in a box share a cell; a stack sits above every stack it waits on, cycles aside; numbers follow root IDs; the input order does not change the result."
+        },
+        {
+          "id": "spec.viewer.stacks#t2",
+          "kind": "example",
+          "text": "stacksOf on .cairn/manifest.json gives the same labels with the same tasks in each as the Mermaid diagram in .cairn/spec.md."
+        },
+        {
+          "id": "spec.viewer.stacks#t3",
+          "kind": "scene",
+          "text": "On the demo trace the view shows the labelled boxes, a child card in the row above its parent in the same box, the base branch bar, GATE and a worktree."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.stacks#d1",
+          "text": "Compute the stacks layout directly and let CSS size the boxes, instead of laying it out with @dagrejs/dagre compound nodes as Mermaid does.",
+          "why": "Dagre needs every card's size before it runs and returns absolute positions, so the view would place every card by hand and measure twice."
+        },
+        {
+          "id": "spec.viewer.stacks#d2",
+          "text": "Show the model as a coloured band, not the card's fill.",
+          "why": "The fill and left stripes already mean pins, so a model colour must not read as one."
+        },
+        {
+          "id": "spec.viewer.stacks#d3",
+          "text": "Draw the base branch as a bar, not a node with curves.",
+          "why": "Every stack in the bottom row starts from it, so curves to it would add nothing."
+        }
+      ]
+    },
+    {
       "id": "spec.viewer.presence",
       "title": "Presence on the canvas",
       "level": 3,
-      "line": 1109,
+      "line": 1157,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4994,7 +5102,7 @@
       "id": "spec.viewer.detail-panel",
       "title": "Detail panel",
       "level": 3,
-      "line": 1123,
+      "line": 1171,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5040,7 +5148,7 @@
       "id": "spec.viewer.diff-view",
       "title": "Diff view",
       "level": 3,
-      "line": 1133,
+      "line": 1181,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5267,7 +5375,7 @@
       "id": "spec.viewer.demo-data",
       "title": "Demo data",
       "level": 3,
-      "line": 1154,
+      "line": 1202,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5311,7 +5419,7 @@
       "id": "spec.acceptance",
       "title": "Acceptance",
       "level": 2,
-      "line": 1162,
+      "line": 1210,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,

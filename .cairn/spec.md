@@ -493,7 +493,7 @@ Tasks that share a worktree always run one after another, so a chain is built in
 
 Every ancestor of a task is something it depends on. So a gated task has nothing below it but its own dependencies, and tasks on different stacks can be built at the same time.
 
-This repo's stacks, drawn from [manifest.json](manifest.json). Each box is a stack built bottom to top, and stacks run in parallel. A solid arrow is a parent branch; a dashed arrow means the task starts from `main` once that dependency has landed. The last line of each task is its worktree. Purple is opus, blue is sonnet, yellow is haiku; a red border and GATE mark a human gate. Redraw it when the manifest changes.
+This repo's stacks, drawn from [manifest.json](manifest.json). Each box is a stack built bottom to top, and stacks run in parallel. A solid arrow is a parent branch; a dashed arrow means the task starts from `main` once that dependency has landed. The last line of each task is its worktree. Purple is opus, blue is sonnet, yellow is haiku; a red border and GATE mark a human gate. Stacks are numbered in the order of their first task and named for the second part of that task's first spec section. The viewer draws the same stacks by the same rules (see `spec.viewer.stacks`), and a test fails when this diagram and the manifest disagree, so redraw it when the manifest changes.
 
 ```mermaid
 flowchart BT
@@ -507,59 +507,59 @@ flowchart BT
     direction BT
     t2["t2 · 02-trace-store · GATE<br/>Add the trace store and its first migration<br/>wt-1"]
   end
-  subgraph s4["Stack 4 · status"]
+  subgraph s3["Stack 3 · status"]
     direction BT
     t5["t5 · 05-failed-status<br/>Add the failed status to the task machine<br/>wt-3"]
   end
-  subgraph s6["Stack 6 · contract"]
+  subgraph s4["Stack 4 · contract"]
     direction BT
     t7["t7 · 07-decode-error<br/>Add a decode error that names the file, line and field path<br/>wt-5"]
   end
-  subgraph s7["Stack 7 · contract"]
+  subgraph s5["Stack 5 · contract"]
     direction BT
     t8["t8 · 08-event-schema<br/>Add the event schema with an actor<br/>wt-6"]
   end
-  subgraph s8["Stack 8 · contract"]
+  subgraph s6["Stack 6 · contract"]
     direction BT
     t9["t9 · 09-trailer-schema<br/>Add the trailer and commit schemas<br/>wt-7"]
     t6["t6 · 06-manifest-schema<br/>Add the manifest schema<br/>wt-7"]
   end
-  subgraph s9["Stack 9 · contract"]
+  subgraph s7["Stack 7 · contract"]
     direction BT
     t10["t10 · 10-trace-schema<br/>Add the Trace schema<br/>wt-7"]
     t13["t13 · 13-viewer-manifest-task<br/>Move the viewer to ManifestTask<br/>wt-7"]
     t43["t43 · 43-chain-of<br/>Add chainOf for linked sections and tasks<br/>wt-7"]
     t44["t44 · 44-demo-trace<br/>Add a demo trace built from this repo<br/>wt-14"]
   end
-  subgraph s10["Stack 10 · contract"]
+  subgraph s8["Stack 8 · contract"]
     direction BT
     t11["t11 · 11-config-schema<br/>Add the config schema with defaults<br/>wt-8"]
     t28["t28 · 28-planner-service<br/>Add the Planner service with a fixture layer<br/>wt-8"]
     t29["t29 · 29-planner-live<br/>Add the live language model layer and planner prompts<br/>wt-8"]
-    t55["t55 · 55-judgment-schema<br/>Add the judgments schema and the judge config<br/>wt-15"]
+    t55["t55 · 55-judgment-schema<br/>Add the judgments file schema and the judge config<br/>wt-15"]
     t57["t57 · 57-decision-model<br/>Add the Jev decision model layer<br/>wt-17"]
     t61["t61 · 61-planner-split<br/>Add the split and index planner calls<br/>wt-17"]
   end
-  subgraph s11["Stack 11 · status"]
+  subgraph s9["Stack 9 · status"]
     direction BT
     t12["t12 · 12-machine-manifest-task<br/>Move the task machine to ManifestTask and an effective gate, and remove Task<br/>wt-4"]
   end
-  subgraph s12["Stack 12 · contract"]
+  subgraph s10["Stack 10 · contract"]
     direction BT
     t14["t14 · 14-js-parse<br/>Add the plain JS entry with parse functions and cairnDir<br/>wt-9"]
     t15["t15 · 15-js-append-event<br/>Add trailerArgs and appendEvent to the JS entry<br/>wt-9"]
     t16["t16 · 16-json-schema<br/>Generate the contract JSON Schema and declaration files<br/>wt-9"]
   end
-  subgraph s13["Stack 13 · sections"]
+  subgraph s11["Stack 11 · sections"]
     direction BT
     t17["t17 · 17-sections-of<br/>Parse markdown into sections with keys and human tags<br/>wt-10"]
     t24["t24 · 24-cairn-ids<br/>Add cairn ids<br/>wt-10"]
   end
-  subgraph s14["Stack 14 · gates"]
+  subgraph s12["Stack 12 · gates"]
     direction BT
     t18["t18 · 18-gate-path-matching<br/>Match gate patterns against declared paths<br/>wt-11"]
   end
-  subgraph s15["Stack 15 · gates"]
+  subgraph s13["Stack 13 · gates"]
     direction BT
     t19["t19 · 19-gate-detection<br/>Detect human gates from tags and paths<br/>wt-11"]
     t20["t20 · 20-stack-order<br/>Order drafts into stacks by dependency<br/>wt-11"]
@@ -568,53 +568,53 @@ flowchart BT
     t27["t27 · 27-cairn-lint<br/>Add cairn lint<br/>wt-11"]
     t66["t66 · 66-index-drift<br/>Lint spec.json for drift<br/>wt-11"]
   end
-  subgraph s16["Stack 16 · status"]
+  subgraph s14["Stack 14 · status"]
     direction BT
     t21["t21 · 21-git-service<br/>Add the Git service with live and in-memory layers<br/>wt-4"]
   end
-  subgraph s17["Stack 17 · cli"]
+  subgraph s15["Stack 15 · cli"]
     direction BT
     t22["t22 · 22-cli-init<br/>Add the cairn binary and cairn init<br/>wt-12"]
     t23["t23 · 23-workspace-loader<br/>Load the .cairn files through the contract schemas<br/>wt-12"]
   end
-  subgraph s18["Stack 18 · planning"]
+  subgraph s16["Stack 16 · planning"]
     direction BT
     t30["t30 · 30-cairn-plan<br/>Add cairn plan<br/>wt-8"]
   end
-  subgraph s19["Stack 19 · status"]
+  subgraph s17["Stack 17 · status"]
     direction BT
     t31["t31 · 31-derive-events<br/>Derive task status from events<br/>wt-6"]
     t32["t32 · 32-derive-commits<br/>Derive effective gates and landing from commits<br/>wt-6"]
     t33["t33 · 33-section-rollup<br/>Roll task status up to sections<br/>wt-6"]
   end
-  subgraph s20["Stack 20 · server"]
+  subgraph s18["Stack 18 · server"]
     direction BT
     t34["t34 · 34-trace-schema<br/>Build the Trace from derived state<br/>wt-4"]
   end
-  subgraph s21["Stack 21 · status"]
+  subgraph s19["Stack 19 · status"]
     direction BT
     t35["t35 · 35-cairn-status<br/>Add cairn status<br/>wt-8"]
     t36["t36 · 36-cairn-approve<br/>Add cairn approve<br/>wt-8"]
   end
-  subgraph s22["Stack 22 · sessions"]
+  subgraph s20["Stack 20 · sessions"]
     direction BT
     t37["t37 · 37-cairn-session<br/>Add cairn session put and note<br/>main checkout"]
   end
-  subgraph s23["Stack 23 · orchestrator-adapter"]
+  subgraph s21["Stack 21 · orchestrator-adapter"]
     direction BT
     t38["t38 · 38-orchestrator-contract-test<br/>Test the orchestrator contract end to end<br/>main checkout"]
   end
-  subgraph s24["Stack 24 · server"]
+  subgraph s22["Stack 22 · server"]
     direction BT
     t39["t39 · 39-api-trace<br/>Serve the trace at /api/trace with an ETag<br/>wt-8"]
     t40["t40 · 40-api-sessions-commits<br/>Serve sessions and commit patches<br/>wt-8"]
     t41["t41 · 41-cairn-serve<br/>Add cairn serve with the built viewer<br/>wt-8"]
   end
-  subgraph s25["Stack 25 · viewer"]
+  subgraph s23["Stack 23 · viewer"]
     direction BT
     t42["t42 · 42-markdown-rendering<br/>Render markdown to Foldkit nodes<br/>wt-13"]
   end
-  subgraph s26["Stack 26 · viewer"]
+  subgraph s24["Stack 24 · viewer"]
     direction BT
     t45["t45 · 45-viewer-columns<br/>Show the trace as PRD, spec and stack columns, with the stack layout<br/>wt-14"]
     t46["t46 · 46-trace-polling<br/>Load the demo trace through a command<br/>wt-14"]
@@ -625,39 +625,41 @@ flowchart BT
     t51["t51 · 51-canvas-presence<br/>Keep presence cursors in canvas coordinates<br/>wt-14"]
     t52["t52 · 52-detail-drawer<br/>Open the detail drawer from sections and tasks<br/>wt-14"]
     t68["t68 · 68-api-trace-polling<br/>Poll /api/trace under cairn serve<br/>wt-14"]
+    t69["t69 · 69-stacks-of<br/>Group the tasks into stacks and levels<br/>wt-19"]
+    t70["t70 · 70-stack-boxes<br/>Draw the stacks as boxes over the base branch<br/>wt-19"]
   end
-  subgraph s27["Stack 27 · viewer"]
+  subgraph s25["Stack 25 · viewer"]
     direction BT
     t53["t53 · 53-diff-parse<br/>Parse commit patches with @pierre/diffs<br/>wt-14"]
     t54["t54 · 54-diff-render<br/>Render commit diffs in the drawer<br/>wt-14"]
     t67["t67 · 67-judgment-markers<br/>Show judgments in the trace and the viewer<br/>wt-14"]
   end
-  subgraph s28["Stack 28 · contract"]
+  subgraph s26["Stack 26 · contract"]
     direction BT
     t56["t56 · 56-spec-index-schema<br/>Add the spec index schema<br/>wt-16"]
   end
-  subgraph s29["Stack 29 · judging"]
+  subgraph s27["Stack 27 · judging"]
     direction BT
     t58["t58 · 58-judging-questions<br/>Define the judging questions and their inputs<br/>wt-18"]
   end
-  subgraph s30["Stack 30 · judging"]
+  subgraph s28["Stack 28 · judging"]
     direction BT
     t59["t59 · 59-verdicts<br/>Turn answers into verdicts and routes<br/>wt-18"]
   end
-  subgraph s31["Stack 31 · judging"]
+  subgraph s29["Stack 29 · judging"]
     direction BT
     t60["t60 · 60-judge-service<br/>Add the Judge service with a scripted layer<br/>wt-18"]
     t65["t65 · 65-cairn-judge<br/>Add cairn judge<br/>wt-18"]
   end
-  subgraph s32["Stack 32 · judging"]
+  subgraph s30["Stack 30 · judging"]
     direction BT
     t62["t62 · 62-refine<br/>Refine the spec and drafts at the checkpoints<br/>wt-17"]
   end
-  subgraph s33["Stack 33 · contract"]
+  subgraph s31["Stack 31 · contract"]
     direction BT
     t63["t63 · 63-spec-index-writer<br/>Write spec.json from the spec and manifest<br/>wt-16"]
   end
-  subgraph s34["Stack 34 · planning"]
+  subgraph s32["Stack 32 · planning"]
     direction BT
     t64["t64 · 64-plan-checkpoints<br/>Run the checkpoints inside cairn plan<br/>wt-16"]
   end
@@ -665,13 +667,13 @@ flowchart BT
   main --> t2
   t1 --> t3
   main --> t5
+  t9 --> t6
   main --> t7
   main --> t8
   main --> t9
   t6 -.-> t10
   t8 -.-> t10
   t9 -.-> t10
-  t9 --> t6
   main --> t11
   t5 -.-> t12
   t6 -.-> t12
@@ -761,8 +763,10 @@ flowchart BT
   t60 --> t65
   t27 --> t66
   t54 --> t67
+  t52 --> t69
+  t69 --> t70
   class t1,t3,t20,t31,t32,t58,t60,t62 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68 sonnet
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70 sonnet
   class t11,t24,t27,t44,t56,t66 haiku
   class t1,t2,t3 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
@@ -1073,7 +1077,7 @@ Each judgment in the `Trace` carries `stale: boolean`. The server recomputes `in
 ### Model and messages {#spec.viewer.model-and-messages}
 
 - Implements: `prd.viewer`
-- Files: `apps/viewer/src/model.ts`, `apps/viewer/src/main.ts`, `apps/viewer/src/trace.ts`, `apps/viewer/src/load.ts`, `apps/viewer/src/stacks.ts`
+- Files: `apps/viewer/src/model.ts`, `apps/viewer/src/main.ts`, `apps/viewer/src/trace.ts`, `apps/viewer/src/load.ts`
 - Depends on: `spec.contract.trace`, `spec.viewer.markdown-rendering`
 
 The model holds the trace, the hovered node, the pins, the drawer, whether all curves are shown, the drag in progress, each moved item's offset, the measured node positions and the canvas viewport. The drawer is closed, or open on a node with the commit clicked in it. Messages: `SettledLoadTrace`, `HoveredNode`, `LeftNode`, `ClickedNode`, `ClickedClearPins`, `ClickedShowAllCurves`, `ClickedDrawerTask`, `ClickedCommit`, `ReceivedCommit`, `ClickedCloseDrawer`, `MeasuredLayout`, `PannedOrZoomed`, `MeasuredPane`, `ClickedFit`, `PressedMoveHandle`, `MovedDragPointer`, `ReleasedDragPointer`, `PressedArrowOnMoveHandle`, `ClickedMoveHandle`, `SuppressedClickAfterDrag`, `PressedAfterDrag`, `ClickedResetLayout`.
@@ -1082,13 +1086,8 @@ The model holds the trace, the hovered node, the pins, the drawer, whether all c
 
 Layout as the PRD gives it: PRD, spec, then the stacks. Each section heading carries its rollup badge, and each task node shows branch, model, status and a gate marker. A spec section or task node with a `flag` or `unsure` judgment also shows a judgment marker, dimmed when the judgment is stale.
 
-The stacks area is a node graph, one column per chain, read bottom to top. `stackLayoutOf(tasks)` is pure and gives each task a column and a row:
+The stacks area draws the plan's stack diagram: one box per stack, the boxes in rows over the base branch. `stacksOf(tasks)` lays it out (see `spec.viewer.stacks`).
 
-- Columns follow parent links. A task with no parent starts a new column. At a fork, the first child (by ID) continues its parent's column and each other child starts a new column right after it. Columns are ordered by the ID of their first task.
-- A task's row is its wave: 1 for a task with no dependencies, otherwise 1 more than the highest wave among its dependencies. Row 1 is at the bottom, so everything a task needs sits below it.
-- Within a column, a parent and its child are joined by a curve from the parent's top edge to the child's bottom edge. A dependency on another column is a dashed curve, drawn the same way. Both come from `curvesOf` (see `spec.viewer.curves`).
-
-Properties: every task sits above all of its dependencies; a task and its parent share a column; two tasks never share a column and a row.
 Loading: under `cairn serve`, a subscription in `load.ts` fetches `/api/trace` every two seconds with `If-None-Match` (see `spec.server`). A `200` is decoded through the `Trace` schema and sends `SettledLoadTrace` with the trace; a `304` sends nothing; a network or decode error sends `SettledLoadTrace` with the error, and the view shows the error above the last good trace. The demo build (`vite build --mode demo`) loads `demo-trace.json` once and never polls.
 
 ### Markdown rendering {#spec.viewer.markdown-rendering}
@@ -1109,14 +1108,51 @@ A fenced block with a language `@pierre/highlights` has a lexer for renders a sp
 The three columns sit on one canvas, built the way React Flow builds its own, from `@xyflow/system`, the framework-agnostic core under React Flow and Svelte Flow. Foldkit renders every node and edge; the library supplies geometry and gestures, never DOM or state.
 
 - Positions: a subscription measures every `[data-section]` and `[data-task]` element on load and resize, and after every move (see Dragging below), and sends `MeasuredLayout`. Positions are in canvas coordinates, so pan and zoom do not invalidate them.
-- Curves: `curvesOf(trace, positions)` is pure. It returns one edge per link, with its path from `getBezierPath`. PRD to spec and spec to task links run from a node's right edge to the next node's left edge. Links inside the stacks area run from a task's top edge to the bottom edge of the task above it: solid for a parent, dashed for a dependency on another column (see `spec.viewer.model-and-messages`). The view draws edges in one SVG layer. By default it draws only the edges of lit chains, the pinned ones and the hovered one, and none while nothing is lit, so the canvas starts clear. The "Show all curves" toggle draws every edge and dims those outside the lit chains.
+- Curves: `curvesOf(trace, positions)` is pure. It returns one edge per link, with its path from `getBezierPath`. PRD to spec and spec to task links run from a node's right edge to the next node's left edge. Links inside the stacks area run from a task's top edge to the bottom edge of the task above it: solid for a parent, dashed for every other dependency (see `spec.viewer.stacks`). The view draws edges in one SVG layer. By default it draws only the edges of lit chains, the pinned ones and the hovered one, and none while nothing is lit, so the canvas starts clear. The "Show all curves" toggle draws every edge and dims those outside the lit chains.
 - Pan and zoom: `XYPanZoom` runs in a Foldkit `Mount` on the canvas pane. Its `onPanZoom` callback sends `PannedOrZoomed` with the viewport, and the model holds it. When the model's viewport changes for another reason, such as fitting the selected chain with `getViewportForBounds`, the mount calls `syncViewport`. `destroy` runs on unmount.
 
 - Page layout: the canvas pane is the whole screen (`position: fixed`, `100vw` by `100vh`, no page scroll, no body margin). The h1, the presence status, any alerts and the Fit, Show all curves and Clear pins buttons sit in a compact toolbar fixed to the top left, over the canvas and outside its layer, so it does not pan or zoom. The drawer is a panel fixed to the right edge, 420px wide and full height, with its own vertical scroll, above the canvas; opening it does not move the canvas or the page. `MeasuredPane` measures the full-screen pane, so Fit frames the content in it.
 - Dragging: the PRD, the spec and each task card can be moved. A document moves as a whole column, its sections with it; a section is not moved on its own. A document is dragged by the bar across its top, which names it and its file; a task card by a grip in its corner. Each handle is a native button labelled "Move PRD", "Move Spec" or "Move t9", so a drag anywhere else on a node selects its text. A press with the primary button on a grip sends `PressedMoveHandle` and the model's `drag` becomes `Dragging` with the item, the pointer id and the pointer's position. While a drag is in progress a subscription listens to the page's pointer events and sends `MovedDragPointer` and `ReleasedDragPointer`; a move or release from another pointer, or with no drag in progress, is ignored, and so is a press on another handle while a drag is in progress. A move with no button held, or a new primary press, ends a drag whose release was missed, such as a click too quick for the page listener to start. When the drag's pointer goes up the drag becomes `Released`, keeping that pointer, and the subscription stops the click the browser makes of that release in the capture phase, before any node's handler sees it, and sends `SuppressedClickAfterDrag`; the browser clicks wherever the pointer went up, which can be the node that was moved, and a drag must not count as a click on it. Only the drag's own pointer going up arms the stop (`gestureStep`), so another finger's tap still reaches its node. The next press, `PressedAfterDrag`, also ends `Released`, so a release that makes no click does not swallow a later one. A click on the grip itself, from the keyboard or a press that did not move, sends `ClickedMoveHandle` and stops at the grip. Each move adds the pointer's move divided by `viewport.zoom` to the item's offset, so the item stays under the pointer at any zoom. With a grip focused, each arrow key sends `PressedArrowOnMoveHandle` and moves the item 10 canvas units. The model holds `offsets`, an `Offset` in canvas units per moved item keyed `document:prd`, `document:spec` or `task:<id>`, and the view applies each one as a CSS `translate` on the column or the card. "Reset layout", in the toolbar beside "Fit to view", sends `ClickedResetLayout` and clears every offset. Offsets are not kept across reloads.
 - Curves follow a move by measuring again: the layer carries the offsets in its `data-offsets` attribute, and the layout mount re-measures when that attribute changes, since a transform changes no size and neither resize observer sees it. A measured box includes its element's transform, so the positions, the curves and Fit all see the moved layout, with no offset arithmetic outside the DOM.
 
-Not in v1: drawing connections, automatic layout and keeping a layout across reloads. When they come, `XYDrag` and `XYHandle` are used only if snapping or connection drawing needs them, and `@dagrejs/dagre` places nodes as a pure function called from `update`.
+Not in v1: drawing connections and keeping a layout across reloads. When they come, `XYDrag` and `XYHandle` are used only if snapping or connection drawing needs them. The stacks have a computed layout of their own (`spec.viewer.stacks`); no general graph layout places the documents.
+
+### Stacks {#spec.viewer.stacks}
+
+- Implements: `prd.viewer.stacks`
+- Files: `apps/viewer/src/stacks.ts`, `apps/viewer/src/curves.ts`, `apps/viewer/src/view/stacksView.ts`, `apps/viewer/test/stacks.test.ts`, `apps/viewer/test/stacks.scene.test.ts`
+- Depends on: `spec.viewer.curves`
+
+The stacks column draws the picture the diagram in `spec.planning.stack-order` draws, from the same rules, and a test holds the two together.
+
+`stacksOf(tasks)` is pure and replaces `stackLayoutOf`. It returns the stacks in number order:
+
+```ts
+Stack = {
+  number: number // from 1, in TaskIdOrder of the roots
+  root: TaskId
+  area: Option<string> // "contract" for a root whose first spec section is spec.contract.trace
+  level: number // from 1; level 1 is the bottom row
+  cells: Record<TaskId, StackPosition> // column and row inside the box; row 1 is the bottom
+}
+```
+
+- Membership: a root is a task whose `parent` is `null`, names no task, or would close a cycle. Every other task belongs to its parent's stack, so each task is in exactly one stack.
+- Number and label: stacks are numbered from 1 in `TaskIdOrder` of their roots. The area is the second segment of the root's first spec section ID. The label is `Stack N · area`, or `Stack N` for a root with no spec section.
+- Cells: a task's row is its depth, 1 for the root and one more than its parent's for every other task, so a chain has no gaps. Columns inside a box follow the old column rule: the first child by ID continues its parent's column, every other child starts a new one, and columns are numbered by the ID of their first task.
+- Level: a stack waits on another when one of its tasks depends on a task in the other. Its level is 1 when it waits on nothing, otherwise one more than the highest level among the stacks it waits on. A dependency that names no task, or that would close a cycle between stacks, is ignored.
+
+`stacksView`:
+
+- The column is the levels stacked bottom to top, highest level at the top. Each level is a row of its stacks in number order, aligned to the bottom, 32px apart. Under the bottom row is a bar the width of the column labelled with `trace.baseBranch`. The bar is not a node: nothing measures, hovers or pins it, and no curve runs to it, since every stack in the bottom row starts from it.
+- A stack is a box (`data-stack` holding its number), filled and bordered in light grey like the diagram's subgraphs, with its label in small text at the top and a CSS grid of its cells. A cell's `grid-row` counts down from the box's own top row, so each box is only as tall as its deepest chain.
+- A task card reads like a diagram node. The first line is the ID, the branch without its `<feature>/` prefix, and `GATE` for a human gate; then the title; then the worktree, `main checkout` for `null`; then the status. A band across the top of the card is the model's colour (opus `#7c3aed`, sonnet `#2563eb`, haiku `#facc15`) with the model named in it. A gated card has a 3px `#dc2626` border. The fill and the stripes down the left edge stay the pins' (see `spec.viewer.model-and-messages`), so a model colour never reads as a pin.
+- `curvesOf` loses its `columnOf` argument: a parent is a solid curve and every other dependency a dashed one, as in the diagram.
+- A card still moves by its grip, and Reset layout returns it to its cell. Moving a whole box is not in this section.
+
+Tests: properties in `stacks.test.ts` that every task is in exactly one stack; a child shares its parent's stack and sits one row above it; no two tasks in a box share a cell; a stack's level is above every stack it waits on, cycles aside; numbers follow root IDs; and the input order does not change the result. One test reads the Mermaid block from `.cairn/spec.md` and checks that `stacksOf` on `.cairn/manifest.json` gives the same labels with the same tasks in each, so a manifest change that is not redrawn fails `pnpm check`. A Scene test on the demo trace finds the boxes and their labels, a child card in the row above its parent in the same box, the base branch bar, `GATE` and the worktree on a card.
+
+Considered and left out: `@dagrejs/dagre` with compound nodes, which is how Mermaid lays out the diagram. It needs every card's size before it runs and returns absolute positions, so the view would place every card by hand and measure twice. The rule above is short enough to compute directly, and CSS sizes the boxes.
 
 ### Presence on the canvas {#spec.viewer.presence}
 
