@@ -68,6 +68,8 @@ New:
 | Library                                                                 | Version             | License    | Used for                                                |
 | ----------------------------------------------------------------------- | ------------------- | ---------- | ------------------------------------------------------- |
 | `@pierre/diffs`                                                         | 1.6.4               | Apache-2.0 | Parsing patches into hunks and rendering commit diffs   |
+| `@pierre/highlights`                                                    | 0.5.2               | Apache-2.0 | Syntax colours for fenced code in the viewer            |
+| `pele`                                                                  | 1.13.0              | MIT        | Drawing Mermaid diagrams as SVG in the viewer           |
 | `@xyflow/system`                                                        | 1.0.0               | MIT        | Bezier paths, viewport math and pan/zoom for the canvas |
 | `@effect/ai-anthropic`                                                  | 4.1.5               | MIT        | The live `LanguageModel`, for the `Planner`             |
 | `@effect/ai-typesafe`                                                   | 4.1.5               | MIT        | The live `DecisionModel` (Jev), for the `Judge`         |
@@ -77,8 +79,9 @@ Built into Node 24, so no package: `node:sqlite` for `cairn.db`, and `path.match
 
 Considered and left out:
 
-- `@pierre/words` renders markdown to HTML strings through WebAssembly and is built for streaming model output. The viewer would need `innerHTML` for it, and it knows nothing of `{#id}` headings. It may suit streaming session logs later.
-- `@pierre/highlights`, the WebAssembly highlighter `@pierre/diffs` can use instead of Shiki. It is in beta; Shiki's JavaScript engine is the default and is enough for now.
+- `@pierre/words` renders markdown to HTML strings through WebAssembly and is built for streaming model output. It drops raw HTML and checks URLs, but its output is still a string, so the viewer would need `innerHTML` for the whole document, and its hooks take and return HTML strings, so the `{#id}` headings, their `data-section` attributes and the title buttons that send Messages would have to be rebuilt from strings. Its Mermaid plugin needs `pele` anyway, and its code plugin needs `@pierre/highlights`; the viewer uses both directly. It may suit streaming session logs later.
+- `mermaid` for diagrams: 123 MB unpacked with d3, cytoscape and elkjs behind it, and an asynchronous render that needs a DOM. `pele` draws the same syntax (Mermaid 12.1.0) synchronously from one dependency-free package, and escapes the diagram text itself.
+- Shiki, through `@pierre/diffs`, for code blocks: it loads grammars asynchronously, so a block would need a Model field and Messages to arrive after the first render. `@pierre/highlights` returns tokens synchronously, and the view turns them into spans with no `innerHTML`. It is in beta, so its version is pinned exactly; `@pierre/diffs` can still use Shiki or Highlights for commit diffs.
 - A SQLite package such as `better-sqlite3`, since `node:sqlite` needs no native build.
 - Rete, JointJS, Cytoscape, Drawflow and LiteGraph. Each owns its scene and graph state, which would put state in two places beside the Foldkit model.
 - `elkjs` for layout: EPL-2.0 or GPL-3.0 and 8 MB. `@dagrejs/dagre` (MIT) is the choice when layout stops being fixed.
@@ -1091,9 +1094,11 @@ Loading: under `cairn serve`, a subscription in `load.ts` fetches `/api/trace` e
 ### Markdown rendering {#spec.viewer.markdown-rendering}
 
 - Implements: `prd.viewer`
-- Files: `apps/viewer/src/markdown.ts`
+- Files: `apps/viewer/src/markdown.ts`, `apps/viewer/src/code.ts`, `apps/viewer/src/diagram.ts`
 
 Parse with `mdast-util-from-markdown` plus GFM tables and map the nodes to Foldkit's `h` builders. No `innerHTML`, so a PRD cannot inject markup, and Scene tests see the rendered text. Each heading's `{#id}` becomes its element ID and `data-section` attribute. The key list at the top of a spec section renders as small chips. HTML comments are dropped.
+
+A fenced block with a language `@pierre/highlights` has a lexer for renders a span per token, coloured inline, and keeps `language-x` on its `code` element. The highlighter is synchronous, so a block needs no Message. Any other language stays plain text. A `mermaid` fence renders through the caller's `diagramView` hook, which for the canvas is an empty placeholder with a `DrawDiagram` Mount. A Mount runs once, when its element is inserted, so the placeholder is keyed by the diagram's source and the line its fence starts on: a diagram that changes gets a new element and is drawn again. The Mount draws the diagram with `pele` (links and images off, text escaped), which is the one place SVG becomes DOM. A diagram that cannot be drawn shows its source and a one-line reason in its place. A diagram changes the height of its column, so the Mount measures the canvas layer once it has drawn and sends `MeasuredLayout`; the layer's own `ResizeObserver` only fires when the layer itself changes size.
 
 ### Canvas and curves {#spec.viewer.curves}
 

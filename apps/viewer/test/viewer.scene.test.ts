@@ -37,6 +37,7 @@ import { HOVER_FILL, PIN_PALETTE } from "../src/highlight.ts";
 import { demoTrace } from "../src/demo.ts";
 import { MAX_ZOOM, MIN_ZOOM, Viewport, type Positions } from "../src/geometry.ts";
 import { init } from "../src/init.ts";
+import { DrawDiagram } from "../src/diagram.ts";
 import { MeasureLayout } from "../src/layout.ts";
 import { Message } from "../src/message.ts";
 import { TraceData } from "../src/model.ts";
@@ -47,6 +48,7 @@ import { view } from "../src/view/view.ts";
 import {
   focusedDrawerHeading,
   layerMounted,
+  layerMountedWith,
   loaded,
   mounted,
   mountedWith,
@@ -410,7 +412,7 @@ const boxes: Positions = Record.fromEntries(
 );
 const allCurves = curvesOf(demoTrace, boxes, columnOf(stackLayoutOf(demoTrace.tasks)));
 // The layer's mount measures it, which Scene cannot start, so a test answers for it.
-const measured = Mount.resolve(MeasureLayout, Message.MeasuredLayout({ positions: boxes }));
+const measured = layerMountedWith(boxes);
 const edge = (id: string) => selector(`[data-edge="${id}"]`);
 // An edge counts as in the chain only when both of its ends are, so these straddle it.
 const straddling = (sourceIn: boolean) =>
@@ -561,7 +563,7 @@ it("the pane is mounted on and the layer starts at the origin viewport", () => {
   scene(
     { update, view },
     given(loaded),
-    Mount.expectExact(PanZoomCanvas, MeasureLayout),
+    Mount.expectExact(PanZoomCanvas, MeasureLayout, DrawDiagram),
     mounted,
     expect(pane).toHaveStyle("overflow", "hidden"),
     expect(pane).toHaveAttr("data-viewport", viewportAttribute(ORIGIN_VIEWPORT)),
@@ -587,6 +589,18 @@ it.prop(
   // Each run renders the whole demo trace, so a few runs cover it.
   { arbitrary: { runs: 10 }, timeout: 30_000 },
 );
+
+it("the spec's Mermaid diagram is a mount placeholder in the Spec column, not its source", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    Mount.expectHas(DrawDiagram),
+    expect(selector("[data-column='spec'] [data-diagram]")).toBeEmpty(),
+    expect(selector("[data-language='mermaid']")).toBeAbsent(),
+    expect(selector("[data-column='prd'] [data-diagram]")).toBeAbsent(),
+    mounted,
+  );
+});
 
 it("the layer is measured once the trace is loaded, and not before", () => {
   scene({ update, view }, given(init().model), expect(layer).toBeAbsent(), Mount.expectNone());

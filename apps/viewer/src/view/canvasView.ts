@@ -6,6 +6,7 @@ import { PanZoomCanvas, VIEWPORT_ATTRIBUTE, transformOf, viewportAttribute } fro
 import type { Positions, Viewport } from "../geometry.ts";
 import { litChainsOf, type Pin } from "../highlight.ts";
 import { MeasureLayout } from "../layout.ts";
+import { diagramView } from "../diagram.ts";
 import { renderMarkdown, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
 import { stackLayoutOf } from "../stacks.ts";
@@ -86,6 +87,7 @@ const columnsGridView = (
           renderMarkdown(trace.prd.markdown, h, {
             attributesOf: sectionAttributes,
             decorate: sectionBadges,
+            diagramView: (source, key) => diagramView(h, source, key),
             headingOffset: HEADING_OFFSET,
             wrapTitle: sectionTitle,
           }),
@@ -98,6 +100,7 @@ const columnsGridView = (
           renderMarkdown(trace.spec.markdown, h, {
             attributesOf: sectionAttributes,
             decorate: specSectionMarks,
+            diagramView: (source, key) => diagramView(h, source, key),
             headingOffset: HEADING_OFFSET,
             wrapTitle: sectionTitle,
           }),

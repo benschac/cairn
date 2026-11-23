@@ -19,7 +19,7 @@ const keyOf = (element: Element): Option.Option<string> =>
   );
 
 /** Every section and task in the layer, in canvas coordinates. */
-const measureLayer = (layer: Element): Positions => {
+export const measureLayer = (layer: Element): Positions => {
   const elements = Array.getSomes(
     Array.map(
       Array.fromIterable(layer.querySelectorAll("[data-section], [data-task]")),

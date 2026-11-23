@@ -83,6 +83,9 @@ importers:
       '@effect/platform-browser':
         specifier: 4.1.5
         version: 4.1.5(effect@4.1.5)
+      '@pierre/highlights':
+        specifier: 0.5.2
+        version: 0.5.2
       '@xyflow/system':
         specifier: 1.0.0
         version: 1.0.0
@@ -101,6 +104,9 @@ importers:
       micromark-extension-gfm:
         specifier: 3.0.0
         version: 3.0.0
+      pele:
+        specifier: 1.13.0
+        version: 1.13.0
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'
@@ -905,6 +911,9 @@ packages:
   '@oxlint/plugins@1.94.0':
     resolution: {integrity: sha512-YT6htikBOBQ00XDxZpRZLZ0anEDo7h9s4+YvjRU0/Ng/cLd0D6SZQ3tsms4g/GDer/z8UKlegC5iptEfyRXJcw==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+
+  '@pierre/highlights@0.5.2':
+    resolution: {integrity: sha512-CV+yFa8dodaU3w7U42FR+AfoavrsfcH0/n3rckDu1A/UXan1Dzo6OdM/MPOAAsGM/EbKhDxD6k+qMcNUtnLfsg==}
 
   '@puppeteer/browsers@3.2.7':
     resolution: {integrity: sha512-B3C/v8OEEaJYcN1IzzgbPmt+GbFANr4Mf/NrqNuGk/dIchrv6quNqxgT+A6qE0Ge0MN95NjKUddcR1JMpYRMWA==}
@@ -1896,6 +1905,10 @@ packages:
   pathe@2.0.3:
     resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
 
+  pele@1.13.0:
+    resolution: {integrity: sha512-Ie8UKY9x00MsuR3jO6AzUwzK2Z6MIV3Tf4EDdITiuk8Uaz8K7g0R082WqsqNaSU8DdgkrRvZThzhit83mi/uiw==}
+    engines: {node: '>=20'}
+
   pend@1.2.0:
     resolution: {integrity: sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg==}
 
@@ -2660,6 +2673,8 @@ snapshots:
     optional: true
 
   '@oxlint/plugins@1.94.0': {}
+
+  '@pierre/highlights@0.5.2': {}
 
   '@puppeteer/browsers@3.2.7(yauzl@3.4.0)':
     dependencies:
@@ -3572,6 +3587,8 @@ snapshots:
       entities: 9.0.0
 
   pathe@2.0.3: {}
+
+  pele@1.13.0: {}
 
   pend@1.2.0: {}
 

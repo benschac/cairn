@@ -1,5 +1,6 @@
 import type {
   AlignType,
+  Code,
   Heading,
   ListItem,
   Nodes,
@@ -13,8 +14,10 @@ import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
 import { SectionId } from "@cairn/contract";
-import { Array, Match, Option, Predicate, Schema, String, Struct, pipe } from "effect";
+import { Array, Hash, Match, Option, Predicate, Schema, String, Struct, pipe } from "effect";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
+
+import { codeBlockView } from "./code.ts";
 
 /** The keys that start a spec section, in the order the format lists them. */
 export const SECTION_KEYS = ["Implements", "Files", "Depends on", "Defers", "Context"] as const;
@@ -98,7 +101,21 @@ const checkbox = (checked: boolean | null | undefined): ReadonlyArray<string> =>
 
 const isSectionId = Schema.is(SectionId);
 
-/** What a caller adds to a heading whose `{#id}` is a section ID, and how deep headings start. */
+/**
+ * A diagram's identity in the page: its source and the line its fence starts on. A diagram that is
+ * edited or moves gets a new key, so its placeholder is a new element and its Mount draws it again;
+ * two identical diagrams on different lines still get different keys.
+ */
+const diagramKeyOf = (node: Code): string =>
+  `diagram:${Hash.string(node.value) >>> 0}:${Option.getOrElse(
+    Option.map(Option.fromNullishOr(node.position), (position) => position.start.line),
+    () => 0,
+  )}`;
+
+/** The fence language that holds a Mermaid diagram. */
+const DIAGRAM_LANGUAGE = "mermaid";
+
+/** What a caller adds to a heading whose `{#id}` is a section ID, how deep headings start, and what a diagram is. */
 export interface SectionHooks<Message> {
   /** Attributes for the heading. */
   readonly attributesOf?: (sectionId: SectionId) => ReadonlyArray<Attribute<Message>>;
@@ -108,6 +125,11 @@ export interface SectionHooks<Message> {
   readonly wrapTitle?: (sectionId: SectionId, title: Rendered) => Rendered;
   /** Levels added to every heading, so "# " can render below the page's own h1; h6 is the deepest. */
   readonly headingOffset?: number;
+  /**
+   * What a `mermaid` fence renders as, given its source, such as a placeholder a Mount draws into.
+   * Without it a diagram is a code block of its source.
+   */
+  readonly diagramView?: (source: string, key: string) => Html;
 }
 
 /** What every renderer below reads: the builder and the caller's section hooks. */
@@ -117,6 +139,7 @@ interface RenderContext<Message> {
   readonly decorate: (sectionId: SectionId) => ReadonlyArray<Html>;
   readonly wrapTitle: (sectionId: SectionId, title: Rendered) => Rendered;
   readonly headingOffset: number;
+  readonly diagramView: (source: string, key: string) => Html;
 }
 
 const renderInline = <Message>(
@@ -202,16 +225,6 @@ const headingView = <Message>(context: RenderContext<Message>, node: Heading): H
   );
 };
 
-const languageClass = <Message>(h: HtmlBuilder<Message>, lang: string | null | undefined) =>
-  pipe(
-    Option.fromNullishOr(lang),
-    Option.filter(String.isNonEmpty),
-    Option.map((language) =>
-      h.Class(`language-${Array.headNonEmpty(String.split(language, /\s/u))}`),
-    ),
-    Array.fromOption,
-  );
-
 const keyRowsView = <Message>(h: HtmlBuilder<Message>, keyRows: ReadonlyArray<KeyRow>): Html =>
   h.div(
     [h.DataAttribute("keys", "")],
@@ -234,11 +247,9 @@ const render = <Message>(context: RenderContext<Message>, content: Nodes): Rende
       blockquote: (node) => [h.blockquote([], renderBlocks(context, node.children))],
       break: () => [h.br([])],
       code: (node) => [
-        h.pre(
-          // The canvas never scrolls, so a long line wraps instead of running out of its column.
-          [h.Style({ "overflow-wrap": "anywhere", "white-space": "pre-wrap" })],
-          [h.code(languageClass(h, node.lang), [node.value])],
-        ),
+        node.lang === DIAGRAM_LANGUAGE
+          ? context.diagramView(node.value, diagramKeyOf(node))
+          : codeBlockView(h, node.value, node.lang),
       ],
       delete: (node) => [h.del([], renderInline(context, node.children))],
       emphasis: (node) => [h.em([], renderInline(context, node.children))],
@@ -290,6 +301,7 @@ export const renderMarkdown = <Message>(
   {
     attributesOf = () => [],
     decorate = () => [],
+    diagramView = (source, _key) => codeBlockView(h, source, DIAGRAM_LANGUAGE),
     headingOffset = 0,
     wrapTitle = (_sectionId, title) => title,
   }: SectionHooks<Message> = {},
@@ -300,6 +312,9 @@ export const renderMarkdown = <Message>(
   });
   return h.div(
     [h.Class("markdown")],
-    renderBlocks({ attributesOf, decorate, h, headingOffset, wrapTitle }, tree.children),
+    renderBlocks(
+      { attributesOf, decorate, diagramView, h, headingOffset, wrapTitle },
+      tree.children,
+    ),
   );
 };

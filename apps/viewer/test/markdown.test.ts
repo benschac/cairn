@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { SectionId } from "@cairn/contract";
 import { it } from "@effect/vitest";
-import { Array, Number, Option, Predicate, Result, Schema, String, pipe } from "effect";
+import { Array, Number, Option, Predicate, Record, Result, Schema, String, pipe } from "effect";
 import type { Html } from "foldkit/html";
 import { expect, given, scene, selector } from "foldkit/scene";
 import { expect as assert } from "vitest";
@@ -296,4 +296,125 @@ it("wrapTitle wraps a section heading's title, and the decoration stays outside 
   );
   // Only the heading with a section id is wrapped.
   assert(Array.dedupe(wrapped)).toEqual(["spec.some"]);
+});
+
+const classes = (node: VNode): ReadonlyArray<string> => Record.keys(node.data?.class ?? {});
+
+const styleOf = (node: VNode): Readonly<Record<string, string>> => node.data?.style ?? {};
+
+/** The elements of a code block's text: a span per token when it is highlighted. */
+const tokenSpans = (node: VNode) =>
+  Array.filter(
+    walk(firstTag(node, "code")),
+    (element) => tagOf(element) === "span" && styleOf(element)["color"] !== undefined,
+  );
+
+const FENCE = "```";
+
+const fence = (language: string, code: string): string =>
+  Array.join([`${FENCE}${language}`, code, FENCE], "\n");
+
+it("a fenced block keeps its language and gets a coloured span per token", () => {
+  const root = render(fence("ts", "const x: number = 1;\nexport const y = 'a';"));
+  assert(attr(firstTag(root, "pre"), "data-language")).toBe("ts");
+  assert(classes(firstTag(root, "code"))).toEqual(["language-ts"]);
+  assert(textOf(firstTag(root, "code"))).toBe("const x: number = 1;\nexport const y = 'a';");
+  const colors = Array.dedupe(Array.map(tokenSpans(root), (span) => styleOf(span)["color"]));
+  assert(tokenSpans(root).length).toBeGreaterThan(6);
+  assert(colors.length).toBeGreaterThan(2);
+});
+
+it("a fence's meta after its language is not part of the language", () => {
+  const root = render(fence('ts title="a.ts"', "const x = 1;"));
+  assert(classes(firstTag(root, "code"))).toEqual(["language-ts"]);
+  assert(tokenSpans(root).length).toBeGreaterThan(0);
+});
+
+it.each(["nope", ""])("a fence in %j stays plain text", (language) => {
+  const root = render(fence(language, "const x = 1;"));
+  assert(tokenSpans(root)).toEqual([]);
+  assert(textOf(firstTag(root, "code"))).toBe("const x = 1;");
+});
+
+it("a fence with no language has no language class", () => {
+  assert(classes(firstTag(render(fence("", "plain")), "code"))).toEqual([]);
+});
+
+it.prop(
+  "highlighting never changes the text of a block or lets it become markup",
+  [Schema.String.check(Schema.isPattern(/^(?:[^\p{Cc}]|[\n\t])*$/u))],
+  ([source]) => {
+    Array.forEach(["ts", "json", "sql", "mermaid"], (language) => {
+      const root = render(fence(language, source));
+      assert(textOf(firstTag(root, "code"))).toBe(source);
+    });
+  },
+);
+
+it("code that looks like markup stays text in every language", () => {
+  const source = "<script>alert(1)</script><img src=x onerror=alert(1)>";
+  Array.forEach(["ts", "html", "nope", ""], (language) => {
+    const root = render(fence(language, source));
+    assert(tags(root)).not.toContain("script");
+    assert(tags(root)).not.toContain("img");
+    assert(textOf(firstTag(root, "code"))).toBe(source);
+  });
+});
+
+it("a mermaid fence is a code block of its source until the caller says what a diagram is", () => {
+  const root = render(fence("mermaid", "flowchart LR\n  A --> B"));
+  assert(tags(root)).toContain("pre");
+  assert(textOf(firstTag(root, "code"))).toBe("flowchart LR\n  A --> B");
+});
+
+it("a mermaid fence is handed to the caller's diagramView, and no other fence is", () => {
+  let sources: ReadonlyArray<string> = [];
+  scene(
+    {
+      update: (model: null) => ({ model }),
+      view: (_model: null, h) => ({
+        body: renderMarkdown(
+          `${fence("mermaid", "flowchart LR\n  A --> B")}\n\n${fence("ts", "const x = 1;")}`,
+          h,
+          {
+            diagramView: (source) => {
+              sources = Array.append(sources, source);
+              return h.figure([h.DataAttribute("diagram", "")]);
+            },
+          },
+        ),
+        title: "markdown",
+      }),
+    },
+    given(null),
+    expect(selector("[data-diagram]")).toBeEmpty(),
+    expect(selector("pre")).toHaveText("const x = 1;"),
+  );
+  // A Scene renders the view once per step.
+  assert(Array.dedupe(sources)).toEqual(["flowchart LR\n  A --> B"]);
+});
+
+/** The keys renderMarkdown gives each mermaid fence in `markdown`, in order, from one render. */
+const diagramKeys = (markdown: string): ReadonlyArray<string> => {
+  let keys: ReadonlyArray<string> = [];
+  render(markdown, {
+    diagramView: (_source, key) => {
+      keys = Array.append(keys, key);
+      return null;
+    },
+  });
+  return keys;
+};
+
+// A Mount runs once, when its element is inserted, so a diagram's element must be new whenever the
+// diagram changes: its key is what makes the element new.
+it("a diagram's key changes with its source and its line, and two identical diagrams differ", () => {
+  const a = fence("mermaid", "flowchart LR\n  A --> B");
+  const b = fence("mermaid", "flowchart LR\n  A --> C");
+  const [original] = diagramKeys(a);
+  assert(diagramKeys(a)).toEqual([original]);
+  assert(diagramKeys(b)).not.toEqual([original]);
+  assert(diagramKeys(`# Moved\n\n${a}`)).not.toEqual([original]);
+  const twice = diagramKeys(`${a}\n\n${a}`);
+  assert(Array.length(Array.dedupe(twice))).toBe(2);
 });

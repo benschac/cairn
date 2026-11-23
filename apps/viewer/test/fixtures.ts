@@ -6,6 +6,7 @@ import { modifyFields } from "foldkit/struct";
 import { PanZoomCanvas } from "../src/canvas.ts";
 import { FocusDrawerHeading, FocusNode } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
+import { DrawDiagram } from "../src/diagram.ts";
 import type { Positions } from "../src/geometry.ts";
 import { init } from "../src/init.ts";
 import { MeasureLayout } from "../src/layout.ts";
@@ -23,11 +24,16 @@ export const paneSize = { height: 600, width: 1200 };
 
 /**
  * Scene tests run no hooks, so the layer's mount stays pending until the test answers for it with
- * the message the mount would send first: the positions it measured.
+ * the message the mount would send first: the positions it measured. The spec's Mermaid diagram
+ * has a mount too, which measures the layer once it has drawn, so it answers with the same.
  */
 export const layerMountedWith = (positions: Positions) =>
-  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-  Mount.resolve(MeasureLayout, Message.MeasuredLayout({ positions }));
+  Mount.resolveAll(
+    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+    [MeasureLayout, Message.MeasuredLayout({ positions })],
+    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+    [DrawDiagram, Message.MeasuredLayout({ positions })],
+  );
 
 /** The layer's mount answering that no node is measured yet. */
 export const layerMounted = layerMountedWith({});
@@ -42,6 +48,8 @@ export const mountedWith = (positions: Positions) =>
     [PanZoomCanvas, Message.MeasuredPane({ size: paneSize })],
     // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
     [MeasureLayout, Message.MeasuredLayout({ positions })],
+    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+    [DrawDiagram, Message.MeasuredLayout({ positions })],
   );
 
 /** The pane sized and nothing measured. */
