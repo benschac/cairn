@@ -206,6 +206,21 @@ it.prop("hovering a node then leaving it clears the hover", { node: Node }, ({ n
   );
 });
 
+// CURVES
+
+it("all curves start hidden, and the toggle shows them and hides them again", () => {
+  story(
+    update,
+    given(ordinary),
+    model((next) => assert(next.isShowingAllCurves).toBe(false)),
+    message(Message.ClickedShowAllCurves()),
+    Command.expectNone(),
+    model((next) => assert(next.isShowingAllCurves).toBe(true)),
+    message(Message.ClickedShowAllCurves()),
+    model((next) => assert(next.isShowingAllCurves).toBe(false)),
+  );
+});
+
 // FIT
 
 const rect = { height: 100, width: 200, x: 50, y: 30 };

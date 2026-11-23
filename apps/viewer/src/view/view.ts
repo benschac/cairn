@@ -47,6 +47,17 @@ const alertView = (error: string, h: HtmlBuilder<Message>): Html => h.p([h.Role(
 const fitButton = (h: HtmlBuilder<Message>): Html =>
   h.button([h.Type("button"), h.OnClick(Message.ClickedFit())], ["Fit to view"]);
 
+/** Pressed while every curve is drawn; released, only the hovered or selected chain's are. */
+const showAllCurvesButton = (isShowingAllCurves: boolean, h: HtmlBuilder<Message>): Html =>
+  h.button(
+    [
+      h.Type("button"),
+      h.AriaPressed(String(isShowingAllCurves)),
+      h.OnClick(Message.ClickedShowAllCurves()),
+    ],
+    ["Show all curves"],
+  );
+
 /** Everyone in the room but you. */
 const othersOf = (model: Model): ReadonlyArray<Participant> =>
   Array.filter(
@@ -64,12 +75,14 @@ const traceView = (
     Array.appendAll(
       [
         fitButton(h),
+        showAllCurvesButton(model.isShowingAllCurves, h),
         canvasView(
           trace,
           model.positions,
           model.viewport,
           model.maybeHovered,
           model.drawer,
+          model.isShowingAllCurves,
           others,
           h,
         ),

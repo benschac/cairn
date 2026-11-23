@@ -399,11 +399,17 @@ it("with nothing measured no edge is drawn", () => {
   scene({ update, view }, given(loaded), mounted, expect(selector("[data-edge]")).toBeAbsent());
 });
 
-it("measured nodes get a path per link, dashed only across columns", () => {
+const showAllCurves = role("button", { name: "Show all curves" });
+
+it("measured nodes get a path per link once all curves are shown, dashed only across columns", () => {
   scene(
     { update, view },
     given(loaded),
     mountedWith(boxes),
+    expect(selector("[data-edge]")).toBeAbsent(),
+    click(showAllCurves),
+    expect(showAllCurves).toHaveAttr("aria-pressed", "true"),
+    expectAll(all.selector("[data-edge]")).toHaveCount(allCurves.length),
     expect(edge(solidCurve.id)).toHaveAttr("data-kind", solidCurve.kind),
     expect(edge(solidCurve.id)).toHaveAttr("d", solidCurve.path),
     expect(selector(`[data-edge="${solidCurve.id}"][stroke-dasharray]`)).toBeAbsent(),
@@ -419,6 +425,7 @@ it("a measurement replaces the previous one, and edges to unmeasured nodes are n
     { update, view },
     given(loaded),
     mountedWith(boxes),
+    click(showAllCurves),
     expect(edge(solidCurve.id)).toExist(),
     // The mount's stream keeps sending as the layer changes, which Scene has no step for.
     Subscription.emit(Message.MeasuredLayout({ positions: {} })),
@@ -426,11 +433,51 @@ it("a measurement replaces the previous one, and edges to unmeasured nodes are n
   );
 });
 
-it("hovering a chain highlights its edges and dims the others; leaving clears", () => {
+it("no curve is drawn until a node is hovered, and then only its chain's", () => {
+  const chainCurves = Array.filter(
+    allCurves,
+    (curve) => isInChain(chain, curve.source) && isInChain(chain, curve.target),
+  );
+  assert(chainCurves.length).toBeLessThan(allCurves.length);
   scene(
     { update, view },
     given(loaded),
     mountedWith(boxes),
+    expect(showAllCurves).toHaveAttr("aria-pressed", "false"),
+    expect(selector("[data-edge]")).toBeAbsent(),
+    hover(heading(specSection.id)),
+    expectAll(all.selector("[data-edge]")).toHaveCount(chainCurves.length),
+    expect(edge(insideChain.id)).toHaveAttr("data-highlighted", "true"),
+    expect(edge(outsideChain.id)).toBeAbsent(),
+    expect(edge(leavingChain.id)).toBeAbsent(),
+    expect(edge(enteringChain.id)).toBeAbsent(),
+    expect(selector("[data-edge][data-dimmed]")).toBeAbsent(),
+    left,
+    expect(selector("[data-edge]")).toBeAbsent(),
+  );
+});
+
+it("a selected node keeps its chain's curves after the pointer leaves; clicking again hides them", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    mountedWith(boxes),
+    click(specButton),
+    focusedDrawerHeading,
+    left,
+    expect(edge(insideChain.id)).toHaveAttr("data-highlighted", "true"),
+    expect(edge(outsideChain.id)).toBeAbsent(),
+    click(specButton),
+    expect(selector("[data-edge]")).toBeAbsent(),
+  );
+});
+
+it("with all curves shown, hovering a chain highlights its edges and dims the others; leaving clears", () => {
+  scene(
+    { update, view },
+    given(loaded),
+    mountedWith(boxes),
+    click(showAllCurves),
     hover(heading(specSection.id)),
     expect(edge(insideChain.id)).toHaveAttr("data-highlighted", "true"),
     expect(edge(outsideChain.id)).toHaveAttr("data-dimmed", "true"),
@@ -442,6 +489,10 @@ it("hovering a chain highlights its edges and dims the others; leaving clears", 
     left,
     expect(selector("[data-edge][data-highlighted]")).toBeAbsent(),
     expect(selector("[data-edge][data-dimmed]")).toBeAbsent(),
+    expectAll(all.selector("[data-edge]")).toHaveCount(allCurves.length),
+    click(showAllCurves),
+    expect(showAllCurves).toHaveAttr("aria-pressed", "false"),
+    expect(selector("[data-edge]")).toBeAbsent(),
   );
 });
 

@@ -131,6 +131,7 @@ const canvasLayerView = (
   viewport: Viewport,
   maybeHovered: Option.Option<Node>,
   drawer: Drawer,
+  isShowingAllCurves: boolean,
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -150,7 +151,7 @@ const canvasLayerView = (
     Array.appendAll(
       [
         columnsLazy(columnsGridView, [trace, maybeHovered, drawer, h]),
-        edgesView(trace, positions, stackLayoutOf(trace.tasks), maybeChain, h),
+        edgesView(trace, positions, stackLayoutOf(trace.tasks), maybeChain, isShowingAllCurves, h),
       ],
       cursorsView(others, viewport.zoom, h),
     ),
@@ -164,6 +165,7 @@ export const canvasView = (
   viewport: Viewport,
   maybeHovered: Option.Option<Node>,
   drawer: Drawer,
+  isShowingAllCurves: boolean,
   others: ReadonlyArray<Participant>,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -182,6 +184,17 @@ export const canvasView = (
         position: "relative",
       }),
     ],
-    [canvasLayerView(trace, positions, viewport, maybeHovered, drawer, others, h)],
+    [
+      canvasLayerView(
+        trace,
+        positions,
+        viewport,
+        maybeHovered,
+        drawer,
+        isShowingAllCurves,
+        others,
+        h,
+      ),
+    ],
   );
 };

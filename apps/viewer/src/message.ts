@@ -13,6 +13,8 @@ export const Message = defineMessageUnion({
   ClickedDrawerTask: { id: TaskId },
   ClickedFit: {},
   ClickedNode: { node: Node },
+  /** The toggle that draws every curve, or only the active chain's. */
+  ClickedShowAllCurves: {},
   /** The presence socket closed or failed. */
   ClosedPresence: {},
   CompletedFocusDrawerHeading: {},

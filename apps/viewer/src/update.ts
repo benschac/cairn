@@ -1,4 +1,4 @@
-import { Effect, Option, Schema } from "effect";
+import { Boolean, Effect, Option, Schema } from "effect";
 import { AsyncData, Command } from "foldkit";
 import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
@@ -62,6 +62,9 @@ export const update = (model: Model, message: Message) =>
             commands: [FocusDrawerHeading()],
             model: modifyFields(model, { drawer: () => openOn(node) }),
           },
+    ClickedShowAllCurves: () => ({
+      model: modifyFields(model, { isShowingAllCurves: Boolean.not }),
+    }),
     // The room is unknown once the socket is gone, so nobody is shown and you are no one.
     ClosedPresence: () => ({
       model: modifyFields(model, {

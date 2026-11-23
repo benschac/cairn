@@ -1,5 +1,5 @@
 import type { Trace } from "@cairn/contract";
-import { Array, Option, Record } from "effect";
+import { Array, Option, Record, pipe } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { curvesOf, type Curve, type EdgeKind } from "../curves.ts";
@@ -15,6 +15,10 @@ const EDGE_COLOR = {
   specifies: "#0f766e",
 } satisfies Record.ReadonlyRecord<EdgeKind, string>;
 
+/** Whether both ends of a curve are in the chain. */
+const isCurveInChain = (chain: Chain, curve: Curve): boolean =>
+  isInChain(chain, curve.source) && isInChain(chain, curve.target);
+
 /** One curve's path: highlighted with both ends in the active chain, dimmed otherwise. */
 const edgeView = (
   curve: Curve,
@@ -22,10 +26,7 @@ const edgeView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   // None while no chain is active; otherwise whether both ends are in it.
-  const maybeInChain = Option.map(
-    maybeChain,
-    (chain) => isInChain(chain, curve.source) && isInChain(chain, curve.target),
-  );
+  const maybeInChain = Option.map(maybeChain, (chain) => isCurveInChain(chain, curve));
   return h.path(
     Array.flatten([
       [h.DataAttribute("edge", curve.id), h.DataAttribute("kind", curve.kind)],
@@ -47,14 +48,17 @@ const edgeView = (
 };
 
 /**
- * One SVG path per curve between measured nodes. While a chain is active an edge with both ends
- * in it is highlighted and every other edge is dimmed. `layout` places the tasks in their columns.
+ * One SVG path per curve between measured nodes. Only the active chain's curves are drawn, so the
+ * canvas shows no curves until a node is hovered or selected. With `isShowingAllCurves` every
+ * curve is drawn, and while a chain is active an edge with both ends in it is highlighted and
+ * every other edge is dimmed. `layout` places the tasks in their columns.
  */
 export const edgesView = (
   trace: Trace,
   positions: Positions,
   layout: StackLayout,
   maybeChain: Option.Option<Chain>,
+  isShowingAllCurves: boolean,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.svg(
@@ -71,7 +75,12 @@ export const edgesView = (
         width: "100%",
       }),
     ],
-    Array.map(curvesOf(trace, positions, columnOf(layout)), (curve) =>
-      edgeView(curve, maybeChain, h),
+    pipe(
+      curvesOf(trace, positions, columnOf(layout)),
+      Array.filter(
+        (curve) =>
+          isShowingAllCurves || Option.exists(maybeChain, (chain) => isCurveInChain(chain, curve)),
+      ),
+      Array.map((curve) => edgeView(curve, maybeChain, h)),
     ),
   );

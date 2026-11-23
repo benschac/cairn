@@ -10,6 +10,7 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
   commands: [LoadTrace()],
   model: {
     drawer: Drawer.Closed(),
+    isShowingAllCurves: false,
     maybeHovered: Option.none(),
     maybePaneSize: Option.none(),
     maybePanZoomFailure: Option.none(),

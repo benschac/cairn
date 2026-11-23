@@ -37,6 +37,8 @@ export type PresenceConnection = typeof PresenceConnection.Type;
 
 export const Model = Schema.Struct({
   drawer: Drawer,
+  /** Every curve is drawn, not only the active chain's. Off at first, so the canvas starts clear. */
+  isShowingAllCurves: Schema.Boolean,
   maybeHovered: Schema.Option(Node),
   /** The canvas pane's size, once its mount has measured it. */
   maybePaneSize: Schema.Option(Size),
