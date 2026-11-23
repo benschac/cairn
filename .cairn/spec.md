@@ -627,6 +627,9 @@ flowchart BT
     t68["t68 · 68-api-trace-polling<br/>Poll /api/trace under cairn serve<br/>wt-14"]
     t69["t69 · 69-stacks-of<br/>Group the tasks into stacks and levels<br/>wt-19"]
     t70["t70 · 70-stack-boxes<br/>Draw the stacks as boxes over the base branch<br/>wt-19"]
+    t71["t71 · 71-fuzzy-matching<br/>Index and rank fuzzy matches for titles, IDs and branches<br/>wt-20"]
+    t72["t72 · 72-search-interaction<br/>Add search navigation and temporary chain highlighting<br/>wt-20"]
+    t73["t73 · 73-prose-search<br/>Search markdown prose with snippets and inline match highlights<br/>wt-20"]
   end
   subgraph s25["Stack 25 · viewer"]
     direction BT
@@ -763,10 +766,13 @@ flowchart BT
   t60 --> t65
   t27 --> t66
   t54 --> t67
+  t52 --> t71
+  t71 --> t72
+  t72 --> t73
   t52 --> t69
   t69 --> t70
   class t1,t3,t20,t31,t32,t58,t60,t62 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70 sonnet
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73 sonnet
   class t11,t24,t27,t44,t56,t66 haiku
   class t1,t2,t3 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
@@ -1099,6 +1105,69 @@ Parse with `mdast-util-from-markdown` plus GFM tables and map the nodes to Foldk
 
 A fenced block with a language `@pierre/highlights` has a lexer for renders a span per token, coloured inline, and keeps `language-x` on its `code` element. The highlighter is synchronous, so a block needs no Message. Any other language stays plain text. A `mermaid` fence renders through the caller's `diagramView` hook, which for the canvas is an empty placeholder with a `DrawDiagram` Mount. A Mount runs once, when its element is inserted, so the placeholder is keyed by the diagram's source and the line its fence starts on: a diagram that changes gets a new element and is drawn again. The Mount draws the diagram with `pele` (links and images off, text escaped), which is the one place SVG becomes DOM. A diagram that cannot be drawn shows its source and a one-line reason in its place. A diagram changes the height of its column, so the Mount measures the canvas layer once it has drawn and sends `MeasuredLayout`; the layer's own `ResizeObserver` only fires when the layer itself changes size.
 
+### Fuzzy matching {#spec.viewer.fuzzy-matching}
+
+- Implements: `prd.viewer.fuzzy-search`
+- Files: `apps/viewer/src/search.ts`, `apps/viewer/test/search.test.ts`
+- Depends on: `spec.contract.trace`, `spec.viewer.model-and-messages`
+
+Build a pure search index from the loaded Trace: one entry per PRD section, spec section or task, retaining its existing Node identity. Index section titles and IDs and task titles and branch names; no server endpoint, persisted index or new contract field is needed.
+
+Trim the query and match case-insensitively. Support ordered subsequences for abbreviations and a single insertion, deletion, substitution or adjacent transposition for query tokens of at least four characters; shorter tokens require exact, prefix or subsequence matches. Every whitespace-separated query token must match within one indexed field. Rank exact field matches first, then prefixes, contiguous matches, typo matches and subsequences; within a match class prefer titles, then IDs, then branches, then prose. Break remaining ties by score, source order and stable node key.
+
+Return one result per node with its best matching field, score and sorted, non-overlapping, half-open UTF-16 ranges in the original visible text. Case normalization must preserve a mapping back to source positions and never split a surrogate pair. An empty query returns no search results. The same trace and query always produce the same order.
+
+Cache the index by searchable trace content and rebuild it only when that content changes. Query changes reuse the index; status-only refreshes do not trigger markdown parsing. Keep matching and result derivation pure and use installed Effect core APIs. No search dependency is selected or added by this plan.
+
+Tests:
+
+- Results have unique node identities, deterministic order and valid non-overlapping source ranges; normalized matches never split surrogate pairs.
+- Exact titles outrank fuzzy titles; abbreviations and one-edit typos match; blank and unmatched queries, punctuation and mixed-case Unicode are covered.
+
+### Search controls and chain highlighting {#spec.viewer.search-interaction}
+
+- Implements: `prd.viewer.fuzzy-search`
+- Files: `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/init.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/highlight.ts`, `apps/viewer/src/view/view.ts`, `apps/viewer/src/view/canvasView.ts`, `apps/viewer/src/view/nodeView.ts`, `apps/viewer/src/view/stacksView.ts`, `apps/viewer/src/view/edgesView.ts`, `apps/viewer/src/markdown.ts`, `apps/viewer/src/search.ts`, `apps/viewer/test/search.scene.test.ts`
+- Depends on: `spec.viewer.fuzzy-matching`, `spec.viewer.curves`, `spec.viewer.detail-panel`
+
+Add window-local query and active-result state to the Schema-defined Model, with fact-named messages for query edits, result navigation, result selection and clearing. The pure update function derives results and reconciles the active node after trace refresh: retain it if still matched, otherwise choose the first result or none. Query edits reset to the first result; empty and unmatched queries have no active chain.
+
+Render a labelled toolbar search input, result count and ranked result list showing kind, title and matched field. Use accessible combobox/listbox semantics with an active descendant, ArrowUp/ArrowDown navigation bounded at the list ends, Enter to select, pointer selection, and Escape to clear. Handle these keys only in the search control; they must not trigger canvas shortcuts. Announce the count and no-results state without stealing focus.
+
+Selecting a result pans the canvas to its measured node, accounting for current zoom, moved-card offsets and the toolbar or open drawer. Keep keyboard focus in search; if layout has not measured the node, defer centering until it has. Preview its chain through chainOf without dispatching ClickedNode, changing pins or opening or closing the drawer. Only the active result contributes a search chain; never union separate result chains into a synthetic chain.
+
+Mark direct text matches with semantic mark nodes and a separate node outline; related chain members get chain highlighting but no text marks unless they independently match. Preserve pin stripes; hover remains the top preview, above search and pinned fills. Draw a curve as part of a chain only when both endpoints belong to that same chain. Use text labels or outlines as well as colour to identify the active result.
+
+Clearing search removes its marks, outline, results and temporary chain while preserving pins, drawer, document content and task state. Keep the current viewport after clearing. A no-results query shows a message without dimming the entire canvas. Ordinary node selection and pinning continue to work. Keep the existing markdown lazy boundaries effective when queries change.
+
+Tests:
+
+- Type an abbreviation or typo, navigate with arrows, select with Enter and pointer, and assert matching text, active result and connected-chain highlighting.
+- Search, hover and multiple pins coexist; clearing and Escape preserve pins and the drawer; zero matches leave the canvas usable; refreshed and removed results reconcile correctly.
+- Center a result at non-default zoom after dragging, with an open drawer and delayed layout measurement; unrelated edges stay unlit.
+
+### Prose search and inline highlights {#spec.viewer.prose-search}
+
+- Implements: `prd.viewer.fuzzy-search`
+- Files: `apps/viewer/src/search.ts`, `apps/viewer/src/markdown.ts`, `apps/viewer/src/view/canvasView.ts`, `apps/viewer/test/search.test.ts`, `apps/viewer/test/search.scene.test.ts`, `apps/viewer/test/markdown.test.ts`
+- Depends on: `spec.viewer.search-interaction`, `spec.viewer.markdown-rendering`
+
+Extend the index to visible PRD and spec prose, owned by the nearest preceding section heading until the next heading of any level; nested sections own their text and do not duplicate it in their parent. Extract paragraphs, list items, table cells, link labels and inline code from the markdown AST. Exclude HTML/comments, heading ID attributes, link destinations, code fences and Mermaid content; diffs and session logs remain out of scope.
+
+Keep a visible-text-to-AST-text-node offset map for each searchable prose block. Match within a paragraph, list paragraph or table cell, including across emphasis, links and inline code, but not across block or section boundaries. Reuse the fuzzy ranking and source ranges from fuzzy-matching; prose ranks below titles within a match class. Return one result per node, with its best match and a bounded context snippet from the matching block.
+
+Render match ranges as semantic mark nodes in snippets and in document text leaves, splitting ranges across existing inline elements while preserving formatting, safe links, text selection and heading IDs. Do not rewrite source markdown, inject HTML or wrap DOM after rendering. Highlight the best matching field or prose block per result consistently with its snippet. For typo matches, mark the matched source word; for subsequences, mark matched characters.
+
+Parse each changed document once and share its AST and position mapping between indexing and rendering. Query edits only rematch and render marks. Reconcile results and offsets when source content changes. Selecting a prose result brings the matched block into view, falling back to the owning section until block measurement is available; keep code highlighting and diagram mounts stable.
+
+Tests:
+
+- Highlighting preserves the original visible text and every range maps to text in its owning section.
+- Find prose spanning bold text and a link, inspect the highlighted snippet and inline marks, select the matching block, and clear without losing formatting or pins.
+- Nested sections, inline code, tables, escaped markdown and Unicode retain correct offsets; comments, code fences and diagram labels do not match; query changes reuse the parsed AST.
+
+Build order: `t71` → `t72` → `t73`, branching from the existing detail drawer (`t52`) in `wt-20`. This independent viewer branch can be built without waiting for API polling or commit-diff rendering. The matching layer is first, a usable title/ID/branch search follows, and prose completes the PRD requirement. All three tasks remain pending.
+
 ### Canvas and curves {#spec.viewer.curves}
 
 - Implements: `prd.viewer`
@@ -1211,14 +1280,15 @@ The demo, and the site deployed from it, loads a `Trace` built from this repo's 
 
 - Implements: `prd.acceptance-criteria`
 
-| PRD criterion                                     | How it is checked                                                                                |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Three or more stacked tasks on a RinkSide feature | Dogfood run; `cairn status` output kept with the feature                                         |
-| Trailers and resolvable sessions                  | `cairn status` warns on a commit without trailers or with a session missing from `cairn.db`      |
-| A migrations task is gated and blocks children    | Derivation property test: no child leaves `pending` before a human approves its gated parent     |
-| Correct status and two clicks to commits          | Rollup property tests; a Scene test clicks a section and then a commit                           |
-| Lint catches orphaned and unmapped sections       | Lint tests for `unknown-section` and `unmapped-section`                                          |
-| An oversized draft is broken down before printing | `refine` test: a scripted `too_large` answer splits a draft, and the plan output lists the split |
-| A model changes only when Jev is confident        | `routeOf` property test and a `refine` test with a low-confidence `model` answer                 |
-| A changed task's judgment shows stale             | Trace test: edit a task and check `stale`                                                        |
-| Planning without `TYPESAFE_API_KEY` still writes  | `cairn plan` test with no key: manifest written, skip message printed                            |
+| PRD criterion                                        | How it is checked                                                                                         |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Three or more stacked tasks on a RinkSide feature    | Dogfood run; `cairn status` output kept with the feature                                                  |
+| Trailers and resolvable sessions                     | `cairn status` warns on a commit without trailers or with a session missing from `cairn.db`               |
+| A migrations task is gated and blocks children       | Derivation property test: no child leaves `pending` before a human approves its gated parent              |
+| Correct status and two clicks to commits             | Rollup property tests; a Scene test clicks a section and then a commit                                    |
+| Lint catches orphaned and unmapped sections          | Lint tests for `unknown-section` and `unmapped-section`                                                   |
+| An oversized draft is broken down before printing    | `refine` test: a scripted `too_large` answer splits a draft, and the plan output lists the split          |
+| A model changes only when Jev is confident           | `routeOf` property test and a `refine` test with a low-confidence `model` answer                          |
+| A changed task's judgment shows stale                | Trace test: edit a task and check `stale`                                                                 |
+| Planning without `TYPESAFE_API_KEY` still writes     | `cairn plan` test with no key: manifest written, skip message printed                                     |
+| Fuzzy search finds and highlights text and its chain | Matching properties and Scene tests for navigation, markdown spans, refresh, and preserving pins on clear |
