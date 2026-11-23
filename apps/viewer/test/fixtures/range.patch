@@ -1,0 +1,106 @@
+diff --git a/.cairn/manifest.json b/.cairn/manifest.json
+index 4d1b5d6..23d402e 100644
+--- a/.cairn/manifest.json
++++ b/.cairn/manifest.json
+@@ -203,7 +203,9 @@
+         "packages/contract/src/trace.ts",
+         "packages/contract/src/index.ts",
+         "packages/contract/src/events.ts",
+-        "packages/contract/test/trace.test.ts"
++        "packages/contract/test/trace.test.ts",
++        "packages/contract/src/judgments.ts",
++        "packages/contract/src/manifest.ts"
+       ],
+       "branch": "cairn-mvp/10-trace-schema",
+       "parent": null,
+@@ -215,9 +217,9 @@
+         "required": false,
+         "reasons": []
+       },
+-      "status": "pending",
+-      "commits": [],
+-      "sessions": []
++      "status": "done",
++      "commits": ["9ac2398e32389dbdbfd834337d57961a00533b20"],
++      "sessions": ["s_1o461e6i"]
+     },
+     {
+       "id": "t11",
+@@ -289,9 +291,9 @@
+         "required": false,
+         "reasons": []
+       },
+-      "status": "pending",
+-      "commits": [],
+-      "sessions": []
++      "status": "done",
++      "commits": ["0994228f58a6816214f88f1097e16006250016de"],
++      "sessions": ["s_wgn3te8k"]
+     },
+     {
+       "id": "t14",
+@@ -743,7 +745,6 @@
+       "prdSections": ["prd.viewer", "prd.acceptance-criteria"],
+       "specSections": ["spec.status.section-rollup"],
+       "files": [
+-        "packages/contract/src/index.ts",
+         "packages/core/src/rollup.ts",
+         "packages/core/src/index.ts",
+         "packages/core/test/rollup.test.ts"
+@@ -993,9 +994,9 @@
+         "required": false,
+         "reasons": []
+       },
+-      "status": "pending",
+-      "commits": [],
+-      "sessions": []
++      "status": "done",
++      "commits": ["c6a1d8a4063adf66b825c2d3a13c56f632c8c6ff"],
++      "sessions": ["s_yyldg8lo"]
+     },
+     {
+       "id": "t44",
+@@ -1017,9 +1018,9 @@
+         "required": false,
+         "reasons": []
+       },
+-      "status": "pending",
+-      "commits": [],
+-      "sessions": []
++      "status": "done",
++      "commits": ["bbabe8e142838ad9de05c2a0f87aa167580578dd"],
++      "sessions": ["s_eyyug75v"]
+     },
+     {
+       "id": "t45",
+@@ -1278,7 +1279,7 @@
+     },
+     {
+       "id": "t55",
+-      "title": "Add the judgments schema and the judge config",
++      "title": "Add the judgments file schema and the judge config",
+       "prdSections": ["prd.judging-the-plan", "prd.contract-package"],
+       "specSections": ["spec.contract.judgments", "spec.contract.config"],
+       "files": [
+diff --git a/.cairn/spec.json b/.cairn/spec.json
+index 7986612..e62c38d 100644
+--- a/.cairn/spec.json
++++ b/.cairn/spec.json
+@@ -1192,7 +1192,7 @@
+       "dependsOn": [],
+       "defers": [],
+       "context": [],
+-      "tasks": ["t55"],
++      "tasks": ["t10", "t55"],
+       "summary": "Defines the judgments.json schema: the model that answered, and per target and question a verdict, the answer behind it, a message and the hash of the judged input.",
+       "requirements": [
+         {
+@@ -3356,7 +3356,7 @@
+       "dependsOn": ["spec.status.derivation"],
+       "defers": [],
+       "context": [],
+-      "tasks": ["t33"],
++      "tasks": ["t10", "t33"],
+       "summary": "A section's status is rolled up from its linked tasks and descendants by an ordered first-match rule list.",
+       "requirements": [
+         {

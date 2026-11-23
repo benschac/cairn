@@ -1,5 +1,6 @@
 import { Trace } from "@cairn/contract";
-import { Effect, Match, Schema } from "effect";
+import { Effect, Match, Number, Schema, String } from "effect";
+import { FetchHttpClient, HttpClient } from "effect/http";
 
 /** The trace file could not be read at all. */
 export class TraceNotLoaded extends Schema.TaggedError<TraceNotLoaded>()("TraceNotLoaded", {
@@ -34,3 +35,31 @@ export const loadDemoTrace: Effect.Effect<Trace, TraceError> = Effect.tryPromise
   catch: (cause) => new TraceNotLoaded({ cause }),
   try: () => import("./demo-trace.json"),
 }).pipe(Effect.flatMap(({ default: json }) => decodeTrace(json)));
+
+/**
+ * A built bundle is the demo, which has no server behind it: nothing under `/api` can be fetched.
+ * Only `pnpm dev` runs the server beside the viewer until `cairn serve` serves a build of its own.
+ */
+export const isDemoBuild = (): boolean => import.meta.env.PROD;
+
+/** The status from which a response is an error, and its body the reason. */
+const FIRST_ERROR_STATUS = 400;
+
+/**
+ * Fetch a patch route's text. A network failure or a `4xx`/`5xx` response fails with a sentence
+ * for the pane: the response body, which holds git's message, or its status when the body is empty.
+ */
+export const fetchPatch = (path: string): Effect.Effect<string, string> =>
+  HttpClient.HttpClient.pipe(
+    Effect.flatMap((client) => client.get(path)),
+    Effect.flatMap((response) =>
+      Effect.map(response.text, (text) => ({ status: response.status, text })),
+    ),
+    Effect.mapError((error) => error.message),
+    Effect.flatMap(({ status, text }) =>
+      Number.isGreaterThanOrEqualTo(status, FIRST_ERROR_STATUS)
+        ? Effect.fail(String.isEmpty(String.trim(text)) ? `HTTP ${status}` : text)
+        : Effect.succeed(text),
+    ),
+    Effect.provide(FetchHttpClient.layer),
+  );

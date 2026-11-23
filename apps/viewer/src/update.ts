@@ -1,17 +1,24 @@
 import type { Sha, TaskId, Trace } from "@cairn/contract";
-import { Array, Boolean, Effect, Option, Schema } from "effect";
+import { Array, Boolean, Effect, Option, Record, Result, Schema } from "effect";
 import { AsyncData, Command } from "foldkit";
 import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 
 import { boundsOf, fitViewport } from "./canvas.ts";
-import { codeScreenOf, filesOf, ownerOf, taskOf } from "./codeView.ts";
-import { FocusDrawerHeading, FocusNode } from "./command.ts";
+import { codeScreenOf, filesOf, ownerOf, patchPathOf, taskOf } from "./codeView.ts";
+import { FetchPatch, FocusDrawerHeading, FocusNode } from "./command.ts";
 import { DragState, canvasDeltaOf, moveBy, nudgeOf } from "./drag.ts";
 import { isPinned, pin, togglePin } from "./highlight.ts";
-import { describeTraceError, loadDemoTrace } from "./load.ts";
+import { describeTraceError, isDemoBuild, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
-import { Drawer, PresenceConnection, Screen, selectedNodeOf, type Model } from "./model.ts";
+import {
+  Drawer,
+  PatchData,
+  PresenceConnection,
+  Screen,
+  selectedNodeOf,
+  type Model,
+} from "./model.ts";
 import { Node } from "./trace.ts";
 
 // UPDATE
@@ -23,13 +30,6 @@ const openOn = (node: Node): Drawer => Drawer.Open({ node });
 /** The trace, once it has loaded; the code view reads tasks and commits from it. */
 const traceOf = (model: Model): Option.Option<Trace> => AsyncData.getData(model.trace);
 
-/** The code view with what is shown of a task, when the trace has that task and commit. */
-const codeOn = (model: Model, id: TaskId, maybeSha: Option.Option<Sha>): Model =>
-  Option.match(
-    Option.flatMap(traceOf(model), (trace) => codeScreenOf(trace, id, maybeSha)),
-    { onNone: () => model, onSome: (screen) => modifyFields(model, { screen: () => screen }) },
-  );
-
 /** The task the code view is on, and what is shown of it. */
 const shownIn = (model: Model) =>
   Option.flatMap(Option.liftPredicate(model.screen, Screen.guards.Code), (code) =>
@@ -37,6 +37,43 @@ const shownIn = (model: Model) =>
       Option.flatMap(traceOf(model), (trace) => taskOf(trace, code.taskId)),
       (task) => ({ code, task }),
     ),
+  );
+
+/**
+ * The patch the code view is on must be in the model. A path that is loading or loaded is left
+ * alone; one that is new, or failed before, is marked loading and fetched. The demo build has no
+ * server, so it fetches nothing.
+ */
+const withPatchRequested = (model: Model): Update.Return<Model, Message> =>
+  Option.match(
+    Option.filter(
+      Option.flatMap(shownIn(model), ({ code, task }) => patchPathOf(task, code.shown)),
+      () => !isDemoBuild(),
+    ),
+    {
+      onNone: () => ({ model }),
+      onSome: (path) =>
+        Option.exists(Record.get(model.patches, path), (data) => !PatchData.guards.Failed(data))
+          ? { model }
+          : {
+              commands: [FetchPatch({ path })],
+              model: modifyFields(model, { patches: Record.set(path, PatchData.Loading()) }),
+            },
+    },
+  );
+
+/** The code view with what is shown of a task, when the trace has that task and commit. */
+const codeOn = (
+  model: Model,
+  id: TaskId,
+  maybeSha: Option.Option<Sha>,
+): Update.Return<Model, Message> =>
+  Option.match(
+    Option.flatMap(traceOf(model), (trace) => codeScreenOf(trace, id, maybeSha)),
+    {
+      onNone: () => ({ model }),
+      onSome: (screen) => withPatchRequested(modifyFields(model, { screen: () => screen })),
+    },
   );
 
 /** The drag this pointer is making; none while nothing is dragged or another pointer drags. */
@@ -69,18 +106,20 @@ export const update = (model: Model, message: Message) =>
     // Back to the canvas changes only the screen: pins, offsets, the drawer and the viewport stayed.
     ClickedBackToCanvas: () => ({ model: modifyFields(model, { screen: () => Screen.Canvas() }) }),
     // "Open code" and a drawer commit open the code view; a task or commit the trace lacks opens nothing.
-    ClickedOpenCode: ({ id, maybeSha }) => ({ model: codeOn(model, id, maybeSha) }),
+    ClickedOpenCode: ({ id, maybeSha }) => codeOn(model, id, maybeSha),
     // The tree selects within the code view; with the canvas showing there is no tree to click.
-    ClickedTreeCommit: ({ sha }) => ({
-      model: Option.match(shownIn(model), {
-        onNone: () => model,
+    ClickedTreeCommit: ({ sha }) =>
+      Option.match(shownIn(model), {
+        onNone: () => ({ model }),
         onSome: () =>
           Option.match(
             Option.flatMap(traceOf(model), (trace) => ownerOf(trace, sha)),
-            { onNone: () => model, onSome: (task) => codeOn(model, task.id, Option.some(sha)) },
+            {
+              onNone: () => ({ model }),
+              onSome: (task) => codeOn(model, task.id, Option.some(sha)),
+            },
           ),
       }),
-    }),
     ClickedTreeFile: ({ path }) => ({
       model: Option.match(
         Option.filter(shownIn(model), ({ code, task }) =>
@@ -95,12 +134,11 @@ export const update = (model: Model, message: Message) =>
         },
       ),
     }),
-    ClickedTreeTask: ({ id }) => ({
-      model: Option.match(shownIn(model), {
-        onNone: () => model,
+    ClickedTreeTask: ({ id }) =>
+      Option.match(shownIn(model), {
+        onNone: () => ({ model }),
         onSome: () => codeOn(model, id, Option.none()),
       }),
-    }),
     // A task in a section's drawer opens that task's drawer and pins it; it never closes a drawer
     // or unpins a task.
     ClickedClearPins: () => ({ model: modifyFields(model, { pins: () => [] }) }),
@@ -216,6 +254,19 @@ export const update = (model: Model, message: Message) =>
     }),
     PannedOrZoomed: ({ viewport }) => ({
       model: modifyFields(model, { viewport: () => viewport }),
+    }),
+    // A patch that arrived stays in the model, loaded or failed, so selecting it again draws it
+    // without a fetch, or fetches it again after a failure.
+    ReceivedPatch: ({ path, result }) => ({
+      model: modifyFields(model, {
+        patches: Record.set(
+          path,
+          Result.match(result, {
+            onFailure: (reason) => PatchData.Failed({ message: reason }),
+            onSuccess: (text) => PatchData.Loaded({ text }),
+          }),
+        ),
+      }),
     }),
     ReceivedPresence: ({ presence }) => ({
       model: modifyFields(model, {

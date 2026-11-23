@@ -58,6 +58,8 @@ export const Message = defineMessageUnion({
   OpenedPresence: {},
   /** The canvas mount reports each pan and zoom. */
   PannedOrZoomed: { viewport: Viewport },
+  /** A patch route's text, or why it could not be fetched. */
+  ReceivedPatch: { path: Schema.String, result: Schema.Result(Schema.String, Schema.String) },
   ReceivedPresence: { presence: Presence },
   /** A pointer went up or was cancelled anywhere on the page while a drag was in progress. */
   ReleasedDragPointer: { pointerId: PointerId },

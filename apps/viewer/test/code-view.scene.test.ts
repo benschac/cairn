@@ -1,15 +1,30 @@
 import { Sha, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Option, String, Struct } from "effect";
-import { all, click, expect, expectAll, given, role, scene, selector, within } from "foldkit/scene";
+import { Array, Option, Result, String, Struct } from "effect";
+import {
+  Command,
+  all,
+  click,
+  expect,
+  expectAll,
+  given,
+  role,
+  scene,
+  selector,
+  within,
+} from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
+import { vi } from "vitest";
 
+import { FetchPatch } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
 import { init } from "../src/init.ts";
 import { Message } from "../src/message.ts";
 import { Screen, Shown, TraceData } from "../src/model.ts";
 import { update as appUpdate } from "../src/update.ts";
 import { view as appView } from "../src/view/view.ts";
+import commitPatch from "./fixtures/commit.patch?raw";
+import rangePatch from "./fixtures/range.patch?raw";
 import { canvasEnded, focusedDrawerHeading, loaded, mounted, taskButton } from "./fixtures.ts";
 
 const sha = (character: string) => Sha.make(String.repeat(40)(character));
@@ -51,6 +66,12 @@ const treeFile = (path: string) => selector(`[data-tree-file="${path}"]`);
 const patch = selector("[data-patch-path]");
 const wholePath = `/api/diffs/${sha("0")}/${sha("b")}`;
 const drawer = role("complementary");
+const commitPath = (value: string) => `/api/commits/${sha(value)}`;
+
+/** The fetch of a path is answered with its text, or with a failure. */
+const fetched = (path: string, result: Result.Result<string, string>) =>
+  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+  Command.resolve(FetchPatch({ path }), Message.ReceivedPatch({ path, result }));
 
 /** The model after these messages, from the loaded trace. */
 const after = (...messages: ReadonlyArray<Message>) =>
@@ -65,6 +86,7 @@ it("Open code on a task opens its whole diff, and its tree row is the current on
     focusedDrawerHeading,
     click(within(drawer, openCodeButton)),
     ...canvasEnded(),
+    fetched(wholePath, Result.succeed(rangePatch)),
     expect(treeTask(stacked.id)).toHaveAttr("aria-current", "true"),
     expect(patch).toHaveAttr("data-patch-path", wholePath),
     expect(selector("[data-shown]")).toContainText("2 commits"),
@@ -84,6 +106,7 @@ it("a drawer commit opens that commit, and the session pane shows its session", 
     focusedDrawerHeading,
     click(within(drawer, role("button", { name: `First ${String.takeLeft(sha("a"), 7)}` }))),
     ...canvasEnded(),
+    fetched(commitPath("a"), Result.succeed(commitPatch)),
     expect(treeCommit(sha("a"))).toHaveAttr("aria-current", "true"),
     expectAll(all.selector("[aria-current]")).toHaveCount(1),
     expect(patch).toHaveAttr("data-patch-path", `/api/commits/${sha("a")}`),
@@ -103,6 +126,7 @@ it("the tree selects a task, a commit and a file, one current row at a time", ()
     expect(patch).toHaveAttr("data-file", "src/view/b.ts"),
     expect(patch).toHaveAttr("data-patch-path", wholePath),
     click(treeCommit(sha("b"))),
+    fetched(commitPath("b"), Result.succeed(commitPatch)),
     expect(treeCommit(sha("b"))).toHaveAttr("aria-current", "true"),
     expect(patch).toHaveAttr("data-patch-path", `/api/commits/${sha("b")}`),
     expect(treeFile("src/a.ts")).toBeAbsent(),
@@ -169,7 +193,9 @@ it("opening the code view and going back changes only the screen", () => {
       taskId: stacked.id,
     }),
   );
-  assert(appUpdate(there, Message.ClickedBackToCanvas()).model).toEqual(pinned);
+  assert(appUpdate(there, Message.ClickedBackToCanvas()).model).toEqual(
+    modifyFields(pinned, { patches: () => there.patches }),
+  );
 });
 
 const inCode = after(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.some(sha("a")) }));
@@ -192,4 +218,105 @@ it("messages that name nothing the trace or the screen holds are ignored", () =>
   Array.forEach(cases, ([start, message]) => {
     assert(appUpdate(start, message).model).toEqual(start);
   });
+});
+
+// PATCHES
+
+it("opening a task asks for its patch route once, and shows it loading", () => {
+  const opened = appUpdate(
+    model,
+    Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
+  );
+  assert(
+    Array.map(
+      Option.getOrElse(Option.fromUndefinedOr(opened.commands), () => []),
+      (command) => [command.name, command.args],
+    ),
+  ).toEqual([["FetchPatch", { path: wholePath }]]);
+  scene(app, given(opened.model), expect(patch).toContainText("Loading"));
+});
+
+it("a received patch shows how many files it holds, each with its path and change type", () => {
+  scene(
+    app,
+    given(after(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }))),
+    click(treeCommit(sha("b"))),
+    fetched(commitPath("b"), Result.succeed(commitPatch)),
+    expect(patch).toHaveAttr("data-patch-path", commitPath("b")),
+    expect(selector("[data-file-count]")).toContainText("3 files"),
+    expect(selector('[data-diff-file="packages/contract/src/events.ts"]')).toContainText(
+      "packages/contract/src/events.ts (new)",
+    ),
+    expect(selector('[data-diff-file="packages/contract/src/index.ts"]')).toContainText("(change)"),
+  );
+});
+
+it("a failed fetch shows its error, and selecting the path again fetches it again", () => {
+  scene(
+    app,
+    given(
+      after(
+        Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
+        Message.ReceivedPatch({ path: wholePath, result: Result.fail("unknown revision") }),
+      ),
+    ),
+    expect(patch).toContainText("unknown revision"),
+    click(treeCommit(sha("a"))),
+    fetched(commitPath("a"), Result.succeed(commitPatch)),
+    expect(selector("[data-file-count]")).toContainText("3 files"),
+    click(treeTask(stacked.id)),
+    fetched(wholePath, Result.succeed(rangePatch)),
+    expect(selector("[data-file-count]")).toContainText("2 files"),
+  );
+});
+
+it("a loaded path is not fetched again, and a loading one is not fetched twice", () => {
+  const loadedWhole = after(
+    Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
+    Message.ReceivedPatch({ path: wholePath, result: Result.succeed(rangePatch) }),
+  );
+  scene(
+    app,
+    given(loadedWhole),
+    click(treeCommit(sha("a"))),
+    fetched(commitPath("a"), Result.succeed(commitPatch)),
+    click(treeTask(stacked.id)),
+    Command.expectNone(),
+    expect(selector("[data-file-count]")).toContainText("2 files"),
+    click(treeCommit(sha("a"))),
+    Command.expectNone(),
+    expect(selector("[data-file-count]")).toContainText("3 files"),
+  );
+  const loading = appUpdate(
+    appUpdate(model, Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() })).model,
+    Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
+  );
+  assert(loading.commands).toBeUndefined();
+});
+
+it("a patch that did not parse shows that, not a throw", () => {
+  scene(
+    app,
+    given(
+      after(
+        Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
+        Message.ReceivedPatch({ path: wholePath, result: Result.succeed("") }),
+      ),
+    ),
+    expect(selector("[data-file-count]")).toContainText("0 files"),
+  );
+});
+
+it("the demo build fetches nothing and says the diff needs cairn serve", () => {
+  vi.stubEnv("PROD", true);
+  try {
+    const opened = appUpdate(
+      model,
+      Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
+    );
+    assert(opened.commands).toBeUndefined();
+    scene(app, given(opened.model), expect(patch).toContainText("cairn serve"));
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });
