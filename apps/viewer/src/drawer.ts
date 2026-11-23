@@ -29,6 +29,9 @@ export interface DrawerMessages<Message> {
 /** The id of the open drawer's heading, which names the drawer and takes focus when it opens. */
 export const DRAWER_HEADING_ID = "drawer-heading";
 
+/** The open drawer's width in pixels, over the right of the canvas. */
+export const DRAWER_WIDTH = 420;
+
 /** The server's routes the drawer links to. */
 const ServerRoute = defineRouteUnion({ Session: { id: Schema.String } });
 
@@ -307,7 +310,7 @@ export const drawerView = <Message>(
         position: "fixed",
         right: "0",
         top: "0",
-        width: "420px",
+        width: `${DRAWER_WIDTH}px`,
         "z-index": "10",
       }),
     ],

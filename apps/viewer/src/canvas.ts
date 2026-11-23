@@ -24,7 +24,7 @@ import {
 } from "effect";
 import { Mount } from "foldkit";
 
-import { MAX_ZOOM, MIN_ZOOM, Viewport, type Positions, type Rect } from "./geometry.ts";
+import { MAX_ZOOM, MIN_ZOOM, Viewport, type Positions, type Rect, type Size } from "./geometry.ts";
 import { Message } from "./message.ts";
 
 /** Pixels of room Fit leaves around the content. */
@@ -89,6 +89,37 @@ export const fitViewport = (bounds: Rect, width: number, height: number): Viewpo
     x: fits(bounds.width, width) ? centred.x : FIT_PADDING - bounds.x * zoom,
     y: fits(bounds.height, height) ? centred.y : FIT_PADDING - bounds.y * zoom,
     zoom,
+  };
+};
+
+/** The toolbar floats over the pane's top left corner: its distance from the edge and its width. */
+export const TOOLBAR_MARGIN = 12;
+export const TOOLBAR_WIDTH = 360;
+
+/** Pixels along the pane's left and right edges that a panel covers. */
+export interface Insets {
+  readonly left: number;
+  readonly right: number;
+}
+
+/**
+ * The viewport that puts the centre of a node's `rect` (canvas coordinates) in the middle of what a
+ * pane shows, at the zoom it already has. `insets` are the panels over the pane's edges; a pane too
+ * narrow to show anything beside them is centred as if there were none.
+ */
+export const centerViewport = (
+  rect: Rect,
+  viewport: Viewport,
+  pane: Size,
+  insets: Insets,
+): Viewport => {
+  const hasRoom = insets.left + insets.right < pane.width;
+  const left = hasRoom ? insets.left : 0;
+  const shown = hasRoom ? pane.width - insets.left - insets.right : pane.width;
+  return {
+    x: left + shown / 2 - (rect.x + rect.width / 2) * viewport.zoom,
+    y: pane.height / 2 - (rect.y + rect.height / 2) * viewport.zoom,
+    zoom: viewport.zoom,
   };
 };
 

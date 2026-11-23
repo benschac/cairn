@@ -6,6 +6,7 @@ import { defineTaggedUnion } from "foldkit/schema";
 import { DragState, Offsets } from "./drag.ts";
 import { Positions, Size, Viewport } from "./geometry.ts";
 import { Pin } from "./highlight.ts";
+import { SearchState } from "./search.ts";
 import { Node } from "./trace.ts";
 
 /** The trace as it loads: nothing yet, a failure, the trace, or the last good trace beside a failure. */
@@ -54,6 +55,8 @@ export const Model = Schema.Struct({
   pins: Schema.Array(Pin),
   positions: Positions,
   presenceConnection: PresenceConnection,
+  /** This window's search. Private to it: it changes no document, status, pin or other window. */
+  search: SearchState,
   trace: TraceData.schema,
   /** How far each moved document and task card sits from where the layout put it. Not kept across reloads. */
   offsets: Offsets,
