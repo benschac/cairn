@@ -1640,7 +1640,12 @@
         "apps/viewer/src/view/edgesView.ts",
         "apps/viewer/src/markdown.ts",
         "apps/viewer/src/search.ts",
-        "apps/viewer/test/search.scene.test.ts"
+        "apps/viewer/test/search.scene.test.ts",
+        "apps/viewer/src/canvas.ts",
+        "apps/viewer/src/command.ts",
+        "apps/viewer/src/drawer.ts",
+        "apps/viewer/src/view/searchView.ts",
+        "apps/viewer/test/search.test.ts"
       ],
       "branch": "cairn-mvp/70-search-interaction",
       "parent": "t69",
@@ -1652,9 +1657,9 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
+      "status": "done",
+      "commits": ["5d411be1a4b989b21fd36f9e7386a2f81b0abbb5"],
+      "sessions": ["s_abcafbb55f"]
     },
     {
       "id": "t71",
