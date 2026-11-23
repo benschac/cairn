@@ -1619,8 +1619,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["cf0ca7b98ec52e2ba64e13eeb3e6f218a7af8e34"],
       "sessions": []
     },
     {
@@ -1645,8 +1645,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["76db0c46c296cb97032eacaddfb7755bdcdc23a1"],
       "sessions": []
     },
     {
