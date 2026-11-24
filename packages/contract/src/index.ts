@@ -5,6 +5,7 @@ import { SectionId, TaskId } from "./ids.ts";
 export * from "./ids.ts";
 export * from "./manifest.ts";
 export * from "./session.ts";
+export * from "./spec-index.ts";
 export * from "./trailers.ts";
 
 export const Task = Schema.Struct({
