@@ -138,7 +138,7 @@ Planning should cost a person nothing beyond what they already pay for.
 The existing orchestrator reads `manifest.json` and runs tasks. It must:
 
 1. Append one line to `events.jsonl` per state change: `{"ts", "taskId", "status", "detail"}`. A `running` line also carries the `model` and `reasoning` level the task was started with, so the viewer can show what ran beside what the plan chose.
-2. Start every task whose dependencies are `done` or `landed`, and whose dependencies on other stacks are `landed`. Run ready tasks in parallel, each in its `worktree`. Stacks are managed with Graphite: each task is one diff, created with `gt create` on top of its parent, or on `baseBranch` when it has no parent. Graphite owns branches, restacking and pull requests; neither Cairn nor the orchestrator rebases a branch by hand.
+2. Start every task whose dependencies are `done` or `landed`, and whose dependencies on other stacks are `landed`. Run ready tasks in parallel, each in its `worktree`, in the order and with the holds that conflict-aware ordering sets. Stacks are managed with Graphite: each task is one diff, created with `gt create` on top of its parent, or on `baseBranch` when it has no parent. Graphite owns branches, restacking and pull requests; neither Cairn nor the orchestrator rebases a branch by hand.
 3. Add commit trailers to every commit:
 
    ```text
@@ -203,6 +203,47 @@ Rules:
 - Jev's key comes from `TYPESAFE_API_KEY` and is never stored. Without a key, Cairn plans with the planner's drafts as they are and says that judging was skipped.
 - Each judgment records a hash of what it judged. When the section or task changes, the judgment is stale, and `cairn judge` asks again only for what changed.
 - The model version is pinned in config and recorded in `judgments.json`, so a decision can be traced to the model that made it.
+
+## Conflict-aware ordering {#prd.conflicts}
+
+Tasks on different stacks run at the same time, and two that change the same code conflict when the second one restacks. Cairn predicts which tasks are likely to conflict and orders the work to avoid it: at plan time by shaping the stacks, and during a run through the orchestrator, which decides what starts, what waits and what each agent is told as the picture changes.
+
+### Predicting a conflict {#prd.conflicts.predicting}
+
+Every pair of tasks that can run at the same time gets a conflict score.
+
+- The base is the files both tasks plan to change. Once a task is running, its actual diff and the file its agent is in (from presence) replace the plan's guess.
+- A file that changes often in the repo's history weighs more. Files that usually change in the same commit count as shared, so a task in `model.ts` and another in `update.ts` still score.
+- Files differ in how they conflict. A generated file, such as a lockfile or the demo trace, is rebuilt after a restack and scores nothing. A file tasks only add lines to, such as an index of exports, scores low. Both are path patterns in `.cairn/config.json`, like `humanPaths`.
+- A score says why: the files and the reason each one counts, so a person can check it.
+
+### At plan time {#prd.conflicts.planning}
+
+- When two tasks in a new plan score high, the planner may put one on top of the other instead of running them side by side. The manifest records that ordering apart from `dependsOn`, with its reason, so the plan still says what each task needs and `cairn lint` can tell an ordering from a dependency.
+- The plan output lists each high-scoring pair and what was done about it. A person can undo a stacking at the task review.
+- A task already in the manifest is never moved (see planning again). For those, Cairn recommends the change, such as putting one stack on another or starting one task before another, and a person applies it.
+- Judging flags a plan where many parallel tasks share one file: the better fix may be to split the file, not to reorder the work.
+
+### While running {#prd.conflicts.running}
+
+The orchestrator keeps the scores current from events, commits and presence, and acts on them.
+
+- When several tasks are ready, it starts the one that scores lowest against what is running. It never leaves an agent idle only to avoid a risk.
+- It can hold a ready task back while a high-scoring task runs, and starts it when that task lands. A held task stays `pending`; its event names the task it waits on.
+- When two running tasks start to change the same lines, it tells both agents: the other task, the files, and which one goes first. The second restacks onto the first as soon as the first lands, not at the end.
+- It never stops a running agent on its own. Stopping or reassigning running work is for a person.
+- Every hold, reorder and message is an event, so the viewer shows it and the trace explains why work ran in the order it did.
+- Messages to agents come from the orchestrator, not from other agents (see the non-goals). They reach agents through the room once it exists (see multiplayer), and through a message board adapter before then.
+
+### Landing order {#prd.conflicts.landing}
+
+- Of two conflicting stacks, the smaller or nearer-done one lands first, and `cairn status` shows the order.
+- When a stack lands, every running or waiting stack that scores against it is told to restack at once.
+
+### Learning from conflicts {#prd.conflicts.learning}
+
+- Every conflict a restack actually hits is recorded with its files and the score the pair had.
+- `cairn status` reports how often a high score conflicted and how often a low one did, so the weights can be checked against the repo.
 
 ## Redaction {#prd.redaction}
 
@@ -411,6 +452,10 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - In the code view, a hunk an agent wrote with its edit tools reaches the tool call that wrote it in one click, and a hunk written another way says it is not traced.
 - A command added to the CLI appears in the docs reference without a docs edit, and a docs page that names a removed command fails the build.
 - The spec sections and tasks for the docs were written by `cairn plan`, not by hand.
+- Two parallel tasks planned against the same source file score higher than two that share only a generated file, and the plan output names the file.
+- With one task running and two ready, where only the first ready task shares files with the running one, the orchestrator starts the second.
+- When two running tasks change the same file, both agents are told the other task and the file, and the viewer shows the message and the order chosen.
+- Every conflict a restack hits is recorded with the score its pair had.
 
 ## One-day build order {#prd.one-day-build-order}
 
