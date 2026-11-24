@@ -45,15 +45,24 @@ const idsOf = <S extends Schema.Top & { readonly Type: string }>(
   values: readonly string[],
 ): readonly S["Type"][] => Array.filter(values, Schema.is(schema));
 
-const ownKeysOf = (keyLines: readonly string[]): SectionKeys => {
-  const entries = Array.getSomes(
-    Array.map(keyLines, (line) =>
+/**
+ * The keys a section's body lists before its prose, in order, each with every backticked value as
+ * written. `lint` reads them to report a value the key leaves out because it is not an ID of the
+ * key's prefix.
+ */
+export const keyEntriesOf = (
+  body: readonly string[],
+): ReadonlyArray<readonly [string, readonly string[]]> =>
+  Array.getSomes(
+    Array.map(keyLinesOf(body), (line) =>
       pipe(
         String.match(KEY_LINE)(line),
         Option.map(([, name = "", rest = ""]) => [name, valuesOf(rest)] as const),
       ),
     ),
   );
+
+const ownKeysOf = (entries: ReadonlyArray<readonly [string, readonly string[]]>): SectionKeys => {
   const named = (name: string): readonly string[] =>
     Array.flatMap(entries, ([key, values]) => (key === name ? values : []));
   return {
@@ -135,7 +144,7 @@ export const sectionsOf = (markdown: string): readonly Section[] => {
       const above = Array.filter(stack, ({ level }) => level < heading.level);
       const parent = Array.last(above);
       const bodyLines = Array.take(Array.drop(lines, index + 1), end - index - 1);
-      const own = ownKeysOf(keyLinesOf(bodyLines));
+      const own = ownKeysOf(keyEntriesOf(bodyLines));
       const keys = mergeKeys(
         Option.match(parent, { onNone: () => NO_KEYS, onSome: (open) => open.keys }),
         own,
