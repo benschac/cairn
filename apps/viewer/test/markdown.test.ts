@@ -820,3 +820,71 @@ it("renderSection keeps the offsets a whole render gives a block, so marks land 
   );
   assert(Array.map(marked, textOf)).toEqual([String.slice(0, 3)(block.text)]);
 });
+
+const RICH = Array.join(
+  [
+    "## Rich {#spec.rich}",
+    "",
+    "- Implements: `prd.a`",
+    "",
+    "Prose.",
+    "",
+    "- first item",
+    "- second item",
+    "",
+    "| Name | Value |",
+    "| ---- | ----- |",
+    "| cell | 42 |",
+    "",
+    fence("ts", "const own = 1;"),
+    "",
+    fence("mermaid", "flowchart LR\n  Own --> Diagram"),
+    "",
+    "### Child {#spec.rich.child}",
+    "",
+    fence("mermaid", "flowchart LR\n  Child --> Diagram"),
+    "",
+    fence("ts", "const child = 2;"),
+  ],
+  "\n",
+);
+
+it("renderSection renders a section's list, table, highlighted code and diagram, and none of its child's", () => {
+  let sources: ReadonlyArray<string> = [];
+  const root = renderOne(RICH, "spec.rich", {
+    diagramView: (source) => {
+      sources = Array.append(sources, source);
+      return null;
+    },
+  });
+  const tagList = tags(root);
+  assert(tagList).toContain("ul");
+  assert(tagList).toContain("table");
+  assert(textOf(firstTag(root, "table"))).toContain("cell");
+  const code = firstTag(firstTag(root, "pre"), "code");
+  assert(classes(code)).toEqual(["language-ts"]);
+  assert(textOf(code)).toBe("const own = 1;");
+  assert(Array.length(Array.filter(tagList, (tag) => tag === "pre"))).toBe(1);
+  assert(Array.dedupe(sources)).toEqual(["flowchart LR\n  Own --> Diagram"]);
+  assert(textOf(root)).not.toContain("child");
+  // Its key list is still chips.
+  assert(
+    Array.length(Array.filter(walk(root), (element) => attr(element, "data-key") === "Implements")),
+  ).toBe(1);
+});
+
+it("renderSection of a section whose next node is its child's heading has no body", () => {
+  const root = renderOne(
+    "## Parent {#spec.parent}\n\n### Child {#spec.child}\n\nChild.",
+    "spec.parent",
+  );
+  assert(textOf(root)).toBe("");
+  assert(Array.filter(tags(root), (tag) => tag === "p")).toEqual([]);
+});
+
+it("renderSection reads the document renderMarkdown reads, so a section renders from the shared parse", () => {
+  const document = documentOf(NESTED);
+  assert(documentOf(NESTED)).toBe(document);
+  renderOne(NESTED, "spec.own");
+  assert(documentOf(NESTED)).toBe(document);
+});
