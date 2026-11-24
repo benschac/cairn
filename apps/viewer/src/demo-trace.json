@@ -887,7 +887,7 @@
     },
     {
       "id": "prd.repo-layout",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "prd.section-ids",
@@ -899,11 +899,11 @@
     },
     {
       "id": "prd.cli",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "prd.planning",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "prd.planning.two-reviews",
@@ -919,7 +919,7 @@
     },
     {
       "id": "prd.planning.writers",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "prd.planning.comparing",
@@ -1103,7 +1103,7 @@
     },
     {
       "id": "spec.package-layout",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.libraries",
@@ -1139,7 +1139,7 @@
     },
     {
       "id": "spec.contract.config",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.contract.judgments",
@@ -1179,15 +1179,15 @@
     },
     {
       "id": "spec.models",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.planning",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.planning.planner-service",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.planning.stack-order",
@@ -1283,7 +1283,7 @@
     },
     {
       "id": "spec.cli",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.patch-routes",
@@ -3418,14 +3418,42 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "packages/contract/src/config.ts",
+            "packages/contract/src/index.ts",
+            "packages/contract/test/config.test.ts"
+          ],
+          "parents": ["868a04208b448fa335b896bb624b5232e5abe6dd"],
+          "sections": ["spec.contract.config"],
+          "session": null,
+          "sha": "4bfb812300490a395fe1528267566cdbaefe5404",
+          "subject": "Add the config schema with defaults"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t11",
+          "ts": "2026-11-24T12:52:47.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t11",
+          "ts": "2026-11-24T12:52:47.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t12",
@@ -3870,14 +3898,46 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "packages/cli/package.json",
+            "packages/cli/src/commands/init.ts",
+            "packages/cli/src/main-checkout.ts",
+            "packages/cli/src/main.ts",
+            "packages/cli/src/templates/prd.md",
+            "packages/cli/test/init.test.ts",
+            "packages/cli/tsconfig.json"
+          ],
+          "parents": ["e8d215b190d655c55ee4156e3d61bfb5194bc981"],
+          "sections": ["spec.cli", "spec.package-layout"],
+          "session": null,
+          "sha": "d1a9678c1cab56fc7a6b98c82a08108921b3a402",
+          "subject": "Add the cairn binary and cairn init"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t22",
+          "ts": "2026-11-24T12:29:41.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t22",
+          "ts": "2026-11-24T12:29:41.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t23",
@@ -3896,14 +3956,38 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": ["packages/cli/src/workspace.ts", "packages/cli/test/workspace.test.ts"],
+          "parents": ["d1a9678c1cab56fc7a6b98c82a08108921b3a402"],
+          "sections": ["spec.contract", "spec.cli"],
+          "session": null,
+          "sha": "607dbe5cfc66484b42a2ac8ff57eec473d643801",
+          "subject": "Load the .cairn files through the contract schemas"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t23",
+          "ts": "2026-11-24T12:31:28.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t23",
+          "ts": "2026-11-24T12:31:28.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t24",
@@ -4042,14 +4126,46 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "packages/cli/src/planner.ts",
+            "packages/cli/test/fixtures/scripted-language-model.ts",
+            "packages/cli/test/planner.test.ts",
+            "packages/cli/tsconfig.json",
+            "packages/contract/src/index.ts",
+            "packages/contract/src/task-draft.ts",
+            "packages/contract/test/task-draft.test.ts"
+          ],
+          "parents": ["4bfb812300490a395fe1528267566cdbaefe5404"],
+          "sections": ["spec.planning.planner-service"],
+          "session": null,
+          "sha": "0e204664e8cc5fa8a3944918f5bc47d9c491d966",
+          "subject": "Add the Planner service with a fixture layer"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t28",
+          "ts": "2026-11-24T12:54:28.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t28",
+          "ts": "2026-11-24T12:54:28.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t29",
@@ -4076,14 +4192,52 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            ".agent_sources/effect/index.md",
+            "packages/cli/package.json",
+            "packages/cli/prompts/retry.md",
+            "packages/cli/prompts/spec.md",
+            "packages/cli/prompts/tasks.md",
+            "packages/cli/src/cli-model.ts",
+            "packages/cli/src/models.ts",
+            "packages/cli/src/planner.ts",
+            "packages/cli/test/cli-model.test.ts",
+            "packages/cli/test/planner-live.test.ts",
+            "packages/cli/test/planner.test.ts",
+            "packages/cli/tsconfig.json",
+            "pnpm-lock.yaml"
+          ],
+          "parents": ["11b89803d7d3144d85ca98494bbc75ca0d89c58a"],
+          "sections": ["spec.planning.planner-service", "spec.libraries", "spec.models"],
+          "session": null,
+          "sha": "27d3785c82383b7d37a34ded0ea07c273399e62b",
+          "subject": "Add the planner's CLI source and its prompts"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t29",
+          "ts": "2026-11-24T13:15:48.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t29",
+          "ts": "2026-11-24T13:15:48.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t30",
