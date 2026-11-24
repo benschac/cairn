@@ -1,0 +1,72 @@
+import { Effect, Number, Schema } from "effect";
+
+/** The high-trust paths the PRD's human gate uses by default (`prd.human-gates`). */
+const HUMAN_PATHS = [
+  "**/migrations/**",
+  "**/auth/**",
+  "**/payments/**",
+  "infra/**",
+  "*.sql",
+  ".github/workflows/**",
+];
+
+/** A number in [0, 1], both ends included. */
+const Unit = Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 }));
+
+/** A model name the manifest uses, and when to use it (`spec.contract.config`). */
+const JUDGE_MODELS = {
+  haiku: "Mechanical changes: a schema field, a rename, a command wired to existing code",
+  sonnet: "Most tasks: a feature or service with its tests across a few files",
+  opus: "Logic where a subtle bug costs a lot: derivation, ordering, redaction, concurrency",
+};
+
+const Planner = Schema.Struct({
+  baseUrl: Schema.optionalKey(Schema.String),
+  model: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed("claude-opus-5-5"))),
+});
+
+const JudgeFields = Schema.Struct({
+  baseUrl: Schema.optionalKey(Schema.String),
+  flag: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.5))),
+  maxRounds: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(2)),
+  ),
+  minConfidence: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.5))),
+  model: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed("jev-1.14.0"))),
+  models: Schema.Record(Schema.String, Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(JUDGE_MODELS)),
+  ),
+  pass: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.8))),
+});
+
+/** `judge.pass` must be greater than `judge.flag`. */
+const passAboveFlag = Schema.makeFilter<{ readonly flag: number; readonly pass: number }>(
+  ({ flag, pass }) =>
+    Number.isGreaterThan(flag)(pass) ? undefined : "judge.pass must be greater than judge.flag",
+);
+
+const Judge = JudgeFields.pipe(Schema.check(passAboveFlag));
+
+/**
+ * `.cairn/config.json`. Every field has a default, so `{}` decodes to the defaults, and a
+ * missing file is read as `{}`.
+ */
+export const Config = Schema.Struct({
+  humanPaths: Schema.Array(Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(HUMAN_PATHS)),
+  ),
+  judge: Judge.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+  planner: Planner.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+  redact: Schema.Struct({
+    deny: Schema.Array(Schema.String).pipe(
+      Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<string>>([])),
+    ),
+  }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+  version: Schema.Literal(1).pipe(Schema.withDecodingDefaultKey(Effect.succeed(1 as const))),
+});
+export type Config = typeof Config.Type;
+
+export const ConfigJson = Schema.fromJsonString(Config);
+
+/** The config a missing `.cairn/config.json` decodes to. */
+export const defaultConfig: Config = Schema.decodeSync(Config)({});
