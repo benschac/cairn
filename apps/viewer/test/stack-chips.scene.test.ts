@@ -23,7 +23,7 @@ import { update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom, chipTitleOf } from "../src/view/stackChipsView.ts";
 import { view } from "../src/view/view.ts";
-import { loaded, wiresMounted } from "./fixtures.ts";
+import { focusedDetailHeading, loaded, wiresMounted } from "./fixtures.ts";
 
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 const stacks = stacksOf(demoTrace.tasks);
@@ -155,6 +155,7 @@ it("a pinned section lights its chips and their boxes and dims the rest, which s
     expect(selector("[data-stacks-summary]")).toContainText("read up from main"),
     // A dimmed chip still takes clicks.
     click(chip(other.id)),
+    focusedDetailHeading,
     expect(chip(other.id)).toExist(),
   );
 });

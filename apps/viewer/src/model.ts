@@ -107,6 +107,8 @@ export type PresenceConnection = typeof PresenceConnection.Type;
 export const Model = Schema.Struct({
   /** The diff style the code view draws diffs in. */
   diffStyle: DiffStyle,
+  /** The detail panel's trail: empty is a closed panel, and the last node is the one shown. */
+  detail: Schema.Array(Node),
   /** The document or task card being dragged by its handle, if any. */
   drag: DragState,
   drawer: Drawer,

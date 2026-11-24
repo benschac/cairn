@@ -13,6 +13,7 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
   commands: [LoadTrace()],
   model: {
     diffStyle: "unified",
+    detail: [],
     drag: DragState.Idle(),
     drawer: Drawer.Closed(),
     isShowingAllCurves: false,

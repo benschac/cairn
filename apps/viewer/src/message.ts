@@ -20,6 +20,14 @@ export const Message = defineMessageUnion({
   ClickedDensity: { density: Density },
   /** The drawer's Close button. */
   ClickedCloseDrawer: {},
+  /** The detail panel's Close button: empties the trail. */
+  ClickedCloseDetail: {},
+  /** A task or spec section opened from inside the detail panel: added to the end of the trail. */
+  ClickedDetailNode: { node: Node },
+  /** A step of the trail: cuts it back to that step. */
+  ClickedTrailStep: { index: Schema.Int },
+  /** A PRD section a task traces to, in the detail panel: scrolls the PRD pane to its heading. */
+  ClickedTraceSection: { id: PrdSectionId },
   /** A task listed in a section's drawer. */
   ClickedDrawerTask: { id: TaskId },
   ClickedFit: {},
@@ -59,7 +67,9 @@ export const Message = defineMessageUnion({
   ClosedPresence: {},
   /** The clipboard took the section's ID, or refused it. */
   CompletedCopySectionId: { id: PrdSectionId, isCopied: Schema.Boolean },
+  CompletedFocusDetailHeading: {},
   CompletedFocusDrawerHeading: {},
+  CompletedScrollPrdSection: {},
   CompletedFocusNode: {},
   CompletedFocusSearchInput: {},
   CompletedScrollSearchResult: {},

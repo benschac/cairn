@@ -20,6 +20,7 @@ import { init } from "../src/init.ts";
 import { MeasureLayout } from "../src/layout.ts";
 import { Message } from "../src/message.ts";
 import { TraceData, type Model } from "../src/model.ts";
+import { FocusDetailHeading } from "../src/update.ts";
 import { sectionTitleOf } from "../src/trace.ts";
 import { taskHeadingOf } from "../src/view/stacksView.ts";
 import { view } from "../src/view/view.ts";
@@ -95,6 +96,13 @@ export const focusedDrawerHeading = Command.resolve(
   FocusDrawerHeading,
   // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
   Message.CompletedFocusDrawerHeading(),
+);
+
+/** Opening the detail panel, or changing its node, moves focus to its heading; the test answers for the focus. */
+export const focusedDetailHeading = Command.resolve(
+  FocusDetailHeading,
+  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+  Message.CompletedFocusDetailHeading(),
 );
 
 /** Closing a drawer moves focus back to its node's button; the test answers for the focus. */

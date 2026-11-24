@@ -1,6 +1,6 @@
 import { PrdSectionId, type Sha, type TaskId, type Trace } from "@cairn/contract";
 import { Array, Boolean, Effect, Match, Option, Record, Result, Schema } from "effect";
-import { AsyncData, Command } from "foldkit";
+import { AsyncData, Command, Dom } from "foldkit";
 import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 
@@ -21,6 +21,14 @@ import {
   ScrollSearchResult,
 } from "./command.ts";
 import { DragState, canvasDeltaOf, moveBy, nudgeOf } from "./drag.ts";
+import {
+  DETAIL_HEADING_ID,
+  cutBackTo,
+  extendedBy,
+  nodeShownBy,
+  openedOn,
+  wentBack,
+} from "./detail.ts";
 import { DRAWER_WIDTH } from "./drawer.ts";
 import type { Rect } from "./geometry.ts";
 import { isPinned, pin, togglePin } from "./highlight.ts";
@@ -46,12 +54,15 @@ import {
   type SearchState,
 } from "./search.ts";
 import { Resize, deltaOf, draggedTo, resized, stepOf } from "./panes.ts";
+import type { Trail } from "./detail.ts";
 import { isOpenCard } from "./reader.ts";
 import { Node } from "./trace.ts";
 
 // UPDATE
 
 const nodeEquivalence = Schema.toEquivalence(Node);
+
+const sameNode = Option.makeEquivalence(nodeEquivalence);
 
 const openOn = (node: Node): Drawer => Drawer.Open({ node });
 
@@ -103,6 +114,18 @@ const codeOn = (
       onSome: (screen) => withPatchRequested(modifyFields(model, { screen: () => screen })),
     },
   );
+
+/**
+ * The model with this trail. When the panel is open and its last node changed, focus moves to the
+ * panel's heading; a trail that shows the same node, or none, moves no focus.
+ */
+const detailTrailed = (model: Model, trail: Trail): Update.Return<Model, Message> => ({
+  commands:
+    Option.isSome(nodeShownBy(trail)) && !sameNode(nodeShownBy(trail), nodeShownBy(model.detail))
+      ? [FocusDetailHeading()]
+      : [],
+  model: modifyFields(model, { detail: () => trail }),
+});
 
 /** The drag this pointer is making; none while nothing is dragged or another pointer drags. */
 const dragByPointer = (drag: DragState, pointerId: number) =>
@@ -235,10 +258,12 @@ export const update = (model: Model, message: Message) =>
         reader: (reader) => modifyFields(reader, { density: () => density, opened: () => ({}) }),
       }),
     }),
-    // Until the detail panel exists, a task row opens the task's drawer, which is the selection.
-    ClickedTask: ({ id }) => ({
-      model: modifyFields(model, { drawer: () => openOn({ id, kind: "task" }) }),
-    }),
+    // A task row or a chip starts a new trail on that task.
+    ClickedTask: ({ id }) => detailTrailed(model, openedOn({ id, kind: "task" })),
+    ClickedDetailNode: ({ node }) => detailTrailed(model, extendedBy(model.detail, node)),
+    ClickedTrailStep: ({ index }) => detailTrailed(model, cutBackTo(model.detail, index)),
+    ClickedCloseDetail: () => ({ model: modifyFields(model, { detail: () => [] }) }),
+    ClickedTraceSection: ({ id }) => ({ commands: [ScrollPrdSection({ id })], model }),
     // "Open code" and a drawer commit open the code view; a task or commit the trace lacks opens nothing.
     ClickedOpenCode: ({ id, maybeSha }) => codeOn(model, id, maybeSha),
     // The tree selects within the code view; with the canvas showing there is no tree to click.
@@ -359,7 +384,9 @@ export const update = (model: Model, message: Message) =>
         maybeCopied: () => (isCopied ? Option.some(id) : Option.none()),
       }),
     }),
+    CompletedFocusDetailHeading: () => ({ model }),
     CompletedFocusDrawerHeading: () => ({ model }),
+    CompletedScrollPrdSection: () => ({ model }),
     CompletedFocusNode: () => ({ model }),
     CompletedFocusSearchInput: () => ({ model }),
     CompletedScrollSearchResult: () => ({ model }),
@@ -461,16 +488,20 @@ export const update = (model: Model, message: Message) =>
             drag: () => DragState.Dragging({ movable, pointer, pointerId }),
           }),
     }),
-    // Until the detail panel exists there is nothing to go back through, so Escape unpins. It is
-    // the reader's key: on any other screen it does nothing.
-    PressedEscape: () => ({
-      model: Screen.guards.Reader(model.screen)
-        ? modifyFields(model, {
-            maybeCopied: () => Option.none(),
-            reader: (reader) => modifyFields(reader, { maybePinned: () => Option.none() }),
+    // It is the reader's key: on any other screen it does nothing. With the detail panel open it
+    // goes back one step, which closes the panel at the first; otherwise it unpins.
+    PressedEscape: () =>
+      Screen.guards.Reader(model.screen)
+        ? Array.match(model.detail, {
+            onEmpty: () => ({
+              model: modifyFields(model, {
+                maybeCopied: () => Option.none(),
+                reader: (reader) => modifyFields(reader, { maybePinned: () => Option.none() }),
+              }),
+            }),
+            onNonEmpty: (trail) => detailTrailed(model, wentBack(trail)),
           })
-        : model,
-    }),
+        : { model },
     PressedSearchArrowDown: () => searchedWith(model, moved(model.search, 1)),
     PressedSearchArrowUp: () => searchedWith(model, moved(model.search, -1)),
     PressedSearchEnter: () =>
@@ -527,6 +558,29 @@ export const update = (model: Model, message: Message) =>
   });
 
 // COMMAND
+
+/** Moves focus to the heading of the detail panel that just opened or changed its node. */
+export const FocusDetailHeading = Command.define("FocusDetailHeading", {
+  messages: [Message.CompletedFocusDetailHeading],
+  execute: Dom.focus(`#${DETAIL_HEADING_ID}`).pipe(
+    Effect.ignore,
+    Effect.as(Message.CompletedFocusDetailHeading()),
+  ),
+});
+
+/** The heading of a PRD section in the PRD pane; the document's own title is not one. */
+const prdHeadingSelector = (id: PrdSectionId): string => `[data-section="${id}"]:not([data-title])`;
+
+/** Scrolls the PRD pane so a section's heading is at its top. */
+export const ScrollPrdSection = Command.define("ScrollPrdSection", {
+  args: { id: PrdSectionId },
+  messages: [Message.CompletedScrollPrdSection],
+  execute: ({ id }) =>
+    Dom.scrollIntoView(prdHeadingSelector(id), { block: "start" }).pipe(
+      Effect.ignore,
+      Effect.as(Message.CompletedScrollPrdSection()),
+    ),
+});
 
 /** Writes a section's ID to the clipboard, and says whether the browser took it. */
 export const CopySectionId = Command.define("CopySectionId", {
