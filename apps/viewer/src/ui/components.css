@@ -144,7 +144,8 @@
   border-inline-end: 0;
 }
 
-.seg > button[aria-pressed="true"] {
+.seg > button[aria-pressed="true"],
+.seg > button[aria-current="page"] {
   background-color: var(--green);
 }
 
@@ -522,6 +523,35 @@
   padding: 0;
   overflow-y: auto;
   list-style: none;
+}
+
+/* In the reader's top bar the results float over the panes instead of growing the bar. */
+.reader .topbar .search-box {
+  position: relative;
+  flex: 0 1 320px;
+  margin: 0;
+}
+
+.reader .topbar .search-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 10;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-m);
+  background-color: var(--card);
+  box-shadow: var(--lift-l);
+}
+
+/* The count stays for assistive tech; the list shows what it counts. */
+.reader .topbar [data-search-status] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
 .search-list > .row {

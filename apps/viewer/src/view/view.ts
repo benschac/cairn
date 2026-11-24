@@ -11,6 +11,7 @@ import { Drawer, PresenceConnection, Screen, type Model } from "../model.ts";
 import { codeView, type CodeMessages } from "./codeView.ts";
 import { canvasView } from "./canvasView.ts";
 import { labelOf } from "./cursorsView.ts";
+import { readerView, screenSwitchView } from "./readerView.ts";
 import { searchView } from "./searchView.ts";
 
 const joinedText = (others: ReadonlyArray<Participant>) =>
@@ -170,6 +171,7 @@ const toolbarStyle = {
 export const view = (model: Model, h: HtmlBuilder<Message>): Document =>
   Screen.match(model.screen, {
     Canvas: () => canvasScreenView(model, h),
+    Reader: () => readerScreenView(model, h),
     Code: (code) => ({
       body: h.main(
         [],
@@ -183,6 +185,29 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document =>
       title: "Cairn",
     }),
   });
+
+/**
+ * The reader fills the window: main is a column of the reader and, when the trace is stale, the
+ * alert above it, so the window never scrolls and each pane keeps its own scroll.
+ */
+const readerScreenView = (model: Model, h: HtmlBuilder<Message>): Document => {
+  const presence = presenceText(model, othersOf(model));
+  const loaded = (trace: Trace) => readerView(trace, model, presence, h);
+  return {
+    body: h.main(
+      [h.Style({ display: "flex", "flex-direction": "column", height: "100vh" })],
+      AsyncData.match(model.trace, {
+        onFailure: (error) => [alertView(error, h)],
+        onIdle: () => [loadingView(h)],
+        onLoading: () => [loadingView(h)],
+        onRefreshing: (data) => [loaded(data)],
+        onStale: ({ data, error }) => [alertView(error, h), loaded(data)],
+        onSuccess: (data) => [loaded(data)],
+      }),
+    ),
+    title: "Cairn",
+  };
+};
 
 const canvasScreenView = (model: Model, h: HtmlBuilder<Message>): Document => {
   const others = othersOf(model);
@@ -207,6 +232,7 @@ const canvasScreenView = (model: Model, h: HtmlBuilder<Message>): Document => {
             Array.map(Array.fromOption(model.maybePanZoomFailure), (reason) =>
               alertView(`Pan and zoom are unavailable: ${reason}`, h),
             ),
+            [screenSwitchView("Canvas", h)],
             parts.toolbar,
           ]),
         ),
