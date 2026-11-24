@@ -1,10 +1,10 @@
-import { Presence, PrdSectionId, Sha, TaskId, Trace } from "@cairn/contract";
+import { Presence, PrdSectionId, SectionId, Sha, TaskId, Trace } from "@cairn/contract";
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 
 import { ArrowKey, ClientPoint, Movable, PointerId } from "./drag.ts";
 import { Positions, Size, Viewport } from "./geometry.ts";
-import { Destination, DiffStyle } from "./model.ts";
+import { Density, Destination, DiffStyle } from "./model.ts";
 import { Node } from "./trace.ts";
 
 export const Message = defineMessageUnion({
@@ -12,6 +12,10 @@ export const Message = defineMessageUnion({
   ClickedBackToCanvas: {},
   /** One of the diff style toggle's two buttons. */
   ClickedDiffStyle: { style: DiffStyle },
+  /** A spec card's header: opens or closes that card alone. */
+  ClickedCardHeader: { id: SectionId },
+  /** One of the spec cards' density control's three buttons: it sets every card. */
+  ClickedDensity: { density: Density },
   /** The drawer's Close button. */
   ClickedCloseDrawer: {},
   /** A task listed in a section's drawer. */
@@ -35,6 +39,8 @@ export const Message = defineMessageUnion({
   ClickedStatusLine: { id: PrdSectionId },
   /** A result in the search list: it becomes the active result and is brought into view. */
   ClickedSearchResult: { node: Node },
+  /** A task row in a spec card: opens the task's detail. */
+  ClickedTask: { id: TaskId },
   /** A commit in the code view's tree. */
   ClickedTreeCommit: { sha: Sha },
   /** A file in the code view's tree. */

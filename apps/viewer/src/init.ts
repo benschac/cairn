@@ -26,7 +26,12 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
     pins: [],
     positions: {},
     presenceConnection: PresenceConnection.Connecting(),
-    reader: { maybeAtTop: Option.none(), maybePinned: Option.none() },
+    reader: {
+      density: "summary",
+      maybeAtTop: Option.none(),
+      maybePinned: Option.none(),
+      opened: {},
+    },
     search: NO_SEARCH,
     screen: Screen.Canvas(),
     trace: TraceData.Loading(),

@@ -45,6 +45,7 @@ import {
   resultOf,
   type SearchState,
 } from "./search.ts";
+import { isOpenCard } from "./reader.ts";
 import { Node } from "./trace.ts";
 
 // UPDATE
@@ -213,6 +214,23 @@ export const update = (model: Model, message: Message) =>
       }),
     // Back to the canvas changes only the screen: pins, offsets, the drawer and the viewport stayed.
     ClickedBackToCanvas: () => ({ model: modifyFields(model, { screen: () => Screen.Canvas() }) }),
+    // A card opens or closes alone, to the opposite of what it shows now.
+    ClickedCardHeader: ({ id }) => ({
+      model: modifyFields(model, {
+        reader: (reader) =>
+          modifyFields(reader, { opened: Record.set(id, !isOpenCard(reader, id)) }),
+      }),
+    }),
+    // The control sets every card to its density, so the cards opened apart from it are forgotten.
+    ClickedDensity: ({ density }) => ({
+      model: modifyFields(model, {
+        reader: (reader) => modifyFields(reader, { density: () => density, opened: () => ({}) }),
+      }),
+    }),
+    // Until the detail panel exists, a task row opens the task's drawer, which is the selection.
+    ClickedTask: ({ id }) => ({
+      model: modifyFields(model, { drawer: () => openOn({ id, kind: "task" }) }),
+    }),
     // "Open code" and a drawer commit open the code view; a task or commit the trace lacks opens nothing.
     ClickedOpenCode: ({ id, maybeSha }) => codeOn(model, id, maybeSha),
     // The tree selects within the code view; with the canvas showing there is no tree to click.

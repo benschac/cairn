@@ -8,6 +8,7 @@ import { currentOf } from "../reader.ts";
 import { Node } from "../trace.ts";
 import { prdPaneView } from "./prdPaneView.ts";
 import { searchView } from "./searchView.ts";
+import { specPaneView } from "./specPaneView.ts";
 
 const isPrdSection = Schema.is(PrdSectionId);
 
@@ -72,8 +73,9 @@ export const readerView = (
   model: Model,
   presence: string,
   h: HtmlBuilder<Message>,
-): Html =>
-  h.div(
+): Html => {
+  const maybeCurrent = currentOf(model.reader, searchedOf(model));
+  return h.div(
     [
       h.Class("reader"),
       h.DataAttribute("reader", ""),
@@ -90,19 +92,15 @@ export const readerView = (
         [
           h.Style({
             display: "grid",
-            "grid-template-columns": "minmax(0, 1fr)",
+            "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr)",
             "min-height": "0",
           }),
         ],
         [
-          prdPaneView(
-            trace,
-            currentOf(model.reader, searchedOf(model)),
-            model.reader.maybePinned,
-            model.maybeCopied,
-            h,
-          ),
+          prdPaneView(trace, maybeCurrent, model.reader.maybePinned, model.maybeCopied, h),
+          specPaneView(trace, maybeCurrent, model.reader, h),
         ],
       ),
     ],
   );
+};
