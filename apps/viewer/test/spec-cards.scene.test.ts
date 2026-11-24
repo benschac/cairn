@@ -249,3 +249,57 @@ it.prop(
     assert(reset.reader.opened).toStrictEqual({});
   },
 );
+
+it("the density control is one labelled group of three buttons with the summary pressed at first", () => {
+  scene(
+    { update, view },
+    given(reading),
+    ...pinned(SECTION),
+    expect(role("group", { name: "How much of the spec to show" })).toExist(),
+    expectAll(all.selector("[data-spec-pane] [role='group'] button")).toHaveCount(3),
+    expect(role("button", { name: "Titles" })).toHaveAttr("aria-pressed", "false"),
+    expect(role("button", { name: "Summary" })).toHaveAttr("aria-pressed", "true"),
+    expect(role("button", { name: "Full spec" })).toHaveAttr("aria-pressed", "false"),
+  );
+});
+
+it("a section with no summary shows none, and the others still do", () => {
+  const [first = "", ...others] = implementing("prd.viewer");
+  const bare = modifyFields(reading, {
+    trace: () =>
+      TraceData.Success({
+        data: {
+          ...demoTrace,
+          spec: {
+            ...demoTrace.spec,
+            sections: Array.map(demoTrace.spec.sections, (section) =>
+              section.id === first ? { ...section, summary: null } : section,
+            ),
+          },
+        },
+      }),
+  });
+  assert(Array.length(others)).toBeGreaterThan(0);
+  scene(
+    { update, view },
+    given(bare),
+    ...pinned("prd.viewer"),
+    expect(card(first)).toExist(),
+    expect(selector(`[data-summary="${first}"]`)).toBeAbsent(),
+    expect(selector(`[data-summary="${others[0]}"]`)).toExist(),
+  );
+});
+
+it("at full density a card shows its section's own markdown: tables and code, and no heading", () => {
+  scene(
+    { update, view },
+    given(reading),
+    ...pinned("prd.viewer"),
+    click(role("button", { name: "Full spec" })),
+    expect(selector("[data-full-spec] table")).toExist(),
+    expect(selector("[data-full-spec] pre")).toExist(),
+    expectAll(all.selector("[data-full-spec] [data-section]")).toHaveCount(0),
+    expectAll(all.selector("[data-full-spec] h2")).toHaveCount(0),
+    expectAll(all.selector("[data-full-spec] h3")).toHaveCount(0),
+  );
+});
