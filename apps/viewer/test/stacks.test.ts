@@ -1,10 +1,10 @@
 import { Manifest, TaskId } from "@cairn/contract";
+import { StackTask, TaskIdOrder, labelOf, stacksOf, type Stack } from "@cairn/core/stacks";
 import { expect, it } from "@effect/vitest";
 import { Array, Hash, HashSet, Number, Option, Order, Record, Schema, String, pipe } from "effect";
 
 import manifestJson from "../../../.cairn/manifest.json" with { type: "json" };
 import specMarkdown from "../../../.cairn/spec.md?raw";
-import { StackTask, TaskIdOrder, labelOf, stacksOf, type Stack } from "../src/stacks.ts";
 
 const id = (n: number): TaskId => TaskId.make(`t${n}`);
 const ghost = TaskId.make("ghost");

@@ -1,4 +1,5 @@
 import { PrdSectionId, TaskId } from "@cairn/contract";
+import { labelOf, stacksOf, type Stack } from "@cairn/core/stacks";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Number, Option, Record } from "effect";
 import {
@@ -18,7 +19,6 @@ import { modifyFields } from "foldkit/struct";
 import { demoTrace } from "../src/demo.ts";
 import { Message } from "../src/message.ts";
 import { Screen } from "../src/model.ts";
-import { labelOf, stacksOf, type Stack } from "../src/stacks.ts";
 import { update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom, chipTitleOf } from "../src/view/stackChipsView.ts";

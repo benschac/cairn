@@ -1,9 +1,10 @@
 import { Manifest, TaskId } from "@cairn/contract";
+import { TaskIdOrder } from "@cairn/core/stacks";
 import { expect, it } from "@effect/vitest";
 import { Array, Number, Option, Order, Record, Schema, pipe } from "effect";
 
 import manifestJson from "../../../.cairn/manifest.json" with { type: "json" };
-import { TaskIdOrder, stackLayoutOf, type LayoutTask, type StackLayout } from "../src/stacks.ts";
+import { stackLayoutOf, type LayoutTask, type StackLayout } from "../src/stacks.ts";
 
 const id = (n: number): TaskId => TaskId.make(`t${n}`);
 const root = (n: number, dependsOn: ReadonlyArray<number>): LayoutTask => ({

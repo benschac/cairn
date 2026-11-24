@@ -1,4 +1,5 @@
 import { SectionId, type Trace, type TraceSection, type TraceTask } from "@cairn/contract";
+import { stacksOf } from "@cairn/core/stacks";
 import { Array, Option, Record } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
@@ -8,7 +9,6 @@ import { filesOf, patchPathOf, shortSha } from "../codeView.ts";
 import { Message } from "../message.ts";
 import { Shown, type DiffStyle, type PatchData } from "../model.ts";
 import { ranOf, statusWordOf } from "../reader.ts";
-import { stacksOf } from "../stacks.ts";
 import { Node, nodeKeyOf, sectionTitleOf } from "../trace.ts";
 import { dotView, labelView, tagView } from "../ui/marks.ts";
 import { patchView } from "./diffView.ts";

@@ -605,6 +605,8 @@ Every ancestor of a task is something it depends on. So a gated task has nothing
 
 This repo's stacks, drawn from [manifest.json](manifest.json). Each box is a stack built bottom to top, and stacks run in parallel. A solid arrow is a parent branch; a dashed arrow means the task starts from `main` once that dependency has landed. The last line of each task is its worktree. Purple is opus, blue is sonnet, yellow is haiku; a red border and GATE mark a human gate. Stacks are numbered in the order of their first task and named for the second part of that task's first spec section. The viewer draws the same stacks by the same rules (see `spec.viewer.stacks`), and a test fails when this diagram and the manifest disagree, so redraw it when the manifest changes.
 
+<!-- cairn:stacks -->
+
 ```mermaid
 flowchart BT
   main(["main"])
@@ -649,11 +651,11 @@ flowchart BT
     direction BT
     t11["t11 · 11-config-schema<br/>Add the config schema with defaults<br/>wt-8"]
     t28["t28 · 28-planner-service<br/>Add the Planner service with a fixture layer<br/>wt-8"]
+    t55["t55 · 55-judgment-schema<br/>Add the judgments file schema and the judge config<br/>wt-15"]
     t29["t29 · 29-planner-live<br/>Add the planner's CLI source and its prompts<br/>wt-8"]
     t57["t57 · 57-decision-model<br/>Add the Jev decision model layer<br/>wt-17"]
-    t61["t61 · 61-planner-split<br/>Add the split and index planner calls<br/>wt-17"]
-    t55["t55 · 55-judgment-schema<br/>Add the judgments file schema and the judge config<br/>wt-15"]
     t106["t106 · 106-planner-providers<br/>Add the API providers for the planner<br/>wt-32"]
+    t61["t61 · 61-planner-split<br/>Add the split and index planner calls<br/>wt-17"]
     t115["t115 · 115-gateway-token<br/>Send the AI Gateway token with planner requests<br/>wt-32"]
   end
   subgraph s9["Stack 9 · status"]
@@ -680,10 +682,10 @@ flowchart BT
     t19["t19 · 19-gate-detection<br/>Detect human gates from tags and paths<br/>wt-11"]
     t20["t20 · 20-stack-order<br/>Order drafts into stacks by dependency<br/>wt-11"]
     t25["t25 · 25-lint-sections<br/>Lint section IDs and PRD coverage<br/>wt-11"]
+    t111["t111 · 111-stack-existing<br/>Order new drafts after the tasks a manifest already has<br/>wt-35"]
     t26["t26 · 26-lint-stack<br/>Lint parents, dependencies and gates<br/>wt-11"]
     t27["t27 · 27-cairn-lint<br/>Add cairn lint<br/>wt-11"]
     t66["t66 · 66-index-drift<br/>Lint spec.json for drift<br/>wt-11"]
-    t111["t111 · 111-stack-existing<br/>Order new drafts after the tasks a manifest already has<br/>wt-35"]
   end
   subgraph s14["Stack 14 · status"]
     direction BT
@@ -742,12 +744,12 @@ flowchart BT
     t51["t51 · 51-canvas-presence<br/>Keep presence cursors in canvas coordinates<br/>wt-14"]
     t52["t52 · 52-detail-drawer<br/>Open the detail drawer from sections and tasks<br/>wt-14"]
     t69["t69 · 69-stacks-of<br/>Group the tasks into stacks and levels<br/>wt-19"]
-    t70["t70 · 70-stack-boxes<br/>Draw the stacks as boxes over the base branch<br/>wt-19"]
     t71["t71 · 71-fuzzy-matching<br/>Index and rank fuzzy matches for titles, IDs and branches<br/>wt-20"]
-    t72["t72 · 72-search-interaction<br/>Add search navigation and temporary chain highlighting<br/>wt-20"]
-    t73["t73 · 73-prose-search<br/>Search markdown prose with snippets and inline match highlights<br/>wt-20"]
     t75["t75 · 75-code-screen<br/>Open the code view with the stack tree<br/>wt-21"]
+    t70["t70 · 70-stack-boxes<br/>Draw the stacks as boxes over the base branch<br/>wt-19"]
+    t72["t72 · 72-search-interaction<br/>Add search navigation and temporary chain highlighting<br/>wt-20"]
     t53["t53 · 53-diff-parse<br/>Fetch and parse task and commit patches with @pierre/diffs<br/>wt-21"]
+    t73["t73 · 73-prose-search<br/>Search markdown prose with snippets and inline match highlights<br/>wt-20"]
     t54["t54 · 54-diff-render<br/>Render task and commit diffs with syntax highlighting in the code view<br/>wt-21"]
     t67["t67 · 67-judgment-markers<br/>Show judgments in the trace and the viewer<br/>wt-21"]
     t81["t81 · 81-demo-patches · GATE<br/>Ship the demo's commit patches as static files<br/>wt-26"]
@@ -940,9 +942,6 @@ flowchart BT
   t49 --> t50
   t50 --> t51
   t51 --> t52
-  t52 -.-> t68
-  t39 -.-> t68
-  t52 --> t75
   t75 --> t53
   t53 --> t54
   t11 --> t55
@@ -966,12 +965,15 @@ flowchart BT
   t60 --> t65
   t27 --> t66
   t54 --> t67
+  t39 -.-> t68
+  t52 -.-> t68
+  t52 --> t69
+  t69 --> t70
   t52 --> t71
   t71 --> t72
   t72 --> t73
-  t52 --> t69
-  t69 --> t70
   main --> t74
+  t52 --> t75
   t9 --> t76
   t76 --> t77
   t2 -.-> t78
@@ -1040,6 +1042,8 @@ flowchart BT
   classDef gate stroke:#dc2626,stroke-width:5px
   style main fill:#e5e7eb,color:#111111,stroke:#6b7280
 ```
+
+<!-- /cairn:stacks -->
 
 ### `cairn plan` {#spec.planning.cairn-plan}
 

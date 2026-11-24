@@ -5,6 +5,7 @@ import {
   type SectionId,
   type TaskId,
 } from "@cairn/contract";
+import { stacksOf } from "@cairn/core/stacks";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, HashSet, Number, Option, Record, Schema, Struct, pipe } from "effect";
 import {
@@ -41,7 +42,6 @@ import { DrawDiagram } from "../src/diagram.ts";
 import { MeasureLayout } from "../src/layout.ts";
 import { Message } from "../src/message.ts";
 import { TraceData } from "../src/model.ts";
-import { stacksOf } from "../src/stacks.ts";
 import { chainOf, isInChain, sectionStatusOf, type Chain, type Node } from "../src/trace.ts";
 import { update } from "../src/update.ts";
 import { view } from "../src/view/view.ts";

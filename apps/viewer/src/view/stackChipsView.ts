@@ -1,4 +1,5 @@
 import type { PrdSectionId, SectionStatus, Trace, TraceTask } from "@cairn/contract";
+import { labelOf, stacksOf, type Stack } from "@cairn/core/stacks";
 import { Array, Effect, HashSet, Number, Option, Order, Record, String, pipe } from "effect";
 import { Mount } from "foldkit";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
@@ -7,7 +8,6 @@ import { Message } from "../message.ts";
 import { currentTasksOf, planCountsOf, ranOf } from "../reader.ts";
 import { nodeSearchOf } from "../highlight.ts";
 import type { SearchResult } from "../search.ts";
-import { labelOf, stacksOf, type Stack } from "../stacks.ts";
 import type { Chain, Node } from "../trace.ts";
 import { dotView, labelView } from "../ui/marks.ts";
 import { hoverChainOf, isTaskDimmed, taskKey } from "../wires.ts";
