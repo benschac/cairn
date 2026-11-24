@@ -196,7 +196,7 @@ const trailers = (task: Task, subject: string): Omit<Authored, "files"> => ({
 
 const Op = Schema.Union([
   Schema.TaggedStruct("Commit", {
-    files: Schema.Array(Schema.Literals(["a.txt", "src/b.ts", "db/migrations/1.sql"])),
+    files: Schema.Array(Schema.Literals(["a.txt", "src/b.ts", "db/migrations/café 1.sql"])),
     task: Schema.Literals(TASKS),
     trailered: Schema.Boolean,
   }),
@@ -300,7 +300,7 @@ const inBoth = (ops: ReadonlyArray<Op>) =>
 it.effect("a task branch is read from its parent's branch, with its trailers and files", () =>
   Effect.gen(function* () {
     const logs = yield* inBoth([
-      commitOn("t1", ["src/b.ts", "db/migrations/1.sql"], true),
+      commitOn("t1", ["src/b.ts", "db/migrations/café 1.sql"], true),
       commitOn("t2", ["a.txt"], false),
     ]);
     expect(logs).toStrictEqual(
@@ -308,7 +308,7 @@ it.effect("a task branch is read from its parent's branch, with its trailers and
         [
           {
             branch: "cairn-mvp/00-t1",
-            files: ["db/migrations/1.sql", "src/b.ts"],
+            files: ["db/migrations/café 1.sql", "src/b.ts"],
             onBase: false,
             parents: ["Initial commit"],
             sections: [SECTION],

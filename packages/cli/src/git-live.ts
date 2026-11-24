@@ -11,7 +11,9 @@ const FIELD = "\x1f";
 
 /**
  * The sha, the parents, the subject and the three Cairn trailers, each trailer's values one per
- * line, then a separator: `--name-only` prints the changed files after it.
+ * line, then a separator. `--name-only` prints the changed files after it, and `-z` prints each
+ * one as it is, ended by a NUL, where git would otherwise quote and escape a name with a space or
+ * a character outside ASCII.
  */
 const LOG_FORMAT = `--format=%x1e${Array.join(
   [
@@ -25,6 +27,10 @@ const LOG_FORMAT = `--format=%x1e${Array.join(
   ],
   "%x1f",
 )}`;
+
+/** The paths in a record's file block: a NUL and a newline, then each path ended by a NUL. */
+const pathsOf = (block: string): ReadonlyArray<string> =>
+  Array.filter(String.split(String.replace("\x00\n", "")(block), "\x00"), String.isNonEmpty);
 
 const linesOf = (text: string): ReadonlyArray<string> =>
   Array.filter(Array.map(String.split(text, "\n"), String.trim), String.isNonEmpty);
@@ -48,7 +54,7 @@ const LogRecord = Schema.Tuple([
 const decodeRecord = (record: string) =>
   Schema.decodeUnknownEffect(LogRecord)(String.split(record, FIELD)).pipe(
     Effect.map(([sha, parents, subject, tasks, sections, sessions, files]): Logged => ({
-      files: linesOf(files),
+      files: pathsOf(files),
       parents: Array.map(Array.filter(String.split(parents, " "), String.isNonEmpty), (parent) =>
         Sha.make(parent),
       ),
@@ -90,7 +96,7 @@ export const layer = (directory = ".") =>
 
       const read = (revisions: ReadonlyArray<string>) => {
         const args = Array.flatten([
-          ["log", "--no-renames", "--name-only", LOG_FORMAT],
+          ["log", "-z", "--no-renames", "--name-only", LOG_FORMAT],
           revisions,
           ["--"],
         ]);
