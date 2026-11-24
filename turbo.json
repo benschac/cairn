@@ -26,6 +26,10 @@
       "inputs": ["scripts/guard/**", "package.json"],
       "outputs": []
     },
+    "//#test:gate": {
+      "inputs": ["scripts/gate/**", "package.json"],
+      "outputs": []
+    },
     "//#test:land": {
       "inputs": ["scripts/land/**", "package.json"],
       "outputs": []

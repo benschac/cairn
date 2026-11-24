@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { skipsCommitHook } from "./policy.ts";
+import { skipsHook } from "./policy.ts";
 
 const refused = [
   "git commit -n",
@@ -28,6 +28,21 @@ const refused = [
   "chmod -x .git/hooks/pre-commit",
   'bash -c "git commit -n -m skip"',
   "sh -c 'git commit --no-verify'",
+  "git push --no-verify origin top",
+  "LEFTHOOK_EXCLUDE=checked git push",
+  "rm .git/hooks/pre-push",
+  "gt submit --stack --no-verify",
+  "gt ss --no-verify",
+  "gt create -m 'skip' --no-verify",
+  "gt modify --no-veri",
+  "gt submit --verify=false",
+  "gt submit --verify false",
+  "pnpm exec gt submit --no-verify",
+  'bash -c "gt submit --no-verify"',
+  "echo deadbeef >> .git/cairn-checked",
+  "printf '%s\\n' deadbeef >> \"$(git rev-parse --git-common-dir)/cairn-checked\"",
+  "rm .git/cairn-checked",
+  "cp checked.txt ../cairn/.git/cairn-checked",
 ];
 
 const allowed = [
@@ -41,17 +56,27 @@ const allowed = [
   "cat .git/hooks/pre-commit",
   "pnpm exec lefthook install",
   "pnpm check",
+  "pnpm check:commit",
   "grep -rn no-verify scripts",
+  "git push origin top",
+  "git push --force-with-lease origin top",
+  "gt submit --stack",
+  "gt submit -n",
+  "gt submit --verify",
+  "gt create -m 'add the gate'",
+  "gt restack",
+  "cat .git/cairn-checked",
+  "tail -n 5 .git/cairn-checked",
 ];
 
-await test("refuses every command that skips the hook", () => {
+await test("refuses every command that skips a hook or forges the checked record", () => {
   for (const command of refused) {
-    assert.equal(skipsCommitHook(command), true, command);
+    assert.equal(skipsHook(command), true, command);
   }
 });
 
-await test("allows commands that leave the hook alone", () => {
+await test("allows commands that leave the hooks alone", () => {
   for (const command of allowed) {
-    assert.equal(skipsCommitHook(command), false, command);
+    assert.equal(skipsHook(command), false, command);
   }
 });

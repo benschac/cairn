@@ -1,5 +1,12 @@
-# Every commit runs the whole floor. Do not skip it: see AGENTS.md.
+# Each commit runs the fast checks; each push needs `pnpm check` to have passed at the top of the stack.
+# Do not skip either hook: see AGENTS.md.
 pre-commit:
   commands:
     check:
-      run: pnpm check
+      run: pnpm check:commit
+
+pre-push:
+  commands:
+    checked:
+      run: node scripts/gate/gate.ts pre-push
+      use_stdin: true

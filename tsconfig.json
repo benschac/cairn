@@ -17,6 +17,7 @@
           "effect/http/HttpClient",
           "effect/FileSystem",
           "effect/Path",
+          "effect/Stdio",
           "effect/process/ChildProcess",
           "effect/process/ChildProcessSpawner"
         ],

@@ -1,6 +1,6 @@
 import { text } from "node:stream/consumers";
 
-import { BYPASS_REASON, skipsCommitHook } from "./policy.ts";
+import { BYPASS_REASON, skipsHook } from "./policy.ts";
 
 const commandOf = (input: string): string => {
   try {
@@ -18,7 +18,7 @@ const commandOf = (input: string): string => {
   }
 };
 
-if (skipsCommitHook(commandOf(await text(process.stdin)))) {
+if (skipsHook(commandOf(await text(process.stdin)))) {
   process.stderr.write(`${BYPASS_REASON}\n`);
   process.exitCode = 2;
 }

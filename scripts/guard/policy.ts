@@ -1,11 +1,14 @@
 // @effect-diagnostics preferEffectArray:off preferEffectString:off -- the guard runs before every shell command as a plain Node script and does not load Effect.
 export const BYPASS_REASON =
-  "Blocked: this command skips or disables the commit hook. The hook runs `pnpm check`, which every commit here must pass. Drop the bypass (--no-verify, git commit -n, LEFTHOOK=0, core.hooksPath, lefthook uninstall, or a write under .git/hooks), run `pnpm check`, and fix what it reports. Ask the owner before changing lefthook.yml.";
+  "Blocked: this command skips or disables a git hook. Each commit runs the lint, format and type checks, and each push may only send commits that `pnpm check` passed on at the top of the stack. Drop the bypass (--no-verify, git commit -n, gt --no-verify or --verify=false, LEFTHOOK=0, core.hooksPath, lefthook uninstall, or a write under .git/hooks or to the cairn-checked record), run `pnpm check`, and fix what it reports. Ask the owner before changing lefthook.yml.";
 
 const BREAKS = new Set([";", "&", "|", "(", ")", "`", "\n"]);
 const SHELLS = new Set(["bash", "dash", "eval", "ksh", "sh", "zsh"]);
 const WRAPPERS = new Set(["command", "env", "exec", "nohup", "sudo", "time"]);
 const HOOK_READERS = new Set(["cat", "file", "grep", "head", "ls", "rg", "stat", "tail", "wc"]);
+// The hook scripts, and the record of checked commits that scripts/gate/gate.ts keeps in git's common directory.
+const PROTECTED_PATHS = [".git/hooks", "cairn-checked"];
+const VERIFY_OFF = new Set(["0", "false", "no", "off"]);
 const GIT_GLOBALS_WITH_VALUE = new Set([
   "--exec-path",
   "--git-dir",
@@ -116,6 +119,16 @@ const commitSkipsHook = (args: string[]) => {
   return false;
 };
 
+// Graphite's create, modify and submit take --no-verify, --verify=false or --verify false to skip git hooks.
+const gtSkipsHook = (args: string[]) =>
+  args.some(
+    (arg, index) =>
+      isNoVerify(arg) ||
+      (arg.startsWith("--verify=") &&
+        VERIFY_OFF.has(arg.slice("--verify=".length).toLowerCase())) ||
+      (arg === "--verify" && VERIFY_OFF.has((args[index + 1] ?? "").toLowerCase())),
+  );
+
 const gitSkipsHook = (args: string[]) => {
   let index = 0;
   while ((args[index] ?? "").startsWith("-")) {
@@ -145,17 +158,24 @@ const segmentSkipsHook = (segment: string[]): boolean => {
   ) {
     return true;
   }
-  if (segment.some((word) => word.includes(".git/hooks")) && !HOOK_READERS.has(name)) {
+  if (
+    segment.some((word) => PROTECTED_PATHS.some((path) => word.includes(path))) &&
+    !HOOK_READERS.has(name)
+  ) {
     return true;
   }
   if ([name, ...args].includes("lefthook") && args.includes("uninstall")) {
     return true;
   }
+  const words = [name, ...args];
+  const gt = words.findIndex((word) => basename(word) === "gt");
+  if (gt !== -1 && gtSkipsHook(words.slice(gt + 1))) {
+    return true;
+  }
   if (SHELLS.has(name)) {
-    return args.some((arg) => !arg.startsWith("-") && skipsCommitHook(arg));
+    return args.some((arg) => !arg.startsWith("-") && skipsHook(arg));
   }
   return name === "git" && gitSkipsHook(args);
 };
 
-export const skipsCommitHook = (command: string): boolean =>
-  segmentsOf(command).some(segmentSkipsHook);
+export const skipsHook = (command: string): boolean => segmentsOf(command).some(segmentSkipsHook);

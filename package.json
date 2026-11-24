@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "turbo run typecheck typecheck:root test test:guard test:land test:lint check:effect-api check:xstate-docs lint format:check build",
+    "check": "node scripts/gate/gate.ts check",
+    "check:commit": "turbo run typecheck typecheck:root lint format:check",
+    "check:tasks": "turbo run typecheck typecheck:root test test:guard test:gate test:land test:lint check:effect-api check:xstate-docs lint format:check build",
     "check:effect-api": "node scripts/effect-api/refresh-effect-api.ts --check && node scripts/effect-api/index-effect-core.ts --check",
     "check:xstate-docs": "node scripts/agent-sources/index-xstate-docs.ts --check",
     "dev": "turbo run dev",
@@ -13,6 +15,7 @@
     "land": "node scripts/land/land.ts",
     "lint": "oxlint",
     "prepare": "if git rev-parse --git-dir >/dev/null 2>&1; then lefthook install; fi",
+    "test:gate": "node --test scripts/gate/gate.test.ts",
     "test:guard": "node --test scripts/guard/policy.test.ts",
     "test:land": "node --test scripts/land/plan.test.ts",
     "test:lint": "node --test lint/effect-core-plugin.test.mjs",

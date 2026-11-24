@@ -83,31 +83,48 @@ pnpm check
 
 It runs these through Turborepo, which reruns only what a change affects:
 
-| Check  | Command                     | What it covers                                                                                                                                |
-| ------ | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Types  | `effect-tsgo tsc --noEmit`  | Strict TypeScript 7 plus the Effect language-service diagnostics, in every package and in the root scripts. An Effect warning fails the run.  |
-| Lint   | `oxlint`                    | Type-aware Oxlint, including the `@xstate/effect` rule against inline Effects in machines and the recommended `@foldkit/oxlint-plugin` rules. |
-| Format | `oxfmt --check`             | Formatting. `pnpm fix` rewrites files.                                                                                                        |
-| Tests  | `vitest run`, `node --test` | Each package's tests, and the tests for the hook guard in `scripts/guard` and the stack planner in `scripts/land`.                            |
-| Build  | `vite build`                | The viewer bundles.                                                                                                                           |
+| Check  | Command                     | What it covers                                                                                                                                      |
+| ------ | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Types  | `effect-tsgo tsc --noEmit`  | Strict TypeScript 7 plus the Effect language-service diagnostics, in every package and in the root scripts. An Effect warning fails the run.        |
+| Lint   | `oxlint`                    | Type-aware Oxlint, including the `@xstate/effect` rule against inline Effects in machines and the recommended `@foldkit/oxlint-plugin` rules.       |
+| Format | `oxfmt --check`             | Formatting. `pnpm fix` rewrites files.                                                                                                              |
+| Tests  | `vitest run`, `node --test` | Each package's tests, and the tests for the hook guard in `scripts/guard`, the push gate in `scripts/gate` and the stack planner in `scripts/land`. |
+| Build  | `vite build`                | The viewer bundles.                                                                                                                                 |
 
-A lefthook `pre-commit` hook runs `pnpm check` on every commit. A commit that
-fails any check is refused. `pnpm install` installs the hook.
+A stack is checked once, at its top, not on every commit. Two lefthook hooks
+enforce that; `pnpm install` installs them.
 
-## Do not skip the hook
+- `pre-commit` runs `pnpm check:commit` on every commit: types, lint and
+  format. A commit that fails them is refused.
+- `pre-push` refuses a push that sends a commit `pnpm check` has not covered.
+  When `pnpm check` passes on a clean tree, `scripts/gate/gate.ts` records
+  HEAD as checked, and that covers HEAD and every commit below it. So before
+  you push a stack, check out its top, commit everything and run
+  `pnpm check`; then `gt submit --stack` pushes every branch. A rebase or a
+  new commit makes new commits, so run `pnpm check` at the top again.
 
-`scripts/guard/policy.ts` recognises commands that skip or disable the hook:
-`--no-verify`, `git commit -n`, `LEFTHOOK=0`, `core.hooksPath`,
-`lefthook uninstall` and writes under `.git/hooks`. Claude Code runs it before
-every shell command through `.claude/settings.json` and refuses the command.
+The check at the top does not show that each branch below it passes on its
+own. CI does: it runs `pnpm check` on every pull request, and `pnpm land`
+refuses a pull request whose CI `check` job has not passed on its own head.
 
-When a commit is refused, read the output, fix the cause and commit again. Do
-not weaken a check, a lint rule or `lefthook.yml` to get a commit through; ask
-the owner first.
+## Do not skip the hooks
+
+`scripts/guard/policy.ts` recognises commands that skip or disable a hook:
+`--no-verify` on `git` or `gt`, `git commit -n`, `gt --verify=false`,
+`LEFTHOOK=0`, `LEFTHOOK_EXCLUDE`, `core.hooksPath`, `lefthook uninstall`,
+and writes under `.git/hooks` or to `cairn-checked`, the record of checked
+commits in git's common directory. Only `pnpm check` writes that record.
+Claude Code runs the guard before every shell command through
+`.claude/settings.json` and refuses the command.
+
+When a commit or a push is refused, read the output, fix the cause and try
+again. Do not weaken a check, a lint rule or `lefthook.yml` to get it
+through; ask the owner first.
 
 The guard stops an agent running in Claude Code. From a plain terminal, git
 still honours `--no-verify`. CI in `.github/workflows/ci.yml` runs
-`pnpm check` on every pull request to catch that.
+`pnpm check` on every pull request, and `pnpm land` requires it, to catch
+that.
 
 ## Where things go
 
@@ -162,8 +179,10 @@ land on `main` with one fast-forward push, and what blocks each one. Without
 - Do not pass `--push` or add the `reviewed` label unless the owner asks for
   it in the current conversation. The label is the owner's record that they
   reviewed that pull request; GitHub does not let an author approve their own.
-- When the stack does not sit on the current `main`, rebase and resubmit it,
-  then wait for the checks before landing.
+- When the stack does not sit on the current `main`, rebase it, run
+  `pnpm check` at its top, resubmit it and wait for the checks before landing.
+- Every pull request needs CI's `check` job to pass on its own head, so a
+  broken branch below a passing top still blocks the stack.
 - Restack by rebasing (`gt restack`), never by merging a base branch or `main`
   into a pull request. Landing fast-forwards `main`, so a merge commit would
   replace the pull request's own commit titles and messages in the history; the

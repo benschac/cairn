@@ -4,6 +4,9 @@
 import { Array, Option, pipe, Record, Result, Schema } from "effect";
 
 export const REVIEWED_LABEL = "reviewed";
+// The CI job that runs `pnpm check` (.github/workflows/ci.yml). Each pull request must pass it on its own head:
+// the local gate only checks the top of a stack, so this is what catches a broken branch below a passing top.
+export const REQUIRED_CHECK = "check";
 
 // GitHub reports check runs and commit statuses in two shapes.
 const Check = Schema.Union([
@@ -141,8 +144,8 @@ export const blockers = (pull: PullRequest): Array<string> => {
     listed("failed checks", checks.failed),
     listed("pending checks", checks.pending),
     when(
-      Array.every([checks.failed, checks.pending, checks.passed], Array.isReadonlyArrayEmpty),
-      "has no checks",
+      !Array.some([checks.failed, checks.pending, checks.passed], Array.contains(REQUIRED_CHECK)),
+      `CI has not run "${REQUIRED_CHECK}" on it`,
     ),
   ]);
 };

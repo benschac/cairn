@@ -11,6 +11,7 @@ import {
   mergeBlocker,
   orderStack,
   type PullRequest,
+  REQUIRED_CHECK,
 } from "./plan.ts";
 
 const pull = (
@@ -82,8 +83,13 @@ await test("each unmet requirement blocks the pull request", () => {
   blocks({ labels: [{ name: "bug" }], reviewDecision: "CHANGES_REQUESTED" }, /not approved/);
   blocks({ mergeable: "UNKNOWN" }, /mergeable state is UNKNOWN/);
   blocks({ mergeable: "CONFLICTING" }, /CONFLICTING/);
-  blocks({ statusCheckRollup: [] }, /no checks/);
-  blocks({ statusCheckRollup: null }, /no checks/);
+  blocks({ statusCheckRollup: [] }, /CI has not run "check"/);
+  blocks({ statusCheckRollup: null }, /CI has not run "check"/);
+  // Another passing check does not stand in for CI's.
+  blocks(
+    { statusCheckRollup: [{ __typename: "StatusContext", context: "deploy", state: "SUCCESS" }] },
+    /CI has not run "check"/,
+  );
   blocks(
     {
       statusCheckRollup: [
@@ -108,6 +114,32 @@ await test("each unmet requirement blocks the pull request", () => {
     { statusCheckRollup: [{ __typename: "StatusContext", context: "deploy", state: "PENDING" }] },
     /pending checks: deploy/,
   );
+});
+
+await test("a stack whose middle pull request failed CI is blocked though its top passed", () => {
+  // The local gate passed at the top, which says nothing about the commits below it on their own.
+  const failed = {
+    statusCheckRollup: [
+      {
+        __typename: "CheckRun" as const,
+        name: REQUIRED_CHECK,
+        status: "COMPLETED",
+        conclusion: "FAILURE",
+      },
+    ],
+  };
+  const ordered = orderStack(
+    [pull(1, "a", "main"), pull(2, "b", "a", failed), pull(3, "c", "b")],
+    "c",
+    "main",
+  );
+  assert.ok(Result.isSuccess(ordered));
+  const blocked = Array.map(ordered.success, (p) => [p.number, blockers(p)] as const);
+  assert.deepEqual(blocked, [
+    [1, []],
+    [2, ["failed checks: check"]],
+    [3, []],
+  ]);
 });
 
 await test("checkSummary counts skipped and neutral runs and successful statuses as passed", () => {

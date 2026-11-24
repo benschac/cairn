@@ -5,8 +5,8 @@
 //
 // The stack is the chain of open pull requests from <top branch> (default: the
 // current branch) down to main. It lands only when every pull request is
-// approved or carries the "reviewed" label, has passing checks, and the chain
-// is a straight line from the current main.
+// approved or carries the "reviewed" label, has passing checks including CI's
+// "check" job on its own head, and the chain is a straight line from the current main.
 //
 // GitHub marks a pull request merged when its head commits become reachable
 // from its base branch, so each one is retargeted to main before the push. The
