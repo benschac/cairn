@@ -14,6 +14,7 @@ import { defineTaggedUnion } from "foldkit/schema";
 import { DragState, Offsets } from "./drag.ts";
 import { Positions, Size, Viewport } from "./geometry.ts";
 import { Pin } from "./highlight.ts";
+import { Resize, Widths } from "./panes.ts";
 import { SearchState } from "./search.ts";
 import { Node } from "./trace.ts";
 import { Measured } from "./wires.ts";
@@ -132,6 +133,8 @@ export const Model = Schema.Struct({
   presenceConnection: PresenceConnection,
   /** What a person chose in the reader. */
   reader: Reader,
+  /** A divider being dragged, if any. */
+  resize: Resize,
   /** This window's search. Private to it: it changes no document, status, pin or other window. */
   search: SearchState,
   /** The canvas, the reader or the code view. */
@@ -141,5 +144,7 @@ export const Model = Schema.Struct({
   offsets: Offsets,
   /** Where the canvas layer sits in its pane. */
   viewport: Viewport,
+  /** What a person chose for each pane, in pixels. Not kept across reloads. */
+  widths: Widths,
 });
 export type Model = typeof Model.Type;
