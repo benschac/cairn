@@ -2,7 +2,7 @@
 
 This spec turns [prd.md](prd.md) into code. It is the first spec Cairn has, so it also sets the format that `cairn plan` writes.
 
-Current implementation: the contract schemas, section parsing, task machine (including `failed`), gate detection, event and commit status derivation, presence, and the viewer’s canvas and reader are built. The CLI exposes `cairn init`; workspace loading and planner services are implemented underneath it. The viewer still loads a bundled demo trace. Planning commands, live trace integration, sessions and judging remain unfinished. Until live trace integration ships, the manifest and bundled demo are manually reconciled progress snapshots. Historical events are retained; they do not encode reopening completed tasks. The requirements below describe the complete target, not a claim that every section is built.
+Current implementation: the contract schemas, section parsing and `cairn ids`, the task machine (including `failed`), gate detection, stack order and the stack diagram, `cairn lint`, event and commit status derivation, the `Git` service, the trace store, presence, and the viewer’s canvas and reader are built. `cairn init` and `cairn plan` write the plan, the planner through its CLI and API sources. Judging’s questions, verdicts and decision model, and `replanOf`, are built but `cairn plan` does not run them yet. The viewer still loads a bundled demo trace. Building the Trace, section rollup, `cairn status`, `cairn serve`, sessions and redaction, `cairn judge` and planning again remain unfinished. Until live trace integration ships, the manifest and bundled demo are manually reconciled progress snapshots. Historical events are retained; they do not encode reopening completed tasks. The requirements below describe the complete target, not a claim that every section is built.
 
 ## Format {#spec.format}
 
@@ -525,7 +525,7 @@ Cairn uses two kinds of model, each behind an `effect/ai` service. `models.ts` b
 
 The `cli` source, the default. `cli-model.ts` is a `LanguageModel` that runs the person's agent CLI once per call and reads its answer, so planning uses that CLI's sign-in and Cairn reads no key.
 
-Current support: the Claude CLI source, the Codex CLI source and the Anthropic API layer are implemented. Codex runs with the person's `~/.codex/config.toml` and execpolicy rules ignored and every tool, app, plugin and hook switched off, each flag checked against a real `codex-cli 0.172.0` run (`cli-model.ts` lists them and what a run showed). The other API providers are pending in `t106`.
+Current support: the Claude CLI source, the Codex CLI source and the four API providers (`anthropic`, `openai`, `openrouter` and `openai-compatible`) are implemented. Codex runs with the person's `~/.codex/config.toml` and execpolicy rules ignored and every tool, app, plugin and hook switched off, each flag checked against a real `codex-cli 0.172.0` run (`cli-model.ts` lists them and what a run showed).
 
 | `planner.cli` | Command                                                      | Structured output                             |
 | ------------- | ------------------------------------------------------------ | --------------------------------------------- |
