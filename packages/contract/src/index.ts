@@ -1,22 +1,13 @@
 import { Schema } from "effect";
 
-import { SectionId, TaskId } from "./ids.ts";
-
 export * from "./config.ts";
+
 export * from "./ids.ts";
 export * from "./manifest.ts";
 export * from "./session.ts";
 export * from "./spec-index.ts";
 export * from "./task-draft.ts";
 export * from "./trailers.ts";
-
-export const Task = Schema.Struct({
-  gated: Schema.Boolean,
-  id: TaskId,
-  section: SectionId,
-  title: Schema.NonEmptyString,
-});
-export type Task = typeof Task.Type;
 
 export const TaskEvents = {
   approve: Schema.Struct({}),

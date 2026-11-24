@@ -1,17 +1,10 @@
 import { expect, it } from "@effect/vitest";
-import { Exit, Schema } from "effect";
+import { Array, Order, Record } from "effect";
 
-import { Task } from "../src/index.ts";
+import { TaskEventType, TaskEvents } from "../src/index.ts";
 
-const TaskJson = Schema.fromJsonString(Task);
-const encode = Schema.encodeSync(TaskJson);
-const decode = Schema.decodeUnknownSync(TaskJson);
-const decodeTask = Schema.decodeUnknownExit(Task);
-
-it.prop("a task survives a round trip through JSON", [Task], ([task]) => {
-  expect(decode(encode(task))).toEqual(task);
-});
-
-it.prop("a task without a section is refused", [Task], ([task]) => {
-  expect(Exit.isFailure(decodeTask({ ...task, section: "" }))).toBe(true);
+it("every task event type names an event the machine accepts, and no other", () => {
+  expect(Array.sort(Record.keys(TaskEvents), Order.String)).toStrictEqual(
+    Array.sort(TaskEventType.literals, Order.String),
+  );
 });
