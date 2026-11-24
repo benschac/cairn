@@ -62,6 +62,7 @@ Rules:
       "worktree": null,
       "model": "opus",
       "reasoning": "high",
+      "category": "schema",
       "humanGate": { "required": true, "reasons": ["tag:human", "path:migrations/"] },
       "status": "pending",
       "commits": [],
@@ -85,6 +86,7 @@ The plan is a set of stacks that can be built at the same time, not one long sta
 - `cairn lint` checks that every task references real section IDs, every PRD section maps to at least one task, and every task's parent follows from its dependencies, so nothing sits below a gated task except what it depends on.
 - `cairn judge` judges the current spec and manifest again and writes `judgments.json`.
 - `cairn status` prints the manifest as a tree with status.
+- `cairn stats` prints cost per verified task and the other outcome metrics per category and model (see cost per verified task).
 - `cairn serve` starts the local viewer.
 - `cairn link` prints a link into the viewer (see deep links).
 - `cairn note` adds a note or a review to `cairn.db`, anchored by a link (see notes).
@@ -139,7 +141,7 @@ Planning should cost a person nothing beyond what they already pay for.
 
 The existing orchestrator reads `manifest.json` and runs tasks. It must:
 
-1. Append one line to `events.jsonl` per state change: `{"ts", "taskId", "status", "detail"}`. A `running` line also carries the `model` and `reasoning` level the task was started with, so the viewer can show what ran beside what the plan chose.
+1. Append one line to `events.jsonl` per state change: `{"ts", "taskId", "status", "detail"}`. A `running` line also carries the `model` and `reasoning` level the task was started with, so the viewer can show what ran beside what the plan chose. A `done` or `failed` line carries the attempt's `usage`: input, cached input, output and reasoning tokens, `cost` in US dollars or `null` when it is not known, and the billing `route`. `done` means the task's checks passed; a task can go from `failed` back to `running` for a retry or an escalation (see cost per verified task).
 2. Start every task whose dependencies are `done` or `landed`, and whose dependencies on other stacks are `landed`. Run ready tasks in parallel, each in its `worktree`, in the order and with the holds that conflict-aware ordering sets. Stacks are managed with Graphite: each task is one diff, created with `gt create` on top of its parent, or on `baseBranch` when it has no parent. Graphite owns branches, restacking and pull requests; neither Cairn nor the orchestrator rebases a branch by hand.
 3. Add commit trailers to every commit:
 
@@ -185,13 +187,13 @@ Planner rule: nothing sits below a gated task except what it depends on, so the 
 
 A plan can pass lint and still be wrong: a task too big for one agent session, a task given a stronger model than it needs, a spec section that drifts from the PRD, a stack that bundles two features. Lint checks structure. Judging uses a decision model at each step of breaking the PRD down, so the plan a human approves is already sized right and routed to the right models.
 
-The decision model is TypeSafe's Jev, built for typed decisions with calibrated confidence rather than text. The language model writes; Jev decides. Every answer comes with probabilities and a confidence, and code, not the model, decides what an answer means, using thresholds in `.cairn/config.json`.
+The language model writes; a configurable decision model judges. TypeSafe's Jev is the initial provider; evaluate the [OpenAI Decisions API](https://developers.openai.com/api/docs/guides/decisions) as another provider behind the same `Judge` service. OpenAI Decisions supports bounded choices, condition probabilities and rubric scores. Provider adapters preserve the meaning of each answer type; a choice score is not assumed to be a calibrated probability of task success. Code applies provider-specific thresholds in `.cairn/config.json`, and unsupported or insufficient confidence leaves the draft unchanged.
 
 Checkpoints in `cairn plan`:
 
 1. After the spec is written: is each section sized right? A section judged too large is broken down into smaller sections. Is it faithful to the PRD sections it implements, and could an agent build it without asking a question? Those are reported.
 2. After tasks are drafted: is each task one reviewable diff? A task judged too large is broken down into smaller tasks, and the new tasks are judged again.
-3. Once tasks are the right size: which model and reasoning level does each task need? Jev's choice replaces the planner's when Jev is confident.
+3. Once tasks are the right size: which model and reasoning level does each task need? The configured judge's choice replaces the planner's only when it meets the routing threshold and the provider has been validated for automatic routing; experimental providers report recommendations only.
 4. The stack as a whole: does it build every PRD section, can each task be built and tested with only the tasks below it, and is it one feature? Those are reported.
 
 Rules:
@@ -202,9 +204,96 @@ Rules:
 - Judging shapes the draft before a human sees it. The plan output shows what was broken down and which models were changed, and why. The human still approves the plan.
 - A spec section a human wrote or edited is never rewritten. Judging only reports on it.
 - After the manifest is written, `cairn judge` reports on it again and changes nothing. `cairn judge --strict` exits non-zero on a flag, for CI.
-- Jev's key comes from `TYPESAFE_API_KEY` and is never stored. Without a key, Cairn plans with the planner's drafts as they are and says that judging was skipped.
+- The selected judge's key comes from the environment: `TYPESAFE_API_KEY` for Jev or `OPENAI_API_KEY` for OpenAI. Cairn never stores keys. Without the selected provider's credentials, Cairn keeps the planner's drafts and reports that judging was skipped.
 - Each judgment records a hash of what it judged. When the section or task changes, the judgment is stale, and `cairn judge` asks again only for what changed.
-- The model version is pinned in config and recorded in `judgments.json`, so a decision can be traced to the model that made it.
+- The judge provider and model version are pinned in config and recorded in `judgments.json`, along with the routing policy and candidate catalog version, so a decision can be traced to its inputs.
+
+### Choosing models for tasks {#prd.judging-the-plan.routing}
+
+- Model recommendations are not limited to Sonnet, Haiku and Opus. A configurable catalog can include Anthropic, OpenAI, Google and other models, with concrete model IDs, supported reasoning settings, capability descriptions, execution routes and dated cost information.
+- Only models the person's configured runner can execute are eligible. The person declares their available subscriptions, API access and credits, plus preferences such as using existing subscriptions first, a spending ceiling or faster completion. Unknown quota and unavailable prices remain unknown; subscription access is not treated as API credit.
+- Judge each task using its spec sections, declared files, complexity, risk, required tools and verification criteria. Recommend the lowest expected total cost of an accepted result within the person's quality and time constraints, including likely retries and repair work, rather than the lowest token price alone.
+- The plan shows the recommended model and supported reasoning level, the evidence and policy behind the recommendation, uncertainties, and an eligible alternative when useful. Separate generated explanations from the judge's typed answers. A person can override the recommendation before approving the plan; the orchestrator remains responsible for execution.
+- Start with curated capability descriptions. Use recorded execution outcomes as evidence when available: verification failures, review findings, retries, repair work, elapsed time and actual cost. Existing manifest assignments are a baseline, not correct-answer labels, and confidence alone does not prove a model will finish a task correctly. Once a category has enough history, routing follows it (see cost per verified task).
+
+### Comparing decision providers {#prd.judging-the-plan.comparing}
+
+- Evaluate OpenAI Decisions against Jev and the planner's existing assignments on the same 20–30 representative tasks, using the same spec evidence, candidate catalog and policy. Include mechanical edits, ordinary features and sensitive logic.
+- Keep experimental recommendations advisory and preserve the manifest. Record provider/model versions, inputs, typed answers, disagreements, latency, token usage and cost. Provider confidence thresholds must be evaluated separately rather than copied between providers.
+- Use a configurable evaluation budget, initially capped at $5, with bounded requests and conservative cost estimates before each call. Stop when the next request could exceed the cap; missing pricing prevents starting the paid evaluation. Adding this requirement does not itself run an evaluation or spend credits.
+- Compare a small set of recommended assignments through actual task execution and acceptance checks before enabling automatic routing. Judge quality by successful completion, review and repair effort, elapsed time and total cost; agreement with previous labels is not sufficient.
+
+### Cloudflare AI Gateway {#prd.judging-the-plan.gateway}
+
+- Cloudflare AI Gateway is the preferred route for API-based planner and judge calls, using configured endpoints and authentication. Use [Cloudflare AI Gateway](https://www.cloudflare.com/products/ai-gateway/) with the person's provider credentials so existing eligible provider credits can be used. Subscription-backed local CLI planning keeps the CLI's own sign-in. Direct provider API access remains an explicitly configured fallback; Cairn never silently bypasses the gateway.
+- To use existing OpenAI API credits, authenticate with a key for the OpenAI project and organization holding those credits. Cloudflare can forward the provider key from request headers or use an explicitly configured [BYOK stored key](https://developers.cloudflare.com/ai-gateway/configuration/bring-your-own-keys/). Usage remains billed to the provider account, subject to its credit eligibility and expiry. Cairn stores neither provider nor gateway secrets in project files or logs.
+- Cloudflare [Unified Billing](https://developers.cloudflare.com/ai-gateway/features/unified-billing/) uses a separate Cloudflare balance. It does not transfer OpenAI credits. The chosen billing route is explicit and must not silently fall back to another paid balance.
+- Verify the actual Decisions endpoint, answer semantics and usage reporting through the gateway before claiming support; OpenAI-compatible chat support alone is insufficient. If the endpoint is unsupported, report it and let the person configure direct OpenAI access. Gateway routing must preserve the selected judge model, and request logging and retention must be explicitly configured for repository content.
+
+## Cost per verified task {#prd.outcomes}
+
+A cheap model that needs three attempts can cost more than a dear one that passes on the first. What a plan should keep low is the cost of a task that passes verification, not the price of a token. Cairn records what every attempt at a task cost and whether it passed, and routes later tasks on that record instead of on fixed assumptions about which model is best.
+
+For example, on 100 feature tasks each:
+
+|                         | Model A | Model B | Model C |
+| ----------------------- | ------: | ------: | ------: |
+| First attempt costs     |   $0.20 |   $0.30 |   $0.80 |
+| First-pass verification |     55% |     90% |     95% |
+| Tasks verified          |      92 |      98 |      99 |
+| Total cost per task     |   $0.46 |   $0.34 |   $0.85 |
+| Cost per verified task  |   $0.50 |   $0.35 |   $0.86 |
+
+Model B costs half as much again as A per attempt and is the cheapest per verified task, so Cairn routes feature tasks to B. The figures are made up; they show the arithmetic, not any provider.
+
+History stays in the repo's `cairn.db`. Nothing is sent to a Cairn service, and nothing is pooled across repos.
+
+### Attempts {#prd.outcomes.attempts}
+
+- An attempt is one agent session on one task, from its `running` event to the `done` or `failed` event that ends it. A task can have several.
+- A task is verified when its checks pass on its branch: the tests its spec sections name and the repo's check command (`pnpm check` in this repo). `done` means verified; an agent saying it is finished is not enough. A change an attempt makes to a check, a lint rule or a test it did not write fails verification, as the hooks in this repo already enforce.
+- A retry is a new attempt with the same model and reasoning level. An escalation is a new attempt with a stronger model or a higher reasoning level, or the task handed to a person. A repair after review is a new attempt on the same task. Review and conflict-resolution sessions on a task count toward its cost.
+- Each attempt records the model ID and reasoning level it ran with, the harness that ran it (Claude Code, Codex, Pi) and its version, when it started and ended, its input, cached input, output and reasoning tokens, its cost, the billing route that paid for it, and its outcome. The orchestrator reports these (see Orchestrator contract).
+- A failed attempt says why: `checks` (the work did not pass), `agent` (the agent stopped or gave up), `infra` (the runner, the provider or the network failed) or `upstream` (a dependency was wrong). Only `checks` and `agent` failures count against the model; `infra` and `upstream` attempts add their cost to the task and nothing to the model's failure rate.
+- Cost comes from the provider's or the gateway's usage report, priced from the catalog's dated prices, and the report is kept as it came beside the normalised numbers. A missing number is unknown, never zero. An attempt run on a subscription records its tokens with cost `null` and route `subscription`; Cairn does not invent a price for it.
+- Each task can set a limit on attempts and on cost in config, with defaults for the repo. A task that reaches its limit without verifying is `failed` for good and is counted as a terminal failure.
+- Attempts are stored in `cairn.db` under their session IDs, beside the session log.
+
+### Metrics {#prd.outcomes.metrics}
+
+Each is reported per task and summed per model, reasoning level, harness and task category:
+
+- Cost per verified task: the cost of every attempt, failed ones included, divided by the number of tasks that ended verified. A task that never verified adds its cost and no task.
+- First-pass verification rate: the share of tasks whose first attempt verified.
+- Time to completion: wall-clock time from a task's first `running` event to its verified `done`, less any time held at a human gate or behind a conflict hold.
+- Retry rate and escalation rate: retries and escalations per task.
+- Terminal failure rate: the share of tasks that reached their limit without verifying.
+- Cost per attempt, and the share of attempts that failed verification.
+- Cache utilization: cached input tokens over all input tokens.
+- Reasoning tokens: total reasoning tokens per verified task, where the provider reports them.
+
+A metric whose tasks include attempts with unknown cost says how many it left out; it never counts them as free. Every metric is shown with the number of tasks behind it.
+
+### Task categories {#prd.outcomes.categories}
+
+- Each task has a `category` in the manifest, chosen by the planner from a list in `.cairn/config.json`. The default list is `mechanical` (renames, moves, config), `feature`, `ui`, `test`, `schema`, `refactor`, `bugfix` and `docs`. A repo can add its own; the router reads the list and has none built in.
+- `cairn lint` fails a task whose category is not in the list.
+- History is kept per category, so a model that is cheap for mechanical edits and expensive for schema changes is routed to each on its own record.
+
+### Routing from history {#prd.outcomes.routing}
+
+- At the third checkpoint of judging the plan, Cairn ranks the eligible models, reasoning levels and harnesses in each task's category by cost per verified task, among those whose first-pass rate and time to completion meet the thresholds in `.cairn/config.json`. A more expensive model is not assumed to be better, nor a cheaper one to be cheaper.
+- History counts only when a choice has at least five finished tasks in the category, a number set in config. Below that, the catalog and the judge choose as in choosing models for tasks, and the plan says the choice has no history.
+- Recent tasks count, not all of them: by default the last 30 per model, reasoning level, harness and category. A new model ID starts with no history, so a new model version starts over.
+- History ranks only eligible models and keeps the person's preferences, such as subscriptions first or a spending ceiling. The top-ranked choice is the recommendation; when the judge would choose differently, the plan shows both. The person approves the plan as before and can override any task's choice.
+- Routing from history starts in shadow: the plan shows and records its recommendation but keeps the planner's or the judge's choice, and `cairn stats` compares what was recommended with what ran and how it did. It changes a task's model only once `routing.adaptive` is on in config. Turning it off returns to the planner's and the judge's choices.
+- A share of tasks set in config, 0 by default, goes to the second-ranked eligible choice so that a model with little history can earn some. Only tasks with no human gate explore. The plan marks those tasks as exploring.
+- Each recommendation records in `judgments.json` the candidates it ranked, their estimated cost and first-pass rate, the task counts behind them, the constraints that applied, and whether it explored, so a routing decision can be traced to the outcomes that made it.
+
+### Reporting {#prd.outcomes.reporting}
+
+- `cairn stats` prints the metrics per category, model, reasoning level and harness for this repo, with the number of tasks behind each, and the estimated cost of each routed task beside what it cost. `--category` and `--since` narrow it; `--json` prints it for scripts.
+- The task detail in the viewer lists each attempt (model and reasoning, harness, outcome and failure reason, time, tokens and cost) and the routing decision that chose its model.
 
 ## Conflict-aware ordering {#prd.conflicts}
 
@@ -442,7 +531,7 @@ The CLI and local server are written in Effect, so every side effect is a typed 
 
 - Schemas: manifest, events, config, and commit trailers are Effect Schema definitions. Every file read from `.cairn/` is decoded through them, and failures are typed errors naming the bad field.
 - Services as Layers: `Git` (branches, log, trailers), `TraceStore` (`cairn.db`), `Planner` (model calls that write the spec and tasks), `Judge` (decision-model calls that judge them), `Orchestrator` (adapter to the user's runner), `Redactor`, and `Clock`.
-- Models: two kinds, each behind an `effect/ai` service. A language model writes (`LanguageModel`, for `Planner`); a decision model judges (`DecisionModel`, for `Judge`). Swapping a provider changes one Layer. Each can take a base URL, so a user can route calls through a gateway such as Cloudflare AI Gateway; Cairn does not require one.
+- Models: two kinds, each behind an `effect/ai` service. A language model writes (`LanguageModel`, for `Planner`); a decision model judges (`DecisionModel`, for `Judge`). Swapping a provider changes one Layer. API-backed Layers accept gateway endpoints and authentication, with Cloudflare AI Gateway as the preferred route and direct provider access as an explicitly configured fallback (see Cloudflare AI Gateway requirements in `prd.judging-the-plan.gateway`).
 - Composition: one composition root per entrypoint (CLI, server). Live Layers in production; test Layers (fake git, in-memory SQLite, scripted planner, scripted judge) in tests.
 - Tests: `@effect/vitest` with `it.effect` and `it.layer`. Status derivation, gate detection, and lint run against test Layers with no real repo. Machines are also the models the code around them is tested against (see Model-based testing).
 - Viewer: Foldkit. Interaction logic (selection, chain highlighting, drawer state) lives in the pure update function and is unit tested without a render loop. Rendering only draws.
@@ -492,7 +581,7 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - Adding a section to this repo's PRD and running `cairn plan` adds spec sections and tasks for it and changes no task that was already in the manifest.
 - After `cairn plan`, the stack diagram in `spec.md` shows every task in the manifest, and editing the diagram by hand fails `cairn lint`.
 - A drafted task judged too large is broken down before the plan is printed, and the plan output says so.
-- A task's model is changed only when Jev is confident; otherwise the planner's choice stands and is reported as `unsure`.
+- A task's model is changed only when the configured judge is validated for automatic routing, meets its provider-specific threshold and selects an eligible model and reasoning setting; otherwise the planner's choice stands and the recommendation is advisory or reported as `unsure`.
 - A judgment on a task that has since changed shows as stale.
 - With no `TYPESAFE_API_KEY`, `cairn plan` still writes the manifest and says that judging was skipped.
 - In the code view, a hunk an agent wrote with its edit tools reaches the tool call that wrote it in one click, and a hunk written another way says it is not traced.
@@ -506,6 +595,11 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - With one task running and two ready, where only the first ready task shares files with the running one, the orchestrator starts the second.
 - When two running tasks change the same file, both agents are told the other task and the file, and the viewer shows the message and the order chosen.
 - Every conflict a restack hits is recorded with the score its pair had.
+- A task that failed verification once and passed on its second attempt counts as one verified task carrying the cost of both attempts, and not as a first-pass success.
+- With at least five finished tasks in a category for each of two eligible models, `cairn plan` recommends the one with the lower cost per verified task that meets the thresholds, and the plan output names the metrics and task counts it used; with fewer, it says the choice has no history.
+- With `routing.adaptive` off, a recommendation from history is recorded and shown but changes no task's model.
+- An attempt that failed for `infra` adds its cost to the task and does not lower its model's first-pass rate.
+- An attempt run on a subscription appears in `cairn stats` with its tokens, is left out of cost, and the report says how many attempts it left out.
 
 ## One-day build order {#prd.one-day-build-order}
 
@@ -650,7 +744,10 @@ A person signs in to a room, so the room knows who wrote what. Accounts exist on
 - A map of the whole plan on one screen: every PRD section, spec section and stack at once, with every curve drawn. The prototype has it as its Map variant.
 - An inbox view of agent activity across rooms.
 - Drift detection that flags or proposes spec updates when code diverges.
-- Cost per section and per model.
+- Cost per PRD section, and the outcome metrics drawn in the viewer as well as printed by `cairn stats`: cost by model and category, trends over time and retry chains.
+- Choosing a recovery during a run: after a failed attempt, pick a retry, a stronger model, another harness, more context or a smaller task from the failure reason and the attempts so far.
+- Comparing models across tasks of different difficulty, and a regression rate: verified tasks whose work was later reverted or reopened.
+- Routing across parallel stacks for the plan as a whole, such as spending more on the critical path.
 - Judging during a run: before a task starts, and on its diff after it is done.
 - Adapters for Vercel Board and other agent message boards.
 - Notes across rooms, such as every open note for one person, indexed in D1.
