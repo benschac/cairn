@@ -656,7 +656,7 @@ flowchart BT
     t57["t57 · 57-decision-model<br/>Add the Jev decision model layer<br/>wt-17"]
     t106["t106 · 106-planner-providers<br/>Add the API providers for the planner<br/>wt-32"]
     t61["t61 · 61-planner-split<br/>Add the split and index planner calls<br/>wt-17"]
-    t115["t115 · 115-gateway-token<br/>Send the AI Gateway token with planner requests<br/>wt-32"]
+    t115["t115 · 115-gateway-token<br/>Send the AI Gateway token with planner requests<br/>wt-36"]
   end
   subgraph s9["Stack 9 · status"]
     direction BT

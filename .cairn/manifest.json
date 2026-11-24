@@ -2852,7 +2852,7 @@
       "branch": "cairn-mvp/115-gateway-token",
       "parent": "t106",
       "dependsOn": ["t106"],
-      "worktree": "wt-32",
+      "worktree": "wt-36",
       "model": "sonnet",
       "reasoning": "medium",
       "humanGate": {
