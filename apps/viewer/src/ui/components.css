@@ -425,3 +425,135 @@
 .wire[data-lit][data-off] {
   opacity: 0.25;
 }
+
+/*
+ * The code view's layout and the search box, which the table of pieces has no class for. The
+ * panes' widths are computed, so the views write them inline.
+ */
+.code-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg);
+  color: var(--ink);
+}
+
+.code-screen > .topbar {
+  flex: none;
+}
+
+.code-screen .topbar h1 {
+  margin: 0;
+  font-size: var(--t-xl);
+}
+
+.code-screen .topbar [data-diff-style-toggle] {
+  margin-inline-start: auto;
+}
+
+.code-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.code-pane {
+  min-width: 0;
+}
+
+.code-pane[data-code-pane="tree"] {
+  flex: none;
+  padding: 8px;
+  border-inline-end: var(--line) solid var(--hair);
+  font-size: var(--t-s);
+}
+
+.code-pane[data-code-pane="tree"] h3 {
+  margin: 8px 0 4px;
+  font-size: inherit;
+}
+
+.code-pane[data-code-pane="session"] {
+  flex: none;
+  padding: 8px 12px;
+  border-inline-start: var(--line) solid var(--hair);
+}
+
+.code-pane[data-code-pane="diff"] p {
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.tree-list {
+  margin: 0;
+  padding: 0 0 0 12px;
+  list-style: none;
+}
+
+.search-box {
+  margin: 0 0 8px;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 6px 8px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-m);
+  background-color: var(--card);
+  color: var(--ink);
+  font: inherit;
+}
+
+.search-box input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.search-box [data-search-status] {
+  min-height: 16px;
+  margin: 4px 0 0;
+  font-size: var(--t-s);
+}
+
+.search-list {
+  max-height: 240px;
+  margin: 4px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.search-list > .row {
+  display: block;
+  cursor: pointer;
+}
+
+.search-list [data-search-field] {
+  color: var(--muted);
+  font-size: var(--t-s);
+}
+
+/* A matched stretch is underlined as well as filled, so it is not colour alone. */
+mark[data-search-match] {
+  border-radius: var(--r-s);
+  text-decoration: underline;
+}
+
+/* A code block and a drawn diagram: their colours are light only (see light-only). */
+.code-block {
+  margin: 8px 0;
+  padding: 8px;
+  border-radius: var(--r-m);
+  background-color: var(--card);
+  font-size: var(--t-m);
+  /* A long line wraps instead of running out of its column. */
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.diagram {
+  margin: 8px 0;
+  border-radius: var(--r-m);
+  background-color: var(--card);
+}

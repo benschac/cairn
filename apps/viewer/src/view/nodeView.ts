@@ -108,17 +108,9 @@ export const nodeButtonView = (
 /** A node's CSS properties, by name. */
 export type NodeStyle = Record.ReadonlyRecord<string, string>;
 
-/** What the viewer marks a matched stretch of text with: a fill and an underline, so it is not colour alone. */
-const MARK_STYLE = {
-  background: "#fcd34d",
-  "border-radius": "2px",
-  color: "inherit",
-  "text-decoration": "underline",
-};
-
-/** A matched stretch of text. */
+/** A matched stretch of text; its fill and underline come from the stylesheets. */
 export const matchView = (text: string, h: HtmlBuilder<Message>): Html =>
-  h.mark([h.DataAttribute("search-match", ""), h.Style(MARK_STYLE)], [text]);
+  h.mark([h.DataAttribute("search-match", "")], [text]);
 
 /** A field's text with each matched range in a `mark` element. */
 export const markedView = (

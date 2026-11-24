@@ -1,20 +1,9 @@
-import {
-  Array,
-  Effect,
-  Hash,
-  Number,
-  Option,
-  Predicate,
-  Record,
-  Schema,
-  Stream,
-  String,
-} from "effect";
+import { Array, Effect, Hash, Number, Option, Predicate, Schema, Stream, String } from "effect";
 import { Mount } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { renderAsync } from "pele/lazy";
 
-import { CODE_BLOCK_STYLE } from "./code.ts";
+import { CODE_BLOCK_CLASS } from "./code.ts";
 import { measureLayer } from "./layout.ts";
 import { Message } from "./message.ts";
 
@@ -76,9 +65,7 @@ const hostOf = (element: Element): DiagramHost => ({
     const code = document.createElement("code");
     code.textContent = source;
     const pre = document.createElement("pre");
-    Array.forEach(Record.toEntries(CODE_BLOCK_STYLE), ([property, value]) =>
-      pre.style.setProperty(property, value),
-    );
+    pre.className = CODE_BLOCK_CLASS;
     pre.append(code);
     element.replaceChildren(note, pre);
   },
@@ -124,5 +111,6 @@ export const diagramView = (h: HtmlBuilder<Message>, source: string, key: string
   h.keyed("div")(key, [
     h.DataAttribute("diagram", ""),
     h.OnMount(DrawDiagram({ source })),
-    h.Style({ margin: "8px 0" }),
+    // Pele's colours are light only.
+    h.Class("diagram light-only"),
   ]);

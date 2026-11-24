@@ -7,6 +7,7 @@ import { Message } from "../message.ts";
 import { snippetOf, type FieldKind, type SearchResult, type SearchState } from "../search.ts";
 import { Node, nodeKeyOf, nodeTitleOf } from "../trace.ts";
 import type { Rendered } from "../markdown.ts";
+import { tagView, type TagKind } from "../ui/marks.ts";
 import { markedView } from "./nodeView.ts";
 
 const SEARCH_LISTBOX_ID = "search-results";
@@ -35,10 +36,11 @@ const FIELD_LABEL = {
 
 const isPrdSection = Schema.is(PrdSectionId);
 
-const kindLabelOf = (node: Node): string =>
+const kindOf = (node: Node): readonly [kind: TagKind, label: string] =>
   Node.match(node, {
-    section: ({ id }) => (isPrdSection(id) ? "PRD" : "Spec"),
-    task: () => "Task",
+    section: ({ id }) =>
+      isPrdSection(id) ? (["prd", "PRD"] as const) : (["spec", "Spec"] as const),
+    task: () => ["task", "Task"] as const,
   });
 
 /** The context of a match: a bounded stretch of the text, marked, with an ellipsis where it is cut. */
@@ -54,10 +56,7 @@ const snippetView = (result: SearchResult, h: HtmlBuilder<Message>): Rendered =>
 /** What the query matched, and the matched text itself unless it is the title the row already shows. */
 const matchedFieldView = (result: SearchResult, h: HtmlBuilder<Message>): Html =>
   h.span(
-    [
-      h.DataAttribute("search-field", result.field),
-      h.Style({ color: "#475569", "font-size": "11px" }),
-    ],
+    [h.DataAttribute("search-field", result.field)],
     result.field === "title"
       ? [FIELD_LABEL.title]
       : Array.prepend(snippetView(result, h), `${FIELD_LABEL[result.field]}: `),
@@ -68,31 +67,24 @@ const resultView = (
   result: SearchResult,
   isActive: boolean,
   h: HtmlBuilder<Message>,
-): Html =>
-  h.li(
+): Html => {
+  const [kind, label] = kindOf(result.node);
+  return h.li(
+    Array.appendAll(
+      [
+        h.Class("row"),
+        h.Id(optionIdOf(result.node)),
+        h.Role("option"),
+        h.AriaSelected(isActive),
+        h.DataAttribute("search-result", nodeKeyOf(result.node)),
+        h.DataAttribute("active", `${isActive}`),
+        h.OnClick(Message.ClickedSearchResult({ node: result.node })),
+      ],
+      // The row's current mark, as the table of pieces has it.
+      isActive ? [h.DataAttribute("current", "")] : [],
+    ),
     [
-      h.Id(optionIdOf(result.node)),
-      h.Role("option"),
-      h.AriaSelected(isActive),
-      h.DataAttribute("search-result", nodeKeyOf(result.node)),
-      h.DataAttribute("active", `${isActive}`),
-      h.OnClick(Message.ClickedSearchResult({ node: result.node })),
-      h.Style({
-        background: isActive ? "#e2e8f0" : "transparent",
-        "border-left": isActive ? "3px solid #b45309" : "3px solid transparent",
-        cursor: "pointer",
-        "font-weight": isActive ? "600" : "400",
-        padding: "4px 6px",
-      }),
-    ],
-    [
-      h.span(
-        [
-          h.DataAttribute("search-kind", ""),
-          h.Style({ "font-size": "11px", "margin-right": "6px" }),
-        ],
-        [kindLabelOf(result.node)],
-      ),
+      h.span([h.DataAttribute("search-kind", "")], [tagView(kind, label, h)]),
       h.span(
         [h.DataAttribute("search-title", "")],
         result.field === "title"
@@ -102,6 +94,7 @@ const resultView = (
       h.div([], [matchedFieldView(result, h)]),
     ],
   );
+};
 
 const isActiveResult = (search: SearchState, result: SearchResult): boolean =>
   Option.exists(search.maybeActive, (active) => nodeKeyOf(active) === nodeKeyOf(result.node));
@@ -134,14 +127,6 @@ export const searchView = (trace: Trace, search: SearchState, h: HtmlBuilder<Mes
         h.Value(search.query),
         h.OnInput((query) => Message.ChangedSearchQuery({ query })),
         h.OnKeyDownPreventDefault(searchKeyMessage),
-        h.Style({
-          "border-radius": "6px",
-          border: "1px solid #94a3b8",
-          "box-sizing": "border-box",
-          font: "inherit",
-          padding: "6px 8px",
-          width: "100%",
-        }),
       ],
       hasResults ? [h.AriaControls(SEARCH_LISTBOX_ID)] : [],
       Array.fromOption(
@@ -150,11 +135,7 @@ export const searchView = (trace: Trace, search: SearchState, h: HtmlBuilder<Mes
     ]),
   );
   const status = h.p(
-    [
-      h.AriaLive("polite"),
-      h.DataAttribute("search-status", ""),
-      h.Style({ "font-size": "12px", margin: "4px 0 0", "min-height": "16px" }),
-    ],
+    [h.AriaLive("polite"), h.DataAttribute("search-status", "")],
     [statusText(search)],
   );
   const list = h.ul(
@@ -162,20 +143,14 @@ export const searchView = (trace: Trace, search: SearchState, h: HtmlBuilder<Mes
       h.Id(SEARCH_LISTBOX_ID),
       h.Role("listbox"),
       h.AriaLabel("Search results"),
-      h.Style({
-        "list-style": "none",
-        margin: "4px 0 0",
-        "max-height": "240px",
-        "overflow-y": "auto",
-        padding: "0",
-      }),
+      h.Class("search-list"),
     ],
     Array.map(search.results, (result) =>
       resultView(trace, result, isActiveResult(search, result), h),
     ),
   );
   return h.div(
-    [h.DataAttribute("search", ""), h.Style({ margin: "0 0 8px" })],
+    [h.Class("search-box"), h.DataAttribute("search", "")],
     hasResults ? [input, status, list] : [input, status],
   );
 };
