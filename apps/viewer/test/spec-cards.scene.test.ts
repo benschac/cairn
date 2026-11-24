@@ -21,6 +21,7 @@ import { Screen, TraceData } from "../src/model.ts";
 import { cardsOf, statusWordOf } from "../src/reader.ts";
 import { update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
+import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
 import { view } from "../src/view/view.ts";
 import { loaded } from "./fixtures.ts";
 
@@ -29,7 +30,10 @@ const prd = (id: string) => PrdSectionId.make(id);
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 
 const scrolledTo = (id: string) =>
-  Mount.resolve(TrackPrdScroll, Message.ScrolledPrd({ id: prd(id) }));
+  Mount.resolveAll(
+    [TrackPrdScroll, Message.ScrolledPrd({ id: prd(id) })],
+    [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+  );
 const statusLine = (id: string) => selector(`[data-status-line="${id}"]`);
 const card = (id: string) => selector(`[data-spec="${id}"]`);
 const header = (id: string) => selector(`[data-spec="${id}"] button[aria-expanded]`);

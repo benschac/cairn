@@ -122,6 +122,16 @@ export const countsOf = (trace: Trace, prd: PrdSectionId): Counts => {
   );
 };
 
+/** The IDs of the tasks in the current section's chain; none when there is no current section. */
+export const currentTasksOf = (
+  trace: Trace,
+  maybeCurrent: Option.Option<PrdSectionId>,
+): HashSet.HashSet<string> =>
+  Option.match(maybeCurrent, {
+    onNone: () => HashSet.empty<string>(),
+    onSome: (prd) => chainFor(trace, prd).tasks,
+  });
+
 /** The same count over every spec section and task of the plan. */
 export const planCountsOf = (trace: Trace): Counts =>
   countOf(Array.length(trace.spec.sections), trace.tasks);
