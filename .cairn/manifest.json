@@ -1901,6 +1901,511 @@
       "status": "pending",
       "commits": [],
       "sessions": []
+    },
+    {
+      "id": "t81",
+      "title": "Ship the demo's commit patches as static files",
+      "prdSections": ["prd.viewer.task-detail", "prd.code-view"],
+      "specSections": ["spec.viewer.demo-data"],
+      "files": [
+        "scripts/demo-patches/demo-patches.ts",
+        "scripts/demo-patches/demo-patches.test.ts",
+        "package.json",
+        "apps/viewer/package.json",
+        "apps/viewer/src/load.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/test/diff-view.scene.test.ts",
+        ".github/workflows/ci.yml",
+        ".gitignore"
+      ],
+      "branch": "cairn-mvp/81-demo-patches",
+      "parent": "t54",
+      "dependsOn": ["t54"],
+      "worktree": "wt-26",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:.github/workflows/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t82",
+      "title": "Record the model and reasoning a task ran with on its running event",
+      "prdSections": ["prd.orchestrator-contract", "prd.viewer.models"],
+      "specSections": ["spec.contract.events", "spec.viewer.demo-data"],
+      "files": [
+        "packages/contract/src/events.ts",
+        "packages/contract/test/events.test.ts",
+        "apps/viewer/src/demo-trace.json"
+      ],
+      "branch": "cairn-mvp/82-event-model",
+      "parent": "t8",
+      "dependsOn": ["t8"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t83",
+      "title": "Carry each spec section's summary in the Trace",
+      "prdSections": ["prd.viewer.spec-cards"],
+      "specSections": ["spec.contract.trace"],
+      "files": [
+        "packages/contract/src/trace.ts",
+        "packages/contract/test/trace.test.ts",
+        "apps/viewer/src/demo-trace.json",
+        "apps/viewer/test/demo.test.ts"
+      ],
+      "branch": "cairn-mvp/83-trace-summary",
+      "parent": "t82",
+      "dependsOn": ["t82"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t84",
+      "title": "Derive what the reader shows for a PRD section",
+      "prdSections": ["prd.viewer.reader", "prd.viewer.spec-cards", "prd.viewer.models"],
+      "specSections": ["spec.viewer.reader", "spec.viewer.spec-cards", "spec.viewer.models"],
+      "files": ["apps/viewer/src/reader.ts", "apps/viewer/test/reader.test.ts"],
+      "branch": "cairn-mvp/84-reader-derive",
+      "parent": null,
+      "dependsOn": ["t69", "t83"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t85",
+      "title": "Add the reader screen with the PRD pane and its current section",
+      "prdSections": ["prd.viewer.reader", "prd.viewer"],
+      "specSections": ["spec.viewer.reader"],
+      "files": [
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/init.ts",
+        "apps/viewer/src/view/view.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/test/reader.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/85-reader-screen",
+      "parent": "t84",
+      "dependsOn": ["t84"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t86",
+      "title": "Show the current section's spec as cards with their tasks",
+      "prdSections": ["prd.viewer.spec-cards"],
+      "specSections": ["spec.viewer.spec-cards"],
+      "files": [
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/spec-cards.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/86-spec-cards",
+      "parent": "t85",
+      "dependsOn": ["t85"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t87",
+      "title": "Add the density control and render a card's full spec section",
+      "prdSections": ["prd.viewer.spec-cards"],
+      "specSections": ["spec.viewer.spec-cards", "spec.viewer.markdown-rendering"],
+      "files": [
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/markdown.test.ts",
+        "apps/viewer/test/spec-cards.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/87-card-density",
+      "parent": "t86",
+      "dependsOn": ["t86"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t88",
+      "title": "Draw the stacks pane as chips over the base branch",
+      "prdSections": ["prd.viewer.stacks"],
+      "specSections": ["spec.viewer.stacks"],
+      "files": [
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/reader.ts",
+        "apps/viewer/test/stack-chips.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/88-stack-chips",
+      "parent": "t87",
+      "dependsOn": ["t87"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t89",
+      "title": "Compute the reader's curves from measured boxes",
+      "prdSections": ["prd.viewer", "prd.viewer.panes"],
+      "specSections": ["spec.viewer.curves"],
+      "files": ["apps/viewer/src/wires.ts", "apps/viewer/test/wires.test.ts"],
+      "branch": "cairn-mvp/89-wires-of",
+      "parent": "t88",
+      "dependsOn": ["t88"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t90",
+      "title": "Measure the panes, draw the curves and light a chain on hover",
+      "prdSections": ["prd.viewer", "prd.viewer.panes"],
+      "specSections": ["spec.viewer.curves", "spec.viewer.model-and-messages"],
+      "files": [
+        "apps/viewer/src/wires.ts",
+        "apps/viewer/src/view/wiresView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/wires.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/90-wires-overlay",
+      "parent": "t89",
+      "dependsOn": ["t89"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t91",
+      "title": "Show the model and reasoning each task ran with or is planned for",
+      "prdSections": ["prd.viewer.models"],
+      "specSections": ["spec.viewer.models"],
+      "files": [
+        "apps/viewer/src/view/modelView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/models.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/91-models-switch",
+      "parent": "t90",
+      "dependsOn": ["t90"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t92",
+      "title": "Resize the panes by dragging their dividers",
+      "prdSections": ["prd.viewer.panes"],
+      "specSections": ["spec.viewer.panes"],
+      "files": [
+        "apps/viewer/src/panes.ts",
+        "apps/viewer/src/subscription/resize.ts",
+        "apps/viewer/src/subscription/index.ts",
+        "apps/viewer/src/view/dividerView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/panes.test.ts",
+        "apps/viewer/test/panes.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/92-pane-dividers",
+      "parent": "t91",
+      "dependsOn": ["t91"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t93",
+      "title": "Open a task's detail in a panel with a trail",
+      "prdSections": ["prd.viewer.task-detail", "prd.acceptance-criteria"],
+      "specSections": ["spec.viewer.detail-panel"],
+      "files": [
+        "apps/viewer/src/detail.ts",
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/drawer.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/detail.test.ts",
+        "apps/viewer/test/detail.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/93-detail-trail",
+      "parent": "t92",
+      "dependsOn": ["t92"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t94",
+      "title": "Show a task's stacked diff in its detail",
+      "prdSections": ["prd.viewer.task-detail", "prd.acceptance-criteria"],
+      "specSections": ["spec.viewer.detail-code"],
+      "files": [
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/detail-code.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/94-detail-code",
+      "parent": "t93",
+      "dependsOn": ["t93"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t95",
+      "title": "Bring search results into view in the reader",
+      "prdSections": ["prd.viewer.fuzzy-search"],
+      "specSections": ["spec.viewer.search-interaction", "spec.viewer.prose-search"],
+      "files": [
+        "apps/viewer/src/search.ts",
+        "apps/viewer/src/reader.ts",
+        "apps/viewer/src/view/searchView.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/search-reader.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/95-reader-search",
+      "parent": "t94",
+      "dependsOn": ["t94"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t96",
+      "title": "Show who is reading which PRD section",
+      "prdSections": ["prd.v2-multiplayer-on-cloudflare.presence", "prd.viewer"],
+      "specSections": ["spec.viewer.presence"],
+      "files": [
+        "packages/contract/src/index.ts",
+        "packages/core/src/room-machine.ts",
+        "packages/cli/src/presence.ts",
+        "apps/viewer/src/subscription/presence.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/update.ts",
+        "packages/core/test/room-machine.test.ts",
+        "packages/cli/test/presence.test.ts",
+        "apps/viewer/test/presence.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/96-reading-presence",
+      "parent": "t95",
+      "dependsOn": ["t95"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t97",
+      "title": "Make the reader the viewer and remove the canvas",
+      "prdSections": ["prd.viewer", "prd.v2-multiplayer-on-cloudflare.presence"],
+      "specSections": ["spec.viewer.canvas-removal"],
+      "files": [
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/init.ts",
+        "apps/viewer/src/view/view.ts",
+        "apps/viewer/src/canvas.ts",
+        "apps/viewer/src/drag.ts",
+        "apps/viewer/src/layout.ts",
+        "apps/viewer/src/geometry.ts",
+        "apps/viewer/src/curves.ts",
+        "apps/viewer/src/highlight.ts",
+        "apps/viewer/src/drawer.ts",
+        "apps/viewer/src/diagram.ts",
+        "apps/viewer/src/subscription/drag.ts",
+        "apps/viewer/src/view/canvasView.ts",
+        "apps/viewer/src/view/nodeView.ts",
+        "apps/viewer/src/view/edgesView.ts",
+        "apps/viewer/src/view/moveHandleView.ts",
+        "apps/viewer/src/view/stacksView.ts",
+        "apps/viewer/src/view/cursorsView.ts",
+        "apps/viewer/src/subscription/presence.ts",
+        "packages/contract/src/index.ts",
+        "packages/core/src/room-machine.ts",
+        "packages/cli/src/presence.ts",
+        "apps/viewer/package.json",
+        "apps/viewer/test/",
+        "packages/core/test/room-machine.test.ts",
+        "packages/cli/test/presence.test.ts"
+      ],
+      "branch": "cairn-mvp/97-remove-canvas",
+      "parent": "t96",
+      "dependsOn": ["t96"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["tag:human"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t98",
+      "title": "Show the agent session in a task's detail",
+      "prdSections": ["prd.viewer.task-detail"],
+      "specSections": ["spec.viewer.detail-code"],
+      "files": [
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/view/sessionView.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/detail-code.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/98-detail-session",
+      "parent": null,
+      "dependsOn": ["t79", "t97"],
+      "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
     }
   ]
 }

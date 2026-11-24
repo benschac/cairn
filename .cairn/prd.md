@@ -91,7 +91,7 @@ The plan is a set of stacks that can be built at the same time, not one long sta
 
 The existing orchestrator reads `manifest.json` and runs tasks. It must:
 
-1. Append one line to `events.jsonl` per state change: `{"ts", "taskId", "status", "detail"}`.
+1. Append one line to `events.jsonl` per state change: `{"ts", "taskId", "status", "detail"}`. A `running` line also carries the `model` and `reasoning` level the task was started with, so the viewer can show what ran beside what the plan chose.
 2. Start every task whose dependencies are `done` or `landed`, and whose dependencies on other stacks are `landed`. Run ready tasks in parallel, each in its `worktree`. Stacks are managed with Graphite: each task is one diff, created with `gt create` on top of its parent, or on `baseBranch` when it has no parent. Graphite owns branches, restacking and pull requests; neither Cairn nor the orchestrator rebases a branch by hand.
 3. Add commit trailers to every commit:
 
@@ -166,38 +166,100 @@ Before writing session JSONL, strip values matching env var names from `.env*`, 
 
 Local web app served by `cairn serve`, read-only, polling or file-watching `.cairn/` and git.
 
-Layout:
+The viewer is a reader. The PRD is a document a person reads from top to bottom. The spec and the stacks sit beside it and follow the section being read, so the reader can branch off from any section into what specifies it, what builds it and the code that was written for it. The Curves variant of the prototype in `.cairn/design/prd-curves.html` is the reference for how it looks and moves. Where the prototype and this document disagree, this document wins.
 
-- Left column: rendered `prd.md`. Each section shows a status badge rolled up from its tasks.
-- Middle column: rendered `spec.md` with the same badges.
-- Right column: the stacks, drawn the way the spec draws its own stack diagram (see Stacks below).
-- Curves: SVG bezier curves linking PRD section to spec section to task node. Hovering any node highlights its full chain.
-- Task detail panel: the task's diff and its commits (each opens the code view), session files, events timeline, gate reasons, and judgments.
-- Judgment markers: a spec section or task node with a `flag` or `unsure` judgment shows a marker. Stale judgments are shown as stale.
+Layout, under a top bar:
+
+- Left pane: rendered `prd.md`, read as a document. Each section shows its status rolled up from its tasks (see Reading the plan).
+- Middle pane: the spec sections that implement the section being read, as cards with their tasks inside (see Spec cards).
+- Right pane: the stacks, drawn over the base branch the way the spec draws its own stack diagram (see Stacks).
+- Curves: SVG bezier curves linking the PRD section to its spec cards, and each task in a card to the same task in the stacks. Hovering any node highlights its full chain.
+- Task detail panel: the task's code, its commits (each opens the code view), its agent session, events timeline, gate reasons, and judgments (see Task detail).
+- Judgment markers: a spec card or task with a `flag` or `unsure` judgment shows a marker. Stale judgments are shown as stale.
+- Top bar: the feature's name, search (see Fuzzy search), the models and reasoning switch (see Models and reasoning), and who else is here.
+
+The look is the prototype's paper look: ink borders, hard offset shadows and solid colour fills on headers. No gradients, and no accent stripe down the side of a card.
+
+The reader replaces the canvas that could be panned, zoomed and rearranged. There is no pan or zoom, no dragging a document or a task card, no Fit and no Reset layout. Each pane scrolls on its own, and the panes can be made wider or narrower (see Panes).
 
 Suggested stack: Foldkit SPA for the viewer, a markdown renderer that preserves heading IDs, and a tiny Node server exposing `.cairn/` files and `git log --format` with trailers, plus reads from `cairn.db`.
 
+### Reading the plan {#prd.viewer.reader}
+
+- The PRD pane shows the whole document as prose, with its headings, lists, tables, code and diagrams. At its top are the feature's title and how many of its tasks are done.
+- Under each heading is one status line: the section's status, how many spec sections implement it and how many of its tasks are done, such as `in progress · 3 spec · 5/12 tasks`. A section that no spec section implements says why instead: the spec defers it, the spec treats it as context that needs no code, or nothing maps to it, which `cairn lint` reports.
+- Each heading shows its section ID. Clicking the ID copies it.
+- The section at the top of the PRD pane is the current section. The spec pane and the stacks pane always show the current section's chain, so scrolling the PRD walks the plan.
+- Clicking a status line pins that section: it stays current while the PRD scrolls. Clicking it again, or pressing Escape with no panel open, unpins it. One section is pinned at a time.
+- Nothing in the viewer edits a file.
+
+Done when scrolling the PRD on this repo changes the spec cards and the lit stacks to the section at the top of the pane, and a pinned section stays current while the PRD scrolls.
+
+### Spec cards {#prd.viewer.spec-cards}
+
+The spec pane shows one card for each spec section that implements the current PRD section, in the spec's order.
+
+- A card's header has the spec section's title and how many of its tasks are done. Under it is a one-sentence summary of the section, taken from `spec.json`.
+- The tasks that build a spec section are rows inside its card, not separate nodes. A row shows the task's status, ID and title, `GATE` for a human gate, and its commit count or, before it has any, its status. A task that names the PRD section but none of these spec sections is listed in a last card, so every task of the section is on the pane.
+- One control sets how much of every card shows: titles only, the summary, or the full spec section. The full section is the section's markdown rendered the way the PRD is: prose, lists, tables, code and diagrams, with its key list (`Implements`, `Files`, `Depends on`) as chips.
+- Clicking a card's header opens or closes that card alone, whatever the control says. Changing the control sets every card to it.
+- Clicking a task row opens the task detail.
+
+Done when the Viewer section of this repo's PRD shows a card for each spec section that implements it with its tasks inside, and the control switches all of them between titles, summaries and full sections.
+
 ### Stacks {#prd.viewer.stacks}
 
-The stacks column is the plan's stack diagram, live. Anyone who knows the diagram in the spec should find the same picture in the viewer: the same boxes, the same tasks in each, read the same way. Today the column puts each chain in its own grid column and each task in a page-wide row, so a short stack is stretched up the page with gaps in it, unrelated chains sit side by side, and nothing shows where a stack starts.
+The stacks pane is the plan's stack diagram, live and whole. Every stack is always on the pane, so a person sees where the current section's work sits in the plan, where `main` is and what is done. Anyone who knows the diagram in the spec should find the same picture in the viewer: the same boxes, the same tasks in each, read the same way.
 
-- One box per stack, labelled `Stack N · <area>`. A stack is a task that starts from the base branch and every task built on it through parent branches. Stacks are numbered in the order of their first task, and the area is the part of the spec that task builds.
+- One box per stack, numbered as the spec's diagram numbers it. A stack is a task that starts from the base branch and every task built on it through parent branches. Stacks are numbered in the order of their first task. A box's label, `Stack N · <area>`, shows on hover; the area is the part of the spec its first task builds.
 - Inside a box, tasks read bottom to top, each directly above its parent, with no gaps. A fork puts the children side by side in the same box.
-- The base branch (`main`) is drawn under everything. The bottom row holds the stacks that start from it now. A stack that waits for other stacks sits one row above the highest of them. Reading up the page is reading forward in build order, and the stacks in one row can be built at the same time.
-- A solid curve joins a task to its parent; a dashed curve joins it to each other task it depends on.
-- Each task card shows what the diagram shows: ID, branch, title and worktree, the model in its colour (purple opus, blue sonnet, yellow haiku), and a red border and GATE for a human gate. It keeps its status.
-- Hover, pins, Fit and dragging work as they do now. Reset layout puts every card back in this layout.
+- The base branch (`main`) is a bar under everything, and it stays in view while the pane scrolls. The bottom row holds the stacks that start from it now. A stack that waits for other stacks sits one row above the highest of them. Reading up the page is reading forward in build order, and the stacks in one row can be built at the same time.
+- A task is a chip: a status dot and its ID, with a red border for a human gate. Its title, branch, worktree and status show on hover. Clicking it opens the task detail.
+- The tasks of the current section stand out, and their stacks with them. Every other task is dimmed but can still be read and clicked.
+- Above the diagram: how many stacks hold the current section's tasks, how many of the plan's tasks are done, and a legend.
 
 Done when the viewer, opened on this repo, shows the same stacks with the same tasks as the spec's diagram, and a test fails when the two disagree.
+
+### Models and reasoning {#prd.viewer.models}
+
+A person should be able to see which model did what. Each task has the model and reasoning level the plan chose for it and, once it has run, the ones it ran with.
+
+- A switch in the top bar, on at first, shows or hides models and reasoning everywhere at once.
+- With it on, each task row in a spec card ends with `model · reasoning`; each chip in the stacks takes its model's colour (purple opus, blue sonnet, yellow haiku) and a short reasoning mark (`lo`, `med`, `hi`, `xhi`); each spec card's header has one swatch per task in its model's colour; and the legend names the colours.
+- What ran is drawn solid. What is only planned is drawn with a dashed outline. The task detail says `ran on sonnet · medium` or `planned for sonnet · medium`.
+- What ran comes from the task's `running` event (see Orchestrator contract). A task with no such record shows the plan's choice as planned, even when it is done.
+- With it off, a chip shows status alone: a done task is filled green.
+- A model Cairn has no colour for is grey and still named.
+
+### Panes {#prd.viewer.panes}
+
+- A divider sits between the PRD and the spec, between the spec and the stacks, and on the edge of the task detail panel. Dragging one makes the pane beside it wider or narrower. The stacks pane takes the width that is left.
+- A divider can be focused and moved with the left and right arrow keys.
+- Each pane has a least and a greatest width, so none can be dragged shut or over the others.
+- Curves stay attached to their ends while a pane is resized or scrolled. A curve whose end is scrolled out of its pane runs to that pane's top or bottom edge and is drawn faded.
+- Widths last until the window is reloaded.
+
+### Task detail {#prd.viewer.task-detail}
+
+Clicking a task, in a spec card or in the stacks, opens its detail in a panel over the right of the window. The panes stay as they were underneath it.
+
+- At the top: the task's ID, title, branch and stack; its status; the model and reasoning it ran on or is planned for; its parent task, or `from main`, and the other tasks it depends on; and the reasons for its gate.
+- Its code, without leaving the panel: the task's whole stacked diff, each file under its path, syntax-highlighted as in the code view. A task with no commits says it has no code yet.
+- Its commits, each with its subject and short SHA. Clicking one opens the code view on it. "Open in code view" opens the whole task there.
+- The agent session of its latest commit: the first prompt and the tool calls, one line each, with a link to the whole session in the code view. A commit with no session says so.
+- What it traces to: its PRD sections, which scroll the PRD to them, and its spec sections, which open in the panel. Then the files the plan expects it to touch, its events timeline and its judgments.
+- Opening a spec section or another task from the panel adds a step to a trail at its top, and each step goes back to what it names. Escape goes back one step, and closes the panel at the first.
+
+The demo site has no server, so it ships the patches of the commits in its trace and shows code the same way. It ships no sessions.
 
 ### Fuzzy search {#prd.viewer.fuzzy-search}
 
 Search the current feature locally across PRD and spec section titles and IDs, task titles and branch names, then extend it to PRD and spec prose. Search is private to the current viewer window and does not change the documents, task status, pins or other participants' views.
 
 - A toolbar search box shows ranked results with their kind, title and matched field or prose snippet. Matching ignores case, supports abbreviated queries and small typos, and ranks exact matches above fuzzy matches and titles above prose.
-- Highlight the matching characters or words in results and on the canvas. Distinguish a direct text match from a section or task highlighted only because it belongs to the selected result's chain.
-- Arrow keys move through results; Enter selects a result, brings it into view and previews its PRD → spec → task chain. Pointer selection does the same. Existing node clicks still pin chains and open details.
-- Clearing the query or pressing Escape removes search highlights and results while preserving pinned chains and the drawer. An empty query restores the ordinary view; a query with no matches says so and leaves the canvas usable.
+- Highlight the matching characters or words in results and in the panes. Distinguish a direct text match from a section or task highlighted only because it belongs to the selected result's chain.
+- Arrow keys move through results; Enter selects a result, brings it into view and previews its PRD → spec → task chain. Pointer selection does the same. Selecting a PRD section scrolls the PRD to it. Selecting a spec section or a task makes the first PRD section it traces to the current section until the search is cleared, and scrolls its card, row or chip into view. A spec section that implements no PRD section has no card, so it opens in the detail panel. Clicking a status line still pins, and clicking a task still opens its detail.
+- Clearing the query or pressing Escape removes search highlights and results while preserving the pinned section and the detail panel. An empty query restores the ordinary view; a query with no matches says so and leaves the panes usable.
 - Prose highlights preserve markdown formatting, links and text selection. Code fences, diagram labels, diffs and session logs are outside this search scope.
 - Recompute results when the trace changes; a removed result must not leave a stale highlight. Searching must not reparse both documents on each keystroke.
 
@@ -205,9 +267,9 @@ Ship this in three diffs: matching titles/IDs/branches; search controls, navigat
 
 ## Code view {#prd.code-view}
 
-The canvas shows where the work stands. The code view shows the work itself: the code each task changed, beside the agent conversation that changed it. It is read-only, like the rest of the viewer.
+The reader shows where the work stands. The code view shows the work itself: the code each task changed, beside the agent conversation that changed it. It is read-only, like the rest of the viewer.
 
-It opens from a task or a commit in the detail panel and fills the window. "Back to canvas" returns to the canvas as it was left, with its pins and layout.
+It opens from a task or a commit in the detail panel and fills the window. "Back to the plan" returns to the reader as it was left, with its current section, its pin, its pane widths and the detail panel.
 
 Layout:
 
@@ -257,8 +319,11 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - Every commit on those branches has Cairn trailers, including a `Cairn-Session` ID that resolves to a redacted session in `cairn.db`.
 - A task touching a migrations path is gated and its children do not start until it is approved.
 - Opening a task in the code view shows its whole stacked diff with syntax-highlighted code, and each of its commits can be shown alone.
-- Fuzzy search finds abbreviated and mistyped titles and prose, marks the matched text, and brings the selected result and its chain into view; clearing it preserves pins and the drawer.
-- The viewer shows correct status for every PRD section, and clicking a PRD section reaches its commits in two clicks or fewer.
+- Fuzzy search finds abbreviated and mistyped titles and prose, marks the matched text, and brings the selected result and its chain into view; clearing it preserves the pinned section and the detail panel.
+- The viewer shows correct status for every PRD section, and a PRD section's commits are two clicks or fewer from it.
+- Scrolling the PRD changes the spec cards and the lit stacks to the section at the top of the pane, and a pinned section stays current while the PRD scrolls.
+- With models and reasoning on, every task shows the model and reasoning it ran with, or the plan's choice marked as planned; with it off, none shows.
+- Opening a task shows its code in the detail panel without leaving the plan.
 - `cairn lint` catches an orphaned section ID and an unmapped PRD section.
 - A drafted task judged too large is broken down before the plan is printed, and the plan output says so.
 - A task's model is changed only when Jev is confident; otherwise the planner's choice stands and is reported as `unsure`.
@@ -275,7 +340,8 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 5. Status derivation from events and git (1h).
 6. Viewer: three columns, badges, curves, detail panel, judgment markers (3h).
 7. Fuzzy search follow-up: title/ID/branch matching, search navigation and chain highlighting, then prose search and inline marks (roughly 2–3 engineering days including verification; separate from the original one-day baseline).
-8. Dogfood on one RinkSide feature and fix what breaks (1h).
+8. Reader follow-up: the PRD pane and its current section, spec cards, the stacks as chips, curves between the panes, models and reasoning, resizable panes and code in the task detail, then removing the canvas (separate from the original one-day baseline).
+9. Dogfood on one RinkSide feature and fix what breaks (1h).
 
 ## v2: diverging state {#prd.v2-diverging-state}
 
@@ -341,7 +407,7 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 }
 ```
 
-- Humans: a text caret and selection in the PRD and spec, plus a pointer on the canvas.
+- Humans: a text caret and selection in the PRD and spec, plus their name beside the PRD section they are reading.
 - Agents: a labeled caret on the section they work from, a pulse on their stack node, and the file they are in. Agent presence comes from orchestrator events, so agents need no browser.
 - Heartbeats: every 5 s. Three missed marks the actor away. For an agent, its task goes `stalled` (new status) and its lease is released.
 
@@ -362,6 +428,7 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 ## Later {#prd.later}
 
 - Rich editing beyond markdown: embeds, comments, and inline diffs.
+- A map of the whole plan on one screen: every PRD section, spec section and stack at once, with every curve drawn. The prototype has it as its Map variant.
 - An inbox view of agent activity across rooms.
 - Drift detection that flags or proposes spec updates when code diverges.
 - Cost per section and per model.

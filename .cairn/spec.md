@@ -65,15 +65,15 @@ Already installed, and kept:
 
 New:
 
-| Library                                                                 | Version             | License    | Used for                                                       |
-| ----------------------------------------------------------------------- | ------------------- | ---------- | -------------------------------------------------------------- |
-| `@pierre/diffs`                                                         | 1.6.4               | Apache-2.0 | Parsing patches into hunks and rendering task and commit diffs |
-| `@pierre/highlights`                                                    | 0.5.2               | Apache-2.0 | Syntax colours for fenced code in the viewer                   |
-| `pele`                                                                  | 1.13.0              | MIT        | Drawing Mermaid diagrams as SVG in the viewer                  |
-| `@xyflow/system`                                                        | 1.0.0               | MIT        | Bezier paths, viewport math and pan/zoom for the canvas        |
-| `@effect/ai-anthropic`                                                  | 4.1.5               | MIT        | The live `LanguageModel`, for the `Planner`                    |
-| `@effect/ai-typesafe`                                                   | 4.1.5               | MIT        | The live `DecisionModel` (Jev), for the `Judge`                |
-| `mdast-util-from-markdown`, `mdast-util-gfm`, `micromark-extension-gfm` | 2.1.0, 3.1.0, 3.0.0 | MIT        | Markdown to nodes for the viewer                               |
+| Library                                                                 | Version             | License    | Used for                                                                                                    |
+| ----------------------------------------------------------------------- | ------------------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `@pierre/diffs`                                                         | 1.6.4               | Apache-2.0 | Parsing patches into hunks and rendering task and commit diffs                                              |
+| `@pierre/highlights`                                                    | 0.5.2               | Apache-2.0 | Syntax colours for fenced code in the viewer                                                                |
+| `pele`                                                                  | 1.13.0              | MIT        | Drawing Mermaid diagrams as SVG in the viewer                                                               |
+| `@xyflow/system`                                                        | 1.0.0               | MIT        | Bezier paths, viewport math and pan/zoom for the canvas; removed with it (see `spec.viewer.canvas-removal`) |
+| `@effect/ai-anthropic`                                                  | 4.1.5               | MIT        | The live `LanguageModel`, for the `Planner`                                                                 |
+| `@effect/ai-typesafe`                                                   | 4.1.5               | MIT        | The live `DecisionModel` (Jev), for the `Judge`                                                             |
+| `mdast-util-from-markdown`, `mdast-util-gfm`, `micromark-extension-gfm` | 2.1.0, 3.1.0, 3.0.0 | MIT        | Markdown to nodes for the viewer                                                                            |
 
 Built into Node 24, so no package: `node:sqlite` for `cairn.db`, and `path.matchesGlob` for gate patterns. Diffs come from `git`, so the CLI needs no diff library.
 
@@ -159,10 +159,14 @@ Event = {
   status: TaskStatus
   detail?: string
   actor?: "orchestrator" | `human:${string}` | `agent:${string}` // missing means orchestrator
+  model?: string // on a running event: the model the task was started with
+  reasoning?: Reasoning // on a running event: the reasoning level it was started with
 }
 ```
 
 `actor` is new. Approvals need it: only a `human:` actor can move a task out of `blocked_on_human`.
+
+`model` and `reasoning` are new and optional, with the manifest's types. The orchestrator sets both on a `running` event to what it started the task with, which is not always what the plan chose: a retry or a human can change it. An event without them still decodes, and on any other status they are ignored. The viewer reads them to show what ran (see `spec.viewer.models`).
 
 ### Trailers {#spec.contract.trailers}
 
@@ -212,6 +216,7 @@ TraceSection = {
   line: number
   parent: SectionId | null
   human: boolean
+  summary: string | null // one sentence from spec.json; null in the PRD and for a section the index does not hold
   keys: {
     // own keys plus inherited ones; all empty in the PRD
     implements: Array<PrdSectionId>
@@ -246,6 +251,8 @@ TraceWarning = {
   sha: Sha | null
 }
 ```
+
+`summary` is new. It is the section's `summary` in `spec.json` (see `spec.contract.spec-index`), carried in the trace so the viewer reads one thing. A trace written without it decodes with `null`. The spec cards show it (see `spec.viewer.spec-cards`).
 
 `TraceSection` is declared here rather than imported from core's `Section`, so the viewer depends only on the contract. The trace carries no positions: the viewer lays everything out itself (see `spec.viewer.model-and-messages`).
 
@@ -566,6 +573,8 @@ flowchart BT
   subgraph s5["Stack 5 · contract"]
     direction BT
     t8["t8 · 08-event-schema<br/>Add the event schema with an actor<br/>wt-6"]
+    t82["t82 · 82-event-model<br/>Record the model and reasoning a task ran with on its running event<br/>wt-27"]
+    t83["t83 · 83-trace-summary<br/>Carry each spec section's summary in the Trace<br/>wt-27"]
   end
   subgraph s6["Stack 6 · contract"]
     direction BT
@@ -684,6 +693,7 @@ flowchart BT
     t53["t53 · 53-diff-parse<br/>Fetch and parse task and commit patches with @pierre/diffs<br/>wt-21"]
     t54["t54 · 54-diff-render<br/>Render task and commit diffs with syntax highlighting in the code view<br/>wt-21"]
     t67["t67 · 67-judgment-markers<br/>Show judgments in the trace and the viewer<br/>wt-21"]
+    t81["t81 · 81-demo-patches · GATE<br/>Ship the demo's commit patches as static files<br/>wt-26"]
   end
   subgraph s25["Stack 25 · contract"]
     direction BT
@@ -726,6 +736,27 @@ flowchart BT
     direction BT
     t79["t79 · 79-session-pane<br/>Draw the session pane<br/>wt-24"]
     t80["t80 · 80-attribution<br/>Mark each hunk with the turn that wrote it<br/>wt-24"]
+  end
+  subgraph s35["Stack 35 · viewer"]
+    direction BT
+    t84["t84 · 84-reader-derive<br/>Derive what the reader shows for a PRD section<br/>wt-27"]
+    t85["t85 · 85-reader-screen<br/>Add the reader screen with the PRD pane and its current section<br/>wt-27"]
+    t86["t86 · 86-spec-cards<br/>Show the current section's spec as cards with their tasks<br/>wt-27"]
+    t87["t87 · 87-card-density<br/>Add the density control and render a card's full spec section<br/>wt-27"]
+    t88["t88 · 88-stack-chips<br/>Draw the stacks pane as chips over the base branch<br/>wt-27"]
+    t89["t89 · 89-wires-of<br/>Compute the reader's curves from measured boxes<br/>wt-27"]
+    t90["t90 · 90-wires-overlay<br/>Measure the panes, draw the curves and light a chain on hover<br/>wt-27"]
+    t91["t91 · 91-models-switch<br/>Show the model and reasoning each task ran with or is planned for<br/>wt-27"]
+    t92["t92 · 92-pane-dividers<br/>Resize the panes by dragging their dividers<br/>wt-27"]
+    t93["t93 · 93-detail-trail<br/>Open a task's detail in a panel with a trail<br/>wt-27"]
+    t94["t94 · 94-detail-code<br/>Show a task's stacked diff in its detail<br/>wt-27"]
+    t95["t95 · 95-reader-search<br/>Bring search results into view in the reader<br/>wt-27"]
+    t96["t96 · 96-reading-presence<br/>Show who is reading which PRD section<br/>wt-27"]
+    t97["t97 · 97-remove-canvas · GATE<br/>Make the reader the viewer and remove the canvas<br/>wt-27"]
+  end
+  subgraph s36["Stack 36 · viewer"]
+    direction BT
+    t98["t98 · 98-detail-session<br/>Show the agent session in a task's detail<br/>wt-27"]
   end
   main --> t1
   main --> t2
@@ -841,10 +872,30 @@ flowchart BT
   t54 -.-> t79
   t76 -.-> t79
   t79 --> t80
+  t54 --> t81
+  t8 --> t82
+  t82 --> t83
+  t69 -.-> t84
+  t83 -.-> t84
+  t84 --> t85
+  t85 --> t86
+  t86 --> t87
+  t87 --> t88
+  t88 --> t89
+  t89 --> t90
+  t90 --> t91
+  t91 --> t92
+  t92 --> t93
+  t93 --> t94
+  t94 --> t95
+  t95 --> t96
+  t96 --> t97
+  t79 -.-> t98
+  t97 -.-> t98
   class t1,t3,t20,t31,t32,t58,t60,t62,t80 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79 sonnet
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98 sonnet
   class t11,t24,t27,t44,t56,t66 haiku
-  class t1,t2,t3 gate
+  class t1,t2,t3,t81,t97 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
   classDef sonnet fill:#2563eb,color:#ffffff,stroke:#1e3a8a
   classDef haiku fill:#facc15,color:#111111,stroke:#a16207
@@ -1180,14 +1231,14 @@ Tests run against a temporary repository with two commits: the commit route retu
 
 `cairn serve` runs the existing server on port 4310 with these routes:
 
-| Route                        | Returns                                                                                                                                                               |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/trace`             | The `Trace`: both documents' markdown and sections, the derived tasks, section statuses, commits, events, judgments and warnings. An `ETag` from a hash of the inputs |
-| `GET /api/sessions/:id`      | The `Session`: the stored log read by `sessionOf`, with its redaction counts and notes. `404` for an unknown ID                                                       |
-| `GET /api/commits/:sha`      | `git show --patch` output as text, which `parsePatchFiles` reads (see `spec.patch-routes`)                                                                            |
-| `GET /api/diffs/:base/:head` | `git diff --patch` output as text for a task's whole diff (see `spec.patch-routes`)                                                                                   |
-| `WS /presence`               | Unchanged                                                                                                                                                             |
-| `GET /*`                     | The built viewer. In dev, Vite serves it and proxies `/api`                                                                                                           |
+| Route                        | Returns                                                                                                                                                                                                                     |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/trace`             | The `Trace`: both documents' markdown and sections (each spec section with its summary from `spec.json`), the derived tasks, section statuses, commits, events, judgments and warnings. An `ETag` from a hash of the inputs |
+| `GET /api/sessions/:id`      | The `Session`: the stored log read by `sessionOf`, with its redaction counts and notes. `404` for an unknown ID                                                                                                             |
+| `GET /api/commits/:sha`      | `git show --patch` output as text, which `parsePatchFiles` reads (see `spec.patch-routes`)                                                                                                                                  |
+| `GET /api/diffs/:base/:head` | `git diff --patch` output as text for a task's whole diff (see `spec.patch-routes`)                                                                                                                                         |
+| `WS /presence`               | Unchanged                                                                                                                                                                                                                   |
+| `GET /*`                     | The built viewer. In dev, Vite serves it and proxies `/api`                                                                                                                                                                 |
 
 The viewer polls `/api/trace` every two seconds with `If-None-Match` (the viewer side is in `spec.viewer.model-and-messages`). A file watcher can replace polling later; the PRD allows either.
 
@@ -1203,13 +1254,13 @@ Each judgment in the `Trace` carries `stale: boolean`. The server recomputes `in
 - Files: `apps/viewer/src/model.ts`, `apps/viewer/src/main.ts`, `apps/viewer/src/trace.ts`, `apps/viewer/src/load.ts`
 - Depends on: `spec.contract.trace`, `spec.viewer.markdown-rendering`
 
-The model holds the trace, the hovered node, the pins, the drawer, whether all curves are shown, the drag in progress, each moved item's offset, the measured node positions, the canvas viewport, the screen (the canvas or the code view, see `spec.viewer.code-view`) and the patches and sessions loaded so far. The drawer is closed, or open on a node. Messages: `SettledLoadTrace`, `HoveredNode`, `LeftNode`, `ClickedNode`, `ClickedClearPins`, `ClickedShowAllCurves`, `ClickedDrawerTask`, `ReceivedPatch`, `ClickedCloseDrawer`, `MeasuredLayout`, `PannedOrZoomed`, `MeasuredPane`, `ClickedFit`, `PressedMoveHandle`, `MovedDragPointer`, `ReleasedDragPointer`, `PressedArrowOnMoveHandle`, `ClickedMoveHandle`, `SuppressedClickAfterDrag`, `PressedAfterDrag`, `ClickedResetLayout`, `ClickedOpenCode`, `ClickedBackToCanvas`, `ClickedTreeTask`, `ClickedTreeCommit`, `ClickedTreeFile`, `ReceivedSession`, `ClickedDiffStyle`, `ClickedTurn`, `ClickedHunkMark`.
+The model holds the trace, the screen (the reader, or the code view, see `spec.viewer.code-view`), the reader's own state (see `spec.viewer.reader`), the hovered node, the detail panel's trail (see `spec.viewer.detail-panel`), the search, the presence state and the patches and sessions loaded so far. Messages every screen shares: `SettledLoadTrace`, `HoveredNode`, `LeftNode`, `ReceivedPatch`, `ReceivedSession`, `ClickedOpenCode`, `ClickedBackToPlan`, `ClickedTreeTask`, `ClickedTreeCommit`, `ClickedTreeFile`, `ClickedDiffStyle`, `ClickedTurn`, `ClickedHunkMark`. Each reader section below names the messages it adds.
 
-`chainOf(trace, node)` is pure: the PRD sections, spec sections and tasks linked to a node, in both directions. Hovering previews the chain. Clicking anywhere on a node pins its chain in the next free colour from a fixed palette and opens the node's drawer; clicking it again unpins it and closes its drawer if the drawer is on it. Several pins stay lit at once, each in its colour: a node takes the fill of the top chain holding it and a stripe down its left edge for each pin holding it, and a curve takes the colour of the top pin holding both its ends. The hover preview sits on top of the pins and never hides them. Closing the drawer keeps the pins; "Clear pins" removes them all. Pins are local to one window for now.
+`chainOf(trace, node)` is pure: the PRD sections, spec sections and tasks linked to a node, in both directions. Hovering a spec card, a task row or a chip previews its chain: its curves are drawn in ink and every card, row and chip outside the chain is dimmed. A click does not pin a chain. A click on a task opens its detail, and the one thing a reader pins is a PRD section (see `spec.viewer.reader`). The coloured pins, "Clear pins" and "Show all curves" belong to the canvas and go with it (see `spec.viewer.canvas-removal`).
 
-Layout as the PRD gives it: PRD, spec, then the stacks. Each section heading carries its rollup badge, and each task node shows branch, model, status and a gate marker. A spec section or task node with a `flag` or `unsure` judgment also shows a judgment marker, dimmed when the judgment is stale.
+Layout as the PRD gives it: the PRD pane, the spec pane, then the stacks pane. Each PRD heading carries its status line, and each task shows its status and a gate marker. A spec card or task with a `flag` or `unsure` judgment also shows a judgment marker, dimmed when the judgment is stale.
 
-The stacks area draws the plan's stack diagram: one box per stack, the boxes in rows over the base branch. `stacksOf(tasks)` lays it out (see `spec.viewer.stacks`).
+The stacks pane draws the plan's stack diagram: one box per stack, the boxes in rows over the base branch. `stacksOf(tasks)` lays it out (see `spec.viewer.stacks`).
 
 Loading: under `cairn serve`, a subscription in `load.ts` fetches `/api/trace` every two seconds with `If-None-Match` (see `spec.server`). A `200` is decoded through the `Trace` schema and sends `SettledLoadTrace` with the trace; a `304` sends nothing; a network or decode error sends `SettledLoadTrace` with the error, and the view shows the error above the last good trace. The demo build (`vite build --mode demo`) loads `demo-trace.json` once and never polls.
 
@@ -1221,6 +1272,82 @@ Loading: under `cairn serve`, a subscription in `load.ts` fetches `/api/trace` e
 Parse with `mdast-util-from-markdown` plus GFM tables and map the nodes to Foldkit's `h` builders. No `innerHTML`, so a PRD cannot inject markup, and Scene tests see the rendered text. Each heading's `{#id}` becomes its element ID and `data-section` attribute. The key list at the top of a spec section renders as small chips. HTML comments are dropped.
 
 A fenced block with a language `@pierre/highlights` has a lexer for renders a span per token, coloured inline, and keeps `language-x` on its `code` element. The highlighter is synchronous, so a block needs no Message. Any other language stays plain text. A `mermaid` fence renders through the caller's `diagramView` hook, which for the canvas is an empty placeholder with a `DrawDiagram` Mount. A Mount runs once, when its element is inserted, so the placeholder is keyed by the diagram's source and the line its fence starts on: a diagram that changes gets a new element and is drawn again. The Mount draws the diagram with `pele` (links and images off, text escaped), which is the one place SVG becomes DOM. A diagram that cannot be drawn shows its source and a one-line reason in its place. A diagram changes the height of its column, so the Mount measures the canvas layer once it has drawn and sends `MeasuredLayout`; the layer's own `ResizeObserver` only fires when the layer itself changes size.
+
+### Reader {#spec.viewer.reader}
+
+- Implements: `prd.viewer.reader`, `prd.viewer`
+- Files: `apps/viewer/src/reader.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/view/view.ts`, `apps/viewer/test/reader.test.ts`, `apps/viewer/test/reader.scene.test.ts`
+- Depends on: `spec.contract.trace`, `spec.contract.events`, `spec.viewer.model-and-messages`, `spec.viewer.markdown-rendering`
+
+The reader is the plan screen: a top bar over three panes, the PRD, the spec and the stacks. The window does not scroll; each pane has its own vertical scroll. The Curves variant of the prototype in `.cairn/design/prd-curves.html` is the reference for spacing, type and colour. Read it before writing a view.
+
+`Screen` gains `Reader`. Until the canvas is removed (see `spec.viewer.canvas-removal`) the viewer still opens on the canvas, and the top bar has a "Plan" and "Canvas" pair of buttons (`ClickedScreen`) to move between the two, so the reader can be tried on the demo as it is built.
+
+The model's `reader` holds only what a person has chosen. Each field arrives with the section that uses it:
+
+```ts
+Reader = {
+  maybeAtTop: Option<PrdSectionId> // the section at the top of the PRD pane, once it is measured
+  maybePinned: Option<PrdSectionId>
+  density: "titles" | "summary" | "full" // spec.viewer.spec-cards
+  opened: Record<SpecSectionId, boolean> // cards opened or closed apart from the density
+  isShowingModels: boolean // spec.viewer.models
+  widths: Widths // spec.viewer.panes
+}
+```
+
+`reader.ts` is pure and holds everything the panes derive from the trace:
+
+- `currentOf(reader, maybeSearched)`: the current section. The active search result's PRD section when there is one (see `spec.viewer.search-interaction`), else the pinned section, else the one at the top.
+- `sectionAtTop(tops, line)`: `tops` is each PRD section's top edge in document order. The answer is the last section whose top is at or above `line`, or the first section when none is. The level 1 heading is the document's title, not a section a reader can be on, so it is left out of `tops`.
+- `cardsOf(trace, prd)`: the spec sections in `chainOf(trace, prd).spec`, in document order, each with the tasks whose `specSections` name it, in manifest order. With them come the strays: the tasks in the chain that no card lists.
+- `countsOf(trace, prd)`: how many spec sections are in the chain, how many tasks, and how many of those are `done` or `landed`. `planCountsOf(trace)` is the same count over every task.
+- `coverageOf(status)`: the note for a section with status `deferred`, `context` or `unmapped`, and none for any other. `statusWordOf(status)` is the word shown for a status: `in progress` for `in_progress`, `not started` for `pending`, `waiting on a human` for `blocked_on_human`, and the status itself otherwise.
+- `ranOf(task)`: see `spec.viewer.models`.
+
+`readerView` is a CSS grid: the top bar, then the panes with a divider between each pair (see `spec.viewer.panes`). The top bar has the name "Cairn", the feature, the search control (`searchView`, unchanged), the models and reasoning switch and the presence text.
+
+`prdPaneView` renders `trace.prd.markdown` through `renderMarkdown`, as the canvas does, with these hooks:
+
+- Under each heading, a status line: a native button with `statusWordOf`, the spec count and `done/total tasks`, such as `in progress · 3 spec · 5/12 tasks`. It sends `ClickedStatusLine` with the section's ID, which pins the section, or unpins it when it is the pinned one. The pinned section's button has `aria-pressed="true"`. A section with a coverage note shows the note as text in place of the button.
+- Beside each heading's title, its section ID as a small button. It sends `ClickedSectionId`, which runs a Command that writes the ID to the clipboard and then sends `CompletedCopySectionId`. The button reads "copied" until the next render after that.
+- Over the document, the title and `planCountsOf` as "25 of 97 tasks done" with a meter.
+- The current section's `section` element has `data-current`.
+
+Tracking the section at the top: a Mount on the PRD pane (`TrackPrdScroll`) listens to the pane's `scroll` event and a `ResizeObserver` on its content. At most once per animation frame it reads the top of every `[data-section]` heading, calls `sectionAtTop` with a line 140px below the pane's top, and sends `ScrolledPrd` with the answer only when the answer changed. It sends once when it mounts. The update stores `maybeAtTop`; nothing else in the model changes on a scroll.
+
+The spec pane's content is keyed by the current section, so a new section starts at the top of its cards. The stacks pane keeps its scroll.
+
+Escape: a `keydown` subscription on the document sends `PressedEscape`. It goes back one step in the detail panel when the panel is open (see `spec.viewer.detail-panel`), and otherwise unpins. The search control handles its own Escape first and stops it there.
+
+Tests: properties in `reader.test.ts` that `sectionAtTop` returns the last section at or above the line and never moves backwards as the line moves down; that `cardsOf` and its strays together list every task of the chain, and no stray is in a card; and that a count's done never passes its total. Scene tests on the demo trace open the reader, read the status line of `prd.viewer`, find a coverage note on a deferred section and none on a built one, pin a section by its status line and find it current, and unpin it with the same button and with Escape. A Mount does not run in a Scene, so the scroll is tested through `sectionAtTop` and through `ScrolledPrd`.
+
+### Spec cards {#spec.viewer.spec-cards}
+
+- Implements: `prd.viewer.spec-cards`
+- Files: `apps/viewer/src/reader.ts`, `apps/viewer/src/view/specPaneView.ts`, `apps/viewer/src/markdown.ts`, `apps/viewer/src/update.ts`, `apps/viewer/test/spec-cards.scene.test.ts`, `apps/viewer/test/markdown.test.ts`
+- Depends on: `spec.viewer.reader`
+
+`specPaneView` draws `cardsOf(trace, current)`. Over the cards are a label, such as "Spec · 11 sections for Viewer", and the density control.
+
+A card is an `article` with `data-spec` holding the spec section's ID:
+
+- Header: a native button with the section's title and `done/total` of its tasks, and `aria-expanded`. Its fill is a solid colour; the card has an ink border and a hard offset shadow. No stripe runs down a card's side.
+- Summary: `TraceSection.summary` as one paragraph. A section with no summary shows none.
+- Tasks: one row per task, at every density. A row is a native button with `data-task-row` holding `<spec>:<task>`: a status dot, the ID, the title, `GATE` for a gated task, the model chip (see `spec.viewer.models`), and then the commit count, with "· session" when a commit has one, or the status word before there is a commit. It sends `ClickedTask`, which opens the task's detail. A task with a judgment mark shows it in its row; a section with one shows it in its header.
+- After the cards, when there are strays, one more card headed "Tasks that name this section directly", whose header is not a button and whose rows have `data-task-row` of `_:<task>`.
+
+A PRD section with a coverage note shows the note in place of the cards.
+
+Density is one of `titles`, `summary` and `full`, `summary` at first. The control is a group of three native buttons labelled "Titles", "Summary" and "Full spec", each with `aria-pressed`, in a group labelled "How much of the spec to show". `ClickedDensity` sets it and empties `opened`. A card is open when `opened` holds it as open, or holds nothing for it and the density is `full`. `ClickedCardHeader` sets `opened` for that card to the opposite of what it shows now.
+
+- `titles`: the header and the task rows.
+- `summary`: the summary too.
+- An open card shows its full section in place of the summary: a line with the section's ID, then the section's own markdown.
+
+The full section is rendered by `renderSection(document, id, h, hooks)`, new in `markdown.ts`. It renders the nodes of the already parsed document from after the section's heading to the next heading of any level, through the same code as `renderMarkdown`: the key list as chips, prose, lists, tables, highlighted code and diagrams. A section's children are their own cards, so they are not repeated in their parent. The document is parsed once and shared with the PRD pane's search marks; a card that opens does not parse it again, and block offsets stay the document's own, so prose marks land where they do in a whole render.
+
+Tests: Scene tests pin `prd.viewer` and find a card for each spec section that implements it, in the spec's order, with a task row inside one; step the control through its three settings and find the summaries and full sections come and go while the rows stay; open one card alone and find the others unchanged; and change the control and find that card reset. A fixture with a stray task finds the last card. Markdown tests check that `renderSection` renders a section's own body without its heading or its child sections, and that a section with only a key list renders its chips.
 
 ### Fuzzy matching {#spec.viewer.fuzzy-matching}
 
@@ -1244,24 +1371,24 @@ Tests:
 ### Search controls and chain highlighting {#spec.viewer.search-interaction}
 
 - Implements: `prd.viewer.fuzzy-search`
-- Files: `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/init.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/highlight.ts`, `apps/viewer/src/view/view.ts`, `apps/viewer/src/view/canvasView.ts`, `apps/viewer/src/view/nodeView.ts`, `apps/viewer/src/view/stacksView.ts`, `apps/viewer/src/view/edgesView.ts`, `apps/viewer/src/markdown.ts`, `apps/viewer/src/search.ts`, `apps/viewer/test/search.scene.test.ts`
+- Files: `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/init.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/highlight.ts`, `apps/viewer/src/view/view.ts`, `apps/viewer/src/view/canvasView.ts`, `apps/viewer/src/view/nodeView.ts`, `apps/viewer/src/view/stacksView.ts`, `apps/viewer/src/view/edgesView.ts`, `apps/viewer/src/markdown.ts`, `apps/viewer/src/search.ts`, `apps/viewer/src/reader.ts`, `apps/viewer/src/view/searchView.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/view/specPaneView.ts`, `apps/viewer/src/view/stackChipsView.ts`, `apps/viewer/test/search.scene.test.ts`, `apps/viewer/test/search-reader.scene.test.ts`
 - Depends on: `spec.viewer.fuzzy-matching`, `spec.viewer.curves`, `spec.viewer.detail-panel`
 
 Add window-local query and active-result state to the Schema-defined Model, with fact-named messages for query edits, result navigation, result selection and clearing. The pure update function derives results and reconciles the active node after trace refresh: retain it if still matched, otherwise choose the first result or none. Query edits reset to the first result; empty and unmatched queries have no active chain.
 
-Render a labelled toolbar search input, result count and ranked result list showing kind, title and matched field. Use accessible combobox/listbox semantics with an active descendant, ArrowUp/ArrowDown navigation bounded at the list ends, Enter to select, pointer selection, and Escape to clear. Handle these keys only in the search control; they must not trigger canvas shortcuts. Announce the count and no-results state without stealing focus.
+Render a labelled toolbar search input, result count and ranked result list showing kind, title and matched field. Use accessible combobox/listbox semantics with an active descendant, ArrowUp/ArrowDown navigation bounded at the list ends, Enter to select, pointer selection, and Escape to clear. Handle these keys only in the search control; they must not reach the reader's own keys, such as Escape. Announce the count and no-results state without stealing focus.
 
-Selecting a result pans the canvas to its measured node, accounting for current zoom, moved-card offsets and the toolbar or open drawer. Keep keyboard focus in search; if layout has not measured the node, defer centering until it has. Preview its chain through chainOf without dispatching ClickedNode, changing pins or opening or closing the drawer. Only the active result contributes a search chain; never union separate result chains into a synthetic chain.
+Selecting a result brings it into view in the reader (see `spec.viewer.reader`). For a PRD section, the PRD pane scrolls to its heading. For a spec section or a task, the first PRD section of its chain, in document order, is the current section for as long as the result is active: `currentOf` puts it ahead of the pin, and it changes neither the pin nor the PRD pane's scroll. Its card, its row and its chip then scroll into view in their own panes, and a result in a spec section's prose shows that card open while it is active. A spec section that implements no PRD section, such as `spec.format`, has no card to go to: selecting it opens it in the detail panel, the one case where a result opens the panel. Keep keyboard focus in search. Preview its chain as a hover does. Apart from that case a result neither opens nor closes the detail panel. Only the active result contributes a search chain; never union separate result chains into a synthetic chain.
 
-Mark direct text matches with semantic mark nodes and a separate node outline; related chain members get chain highlighting but no text marks unless they independently match. Preserve pin stripes; hover remains the top preview, above search and pinned fills. Draw a curve as part of a chain only when both endpoints belong to that same chain. Use text labels or outlines as well as colour to identify the active result.
+Mark direct text matches with semantic mark nodes and a separate node outline, in PRD headings and prose, spec card headers, summaries and full sections, task rows and chips; related chain members get chain highlighting but no text marks unless they independently match. Hover remains the top preview, above search. Draw a curve as part of a chain only when both endpoints belong to that same chain. Use text labels or outlines as well as colour to identify the active result.
 
-Clearing search removes its marks, outline, results and temporary chain while preserving pins, drawer, document content and task state. Keep the current viewport after clearing. A no-results query shows a message without dimming the entire canvas. Ordinary node selection and pinning continue to work. Keep the existing markdown lazy boundaries effective when queries change.
+Clearing search removes its marks, outline, results and temporary chain while preserving the pinned section, the detail panel, document content and task state. The current section goes back to the pin or to the section at the top. A no-results query shows a message without dimming the panes. Pinning a section and opening a task continue to work. Keep the existing markdown lazy boundaries effective when queries change.
 
 Tests:
 
 - Type an abbreviation or typo, navigate with arrows, select with Enter and pointer, and assert matching text, active result and connected-chain highlighting.
-- Search, hover and multiple pins coexist; clearing and Escape preserve pins and the drawer; zero matches leave the canvas usable; refreshed and removed results reconcile correctly.
-- Center a result at non-default zoom after dragging, with an open drawer and delayed layout measurement; unrelated edges stay unlit.
+- Search, hover and a pinned section coexist; clearing and Escape preserve the pin and the detail panel; zero matches leave the panes usable; refreshed and removed results reconcile correctly.
+- Select a spec section and a task whose PRD section is not the pinned one: its PRD section is current while the result is active and the pin comes back when the search is cleared; unrelated curves stay unlit. Select `spec.format`, which implements no PRD section, and find it open in the detail panel.
 
 ### Prose search and inline highlights {#spec.viewer.prose-search}
 
@@ -1285,31 +1412,40 @@ Tests:
 
 Build order: `t71` → `t72` → `t73`, branching from the existing detail drawer (`t52`) in `wt-20`. This independent viewer branch can be built without waiting for API polling or commit-diff rendering. The matching layer is first, a usable title/ID/branch search follows, and prose completes the PRD requirement. All three tasks remain pending.
 
-### Canvas and curves {#spec.viewer.curves}
+### Curves {#spec.viewer.curves}
 
 - Implements: `prd.viewer`
-- Files: `apps/viewer/src/layout.ts`, `apps/viewer/src/curves.ts`, `apps/viewer/src/canvas.ts`, `apps/viewer/src/drag.ts`, `apps/viewer/src/subscription/drag.ts`
-- Depends on: `spec.viewer.model-and-messages`
+- Files: `apps/viewer/src/wires.ts`, `apps/viewer/src/view/wiresView.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/update.ts`, `apps/viewer/test/wires.test.ts`, `apps/viewer/test/wires.scene.test.ts`
+- Depends on: `spec.viewer.reader`, `spec.viewer.spec-cards`, `spec.viewer.stacks`
 
-The three columns sit on one canvas, built the way React Flow builds its own, from `@xyflow/system`, the framework-agnostic core under React Flow and Svelte Flow. Foldkit renders every node and edge; the library supplies geometry and gestures, never DOM or state.
+Curves join the three panes, for the current section only, so the reader starts with a handful of curves and never with all of them:
 
-- Positions: a subscription measures every `[data-section]` and `[data-task]` element on load and resize, and after every move (see Dragging below), and sends `MeasuredLayout`. Positions are in canvas coordinates, so pan and zoom do not invalidate them.
-- Curves: `curvesOf(trace, positions)` is pure. It returns one edge per link, with its path from `getBezierPath`. PRD to spec and spec to task links run from a node's right edge to the next node's left edge. Links inside the stacks area run from a task's top edge to the bottom edge of the task above it: solid for a parent, dashed for every other dependency (see `spec.viewer.stacks`). The view draws edges in one SVG layer. By default it draws only the edges of lit chains, the pinned ones and the hovered one, and none while nothing is lit, so the canvas starts clear. The "Show all curves" toggle draws every edge and dims those outside the lit chains.
-- Pan and zoom: `XYPanZoom` runs in a Foldkit `Mount` on the canvas pane. Its `onPanZoom` callback sends `PannedOrZoomed` with the viewport, and the model holds it. When the model's viewport changes for another reason, such as fitting the selected chain with `getViewportForBounds`, the mount calls `syncViewport`. `destroy` runs on unmount.
+- one from the current PRD section's heading to the header of each of its spec cards;
+- one from each task row in a card, a stray's row too, to that task's chip in the stacks pane.
 
-- Page layout: the canvas pane is the whole screen (`position: fixed`, `100vw` by `100vh`, no page scroll, no body margin). The h1, the presence status, any alerts and the Fit, Show all curves and Clear pins buttons sit in a compact toolbar fixed to the top left, over the canvas and outside its layer, so it does not pan or zoom. The drawer is a panel fixed to the right edge, 420px wide and full height, with its own vertical scroll, above the canvas; opening it does not move the canvas or the page. `MeasuredPane` measures the full-screen pane, so Fit frames the content in it.
-- Dragging: the PRD, the spec and each task card can be moved. A document moves as a whole column, its sections with it; a section is not moved on its own. A document is dragged by the bar across its top, which names it and its file; a task card by a grip in its corner. Each handle is a native button labelled "Move PRD", "Move Spec" or "Move t9", so a drag anywhere else on a node selects its text. A press with the primary button on a grip sends `PressedMoveHandle` and the model's `drag` becomes `Dragging` with the item, the pointer id and the pointer's position. While a drag is in progress a subscription listens to the page's pointer events and sends `MovedDragPointer` and `ReleasedDragPointer`; a move or release from another pointer, or with no drag in progress, is ignored, and so is a press on another handle while a drag is in progress. A move with no button held, or a new primary press, ends a drag whose release was missed, such as a click too quick for the page listener to start. When the drag's pointer goes up the drag becomes `Released`, keeping that pointer, and the subscription stops the click the browser makes of that release in the capture phase, before any node's handler sees it, and sends `SuppressedClickAfterDrag`; the browser clicks wherever the pointer went up, which can be the node that was moved, and a drag must not count as a click on it. Only the drag's own pointer going up arms the stop (`gestureStep`), so another finger's tap still reaches its node. The next press, `PressedAfterDrag`, also ends `Released`, so a release that makes no click does not swallow a later one. A click on the grip itself, from the keyboard or a press that did not move, sends `ClickedMoveHandle` and stops at the grip. Each move adds the pointer's move divided by `viewport.zoom` to the item's offset, so the item stays under the pointer at any zoom. With a grip focused, each arrow key sends `PressedArrowOnMoveHandle` and moves the item 10 canvas units. The model holds `offsets`, an `Offset` in canvas units per moved item keyed `document:prd`, `document:spec` or `task:<id>`, and the view applies each one as a CSS `translate` on the column or the card. "Reset layout", in the toolbar beside "Fit to view", sends `ClickedResetLayout` and clears every offset. Offsets are not kept across reloads.
-- Curves follow a move by measuring again: the layer carries the offsets in its `data-offsets` attribute, and the layout mount re-measures when that attribute changes, since a transform changes no size and neither resize observer sees it. A measured box includes its element's transform, so the positions, the curves and Fit all see the moved layout, with no offset arithmetic outside the DOM.
+`linksOf(cards)` is pure and returns those pairs as keys: `prd:<id>` to `spec:<id>`, and `row:<spec>:<task>` to `task:<id>`. Each element a curve can end on carries its key in `data-wire`.
 
-Not in v1: drawing connections and keeping a layout across reloads. When they come, `XYDrag` and `XYHandle` are used only if snapping or connection drawing needs them. The stacks have a computed layout of their own (`spec.viewer.stacks`); no general graph layout places the documents.
+`wiresOf(links, boxes, panes)` is pure. `boxes` is each key's measured rectangle and `panes` is the rectangle each pane clips to, all in window coordinates. For each link with both ends measured it returns a `Wire`: its two keys, its path and `isOffPane`.
+
+- A curve leaves the middle of its source's right edge and arrives at the middle of its target's left edge. The PRD end is different: it leaves from the right edge of the PRD pane, level with the heading, so curves do not cross the prose.
+- Each end's height is held inside its own pane, 8px in from the top and bottom. An end that had to be moved was scrolled out of view, and its curve is `isOffPane`. The PRD end does not count: the current section's heading is often above the pane.
+- The path is a cubic bezier whose control points sit level with its ends, `max(20, half the horizontal distance)` in from each. The reader computes it itself; `getBezierPath` from `@xyflow/system` goes with the canvas.
+
+Measuring: a Mount on the reader's body (`MeasureWires`) reads the rectangle of every `[data-wire]` element and of the three panes and sends `MeasuredWires`. It measures at most once per animation frame, and only sends when a rectangle changed. It measures when it mounts; on a `scroll` in any pane, heard in the capture phase on the body; on a window resize; when a `ResizeObserver` on each pane and on each pane's content fires, which covers a card opening and a pane being resized; and when the body's `data-wires` attribute changes. The view writes into that attribute what changes the layout without changing a size the observers see, which is the current section.
+
+`wiresView` is one SVG over the reader body, fixed, with no pointer events and `aria-hidden`, holding a path per wire. A wire is mid grey; an `isOffPane` wire is dashed and fainter. The PRD body and each card are lazy views, so a measurement renders the SVG again and nothing else.
+
+Hovering: a spec card's header, a task row and a chip send `HoveredNode` on pointer enter and on focus, and `LeftNode` on leave and on blur. While a node is hovered, the wires with both ends in `chainOf` of that node are drawn in ink and thicker, the rest fainter, and every card, row and chip outside the chain is dimmed. A row counts as its task.
+
+Tests: properties in `wires.test.ts` that `linksOf` gives one link per card and one per row; that every wire's ends lie inside the rectangles of their panes; that a link with an end not measured gives no wire; and that a wire is `isOffPane` exactly when its spec, row or chip end was moved. Scene tests send `MeasuredWires` with rectangles for a pinned section and find one path per link, then hover a row and find its two wires lit and another card dimmed.
 
 ### Stacks {#spec.viewer.stacks}
 
 - Implements: `prd.viewer.stacks`
-- Files: `apps/viewer/src/stacks.ts`, `apps/viewer/src/curves.ts`, `apps/viewer/src/view/stacksView.ts`, `apps/viewer/test/stacks.test.ts`, `apps/viewer/test/stacks.scene.test.ts`
-- Depends on: `spec.viewer.curves`
+- Files: `apps/viewer/src/stacks.ts`, `apps/viewer/src/view/stackChipsView.ts`, `apps/viewer/src/reader.ts`, `apps/viewer/test/stacks.test.ts`, `apps/viewer/test/stack-chips.scene.test.ts`
+- Depends on: `spec.viewer.reader`
 
-The stacks column draws the picture the diagram in `spec.planning.stack-order` draws, from the same rules, and a test holds the two together.
+The stacks pane draws the picture the diagram in `spec.planning.stack-order` draws, from the same rules, and a test holds the two together.
 
 `stacksOf(tasks)` is pure and replaces `stackLayoutOf`. It returns the stacks in number order:
 
@@ -1328,41 +1464,110 @@ Stack = {
 - Cells: a task's row is its depth, 1 for the root and one more than its parent's for every other task, so a chain has no gaps. Columns inside a box follow the old column rule: the first child by ID continues its parent's column, every other child starts a new one, and columns are numbered by the ID of their first task.
 - Level: a stack waits on another when one of its tasks depends on a task in the other. Its level is 1 when it waits on nothing, otherwise one more than the highest level among the stacks it waits on. A dependency that names no task, or that would close a cycle between stacks, is ignored.
 
-`stacksView`:
+`stackChipsView` draws every stack, whatever the current section is:
 
-- The column is the levels stacked bottom to top, highest level at the top. Each level is a row of its stacks in number order, aligned to the bottom, 32px apart. Under the bottom row is a bar the width of the column labelled with `trace.baseBranch`. The bar is not a node: nothing measures, hovers or pins it, and no curve runs to it, since every stack in the bottom row starts from it.
-- A stack is a box (`data-stack` holding its number), filled and bordered in light grey like the diagram's subgraphs, with its label in small text at the top and a CSS grid of its cells. A cell's `grid-row` counts down from the box's own top row, so each box is only as tall as its deepest chain.
-- A task card reads like a diagram node. The first line is the ID, the branch without its `<feature>/` prefix, and `GATE` for a human gate; then the title; then the worktree, `main checkout` for `null`; then the status. A band across the top of the card is the model's colour (opus `#7c3aed`, sonnet `#2563eb`, haiku `#facc15`) with the model named in it. A gated card has a 3px `#dc2626` border. The fill and the stripes down the left edge stay the pins' (see `spec.viewer.model-and-messages`), so a model colour never reads as a pin.
-- `curvesOf` loses its `columnOf` argument: a parent is a solid curve and every other dependency a dashed one, as in the diagram.
-- A card still moves by its grip, and Reset layout returns it to its cell. Moving a whole box is not in this section.
+- The pane is the levels stacked bottom to top, highest level at the top. Each level is a row of its stacks in number order, aligned to the bottom. Under the bottom row is a bar the width of the pane labelled with `trace.baseBranch`, held to the bottom of the pane with `position: sticky` so it stays in view. The bar is not a node: nothing hovers it and no curve runs to it, since every stack in the bottom row starts from it. The pane starts scrolled to the bottom, where the bar is.
+- A stack is a box (`data-stack` holding its number) with its number in a corner, `labelOf(stack)` as its `title` and `aria-label`, and a CSS grid of its cells. A cell's `grid-row` counts down from the box's own top row, so each box is only as tall as its deepest chain.
+- A task is a chip: a native button with `data-task` holding its ID and `data-wire` holding `task:<id>`, showing a status dot and the ID. Its `title` and `aria-label` give the ID, the title, the branch without its `<feature>/` prefix, the worktree (`main checkout` for `null`) and the status. A gated chip has a 2px `#dc2626` border. The model's colour and the reasoning mark are in `spec.viewer.models`. It sends `ClickedTask`.
+- A chip whose task is in the current section's chain has `data-current`, an ink border and a hard shadow, and so does its box. Every other chip is at 45% opacity and still takes focus, hover and clicks.
+- Over the diagram, held to the top of the pane: "N of M stacks hold this section · X of Y tasks done", from the stacks with a current chip and `planCountsOf`, and a legend for done, pending, in this section, a human gate and "read up from main".
+- No curve is drawn inside the pane. A chip sits directly on its parent, and the detail panel names the other tasks a task depends on (see `spec.viewer.detail-panel`).
 
-Tests: properties in `stacks.test.ts` that every task is in exactly one stack; a child shares its parent's stack and sits one row above it; no two tasks in a box share a cell; a stack's level is above every stack it waits on, cycles aside; numbers follow root IDs; and the input order does not change the result. One test reads the Mermaid block from `.cairn/spec.md` and checks that `stacksOf` on `.cairn/manifest.json` gives the same labels with the same tasks in each, so a manifest change that is not redrawn fails `pnpm check`. A Scene test on the demo trace finds the boxes and their labels, a child card in the row above its parent in the same box, the base branch bar, `GATE` and the worktree on a card.
+The canvas's task cards, with their branch, title, worktree and model band, and `stacksView` that draws them, go with the canvas (see `spec.viewer.canvas-removal`).
 
-Considered and left out: `@dagrejs/dagre` with compound nodes, which is how Mermaid lays out the diagram. It needs every card's size before it runs and returns absolute positions, so the view would place every card by hand and measure twice. The rule above is short enough to compute directly, and CSS sizes the boxes.
+Tests: properties in `stacks.test.ts` that every task is in exactly one stack; a child shares its parent's stack and sits one row above it; no two tasks in a box share a cell; a stack's level is above every stack it waits on, cycles aside; numbers follow root IDs; and the input order does not change the result. One test reads the Mermaid block from `.cairn/spec.md` and checks that `stacksOf` on `.cairn/manifest.json` gives the same labels with the same tasks in each, so a manifest change that is not redrawn fails `pnpm check`. A Scene test on the demo trace finds the boxes and their labels, a child chip in the row above its parent in the same box, the base branch bar, a gated chip, and for a pinned section its chips marked current and the count over the diagram.
 
-### Presence on the canvas {#spec.viewer.presence}
+Considered and left out: `@dagrejs/dagre` with compound nodes, which is how Mermaid lays out the diagram. It needs every node's size before it runs and returns absolute positions, so the view would place every chip by hand and measure twice. The rule above is short enough to compute directly, and CSS sizes the boxes. Also left out: curves between chips for dependencies across stacks. The rows already say what waits on what.
+
+### Models and reasoning {#spec.viewer.models}
+
+- Implements: `prd.viewer.models`
+- Files: `apps/viewer/src/reader.ts`, `apps/viewer/src/view/modelView.ts`, `apps/viewer/src/view/specPaneView.ts`, `apps/viewer/src/view/stackChipsView.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/update.ts`, `apps/viewer/test/reader.test.ts`, `apps/viewer/test/models.scene.test.ts`
+- Depends on: `spec.contract.events`, `spec.viewer.spec-cards`, `spec.viewer.stacks`
+
+`ranOf(task)` in `reader.ts` is pure and returns `{ model, reasoning, ran }`. When one of the task's `running` events carries both a `model` and a `reasoning`, it is the latest such event's pair with `ran: true`. Otherwise it is the manifest's `model` and `reasoning` with `ran: false`, whatever the task's status.
+
+`modelView.ts` draws it in three sizes, each with `data-ran`:
+
+- `modelChipView`, at the end of a task row and in the detail panel: `sonnet · medium` on the model's colour.
+- On a stack chip: the chip's fill is the model's colour and a small mark follows the ID, `lo`, `med`, `hi`, `xhi` or `max`.
+- In a spec card's header: one small square per task in its model's colour.
+
+Colours are the diagram's: opus `#7c3aed`, sonnet `#2563eb`, haiku `#facc15` with dark text, and `#6b7280` for any other model, which is still named. What ran is a solid fill with an ink border. What is planned has a dashed border and a paler fill, so the two can be told apart without reading. The `title` says "Ran on sonnet, medium reasoning" or "Planned for sonnet, medium reasoning".
+
+The switch is a native button in the top bar labelled "Models and reasoning" with `aria-pressed`. `ClickedModelsSwitch` flips `isShowingModels`, which starts `true`. With it off the views render no chip, mark or square, a done stack chip is filled green and a pending one is white, and the legend's model entries are replaced by one for done.
+
+Tests: properties that `ranOf` returns the manifest's pair and `ran: false` for a task with no `running` event that names a model, and the latest such event's pair and `ran: true` when there is one. Scene tests find `data-ran="true"` on a task the demo trace has a record for and `"false"` on a pending one, then turn the switch off and find no model chip, mark or square on the page, and on again.
+
+### Panes {#spec.viewer.panes}
+
+- Implements: `prd.viewer.panes`
+- Files: `apps/viewer/src/panes.ts`, `apps/viewer/src/subscription/resize.ts`, `apps/viewer/src/view/dividerView.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/update.ts`, `apps/viewer/test/panes.test.ts`, `apps/viewer/test/panes.scene.test.ts`
+- Depends on: `spec.viewer.reader`, `spec.viewer.curves`
+
+`Widths` is `{ prd, spec, detail }` in pixels, at first 520, 440 and 600. They are what a person chose, not what the window has room for. The stacks pane has no width of its own: it takes what the PRD and the spec leave.
+
+`resized(widths, pane, delta)` in `panes.ts` is pure. It adds `delta` to one pane and holds the result between that pane's limits: 300 to 1000 for the PRD, 260 to 1100 for the spec and 360 to 1400 for the detail panel.
+
+Fitting a window is the layout's job, not the model's. The reader's grid gives the PRD a column from its least width up to its chosen width, the spec the same, and the stacks pane at least 240px, so a window too narrow for the chosen widths shows the PRD and the spec narrower, down to their least widths, before the stacks pane goes under 240px. A window narrower than all the least widths and the two dividers together, 952px, scrolls the reader sideways. The detail panel is never wider than the window. No width in the model changes when the window does.
+
+A divider (`dividerView`) is an element with `role="separator"`, `aria-orientation="vertical"`, `aria-valuenow`, `aria-valuemin` and `aria-valuemax` for its pane's width, `tabindex="0"` and a label such as "Resize the PRD pane". The curves pass over the two dividers between the panes, which are 76px wide to give them room.
+
+- Pointer: a primary press sends `PressedDivider` with the pane, the pointer's ID and its x, and the model's `resize` becomes `Resizing` with those and the pane's width at the press. While it is `Resizing`, a subscription in `subscription/resize.ts` listens to the page's pointer events and sends `MovedResizePointer` and `ReleasedResizePointer`, as the canvas's drag subscription does. A move sets the width to the width at the press plus how far the pointer has moved since, through `resized`. A move or release from another pointer is ignored, and a move with no button held ends a resize whose release was missed. The detail panel's divider is on its left edge, so its `delta` is reversed.
+- Keys: with a divider focused, the left and right arrow keys send `PressedArrowOnDivider` and move it 24px.
+- The view writes the widths as CSS custom properties on the reader's grid, whose columns are `minmax(300px, <prd>)`, a divider, `minmax(260px, <spec>)`, a divider and `minmax(240px, 1fr)`. A width change resizes the panes, so the wires are measured again through their `ResizeObserver` (see `spec.viewer.curves`).
+- Widths are model state and are not kept across reloads.
+
+Tests: properties that `resized` never returns a width outside its pane's limits, changes no pane but the one named, and returns widths already inside their limits unchanged for a `delta` of zero. Scene tests focus a divider and press an arrow key and find `aria-valuenow` changed by 24; press, move and release and find the new width; and check that a move from another pointer changes nothing.
+
+### Presence in the reader {#spec.viewer.presence}
 
 - Implements: `prd.v2-multiplayer-on-cloudflare.presence`, `prd.viewer`
-- Files: `apps/viewer/src/presence.ts`, `apps/viewer/src/canvas.ts`, `packages/core/src/room-machine.ts`
-- Depends on: `spec.viewer.curves`
+- Files: `packages/contract/src/index.ts`, `packages/core/src/room-machine.ts`, `packages/cli/src/presence.ts`, `apps/viewer/src/subscription/presence.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/update.ts`, `packages/core/test/room-machine.test.ts`, `packages/cli/test/presence.test.ts`, `apps/viewer/test/presence.scene.test.ts`
+- Depends on: `spec.viewer.reader`
 
-Today a cursor is a fraction of the sender's window, drawn with `position: fixed`. Once the canvas pans and zooms, that puts a cursor over different content in each window.
+On the canvas a cursor is a point in canvas coordinates, which every window shares. The reader has no shared coordinates: each window scrolls its panes on its own, wraps the PRD at its own width and shows the spec of its own current section. So presence says what a participant is reading, not where their pointer is.
 
-- A cursor is a point in canvas coordinates. The sender converts the pointer with its current viewport through `toCanvas(point, viewport)`, built on `pointToRendererPoint` from `@xyflow/system`.
-- The view draws each cursor inside the canvas's transformed layer, so it sits over the same node in every window, whatever that window's pan and zoom. Its label is scaled by `1 / zoom` so it stays the same size on screen.
-- The `Cursor` schema keeps `{ x, y }`; only its meaning changes, from window fractions to canvas coordinates. The room machine stops clamping cursors to `[0, 1]`. A pointer outside the canvas pane sends no move.
+- A participant carries `reading`, the PRD section that is current in their window, or nothing before their first section is known. The wire carries a missing value as `null`, as it does for the cursor. `cursor` stays beside it for the canvas, which keeps its pointers until it is removed; `cursor`, the `Cursor` schema and the `moved` event go with the canvas, behind its gate (see `spec.viewer.canvas-removal`).
+- The viewer sends its current section when the socket opens and each time `currentOf` changes. A pin or an active search result counts, since it is what the person is looking at.
+- The room machine gains a `read` event, with the participant's ID and the section. It sets that participant's `reading` and nothing else. An event for a participant not in the room is ignored, as a move is.
+- `prdPaneView` shows each other participant's label as a chip beside the heading of the section they are reading. Two participants on one section show two chips. The top bar keeps "Here now: ...".
 
-Tests: a property that `toScreen(toCanvas(p, v), v)` returns `p` for any viewport `v`; a Scene test with two participants and different viewports that finds the other participant's cursor at the same canvas position.
+Tests: the room machine through its events: a `read` sets only that participant's section and leaves every cursor alone, and one from an unknown participant changes nothing. A Scene test with two participants finds the other's label beside the heading it is reading, and beside another heading after it sends one.
 
 ### Detail panel {#spec.viewer.detail-panel}
 
-- Implements: `prd.viewer`, `prd.acceptance-criteria`
-- Files: `apps/viewer/src/drawer.ts`
-- Depends on: `spec.viewer.model-and-messages`
+- Implements: `prd.viewer.task-detail`, `prd.viewer`, `prd.acceptance-criteria`
+- Files: `apps/viewer/src/detail.ts`, `apps/viewer/src/view/detailView.ts`, `apps/viewer/src/drawer.ts`, `apps/viewer/src/update.ts`, `apps/viewer/test/detail.test.ts`, `apps/viewer/test/detail.scene.test.ts`
+- Depends on: `spec.viewer.reader`, `spec.viewer.models`, `spec.viewer.panes`
 
-Clicking a PRD or spec section opens the drawer with its tasks, and each task lists its commits. Clicking a commit opens the code view on it (see `spec.viewer.code-view`). That is the two-click path from section to commit.
+The detail panel is fixed to the right edge of the reader, full height, with its own scroll and a divider on its left edge (see `spec.viewer.panes`). It lies over the panes and does not move them.
 
-Clicking a task shows its commits, its sessions with their redaction counts, events timeline, gate reasons and judgments, and an "Open code" button for the code view. A spec section's drawer lists its judgments too. Each judgment shows its question, verdict, message and the probability or label and confidence behind it.
+The model holds `detail`, a trail of nodes; an empty trail is a closed panel, and the last node is the one shown. `detail.ts` holds the trail's pure steps.
+
+- `ClickedTask` from a task row or a chip starts a new trail on that task.
+- A task or spec section opened from inside the panel, `ClickedDetailNode`, is added to the end of the trail.
+- The trail is drawn across the panel's top as buttons, a task by its ID and a spec section by its title. `ClickedTrailStep` cuts the trail back to that step.
+- `ClickedCloseDetail` empties it. `PressedEscape` removes the last step, which closes the panel at the first.
+- When the panel opens or its last node changes, focus moves to the panel's heading.
+
+A task shows, in this order:
+
+1. Its ID, title, branch and `Stack N`.
+2. Its status; `ranOf` as "ran on sonnet · medium" or "planned for sonnet · medium"; "on t52" for its parent or "from main" for none; and each other task it depends on, as a button that adds it to the trail.
+3. The reasons for its gate, when it is gated.
+4. Its code and its agent session (see `spec.viewer.detail-code`).
+5. Commits, each a button with its subject and short SHA that sends `ClickedOpenCode` with that commit, and "Open in code view", which sends it with none.
+6. Traces to: each of its PRD sections as a button that sends `ClickedTraceSection`, which scrolls the PRD pane to that heading; and each of its spec sections as a button that adds it to the trail.
+7. The files the plan expects, its events timeline and its judgments, as the drawer shows them today.
+
+A spec section shows its ID, its summary, its key chips, its tasks as rows that add to the trail, and its judgments. Each judgment shows its question, verdict, message and the probability or label and confidence behind it.
+
+The path from a PRD section to a commit is two clicks: a task row of the current section, then a commit in the panel.
+
+`drawer.ts` keeps the parts the panel reuses (the timeline, gate reasons and judgments) until the canvas goes, and then only they remain (see `spec.viewer.canvas-removal`).
+
+Tests: properties in `detail.test.ts` that opening from outside always gives a trail of one, that cutting back to a step keeps exactly the steps up to it, and that going back from one step closes the panel. Scene tests click a task row and find the panel with the task's heading and focus on it; open a spec section from "Traces to" and find two steps in the trail, go back by the first step, and close with Escape pressed twice; find the parent and the other dependencies named on a task that has both; and click a row and then a commit and find the code view on that commit.
 
 ### Code view {#spec.viewer.code-view}
 
@@ -1370,16 +1575,16 @@ Clicking a task shows its commits, its sessions with their redaction counts, eve
 - Files: `apps/viewer/src/codeView.ts`, `apps/viewer/src/view/codeView.ts`, `apps/viewer/src/view/treeView.ts`
 - Depends on: `spec.viewer.detail-panel`
 
-The model's `screen` is `Canvas`, or `Code` with the selected task, what is shown of it (`WholeTask`, or `OneCommit` with its SHA) and the selected file. Pins, offsets, the drawer and the viewport stay in the model while the code view is open, so "Back to canvas" (`ClickedBackToCanvas`) returns to the canvas as it was: the canvas mounts start again and read the viewport back from the model.
+The model's `screen` is `Reader`, or `Code` with the selected task, what is shown of it (`WholeTask`, or `OneCommit` with its SHA) and the selected file. The reader's state and the detail panel's trail stay in the model while the code view is open, so "Back to the plan" (`ClickedBackToPlan`) returns to the reader as it was, with its pin, its pane widths and the panel open on the same task. Until the canvas is removed `Canvas` is a third screen (see `spec.viewer.canvas-removal`), and the code view goes back to whichever of the two it was opened from. The PRD pane's scroll is not model state, so the tracking Mount scrolls the pane to the current section when it mounts again.
 
 Two ways in, each sending `ClickedOpenCode` with a task and an optional commit:
 
-- "Open code" on a task in the drawer opens its whole diff.
-- A commit in the drawer opens that commit.
+- "Open in code view" on a task in the detail panel opens its whole diff.
+- A commit in the detail panel opens that commit.
 
 A task with no commits opens with a middle pane that says so.
 
-The screen is three panes across the window, under a top bar with "Back to canvas", the task's ID and branch, then for the whole task its commit count and short `base..head`, or for one commit its subject and short SHA, and the diff style toggle:
+The screen is three panes across the window, under a top bar with "Back to the plan", the task's ID and branch, then for the whole task its commit count and short `base..head`, or for one commit its subject and short SHA, and the diff style toggle:
 
 - Tree, 280px wide, with its own scroll. Stacks in `stackLayoutOf` column order, each headed by the branch it starts from. Under each stack, its tasks from the bottom of the stack up, each with ID, title, status and gate marker; under each task, its commits, oldest first. The selected task's or commit's files show under it as a directory tree, where a directory with one child joins it (`src/view/`); a whole task's files are the union of its commits' files. `ClickedTreeTask` selects a task's whole diff, `ClickedTreeCommit` one commit and `ClickedTreeFile` a file. Every row is a button, so the tree can be walked with Tab, and the selected row has `aria-current`.
 - Diff, the rest of the width: see `spec.viewer.diff-view`.
@@ -1387,9 +1592,9 @@ The screen is three panes across the window, under a top bar with "Back to canva
 
 Loading: selecting a whole task fetches `/api/diffs/:base/:head`, where `head` is its newest commit and `base` the first parent of its oldest; selecting one commit fetches `/api/commits/:sha` (see `spec.patch-routes`). Either sends `ReceivedPatch` with the route's path and the patch text or the error. When the selected commit has a session not yet loaded, it fetches `/api/sessions/:id` and sends `ReceivedSession` with the `Session`, decoded through its schema, or the error. The model keeps each patch and session it has received, keyed by route path and session ID, so going back to a task or commit draws it without a fetch. A failed fetch shows its error in its pane and is tried again the next time it is selected.
 
-In the demo build there is no server: the tree works, and the diff and session panes say they need `cairn serve`.
+In the demo build there is no server: the tree works, the diff pane shows the patches the build shipped (see `spec.viewer.demo-data`), and the session pane says the demo has no sessions.
 
-Tests: Scene tests open the code view from a drawer commit and from "Open code", select a task, a commit and a file in the tree and check the selection and the route each requests, and go back to the canvas and find the pins as they were.
+Tests: Scene tests open the code view from a commit in the detail panel and from "Open in code view", select a task, a commit and a file in the tree and check the selection and the route each requests, and go back to the plan and find the pinned section and the panel as they were.
 
 ### Diff view {#spec.viewer.diff-view}
 
@@ -1453,29 +1658,79 @@ In the diff, each hunk carries a mark as a line annotation on its first changed 
 
 Tests: a property over generated files and edit sequences applies the edits to a file, diffs the result against the original with `parseDiffFromFile`, and checks that every added line is traced to the last edit that wrote it, and that lines added outside the session are untraced. An example runs a real commit of this repo against its session and finds every hunk traced. The marks live in the library's DOM, so a story sends `ClickedHunkMark` and a Scene finds the turn open and active in the session pane.
 
-### Demo data {#spec.viewer.demo-data}
+### Code in the detail panel {#spec.viewer.detail-code}
+
+- Implements: `prd.viewer.task-detail`, `prd.acceptance-criteria`
+- Files: `apps/viewer/src/view/detailView.ts`, `apps/viewer/src/view/sessionView.ts`, `apps/viewer/src/update.ts`, `apps/viewer/test/detail-code.scene.test.ts`
+- Depends on: `spec.viewer.detail-panel`, `spec.viewer.diff-view`, `spec.viewer.session-view`
+
+A task's detail shows the code it changed without leaving the plan.
+
+Code. The task's whole stacked diff is drawn by the mount the code view uses (`patchView`, see `spec.viewer.diff-view`), keyed by the route path. `detailView` wraps it; `diffView.ts` is not changed here. When a task with commits becomes the last node of the trail, the update fetches `patchPathOf(task, WholeTask)` unless `patches` already holds it, and the reply comes back as `ReceivedPatch`. The panel and the code view share `patches`, so neither fetches what the other has loaded. The list scrolls itself, so it sits in a region 60% of the window's height, under a line with the commit count and the files changed. A failed fetch shows its error in that region and is tried again the next time the task is shown. A task with no commits says "No code yet. The task has not started."; a done task with none says no commit carries its `Cairn-Task` trailer.
+
+Session. Under the code, the agent session of the task's latest commit: the first `PromptTurn`'s text, held to six lines, then up to twelve `ToolTurn`s, one line each with the tool's name and its target, then "... N more tool calls" when there are more, and "Open the session", which opens the code view on that commit. It is loaded as the session pane loads it (see `spec.viewer.session-view`), through `ReceivedSession`, and shares the sessions already loaded. A commit with no session says its code is shown alone. In the demo build it says the demo has no sessions.
+
+Tests: Scene tests open a task with commits and find the diff mount keyed by the whole task's route, with that route requested once across two openings and not again after the code view has loaded it; find "No code yet" on a pending task; and, with a session fixture, find the prompt, twelve tool lines and the count of the rest, and the code view opened by "Open the session".
+
+### Replacing the canvas {#spec.viewer.canvas-removal}
 
 - Implements: `prd.viewer`
-- Files: `apps/viewer/src/demo.ts`, `apps/viewer/src/demo-trace.json`
-- Depends on: `spec.contract.trace`
+- Files: `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/init.ts`, `apps/viewer/src/view/view.ts`, `apps/viewer/src/canvas.ts`, `apps/viewer/src/drag.ts`, `apps/viewer/src/layout.ts`, `apps/viewer/src/geometry.ts`, `apps/viewer/src/curves.ts`, `apps/viewer/src/highlight.ts`, `apps/viewer/src/drawer.ts`, `apps/viewer/src/diagram.ts`, `apps/viewer/src/subscription/drag.ts`, `apps/viewer/src/view/canvasView.ts`, `apps/viewer/src/view/nodeView.ts`, `apps/viewer/src/view/edgesView.ts`, `apps/viewer/src/view/moveHandleView.ts`, `apps/viewer/src/view/stacksView.ts`, `apps/viewer/src/view/cursorsView.ts`, `apps/viewer/src/subscription/presence.ts`, `packages/contract/src/index.ts`, `packages/core/src/room-machine.ts`, `packages/cli/src/presence.ts`, `apps/viewer/package.json`, `apps/viewer/test/`, `packages/core/test/room-machine.test.ts`, `packages/cli/test/presence.test.ts`
+- Depends on: `spec.viewer.reader`, `spec.viewer.spec-cards`, `spec.viewer.stacks`, `spec.viewer.curves`, `spec.viewer.models`, `spec.viewer.panes`, `spec.viewer.detail-panel`, `spec.viewer.search-interaction`, `spec.viewer.presence`
 
-The demo, and the site deployed from it, loads a `Trace` built from this repo's own `.cairn/` by `cairn status --json`. It replaces the three hand-written rows in `demo.ts`. Until the CLI exists, the fixture is written by hand.
+<!-- human -->
+
+Until this section is built the viewer opens on the canvas, and the reader is one click away. This section makes the reader the viewer. A human approves it first, because it takes away things people can do today: panning and zooming, moving the documents and the task cards, keeping several chains pinned in colours, Fit, Reset layout, Show all curves and pointer cursors. The owner compares the two screens on the demo before it lands.
+
+- `Screen` is `Reader` or `Code`, and the viewer opens on `Reader`. The "Plan" and "Canvas" buttons and `ClickedScreen` are removed.
+- The canvas, its views and what only they use are deleted: pan and zoom, dragging and its subscription, the measured layout and `MeasuredLayout`, `curvesOf`, the pins and their palette, the node, edge, move handle, cursor and stack card views, and the drawer shell. Their model fields and messages go with them. What the detail panel reuses from `drawer.ts` moves into `view/detailView.ts`.
+- Pointer presence goes too: a participant's `cursor`, the `Cursor` schema and the room machine's `moved` event are removed from the contract, the room machine, the presence server and the viewer. `reading` stays (see `spec.viewer.presence`).
+- `DrawDiagram` no longer measures a canvas layer. A diagram that changes a pane's height is seen by the wires' `ResizeObserver`.
+- `stackLayoutOf` and `columnOf` stay only if the code view's tree still uses them.
+- `@xyflow/system` is removed from `apps/viewer/package.json` once nothing imports it.
+- The code view's button reads "Back to the plan" and its message is `ClickedBackToPlan`.
+
+Tests: a Scene test for a behaviour the reader keeps is moved to the reader, not deleted: loading and the error over the last good trace, the two clicks from a section to a commit, search, the code view and back, presence, and judgment markers. A test for a behaviour that is removed is deleted with it. `pnpm check` passes with no unused export left behind.
+
+### Demo data {#spec.viewer.demo-data}
+
+- Implements: `prd.viewer`, `prd.viewer.task-detail`
+- Files: `apps/viewer/src/demo.ts`, `apps/viewer/src/demo-trace.json`, `scripts/demo-patches/demo-patches.ts`, `apps/viewer/package.json`, `apps/viewer/src/load.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/view/diffView.ts`, `.github/workflows/ci.yml`, `.gitignore`
+- Depends on: `spec.contract.trace`, `spec.patch-routes`, `spec.viewer.diff-view`
+
+The demo and the deployed site load a `Trace` built from this repo's own `.cairn/` by `cairn status --json`. This replaces the three hand-written rows in `demo.ts`. Until the CLI exists, the fixture is written by hand.
+
+What ran. Until an orchestrator writes `model` and `reasoning` on its `running` events (see `spec.contract.events`), the demo trace's `running` events carry what the session records of the first builds say, for the tasks that have such an event: t6 sonnet low, t8 sonnet low, t9 sonnet medium, t10 sonnet medium, t13 sonnet low, t42 sonnet medium, t43 sonnet medium, t44 haiku low, t45 sonnet medium, t46 sonnet medium, t47 sonnet low, t48 sonnet medium, t49 sonnet medium, t50 sonnet high, t51 sonnet medium and t52 sonnet medium. Every other task shows the plan's choice as planned.
+
+Code in the demo. The deployed demo has no server, so its build writes the patches the viewer would fetch as files at the same paths: `api/commits/<sha>` for each commit in the demo trace, and `api/diffs/<base>/<head>` for each task with commits, with the range `rangeOf` gives.
+
+- `scripts/demo-patches/demo-patches.ts` is an Effect script. It reads `demo-trace.json`, runs `git show --patch` and `git diff --patch` with the arguments `spec.patch-routes` gives them, and writes the output under `apps/viewer/public/api/`, which is gitignored.
+- It runs before the demo is built. The viewer's `build` script runs it first; if the Alchemy website resource builds with Vite itself, it runs there too. Read `Cloudflare.Website.Foldkit` in the installed Alchemy to see which.
+- A commit git does not have is skipped and named in the output, and the script still succeeds. That is the case in a shallow clone, such as the `check` job's.
+- The `deploy` job checks out the whole history (`fetch-depth: 0`), so the deployed demo has every patch. That edit is to `.github/workflows/ci.yml`, a gated path, so a human approves this task.
+- In the demo build the viewer fetches these paths as it does under `cairn serve`: `withPatchRequested` in `update.ts` no longer skips the demo, and `diffView.ts` no longer says the diff needs `cairn serve`. The site answers a path it has no file for with its HTML page, so a reply whose `Content-Type` is `text/html` is a missing patch, and its pane says this build does not have that commit's code.
+- No session is shipped. Session logs are not in the repository, and they are not redacted yet (see `spec.sessions.redaction`).
+
+Tests: the script against a temporary repository with two commits writes one file per commit and one per range, and skips a SHA git does not have without failing. A Scene test in the demo build finds the diff mount requesting a commit's path, and a `text/html` reply shown as a missing patch.
 
 ## Acceptance {#spec.acceptance}
 
 - Implements: `prd.acceptance-criteria`
 
-| PRD criterion                                        | How it is checked                                                                                         |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Three or more stacked tasks on a RinkSide feature    | Dogfood run; `cairn status` output kept with the feature                                                  |
-| Trailers and resolvable sessions                     | `cairn status` warns on a commit without trailers or with a session missing from `cairn.db`               |
-| A migrations task is gated and blocks children       | Derivation property test: no child leaves `pending` before a human approves its gated parent              |
-| Correct status and two clicks to commits             | Rollup property tests; a Scene test clicks a section and then a commit                                    |
-| Lint catches orphaned and unmapped sections          | Lint tests for `unknown-section` and `unmapped-section`                                                   |
-| An oversized draft is broken down before printing    | `refine` test: a scripted `too_large` answer splits a draft, and the plan output lists the split          |
-| A model changes only when Jev is confident           | `routeOf` property test and a `refine` test with a low-confidence `model` answer                          |
-| A changed task's judgment shows stale                | Trace test: edit a task and check `stale`                                                                 |
-| Planning without `TYPESAFE_API_KEY` still writes     | `cairn plan` test with no key: manifest written, skip message printed                                     |
-| A task's stacked diff opens highlighted              | Patch route tests; a Scene opens a task and finds its range requested and mounted; `diffOptionsOf` test   |
-| Hunks reach the turn that wrote them                 | `attributionOf` property test; a story sends `ClickedHunkMark` and a Scene finds the turn                 |
-| Fuzzy search finds and highlights text and its chain | Matching properties and Scene tests for navigation, markdown spans, refresh, and preserving pins on clear |
+| PRD criterion                                          | How it is checked                                                                                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Three or more stacked tasks on a RinkSide feature      | Dogfood run; `cairn status` output kept with the feature                                                                             |
+| Trailers and resolvable sessions                       | `cairn status` warns on a commit without trailers or with a session missing from `cairn.db`                                          |
+| A migrations task is gated and blocks children         | Derivation property test: no child leaves `pending` before a human approves its gated parent                                         |
+| Correct status and two clicks to commits               | Rollup property tests; a Scene test clicks a section and then a commit                                                               |
+| Lint catches orphaned and unmapped sections            | Lint tests for `unknown-section` and `unmapped-section`                                                                              |
+| An oversized draft is broken down before printing      | `refine` test: a scripted `too_large` answer splits a draft, and the plan output lists the split                                     |
+| A model changes only when Jev is confident             | `routeOf` property test and a `refine` test with a low-confidence `model` answer                                                     |
+| A changed task's judgment shows stale                  | Trace test: edit a task and check `stale`                                                                                            |
+| Planning without `TYPESAFE_API_KEY` still writes       | `cairn plan` test with no key: manifest written, skip message printed                                                                |
+| A task's stacked diff opens highlighted                | Patch route tests; a Scene opens a task and finds its range requested and mounted; `diffOptionsOf` test                              |
+| Hunks reach the turn that wrote them                   | `attributionOf` property test; a story sends `ClickedHunkMark` and a Scene finds the turn                                            |
+| Fuzzy search finds and highlights text and its chain   | Matching properties and Scene tests for navigation, markdown spans, refresh, and preserving the pin on clear                         |
+| Scrolling the PRD changes the cards and the lit stacks | `sectionAtTop` properties; a Scene sends `ScrolledPrd` and finds the cards and current chips of that section; a pinned section holds |
+| Models and reasoning show what ran or what is planned  | `ranOf` properties; a Scene finds `data-ran` on rows and chips and none of them with the switch off                                  |
+| A task's code shows in the detail panel                | A Scene clicks a task row and finds the diff mount keyed by the task's range, with the reader still under it                         |

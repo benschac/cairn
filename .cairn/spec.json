@@ -789,8 +789,8 @@
       "dependsOn": [],
       "defers": [],
       "context": [],
-      "tasks": ["t8"],
-      "summary": "Defines the Event schema, one JSON object per line of events.jsonl, with a new actor field.",
+      "tasks": ["t8", "t82"],
+      "summary": "Defines the Event schema, one JSON object per line of events.jsonl, with an actor and, on a running event, the model and reasoning the task was started with.",
       "requirements": [
         {
           "id": "spec.contract.events#r1",
@@ -816,6 +816,16 @@
           "id": "spec.contract.events#r5",
           "level": "must",
           "text": "Only a human: actor can move a task out of blocked_on_human."
+        },
+        {
+          "id": "spec.contract.events#r6",
+          "level": "must",
+          "text": "`model` and `reasoning` are optional, have the manifest's types, and are set by the orchestrator on a `running` event to what it started the task with."
+        },
+        {
+          "id": "spec.contract.events#r7",
+          "level": "must",
+          "text": "An event without them still decodes, and on any other status they are ignored."
         }
       ],
       "artifacts": [
@@ -878,7 +888,7 @@
       "id": "spec.contract.trailers",
       "title": "Trailers",
       "level": 3,
-      "line": 167,
+      "line": 171,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -949,7 +959,7 @@
       "id": "spec.contract.trace",
       "title": "Trace",
       "level": 3,
-      "line": 181,
+      "line": 185,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -958,7 +968,7 @@
       "dependsOn": ["spec.contract.manifest", "spec.contract.events", "spec.contract.trailers"],
       "defers": [],
       "context": [],
-      "tasks": ["t10"],
+      "tasks": ["t10", "t83"],
       "summary": "Defines Trace field by field: both documents with their sections, derived tasks with commits and events, section statuses, warnings and judgments, with no positions; the viewer depends only on this schema.",
       "requirements": [
         {
@@ -974,7 +984,7 @@
         {
           "id": "spec.contract.trace#r3",
           "level": "must",
-          "text": "A TraceSection holds id, title without the {#id}, level, line, parent, human and its own plus inherited keys; keys are empty in the PRD."
+          "text": "A TraceSection holds id, title without the {#id}, level, line, parent, human, summary and its own plus inherited keys; keys are empty in the PRD."
         },
         {
           "id": "spec.contract.trace#r4",
@@ -1005,6 +1015,11 @@
           "id": "spec.contract.trace#r9",
           "level": "must",
           "text": "judgments is empty until the judging work fills it."
+        },
+        {
+          "id": "spec.contract.trace#r10",
+          "level": "must",
+          "text": "`summary` is the section's summary in spec.json, null in the PRD and for a section the index does not hold; a trace written without it decodes with null."
         }
       ],
       "artifacts": [
@@ -1064,7 +1079,7 @@
       "id": "spec.contract.session",
       "title": "Session",
       "level": 3,
-      "line": 254,
+      "line": 261,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1133,7 +1148,7 @@
       "id": "spec.contract.config",
       "title": "Config",
       "level": 3,
-      "line": 302,
+      "line": 309,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1254,7 +1269,7 @@
       "id": "spec.contract.judgments",
       "title": "Judgments",
       "level": 3,
-      "line": 336,
+      "line": 343,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1322,7 +1337,7 @@
       "id": "spec.contract.spec-index",
       "title": "Spec index",
       "level": 3,
-      "line": 371,
+      "line": 378,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1418,7 +1433,7 @@
       "id": "spec.contract.javascript-entry",
       "title": "JavaScript entry",
       "level": 3,
-      "line": 416,
+      "line": 423,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1587,7 +1602,7 @@
       "id": "spec.sections",
       "title": "Sections",
       "level": 2,
-      "line": 431,
+      "line": 438,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.sections.parsing", "spec.sections.cairn-ids"],
       "human": false,
@@ -1607,7 +1622,7 @@
       "id": "spec.sections.parsing",
       "title": "Parsing",
       "level": 3,
-      "line": 433,
+      "line": 440,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -1742,7 +1757,7 @@
       "id": "spec.sections.cairn-ids",
       "title": "`cairn ids`",
       "level": 3,
-      "line": 455,
+      "line": 462,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -1799,7 +1814,7 @@
       "id": "spec.gates",
       "title": "Gates",
       "level": 2,
-      "line": 463,
+      "line": 470,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.gates.path-matching", "spec.gates.detection"],
       "human": false,
@@ -1819,7 +1834,7 @@
       "id": "spec.gates.path-matching",
       "title": "Path matching",
       "level": 3,
-      "line": 465,
+      "line": 472,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -1869,7 +1884,7 @@
       "id": "spec.gates.detection",
       "title": "Detection",
       "level": 3,
-      "line": 472,
+      "line": 479,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -1924,7 +1939,7 @@
       "id": "spec.models",
       "title": "Models",
       "level": 2,
-      "line": 485,
+      "line": 492,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -2056,7 +2071,7 @@
       "id": "spec.planning",
       "title": "Planning",
       "level": 2,
-      "line": 504,
+      "line": 511,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.planning.planner-service",
@@ -2080,7 +2095,7 @@
       "id": "spec.planning.planner-service",
       "title": "Planner service",
       "level": 3,
-      "line": 506,
+      "line": 513,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2269,7 +2284,7 @@
       "id": "spec.planning.stack-order",
       "title": "Stack order",
       "level": 3,
-      "line": 526,
+      "line": 533,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2384,7 +2399,7 @@
       "id": "spec.planning.cairn-plan",
       "title": "`cairn plan`",
       "level": 3,
-      "line": 861,
+      "line": 906,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2491,7 +2506,7 @@
       "id": "spec.lint",
       "title": "Lint",
       "level": 2,
-      "line": 876,
+      "line": 921,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -2714,7 +2729,7 @@
       "id": "spec.judging",
       "title": "Judging",
       "level": 2,
-      "line": 898,
+      "line": 943,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.judging.questions",
@@ -2757,7 +2772,7 @@
       "id": "spec.judging.questions",
       "title": "Questions",
       "level": 3,
-      "line": 904,
+      "line": 949,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2860,7 +2875,7 @@
       "id": "spec.judging.verdicts",
       "title": "Verdicts",
       "level": 3,
-      "line": 928,
+      "line": 973,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2970,7 +2985,7 @@
       "id": "spec.judging.judge-service",
       "title": "Judge service",
       "level": 3,
-      "line": 943,
+      "line": 988,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3055,7 +3070,7 @@
       "id": "spec.judging.checkpoints",
       "title": "Checkpoints",
       "level": 3,
-      "line": 954,
+      "line": 999,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3157,7 +3172,7 @@
       "id": "spec.judging.cairn-judge",
       "title": "`cairn judge`",
       "level": 3,
-      "line": 976,
+      "line": 1021,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3225,7 +3240,7 @@
       "id": "spec.status",
       "title": "Status",
       "level": 2,
-      "line": 987,
+      "line": 1032,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.status.task-machine",
@@ -3250,7 +3265,7 @@
       "id": "spec.status.task-machine",
       "title": "Task machine",
       "level": 3,
-      "line": 989,
+      "line": 1034,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3327,7 +3342,7 @@
       "id": "spec.status.derivation",
       "title": "Derivation",
       "level": 3,
-      "line": 997,
+      "line": 1042,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3428,7 +3443,7 @@
       "id": "spec.status.section-rollup",
       "title": "Section rollup",
       "level": 3,
-      "line": 1016,
+      "line": 1061,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3509,7 +3524,7 @@
       "id": "spec.status.cairn-status-and-cairn-approve",
       "title": "`cairn status` and `cairn approve`",
       "level": 3,
-      "line": 1032,
+      "line": 1077,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3606,7 +3621,7 @@
       "id": "spec.sessions",
       "title": "Sessions",
       "level": 2,
-      "line": 1044,
+      "line": 1089,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.sessions.trace-store",
@@ -3631,7 +3646,7 @@
       "id": "spec.sessions.trace-store",
       "title": "Trace store",
       "level": 3,
-      "line": 1046,
+      "line": 1091,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -3823,7 +3838,7 @@
       "id": "spec.sessions.redaction",
       "title": "Redaction",
       "level": 3,
-      "line": 1078,
+      "line": 1123,
       "parent": "spec.sessions",
       "children": [],
       "human": true,
@@ -3941,7 +3956,7 @@
       "id": "spec.sessions.cairn-session",
       "title": "`cairn session`",
       "level": 3,
-      "line": 1097,
+      "line": 1142,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -4021,7 +4036,7 @@
       "id": "spec.sessions.reading",
       "title": "Reading a session",
       "level": 3,
-      "line": 1108,
+      "line": 1153,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -4087,7 +4102,7 @@
       "id": "spec.orchestrator-adapter",
       "title": "Orchestrator adapter",
       "level": 2,
-      "line": 1133,
+      "line": 1178,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4308,7 +4323,7 @@
       "id": "spec.cli",
       "title": "CLI",
       "level": 2,
-      "line": 1151,
+      "line": 1196,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4395,7 +4410,7 @@
       "id": "spec.patch-routes",
       "title": "Patch routes",
       "level": 2,
-      "line": 1160,
+      "line": 1205,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4483,7 +4498,7 @@
       "id": "spec.server",
       "title": "Server",
       "level": 2,
-      "line": 1181,
+      "line": 1226,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4507,7 +4522,7 @@
         {
           "id": "spec.server#r2",
           "level": "must",
-          "text": "`GET /api/trace` returns the `Trace` with an `ETag` from a hash of the inputs."
+          "text": "`GET /api/trace` returns the `Trace`, each spec section with its summary from `spec.json`, with an `ETag` from a hash of the inputs."
         },
         {
           "id": "spec.server#r3",
@@ -4639,22 +4654,28 @@
       "id": "spec.viewer",
       "title": "Viewer",
       "level": 2,
-      "line": 1204,
+      "line": 1249,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.viewer.model-and-messages",
         "spec.viewer.markdown-rendering",
+        "spec.viewer.reader",
+        "spec.viewer.spec-cards",
         "spec.viewer.fuzzy-matching",
         "spec.viewer.search-interaction",
         "spec.viewer.prose-search",
         "spec.viewer.curves",
         "spec.viewer.stacks",
+        "spec.viewer.models",
+        "spec.viewer.panes",
         "spec.viewer.presence",
         "spec.viewer.detail-panel",
         "spec.viewer.code-view",
         "spec.viewer.diff-view",
         "spec.viewer.session-view",
         "spec.viewer.attribution",
+        "spec.viewer.detail-code",
+        "spec.viewer.canvas-removal",
         "spec.viewer.demo-data"
       ],
       "human": false,
@@ -4674,7 +4695,7 @@
       "id": "spec.viewer.model-and-messages",
       "title": "Model and messages",
       "level": 3,
-      "line": 1206,
+      "line": 1251,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4688,13 +4709,13 @@
       "dependsOn": ["spec.contract.trace", "spec.viewer.markdown-rendering"],
       "defers": [],
       "context": [],
-      "tasks": ["t13", "t43", "t45", "t46", "t47", "t68", "t67"],
-      "summary": "Specifies the viewer model, its messages, the pure chainOf function and the three-column layout.",
+      "tasks": ["t13", "t43", "t45", "t46", "t47", "t68", "t67", "t90"],
+      "summary": "Specifies the viewer model, the messages every screen shares, the pure chainOf function, hovering a chain, and the three-pane layout.",
       "requirements": [
         {
           "id": "spec.viewer.model-and-messages#r1",
           "level": "must",
-          "text": "The model holds the trace, the hovered node, the selected node, the drawer, the measured node positions and the canvas viewport."
+          "text": "The model holds the trace, the screen, the reader's state, the hovered node, the detail panel's trail, the search, the presence state and the patches and sessions loaded so far."
         },
         {
           "id": "spec.viewer.model-and-messages#r2",
@@ -4704,27 +4725,27 @@
         {
           "id": "spec.viewer.model-and-messages#r3",
           "level": "must",
-          "text": "Hovering highlights the chain; clicking selects it."
+          "text": "Hovering a spec card, a task row or a chip previews its chain: its curves are drawn in ink and every card, row and chip outside the chain is dimmed."
         },
         {
           "id": "spec.viewer.model-and-messages#r4",
           "level": "must",
-          "text": "Layout is PRD, spec, then the stacks."
+          "text": "Layout is the PRD pane, the spec pane, then the stacks pane."
         },
         {
           "id": "spec.viewer.model-and-messages#r5",
           "level": "must",
-          "text": "Each section heading carries its rollup badge, and each task node shows branch, model, status and a gate marker."
+          "text": "Each PRD heading carries its status line, and each task shows its status and a gate marker."
         },
         {
           "id": "spec.viewer.model-and-messages#r6",
           "level": "must",
-          "text": "A spec section or task node with a flag or unsure judgment shows a judgment marker, dimmed when the judgment is stale."
+          "text": "A spec card or task with a flag or unsure judgment shows a judgment marker, dimmed when the judgment is stale."
         },
         {
           "id": "spec.viewer.model-and-messages#r7",
           "level": "must",
-          "text": "The stacks area draws the plan's stack diagram, one box per stack in rows over the base branch, laid out by `stacksOf` (see spec.viewer.stacks)."
+          "text": "The stacks pane draws the plan's stack diagram, one box per stack in rows over the base branch, laid out by `stacksOf` (see spec.viewer.stacks)."
         },
         {
           "id": "spec.viewer.model-and-messages#r8",
@@ -4745,6 +4766,11 @@
           "id": "spec.viewer.model-and-messages#r11",
           "level": "must",
           "text": "The demo build (vite build --mode demo) loads demo-trace.json once and never polls."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#r12",
+          "level": "must-not",
+          "text": "A click does not pin a chain: a click on a task opens its detail, and the one thing a reader pins is a PRD section."
         }
       ],
       "artifacts": [
@@ -4770,37 +4796,9 @@
           "description": "Viewer message."
         },
         {
-          "id": "spec.viewer.model-and-messages#message:clickednode",
-          "kind": "message",
-          "name": "ClickedNode",
-          "location": "apps/viewer/src/main.ts",
-          "description": "Viewer message."
-        },
-        {
           "id": "spec.viewer.model-and-messages#message:receivedpatch",
           "kind": "message",
           "name": "ReceivedPatch",
-          "location": "apps/viewer/src/main.ts",
-          "description": "Viewer message."
-        },
-        {
-          "id": "spec.viewer.model-and-messages#message:closeddrawer",
-          "kind": "message",
-          "name": "ClosedDrawer",
-          "location": "apps/viewer/src/main.ts",
-          "description": "Viewer message."
-        },
-        {
-          "id": "spec.viewer.model-and-messages#message:measuredlayout",
-          "kind": "message",
-          "name": "MeasuredLayout",
-          "location": "apps/viewer/src/main.ts",
-          "description": "Viewer message."
-        },
-        {
-          "id": "spec.viewer.model-and-messages#message:pannedorzoomed",
-          "kind": "message",
-          "name": "PannedOrZoomed",
           "location": "apps/viewer/src/main.ts",
           "description": "Viewer message."
         },
@@ -4818,6 +4816,13 @@
           "name": "load.ts",
           "location": "apps/viewer/src/load.ts",
           "description": "The trace-loading subscription."
+        },
+        {
+          "id": "spec.viewer.model-and-messages#message:clickedbacktoplan",
+          "kind": "message",
+          "name": "ClickedBackToPlan",
+          "location": "apps/viewer/src/message.ts",
+          "description": "Returns from the code view to the reader."
         }
       ],
       "tests": [],
@@ -4827,7 +4832,7 @@
       "id": "spec.viewer.markdown-rendering",
       "title": "Markdown rendering",
       "level": 3,
-      "line": 1222,
+      "line": 1267,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4836,7 +4841,7 @@
       "dependsOn": [],
       "defers": [],
       "context": [],
-      "tasks": ["t42"],
+      "tasks": ["t42", "t87"],
       "summary": "Specifies how the viewer renders markdown to Foldkit nodes without innerHTML.",
       "requirements": [
         {
@@ -4898,7 +4903,421 @@
       ]
     },
     {
+      "id": "spec.viewer.reader",
+      "title": "Reader",
+      "level": 3,
+      "line": 1276,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.reader", "prd.viewer"],
+      "files": [
+        "apps/viewer/src/reader.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/view/view.ts",
+        "apps/viewer/test/reader.test.ts",
+        "apps/viewer/test/reader.scene.test.ts"
+      ],
+      "dependsOn": [
+        "spec.contract.trace",
+        "spec.contract.events",
+        "spec.viewer.model-and-messages",
+        "spec.viewer.markdown-rendering"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t84", "t85"],
+      "summary": "Specifies the reader screen: the PRD read as a document in its own pane, with a status line under each heading, and the section at the top of the pane, or the pinned one, as the current section the other panes follow.",
+      "requirements": [
+        {
+          "id": "spec.viewer.reader#r1",
+          "level": "must",
+          "text": "The reader is a top bar over three panes, the PRD, the spec and the stacks; the window does not scroll and each pane has its own vertical scroll."
+        },
+        {
+          "id": "spec.viewer.reader#r2",
+          "level": "must",
+          "text": "`Screen` gains `Reader`; until the canvas is removed the viewer opens on the canvas and \"Plan\" and \"Canvas\" buttons move between the two."
+        },
+        {
+          "id": "spec.viewer.reader#r3",
+          "level": "must",
+          "text": "The model's `reader` holds only what a person has chosen: the section at the top, the pinned section, the density, the opened cards, whether models show, and the pane widths."
+        },
+        {
+          "id": "spec.viewer.reader#r4",
+          "level": "must",
+          "text": "`currentOf` is the active search result's PRD section when there is one, else the pinned section, else the one at the top."
+        },
+        {
+          "id": "spec.viewer.reader#r5",
+          "level": "must",
+          "text": "`sectionAtTop(tops, line)` is the last section whose top is at or above the line, or the first when none is; the level 1 heading is never current."
+        },
+        {
+          "id": "spec.viewer.reader#r6",
+          "level": "must",
+          "text": "`cardsOf(trace, prd)` returns the spec sections of the chain in document order with their tasks in manifest order, and the strays: chain tasks no card lists."
+        },
+        {
+          "id": "spec.viewer.reader#r7",
+          "level": "must",
+          "text": "`countsOf` gives the spec sections, tasks and done or landed tasks of a chain, and `planCountsOf` the same over every task."
+        },
+        {
+          "id": "spec.viewer.reader#r8",
+          "level": "must",
+          "text": "Under each PRD heading a status line button shows the status word, the spec count and done/total tasks, and pins or unpins its section; a section with status deferred, context or unmapped shows a coverage note instead."
+        },
+        {
+          "id": "spec.viewer.reader#r9",
+          "level": "must",
+          "text": "Each heading shows its section ID as a button that copies it through a Command."
+        },
+        {
+          "id": "spec.viewer.reader#r10",
+          "level": "must",
+          "text": "A Mount on the PRD pane sends `ScrolledPrd` with the section at the top, at most once per animation frame and only when it changed; nothing else in the model changes on a scroll."
+        },
+        {
+          "id": "spec.viewer.reader#r11",
+          "level": "must",
+          "text": "The spec pane's content is keyed by the current section so it starts at the top; the stacks pane keeps its scroll."
+        },
+        {
+          "id": "spec.viewer.reader#r12",
+          "level": "must",
+          "text": "`PressedEscape` goes back one step in the detail panel when it is open, and otherwise unpins; the search control handles its own Escape first."
+        },
+        {
+          "id": "spec.viewer.reader#r13",
+          "level": "should",
+          "text": "Read the Curves variant of the prototype for spacing, type and colour before writing a view."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.reader#file:reader-ts",
+          "kind": "file",
+          "name": "reader.ts",
+          "location": "apps/viewer/src/reader.ts",
+          "description": "Pure derivations for the reader: the current section, cards, counts, coverage and what ran."
+        },
+        {
+          "id": "spec.viewer.reader#function:currentof",
+          "kind": "function",
+          "name": "currentOf",
+          "location": "apps/viewer/src/reader.ts",
+          "description": "The current section: search, then pin, then the top of the pane.",
+          "signature": "currentOf(reader, maybeSearched)"
+        },
+        {
+          "id": "spec.viewer.reader#function:sectionattop",
+          "kind": "function",
+          "name": "sectionAtTop",
+          "location": "apps/viewer/src/reader.ts",
+          "description": "The last section whose top is at or above a line.",
+          "signature": "sectionAtTop(tops, line)"
+        },
+        {
+          "id": "spec.viewer.reader#function:cardsof",
+          "kind": "function",
+          "name": "cardsOf",
+          "location": "apps/viewer/src/reader.ts",
+          "description": "A PRD section's spec sections with their tasks, and its strays.",
+          "signature": "cardsOf(trace, prd)"
+        },
+        {
+          "id": "spec.viewer.reader#function:countsof",
+          "kind": "function",
+          "name": "countsOf",
+          "location": "apps/viewer/src/reader.ts",
+          "description": "A chain's spec, task and done counts.",
+          "signature": "countsOf(trace, prd)"
+        },
+        {
+          "id": "spec.viewer.reader#function:coverageof",
+          "kind": "function",
+          "name": "coverageOf",
+          "location": "apps/viewer/src/reader.ts",
+          "description": "The note for a deferred, context or unmapped section.",
+          "signature": "coverageOf(status)"
+        },
+        {
+          "id": "spec.viewer.reader#function:readerview",
+          "kind": "function",
+          "name": "readerView",
+          "location": "apps/viewer/src/view/readerView.ts",
+          "description": "The top bar and the three panes with their dividers."
+        },
+        {
+          "id": "spec.viewer.reader#function:prdpaneview",
+          "kind": "function",
+          "name": "prdPaneView",
+          "location": "apps/viewer/src/view/prdPaneView.ts",
+          "description": "The PRD as a document with status lines, section IDs and the plan count."
+        },
+        {
+          "id": "spec.viewer.reader#type:reader",
+          "kind": "type",
+          "name": "Reader",
+          "location": "apps/viewer/src/model.ts",
+          "description": "The reader's own state.",
+          "fields": ["maybeAtTop", "maybePinned", "density", "opened", "isShowingModels", "widths"]
+        },
+        {
+          "id": "spec.viewer.reader#message:scrolledprd",
+          "kind": "message",
+          "name": "ScrolledPrd",
+          "location": "apps/viewer/src/message.ts",
+          "description": "The section at the top of the PRD pane changed."
+        },
+        {
+          "id": "spec.viewer.reader#message:clickedstatusline",
+          "kind": "message",
+          "name": "ClickedStatusLine",
+          "location": "apps/viewer/src/message.ts",
+          "description": "Pins or unpins a PRD section."
+        },
+        {
+          "id": "spec.viewer.reader#message:clickedsectionid",
+          "kind": "message",
+          "name": "ClickedSectionId",
+          "location": "apps/viewer/src/message.ts",
+          "description": "Copies a section ID."
+        },
+        {
+          "id": "spec.viewer.reader#message:clickedscreen",
+          "kind": "message",
+          "name": "ClickedScreen",
+          "location": "apps/viewer/src/message.ts",
+          "description": "Moves between the reader and the canvas until the canvas is removed."
+        },
+        {
+          "id": "spec.viewer.reader#message:pressedescape",
+          "kind": "message",
+          "name": "PressedEscape",
+          "location": "apps/viewer/src/message.ts",
+          "description": "Escape on the document."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.reader#t1",
+          "kind": "property",
+          "text": "`sectionAtTop` returns the last section at or above the line and never moves backwards as the line moves down."
+        },
+        {
+          "id": "spec.viewer.reader#t2",
+          "kind": "property",
+          "text": "`cardsOf` and its strays together list every task of the chain, and no stray is in a card."
+        },
+        {
+          "id": "spec.viewer.reader#t3",
+          "kind": "property",
+          "text": "A count's done never passes its total."
+        },
+        {
+          "id": "spec.viewer.reader#t4",
+          "kind": "scene",
+          "text": "On the demo trace: read the status line of prd.viewer, find a coverage note on a deferred section and none on a built one, pin a section by its status line and find it current, and unpin it with the same button and with Escape."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.reader#d1",
+          "text": "Keep only what a person chose in the model and derive the rest from the trace.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.reader#d2",
+          "text": "Test the scroll through `sectionAtTop` and `ScrolledPrd`.",
+          "why": "A Mount does not run in a Scene."
+        }
+      ]
+    },
+    {
+      "id": "spec.viewer.spec-cards",
+      "title": "Spec cards",
+      "level": 3,
+      "line": 1325,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.spec-cards"],
+      "files": [
+        "apps/viewer/src/reader.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/spec-cards.scene.test.ts",
+        "apps/viewer/test/markdown.test.ts"
+      ],
+      "dependsOn": ["spec.viewer.reader"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t84", "t86", "t87"],
+      "summary": "Specifies the spec pane: one card per spec section that implements the current PRD section, with its summary, its tasks as rows inside it, and one control for how much of every card shows.",
+      "requirements": [
+        {
+          "id": "spec.viewer.spec-cards#r1",
+          "level": "must",
+          "text": "`specPaneView` draws `cardsOf(trace, current)` under a label and the density control."
+        },
+        {
+          "id": "spec.viewer.spec-cards#r2",
+          "level": "must",
+          "text": "A card is an article with `data-spec`: a header button with the title, done/total tasks and `aria-expanded`, the summary, and its task rows."
+        },
+        {
+          "id": "spec.viewer.spec-cards#r3",
+          "level": "must-not",
+          "text": "Run a stripe down a card's side; the header is a solid fill and the card has an ink border and a hard offset shadow."
+        },
+        {
+          "id": "spec.viewer.spec-cards#r4",
+          "level": "must",
+          "text": "A task row is a button with `data-task-row` of `<spec>:<task>` showing a status dot, ID, title, GATE, the model chip, and the commit count or the status word; it sends `ClickedTask`."
+        },
+        {
+          "id": "spec.viewer.spec-cards#r5",
+          "level": "must",
+          "text": "Task rows show at every density."
+        },
+        {
+          "id": "spec.viewer.spec-cards#r6",
+          "level": "must",
+          "text": "Strays are listed in a last card headed \"Tasks that name this section directly\", whose header is not a button."
+        },
+        {
+          "id": "spec.viewer.spec-cards#r7",
+          "level": "must",
+          "text": "A PRD section with a coverage note shows the note in place of the cards."
+        },
+        {
+          "id": "spec.viewer.spec-cards#r8",
+          "level": "must",
+          "text": "Density is titles, summary or full, summary at first, set by three buttons with `aria-pressed`; `ClickedDensity` sets it and empties `opened`."
+        },
+        {
+          "id": "spec.viewer.spec-cards#r9",
+          "level": "must",
+          "text": "A card is open when `opened` holds it as open, or holds nothing for it and the density is full; `ClickedCardHeader` flips what that card shows."
+        },
+        {
+          "id": "spec.viewer.spec-cards#r10",
+          "level": "must",
+          "text": "An open card shows the section's ID and its own markdown in place of the summary."
+        },
+        {
+          "id": "spec.viewer.spec-cards#r11",
+          "level": "must",
+          "text": "`renderSection(document, id, h, hooks)` renders the nodes from after a section's heading to the next heading of any level through the same code as `renderMarkdown`, without parsing the document again and keeping its block offsets."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.spec-cards#function:specpaneview",
+          "kind": "function",
+          "name": "specPaneView",
+          "location": "apps/viewer/src/view/specPaneView.ts",
+          "description": "The cards of the current section and the density control."
+        },
+        {
+          "id": "spec.viewer.spec-cards#function:rendersection",
+          "kind": "function",
+          "name": "renderSection",
+          "location": "apps/viewer/src/markdown.ts",
+          "description": "Renders one section's own body from the parsed document.",
+          "signature": "renderSection(document, id, h, hooks)"
+        },
+        {
+          "id": "spec.viewer.spec-cards#message:clickeddensity",
+          "kind": "message",
+          "name": "ClickedDensity",
+          "location": "apps/viewer/src/message.ts",
+          "description": "Sets how much of every card shows."
+        },
+        {
+          "id": "spec.viewer.spec-cards#message:clickedcardheader",
+          "kind": "message",
+          "name": "ClickedCardHeader",
+          "location": "apps/viewer/src/message.ts",
+          "description": "Opens or closes one card."
+        },
+        {
+          "id": "spec.viewer.spec-cards#message:clickedtask",
+          "kind": "message",
+          "name": "ClickedTask",
+          "location": "apps/viewer/src/message.ts",
+          "description": "Opens a task's detail."
+        },
+        {
+          "id": "spec.viewer.spec-cards#option:density",
+          "kind": "option",
+          "name": "density",
+          "location": "apps/viewer/src/model.ts",
+          "description": "How much of every card shows.",
+          "values": ["titles", "summary", "full"]
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.spec-cards#t1",
+          "kind": "scene",
+          "text": "Pin prd.viewer and find a card for each spec section that implements it, in the spec's order, with a task row inside one."
+        },
+        {
+          "id": "spec.viewer.spec-cards#t2",
+          "kind": "scene",
+          "text": "Step the control through its three settings: summaries and full sections come and go while the rows stay."
+        },
+        {
+          "id": "spec.viewer.spec-cards#t3",
+          "kind": "scene",
+          "text": "Open one card alone and find the others unchanged; change the control and find that card reset."
+        },
+        {
+          "id": "spec.viewer.spec-cards#t4",
+          "kind": "scene",
+          "text": "A fixture with a stray task shows the last card."
+        },
+        {
+          "id": "spec.viewer.spec-cards#t5",
+          "kind": "example",
+          "text": "`renderSection` renders a section's own body without its heading or its child sections, and a section with only a key list renders its chips."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.spec-cards#d1",
+          "text": "Put the tasks inside their spec card as rows, not in a column of their own.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.spec-cards#d2",
+          "text": "Do not repeat a section's children in its card.",
+          "why": "They are their own cards."
+        }
+      ]
+    },
+    {
       "id": "spec.viewer.fuzzy-matching",
+      "title": "Fuzzy matching",
+      "level": 3,
+      "line": 1352,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.fuzzy-search"],
+      "files": ["apps/viewer/src/search.ts", "apps/viewer/test/search.test.ts"],
+      "dependsOn": ["spec.contract.trace", "spec.viewer.model-and-messages"],
+      "defers": [],
+      "context": [],
       "tasks": ["t71"],
       "summary": "Index and rank fuzzy matches for titles, IDs and branches.",
       "requirements": [
@@ -4936,74 +5355,16 @@
           "text": "Exact titles outrank fuzzy titles; abbreviations and one-edit typos match; blank and unmatched queries, punctuation and mixed-case Unicode are covered."
         }
       ],
-      "decisions": [],
-      "title": "Fuzzy matching",
-      "level": 3,
-      "line": 1231,
-      "parent": "spec.viewer",
-      "children": [],
-      "implements": ["prd.viewer.fuzzy-search"],
-      "files": ["apps/viewer/src/search.ts", "apps/viewer/test/search.test.ts"],
-      "dependsOn": ["spec.contract.trace", "spec.viewer.model-and-messages"],
-      "defers": [],
-      "context": [],
-      "human": false
+      "decisions": []
     },
     {
       "id": "spec.viewer.search-interaction",
-      "tasks": ["t72"],
-      "summary": "Add search navigation and temporary chain highlighting.",
-      "requirements": [
-        {
-          "id": "spec.viewer.search-interaction#r1",
-          "level": "must",
-          "text": "Add window-local query and active-result state to the Schema-defined Model, with fact-named messages for query edits, result navigation, result selection and clearing. The pure update function derives results and reconciles the active node after trace refresh: retain it if still matched, otherwise choose the first result or none. Query edits reset to the first result; empty and unmatched queries have no active chain."
-        },
-        {
-          "id": "spec.viewer.search-interaction#r2",
-          "level": "must",
-          "text": "Render a labelled toolbar search input, result count and ranked result list showing kind, title and matched field. Use accessible combobox/listbox semantics with an active descendant, ArrowUp/ArrowDown navigation bounded at the list ends, Enter to select, pointer selection, and Escape to clear. Handle these keys only in the search control; they must not trigger canvas shortcuts. Announce the count and no-results state without stealing focus."
-        },
-        {
-          "id": "spec.viewer.search-interaction#r3",
-          "level": "must",
-          "text": "Selecting a result pans the canvas to its measured node, accounting for current zoom, moved-card offsets and the toolbar or open drawer. Keep keyboard focus in search; if layout has not measured the node, defer centering until it has. Preview its chain through chainOf without dispatching ClickedNode, changing pins or opening or closing the drawer. Only the active result contributes a search chain; never union separate result chains into a synthetic chain."
-        },
-        {
-          "id": "spec.viewer.search-interaction#r4",
-          "level": "must",
-          "text": "Mark direct text matches with semantic mark nodes and a separate node outline; related chain members get chain highlighting but no text marks unless they independently match. Preserve pin stripes; hover remains the top preview, above search and pinned fills. Draw a curve as part of a chain only when both endpoints belong to that same chain. Use text labels or outlines as well as colour to identify the active result."
-        },
-        {
-          "id": "spec.viewer.search-interaction#r5",
-          "level": "must",
-          "text": "Clearing search removes its marks, outline, results and temporary chain while preserving pins, drawer, document content and task state. Keep the current viewport after clearing. A no-results query shows a message without dimming the entire canvas. Ordinary node selection and pinning continue to work. Keep the existing markdown lazy boundaries effective when queries change."
-        }
-      ],
-      "artifacts": [],
-      "tests": [
-        {
-          "id": "spec.viewer.search-interaction#t1",
-          "kind": "scene",
-          "text": "Type an abbreviation or typo, navigate with arrows, select with Enter and pointer, and assert matching text, active result and connected-chain highlighting."
-        },
-        {
-          "id": "spec.viewer.search-interaction#t2",
-          "kind": "scene",
-          "text": "Search, hover and multiple pins coexist; clearing and Escape preserve pins and the drawer; zero matches leave the canvas usable; refreshed and removed results reconcile correctly."
-        },
-        {
-          "id": "spec.viewer.search-interaction#t3",
-          "kind": "example",
-          "text": "Center a result at non-default zoom after dragging, with an open drawer and delayed layout measurement; unrelated edges stay unlit."
-        }
-      ],
-      "decisions": [],
       "title": "Search controls and chain highlighting",
       "level": 3,
-      "line": 1250,
+      "line": 1371,
       "parent": "spec.viewer",
       "children": [],
+      "human": false,
       "implements": ["prd.viewer.fuzzy-search"],
       "files": [
         "apps/viewer/src/model.ts",
@@ -5018,16 +5379,87 @@
         "apps/viewer/src/view/edgesView.ts",
         "apps/viewer/src/markdown.ts",
         "apps/viewer/src/search.ts",
-        "apps/viewer/test/search.scene.test.ts"
+        "apps/viewer/src/reader.ts",
+        "apps/viewer/src/view/searchView.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/test/search.scene.test.ts",
+        "apps/viewer/test/search-reader.scene.test.ts"
       ],
       "dependsOn": ["spec.viewer.fuzzy-matching", "spec.viewer.curves", "spec.viewer.detail-panel"],
       "defers": [],
       "context": [],
-      "human": false
+      "tasks": ["t72", "t95"],
+      "summary": "Add search navigation and temporary chain highlighting.",
+      "requirements": [
+        {
+          "id": "spec.viewer.search-interaction#r1",
+          "level": "must",
+          "text": "Add window-local query and active-result state to the Schema-defined Model, with fact-named messages for query edits, result navigation, result selection and clearing. The pure update function derives results and reconciles the active node after trace refresh: retain it if still matched, otherwise choose the first result or none. Query edits reset to the first result; empty and unmatched queries have no active chain."
+        },
+        {
+          "id": "spec.viewer.search-interaction#r2",
+          "level": "must",
+          "text": "Render a labelled toolbar search input, result count and ranked result list showing kind, title and matched field. Use accessible combobox/listbox semantics with an active descendant, ArrowUp/ArrowDown navigation bounded at the list ends, Enter to select, pointer selection, and Escape to clear. Handle these keys only in the search control; they must not reach the reader's own keys, such as Escape. Announce the count and no-results state without stealing focus."
+        },
+        {
+          "id": "spec.viewer.search-interaction#r3",
+          "level": "must",
+          "text": "Selecting a result brings it into view in the reader. For a PRD section, the PRD pane scrolls to its heading. For a spec section or a task, the first PRD section of its chain, in document order, is the current section for as long as the result is active, ahead of the pin and without changing the pin or the PRD pane's scroll; its card, row and chip scroll into view in their own panes, and a result in a spec section's prose shows that card open while it is active. A spec section that implements no PRD section has no card to go to: selecting it opens it in the detail panel, the one case where a result opens the panel. Keep keyboard focus in search. Preview its chain as a hover does. Only the active result contributes a search chain; never union separate result chains into a synthetic chain."
+        },
+        {
+          "id": "spec.viewer.search-interaction#r4",
+          "level": "must",
+          "text": "Mark direct text matches with semantic mark nodes and a separate node outline, in PRD headings and prose, spec card headers, summaries and full sections, task rows and chips; related chain members get chain highlighting but no text marks unless they independently match. Hover remains the top preview, above search. Draw a curve as part of a chain only when both endpoints belong to that same chain. Use text labels or outlines as well as colour to identify the active result."
+        },
+        {
+          "id": "spec.viewer.search-interaction#r5",
+          "level": "must",
+          "text": "Clearing search removes its marks, outline, results and temporary chain while preserving the pinned section, the detail panel, document content and task state. The current section goes back to the pin or to the section at the top. A no-results query shows a message without dimming the panes. Pinning a section and opening a task continue to work. Keep the existing markdown lazy boundaries effective when queries change."
+        }
+      ],
+      "artifacts": [],
+      "tests": [
+        {
+          "id": "spec.viewer.search-interaction#t1",
+          "kind": "scene",
+          "text": "Type an abbreviation or typo, navigate with arrows, select with Enter and pointer, and assert matching text, active result and connected-chain highlighting."
+        },
+        {
+          "id": "spec.viewer.search-interaction#t2",
+          "kind": "scene",
+          "text": "Search, hover and a pinned section coexist; clearing and Escape preserve the pin and the detail panel; zero matches leave the panes usable; refreshed and removed results reconcile correctly."
+        },
+        {
+          "id": "spec.viewer.search-interaction#t3",
+          "kind": "scene",
+          "text": "Select a spec section and a task whose PRD section is not the pinned one: its PRD section is current while the result is active and the pin comes back when the search is cleared; unrelated curves stay unlit. Select spec.format, which implements no PRD section, and find it open in the detail panel."
+        }
+      ],
+      "decisions": []
     },
     {
       "id": "spec.viewer.prose-search",
-      "tasks": ["t73"],
+      "title": "Prose search and inline highlights",
+      "level": 3,
+      "line": 1393,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.fuzzy-search"],
+      "files": [
+        "apps/viewer/src/search.ts",
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/src/view/canvasView.ts",
+        "apps/viewer/test/search.test.ts",
+        "apps/viewer/test/search.scene.test.ts",
+        "apps/viewer/test/markdown.test.ts"
+      ],
+      "dependsOn": ["spec.viewer.search-interaction", "spec.viewer.markdown-rendering"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t73", "t95"],
       "summary": "Search markdown prose with snippets and inline match highlights.",
       "requirements": [
         {
@@ -5069,225 +5501,161 @@
           "text": "Nested sections, inline code, tables, escaped markdown and Unicode retain correct offsets; comments, code fences and diagram labels do not match; query changes reuse the parsed AST."
         }
       ],
-      "decisions": [],
-      "title": "Prose search and inline highlights",
-      "level": 3,
-      "line": 1272,
-      "parent": "spec.viewer",
-      "children": [],
-      "implements": ["prd.viewer.fuzzy-search"],
-      "files": [
-        "apps/viewer/src/search.ts",
-        "apps/viewer/src/markdown.ts",
-        "apps/viewer/src/view/canvasView.ts",
-        "apps/viewer/test/search.test.ts",
-        "apps/viewer/test/search.scene.test.ts",
-        "apps/viewer/test/markdown.test.ts"
-      ],
-      "dependsOn": ["spec.viewer.search-interaction", "spec.viewer.markdown-rendering"],
-      "defers": [],
-      "context": [],
-      "human": false
+      "decisions": []
     },
     {
       "id": "spec.viewer.curves",
-      "title": "Canvas and curves",
+      "title": "Curves",
       "level": 3,
-      "line": 1294,
+      "line": 1415,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
       "implements": ["prd.viewer"],
       "files": [
-        "apps/viewer/src/layout.ts",
-        "apps/viewer/src/curves.ts",
-        "apps/viewer/src/canvas.ts",
-        "apps/viewer/src/drag.ts",
-        "apps/viewer/src/subscription/drag.ts",
-        "apps/viewer/src/view/moveHandleView.ts"
+        "apps/viewer/src/wires.ts",
+        "apps/viewer/src/view/wiresView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/wires.test.ts",
+        "apps/viewer/test/wires.scene.test.ts"
       ],
-      "dependsOn": ["spec.viewer.model-and-messages"],
+      "dependsOn": ["spec.viewer.reader", "spec.viewer.spec-cards", "spec.viewer.stacks"],
       "defers": [],
       "context": [],
-      "tasks": ["t48", "t49", "t50", "t70"],
-      "summary": "Specifies the single canvas of three columns built on @xyflow/system, with measured positions, pure Bezier curves and XYPanZoom in a Foldkit Mount.",
+      "tasks": ["t48", "t49", "t50", "t70", "t89", "t90"],
+      "summary": "Specifies the curves that join the three panes for the current section: pure links and paths from measured rectangles, held inside their panes, measured by one Mount and lit along a chain on hover.",
       "requirements": [
         {
           "id": "spec.viewer.curves#r1",
           "level": "must",
-          "text": "The three columns sit on one canvas built from `@xyflow/system`."
+          "text": "Curves are drawn for the current section only: one from its heading to each of its spec cards' headers, and one from each task row, a stray's too, to that task's chip."
         },
         {
           "id": "spec.viewer.curves#r2",
           "level": "must",
-          "text": "Foldkit renders every node and edge; the library supplies geometry and gestures, never DOM or state."
+          "text": "`linksOf(cards)` is pure and returns those pairs as keys; each element a curve can end on carries its key in `data-wire`."
         },
         {
           "id": "spec.viewer.curves#r3",
           "level": "must",
-          "text": "A subscription measures every `[data-section]` and `[data-task]` element on load, on resize and after every move, and sends `MeasuredLayout`."
+          "text": "`wiresOf(links, boxes, panes)` is pure and returns, for each link with both ends measured, a Wire with its two keys, its path and `isOffPane`."
         },
         {
           "id": "spec.viewer.curves#r4",
           "level": "must",
-          "text": "Positions are in canvas coordinates so pan and zoom do not invalidate them."
+          "text": "A curve runs from the middle of its source's right edge to the middle of its target's left edge; the PRD end leaves from the right edge of the PRD pane, level with the heading."
         },
         {
           "id": "spec.viewer.curves#r5",
           "level": "must",
-          "text": "`curvesOf(trace, positions)` is pure and returns one edge per link, with its path from `getBezierPath`."
+          "text": "Each end's height is held inside its own pane, 8px in; a spec, row or chip end that had to be moved makes its curve `isOffPane`, and the PRD end does not count."
         },
         {
           "id": "spec.viewer.curves#r6",
           "level": "must",
-          "text": "PRD to spec and spec to task links run from a node's right edge to the next node's left edge; links in the stacks area run from a task's top edge to the bottom edge of the task above it, solid for a parent and dashed for every other dependency."
+          "text": "The path is a cubic bezier whose control points sit level with its ends, max(20, half the horizontal distance) in from each, computed by the reader itself."
         },
         {
           "id": "spec.viewer.curves#r7",
           "level": "must",
-          "text": "The view draws edges in one SVG layer: only the edges of lit chains (the pinned ones and the hovered one) by default, and every edge, dimming those outside the lit chains, while \"Show all curves\" is on."
+          "text": "A Mount on the reader body measures every `[data-wire]` element and the three panes at most once per animation frame, sends `MeasuredWires` only when a rectangle changed, and measures on mount, on a scroll in any pane, on a window resize, when a ResizeObserver on a pane or its content fires, and when `data-wires` changes."
         },
         {
           "id": "spec.viewer.curves#r8",
           "level": "must",
-          "text": "`XYPanZoom` runs in a Foldkit `Mount` on the canvas pane; its `onPanZoom` callback sends `PannedOrZoomed` with the viewport, and the model holds it."
+          "text": "`wiresView` is one fixed SVG over the reader body with no pointer events and `aria-hidden`; an `isOffPane` wire is dashed and fainter."
         },
         {
           "id": "spec.viewer.curves#r9",
           "level": "must",
-          "text": "When the model's viewport changes for another reason, such as fitting the selected chain with `getViewportForBounds`, the mount calls `syncViewport`."
+          "text": "The PRD body and each card are lazy views, so a measurement renders the SVG again and nothing else."
         },
         {
           "id": "spec.viewer.curves#r10",
           "level": "must",
-          "text": "`destroy` runs on unmount."
-        },
-        {
-          "id": "spec.viewer.curves#r11",
-          "level": "must-not",
-          "text": "Support drawing connections or keeping a layout across reloads in v1."
-        },
-        {
-          "id": "spec.viewer.curves#r12",
-          "level": "must",
-          "text": "The PRD and the spec move as whole documents by the bar across their top, and each task card by its grip; a drag tracks the pointer at any zoom, one drag runs at a time, a drag never counts as a click on a node, and \"Reset layout\" clears every offset."
-        },
-        {
-          "id": "spec.viewer.curves#r13",
-          "level": "may",
-          "text": "Use `XYDrag` and `XYHandle` only if snapping or connection drawing needs them."
+          "text": "A card's header, a task row and a chip send `HoveredNode` on pointer enter and focus and `LeftNode` on leave and blur; the hovered node's chain is drawn in ink and thicker, and every card, row and chip outside it is dimmed."
         }
       ],
       "artifacts": [
         {
-          "id": "spec.viewer.curves#library:xyflow-system",
-          "kind": "library",
-          "name": "@xyflow/system",
-          "location": null,
-          "description": "Framework-agnostic core under React Flow and Svelte Flow; supplies geometry and gestures."
+          "id": "spec.viewer.curves#file:wires-ts",
+          "kind": "file",
+          "name": "wires.ts",
+          "location": "apps/viewer/src/wires.ts",
+          "description": "The reader's links, paths and the measuring Mount."
         },
         {
-          "id": "spec.viewer.curves#function:curvesof",
+          "id": "spec.viewer.curves#function:linksof",
           "kind": "function",
-          "name": "curvesOf",
-          "location": "apps/viewer/src/curves.ts",
-          "description": "Pure; returns one edge per link, PRD to spec to task, with its path.",
-          "signature": "curvesOf(trace, positions)"
+          "name": "linksOf",
+          "location": "apps/viewer/src/wires.ts",
+          "description": "The pairs of keys a section draws curves between.",
+          "signature": "linksOf(cards)"
         },
         {
-          "id": "spec.viewer.curves#function:getbezierpath",
+          "id": "spec.viewer.curves#function:wiresof",
           "kind": "function",
-          "name": "getBezierPath",
-          "location": null,
-          "description": "From @xyflow/system; computes the edge path."
+          "name": "wiresOf",
+          "location": "apps/viewer/src/wires.ts",
+          "description": "The paths of the links whose ends are measured.",
+          "signature": "wiresOf(links, boxes, panes)"
         },
         {
-          "id": "spec.viewer.curves#function:getviewportforbounds",
+          "id": "spec.viewer.curves#type:wire",
+          "kind": "type",
+          "name": "Wire",
+          "location": "apps/viewer/src/wires.ts",
+          "description": "A curve between two measured elements.",
+          "fields": ["from", "to", "path", "isOffPane"]
+        },
+        {
+          "id": "spec.viewer.curves#function:wiresview",
           "kind": "function",
-          "name": "getViewportForBounds",
-          "location": null,
-          "description": "From @xyflow/system; fits the selected chain."
+          "name": "wiresView",
+          "location": "apps/viewer/src/view/wiresView.ts",
+          "description": "One SVG holding a path per wire."
         },
         {
-          "id": "spec.viewer.curves#function:xypanzoom",
-          "kind": "function",
-          "name": "XYPanZoom",
-          "location": null,
-          "description": "Pan and zoom handler run in a Foldkit Mount."
-        },
-        {
-          "id": "spec.viewer.curves#function:syncviewport",
-          "kind": "function",
-          "name": "syncViewport",
-          "location": null,
-          "description": "Called by the mount when the model viewport changes for another reason."
-        },
-        {
-          "id": "spec.viewer.curves#function:destroy",
-          "kind": "function",
-          "name": "destroy",
-          "location": null,
-          "description": "Runs on unmount."
-        },
-        {
-          "id": "spec.viewer.curves#function:xydrag",
-          "kind": "function",
-          "name": "XYDrag",
-          "location": null,
-          "description": "Not in v1; used only if snapping is needed."
-        },
-        {
-          "id": "spec.viewer.curves#function:xyhandle",
-          "kind": "function",
-          "name": "XYHandle",
-          "location": null,
-          "description": "Not in v1; used only if connection drawing is needed."
-        },
-        {
-          "id": "spec.viewer.curves#message:measuredlayout",
+          "id": "spec.viewer.curves#message:measuredwires",
           "kind": "message",
-          "name": "MeasuredLayout",
-          "location": null,
-          "description": "Sent by the measuring subscription with positions."
-        },
-        {
-          "id": "spec.viewer.curves#message:pannedorzoomed",
-          "kind": "message",
-          "name": "PannedOrZoomed",
-          "location": null,
-          "description": "Sent by onPanZoom with the viewport."
-        },
-        {
-          "id": "spec.viewer.curves#message:draggednode",
-          "kind": "message",
-          "name": "DraggedNode",
-          "location": null,
-          "description": "Future message from a node-drag pointer handler."
-        },
-        {
-          "id": "spec.viewer.curves#function:onpanzoom",
-          "kind": "function",
-          "name": "onPanZoom",
-          "location": null,
-          "description": "XYPanZoom callback that sends PannedOrZoomed."
+          "name": "MeasuredWires",
+          "location": "apps/viewer/src/message.ts",
+          "description": "The rectangles of the wire ends and the panes."
         }
       ],
-      "tests": [],
+      "tests": [
+        {
+          "id": "spec.viewer.curves#t1",
+          "kind": "property",
+          "text": "`linksOf` gives one link per card and one per row."
+        },
+        {
+          "id": "spec.viewer.curves#t2",
+          "kind": "property",
+          "text": "Every wire's ends lie inside the rectangles of their panes, and a link with an end not measured gives no wire."
+        },
+        {
+          "id": "spec.viewer.curves#t3",
+          "kind": "property",
+          "text": "A wire is `isOffPane` exactly when its spec, row or chip end was moved."
+        },
+        {
+          "id": "spec.viewer.curves#t4",
+          "kind": "scene",
+          "text": "Send `MeasuredWires` with rectangles for a pinned section and find one path per link; hover a row and find its two wires lit and another card dimmed."
+        }
+      ],
       "decisions": [
         {
           "id": "spec.viewer.curves#d1",
-          "text": "Build the canvas on @xyflow/system the way React Flow does, with Foldkit rendering every node and edge.",
-          "why": "The library supplies geometry and gestures, never DOM or state."
+          "text": "Draw curves for the current section only.",
+          "why": "So the reader starts with a handful of curves and never with all of them."
         },
         {
           "id": "spec.viewer.curves#d2",
-          "text": "Defer drawing connections and keeping a layout across reloads from v1.",
-          "why": null
-        },
-        {
-          "id": "spec.viewer.curves#d3",
-          "text": "Use XYDrag and XYHandle only if snapping or connection drawing needs them.",
-          "why": null
+          "text": "Compute the bezier path in the reader, not with `getBezierPath`.",
+          "why": "`@xyflow/system` goes with the canvas."
         }
       ]
     },
@@ -5295,23 +5663,23 @@
       "id": "spec.viewer.stacks",
       "title": "Stacks",
       "level": 3,
-      "line": 1312,
+      "line": 1442,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
       "implements": ["prd.viewer.stacks"],
       "files": [
         "apps/viewer/src/stacks.ts",
-        "apps/viewer/src/curves.ts",
-        "apps/viewer/src/view/stacksView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/reader.ts",
         "apps/viewer/test/stacks.test.ts",
-        "apps/viewer/test/stacks.scene.test.ts"
+        "apps/viewer/test/stack-chips.scene.test.ts"
       ],
-      "dependsOn": ["spec.viewer.curves"],
+      "dependsOn": ["spec.viewer.reader"],
       "defers": [],
       "context": [],
-      "tasks": ["t69", "t70"],
-      "summary": "Lays the stacks column out like the spec's stack diagram: one labelled box per stack, tasks bottom to top inside it, and the boxes in rows over the base branch by what they wait on.",
+      "tasks": ["t69", "t70", "t88"],
+      "summary": "Lays the stacks pane out like the spec's stack diagram: one numbered box per stack, a chip per task bottom to top inside it, and the boxes in rows over the base branch by what they wait on, with the current section's tasks standing out.",
       "requirements": [
         {
           "id": "spec.viewer.stacks#r1",
@@ -5341,32 +5709,32 @@
         {
           "id": "spec.viewer.stacks#r6",
           "level": "must",
-          "text": "The view stacks the levels bottom to top, each a row of its stacks in number order aligned to the bottom, over a bar labelled with the base branch that is not a node."
+          "text": "The view draws every stack whatever the current section is: the levels bottom to top, each a row of its stacks in number order aligned to the bottom, over a bar labelled with the base branch that is sticky at the bottom of the pane and is not a node; the pane starts scrolled to the bottom."
         },
         {
           "id": "spec.viewer.stacks#r7",
           "level": "must",
-          "text": "A stack is a light grey box with its label and a CSS grid of its cells, only as tall as its deepest chain."
+          "text": "A stack is a box with `data-stack`, its number in a corner, `labelOf(stack)` as its title and aria-label, and a CSS grid of its cells, only as tall as its deepest chain."
         },
         {
           "id": "spec.viewer.stacks#r8",
           "level": "must",
-          "text": "A task card shows its ID, branch without the feature prefix, GATE when gated, title, worktree (`main checkout` for null) and status, with a band in the model's colour and a red border when gated; the fill and left stripes stay the pins'."
+          "text": "A task is a chip: a button with `data-task` and `data-wire`, a status dot and the ID, a title and aria-label with the ID, title, branch, worktree and status, and a 2px #dc2626 border when gated; it sends `ClickedTask`."
         },
         {
           "id": "spec.viewer.stacks#r9",
           "level": "must",
-          "text": "`curvesOf` drops its `columnOf` argument: a parent is a solid curve and every other dependency a dashed one."
+          "text": "A chip in the current section's chain has `data-current`, an ink border and a hard shadow, and so does its box; every other chip is at 45% opacity and still takes focus, hover and clicks."
         },
         {
           "id": "spec.viewer.stacks#r10",
           "level": "must",
-          "text": "A card still moves by its grip and Reset layout returns it to its cell."
+          "text": "Over the diagram, sticky at the top: \"N of M stacks hold this section · X of Y tasks done\" and a legend."
         },
         {
           "id": "spec.viewer.stacks#r11",
           "level": "must-not",
-          "text": "Move a whole stack box in this section."
+          "text": "Draw curves inside the pane: a chip sits on its parent, and the detail panel names a task's other dependencies."
         }
       ],
       "artifacts": [
@@ -5386,18 +5754,18 @@
           "description": "A stack: number, root, area, level and the cells of its tasks."
         },
         {
-          "id": "spec.viewer.stacks#function:stacksview",
+          "id": "spec.viewer.stacks#function:stackchipsview",
           "kind": "function",
-          "name": "stacksView",
-          "location": "apps/viewer/src/view/stacksView.ts",
-          "description": "Draws the levels of stack boxes over the base branch bar."
+          "name": "stackChipsView",
+          "location": "apps/viewer/src/view/stackChipsView.ts",
+          "description": "Draws the levels of stack boxes, a chip per task, over the base branch bar."
         },
         {
-          "id": "spec.viewer.stacks#file:stacks-scene-test-ts",
+          "id": "spec.viewer.stacks#file:stack-chips-scene-test-ts",
           "kind": "file",
-          "name": "stacks.scene.test.ts",
-          "location": "apps/viewer/test/stacks.scene.test.ts",
-          "description": "Scene test of the boxes, labels, cells, base branch bar, GATE and worktree on the demo trace."
+          "name": "stack-chips.scene.test.ts",
+          "location": "apps/viewer/test/stack-chips.scene.test.ts",
+          "description": "Scene test of the boxes, labels, chips, base branch bar, a gated chip and the current chips on the demo trace."
         }
       ],
       "tests": [
@@ -5414,167 +5782,542 @@
         {
           "id": "spec.viewer.stacks#t3",
           "kind": "scene",
-          "text": "On the demo trace the view shows the labelled boxes, a child card in the row above its parent in the same box, the base branch bar, GATE and a worktree."
+          "text": "On the demo trace the view shows the labelled boxes, a child chip in the row above its parent in the same box, the base branch bar, a gated chip, and for a pinned section its chips marked current and the count over the diagram."
         }
       ],
       "decisions": [
         {
           "id": "spec.viewer.stacks#d1",
           "text": "Compute the stacks layout directly and let CSS size the boxes, instead of laying it out with @dagrejs/dagre compound nodes as Mermaid does.",
-          "why": "Dagre needs every card's size before it runs and returns absolute positions, so the view would place every card by hand and measure twice."
+          "why": "Dagre needs every node's size before it runs and returns absolute positions, so the view would place every chip by hand and measure twice."
         },
         {
           "id": "spec.viewer.stacks#d2",
-          "text": "Show the model as a coloured band, not the card's fill.",
-          "why": "The fill and left stripes already mean pins, so a model colour must not read as one."
+          "text": "Draw the base branch as a bar, not a node with curves.",
+          "why": "Every stack in the bottom row starts from it, so curves to it would add nothing."
         },
         {
           "id": "spec.viewer.stacks#d3",
-          "text": "Draw the base branch as a bar, not a node with curves.",
-          "why": "Every stack in the bottom row starts from it, so curves to it would add nothing."
+          "text": "Leave out curves between chips for dependencies across stacks.",
+          "why": "The rows already say what waits on what."
+        }
+      ]
+    },
+    {
+      "id": "spec.viewer.models",
+      "title": "Models and reasoning",
+      "level": 3,
+      "line": 1482,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.models"],
+      "files": [
+        "apps/viewer/src/reader.ts",
+        "apps/viewer/src/view/modelView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/reader.test.ts",
+        "apps/viewer/test/models.scene.test.ts"
+      ],
+      "dependsOn": ["spec.contract.events", "spec.viewer.spec-cards", "spec.viewer.stacks"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t84", "t91"],
+      "summary": "Specifies how the reader shows the model and reasoning each task ran with, or the plan's choice when it has not run, and the switch that shows or hides them everywhere.",
+      "requirements": [
+        {
+          "id": "spec.viewer.models#r1",
+          "level": "must",
+          "text": "`ranOf(task)` returns the model and reasoning of the latest `running` event that carries both, with `ran: true`; otherwise the manifest's pair with `ran: false`, whatever the status."
+        },
+        {
+          "id": "spec.viewer.models#r2",
+          "level": "must",
+          "text": "A task row and the detail panel show a chip such as `sonnet · medium` on the model's colour."
+        },
+        {
+          "id": "spec.viewer.models#r3",
+          "level": "must",
+          "text": "A stack chip takes the model's colour and a mark after its ID: lo, med, hi, xhi or max."
+        },
+        {
+          "id": "spec.viewer.models#r4",
+          "level": "must",
+          "text": "A spec card's header has one small square per task in its model's colour."
+        },
+        {
+          "id": "spec.viewer.models#r5",
+          "level": "must",
+          "text": "Colours are opus #7c3aed, sonnet #2563eb, haiku #facc15 with dark text, and #6b7280 for any other model, which is still named."
+        },
+        {
+          "id": "spec.viewer.models#r6",
+          "level": "must",
+          "text": "What ran is a solid fill with an ink border; what is planned has a dashed border and a paler fill; each carries `data-ran` and a title that says which."
+        },
+        {
+          "id": "spec.viewer.models#r7",
+          "level": "must",
+          "text": "A \"Models and reasoning\" button in the top bar with `aria-pressed` flips `isShowingModels`, which starts true."
+        },
+        {
+          "id": "spec.viewer.models#r8",
+          "level": "must",
+          "text": "With the switch off the views render no chip, mark or square, a done stack chip is filled green, and the legend's model entries are replaced by one for done."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.models#function:ranof",
+          "kind": "function",
+          "name": "ranOf",
+          "location": "apps/viewer/src/reader.ts",
+          "description": "What a task ran with, or what the plan chose.",
+          "signature": "ranOf(task)"
+        },
+        {
+          "id": "spec.viewer.models#file:modelview-ts",
+          "kind": "file",
+          "name": "modelView.ts",
+          "location": "apps/viewer/src/view/modelView.ts",
+          "description": "The model chip, the reasoning mark, the header squares and their colours."
+        },
+        {
+          "id": "spec.viewer.models#function:modelchipview",
+          "kind": "function",
+          "name": "modelChipView",
+          "location": "apps/viewer/src/view/modelView.ts",
+          "description": "A task's model and reasoning as a chip."
+        },
+        {
+          "id": "spec.viewer.models#message:clickedmodelsswitch",
+          "kind": "message",
+          "name": "ClickedModelsSwitch",
+          "location": "apps/viewer/src/message.ts",
+          "description": "Shows or hides models and reasoning."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.models#t1",
+          "kind": "property",
+          "text": "`ranOf` returns the manifest's pair and `ran: false` for a task with no `running` event that names a model, and the latest such event's pair and `ran: true` when there is one."
+        },
+        {
+          "id": "spec.viewer.models#t2",
+          "kind": "scene",
+          "text": "Find `data-ran=\"true\"` on a task the demo trace has a record for and `\"false\"` on a pending one; turn the switch off and find no model chip, mark or square; turn it on again."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.models#d1",
+          "text": "Tell ran from planned by the border and fill, not by text.",
+          "why": "So the two can be told apart without reading."
+        }
+      ]
+    },
+    {
+      "id": "spec.viewer.panes",
+      "title": "Panes",
+      "level": 3,
+      "line": 1502,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.panes"],
+      "files": [
+        "apps/viewer/src/panes.ts",
+        "apps/viewer/src/subscription/resize.ts",
+        "apps/viewer/src/view/dividerView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/panes.test.ts",
+        "apps/viewer/test/panes.scene.test.ts"
+      ],
+      "dependsOn": ["spec.viewer.reader", "spec.viewer.curves"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t92"],
+      "summary": "Specifies the dividers that resize the PRD pane, the spec pane and the detail panel by pointer or arrow keys, within limits, with the stacks pane taking what is left.",
+      "requirements": [
+        {
+          "id": "spec.viewer.panes#r1",
+          "level": "must",
+          "text": "`Widths` is `{ prd, spec, detail }` in pixels, at first 520, 440 and 600: what a person chose, not what the window has room for; the stacks pane takes what the PRD and the spec leave."
+        },
+        {
+          "id": "spec.viewer.panes#r2",
+          "level": "must",
+          "text": "`resized(widths, pane, delta)` is pure and holds a width between its pane's limits: 300 to 1000 for the PRD, 260 to 1100 for the spec and 360 to 1400 for the detail panel."
+        },
+        {
+          "id": "spec.viewer.panes#r3",
+          "level": "must",
+          "text": "The reader's grid, not the model, fits a window: its columns are minmax(300px, prd), a divider, minmax(260px, spec), a divider and minmax(240px, 1fr), so a narrow window narrows the PRD and the spec down to their least widths before the stacks pane goes under 240px; under 952px the reader scrolls sideways, and the detail panel is never wider than the window."
+        },
+        {
+          "id": "spec.viewer.panes#r4",
+          "level": "must",
+          "text": "A divider has `role=\"separator\"`, a vertical orientation, `aria-valuenow`, `aria-valuemin` and `aria-valuemax`, `tabindex=\"0\"` and a label."
+        },
+        {
+          "id": "spec.viewer.panes#r5",
+          "level": "must",
+          "text": "A primary press sends `PressedDivider`; while resizing, a subscription sends `MovedResizePointer` and `ReleasedResizePointer`, and a move sets the width to the width at the press plus the pointer's travel."
+        },
+        {
+          "id": "spec.viewer.panes#r6",
+          "level": "must",
+          "text": "A move or release from another pointer is ignored, and a move with no button held ends a resize whose release was missed."
+        },
+        {
+          "id": "spec.viewer.panes#r7",
+          "level": "must",
+          "text": "The detail panel's divider is on its left edge, so its delta is reversed."
+        },
+        {
+          "id": "spec.viewer.panes#r8",
+          "level": "must",
+          "text": "With a divider focused, the left and right arrow keys send `PressedArrowOnDivider` and move it 24px."
+        },
+        {
+          "id": "spec.viewer.panes#r9",
+          "level": "must",
+          "text": "The view writes the widths as CSS custom properties on the reader's grid, and the wires are measured again through their ResizeObserver."
+        },
+        {
+          "id": "spec.viewer.panes#r10",
+          "level": "must-not",
+          "text": "Keep widths across reloads."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.panes#file:panes-ts",
+          "kind": "file",
+          "name": "panes.ts",
+          "location": "apps/viewer/src/panes.ts",
+          "description": "The widths, their limits and the pure resize step."
+        },
+        {
+          "id": "spec.viewer.panes#function:resized",
+          "kind": "function",
+          "name": "resized",
+          "location": "apps/viewer/src/panes.ts",
+          "description": "Adds a delta to one pane's width within its limits.",
+          "signature": "resized(widths, pane, delta)"
+        },
+        {
+          "id": "spec.viewer.panes#type:widths",
+          "kind": "type",
+          "name": "Widths",
+          "location": "apps/viewer/src/panes.ts",
+          "description": "The widths a person can change.",
+          "fields": ["prd", "spec", "detail"]
+        },
+        {
+          "id": "spec.viewer.panes#function:dividerview",
+          "kind": "function",
+          "name": "dividerView",
+          "location": "apps/viewer/src/view/dividerView.ts",
+          "description": "A focusable separator between two panes."
+        },
+        {
+          "id": "spec.viewer.panes#file:resize-ts",
+          "kind": "file",
+          "name": "resize.ts",
+          "location": "apps/viewer/src/subscription/resize.ts",
+          "description": "The page's pointer events while a resize is in progress."
+        },
+        {
+          "id": "spec.viewer.panes#message:presseddivider",
+          "kind": "message",
+          "name": "PressedDivider",
+          "location": "apps/viewer/src/message.ts",
+          "description": "A primary press on a divider."
+        },
+        {
+          "id": "spec.viewer.panes#message:movedresizepointer",
+          "kind": "message",
+          "name": "MovedResizePointer",
+          "location": "apps/viewer/src/message.ts",
+          "description": "The pointer moved during a resize."
+        },
+        {
+          "id": "spec.viewer.panes#message:releasedresizepointer",
+          "kind": "message",
+          "name": "ReleasedResizePointer",
+          "location": "apps/viewer/src/message.ts",
+          "description": "The pointer went up or was cancelled during a resize."
+        },
+        {
+          "id": "spec.viewer.panes#message:pressedarrowondivider",
+          "kind": "message",
+          "name": "PressedArrowOnDivider",
+          "location": "apps/viewer/src/message.ts",
+          "description": "An arrow key on a focused divider."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.panes#t1",
+          "kind": "property",
+          "text": "`resized` never returns a width outside its pane's limits, changes no pane but the one named, and returns widths already inside their limits unchanged for a delta of zero."
+        },
+        {
+          "id": "spec.viewer.panes#t2",
+          "kind": "scene",
+          "text": "Focus a divider and press an arrow key and find `aria-valuenow` changed by 24; press, move and release and find the new width; a move from another pointer changes nothing."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.panes#d1",
+          "text": "Fit a narrow window in the layout, not in the model.",
+          "why": "The widths are what a person chose; no width in the model changes when the window does."
         }
       ]
     },
     {
       "id": "spec.viewer.presence",
-      "title": "Presence on the canvas",
+      "title": "Presence in the reader",
       "level": 3,
-      "line": 1349,
+      "line": 1523,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
       "implements": ["prd.v2-multiplayer-on-cloudflare.presence", "prd.viewer"],
       "files": [
-        "apps/viewer/src/presence.ts",
-        "apps/viewer/src/canvas.ts",
-        "packages/core/src/room-machine.ts"
+        "packages/contract/src/index.ts",
+        "packages/core/src/room-machine.ts",
+        "packages/cli/src/presence.ts",
+        "apps/viewer/src/subscription/presence.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/update.ts",
+        "packages/core/test/room-machine.test.ts",
+        "packages/cli/test/presence.test.ts",
+        "apps/viewer/test/presence.scene.test.ts"
       ],
-      "dependsOn": ["spec.viewer.curves"],
+      "dependsOn": ["spec.viewer.reader"],
       "defers": [],
       "context": [],
-      "tasks": ["t51"],
-      "summary": "Presence cursors move from window fractions to canvas coordinates, drawn inside the transformed canvas layer so they line up across windows with different pan and zoom.",
+      "tasks": ["t51", "t96"],
+      "summary": "Presence says which PRD section each participant is reading, shown as a chip beside that heading; pointer cursors stay on the canvas until it is removed, since no two reader windows could place one alike.",
       "requirements": [
         {
           "id": "spec.viewer.presence#r1",
           "level": "must",
-          "text": "A cursor is a point in canvas coordinates, converted from the pointer with toCanvas(point, viewport), built on pointToRendererPoint."
+          "text": "A participant carries `reading`, the PRD section current in their window or nothing before it is known; `cursor` stays beside it until the canvas is removed."
         },
         {
           "id": "spec.viewer.presence#r2",
           "level": "must",
-          "text": "Each cursor is drawn inside the canvas's transformed layer, so it sits over the same node in every window."
+          "text": "The wire carries a missing `reading` as null."
         },
         {
           "id": "spec.viewer.presence#r3",
           "level": "must",
-          "text": "A cursor label is scaled by 1 / zoom so it stays the same size on screen."
+          "text": "The viewer sends its current section when the socket opens and each time `currentOf` changes, a pin or an active search result included."
         },
         {
           "id": "spec.viewer.presence#r4",
           "level": "must",
-          "text": "The Cursor schema keeps { x, y }; its meaning changes from window fractions to canvas coordinates."
+          "text": "The room machine gains a `read` event, which sets that participant's `reading` and nothing else; an event for a participant not in the room is ignored."
         },
         {
           "id": "spec.viewer.presence#r5",
-          "level": "must-not",
-          "text": "The room machine does not clamp cursors to [0, 1]."
+          "level": "must",
+          "text": "`prdPaneView` shows each other participant's label as a chip beside the heading of the section they are reading; the top bar keeps \"Here now\"."
         },
         {
           "id": "spec.viewer.presence#r6",
-          "level": "must-not",
-          "text": "A pointer outside the canvas pane sends no move."
+          "level": "must",
+          "text": "`cursor`, the `Cursor` schema and the `moved` event are removed only with the canvas, behind its gate."
         }
       ],
       "artifacts": [
         {
-          "id": "spec.viewer.presence#function:tocanvas",
-          "kind": "function",
-          "name": "toCanvas",
-          "location": "apps/viewer/src/canvas.ts",
-          "description": "Converts a screen point to canvas coordinates with the current viewport.",
-          "signature": "toCanvas(point, viewport)"
+          "id": "spec.viewer.presence#schema:participant",
+          "kind": "schema",
+          "name": "Participant",
+          "location": "packages/contract/src/index.ts",
+          "description": "A participant with the PRD section they are reading.",
+          "fields": ["reading"]
         },
         {
-          "id": "spec.viewer.presence#function:toscreen",
-          "kind": "function",
-          "name": "toScreen",
-          "location": "apps/viewer/src/canvas.ts",
-          "description": "Converts a canvas point back to screen coordinates."
-        },
-        {
-          "id": "spec.viewer.presence#library:xyflow-system",
-          "kind": "library",
-          "name": "@xyflow/system",
-          "location": null,
-          "description": "pointToRendererPoint for the conversion."
+          "id": "spec.viewer.presence#machine-event:read",
+          "kind": "machine-event",
+          "name": "read",
+          "location": "packages/core/src/room-machine.ts",
+          "description": "Sets a participant's reading section."
         }
       ],
       "tests": [
         {
           "id": "spec.viewer.presence#t1",
-          "kind": "property",
-          "text": "toScreen(toCanvas(p, v), v) returns p for any viewport v."
+          "kind": "example",
+          "text": "Through the room machine's events: a `read` sets only that participant's section and leaves every cursor alone, and one from an unknown participant changes nothing."
         },
         {
           "id": "spec.viewer.presence#t2",
           "kind": "scene",
-          "text": "With two participants and different viewports, the other participant's cursor is at the same canvas position."
+          "text": "With two participants, the other's label is beside the heading it is reading, and beside another heading after it sends one."
         }
       ],
-      "decisions": []
+      "decisions": [
+        {
+          "id": "spec.viewer.presence#d1",
+          "text": "Share what a participant is reading, not where their pointer is.",
+          "why": "Each reader window scrolls its panes on its own, wraps the PRD at its own width and shows the spec of its own current section, so there are no shared coordinates."
+        }
+      ]
     },
     {
       "id": "spec.viewer.detail-panel",
       "title": "Detail panel",
       "level": 3,
-      "line": 1363,
+      "line": 1538,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
-      "implements": ["prd.viewer", "prd.acceptance-criteria"],
-      "files": ["apps/viewer/src/drawer.ts"],
-      "dependsOn": ["spec.viewer.model-and-messages"],
+      "implements": ["prd.viewer.task-detail", "prd.viewer", "prd.acceptance-criteria"],
+      "files": [
+        "apps/viewer/src/detail.ts",
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/drawer.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/detail.test.ts",
+        "apps/viewer/test/detail.scene.test.ts"
+      ],
+      "dependsOn": ["spec.viewer.reader", "spec.viewer.models", "spec.viewer.panes"],
       "defers": [],
       "context": [],
-      "tasks": ["t52", "t67"],
-      "summary": "Specifies the drawer shown on clicking a section or task and the two-click path from section to commit.",
+      "tasks": ["t52", "t67", "t93"],
+      "summary": "Specifies the detail panel over the right of the reader: a trail of nodes, and for a task its status, what ran, its parent and dependencies, gate reasons, code, commits, traces and timeline.",
       "requirements": [
         {
           "id": "spec.viewer.detail-panel#r1",
           "level": "must",
-          "text": "Clicking a PRD or spec section opens the drawer with its tasks, and each task lists its commits."
+          "text": "The panel is fixed to the right edge of the reader, full height, with its own scroll and a divider on its left edge; it lies over the panes and does not move them."
         },
         {
           "id": "spec.viewer.detail-panel#r2",
           "level": "must",
-          "text": "Clicking a commit loads its diff."
+          "text": "The model holds `detail`, a trail of nodes; an empty trail is a closed panel and the last node is the one shown."
         },
         {
           "id": "spec.viewer.detail-panel#r3",
           "level": "must",
-          "text": "Clicking a task shows its commits, sessions (linked to `/api/sessions/:id`), events timeline, gate reasons and judgments."
+          "text": "`ClickedTask` from a task row or a chip starts a new trail; `ClickedDetailNode` from inside the panel adds to it; `ClickedTrailStep` cuts it back to a step; `ClickedCloseDetail` empties it; `PressedEscape` removes the last step."
         },
         {
           "id": "spec.viewer.detail-panel#r4",
           "level": "must",
-          "text": "A spec section's drawer lists its judgments."
+          "text": "When the panel opens or its last node changes, focus moves to the panel's heading."
         },
         {
           "id": "spec.viewer.detail-panel#r5",
           "level": "must",
-          "text": "Each judgment shows its question, verdict, message and the probability or label and confidence behind it."
+          "text": "A task shows its ID, title, branch and stack; its status; `ranOf` as ran on or planned for; its parent or \"from main\"; each other task it depends on as a button that adds it to the trail; and its gate reasons."
+        },
+        {
+          "id": "spec.viewer.detail-panel#r6",
+          "level": "must",
+          "text": "Each commit is a button with its subject and short SHA that sends `ClickedOpenCode` with that commit, and \"Open in code view\" sends it with none."
+        },
+        {
+          "id": "spec.viewer.detail-panel#r7",
+          "level": "must",
+          "text": "Traces to: each PRD section as a button that sends `ClickedTraceSection` and scrolls the PRD pane to that heading, and each spec section as a button that adds it to the trail."
+        },
+        {
+          "id": "spec.viewer.detail-panel#r8",
+          "level": "must",
+          "text": "A task also shows the files the plan expects, its events timeline and its judgments."
+        },
+        {
+          "id": "spec.viewer.detail-panel#r9",
+          "level": "must",
+          "text": "A spec section shows its ID, summary, key chips, tasks as rows that add to the trail, and its judgments; each judgment shows its question, verdict, message and the probability or label and confidence behind it."
+        },
+        {
+          "id": "spec.viewer.detail-panel#r10",
+          "level": "must",
+          "text": "The path from a PRD section to a commit is two clicks: a task row of the current section, then a commit in the panel."
         }
       ],
-      "artifacts": [],
-      "tests": [],
+      "artifacts": [
+        {
+          "id": "spec.viewer.detail-panel#file:detail-ts",
+          "kind": "file",
+          "name": "detail.ts",
+          "location": "apps/viewer/src/detail.ts",
+          "description": "The trail's pure steps."
+        },
+        {
+          "id": "spec.viewer.detail-panel#function:detailview",
+          "kind": "function",
+          "name": "detailView",
+          "location": "apps/viewer/src/view/detailView.ts",
+          "description": "The panel: its trail and the node at its end."
+        },
+        {
+          "id": "spec.viewer.detail-panel#message:clickeddetailnode",
+          "kind": "message",
+          "name": "ClickedDetailNode",
+          "location": "apps/viewer/src/message.ts",
+          "description": "A task or spec section opened from inside the panel."
+        },
+        {
+          "id": "spec.viewer.detail-panel#message:clickedtrailstep",
+          "kind": "message",
+          "name": "ClickedTrailStep",
+          "location": "apps/viewer/src/message.ts",
+          "description": "A step of the trail."
+        },
+        {
+          "id": "spec.viewer.detail-panel#message:clickedclosedetail",
+          "kind": "message",
+          "name": "ClickedCloseDetail",
+          "location": "apps/viewer/src/message.ts",
+          "description": "The panel's Close button."
+        },
+        {
+          "id": "spec.viewer.detail-panel#message:clickedtracesection",
+          "kind": "message",
+          "name": "ClickedTraceSection",
+          "location": "apps/viewer/src/message.ts",
+          "description": "A PRD section in \"Traces to\"."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.detail-panel#t1",
+          "kind": "property",
+          "text": "Opening from outside always gives a trail of one, cutting back to a step keeps exactly the steps up to it, and going back from one step closes the panel."
+        },
+        {
+          "id": "spec.viewer.detail-panel#t2",
+          "kind": "scene",
+          "text": "Click a task row and find the panel with the task's heading and focus on it; open a spec section from \"Traces to\" and find two steps, go back by the first, and close with Escape pressed twice."
+        },
+        {
+          "id": "spec.viewer.detail-panel#t3",
+          "kind": "scene",
+          "text": "Find the parent and the other dependencies named on a task that has both; click a row and then a commit and find the code view on that commit."
+        }
+      ],
       "decisions": []
     },
     {
       "id": "spec.viewer.code-view",
       "title": "Code view",
       "level": 3,
-      "line": 1373,
+      "line": 1572,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5588,22 +6331,22 @@
       "defers": [],
       "context": [],
       "tasks": ["t75"],
-      "summary": "The code view screen: a stack tree, the selected task's whole diff or one commit's diff, and the session pane, opened from the drawer and left with Back to canvas.",
+      "summary": "The code view screen: a stack tree, the selected task's whole diff or one commit's diff, and the session pane, opened from the detail panel and left with Back to the plan.",
       "requirements": [
         {
           "id": "spec.viewer.code-view#r1",
           "level": "must",
-          "text": "`screen` is `Canvas`, or `Code` with the selected task, `WholeTask` or `OneCommit` with its SHA, and the selected file."
+          "text": "`screen` is `Reader`, or `Code` with the selected task, `WholeTask` or `OneCommit` with its SHA, and the selected file; until the canvas is removed `Canvas` is a third screen and the code view goes back to whichever it was opened from."
         },
         {
           "id": "spec.viewer.code-view#r2",
           "level": "must",
-          "text": "Pins, offsets, the drawer and the viewport survive the code view, so Back to canvas returns the canvas as it was."
+          "text": "The reader's state and the detail panel's trail survive the code view, so Back to the plan returns the reader as it was; the tracking Mount scrolls the PRD pane to the current section when it mounts again."
         },
         {
           "id": "spec.viewer.code-view#r3",
           "level": "must",
-          "text": "\"Open code\" on a task opens its whole diff; a commit in the drawer opens that commit."
+          "text": "\"Open in code view\" on a task in the detail panel opens its whole diff; a commit in the detail panel opens that commit."
         },
         {
           "id": "spec.viewer.code-view#r4",
@@ -5628,7 +6371,7 @@
         {
           "id": "spec.viewer.code-view#r8",
           "level": "must",
-          "text": "In the demo build the tree works and the diff and session panes say they need cairn serve."
+          "text": "In the demo build the tree works, the diff pane shows the patches the build shipped, and the session pane says the demo has no sessions."
         }
       ],
       "artifacts": [
@@ -5640,11 +6383,11 @@
           "description": "Opens the code view on a task and an optional commit."
         },
         {
-          "id": "spec.viewer.code-view#message:clickedbacktocanvas",
+          "id": "spec.viewer.code-view#message:clickedbacktoplan",
           "kind": "message",
-          "name": "ClickedBackToCanvas",
-          "location": null,
-          "description": "Returns to the canvas."
+          "name": "ClickedBackToPlan",
+          "location": "apps/viewer/src/message.ts",
+          "description": "Returns from the code view to the reader."
         },
         {
           "id": "spec.viewer.code-view#message:receivedpatch",
@@ -5658,7 +6401,7 @@
         {
           "id": "spec.viewer.code-view#t1",
           "kind": "scene",
-          "text": "Open the code view from a drawer commit and from Open code, select a task, a commit and a file and check the selection and the route each requests, and go back to the canvas and find the pins as they were."
+          "text": "Open the code view from a commit in the detail panel and from \"Open in code view\", select a task, a commit and a file in the tree and check the selection and the route each requests, and go back to the plan and find the pinned section and the panel as they were."
         }
       ],
       "decisions": [
@@ -5673,7 +6416,7 @@
       "id": "spec.viewer.diff-view",
       "title": "Diff view",
       "level": 3,
-      "line": 1400,
+      "line": 1599,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5856,7 +6599,7 @@
       "id": "spec.viewer.session-view",
       "title": "Session pane",
       "level": 3,
-      "line": 1426,
+      "line": 1625,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5916,7 +6659,7 @@
       "id": "spec.viewer.attribution",
       "title": "Hunks and turns",
       "level": 3,
-      "line": 1442,
+      "line": 1641,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5997,20 +6740,304 @@
       ]
     },
     {
-      "id": "spec.viewer.demo-data",
-      "title": "Demo data",
+      "id": "spec.viewer.detail-code",
+      "title": "Code in the detail panel",
       "level": 3,
-      "line": 1462,
+      "line": 1661,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
-      "implements": ["prd.viewer"],
-      "files": ["apps/viewer/src/demo.ts", "apps/viewer/src/demo-trace.json"],
-      "dependsOn": ["spec.contract.trace"],
+      "implements": ["prd.viewer.task-detail", "prd.acceptance-criteria"],
+      "files": [
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/view/sessionView.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/detail-code.scene.test.ts"
+      ],
+      "dependsOn": [
+        "spec.viewer.detail-panel",
+        "spec.viewer.diff-view",
+        "spec.viewer.session-view"
+      ],
       "defers": [],
       "context": [],
-      "tasks": ["t44"],
-      "summary": "Specifies that the demo loads a Trace generated from this repo's own .cairn/ in place of hand-written rows.",
+      "tasks": ["t94", "t98"],
+      "summary": "Specifies the code and the agent session inside a task's detail: its whole stacked diff in the code view's mount, and the first prompt and tool calls of its latest commit's session.",
+      "requirements": [
+        {
+          "id": "spec.viewer.detail-code#r1",
+          "level": "must",
+          "text": "The task's whole stacked diff is drawn by `patchView`, keyed by the route path and wrapped by `detailView`; `diffView.ts` is not changed."
+        },
+        {
+          "id": "spec.viewer.detail-code#r2",
+          "level": "must",
+          "text": "When a task with commits becomes the last node of the trail, the update fetches `patchPathOf(task, WholeTask)` unless `patches` already holds it; the reply is `ReceivedPatch`."
+        },
+        {
+          "id": "spec.viewer.detail-code#r3",
+          "level": "must",
+          "text": "The panel and the code view share `patches`, so neither fetches what the other has loaded."
+        },
+        {
+          "id": "spec.viewer.detail-code#r4",
+          "level": "must",
+          "text": "The diff sits in a region 60% of the window's height, under a line with the commit count and the files changed."
+        },
+        {
+          "id": "spec.viewer.detail-code#r5",
+          "level": "must",
+          "text": "A failed fetch shows its error in that region and is tried again the next time the task is shown."
+        },
+        {
+          "id": "spec.viewer.detail-code#r6",
+          "level": "must",
+          "text": "A task with no commits says \"No code yet. The task has not started.\"; a done task with none says no commit carries its Cairn-Task trailer."
+        },
+        {
+          "id": "spec.viewer.detail-code#r7",
+          "level": "must",
+          "text": "Under the code, the session of the task's latest commit: the first PromptTurn's text held to six lines, up to twelve ToolTurns one line each, a count of the rest, and \"Open the session\", which opens the code view on that commit."
+        },
+        {
+          "id": "spec.viewer.detail-code#r8",
+          "level": "must",
+          "text": "The session is loaded through `ReceivedSession` as the session pane loads it and shares the sessions already loaded."
+        },
+        {
+          "id": "spec.viewer.detail-code#r9",
+          "level": "must",
+          "text": "A commit with no session says its code is shown alone; the demo build says the demo has no sessions."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.detail-code#function:patchview",
+          "kind": "function",
+          "name": "patchView",
+          "location": "apps/viewer/src/view/diffView.ts",
+          "description": "The code view's diff mount, reused in the panel."
+        },
+        {
+          "id": "spec.viewer.detail-code#function:patchpathof",
+          "kind": "function",
+          "name": "patchPathOf",
+          "location": "apps/viewer/src/codeView.ts",
+          "description": "The route path of a task's whole diff or of one commit.",
+          "signature": "patchPathOf(task, shown)"
+        },
+        {
+          "id": "spec.viewer.detail-code#message:receivedpatch",
+          "kind": "message",
+          "name": "ReceivedPatch",
+          "location": "apps/viewer/src/message.ts",
+          "description": "A patch route's text or why it could not be fetched."
+        },
+        {
+          "id": "spec.viewer.detail-code#message:receivedsession",
+          "kind": "message",
+          "name": "ReceivedSession",
+          "location": "apps/viewer/src/message.ts",
+          "description": "A session or why it could not be fetched."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.detail-code#t1",
+          "kind": "scene",
+          "text": "Open a task with commits and find the diff mount keyed by the whole task's route, requested once across two openings and not again after the code view has loaded it."
+        },
+        {
+          "id": "spec.viewer.detail-code#t2",
+          "kind": "scene",
+          "text": "Find \"No code yet\" on a pending task."
+        },
+        {
+          "id": "spec.viewer.detail-code#t3",
+          "kind": "scene",
+          "text": "With a session fixture, find the prompt, twelve tool lines and the count of the rest, and the code view opened by \"Open the session\"."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.detail-code#d1",
+          "text": "Give the diff a region of its own height.",
+          "why": "The list virtualizes and scrolls itself."
+        }
+      ]
+    },
+    {
+      "id": "spec.viewer.canvas-removal",
+      "title": "Replacing the canvas",
+      "level": 3,
+      "line": 1675,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": true,
+      "implements": ["prd.viewer"],
+      "files": [
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/init.ts",
+        "apps/viewer/src/view/view.ts",
+        "apps/viewer/src/canvas.ts",
+        "apps/viewer/src/drag.ts",
+        "apps/viewer/src/layout.ts",
+        "apps/viewer/src/geometry.ts",
+        "apps/viewer/src/curves.ts",
+        "apps/viewer/src/highlight.ts",
+        "apps/viewer/src/drawer.ts",
+        "apps/viewer/src/diagram.ts",
+        "apps/viewer/src/subscription/drag.ts",
+        "apps/viewer/src/view/canvasView.ts",
+        "apps/viewer/src/view/nodeView.ts",
+        "apps/viewer/src/view/edgesView.ts",
+        "apps/viewer/src/view/moveHandleView.ts",
+        "apps/viewer/src/view/stacksView.ts",
+        "apps/viewer/src/view/cursorsView.ts",
+        "apps/viewer/src/subscription/presence.ts",
+        "packages/contract/src/index.ts",
+        "packages/core/src/room-machine.ts",
+        "packages/cli/src/presence.ts",
+        "apps/viewer/package.json",
+        "apps/viewer/test/",
+        "packages/core/test/room-machine.test.ts",
+        "packages/cli/test/presence.test.ts"
+      ],
+      "dependsOn": [
+        "spec.viewer.reader",
+        "spec.viewer.spec-cards",
+        "spec.viewer.stacks",
+        "spec.viewer.curves",
+        "spec.viewer.models",
+        "spec.viewer.panes",
+        "spec.viewer.detail-panel",
+        "spec.viewer.search-interaction",
+        "spec.viewer.presence"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t97"],
+      "summary": "Makes the reader the only plan screen and deletes the canvas with everything only it uses, after a human approves the loss of pan and zoom, dragging, coloured pins and pointer cursors.",
+      "requirements": [
+        {
+          "id": "spec.viewer.canvas-removal#r1",
+          "level": "must",
+          "text": "A human approves this section before it is built."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#r2",
+          "level": "must",
+          "text": "`Screen` is `Reader` or `Code`, and the viewer opens on `Reader`; the \"Plan\" and \"Canvas\" buttons and `ClickedScreen` are removed."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#r3",
+          "level": "must",
+          "text": "Delete the canvas, its views and what only they use: pan and zoom, dragging and its subscription, the measured layout, `curvesOf`, the pins and their palette, the node, edge, move handle, cursor and stack card views and the drawer shell, with their model fields and messages."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#r4",
+          "level": "must",
+          "text": "What the detail panel reuses from `drawer.ts` moves into `view/detailView.ts`."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#r5",
+          "level": "must",
+          "text": "Remove pointer presence: a participant's `cursor`, the `Cursor` schema and the room machine's `moved` event, from the contract, the room machine, the presence server and the viewer; `reading` stays."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#r6",
+          "level": "must",
+          "text": "`DrawDiagram` no longer measures a canvas layer."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#r7",
+          "level": "may",
+          "text": "Keep `stackLayoutOf` and `columnOf` only if the code view's tree still uses them."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#r8",
+          "level": "must",
+          "text": "Remove `@xyflow/system` from the viewer once nothing imports it."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#r9",
+          "level": "must",
+          "text": "The code view's button reads \"Back to the plan\" and its message is `ClickedBackToPlan`."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#r10",
+          "level": "must",
+          "text": "Move a Scene test for a behaviour the reader keeps to the reader; delete a test only with the behaviour it tested."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#r11",
+          "level": "must",
+          "text": "`pnpm check` passes with no unused export left behind."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.canvas-removal#message:clickedbacktoplan",
+          "kind": "message",
+          "name": "ClickedBackToPlan",
+          "location": "apps/viewer/src/message.ts",
+          "description": "The code view's \"Back to the plan\" button."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#library:xyflow-system",
+          "kind": "library",
+          "name": "@xyflow/system",
+          "location": "apps/viewer/package.json",
+          "description": "Removed once nothing imports it."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.canvas-removal#t1",
+          "kind": "scene",
+          "text": "The kept behaviours are tested on the reader: loading and the error over the last good trace, the two clicks from a section to a commit, search, the code view and back, presence, and judgment markers."
+        },
+        {
+          "id": "spec.viewer.canvas-removal#t2",
+          "kind": "check",
+          "text": "`pnpm check` passes with no unused export."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.canvas-removal#d1",
+          "text": "Gate the removal on a human.",
+          "why": "It takes away things people can do today: panning and zooming, moving the documents and the task cards, several coloured pins, Fit, Reset layout, Show all curves and pointer cursors."
+        }
+      ]
+    },
+    {
+      "id": "spec.viewer.demo-data",
+      "title": "Demo data",
+      "level": 3,
+      "line": 1695,
+      "parent": "spec.viewer",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer", "prd.viewer.task-detail"],
+      "files": [
+        "apps/viewer/src/demo.ts",
+        "apps/viewer/src/demo-trace.json",
+        "scripts/demo-patches/demo-patches.ts",
+        "apps/viewer/package.json",
+        "apps/viewer/src/load.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/view/diffView.ts",
+        ".github/workflows/ci.yml",
+        ".gitignore"
+      ],
+      "dependsOn": ["spec.contract.trace", "spec.patch-routes", "spec.viewer.diff-view"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t44", "t81", "t82"],
+      "summary": "Specifies the demo: a Trace generated from this repo's own .cairn/, what ran on its running events, and the commit patches its build ships as static files so the demo shows code without a server.",
       "requirements": [
         {
           "id": "spec.viewer.demo-data#r1",
@@ -6026,6 +7053,41 @@
           "id": "spec.viewer.demo-data#r3",
           "level": "may",
           "text": "Until the CLI exists, the fixture is written by hand."
+        },
+        {
+          "id": "spec.viewer.demo-data#r4",
+          "level": "must",
+          "text": "Until an orchestrator writes them, the demo trace's `running` events carry the model and reasoning the session records of the first builds give, for the tasks that have such an event."
+        },
+        {
+          "id": "spec.viewer.demo-data#r5",
+          "level": "must",
+          "text": "The demo build writes `api/commits/<sha>` for each commit in the demo trace and `api/diffs/<base>/<head>` for each task with commits, under `apps/viewer/public/api/`, which is gitignored."
+        },
+        {
+          "id": "spec.viewer.demo-data#r6",
+          "level": "must",
+          "text": "`scripts/demo-patches/demo-patches.ts` is an Effect script that runs before the demo is built, with the git arguments `spec.patch-routes` gives."
+        },
+        {
+          "id": "spec.viewer.demo-data#r7",
+          "level": "must",
+          "text": "A commit git does not have is skipped and named in the output, and the script still succeeds."
+        },
+        {
+          "id": "spec.viewer.demo-data#r8",
+          "level": "must",
+          "text": "The deploy job checks out the whole history with `fetch-depth: 0`; that edit is on a gated path, so a human approves the task."
+        },
+        {
+          "id": "spec.viewer.demo-data#r9",
+          "level": "must",
+          "text": "In the demo build the viewer fetches these paths as under `cairn serve`: `withPatchRequested` no longer skips the demo and `diffView.ts` no longer says the diff needs `cairn serve`; a reply whose Content-Type is text/html is a missing patch."
+        },
+        {
+          "id": "spec.viewer.demo-data#r10",
+          "level": "must-not",
+          "text": "Ship a session in the demo."
         }
       ],
       "artifacts": [
@@ -6035,16 +7097,34 @@
           "name": "cairn status --json",
           "location": null,
           "description": "Produces the Trace fixture."
+        },
+        {
+          "id": "spec.viewer.demo-data#file:demo-patches-ts",
+          "kind": "file",
+          "name": "demo-patches.ts",
+          "location": "scripts/demo-patches/demo-patches.ts",
+          "description": "Writes the patches of the demo trace's commits and task ranges as static files."
         }
       ],
-      "tests": [],
+      "tests": [
+        {
+          "id": "spec.viewer.demo-data#t1",
+          "kind": "example",
+          "text": "Against a temporary repository with two commits the script writes one file per commit and one per range, and skips a SHA git does not have without failing."
+        },
+        {
+          "id": "spec.viewer.demo-data#t2",
+          "kind": "scene",
+          "text": "In the demo build the diff mount requests a commit's path, and a text/html reply is shown as a missing patch."
+        }
+      ],
       "decisions": []
     },
     {
       "id": "spec.acceptance",
       "title": "Acceptance",
       "level": 2,
-      "line": 1470,
+      "line": 1716,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -6099,7 +7179,22 @@
         {
           "id": "spec.acceptance#r9",
           "level": "must",
-          "text": "Fuzzy search finds and highlights matching text and its chain; matching properties and Scene tests cover navigation, markdown spans, refresh and preserving pins on clear."
+          "text": "Fuzzy search finds and highlights matching text and its chain; matching properties and Scene tests cover navigation, markdown spans, refresh and preserving the pin on clear."
+        },
+        {
+          "id": "spec.acceptance#r10",
+          "level": "must",
+          "text": "Scrolling the PRD changes the cards and the lit stacks, checked by `sectionAtTop` properties and a Scene that sends `ScrolledPrd`; a pinned section holds."
+        },
+        {
+          "id": "spec.acceptance#r11",
+          "level": "must",
+          "text": "Models and reasoning show what ran or what is planned, checked by `ranOf` properties and a Scene that finds `data-ran` on rows and chips and none of them with the switch off."
+        },
+        {
+          "id": "spec.acceptance#r12",
+          "level": "must",
+          "text": "A task's code shows in the detail panel, checked by a Scene that clicks a task row and finds the diff mount keyed by the task's range with the reader still under it."
         }
       ],
       "artifacts": [
