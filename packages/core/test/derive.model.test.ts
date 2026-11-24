@@ -1,4 +1,12 @@
-import { Event, Manifest, ParticipantKind, Sha, TaskStatus } from "@cairn/contract";
+import {
+  Event,
+  Manifest,
+  ParticipantKind,
+  SessionId,
+  SpecSectionId,
+  TaskId,
+  TaskStatus,
+} from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
 import { setupEffect } from "@xstate/effect";
 import { assertTestCoverage, mergeEventGenerators, propertyTest, replayTest } from "@xstate/test";
@@ -9,19 +17,20 @@ import {
   Context,
   DateTime,
   Effect,
-  Layer,
   Match,
   Number,
   Option,
   Random,
   Ref,
   Schema,
-  String,
   Struct,
 } from "effect";
 import type { EventFrom, SnapshotFrom } from "xstate";
 
-import { GitCommit, derive } from "../src/index.ts";
+// Core takes plain values and the Git service is the CLI's (spec.package-layout); a package
+// dependency would make a cycle, so the test reads the in-memory layer by path.
+import { Git, GitHistory } from "../../cli/src/git.ts";
+import { derive } from "../src/index.ts";
 import type { GateConfig } from "../src/index.ts";
 import { agentApproves, landingSkipsGate } from "./fixtures/derive-gate.ts";
 
@@ -171,66 +180,12 @@ const manifest = Schema.decodeSync(Manifest)({
   version: 1,
 });
 
-const shaOf = (n: number): Sha => Schema.decodeSync(Sha)(String.padStart(40, "0")(`${n}`));
-
-/** The commit numbered `n`, with every trailer for the task. */
-const commitOf = (
-  n: number,
-  files: ReadonlyArray<string>,
-  branch: string | null,
-  onBase: boolean,
-) =>
-  Schema.decodeSync(GitCommit)({
-    branch,
-    files,
-    onBase,
-    parents: n === 0 ? [] : [shaOf(n - 1)],
-    sections: ["spec.status.derivation"],
-    session: "s_abc123",
-    sha: shaOf(n),
-    subject: `Commit ${n}`,
-    taskId: TASK,
-  });
-
-/**
- * Git as derivation reads it, with an in-memory commit graph for a layer. The live service is the
- * CLI's (spec.package-layout); core takes plain values, so the test reads the commits through this.
- * Stand-in until t21 adds the `Git` service: replace this with that service's in-memory layer.
- */
-class Git extends Context.Service<
-  Git,
-  {
-    /** A commit with the task's trailers on its branch. */
-    readonly commit: (file: string) => Effect.Effect<void>;
-    readonly log: Effect.Effect<ReadonlyArray<GitCommit>>;
-    /** Merges the task branch: `baseBranch` reaches every commit on it so far. */
-    readonly merge: Effect.Effect<void>;
-    /** A squash merge: one commit on `baseBranch` with the task's trailer and its files. */
-    readonly squash: Effect.Effect<void>;
-  }
->()("@cairn/core/test/Git") {
-  static readonly layer = Layer.effect(
-    Git,
-    Effect.gen(function* () {
-      const commits = yield* Ref.make<ReadonlyArray<GitCommit>>([]);
-      const add = (make: (n: number, all: ReadonlyArray<GitCommit>) => GitCommit) =>
-        Ref.update(commits, (all) => Array.append(all, make(all.length, all)));
-      return Git.of({
-        commit: (file) => add((n) => commitOf(n, [file], BRANCH, false)),
-        log: Ref.get(commits),
-        merge: Ref.update(
-          commits,
-          Array.map((commit) =>
-            commit.branch === BRANCH ? Struct.evolve(commit, { onBase: () => true }) : commit,
-          ),
-        ),
-        squash: add((n, all) =>
-          commitOf(n, Array.dedupe(Array.flatMap(all, ({ files }) => files)), null, true),
-        ),
-      });
-    }),
-  );
-}
+/** The trailers an orchestrator writes on every commit of the task. */
+const trailers = {
+  sections: [SpecSectionId.make("spec.status.derivation")],
+  session: SessionId.make("s_abc123"),
+  taskId: TaskId.make(TASK),
+};
 
 type Model = typeof derivationModel;
 type ModelEvent = EventFrom<Model>;
@@ -245,10 +200,12 @@ const actorOf = (kind: ParticipantKind) => (kind === "human" ? "human:ben" : "ag
 
 const makeSession = Effect.gen(function* () {
   const git = yield* Git;
+  const history = yield* GitHistory;
+  yield* history.branch(BRANCH, manifest.baseBranch);
   const lines = yield* Ref.make<ReadonlyArray<Event>>([]);
   const reads = yield* Ref.make(0);
 
-  const perform = Match.type<ModelEvent>().pipe(
+  const write = Match.type<ModelEvent>().pipe(
     Match.discriminator("type")("reported", ({ actor, status }) =>
       Ref.update(lines, (written) =>
         Array.append(
@@ -263,11 +220,19 @@ const makeSession = Effect.gen(function* () {
         ),
       ),
     ),
-    Match.discriminator("type")("committed", ({ gated }) => git.commit(gated ? MIGRATION : PLAIN)),
-    Match.discriminator("type")("merged", () => git.merge),
-    Match.discriminator("type")("squashed", () => git.squash),
+    Match.discriminator("type")("committed", ({ gated }) =>
+      history.commit(
+        BRANCH,
+        Struct.assign(trailers, { files: [gated ? MIGRATION : PLAIN], subject: "Commit" }),
+      ),
+    ),
+    Match.discriminator("type")("merged", () => history.merge(BRANCH, manifest.baseBranch)),
+    Match.discriminator("type")("squashed", () =>
+      history.squash(BRANCH, manifest.baseBranch, Struct.assign(trailers, { subject: "Squash" })),
+    ),
     Match.exhaustive,
   );
+  const perform = (event: ModelEvent) => Effect.asVoid(write(event));
 
   // The order of lines in the file must not matter, so every read shuffles them first.
   const read = Effect.gen(function* () {
@@ -276,7 +241,7 @@ const makeSession = Effect.gen(function* () {
       Effect.flatMap(Random.shuffle),
       Random.withSeed(seed),
     );
-    const commits = yield* git.log;
+    const commits = yield* git.log(manifest);
     const derived = derive(manifest, [], config, shuffled, commits);
     return {
       status: Option.match(Array.head(derived.tasks), {
@@ -296,7 +261,7 @@ const sutIn = (services: Context.Context<never>) => {
     create: () =>
       runWith(
         makeSession.pipe(
-          Effect.provide(Git.layer),
+          Effect.provide(Git.memory(manifest.baseBranch)),
           Effect.map(
             ({ perform, read }) =>
               ({
