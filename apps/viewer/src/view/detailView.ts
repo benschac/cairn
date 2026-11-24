@@ -10,8 +10,11 @@ import { ranOf, statusWordOf } from "../reader.ts";
 import { stacksOf } from "../stacks.ts";
 import { Node, nodeKeyOf, sectionTitleOf } from "../trace.ts";
 import { dotView, labelView, tagView } from "../ui/marks.ts";
-import { DIVIDER_WIDTH, dividerView } from "./dividerView.ts";
+import { dividerView, handleWidthOf } from "./dividerView.ts";
 import type { Widths } from "../panes.ts";
+
+/** The content's side padding: more than half the resize handle, which overlaps it. */
+export const DETAIL_PADDING = 16;
 
 // NOTE: the buttons here are native buttons with Type("button"), as the drawer's are.
 
@@ -346,13 +349,14 @@ export const detailView = (
       }),
     ],
     [
-      // The divider's strip is centred on the panel's left edge.
+      // The handle is centred on the panel's left edge, and is narrower than the content's padding.
       h.div(
         [
+          h.DataAttribute("detail-handle", ""),
           h.Style({
             bottom: "0",
             display: "grid",
-            left: `-${DIVIDER_WIDTH / 2}px`,
+            left: `-${handleWidthOf("detail") / 2}px`,
             position: "absolute",
             top: "0",
           }),
@@ -362,11 +366,12 @@ export const detailView = (
       h.keyed("div")(
         nodeKeyOf(node),
         [
+          h.DataAttribute("detail-content", ""),
           h.Style({
             "box-sizing": "border-box",
             height: "100%",
             "overflow-y": "auto",
-            padding: "12px 16px",
+            padding: `12px ${DETAIL_PADDING}px`,
           }),
         ],
         Array.prepend(bodyOf(trace, node, h), trailView(trace, trail, h)),
