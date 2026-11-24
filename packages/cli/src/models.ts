@@ -7,9 +7,19 @@ import {
 } from "@effect/ai-openai-compat";
 import { OpenRouterClient, OpenRouterLanguageModel } from "@effect/ai-openrouter";
 import { TypeSafeClient, TypeSafeDecisionModel } from "@effect/ai-typesafe";
-import { Array, Config, Effect, FileSystem, Layer, Match, Option, Path, Schema } from "effect";
-import { FetchHttpClient } from "effect/http";
-import type { HttpClient } from "effect/http";
+import {
+  Array,
+  Config,
+  Effect,
+  FileSystem,
+  Layer,
+  Match,
+  Option,
+  Path,
+  Redacted,
+  Schema,
+} from "effect";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { LanguageModel } from "effect/ai";
 import type { ChildProcessSpawner } from "effect/process";
 
@@ -115,6 +125,45 @@ const keyVariable = (config: CairnConfig) =>
     () => DEFAULT_KEY_VARIABLES[config.planner.provider],
   );
 
+const missingGatewayToken = (variable: string) =>
+  new ModelKeyError({
+    reason: `${variable} is not set, or could not be read. planner.gatewayTokenEnv names it as the AI Gateway token: set it in your environment, or remove planner.gatewayTokenEnv from .cairn/config.json.`,
+    variable,
+  });
+
+/** The header Cloudflare AI Gateway reads its token from. */
+const GATEWAY_HEADER = "cf-aig-authorization";
+
+/** An `HttpClient` that sends the gateway token on every request of the client it wraps. */
+const gatewayClient = (token: Redacted.Redacted) =>
+  Layer.effect(
+    HttpClient.HttpClient,
+    Effect.map(
+      HttpClient.HttpClient,
+      HttpClient.mapRequest(
+        HttpClientRequest.setHeader(GATEWAY_HEADER, `Bearer ${Redacted.value(token)}`),
+      ),
+    ),
+  );
+
+/**
+ * `planner.gatewayTokenEnv` (`spec.models`): when it is set, `layer` gets an `HttpClient` that adds
+ * `cf-aig-authorization: Bearer <token>` to every request, whichever provider it serves. The token
+ * is read with `Config.Redacted` when the layer is built, and a missing variable is a
+ * `ModelKeyError` naming it. When it is unset, `layer` is returned as it is.
+ */
+const withGatewayToken = <ROut, E, R>(config: CairnConfig, layer: Layer.Layer<ROut, E, R>) =>
+  Option.match(Option.fromUndefinedOr(config.planner.gatewayTokenEnv), {
+    onNone: () => layer,
+    onSome: (variable) =>
+      Layer.unwrap(
+        Config.Redacted(variable).pipe(
+          Effect.mapError(() => missingGatewayToken(variable)),
+          Effect.map((token) => layer.pipe(Layer.provide(gatewayClient(token)))),
+        ),
+      ),
+  });
+
 /** The key from the environment: a `ModelKeyError` naming the variable when it is not there. */
 const requiredKey = (variable: string) =>
   Config.Redacted(variable).pipe(Effect.mapError(() => missingKey(variable)));
@@ -135,7 +184,14 @@ const optionalKey = (variable: string) =>
  * is each client's `apiUrl`, which routes calls through a proxy such as Cloudflare AI Gateway; the
  * provider's own host is the default, and `openai-compatible` has none, so the config requires it.
  */
-const apiModel = (config: CairnConfig, model: Option.Option<string>) => {
+const apiModel = (
+  config: CairnConfig,
+  model: Option.Option<string>,
+): Layer.Layer<
+  LanguageModel.LanguageModel,
+  ModelKeyError | ModelUnavailable,
+  HttpClient.HttpClient
+> => {
   const variable = keyVariable(config);
   const apiUrl = config.planner.baseUrl;
   return Option.match(model, {
@@ -227,7 +283,7 @@ export const languageModelFor = (
         Match.exhaustive,
       ),
     ),
-    Match.when("api", () => apiModel(config, model)),
+    Match.when("api", () => withGatewayToken(config, apiModel(config, model))),
     Match.exhaustive,
   );
 };

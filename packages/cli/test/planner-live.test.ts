@@ -25,6 +25,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { CliNotFound } from "../src/cli-model.ts";
 import {
   ANTHROPIC_API_KEY,
+  DEFAULT_KEY_VARIABLES,
   ModelKeyError,
   ModelUnavailable,
   PlannerCall,
@@ -457,6 +458,91 @@ Array.forEach(Providers, ({ provider, variable }) => {
     }),
   );
 });
+
+/** Every api provider, the Anthropic one included. */
+const ApiProvider = Schema.Literals(["anthropic", "openai", "openrouter", "openai-compatible"]);
+
+const GATEWAY_VARIABLE = "CAIRN_AI_GATEWAY_TOKEN";
+const GATEWAY_HEADER = "cf-aig-authorization";
+
+/** A token as a gateway issues it: a header value with nothing a stub would have to escape. */
+const GatewayToken = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9._-]{8,40}$/u));
+
+const gatewayConfig = (provider: typeof ApiProvider.Type, gatewayTokenEnv?: string) =>
+  Schema.decodeSync(CairnConfig)({
+    planner: {
+      baseUrl: "https://gateway.test/v1",
+      model: "test-model",
+      provider,
+      source: "api",
+      ...(gatewayTokenEnv === undefined ? {} : { gatewayTokenEnv }),
+    },
+  });
+
+/** Every request a provider's planner sent, after its call has failed on the refusal. */
+const requestsOf = (config: CairnConfig, env: Layer.Layer<never>) =>
+  Effect.gen(function* () {
+    yield* Effect.ignore(spec("a prd"));
+    const wired = yield* Wire;
+    return yield* wired.requests;
+  }).pipe(Effect.provide(livePlanner(config, env, refuses)));
+
+const keyAndGateway = (variable: string, token: string) =>
+  environment({ [variable]: FAKE_KEY, [GATEWAY_VARIABLE]: token });
+
+it.effect.prop(
+  "planner.gatewayTokenEnv sends cf-aig-authorization with the token on every request of every api provider",
+  [ApiProvider, GatewayToken],
+  ([provider, token]) =>
+    Effect.gen(function* () {
+      const variable = DEFAULT_KEY_VARIABLES[provider];
+      const requests = yield* requestsOf(
+        gatewayConfig(provider, GATEWAY_VARIABLE),
+        keyAndGateway(variable, token),
+      );
+      expect(Array.isReadonlyArrayNonEmpty(requests)).toBe(true);
+      Array.forEach(requests, (request) => {
+        expect(Headers.get(request.headers, GATEWAY_HEADER)).toEqual(
+          Option.some(`Bearer ${token}`),
+        );
+      });
+    }),
+);
+
+it.effect.prop(
+  "with planner.gatewayTokenEnv unset no gateway header is sent, though the variable is in the environment",
+  [ApiProvider, GatewayToken],
+  ([provider, token]) =>
+    Effect.gen(function* () {
+      const variable = DEFAULT_KEY_VARIABLES[provider];
+      const requests = yield* requestsOf(gatewayConfig(provider), keyAndGateway(variable, token));
+      expect(Array.isReadonlyArrayNonEmpty(requests)).toBe(true);
+      Array.forEach(requests, (request) => {
+        expect(Headers.get(request.headers, GATEWAY_HEADER)).toEqual(Option.none());
+      });
+    }),
+);
+
+it.effect.prop(
+  "a planner.gatewayTokenEnv variable that is not set fails the layer with a ModelKeyError that names it, before any request",
+  [ApiProvider],
+  ([provider]) =>
+    Effect.gen(function* () {
+      const variable = DEFAULT_KEY_VARIABLES[provider];
+      const failure = yield* Effect.flip(
+        Layer.build(
+          languageModel(gatewayConfig(provider, GATEWAY_VARIABLE)).pipe(
+            Layer.provide(environment({ [variable]: FAKE_KEY })),
+          ),
+        ).pipe(Effect.scoped),
+      ).pipe(Effect.flatMap(only(Schema.is(ModelKeyError))));
+      expect(failure.variable).toBe(GATEWAY_VARIABLE);
+      expect(failure.message).toContain(GATEWAY_VARIABLE);
+      const wired = yield* Wire;
+      const requests = yield* wired.requests;
+      expect(requests).toEqual([]);
+    }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer))),
+);
 
 it.effect.prop(
   "openai and openrouter fail the layer with a ModelKeyError that names their variable when the key is missing",

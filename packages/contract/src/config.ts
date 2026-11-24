@@ -23,13 +23,15 @@ const JUDGE_MODELS = {
 /**
  * The planner's fields (`spec.contract.config`). `source` picks the agent CLI on the person's
  * machine or an API key. `cli` is read when `source` is "cli", and `provider` when it is "api".
- * `model` has no default: undefined leaves the choice to the CLI.
+ * `model` has no default: undefined leaves the choice to the CLI. `gatewayTokenEnv` names the
+ * variable holding an AI Gateway token, never the token itself.
  */
 const PlannerFields = Schema.Struct({
   baseUrl: Schema.optionalKey(Schema.String),
   cli: Schema.Literals(["claude", "codex"]).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed("claude" as const)),
   ),
+  gatewayTokenEnv: Schema.optionalKey(Schema.String),
   keyEnv: Schema.optionalKey(Schema.String),
   model: Schema.optionalKey(Schema.String),
   provider: Schema.Literals(["anthropic", "openai", "openrouter", "openai-compatible"]).pipe(
@@ -59,9 +61,22 @@ const compatibleNeedsBaseUrl = Schema.makeFilter<typeof PlannerFields.Type>(
       : undefined,
 );
 
+/**
+ * `planner.baseUrl` is required when `planner.gatewayTokenEnv` is set and the source is "api": the
+ * token is for the gateway, and a request that goes straight to a provider must not carry it. A CLI
+ * planner ignores the field.
+ */
+const gatewayTokenNeedsBaseUrl = Schema.makeFilter<typeof PlannerFields.Type>(
+  ({ baseUrl, gatewayTokenEnv, source }) =>
+    source === "api" && Predicate.isNotUndefined(gatewayTokenEnv) && Predicate.isUndefined(baseUrl)
+      ? "planner.baseUrl is required when planner.source is api and planner.gatewayTokenEnv is set"
+      : undefined,
+);
+
 const Planner = PlannerFields.pipe(
   Schema.check(apiNeedsModel),
   Schema.check(compatibleNeedsBaseUrl),
+  Schema.check(gatewayTokenNeedsBaseUrl),
 );
 
 const JudgeFields = Schema.Struct({
