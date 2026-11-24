@@ -473,12 +473,12 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 
 v2 lets humans and agents change the PRD and statuses at the same time, and keeps work correct when the PRD moves mid-stack. Each kind of state gets the strategy that fits it.
 
-| State                  | Strategy                                 | Why                                                                      |
-| ---------------------- | ---------------------------------------- | ------------------------------------------------------------------------ |
-| PRD and spec prose     | Loro CRDT                                | Human and agent edits land concurrently and must merge without conflicts |
-| Section IDs            | Loro marks on the text                   | IDs must survive concurrent edits around them                            |
-| Task status and leases | LWW register with a hybrid logical clock | One writer per task (the orchestrator), so a CRDT is overkill            |
-| Events                 | Append-only log                          | Nothing to merge                                                         |
+| State                                         | Strategy                              | Why                                                                                               |
+| --------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| PRD and spec prose                            | Loro CRDT                             | Human and agent edits land concurrently and must merge without conflicts                          |
+| Section IDs                                   | Loro marks on the text                | IDs must survive concurrent edits around them                                                     |
+| Events, task status, leases and agent notices | Effect `EventLog`, one store per room | One writer per task, so status is a projection of ordered events, not a merge (see the event log) |
+| Presence                                      | Ephemeral, on the presence socket     | Cursors and heartbeats are never persisted                                                        |
 
 Yjs stays an option for the editor if Loro's bindings fall short. Strategies can coexist per field.
 
@@ -510,12 +510,26 @@ A feature's PRD, spec, and stack live in a shared room. Humans and agents see ea
 
 ### Architecture {#prd.v2-multiplayer-on-cloudflare.architecture}
 
-- One Durable Object per room (one feature). It holds the Loro document, applies updates, and fans them out over hibernatable WebSockets.
-- Storage: Durable Object SQLite for updates and snapshots. R2 for version snapshots and opt-in redacted sessions.
-- Single writer for LWW state: statuses and leases are written through the room's Durable Object, which serializes them.
+- One Durable Object per room (one feature). It holds the Loro document and the room's event log, applies updates, and fans them out over hibernatable WebSockets.
+- Storage: Durable Object SQLite for Loro updates and snapshots and for the event log's entries. R2 for version snapshots and opt-in redacted sessions.
+- Statuses and leases are events written through the room's Durable Object, and its sequence orders them (see the event log).
 - Local bridge: `cairn connect` links a repo's `.cairn/` to a room. It pushes events, commit SHAs, and session IDs, and pulls PRD and spec edits back to markdown on disk.
 - Offline: the viewer still works on local files. Loro merges edits made while disconnected.
 - Deploy: Worker, Durable Object namespace, R2 bucket, and the Foldkit site, all defined in Alchemy. Room tokens live in each room's storage, so no signing key is needed yet. Model keys never reach the server.
+
+### Event log {#prd.v2-multiplayer-on-cloudflare.event-log}
+
+A room's events run on Effect's `EventLog` (`effect/eventlog`).
+
+- The events are the contract's schemas: task status changes, leases, gate approvals, conflict holds and the orchestrator's notices to agents. Task status, the viewer's trace and the conflict scores are handlers that project them.
+- Each room is one store. Each human and each agent is its own identity, and the server checks every write against it: a gate approval from an agent is refused, and only the orchestrator writes notices to agents.
+- The room runs the unencrypted server, so it can run handlers, enforce those rules and score conflicts. Its entries live in the Durable Object's SQLite.
+- Every client keeps a local journal, IndexedDB in the viewer and SQLite in the CLI, so it works offline and sends what it wrote when it reconnects. The server's sequence orders a room's events; no client's clock decides.
+- `.cairn/events.jsonl` stays the orchestrator's interface (see orchestrator contract). `cairn connect` writes each new line into the room's log, and `cairn serve` reads the same events without a room.
+- `EventLog` is marked unstable. Cairn reaches it through one service of its own, so an Effect upgrade that changes it touches one module.
+- Prose stays out of the log, because Loro merges text. Presence stays out, because it is never persisted.
+
+A spike proves the fit before the room is built on it: one Durable Object running the event-log server on its own SQLite, with a browser client and a CLI client. If it misses the latency target or loses events when the Object hibernates, status and leases go back to registers the Durable Object writes, and the rest of v2 stands.
 
 ### Presence {#prd.v2-multiplayer-on-cloudflare.presence}
 
@@ -539,8 +553,8 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 
 ### Permissions {#prd.v2-multiplayer-on-cloudflare.permissions}
 
-- Each room has one token: a plain string assigned when the room is created. Anyone with it can join.
-- Clients declare whether they are a human or an agent. Gate approvals are only accepted from human clients and record who approved.
+- Each room has one token: a plain string assigned when the room is created. Anyone with it can join, and joining registers the client's event-log identity.
+- Clients declare whether they are a human or an agent. Gate approvals are only accepted from human clients and record who approved; the event log's server enforces it against the writer's identity.
 - This is trust-based and fine for v2. Signed, scoped tokens come later.
 
 ### Multiplayer acceptance criteria {#prd.v2-multiplayer-on-cloudflare.multiplayer-acceptance-criteria}
@@ -550,6 +564,8 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 - A gate approval from an agent client is rejected.
 - Clients that edit offline converge on reconnect with no lost edits, property tested with random edits and partitions.
 - `alchemy deploy` brings up a working room from an empty Cloudflare account.
+- The event-log spike: a Durable Object running the event-log server on its own SQLite syncs a browser client and a CLI client within the latency target, and an Object that hibernated wakes with no lost events.
+- A client that writes events offline sends them on reconnect, and every client then derives the same task statuses.
 
 ## Later {#prd.later}
 
