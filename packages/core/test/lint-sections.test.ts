@@ -69,6 +69,9 @@ const specWith = (key: string, ids: ReadonlyArray<string>) =>
 
 const decodeManifest = Schema.decodeUnknownSync(Manifest);
 
+/** No high-trust paths: these tests are about sections, and no task here touches a gated file. */
+const NO_GATES = { humanPaths: [] };
+
 const manifestOf = (tasks: ReadonlyArray<{ readonly prd: string; readonly spec: string }>) =>
   decodeManifest({
     baseBranch: "main",
@@ -88,7 +91,7 @@ const manifestOf = (tasks: ReadonlyArray<{ readonly prd: string; readonly spec: 
       specSections: [spec],
       status: "pending",
       title: `Task ${index + 1}`,
-      worktree: null,
+      worktree: index === 0 ? null : `wt-${index}`,
     })),
     version: 1,
   });
@@ -111,7 +114,7 @@ it.prop(
   ({ key, levels: raw, target: picked }) => {
     const levels = levelsOf(raw);
     const target = picked % Array.length(levels);
-    const findings = lint(prdOf(levels), specWith(key, [prdId(target)]), Option.none());
+    const findings = lint(prdOf(levels), specWith(key, [prdId(target)]), Option.none(), NO_GATES);
     const isUnder = (index: number) => Array.contains(ancestorsOf(levels, index), prdId(target));
     const covered = (index: number) =>
       index === target ||
@@ -140,7 +143,9 @@ it.prop(
     const levels = levelsOf(raw);
     const ids = Array.map(levels, (_, index) => prdId(index));
     const manifest = manifestOf(Array.map(ids, (prd) => ({ prd, spec: "spec.plan" })));
-    expect(lint(prdOf(levels), specWith("Implements", ids), Option.some(manifest))).toEqual([]);
+    expect(
+      lint(prdOf(levels), specWith("Implements", ids), Option.some(manifest), NO_GATES),
+    ).toEqual([]);
   },
 );
 
@@ -167,7 +172,7 @@ it.prop(
   "every heading without an ID is a missing-id finding on its line",
   [Headings],
   ([headings]) => {
-    const findings = only(lint(messyPrd(headings), SPEC, Option.none()), "missing-id");
+    const findings = only(lint(messyPrd(headings), SPEC, Option.none(), NO_GATES), "missing-id");
     expect(linesOf(findings)).toEqual(
       Array.filterMap(headings, ({ identified }, index) =>
         identified ? Result.failVoid : Result.succeed(lineOf(index)),
@@ -183,7 +188,7 @@ it.prop(
   "every heading after the first with an ID is a duplicate-id finding that points at the first",
   [Headings],
   ([headings]) => {
-    const findings = only(lint(messyPrd(headings), SPEC, Option.none()), "duplicate-id");
+    const findings = only(lint(messyPrd(headings), SPEC, Option.none(), NO_GATES), "duplicate-id");
     const ids = Array.map(headings, ({ id, identified, prefix }) =>
       identified ? Option.some(`${prefix}.s${id}`) : Option.none(),
     );
@@ -205,7 +210,7 @@ it.prop(
 );
 
 it.prop("a spec. ID in prd.md is a wrong-prefix finding on its line", [Headings], ([headings]) => {
-  const findings = only(lint(messyPrd(headings), SPEC, Option.none()), "wrong-prefix");
+  const findings = only(lint(messyPrd(headings), SPEC, Option.none(), NO_GATES), "wrong-prefix");
   expect(linesOf(findings)).toEqual(
     Array.filterMap(headings, ({ identified, prefix }, index) =>
       identified && prefix === "spec" ? Result.succeed(lineOf(index)) : Result.failVoid,
@@ -215,7 +220,9 @@ it.prop("a spec. ID in prd.md is a wrong-prefix finding on its line", [Headings]
 
 it("a prd. ID in spec.md is a wrong-prefix finding", () => {
   const spec = "# Spec {#spec.spec}\n\n## Plan {#prd.plan}\n\n- Context: `prd.product`\n";
-  expect(only(lint("# Product {#prd.product}\n", spec, Option.none()), "wrong-prefix")).toEqual([
+  expect(
+    only(lint("# Product {#prd.product}\n", spec, Option.none(), NO_GATES), "wrong-prefix"),
+  ).toEqual([
     {
       file: "spec.md",
       line: Option.some(3),
@@ -252,7 +259,7 @@ it.prop(
     );
     const spec = `# Spec {#spec.spec}\n\n## Plan {#spec.plan}\n\n${Array.join(keyLines, "\n")}\n`;
     const findings = only(
-      lint("# Product {#prd.product}\n", spec, Option.none()),
+      lint("# Product {#prd.product}\n", spec, Option.none(), NO_GATES),
       "unknown-section",
     );
     const expected = Array.filterMap(named, (entry, index) =>
@@ -292,7 +299,9 @@ it("a key a section inherits is reported once, on the section that writes it", (
     ],
     "\n",
   );
-  expect(only(lint("# Product {#prd.product}\n", spec, Option.none()), "unknown-section")).toEqual([
+  expect(
+    only(lint("# Product {#prd.product}\n", spec, Option.none(), NO_GATES), "unknown-section"),
+  ).toEqual([
     {
       file: "spec.md",
       line: Option.some(3),
@@ -318,7 +327,7 @@ it.prop(
       })),
     );
     const findings = only(
-      lint(prdOf([2]), specWith("Context", [ROOT]), Option.some(manifest)),
+      lint(prdOf([2]), specWith("Context", [ROOT]), Option.some(manifest), NO_GATES),
       "unknown-section",
     );
     const expected = Array.flatMap(links, ({ prdGone, specGone }, index) =>
@@ -338,7 +347,7 @@ it("orders findings by file, then by line, with manifest findings last", () => {
   const spec = "# Spec {#spec.spec}\n\n## Plan\n\n- Implements: `prd.gone`\n";
   const manifest = manifestOf([{ prd: "prd.gone", spec: "spec.plan" }]);
   expect(
-    Array.map(lint(prd, spec, Option.some(manifest)), (finding) => [
+    Array.map(lint(prd, spec, Option.some(manifest), NO_GATES), (finding) => [
       finding.file,
       finding.line,
       finding.rule,

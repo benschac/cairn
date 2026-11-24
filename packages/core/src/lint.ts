@@ -1,8 +1,22 @@
 import { SectionPrefix } from "@cairn/contract";
-import type { Manifest, Section } from "@cairn/contract";
-import { Array, HashSet, Option, Order, Predicate, Record, Result, Schema, String } from "effect";
+import type { HumanGate, Manifest, ManifestTask, Section, TaskId } from "@cairn/contract";
+import {
+  Array,
+  Equal,
+  HashSet,
+  Option,
+  Order,
+  Predicate,
+  Record,
+  Result,
+  Schema,
+  String,
+} from "effect";
 
+import { gateOf } from "./gates.ts";
+import type { GateConfig } from "./gates.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
+import { parentOf } from "./stack.ts";
 
 /** The rules `lint` checks (see `spec.lint`). */
 export const LintRule = Schema.Literals([
@@ -11,6 +25,11 @@ export const LintRule = Schema.Literals([
   "missing-id",
   "duplicate-id",
   "wrong-prefix",
+  "bad-parent",
+  "parent-mismatch",
+  "worktree-clash",
+  "gate-mismatch",
+  "no-commits-landed",
 ]);
 export type LintRule = typeof LintRule.Type;
 
@@ -35,10 +54,15 @@ export const Finding = Schema.Struct({
 export type Finding = typeof Finding.Type;
 
 const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
+  "bad-parent": "error",
   "duplicate-id": "error",
+  "gate-mismatch": "error",
   "missing-id": "error",
+  "no-commits-landed": "warning",
+  "parent-mismatch": "error",
   "unknown-section": "error",
   "unmapped-section": "error",
+  "worktree-clash": "error",
   "wrong-prefix": "error",
 };
 
@@ -242,6 +266,159 @@ const unmapped = (prd: Document, spec: Document): ReadonlyArray<Finding> => {
   });
 };
 
+/** Every node reachable from `start` along `edges`; `start` is in it only when a cycle leads back. */
+const reachableFrom = <A>(edges: (node: A) => ReadonlyArray<A>, start: A): HashSet.HashSet<A> => {
+  const visit = (seen: HashSet.HashSet<A>, node: A): HashSet.HashSet<A> =>
+    Array.reduce(edges(node), seen, (found, next) =>
+      HashSet.has(found, next) ? found : visit(HashSet.add(found, next), next),
+    );
+  return visit(HashSet.empty(), start);
+};
+
+const taskFinding = (rule: LintRule, message: string): Finding =>
+  findingOf(rule, "manifest.json", Option.none(), message);
+
+const placeOf = (parent: TaskId | null): string =>
+  Option.match(Option.fromNullOr(parent), { onNone: () => "the base branch", onSome: (id) => id });
+
+const checkoutOf = (worktree: string | null): string =>
+  Option.match(Option.fromNullOr(worktree), {
+    onNone: () => "the repo's own checkout",
+    onSome: (name) => `worktree ${name}`,
+  });
+
+const gateText = (gate: HumanGate): string =>
+  gate.required ? `required (${Array.join(gate.reasons, ", ")})` : "not required";
+
+const sameGate = (one: HumanGate, other: HumanGate): boolean =>
+  one.required === other.required &&
+  Equal.equals(HashSet.fromIterable(one.reasons), HashSet.fromIterable(other.reasons));
+
+/** A landed task with no commits: its landing was never recorded. */
+const unrecorded = (task: ManifestTask): ReadonlyArray<Finding> =>
+  task.status === "landed" && Array.isReadonlyArrayEmpty(task.commits)
+    ? [taskFinding("no-commits-landed", `${task.id} is landed but has no commits.`)]
+    : [];
+
+/**
+ * What is wrong with the manifest's stacks: parents and dependencies that are not tasks or that
+ * form a cycle, parents `parentOf` would not give, worktrees shared by tasks that could run at the
+ * same time, gates plan-time detection would not give, and landed tasks with no commits.
+ */
+const stackFindings = (
+  manifest: Manifest,
+  sections: ReadonlyArray<Section>,
+  config: GateConfig,
+): ReadonlyArray<Finding> => {
+  const tasks: ReadonlyArray<ManifestTask> = manifest.tasks;
+  const known = HashSet.fromIterable(Array.map(tasks, (task) => task.id));
+  const byId = Record.fromEntries(Array.map(tasks, (task) => [task.id, task] as const));
+  const linksOf = (pick: (task: ManifestTask) => ReadonlyArray<TaskId>) => (id: TaskId) =>
+    Option.match(Record.get(byId, id), {
+      onNone: () => [],
+      onSome: (task) => Array.filter(pick(task), (link) => HashSet.has(known, link)),
+    });
+  const tableOf = (pick: (task: ManifestTask) => ReadonlyArray<TaskId>) =>
+    Record.fromEntries(
+      Array.map(tasks, (task) => [task.id, reachableFrom(linksOf(pick), task.id)] as const),
+    );
+  const below = tableOf((task) =>
+    Array.appendAll(task.dependsOn, Option.toArray(Option.fromNullOr(task.parent))),
+  );
+  const needs = tableOf((task) => task.dependsOn);
+  const lookup = (table: typeof needs, id: TaskId) =>
+    Option.getOrElse(Record.get(table, id), () => HashSet.empty<TaskId>());
+
+  const badParents = (task: ManifestTask): ReadonlyArray<Finding> => {
+    const strays = Array.appendAll(
+      Option.match(Option.fromNullOr(task.parent), {
+        onNone: () => [],
+        onSome: (parent) =>
+          HashSet.has(known, parent)
+            ? []
+            : [`${task.id}'s parent ${parent} is not in the manifest.`],
+      }),
+      Array.filterMap(task.dependsOn, (id) =>
+        HashSet.has(known, id)
+          ? Result.failVoid
+          : Result.succeed(`${task.id} depends on ${id}, which is not in the manifest.`),
+      ),
+    );
+    const cycle = HashSet.has(lookup(below, task.id), task.id)
+      ? [
+          Array.match(
+            Array.filter(
+              tasks,
+              (other) =>
+                other.id !== task.id &&
+                HashSet.has(lookup(below, task.id), other.id) &&
+                HashSet.has(lookup(below, other.id), task.id),
+            ),
+            {
+              onEmpty: () => `${task.id} depends on itself.`,
+              onNonEmpty: (others) =>
+                `${task.id} is in a cycle with ${Array.join(
+                  Array.map(others, (other) => other.id),
+                  ", ",
+                )}.`,
+            },
+          ),
+        ]
+      : [];
+    return Array.map(Array.appendAll(strays, cycle), (message) =>
+      taskFinding("bad-parent", message),
+    );
+  };
+
+  const parentMismatch = (task: ManifestTask): ReadonlyArray<Finding> => {
+    const expected = Option.getOrNull(parentOf(task.dependsOn, tasks));
+    return expected === task.parent
+      ? []
+      : [
+          taskFinding(
+            "parent-mismatch",
+            `${task.id} sits on ${placeOf(task.parent)}, but its dependencies put it on ${placeOf(expected)}.`,
+          ),
+        ];
+  };
+
+  const clashes = (task: ManifestTask, earlier: ReadonlyArray<ManifestTask>) =>
+    Array.filterMap(earlier, (other) =>
+      other.worktree === task.worktree &&
+      !HashSet.has(lookup(needs, task.id), other.id) &&
+      !HashSet.has(lookup(needs, other.id), task.id)
+        ? Result.succeed(
+            taskFinding(
+              "worktree-clash",
+              `${other.id} and ${task.id} share ${checkoutOf(task.worktree)}, and neither depends on the other.`,
+            ),
+          )
+        : Result.failVoid,
+    );
+
+  const gateMismatch = (task: ManifestTask): ReadonlyArray<Finding> => {
+    const detected = gateOf(task, sections, config, []);
+    return sameGate(task.humanGate, detected)
+      ? []
+      : [
+          taskFinding(
+            "gate-mismatch",
+            `${task.id}'s gate is ${gateText(task.humanGate)}, but plan-time detection finds ${gateText(detected)}.`,
+          ),
+        ];
+  };
+
+  return Array.flatMap(tasks, (task, at) =>
+    Array.flatten([
+      badParents(task),
+      parentMismatch(task),
+      clashes(task, Array.take(tasks, at)),
+      gateMismatch(task),
+      unrecorded(task),
+    ]),
+  );
+};
+
 const FILE_ORDER: ReadonlyArray<LintFile> = ["prd.md", "spec.md", "manifest.json"];
 
 /** By file, then by line; a finding with no line comes last in its file. */
@@ -258,13 +435,15 @@ const byPlace: Order.Order<Finding> = Order.combine(
 );
 
 /**
- * What is wrong with a plan's section IDs and coverage (see `spec.lint`). `prd` and `spec` are
- * the markdown of `prd.md` and `spec.md`; there is no manifest before the tasks are planned.
+ * What is wrong with a plan (see `spec.lint`): its section IDs and coverage, and its stacks and
+ * gates. `prd` and `spec` are the markdown of `prd.md` and `spec.md`; there is no manifest
+ * before the tasks are planned. `config` gives the high-trust paths gate detection reads.
  */
 export const lint = (
   prd: string,
   spec: string,
   manifest: Option.Option<Manifest>,
+  config: GateConfig,
 ): ReadonlyArray<Finding> => {
   const prdDocument: Document = { file: "prd.md", prefix: "prd", sections: sectionsOf(prd) };
   const specDocument: Document = { file: "spec.md", prefix: "spec", sections: sectionsOf(spec) };
@@ -280,7 +459,11 @@ export const lint = (
     unmapped(prdDocument, specDocument),
     Option.match(manifest, {
       onNone: () => [],
-      onSome: (plan) => unknownInTasks(plan, prdIds, specIds),
+      onSome: (plan) =>
+        Array.appendAll(
+          unknownInTasks(plan, prdIds, specIds),
+          stackFindings(plan, Array.appendAll(prdDocument.sections, specDocument.sections), config),
+        ),
     }),
   ]);
   return Array.sort(findings, byPlace);
