@@ -4,6 +4,7 @@ import { expect, it } from "@effect/vitest";
 import {
   Array,
   HashSet,
+  Number,
   Option,
   Order,
   Record,
@@ -432,5 +433,175 @@ it("names a cycle in its message", () => {
   );
   expect(error.message).toBe(
     'Drafts depend on each other in a cycle: "A" depends on "B" depends on "A".',
+  );
+});
+
+/** A plan and where to cut its first stack in two: the tasks below the cut are the manifest. */
+const Cut = Schema.Struct({
+  at: Schema.Int.check(Schema.isBetween({ maximum: 12, minimum: 0 })),
+  plan: Plan,
+});
+
+it.prop(
+  "planning the tasks a manifest lacks after it gives what planning them all at once gives",
+  [Cut],
+  ([{ at, plan }]) => {
+    const whole = stacked(plan);
+    const existing = Array.take(whole, at % (Array.length(whole) + 1));
+    const idOf = Record.fromEntries(Array.map(existing, (task) => [task.title, task.id] as const));
+    const rest = Array.filterMap(draftsOf(plan), (draft) =>
+      Record.has(idOf, draft.title)
+        ? Result.failVoid
+        : Result.succeed(
+            Struct.evolve(draft, {
+              dependsOn: (titles) =>
+                Array.map(titles, (title) =>
+                  Option.getOrElse(Record.get(idOf, title), () => title),
+                ),
+            }),
+          ),
+    );
+    expect(Result.getOrThrow(stackOf(feature, rest, gatesOf(plan), existing))).toEqual(whole);
+  },
+);
+
+/** The number of a `t<number>` ID. */
+const numberOf = (id: TaskId): Option.Option<number> =>
+  Option.flatMap(String.match(/^t(\d+)$/u)(id), (match) =>
+    Option.flatMap(Array.get(match, 1), Number.parse),
+  );
+
+/**
+ * A manifest of any tasks, a plan, and links from nodes of the plan to tasks of the manifest:
+ * `node` and `task` wrap around.
+ */
+const Later = Schema.Struct({
+  links: Schema.Array(Schema.Struct({ node: NodeNumber, task: NodeNumber })).check(
+    Schema.isMaxLength(6),
+  ),
+  plan: Plan,
+  tasks: Schema.Array(ManifestTask).check(Schema.isMinLength(1), Schema.isMaxLength(6)),
+});
+
+it.prop(
+  "drafts go after a manifest's tasks, which stay as they were, with higher IDs and their own worktrees",
+  [Later],
+  ([{ links, plan, tasks }]) => {
+    const existing = Array.dedupeWith(tasks, (one, other) => one.id === other.id);
+    const taskAt = (number: number) =>
+      Option.getOrThrow(Array.get(existing, number % Array.length(existing)));
+    const drafts = draftsOf(plan, (node) =>
+      Array.filterMap(links, (link) =>
+        nodeIn(plan, link.node) === node ? Result.succeed(taskAt(link.task).id) : Result.failVoid,
+      ),
+    );
+    const all = Result.getOrThrow(stackOf(feature, drafts, gatesOf(plan), existing));
+    const added = Array.drop(all, Array.length(existing));
+    expect(Array.take(all, Array.length(existing))).toEqual(existing);
+    expect(Array.length(added)).toBe(Array.length(drafts));
+    expect(Array.every(added, (task) => Schema.is(ManifestTask)(task))).toBe(true);
+    expect(Array.dedupe(Array.map(all, (task) => task.id))).toEqual(
+      Array.map(all, (task) => task.id),
+    );
+    const highest = Array.reduce(
+      Array.getSomes(Array.map(existing, (task) => numberOf(task.id))),
+      0,
+      (most, number) => Number.max(most, number),
+    );
+    expect(Array.map(added, (task) => task.id)).toEqual(
+      Array.makeBy(Array.length(added), (at) => `t${highest + at + 1}`),
+    );
+    const addedId = Record.fromEntries(Array.map(added, (task) => [task.title, task.id] as const));
+    Array.forEach(added, (task, at) => {
+      const draft = Option.getOrThrow(Array.findFirst(drafts, (one) => one.title === task.title));
+      const wanted = Array.map(Array.dedupe(draft.dependsOn), (dependency) =>
+        Option.getOrElse(Record.get(addedId, dependency), () => dependency),
+      );
+      expect(sorted(task.dependsOn)).toEqual(sorted(wanted));
+      expect(
+        Array.every(Option.toArray(Option.fromNullOr(task.parent)), (parent) =>
+          Array.contains(task.dependsOn, parent),
+        ),
+      ).toBe(true);
+      const before = Array.take(all, Array.length(existing) + at);
+      const latestIn = (worktree: string | null) =>
+        Array.findLast(before, (earlier) => earlier.worktree === worktree);
+      Option.match(latestIn(task.worktree), {
+        onNone: () =>
+          expect(
+            Array.some(before, (earlier) =>
+              Option.exists(
+                Option.filter(latestIn(earlier.worktree), () =>
+                  Array.contains(task.dependsOn, earlier.id),
+                ),
+                (latest) => Array.contains(task.dependsOn, latest.id),
+              ),
+            ),
+          ).toBe(false),
+        onSome: (latest) => expect(task.dependsOn).toContain(latest.id),
+      });
+    });
+  },
+);
+
+/** A task a manifest already has, as `stackOf` reads it. */
+const existingOf = (
+  id: string,
+  title: string,
+  parent: string | null,
+  worktree: string | null,
+  status: ManifestTask["status"],
+): ManifestTask =>
+  Schema.decodeSync(ManifestTask)({
+    branch: `cairn-mvp/0${String.slice(1)(id)}-hand-named`,
+    commits: status === "pending" ? [] : ["0123456789abcdef0123456789abcdef01234567"],
+    dependsOn: Option.toArray(Option.fromNullOr(parent)),
+    files: [`packages/core/src/${title}.ts`],
+    humanGate: gate(false),
+    id,
+    model: "sonnet",
+    parent,
+    prdSections: ["prd.cli"],
+    reasoning: "high",
+    sessions: [],
+    specSections: ["spec.planning.stack-order"],
+    status,
+    title,
+    worktree,
+  });
+
+it("orders new drafts after a manifest's tasks and continues its IDs, stacks and worktrees", () => {
+  const existing = [
+    existingOf("t1", "Add the schema", null, null, "landed"),
+    existingOf("t2", "Add the service", "t1", null, "running"),
+    existingOf("t5", "Add the page", null, "wt-3", "pending"),
+  ];
+  const drafts = [
+    draftOf("Wire the page", ["t5", "Add the command"]),
+    draftOf("Add the command", ["t2", "t1"]),
+    draftOf("Add the docs", []),
+  ];
+  const tasks = Result.getOrThrow(stackOf(feature, drafts, () => gate(false), existing));
+  expect(Array.take(tasks, 3)).toEqual(existing);
+  expect(shapeOf(Array.drop(tasks, 3))).toEqual([
+    ["t6", "Add the command", "t2", ["t1", "t2"], null],
+    ["t7", "Wire the page", null, ["t5", "t6"], null],
+    ["t8", "Add the docs", null, [], "wt-4"],
+  ]);
+  expect(Array.map(Array.drop(tasks, 3), (task) => task.branch)).toEqual([
+    "cairn-mvp/06-add-the-command",
+    "cairn-mvp/07-wire-the-page",
+    "cairn-mvp/08-add-the-docs",
+  ]);
+});
+
+it("refuses a dependency on an ID the manifest does not have", () => {
+  const error = failureOf(
+    stackOf(feature, [draftOf("Add the command", ["t9"])], () => gate(false), [
+      existingOf("t1", "Add the schema", null, null, "landed"),
+    ]),
+  );
+  expect(error.message).toBe(
+    '"Add the command" depends on "t9", which is the title of no draft and the ID of no task in the manifest.',
   );
 });

@@ -5,6 +5,7 @@ import {
   HashMap,
   HashSet,
   Match,
+  Number,
   Option,
   Order,
   Record,
@@ -20,8 +21,8 @@ export type StackProblem = typeof StackProblem.Type;
 
 /**
  * Why `stackOf` could not order the drafts. `titles` names them: the title two drafts share; a
- * draft and the title it depends on that no draft has; or the drafts of a cycle in order, each
- * depending on the next and the last on the first.
+ * draft and what it depends on that is neither a draft's title nor an existing task's ID; or the
+ * drafts of a cycle in order, each depending on the next and the last on the first.
  */
 export class StackOrderError extends Schema.TaggedError<
   StackOrderError,
@@ -39,7 +40,8 @@ export class StackOrderError extends Schema.TaggedError<
       ),
       Match.when(
         "unknown-dependency",
-        () => `${Array.join(quoted, " depends on ")}, which is the title of no draft.`,
+        () =>
+          `${Array.join(quoted, " depends on ")}, which is the title of no draft and the ID of no task in the manifest.`,
       ),
       Match.when(
         "cycle",
@@ -59,6 +61,9 @@ export type StackLink = Pick<ManifestTask, "id" | "parent">;
 
 /** What `worktreesOf` reads from each task. */
 export type StackTask = Pick<ManifestTask, "dependsOn" | "id" | "parent">;
+
+/** What `worktreesOf` reads from each task a manifest already has. */
+export type CheckedOut = Pick<ManifestTask, "id" | "worktree">;
 
 /** A task and every task below it through parent links. It stops at a task it does not know or one it has seen. */
 const lineOf = (
@@ -102,51 +107,83 @@ export const parentOf = (
 /** Worktree 0 is the repo's own checkout; the rest are `wt-1`, `wt-2`, .... */
 const worktreeName = (slot: number): string | null => (slot === 0 ? null : `wt-${slot}`);
 
+/** The slot a worktree name stands for. A name `worktreeName` does not give has none. */
+const slotOf = (worktree: string | null): Option.Option<number> =>
+  Option.match(Option.fromNullOr(worktree), {
+    onNone: () => Option.some(0),
+    onSome: (name) =>
+      pipe(
+        name,
+        String.match(/^wt-([1-9]\d*)$/u),
+        Option.flatMap(Array.get(1)),
+        Option.flatMap(Number.parse),
+      ),
+  });
+
 interface Checkouts {
-  /** The latest task in each worktree, by slot. */
-  readonly latest: ReadonlyArray<TaskId>;
-  /** The slot each task so far was given. */
-  readonly slotOf: Record.ReadonlyRecord<string, number>;
+  /** The latest task in each worktree, by name. */
+  readonly latest: HashMap.HashMap<string | null, TaskId>;
+  /** The worktree each task so far was given. */
+  readonly worktreeOf: Record.ReadonlyRecord<string, string | null>;
+  /** The slot of the next new worktree: one above every slot taken so far. */
+  readonly next: number;
 }
 
+const checkOut = (checkouts: Checkouts, id: TaskId, worktree: string | null): Checkouts => ({
+  latest: HashMap.set(checkouts.latest, worktree, id),
+  next: Option.match(slotOf(worktree), {
+    onNone: () => checkouts.next,
+    onSome: (slot) => Number.max(checkouts.next, slot + 1),
+  }),
+  worktreeOf: Record.set(checkouts.worktreeOf, id, worktree),
+});
+
 /**
- * A worktree for each task, walking them in the order given. A task takes the worktree of its
- * parent, or else of one of its dependencies, latest first, when that worktree's latest task is
- * one it depends on. Otherwise it gets a new one. So tasks that share a worktree run one after
- * another, and tasks that can run at the same time never share one.
+ * A worktree for each task, walking them in the order given after the tasks `existing` already
+ * has, which keep theirs. A task takes the worktree of its parent, or else of one of its
+ * dependencies, latest first, when that worktree's latest task is one it depends on. Otherwise it
+ * gets a new one, above every `wt-` worktree `existing` uses. So tasks that share a worktree run
+ * one after another, and tasks that can run at the same time never share one.
  */
-export const worktreesOf = (tasks: ReadonlyArray<StackTask>): ReadonlyArray<string | null> => {
-  const positions = Record.fromEntries(Array.map(tasks, (task, at) => [task.id, at] as const));
+export const worktreesOf = (
+  tasks: ReadonlyArray<StackTask>,
+  existing: ReadonlyArray<CheckedOut> = [],
+): ReadonlyArray<string | null> => {
+  const positions = Record.fromEntries(
+    Array.map(Array.appendAll(existing, tasks), (task, at) => [task.id, at] as const),
+  );
   const latestFirst = Order.flip(
     Order.mapInput(Order.Number, (id: TaskId) =>
       Option.getOrElse(Record.get(positions, id), () => -1),
     ),
   );
-  const start: Checkouts = { latest: [], slotOf: {} };
+  const none: Checkouts = { latest: HashMap.empty(), next: 0, worktreeOf: {} };
+  const start = Array.reduce(existing, none, (checkouts, task) =>
+    checkOut(checkouts, task.id, task.worktree),
+  );
   return Array.mapAccum(tasks, start, (checkouts, task) => {
     const candidates = Array.appendAll(
       Option.toArray(Option.fromNullOr(task.parent)),
       Array.sort(task.dependsOn, latestFirst),
     );
     const reusable = Array.findFirst(candidates, (candidate) =>
-      Option.filter(Record.get(checkouts.slotOf, candidate), (slot) =>
-        Option.exists(Array.get(checkouts.latest, slot), (latest) =>
+      Option.filter(Record.get(checkouts.worktreeOf, candidate), (worktree) =>
+        Option.exists(HashMap.get(checkouts.latest, worktree), (latest) =>
           Array.contains(task.dependsOn, latest),
         ),
       ),
     );
-    const slot = Option.getOrElse(reusable, () => Array.length(checkouts.latest));
-    const latest = Option.match(reusable, {
-      onNone: () => Array.append(checkouts.latest, task.id),
-      onSome: (taken) =>
-        Option.getOrElse(Array.replace(checkouts.latest, taken, task.id), () => checkouts.latest),
-    });
-    return [{ latest, slotOf: Record.set(checkouts.slotOf, task.id, slot) }, worktreeName(slot)];
+    const worktree = Option.getOrElse(reusable, () => worktreeName(checkouts.next));
+    return [checkOut(checkouts, task.id, worktree), worktree];
   })[1];
 };
 
-/** A draft with its gate and the positions in the planner's list of the drafts it depends on. */
+/**
+ * A draft with its gate, the positions in the planner's list of the drafts it depends on, and the
+ * tasks the manifest already has that it depends on.
+ */
 interface Node {
+  readonly after: ReadonlyArray<TaskId>;
   readonly draft: TaskDraft;
   readonly gate: HumanGate;
   readonly index: number;
@@ -167,28 +204,40 @@ const uniqueTitles = (
     { onNone: () => Result.succeed(drafts), onSome: (title) => refuse("duplicate-title", [title]) },
   );
 
+/**
+ * Each draft as a node. A dependency is the title of a draft or, failing that, the ID of a task in
+ * `existing`.
+ */
 const nodesOf = (
   drafts: ReadonlyArray<TaskDraft>,
   gates: (draft: TaskDraft) => HumanGate,
+  existing: ReadonlyArray<ManifestTask>,
 ): Result.Result<ReadonlyArray<Node>, StackOrderError> => {
   const indexOf = Record.fromEntries(
     Array.map(drafts, (draft, index) => [draft.title, index] as const),
   );
-  const needOf = (draft: TaskDraft) => (title: string) =>
-    Option.match(Record.get(indexOf, title), {
-      onNone: () => refuse("unknown-dependency", [draft.title, title]),
-      onSome: (index) => Result.succeed(index),
-    });
-  return Result.all(
-    Array.map(drafts, (draft, index) =>
-      Result.map(Result.all(Array.map(Array.dedupe(draft.dependsOn), needOf(draft))), (needs) => ({
-        draft,
-        gate: gates(draft),
-        index,
-        needs,
-      })),
-    ),
+  const idOf: Record.ReadonlyRecord<string, TaskId> = Record.fromEntries(
+    Array.map(existing, (task) => [task.id, task.id] as const),
   );
+  const nodeOf = (draft: TaskDraft, index: number) => {
+    const dependsOn = Array.dedupe(draft.dependsOn);
+    const outside = Array.filter(dependsOn, (title) => !Record.has(indexOf, title));
+    return Option.match(
+      Array.findFirst(outside, (title) => !Record.has(idOf, title)),
+      {
+        onNone: () =>
+          Result.succeed({
+            after: Array.getSomes(Array.map(outside, (id) => Record.get(idOf, id))),
+            draft,
+            gate: gates(draft),
+            index,
+            needs: Array.getSomes(Array.map(dependsOn, (title) => Record.get(indexOf, title))),
+          }),
+        onSome: (title) => refuse("unknown-dependency", [draft.title, title]),
+      },
+    );
+  };
+  return Result.all(Array.map(drafts, nodeOf));
 };
 
 /**
@@ -241,29 +290,52 @@ interface Placement extends StackTask {
 
 interface Placed {
   readonly links: ReadonlyArray<StackLink>;
-  /** The 1-based position each draft was placed at, by its index in the planner's list. */
-  readonly positions: HashMap.HashMap<number, number>;
+  /** The ID each draft was given, by its index in the planner's list. */
+  readonly ids: HashMap.HashMap<number, TaskId>;
+  /** Where each task so far sits in the manifest, by ID. */
+  readonly rank: Record.ReadonlyRecord<string, number>;
 }
 
-const idAt = (position: number): TaskId => TaskId.make(`t${position}`);
+/** The number in a task ID of the form `t<number>`. An ID of another form has none. */
+const numberOf = (id: TaskId): Option.Option<number> =>
+  pipe(id, String.match(/^t(\d+)$/u), Option.flatMap(Array.get(1)), Option.flatMap(Number.parse));
 
-const placementsOf = (order: ReadonlyArray<Node>): ReadonlyArray<Placement> => {
-  const start: Placed = { links: [], positions: HashMap.empty() };
+/**
+ * The drafts placed after `existing`, in order. Their IDs continue from the highest number an
+ * existing ID has, and their dependencies are listed in manifest order.
+ */
+const placementsOf = (
+  order: ReadonlyArray<Node>,
+  existing: ReadonlyArray<ManifestTask>,
+): ReadonlyArray<Placement> => {
+  const highest = Array.reduce(
+    Array.getSomes(Array.map(existing, (task) => numberOf(task.id))),
+    0,
+    (most, number) => Number.max(most, number),
+  );
+  const start: Placed = {
+    ids: HashMap.empty(),
+    links: existing,
+    rank: Record.fromEntries(Array.map(existing, (task, at) => [task.id, at] as const)),
+  };
   return Array.mapAccum(order, start, (placed, node, at) => {
-    const position = at + 1;
-    const id = idAt(position);
-    const dependsOn = Array.map(
-      Array.sort(
-        Array.getSomes(Array.map(node.needs, (need) => HashMap.get(placed.positions, need))),
-        Order.Number,
+    const position = highest + at + 1;
+    const id = TaskId.make(`t${position}`);
+    const dependsOn = Array.sort(
+      Array.appendAll(
+        node.after,
+        Array.getSomes(Array.map(node.needs, (need) => HashMap.get(placed.ids, need))),
       ),
-      idAt,
+      Order.mapInput(Order.Number, (dependency: TaskId) =>
+        Option.getOrElse(Record.get(placed.rank, dependency), () => -1),
+      ),
     );
     const parent = Option.getOrNull(parentOf(dependsOn, placed.links));
     return [
       {
+        ids: HashMap.set(placed.ids, node.index, id),
         links: Array.append(placed.links, { id, parent }),
-        positions: HashMap.set(placed.positions, node.index, position),
+        rank: Record.set(placed.rank, id, Array.length(existing) + at),
       },
       { dependsOn, id, node, parent, position },
     ];
@@ -303,20 +375,26 @@ const taskOf = (feature: Slug, placement: Placement, worktree: string | null): M
 };
 
 /**
- * Orders a first plan's drafts into a set of stacks (see `spec.planning.stack-order`). IDs are
- * `t1`, `t2`, ... in dependency order, taking a gated draft first among those whose
- * dependencies are placed, then the planner's order. Each task gets its branch, its dependencies
- * as IDs, the parent `parentOf` gives and the worktree `worktreesOf` gives. `gates` is the
- * plan-time gate of each draft. Two drafts with one title, a dependency on a title no draft has,
- * and a cycle are a `StackOrderError`.
+ * Orders drafts into a set of stacks after the tasks `existing` already has (see
+ * `spec.planning.stack-order`), and returns those tasks as they are, then the new ones. On a first
+ * plan `existing` is empty. New IDs continue from the highest existing `t<number>` ID, `t1` on a
+ * first plan, in dependency order, taking a gated draft first among those whose dependencies are
+ * placed, then the planner's order. A draft depends on other drafts by title and on existing
+ * tasks by ID. Each new task gets its branch, its dependencies as IDs, the parent `parentOf`
+ * gives and the worktree `worktreesOf` gives; either may be an existing task's. `gates` is the
+ * plan-time gate of each draft. Two drafts with one title, a dependency that is neither a draft's
+ * title nor an existing ID, and a cycle are a `StackOrderError`.
  */
 export const stackOf = (
   feature: Slug,
   drafts: ReadonlyArray<TaskDraft>,
   gates: (draft: TaskDraft) => HumanGate,
+  existing: ReadonlyArray<ManifestTask> = [],
 ): Result.Result<ReadonlyArray<ManifestTask>, StackOrderError> =>
   Result.gen(function* () {
-    const nodes = yield* Result.flatMap(uniqueTitles(drafts), (unique) => nodesOf(unique, gates));
+    const nodes = yield* Result.flatMap(uniqueTitles(drafts), (unique) =>
+      nodesOf(unique, gates, existing),
+    );
     const order = orderOf(nodes);
     const placed = HashSet.fromIterable(Array.map(order, (node) => node.index));
     const waiting = Array.filter(nodes, (node) => !HashSet.has(placed, node.index));
@@ -326,8 +404,11 @@ export const stackOf = (
         Array.map(cycleOf(waiting), (node) => node.draft.title),
       );
     }
-    const placements = placementsOf(order);
-    return Array.zipWith(placements, worktreesOf(placements), (placement, worktree) =>
-      taskOf(feature, placement, worktree),
+    const placements = placementsOf(order, existing);
+    return Array.appendAll(
+      existing,
+      Array.zipWith(placements, worktreesOf(placements, existing), (placement, worktree) =>
+        taskOf(feature, placement, worktree),
+      ),
     );
   });
