@@ -22,6 +22,7 @@ const emptySection: TraceSection = {
   level: 1,
   line: 1,
   parent: null,
+  summary: null,
   title: "",
 };
 

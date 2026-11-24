@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { Event } from "./events.ts";
 import { PrdSectionId, SectionId, SpecSectionId, TaskId } from "./ids.ts";
@@ -19,6 +19,8 @@ export const TraceSection = Schema.Struct({
   level: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
   line: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
   parent: Schema.NullOr(SectionId),
+  /** One sentence from spec.json; null in the PRD, for a section the index does not hold, and when the trace has none. */
+  summary: Schema.NullOr(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
   title: Schema.String,
 });
 export type TraceSection = typeof TraceSection.Type;
