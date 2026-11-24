@@ -23,6 +23,7 @@ import { currentOf } from "../src/reader.ts";
 import { escapeMessage } from "../src/subscription/escape.ts";
 import { CopySectionId, update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
+import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
 import { view } from "../src/view/view.ts";
 import { canvasEnded, loaded, mounted } from "./fixtures.ts";
 
@@ -34,7 +35,10 @@ const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 
 /** The pane's mount, answering with the section it found at the top. */
 const scrolledTo = (id: string) =>
-  Mount.resolve(TrackPrdScroll, Message.ScrolledPrd({ id: prd(id) }));
+  Mount.resolveAll(
+    [TrackPrdScroll, Message.ScrolledPrd({ id: prd(id) })],
+    [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+  );
 /** Later scrolls come from the same mount; a Scene has no hooks, so it feeds them in as it would. */
 const scrolledAgainTo = (id: string) => Subscription.emit(Message.ScrolledPrd({ id: prd(id) }));
 
@@ -59,9 +63,10 @@ it("the Plan button opens the reader, and the Canvas button goes back to the can
     expect(role("region", { name: "PRD" })).toExist(),
     expect(role("button", { name: "Plan" })).toHaveAttr("aria-current", "page"),
     expect(role("button", { name: "Canvas" })).not.toHaveAttr("aria-current"),
-    Mount.resolve(TrackPrdScroll, Message.ScrolledPrd({ id: prd("prd.goal") })),
+    scrolledTo("prd.goal"),
     click(role("button", { name: "Canvas" })),
     Mount.expectEnded(TrackPrdScroll),
+    Mount.expectEnded(ScrollStacksToBottom),
     mounted,
     expect(selector("[data-canvas]")).toExist(),
     expect(selector("[data-reader]")).toBeAbsent(),

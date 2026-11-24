@@ -59,6 +59,8 @@ export const Message = defineMessageUnion({
   CompletedFocusNode: {},
   CompletedFocusSearchInput: {},
   CompletedScrollSearchResult: {},
+  /** The stacks pane was scrolled to the base branch bar at its bottom. */
+  CompletedScrollStacks: {},
   /** The diff mount parsed the patch and drew it, or put the reason it could not in the pane. */
   CompletedRenderDiff: {},
   /** The canvas mount could not start pan and zoom. */

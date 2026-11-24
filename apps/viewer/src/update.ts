@@ -352,6 +352,7 @@ export const update = (model: Model, message: Message) =>
     CompletedFocusNode: () => ({ model }),
     CompletedFocusSearchInput: () => ({ model }),
     CompletedScrollSearchResult: () => ({ model }),
+    CompletedScrollStacks: () => ({ model }),
     CompletedRenderDiff: () => ({ model }),
     FailedPanZoomCanvas: ({ reason }) => ({
       model: modifyFields(model, { maybePanZoomFailure: () => Option.some(reason) }),

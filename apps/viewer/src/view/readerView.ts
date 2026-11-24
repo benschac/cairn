@@ -9,6 +9,7 @@ import { Node } from "../trace.ts";
 import { prdPaneView } from "./prdPaneView.ts";
 import { searchView } from "./searchView.ts";
 import { specPaneView } from "./specPaneView.ts";
+import { stackChipsView } from "./stackChipsView.ts";
 
 const isPrdSection = Schema.is(PrdSectionId);
 
@@ -92,13 +93,14 @@ export const readerView = (
         [
           h.Style({
             display: "grid",
-            "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr)",
+            "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr) minmax(240px, 1fr)",
             "min-height": "0",
           }),
         ],
         [
           prdPaneView(trace, maybeCurrent, model.reader.maybePinned, model.maybeCopied, h),
           specPaneView(trace, maybeCurrent, model.reader, h),
+          stackChipsView(trace, maybeCurrent, h),
         ],
       ),
     ],
