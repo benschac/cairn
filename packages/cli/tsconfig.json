@@ -25,6 +25,7 @@
           "effect/ai/Prompt",
           "effect/ai/Tool",
           "effect/Path",
+          "effect/Terminal",
           "effect/String#isWellFormed",
           "effect/PlatformError",
           "effect/http/FetchHttpClient",
