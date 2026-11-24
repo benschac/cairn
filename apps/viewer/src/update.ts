@@ -328,6 +328,9 @@ export const update = (model: Model, message: Message) =>
     ClickedDiffStyle: ({ style }) => ({
       model: modifyFields(model, { diffStyle: () => style }),
     }),
+    ClickedModelsSwitch: () => ({
+      model: modifyFields(model, { isShowingModels: Boolean.not }),
+    }),
     ClickedShowAllCurves: () => ({
       model: modifyFields(model, { isShowingAllCurves: Boolean.not }),
     }),

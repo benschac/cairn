@@ -4,11 +4,12 @@ import { Mount } from "foldkit";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
 import { Message } from "../message.ts";
-import { currentTasksOf, planCountsOf } from "../reader.ts";
+import { currentTasksOf, planCountsOf, ranOf } from "../reader.ts";
 import { labelOf, stacksOf, type Stack } from "../stacks.ts";
 import type { Chain, Node } from "../trace.ts";
 import { dotView, labelView } from "../ui/marks.ts";
 import { hoverChainOf, isTaskDimmed, taskKey } from "../wires.ts";
+import { modelAttributesOf, modelMarkView } from "./modelView.ts";
 import { branchStartOf } from "./stacksView.ts";
 import { hoverAttributesOf } from "./wiresView.ts";
 
@@ -51,9 +52,11 @@ const chipView = (
   topRow: number,
   current: HashSet.HashSet<string>,
   hasCurrent: boolean,
+  isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
   h: HtmlBuilder<Message>,
 ): Html => {
+  const ran = ranOf(task);
   const position = Option.getOrElse(Record.get(stack.cells, task.id), () => ({
     column: 1,
     row: 1,
@@ -78,13 +81,17 @@ const chipView = (
         }),
       ],
       hoverAttributesOf({ id: task.id, kind: "task" }, h),
+      isShowingModels ? modelAttributesOf(ran, h) : [],
       isDone(task) ? [h.DataAttribute("done", "")] : [],
       task.gate.required ? [h.DataAttribute("gated", "")] : [],
       isCurrent ? [h.DataAttribute("current", "")] : [],
       hasCurrent && !isCurrent ? [h.DataAttribute("faded", "")] : [],
       isTaskDimmed(maybeChain, task.id) ? [h.DataAttribute("dimmed", "")] : [],
     ]),
-    [dotView(task.status, h), task.id],
+    Array.appendAll(
+      [dotView(task.status, h), task.id],
+      isShowingModels ? [modelMarkView(ran, h)] : [],
+    ),
   );
 };
 
@@ -93,6 +100,7 @@ const stackView = (
   stack: Stack,
   current: HashSet.HashSet<string>,
   hasCurrent: boolean,
+  isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -117,7 +125,18 @@ const stackView = (
         [h.Style({ display: "grid", gap: "4px", "justify-items": "start" })],
         Array.map(
           Array.filter(trace.tasks, (task) => Record.has(stack.cells, task.id)),
-          (task) => chipView(trace, task, stack, topRow, current, hasCurrent, maybeChain, h),
+          (task) =>
+            chipView(
+              trace,
+              task,
+              stack,
+              topRow,
+              current,
+              hasCurrent,
+              isShowingModels,
+              maybeChain,
+              h,
+            ),
         ),
       ),
       h.div([h.Class("label"), h.DataAttribute("stack-label", "")], [`${stack.number}`]),
@@ -144,10 +163,29 @@ const swatchView = (
     [h.span(Array.prepend(attributes, h.Class("chip")), [dotView(status, h)]), text],
   );
 
+/** The legend's colours: the three models Cairn colours, and any other. */
+const MODEL_ENTRIES: ReadonlyArray<string> = ["opus", "sonnet", "haiku", "other"];
+
+const modelLegendView = (model: string, h: HtmlBuilder<Message>): Html =>
+  h.span(
+    [h.Style({ "align-items": "center", display: "inline-flex", gap: "4px" })],
+    [
+      h.span([
+        h.Class("chip"),
+        h.DataAttribute("legend-model", model),
+        // "other" is a name no model has a rule for, so it takes the grey.
+        h.DataAttribute("model", model),
+        h.DataAttribute("ran", "true"),
+      ]),
+      model,
+    ],
+  );
+
 /** Over the diagram, held to the top of the pane: the count and the legend. */
 const overviewView = (
   trace: Trace,
   current: HashSet.HashSet<string>,
+  isShowingModels: boolean,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
@@ -170,14 +208,18 @@ const overviewView = (
           h.DataAttribute("legend", ""),
           h.Style({ display: "flex", "flex-wrap": "wrap", gap: "4px 12px" }),
         ],
-        [
-          labelView("Legend", h),
-          swatchView("done", "done", [h.DataAttribute("done", "")], h),
-          swatchView("pending", "pending", [], h),
-          swatchView("in this section", "pending", [h.DataAttribute("current", "")], h),
-          swatchView("a human gate", "blocked_on_human", [h.DataAttribute("gated", "")], h),
-          h.span([], ["read up from main"]),
-        ],
+        Array.flatten([
+          [labelView("Legend", h)],
+          isShowingModels
+            ? Array.map(MODEL_ENTRIES, (model) => modelLegendView(model, h))
+            : [swatchView("done", "done", [h.DataAttribute("done", "")], h)],
+          [
+            swatchView("pending", "pending", [], h),
+            swatchView("in this section", "pending", [h.DataAttribute("current", "")], h),
+            swatchView("a human gate", "blocked_on_human", [h.DataAttribute("gated", "")], h),
+            h.span([], ["read up from main"]),
+          ],
+        ]),
       ),
     ],
   );
@@ -191,6 +233,7 @@ const overviewView = (
 export const stackChipsView = (
   trace: Trace,
   maybeCurrent: Option.Option<PrdSectionId>,
+  isShowingModels: boolean,
   maybeHovered: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -216,7 +259,7 @@ export const stackChipsView = (
       }),
     ],
     [
-      overviewView(trace, current, h),
+      overviewView(trace, current, isShowingModels, h),
       h.div(
         [
           h.DataAttribute("stacks", ""),
@@ -240,7 +283,9 @@ export const stackChipsView = (
                 gap: "12px",
               }),
             ],
-            Array.map(row, (stack) => stackView(trace, stack, current, hasCurrent, maybeChain, h)),
+            Array.map(row, (stack) =>
+              stackView(trace, stack, current, hasCurrent, isShowingModels, maybeChain, h),
+            ),
           ),
         ),
       ),

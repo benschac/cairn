@@ -12,7 +12,7 @@ import { diagramView } from "../diagram.ts";
 import { documentOf, renderSection } from "../markdown.ts";
 import { Message } from "../message.ts";
 import type { Density, Reader } from "../model.ts";
-import { cardsOf, coverageOf, isOpenCard, statusWordOf, tasksOf } from "../reader.ts";
+import { cardsOf, coverageOf, isOpenCard, ranOf, statusWordOf, tasksOf } from "../reader.ts";
 import {
   judgmentMarkOf,
   sectionStatusOf,
@@ -24,6 +24,7 @@ import {
 import { disclosureView, segmentedView } from "../ui/controls.ts";
 import { dotView, gateView, labelView, tagView } from "../ui/marks.ts";
 import { hoverChainOf, isSpecDimmed, isTaskDimmed, rowKey, specKey, strayKey } from "../wires.ts";
+import { modelChipView, modelSquareView } from "./modelView.ts";
 import { hoverAttributesOf } from "./wiresView.ts";
 
 const DENSITIES: ReadonlyArray<{ readonly label: string; readonly value: Density }> = [
@@ -61,6 +62,7 @@ const taskRowView = (
   trace: Trace,
   specId: string,
   task: TraceTask,
+  isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
   h: HtmlBuilder<Message>,
 ): Html =>
@@ -91,7 +93,10 @@ const taskRowView = (
             ),
           ),
         ),
-        [h.span([h.Class("label")], [progressText(task)])],
+        Array.prepend(
+          isShowingModels ? [modelChipView(ranOf(task), h)] : [],
+          h.span([h.Class("label")], [progressText(task)]),
+        ),
       ),
     ),
   );
@@ -100,12 +105,13 @@ const tasksView = (
   trace: Trace,
   specId: string,
   tasks: ReadonlyArray<TraceTask>,
+  isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
     [h.Class("card-tasks")],
-    Array.map(tasks, (task) => taskRowView(trace, specId, task, maybeChain, h)),
+    Array.map(tasks, (task) => taskRowView(trace, specId, task, isShowingModels, maybeChain, h)),
   );
 
 /** The line with the section's ID, then the section's own markdown. */
@@ -128,6 +134,7 @@ const cardView = (
   trace: Trace,
   section: TraceSection,
   reader: Reader,
+  isShowingModels: boolean,
   maybeHovered: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -157,13 +164,23 @@ const cardView = (
                   ),
                 ),
                 Array.appendAll(
-                  [
-                    h.span([], [section.title]),
-                    h.span(
-                      [h.DataAttribute("done", "")],
-                      [`${Array.length(Array.filter(tasks, isDone))}/${Array.length(tasks)}`],
-                    ),
-                  ],
+                  Array.appendAll(
+                    [
+                      h.span([], [section.title]),
+                      h.span(
+                        [h.DataAttribute("done", "")],
+                        [`${Array.length(Array.filter(tasks, isDone))}/${Array.length(tasks)}`],
+                      ),
+                    ],
+                    isShowingModels
+                      ? [
+                          h.span(
+                            [h.DataAttribute("model-squares", section.id)],
+                            Array.map(tasks, (task) => modelSquareView(ranOf(task), h)),
+                          ),
+                        ]
+                      : [],
+                  ),
                   Array.fromOption(
                     Option.map(judgmentMarkOf(trace, { id: section.id, kind: "section" }), (mark) =>
                       judgmentView(mark, h),
@@ -194,7 +211,7 @@ const cardView = (
                         [summary],
                       ),
                   ),
-              [tasksView(trace, section.id, tasks, maybeChain, h)],
+              [tasksView(trace, section.id, tasks, isShowingModels, maybeChain, h)],
             ),
           ),
         ),
@@ -207,6 +224,7 @@ const cardView = (
 const straysView = (
   trace: Trace,
   strays: ReadonlyArray<TraceTask>,
+  isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> =>
@@ -222,7 +240,7 @@ const straysView = (
           ),
           [
             h.div([h.Class("card-head")], ["Tasks that name this section directly"]),
-            tasksView(trace, strayKey, strays, maybeChain, h),
+            tasksView(trace, strayKey, strays, isShowingModels, maybeChain, h),
           ],
         ),
       ];
@@ -263,6 +281,7 @@ export const specPaneView = (
   trace: Trace,
   maybeCurrent: Option.Option<PrdSectionId>,
   reader: Reader,
+  isShowingModels: boolean,
   maybeHovered: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html =>
@@ -307,9 +326,16 @@ export const specPaneView = (
               ],
               Array.appendAll(
                 Array.map(cards, ({ section }) =>
-                  cardLazy(section.id, cardView, [trace, section, reader, maybeHovered, h]),
+                  cardLazy(section.id, cardView, [
+                    trace,
+                    section,
+                    reader,
+                    isShowingModels,
+                    maybeHovered,
+                    h,
+                  ]),
                 ),
-                straysView(trace, strays, maybeChain, h),
+                straysView(trace, strays, isShowingModels, maybeChain, h),
               ),
             );
           },
