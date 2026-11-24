@@ -300,8 +300,24 @@ The CLI and local server are written in Effect, so every side effect is a typed 
 - Services as Layers: `Git` (branches, log, trailers), `TraceStore` (`cairn.db`), `Planner` (model calls that write the spec and tasks), `Judge` (decision-model calls that judge them), `Orchestrator` (adapter to the user's runner), `Redactor`, and `Clock`.
 - Models: two kinds, each behind an `effect/ai` service. A language model writes (`LanguageModel`, for `Planner`); a decision model judges (`DecisionModel`, for `Judge`). Swapping a provider changes one Layer. Each can take a base URL, so a user can route calls through a gateway such as Cloudflare AI Gateway; Cairn does not require one.
 - Composition: one composition root per entrypoint (CLI, server). Live Layers in production; test Layers (fake git, in-memory SQLite, scripted planner, scripted judge) in tests.
-- Tests: `@effect/vitest` with `it.effect` and `it.layer`. Status derivation, gate detection, and lint run against test Layers with no real repo.
+- Tests: `@effect/vitest` with `it.effect` and `it.layer`. Status derivation, gate detection, and lint run against test Layers with no real repo. Machines are also the models the code around them is tested against (see Model-based testing).
 - Viewer: Foldkit. Interaction logic (selection, chain highlighting, drawer state) lives in the pure update function and is unit tested without a render loop. Rendering only draws.
+
+### Model-based testing {#prd.implementation-in-effect.model-based-testing}
+
+A machine says what a piece of Cairn must do, so it also tests the code that does it. `@xstate/test` generates sequences of events from the machine, sends each sequence to the machine and to the implementation, and fails when the two disagree. It shrinks a failure to the shortest sequence it finds.
+
+- The model and the implementation are separate code. A machine checked against a table of itself proves nothing new. When the implementation runs the machine, as the presence server runs the room machine, the test checks what the implementation adds around it.
+- Events come from the contract's schemas, as the inputs of the other property tests do.
+- Every run asserts coverage: each transition of the model is taken, so a test cannot pass by never reaching a state.
+- A failure is saved as a fixture, committed, and replayed as a regression test.
+- A pure function, such as stack order or rollup, keeps its property tests. Only behaviour that responds to events gets a model.
+
+What is tested against a model, in this order:
+
+1. The presence server against the room machine. Real clients join, move and leave over the socket, and the room every participant receives matches the machine's participants.
+2. The viewer's interactions against machines written for them: the task detail trail, pinning in the reader, and the dividers' keys. The implementation is the viewer's `update`, so the test needs no render loop.
+3. Status derivation against a model of what the orchestrator writes and what git shows. Derivation's inputs are report lines and commits, not the task machine's events, and its work is the mapping between them, so its model is written over those inputs.
 
 ## Contract package {#prd.contract-package}
 
@@ -320,6 +336,7 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - Running `cairn init`, `cairn plan`, and the orchestrator on a real RinkSide feature produces a manifest with at least three stacked tasks.
 - Every commit on those branches has Cairn trailers, including a `Cairn-Session` ID that resolves to a redacted session in `cairn.db`.
 - A task touching a migrations path is gated and its children do not start until it is approved.
+- Breaking the presence server's broadcast, or Escape in the task detail panel, fails a model-based test that prints the shortest event sequence that shows the break.
 - Opening a task in the code view shows its whole stacked diff with syntax-highlighted code, and each of its commits can be shown alone.
 - Fuzzy search finds abbreviated and mistyped titles and prose, marks the matched text, and brings the selected result and its chain into view; clearing it preserves the pinned section and the detail panel.
 - The viewer shows correct status for every PRD section, and a PRD section's commits are two clicks or fewer from it.
