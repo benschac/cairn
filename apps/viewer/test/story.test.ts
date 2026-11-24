@@ -586,7 +586,9 @@ it("the presence connection opens, then closes and forgets the room", () => {
     message(
       Message.ReceivedPresence({
         presence: {
-          participants: [{ cursor: Option.none(), id: you, kind: "human", name: "Ada" }],
+          participants: [
+            { cursor: Option.none(), id: you, kind: "human", name: "Ada", reading: Option.none() },
+          ],
           you,
         },
       }),

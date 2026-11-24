@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+import { PrdSectionId } from "./ids.ts";
+
 export * from "./config.ts";
 
 export * from "./ids.ts";
@@ -34,12 +36,16 @@ export type Cursor = typeof Cursor.Type;
 export const ParticipantId = Schema.NonEmptyString.pipe(Schema.brand("ParticipantId"));
 export type ParticipantId = typeof ParticipantId.Type;
 
-/** A participant. The wire carries a missing cursor as `null`; decoded, it is an `Option`. */
+/**
+ * A participant. The wire carries a missing cursor or reading as `null`; decoded, each is an
+ * `Option`. `reading` is the PRD section that is current in the participant's window.
+ */
 export const Participant = Schema.Struct({
   cursor: Schema.OptionFromNullOr(Cursor),
   id: ParticipantId,
   kind: ParticipantKind,
   name: Schema.NonEmptyString,
+  reading: Schema.OptionFromNullOr(PrdSectionId),
 });
 export type Participant = typeof Participant.Type;
 
@@ -48,6 +54,7 @@ export const RoomEvents = {
   joined: Schema.Struct({ participant: Schema.toType(Participant) }),
   left: Schema.Struct({ id: ParticipantId }),
   moved: Schema.Struct({ cursor: Cursor, id: ParticipantId }),
+  read: Schema.Struct({ id: ParticipantId, section: PrdSectionId }),
 };
 
 export const Presence = Schema.Struct({
@@ -58,6 +65,14 @@ export type Presence = typeof Presence.Type;
 
 export const PresenceJson = Schema.fromJsonString(Presence);
 export const CursorJson = Schema.fromJsonString(Cursor);
+
+/** What a client says it is reading: the PRD section that is current in its window. */
+export const Reading = Schema.Struct({ reading: PrdSectionId });
+export type Reading = typeof Reading.Type;
+export const ReadingJson = Schema.fromJsonString(Reading);
+
+/** A frame a client sends the room: where its pointer is, or what it is reading. */
+export const ClientFrameJson = Schema.fromJsonString(Schema.Union([Cursor, Reading]));
 
 export * from "./events.ts";
 export * from "./judgments.ts";

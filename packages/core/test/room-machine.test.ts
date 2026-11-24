@@ -1,6 +1,6 @@
-import { Cursor, Participant } from "@cairn/contract";
+import { Cursor, Participant, PrdSectionId } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, Option, Schema } from "effect";
+import { Array, Option, Schema, Struct } from "effect";
 import { initialTransition, transition } from "xstate";
 
 import { roomMachine } from "../src/index.ts";
@@ -12,6 +12,7 @@ const eventsFor = <Id extends Schema.Top>(id: Id) =>
   [
     Schema.Struct({ id, type: Schema.Literal("left") }),
     Schema.Struct({ cursor: Cursor, id, type: Schema.Literal("moved") }),
+    Schema.Struct({ id, section: PrdSectionId, type: Schema.Literal("read") }),
   ] as const;
 
 const History = Schema.Array(
@@ -72,5 +73,56 @@ it.prop(
     const [after] = transition(roomMachine, before, stranger);
     expect(after.value).toBe("open");
     expect(after.context).toStrictEqual(before.context);
+  },
+);
+
+it.prop(
+  "a read sets that participant's section and nothing else, and leaves every cursor where it was",
+  [History, Member, PrdSectionId],
+  ([events, id, section]) => {
+    const before = replay(events);
+    const [after] = transition(roomMachine, before, { id, section, type: "read" });
+    const wasPresent = Array.some(
+      before.context.participants,
+      (participant) => participant.id === id,
+    );
+    expect(Array.map(after.context.participants, (participant) => participant.id)).toStrictEqual(
+      Array.map(before.context.participants, (participant) => participant.id),
+    );
+    Array.forEach(
+      Array.zip(before.context.participants, after.context.participants),
+      ([was, now]) => {
+        // Everything but the section is as it was, for the reader and for everyone else.
+        expect(Struct.omit(now, ["reading"])).toStrictEqual(Struct.omit(was, ["reading"]));
+        expect(now.reading).toStrictEqual(now.id === id ? Option.some(section) : was.reading);
+      },
+    );
+    expect(wasPresent).toBe(
+      Array.some(after.context.participants, (participant) => participant.id === id),
+    );
+  },
+);
+
+it.prop(
+  "a participant reads one section at a time: the last read is the one the room keeps",
+  [History, Member, PrdSectionId, PrdSectionId],
+  ([events, id, first, second]) => {
+    const [afterFirst] = transition(roomMachine, replay(events), {
+      id,
+      section: first,
+      type: "read",
+    });
+    const [afterSecond] = transition(roomMachine, afterFirst, {
+      id,
+      section: second,
+      type: "read",
+    });
+    const reading = Array.findFirst(
+      afterSecond.context.participants,
+      (participant) => participant.id === id,
+    );
+    expect(Option.map(reading, (participant) => participant.reading)).toStrictEqual(
+      Option.map(reading, () => Option.some(second)),
+    );
   },
 );

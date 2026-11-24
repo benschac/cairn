@@ -128,6 +128,8 @@ export const readerView = (
               model.maybeCopied,
               model.search.results,
               model.search.maybeActive,
+              model.participants,
+              model.maybeYou,
               h,
             ),
             dividerView("prd", model.widths, h),
