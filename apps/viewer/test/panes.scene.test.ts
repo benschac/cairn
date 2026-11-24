@@ -190,11 +190,12 @@ const boxOf = (width: number) => ({ getBoundingClientRect: () => ({ width }) });
 
 it("a press carries the rendered width of the pane beside the divider, and of the panel around the detail divider", () => {
   const beside = { previousElementSibling: boxOf(312) };
-  const inside = { parentElement: boxOf(480) };
+  const inside = { closest: () => boxOf(480) };
   assert(renderedWidthOf("prd", beside)).toEqual(Option.some(312));
   assert(renderedWidthOf("spec", beside)).toEqual(Option.some(312));
   assert(renderedWidthOf("detail", inside)).toEqual(Option.some(480));
   assert(renderedWidthOf("prd", inside)).toEqual(Option.none());
+  assert(renderedWidthOf("detail", beside)).toEqual(Option.none());
   assert(renderedWidthOf("prd", null)).toEqual(Option.none());
 });
 

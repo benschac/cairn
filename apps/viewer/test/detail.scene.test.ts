@@ -26,6 +26,8 @@ import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
 import { MeasureWires } from "../src/view/wiresView.ts";
 import { view } from "../src/view/view.ts";
+import { DETAIL_PADDING } from "../src/view/detailView.ts";
+import { DETAIL_HANDLE_WIDTH } from "../src/view/dividerView.ts";
 import { focusedDetailHeading, loaded, unmeasuredWires } from "./fixtures.ts";
 
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
@@ -197,5 +199,17 @@ it("a row, then a commit: the code view on that commit, two clicks from the sect
     ),
     Mount.resolve(RenderDiff, Message.CompletedRenderDiff()),
     expect(selector(`[data-tree-commit="${commit.sha}"]`)).toHaveAttr("aria-current", "true"),
+  );
+});
+
+it("the resize handle reaches less far into the panel than its content's padding, so no control sits under it", () => {
+  assert(DETAIL_HANDLE_WIDTH / 2).toBeLessThanOrEqual(DETAIL_PADDING);
+  scene(
+    { update, view },
+    given(opened(task("t6"))),
+    scrolledTop,
+    expect(selector("[data-divider='detail']")).toHaveStyle("width", `${DETAIL_HANDLE_WIDTH}px`),
+    expect(selector("[data-detail-handle]")).toHaveStyle("left", `-${DETAIL_HANDLE_WIDTH / 2}px`),
+    expect(selector("[data-detail-content]")).toHaveStyle("padding", `12px ${DETAIL_PADDING}px`),
   );
 });
