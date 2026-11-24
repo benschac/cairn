@@ -560,16 +560,16 @@ A feature's PRD, spec, and stack live in a shared room. Humans and agents see ea
 
 ### Architecture {#prd.v2-multiplayer-on-cloudflare.architecture}
 
-- One Durable Object per room (one feature). It holds the Loro document and the room's event log, applies updates, and fans them out over hibernatable WebSockets.
-- Storage: Durable Object SQLite for Loro updates and snapshots and for the event log's entries. R2 for version snapshots, opt-in redacted sessions and files attached to notes.
+- One [Durable Object](https://developers.cloudflare.com/durable-objects/) per room (one feature). It holds the [Loro](https://loro.dev/) document and the room's event log, applies updates, and fans them out over [hibernatable WebSockets](https://developers.cloudflare.com/durable-objects/best-practices/websockets/).
+- Storage: Durable Object SQLite for Loro updates and snapshots and for the event log's entries. [R2](https://developers.cloudflare.com/r2/) for version snapshots, opt-in redacted sessions and files attached to notes. [D1](https://developers.cloudflare.com/d1/) for accounts (see accounts).
 - Statuses and leases are events written through the room's Durable Object, and its sequence orders them (see the event log).
 - Local bridge: `cairn connect` links a repo's `.cairn/` to a room. It pushes events, commit SHAs, and session IDs, and pulls PRD and spec edits back to markdown on disk.
 - Offline: the viewer still works on local files. Loro merges edits made while disconnected.
-- Deploy: Worker, Durable Object namespace, R2 bucket, and the Foldkit site, all defined in Alchemy. Room tokens live in each room's storage, so no signing key is needed yet. Model keys never reach the server.
+- Deploy: Worker, Durable Object namespace, R2 bucket, D1 database, email sending subdomain and the Foldkit site, all defined in [Alchemy](https://alchemy.run/). Room tokens live in each room's storage. Alchemy generates the session signing secret and keeps it across deploys. Model keys never reach the server.
 
 ### Event log {#prd.v2-multiplayer-on-cloudflare.event-log}
 
-A room's events run on Effect's `EventLog` (`effect/eventlog`).
+A room's events run on Effect's `EventLog` ([`effect/eventlog`](https://github.com/Effect-TS/effect/tree/main/packages/effect/src/eventlog)).
 
 - The events are the contract's schemas: task status changes, leases, gate approvals, conflict holds and the orchestrator's notices to agents. Task status, the viewer's trace and the conflict scores are handlers that project them.
 - Each room is one store. Each human and each agent is its own identity, and the server checks every write against it: a gate approval from an agent is refused, and only the orchestrator writes notices to agents.
@@ -611,19 +611,35 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 - Agents: a labeled caret on the section they work from, a pulse on their stack node, and the file they are in. Agent presence comes from orchestrator events, so agents need no browser.
 - Heartbeats: every 5 s. Three missed marks the actor away. For an agent, its task goes `stalled` (new status) and its lease is released.
 
+### Accounts {#prd.v2-multiplayer-on-cloudflare.accounts}
+
+A person signs in to a room, so the room knows who wrote what. Accounts exist only in the hosted room: `cairn serve` on a person's own machine has none, as in v1.
+
+- Sign-in is [Better Auth](https://www.better-auth.com/), run in the room's Worker through [Alchemy's Better Auth integration](https://alchemy.run/better-auth/what-is-better-auth/). Its users, linked accounts, sessions and one-time tokens live in [D1](https://alchemy.run/better-auth/databases/cloudflare-d1/), so a deploy needs nothing outside Cloudflare but the two OAuth apps.
+- Three ways in, none with a password: [GitHub](https://www.better-auth.com/docs/authentication/github), [Google](https://www.better-auth.com/docs/authentication/google), and a [magic link](https://www.better-auth.com/docs/plugins/magic-link) sent by email. A link works once and expires after five minutes.
+- Magic links are sent with [Cloudflare Email Service](https://developers.cloudflare.com/email-service/), from a sending subdomain of the site's domain, through Alchemy's `Cloudflare.Email.Send` binding. Email Service is in beta; if it cannot send to any address, a transactional email provider takes its place behind the same service.
+- One person is one user. A sign-in joins the user that already has its email when the provider has confirmed that email ([account linking](https://www.better-auth.com/docs/concepts/users-accounts)), so GitHub, Google and a magic link to the same address reach the same user. No provider is trusted to link an email it has not confirmed.
+- A profile is the name, email and picture the first sign-in brings. There is no profile page. A person's cursor color comes from their user ID.
+- `cairn connect` signs in once through the browser with [device authorization](https://www.better-auth.com/docs/plugins/device-authorization) and keeps the session on the person's machine.
+- The OAuth client secrets are Alchemy config bindings. None is in the repo.
+
 ### Permissions {#prd.v2-multiplayer-on-cloudflare.permissions}
 
-- Each room has one token: a plain string assigned when the room is created. Anyone with it can join, and joining registers the client's event-log identity.
-- Clients declare whether they are a human or an agent. Gate approvals are only accepted from human clients and record who approved; the event log's server enforces it against the writer's identity.
-- This is trust-based and fine for v2. Signed, scoped tokens come later.
+- Each room has one token: a plain string assigned when the room is created. A signed-in person with the token can join, and joining registers their event-log identity. Without a session the token is refused.
+- The server decides whether a writer is a human or an agent; no client says so. A person's own session, in the browser or the CLI, writes as that human. Each agent `cairn connect` registers gets its own identity, of kind agent, that records the person it acts for. The contract's `Participant` carries the user ID behind it.
+- Gate approvals are only accepted from a human identity and record the user who approved; the event log's server enforces it against the writer's identity.
+- An agent on a person's machine could still use that person's CLI session. Cairn does not guard against that in v2. Signed, scoped tokens and per-room members come later.
 
 ### Multiplayer acceptance criteria {#prd.v2-multiplayer-on-cloudflare.multiplayer-acceptance-criteria}
 
 - Two humans and one agent see each other's cursors and edits in under 250 ms p95 within one region.
 - Killing an agent process marks it away and stalls its task within 15 s.
-- A gate approval from an agent client is rejected.
+- A gate approval from an agent identity is rejected, whatever the client says it is.
 - Clients that edit offline converge on reconnect with no lost edits, property tested with random edits and partitions.
-- `alchemy deploy` brings up a working room from an empty Cloudflare account.
+- `alchemy deploy` brings up a working room from an empty Cloudflare account, given the GitHub and Google OAuth client credentials.
+- GitHub, Google and a magic link to the same confirmed email sign in as one user.
+- A magic link signs in once; a second use, or a use after five minutes, is refused.
+- A client with the room's token but no session cannot join the room.
 - The event-log spike: a Durable Object running the event-log server on its own SQLite syncs a browser client and a CLI client within the latency target, and an Object that hibernated wakes with no lost events.
 - Two people editing one note at once each keep the fields they changed, and a note on a passage follows its text through concurrent edits.
 - A client that writes events offline sends them on reconnect, and every client then derives the same task statuses.
@@ -638,6 +654,7 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 - Judging during a run: before a task starts, and on its diff after it is done.
 - Adapters for Vercel Board and other agent message boards.
 - Notes across rooms, such as every open note for one person, indexed in D1.
+- [Effect Cluster](https://alchemy.run/cluster/what-is-effect-cluster/) for durable work that waits, such as room invitations by email and scheduled cleanup. On Cloudflare its [Durable Object pool](https://alchemy.run/cluster/cloudflare) makes each entity a Durable Object reached over RPC, with its state in memory, so the room itself stays a plain Durable Object with hibernatable WebSockets.
 - Cairn's commands as MCP tools, so an agent session plans as a participant in the room instead of being run by `cairn plan`.
 - Scoring planners against a reference plan, so a provider is chosen on measured quality and cost.
 - State diagrams drawn from the machines themselves.
