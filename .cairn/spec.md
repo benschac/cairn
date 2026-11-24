@@ -330,6 +330,7 @@ Config = {
     small: string | undefined // the model for index and the two splits; defaults to model
     keyEnv: string | undefined // the environment variable holding the key; defaults per provider
     baseUrl: string | undefined // e.g. a Cloudflare AI Gateway URL; required for "openai-compatible"
+    gatewayTokenEnv: string | undefined // the environment variable holding an AI Gateway token; read when source is "api"
   }
   judge: {
     model: string // defaults to "jev-1.14.0"
@@ -343,7 +344,7 @@ Config = {
 }
 ```
 
-A missing `.cairn/config.json` decodes to the defaults. A config whose `planner.source` is `api` with no `planner.model`, or whose provider is `openai-compatible` with no `planner.baseUrl`, fails to decode with a message naming the field. `judge.pass` must be greater than `judge.flag`, and all three thresholds lie in `[0, 1]`. `judge.models` defaults to:
+A missing `.cairn/config.json` decodes to the defaults. A config whose `planner.source` is `api` with no `planner.model`, or whose provider is `openai-compatible` with no `planner.baseUrl`, fails to decode with a message naming the field. A config whose `planner.source` is `api` and that sets `planner.gatewayTokenEnv` with no `planner.baseUrl` fails to decode the same way: the token is for the gateway, and a request that goes straight to a provider must not carry it. `planner.gatewayTokenEnv` holds the name of a variable, never the token. `judge.pass` must be greater than `judge.flag`, and all three thresholds lie in `[0, 1]`. `judge.models` defaults to:
 
 | Name     | When to use it                                                                     |
 | -------- | ---------------------------------------------------------------------------------- |
@@ -552,11 +553,12 @@ The `api` source. `planner.provider` picks the layer:
 Both sources:
 
 - `languageModelFor(call)` gives the `Planner` its model per call: `planner.small` for `index`, `splitSection` and `splitTask` when it is set, and `planner.model` otherwise.
-- Keys are read with `Config.Redacted`, never written and never logged. The `Redactor` adds the value of every key Cairn reads to its secret set, so a key in the shell environment is stripped from session logs like one in `.env`.
+- Keys are read with `Config.Redacted`, never written and never logged. The `Redactor` adds the value of every key Cairn reads, the gateway token below included, to its secret set, so a key in the shell environment is stripped from session logs like one in `.env`.
 - Layers are built only when a command needs them. A command that calls no model never reads a key or looks for a CLI. `cairn plan` with `source: "api"` and no key for its provider fails before it changes any file.
 - `planner.baseUrl` and `judge.baseUrl` become each client's `apiUrl`. Setting them routes calls through a proxy, such as Cloudflare AI Gateway for logs, caching and spend. Cairn ships no gateway and needs no Cloudflare account.
+- `planner.gatewayTokenEnv` names the variable holding an AI Gateway token. Cloudflare requires authentication on a new gateway, so every request through it carries `cf-aig-authorization: Bearer <token>`. When it is set and `planner.source` is `api`, building the planner layer reads the variable with `Config.Redacted` and the client sends that header on every HTTP request, for every `api` provider. A missing variable fails before any file changes with a `ModelKeyError` naming it. When it is unset no header is sent, and the `cli` source ignores it. The Judge has no such field: TypeSafe is not a gateway provider.
 - The Jev model is pinned (`jev-1.14.0`, not `jev-latest`) so the same input gets the same model, and `judgments.json` records it.
-- No test reads a key, touches the network or runs a real CLI. `Planner` and `Judge` tests provide scripted Layers. `cli-model.ts` is tested against a stub executable on a temporary `PATH` that prints a recorded answer: it gets the prompt on stdin and the schema flag, a non-zero exit becomes a `PlannerError` with its stderr, and a missing binary gives the message above.
+- No test reads a key, touches the network or runs a real CLI. The gateway header is tested with a stub `HttpClient` that records each request: every `api` provider sends it when `planner.gatewayTokenEnv` is set and none sends it when unset, and a missing variable fails naming it. `Planner` and `Judge` tests provide scripted Layers. `cli-model.ts` is tested against a stub executable on a temporary `PATH` that prints a recorded answer: it gets the prompt on stdin and the schema flag, a non-zero exit becomes a `PlannerError` with its stderr, and a missing binary gives the message above.
 
 ## Planning {#spec.planning}
 
@@ -652,6 +654,7 @@ flowchart BT
     t61["t61 · 61-planner-split<br/>Add the split and index planner calls<br/>wt-17"]
     t55["t55 · 55-judgment-schema<br/>Add the judgments file schema and the judge config<br/>wt-15"]
     t106["t106 · 106-planner-providers<br/>Add the API providers for the planner<br/>wt-32"]
+    t115["t115 · 115-gateway-token<br/>Send the AI Gateway token with planner requests<br/>wt-32"]
   end
   subgraph s9["Stack 9 · status"]
     direction BT
@@ -1026,8 +1029,9 @@ flowchart BT
   t112 -.-> t113
   t106 -.-> t114
   t113 -.-> t114
+  t106 --> t115
   class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114 sonnet
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115 sonnet
   class t11,t24,t27,t44,t56,t66,t102,t107 haiku
   class t1,t2,t3,t81,t97 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95

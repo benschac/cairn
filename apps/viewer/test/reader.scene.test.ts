@@ -94,9 +94,9 @@ it("over the document sit its title and how many of the plan's tasks are done, w
     given(reading),
     scrolledTo("prd.goal"),
     expect(selector("[data-prd-title]")).toHaveText("Cairn MVP"),
-    expect(selector("[data-plan-count]")).toHaveText("59 of 113 tasks done"),
+    expect(selector("[data-plan-count]")).toHaveText("59 of 114 tasks done"),
     expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuenow", "59"),
-    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuemax", "113"),
+    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuemax", "114"),
   );
 });
 
