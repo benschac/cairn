@@ -1,5 +1,5 @@
-import type { Sha, TaskId, Trace } from "@cairn/contract";
-import { Array, Boolean, Effect, Option, Record, Result, Schema } from "effect";
+import { PrdSectionId, type Sha, type TaskId, type Trace } from "@cairn/contract";
+import { Array, Boolean, Effect, Match, Option, Record, Result, Schema } from "effect";
 import { AsyncData, Command } from "foldkit";
 import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
@@ -32,6 +32,7 @@ import {
   PresenceConnection,
   Screen,
   selectedNodeOf,
+  type Destination,
   type Model,
 } from "./model.ts";
 import {
@@ -184,6 +185,18 @@ const searchedWith = (model: Model, search: SearchState) => ({
   model: modifyFields(model, { search: () => search }),
 });
 
+/** The screen a "Plan" or "Canvas" button moves to. */
+const screenOf = (destination: Destination): Screen =>
+  Match.value(destination).pipe(
+    Match.when("Canvas", () => Screen.Canvas()),
+    Match.when("Reader", () => Screen.Reader()),
+    Match.exhaustive,
+  );
+
+/** A pinned section is unpinned by a second click on its status line; any other becomes the pin. */
+const pinToggled = (maybePinned: Option.Option<PrdSectionId>, id: PrdSectionId) =>
+  Option.contains(maybePinned, id) ? Option.none() : Option.some(id);
+
 /** No buttons held: the pointer is up, whether or not its release was heard. */
 const NO_BUTTONS = 0;
 
@@ -276,6 +289,18 @@ export const update = (model: Model, message: Message) =>
             }),
           },
     ClickedMoveHandle: () => ({ model }),
+    ClickedScreen: ({ screen }) => ({
+      model: modifyFields(model, { screen: () => screenOf(screen) }),
+    }),
+    ClickedSectionId: ({ id }) => ({ commands: [CopySectionId({ id })], model }),
+    // Pinning keeps the pane where it is; the pinned section stays current while the PRD scrolls.
+    ClickedStatusLine: ({ id }) => ({
+      model: modifyFields(model, {
+        maybeCopied: () => Option.none(),
+        reader: (reader) =>
+          modifyFields(reader, { maybePinned: (maybePinned) => pinToggled(maybePinned, id) }),
+      }),
+    }),
     ClickedResetLayout: () => ({ model: modifyFields(model, { offsets: () => ({}) }) }),
     // A click takes focus from the input, so it goes back: the keyboard stays in search.
     ClickedSearchResult: ({ node }) => ({
@@ -297,6 +322,12 @@ export const update = (model: Model, message: Message) =>
         maybeYou: () => Option.none(),
         participants: () => [],
         presenceConnection: () => PresenceConnection.Disconnected(),
+      }),
+    }),
+    // A refused copy leaves the button as it was.
+    CompletedCopySectionId: ({ id, isCopied }) => ({
+      model: modifyFields(model, {
+        maybeCopied: () => (isCopied ? Option.some(id) : Option.none()),
       }),
     }),
     CompletedFocusDrawerHeading: () => ({ model }),
@@ -361,6 +392,16 @@ export const update = (model: Model, message: Message) =>
             drag: () => DragState.Dragging({ movable, pointer, pointerId }),
           }),
     }),
+    // Until the detail panel exists there is nothing to go back through, so Escape unpins. It is
+    // the reader's key: on any other screen it does nothing.
+    PressedEscape: () => ({
+      model: Screen.guards.Reader(model.screen)
+        ? modifyFields(model, {
+            maybeCopied: () => Option.none(),
+            reader: (reader) => modifyFields(reader, { maybePinned: () => Option.none() }),
+          })
+        : model,
+    }),
     PressedSearchArrowDown: () => searchedWith(model, moved(model.search, 1)),
     PressedSearchArrowUp: () => searchedWith(model, moved(model.search, -1)),
     PressedSearchEnter: () =>
@@ -398,6 +439,12 @@ export const update = (model: Model, message: Message) =>
         onSome: () => modifyFields(model, { drag: () => DragState.Released({ pointerId }) }),
       }),
     }),
+    // Only the section at the top changes on a scroll.
+    ScrolledPrd: ({ id }) => ({
+      model: modifyFields(model, {
+        reader: (reader) => modifyFields(reader, { maybeAtTop: () => Option.some(id) }),
+      }),
+    }),
     SuppressedClickAfterDrag: () => ({ model: idleAfterRelease(model) }),
     // A refreshed trace is searched again: a result that is gone loses its marks and its chain.
     SettledLoadTrace: ({ result }) => {
@@ -411,6 +458,22 @@ export const update = (model: Model, message: Message) =>
   });
 
 // COMMAND
+
+/** Writes a section's ID to the clipboard, and says whether the browser took it. */
+export const CopySectionId = Command.define("CopySectionId", {
+  args: { id: PrdSectionId },
+  messages: [Message.CompletedCopySectionId],
+  execute: ({ id }) =>
+    Effect.tryPromise({
+      catch: () => "The browser refused to copy",
+      try: () => navigator.clipboard.writeText(id),
+    }).pipe(
+      Effect.result,
+      Effect.map((result) =>
+        Message.CompletedCopySectionId({ id, isCopied: Result.isSuccess(result) }),
+      ),
+    ),
+});
 
 export const LoadTrace = Command.define("LoadTrace", {
   messages: [Message.SettledLoadTrace],

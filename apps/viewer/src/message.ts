@@ -1,10 +1,10 @@
-import { Presence, Sha, TaskId, Trace } from "@cairn/contract";
+import { Presence, PrdSectionId, Sha, TaskId, Trace } from "@cairn/contract";
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 
 import { ArrowKey, ClientPoint, Movable, PointerId } from "./drag.ts";
 import { Positions, Size, Viewport } from "./geometry.ts";
-import { DiffStyle } from "./model.ts";
+import { Destination, DiffStyle } from "./model.ts";
 import { Node } from "./trace.ts";
 
 export const Message = defineMessageUnion({
@@ -27,6 +27,12 @@ export const Message = defineMessageUnion({
   ClickedMoveHandle: {},
   /** The button that puts every moved document and task card back where the layout put it. */
   ClickedResetLayout: {},
+  /** A PRD heading's section ID, small beside its title: copies the ID. */
+  ClickedSectionId: { id: PrdSectionId },
+  /** The top bar's "Plan" and "Canvas" buttons. */
+  ClickedScreen: { screen: Destination },
+  /** The status line under a PRD heading: pins that section, or unpins it when it is the pinned one. */
+  ClickedStatusLine: { id: PrdSectionId },
   /** A result in the search list: it becomes the active result and is brought into view. */
   ClickedSearchResult: { node: Node },
   /** A commit in the code view's tree. */
@@ -41,6 +47,8 @@ export const Message = defineMessageUnion({
   ChangedSearchQuery: { query: Schema.String },
   /** The presence socket closed or failed. */
   ClosedPresence: {},
+  /** The clipboard took the section's ID, or refused it. */
+  CompletedCopySectionId: { id: PrdSectionId, isCopied: Schema.Boolean },
   CompletedFocusDrawerHeading: {},
   CompletedFocusNode: {},
   CompletedFocusSearchInput: {},
@@ -61,6 +69,8 @@ export const Message = defineMessageUnion({
    * earlier pointer is up, so a drag still in progress missed its release.
    */
   PressedAfterDrag: { isPrimaryPointer: Schema.Boolean },
+  /** Escape went down on the page and nothing handled it first. */
+  PressedEscape: {},
   /** In the search input: down to the next result. */
   PressedSearchArrowDown: {},
   /** In the search input: up to the previous result. */
@@ -82,6 +92,8 @@ export const Message = defineMessageUnion({
   ReceivedPresence: { presence: Presence },
   /** A pointer went up or was cancelled anywhere on the page while a drag was in progress. */
   ReleasedDragPointer: { pointerId: PointerId },
+  /** The section at the top of the PRD pane changed. */
+  ScrolledPrd: { id: PrdSectionId },
   /** The click from a drag's release was stopped before it reached any node. */
   SuppressedClickAfterDrag: {},
   SettledLoadTrace: { result: Schema.Result(Schema.toType(Trace), Schema.String) },

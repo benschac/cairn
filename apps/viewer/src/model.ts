@@ -1,4 +1,4 @@
-import { Participant, ParticipantId, Sha, TaskId, Trace } from "@cairn/contract";
+import { Participant, ParticipantId, PrdSectionId, Sha, TaskId, Trace } from "@cairn/contract";
 import { Option, Schema } from "effect";
 import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
@@ -42,15 +42,34 @@ export const PatchData = defineTaggedUnion({
 export type PatchData = typeof PatchData.Type;
 
 /**
- * The screen: the canvas, or the code view on a task with what is shown of it and the file
- * selected in it. Everything the canvas needs stays in the model while the code view is open.
+ * The screen: the canvas, the reader (the plan screen), or the code view on a task with what is
+ * shown of it and the file selected in it. Everything the canvas needs stays in the model while
+ * the code view is open.
  */
 export const Screen = defineTaggedUnion({
   Canvas: {},
+  Reader: {},
   Code: { maybeFile: Schema.Option(Schema.String), shown: Shown, taskId: TaskId },
 });
 export type Screen = typeof Screen.Type;
 export type CodeScreen = Extract<Screen, { readonly _tag: "Code" }>;
+
+/** The two screens the top bar's "Plan" and "Canvas" buttons move between. */
+export const Destination = Schema.Literals(["Canvas", "Reader"]);
+export type Destination = typeof Destination.Type;
+
+/**
+ * What a person chose in the reader (see spec.viewer.reader). The section at the top of the PRD
+ * pane is measured, but it is kept here with the pin because the current section is decided
+ * from the two.
+ */
+export const Reader = Schema.Struct({
+  /** The section at the top of the PRD pane, once it is measured. */
+  maybeAtTop: Schema.Option(PrdSectionId),
+  /** The section whose status line was clicked; it stays current while the PRD scrolls. */
+  maybePinned: Schema.Option(PrdSectionId),
+});
+export type Reader = typeof Reader.Type;
 
 /** The node whose drawer is open: the selected node. */
 export const selectedNodeOf = (drawer: Drawer): Option.Option<Node> =>
@@ -75,6 +94,8 @@ export const Model = Schema.Struct({
   drawer: Drawer,
   /** Every curve is drawn, not only the active chain's. Off at first, so the canvas starts clear. */
   isShowingAllCurves: Schema.Boolean,
+  /** The section whose ID was just copied; its button reads "copied" until another reader click. */
+  maybeCopied: Schema.Option(PrdSectionId),
   maybeHovered: Schema.Option(Node),
   /** The canvas pane's size, once its mount has measured it. */
   maybePaneSize: Schema.Option(Size),
@@ -88,9 +109,11 @@ export const Model = Schema.Struct({
   pins: Schema.Array(Pin),
   positions: Positions,
   presenceConnection: PresenceConnection,
+  /** What a person chose in the reader. */
+  reader: Reader,
   /** This window's search. Private to it: it changes no document, status, pin or other window. */
   search: SearchState,
-  /** The canvas or the code view. */
+  /** The canvas, the reader or the code view. */
   screen: Screen,
   trace: TraceData.schema,
   /** How far each moved document and task card sits from where the layout put it. Not kept across reloads. */
