@@ -73,6 +73,8 @@ export const Message = defineMessageUnion({
   CompletedFocusNode: {},
   CompletedFocusSearchInput: {},
   CompletedScrollSearchResult: {},
+  /** The reader's panes were scrolled to what a selected search result points at. */
+  CompletedScrollSearchTargets: {},
   /** The stacks pane was scrolled to the base branch bar at its bottom. */
   CompletedScrollStacks: {},
   /** The diff mount parsed the patch and drew it, or put the reason it could not in the pane. */

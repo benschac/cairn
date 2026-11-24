@@ -610,6 +610,20 @@ mark[data-search-match] {
   text-decoration: underline;
 }
 
+/*
+ * In the reader, a heading, card, row or chip the query matched is outlined, dashed; the active
+ * result's outline is solid and heavier. The outline is a shape, so it does not rely on colour.
+ */
+.reader [data-searched="match"] {
+  outline: var(--line) dashed var(--ink);
+  outline-offset: 2px;
+}
+
+.reader [data-searched="active"] {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
 /* A code block and a drawn diagram: their colours are light only (see light-only). */
 .code-block {
   margin: 8px 0;

@@ -9,10 +9,12 @@ import { Array, Option, Predicate } from "effect";
 import { createKeyedLazy, type Html, type HtmlBuilder } from "foldkit/html";
 
 import { diagramView } from "../diagram.ts";
+import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
 import { documentOf, renderSection } from "../markdown.ts";
 import { Message } from "../message.ts";
 import type { Density, Reader } from "../model.ts";
 import { cardsOf, coverageOf, isOpenCard, ranOf, statusWordOf, tasksOf } from "../reader.ts";
+import { blockKeyFor, marksOf, type SearchResult } from "../search.ts";
 import {
   judgmentMarkOf,
   sectionStatusOf,
@@ -25,6 +27,7 @@ import { disclosureView, segmentedView } from "../ui/controls.ts";
 import { dotView, gateView, labelView, tagView } from "../ui/marks.ts";
 import { hoverChainOf, isSpecDimmed, isTaskDimmed, rowKey, specKey, strayKey } from "../wires.ts";
 import { modelChipView, modelSquareView } from "./modelView.ts";
+import { fieldView, matchView, searchedAttributesOf, titleView } from "./nodeView.ts";
 import { hoverAttributesOf } from "./wiresView.ts";
 
 const DENSITIES: ReadonlyArray<{ readonly label: string; readonly value: Density }> = [
@@ -64,9 +67,12 @@ const taskRowView = (
   task: TraceTask,
   isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
-): Html =>
-  h.button(
+): Html => {
+  const search = nodeSearchOf(results, maybeActive, { id: task.id, kind: "task" });
+  return h.button(
     Array.flatten([
       [
         h.Type("button"),
@@ -76,13 +82,14 @@ const taskRowView = (
         h.OnClick(Message.ClickedTask({ id: task.id })),
       ],
       hoverAttributesOf({ id: task.id, kind: "task" }, h),
+      searchedAttributesOf(search, h),
       isTaskDimmed(maybeChain, task.id) ? [h.DataAttribute("dimmed", "")] : [],
     ]),
     Array.appendAll(
       [
         dotView(task.status, h),
-        tagView("task", task.id, h),
-        h.span([h.Style({ flex: "1", "min-width": "0" })], [task.title]),
+        tagView("task", fieldView(search, "id", task.id, h), h),
+        h.span([h.Style({ flex: "1", "min-width": "0" })], titleView(search, [task.title], h)),
       ],
       Array.appendAll(
         Array.appendAll(
@@ -100,6 +107,7 @@ const taskRowView = (
       ),
     ),
   );
+};
 
 const tasksView = (
   trace: Trace,
@@ -107,21 +115,39 @@ const tasksView = (
   tasks: ReadonlyArray<TraceTask>,
   isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
     [h.Class("card-tasks")],
-    Array.map(tasks, (task) => taskRowView(trace, specId, task, isShowingModels, maybeChain, h)),
+    Array.map(tasks, (task) =>
+      taskRowView(trace, specId, task, isShowingModels, maybeChain, results, maybeActive, h),
+    ),
   );
 
-/** The line with the section's ID, then the section's own markdown. */
-const fullSectionView = (trace: Trace, section: TraceSection, h: HtmlBuilder<Message>): Html =>
+/**
+ * The line with the section's ID, then the section's own markdown, with the matched text of its
+ * prose marked. Each marked block carries `data-block`, which a selected result scrolls to.
+ */
+const fullSectionView = (
+  trace: Trace,
+  section: TraceSection,
+  search: NodeSearch,
+  results: ReadonlyArray<SearchResult>,
+  h: HtmlBuilder<Message>,
+): Html =>
   h.div(
     [h.Class("prose"), h.DataAttribute("full-spec", section.id)],
     [
-      tagView("spec", section.id, h),
+      tagView("spec", fieldView(search, "id", section.id, h), h),
       renderSection(documentOf(trace.spec.markdown), section.id, h, {
+        blockAttributesOf: (offset: number) => [
+          h.DataAttribute("block", blockKeyFor("spec", offset)),
+        ],
         diagramView: (source, key) => diagramView(h, source, key),
+        marks: marksOf("spec", results),
+        markView: (text: string) => matchView(text, h),
       }),
     ],
   );
@@ -136,11 +162,17 @@ const cardView = (
   reader: Reader,
   isShowingModels: boolean,
   maybeHovered: Option.Option<Node>,
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const tasks = tasksOf(trace, section);
   const maybeChain = hoverChainOf(trace, maybeHovered);
-  const isOpen = isOpenCard(reader, section.id);
+  const search = nodeSearchOf(results, maybeActive, { id: section.id, kind: "section" });
+  // A card holding the active result's matched prose is shown open for as long as it is active.
+  const isOpen =
+    isOpenCard(reader, section.id) ||
+    (search.isActive && Option.exists(search.maybeMatch, (match) => match.field === "prose"));
   const showsSummary = !isOpen && reader.density !== "titles";
   return disclosureView(
     {
@@ -151,7 +183,10 @@ const cardView = (
         h.article(
           Array.appendAll(
             [h.Class("card"), h.DataAttribute("spec", section.id)],
-            isSpecDimmed(maybeChain, section.id) ? [h.DataAttribute("dimmed", "")] : [],
+            Array.appendAll(
+              searchedAttributesOf(search, h),
+              isSpecDimmed(maybeChain, section.id) ? [h.DataAttribute("dimmed", "")] : [],
+            ),
           ),
           Array.appendAll(
             [
@@ -166,7 +201,7 @@ const cardView = (
                 Array.appendAll(
                   Array.appendAll(
                     [
-                      h.span([], [section.title]),
+                      h.span([], titleView(search, [section.title], h)),
                       h.span(
                         [h.DataAttribute("done", "")],
                         [`${Array.length(Array.filter(tasks, isDone))}/${Array.length(tasks)}`],
@@ -193,7 +228,7 @@ const cardView = (
               isOpen
                 ? [
                     h.div(Array.prepend(panel, h.Class("card-body")), [
-                      fullSectionView(trace, section, h),
+                      fullSectionView(trace, section, search, results, h),
                     ]),
                   ]
                 : Array.map(
@@ -211,7 +246,18 @@ const cardView = (
                         [summary],
                       ),
                   ),
-              [tasksView(trace, section.id, tasks, isShowingModels, maybeChain, h)],
+              [
+                tasksView(
+                  trace,
+                  section.id,
+                  tasks,
+                  isShowingModels,
+                  maybeChain,
+                  results,
+                  maybeActive,
+                  h,
+                ),
+              ],
             ),
           ),
         ),
@@ -226,6 +272,8 @@ const straysView = (
   strays: ReadonlyArray<TraceTask>,
   isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> =>
   Array.isReadonlyArrayEmpty(strays)
@@ -240,14 +288,24 @@ const straysView = (
           ),
           [
             h.div([h.Class("card-head")], ["Tasks that name this section directly"]),
-            tasksView(trace, strayKey, strays, isShowingModels, maybeChain, h),
+            tasksView(
+              trace,
+              strayKey,
+              strays,
+              isShowingModels,
+              maybeChain,
+              results,
+              maybeActive,
+              h,
+            ),
           ],
         ),
       ];
 
 /**
  * One slot per card, keyed by its section: a card is rebuilt only when the trace, the density, the
- * cards opened on their own or the hovered node changes, so a measurement never renders markdown.
+ * cards opened on their own, the hovered node or the search changes, so a measurement never
+ * renders markdown.
  */
 const cardLazy = createKeyedLazy();
 
@@ -283,6 +341,8 @@ export const specPaneView = (
   reader: Reader,
   isShowingModels: boolean,
   maybeHovered: Option.Option<Node>,
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html =>
   Option.match(maybeCurrent, {
@@ -332,10 +392,12 @@ export const specPaneView = (
                     reader,
                     isShowingModels,
                     maybeHovered,
+                    results,
+                    maybeActive,
                     h,
                   ]),
                 ),
-                straysView(trace, strays, isShowingModels, maybeChain, h),
+                straysView(trace, strays, isShowingModels, maybeChain, results, maybeActive, h),
               ),
             );
           },

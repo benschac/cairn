@@ -1,16 +1,28 @@
 import {
   SectionId,
-  type PrdSectionId,
+  PrdSectionId,
   type Reasoning,
   SectionStatus,
   Trace,
   TraceSection,
   TraceTask,
 } from "@cairn/contract";
-import { Array, DateTime, HashSet, Match, Option, Order, Record, String, pipe } from "effect";
+import {
+  Array,
+  DateTime,
+  HashSet,
+  Match,
+  Option,
+  Order,
+  Record,
+  Schema,
+  String,
+  pipe,
+} from "effect";
 
 import type { Density } from "./model.ts";
-import { chainOf } from "./trace.ts";
+import { blockKeyOf, type SearchResult } from "./search.ts";
+import { Node, chainOf } from "./trace.ts";
 
 /** What a person chose that decides the current section: the model's `reader`, as far as it goes. */
 export interface Choice {
@@ -30,6 +42,79 @@ export const currentOf = (
     Option.orElse(() => reader.maybePinned),
     Option.orElse(() => reader.maybeAtTop),
   );
+
+const isPrdSection = Schema.is(PrdSectionId);
+
+/**
+ * The PRD section a search result puts in front of the reader: the section itself for a PRD
+ * section, and for any other node the first PRD section of its chain in document order. None when
+ * nothing is active, and for a node whose chain has no PRD section. The document's title is not a
+ * section a reader can be on, so it is never the answer.
+ */
+export const searchedSectionOf = (
+  trace: Trace,
+  maybeActive: Option.Option<Node>,
+): Option.Option<PrdSectionId> =>
+  Option.flatMap(maybeActive, (node) => {
+    const chain = chainOf(trace, node);
+    return Array.findFirst(
+      trace.prd.sections,
+      (section) => section.level > 1 && HashSet.has(chain.prd, section.id),
+    ).pipe(Option.flatMap((section) => Option.liftPredicate(section.id, isPrdSection)));
+  });
+
+/** Whether a result is a spec section that implements no PRD section, which has no card in the reader. */
+export const isCardless = (trace: Trace, node: Node): boolean =>
+  Node.match(node, {
+    section: ({ id }) =>
+      !isPrdSection(id) && Option.isNone(searchedSectionOf(trace, Option.some(node))),
+    task: () => false,
+  });
+
+/**
+ * Where to bring one thing into view: the first selector that matches an element. A prose result
+ * falls back from its block to its owner until the block is in the page.
+ */
+export const ScrollTarget = Schema.Struct({
+  block: Schema.Literals(["nearest", "start"]),
+  selectors: Schema.Array(Schema.String),
+});
+export type ScrollTarget = typeof ScrollTarget.Type;
+
+const headingSelector = (id: string): string => `[data-prd-pane] [data-section="${id}"]`;
+
+const targetOf = (
+  block: ScrollTarget["block"],
+  selectors: ReadonlyArray<string>,
+): ScrollTarget => ({
+  block,
+  selectors,
+});
+
+const blockSelectorOf = (result: SearchResult): ReadonlyArray<string> =>
+  Array.map(Array.fromOption(blockKeyOf(result)), (key) => `[data-block="${key}"]`);
+
+/**
+ * What a selected result brings into view in the reader. A PRD section scrolls the PRD pane to its
+ * heading, or to its matched block. A spec section scrolls its card, or its matched block, in the
+ * spec pane. A task scrolls its row in the spec pane and its chip in the stacks pane. The first
+ * row of a task is the one in the earliest card, and a task listed as a stray has `_` for a spec.
+ */
+export const targetsOf = (result: SearchResult): ReadonlyArray<ScrollTarget> =>
+  Node.match(result.node, {
+    section: ({ id }) =>
+      isPrdSection(id)
+        ? [
+            Array.isReadonlyArrayEmpty(blockSelectorOf(result))
+              ? targetOf("start", [headingSelector(id)])
+              : targetOf("nearest", Array.append(blockSelectorOf(result), headingSelector(id))),
+          ]
+        : [targetOf("nearest", Array.append(blockSelectorOf(result), `[data-spec="${id}"]`))],
+    task: ({ id }) => [
+      targetOf("nearest", [`[data-task-row$=":${id}"]`]),
+      targetOf("nearest", [`[data-stacks-pane] [data-task="${id}"]`]),
+    ],
+  });
 
 /** A PRD section and where its heading's top edge is. */
 export interface SectionTop {

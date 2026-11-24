@@ -171,6 +171,17 @@ export const fieldFromView = (
     },
   );
 
+/** `data-searched`: "active" on the active result and "match" on any other node the query matched. */
+export const searchedAttributesOf = (
+  search: NodeSearch,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Attribute<Message>> =>
+  search.isActive
+    ? [h.DataAttribute("searched", "active")]
+    : Option.isSome(search.maybeMatch)
+      ? [h.DataAttribute("searched", "match")]
+      : [];
+
 /** The outline of a node the query matched, and a stronger one for the active result. */
 const searchStyleOf = (search: NodeSearch): NodeStyle =>
   search.isActive
@@ -247,11 +258,7 @@ export const nodeAttributes = (
         ),
       ),
     ],
-    search.isActive
-      ? [h.DataAttribute("searched", "active")]
-      : Option.isSome(search.maybeMatch)
-        ? [h.DataAttribute("searched", "match")]
-        : [],
+    searchedAttributesOf(search, h),
     isLit
       ? [h.DataAttribute(Array.isReadonlyArrayNonEmpty(holding) ? "highlighted" : "dimmed", "true")]
       : [],
