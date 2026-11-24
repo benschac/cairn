@@ -1,5 +1,12 @@
 import { SectionPrefix } from "@cairn/contract";
-import type { HumanGate, Manifest, ManifestTask, Section, TaskId } from "@cairn/contract";
+import type {
+  HumanGate,
+  Manifest,
+  ManifestTask,
+  Section,
+  SpecIndex,
+  TaskId,
+} from "@cairn/contract";
 import {
   Array,
   Equal,
@@ -15,6 +22,7 @@ import {
 
 import { gateOf } from "./gates.ts";
 import type { GateConfig } from "./gates.ts";
+import { stalenessOf, uncoveredOf } from "./replan.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
 import { parentOf } from "./stack.ts";
 
@@ -30,6 +38,8 @@ export const LintRule = Schema.Literals([
   "worktree-clash",
   "gate-mismatch",
   "no-commits-landed",
+  "stale-section",
+  "stale-task",
 ]);
 export type LintRule = typeof LintRule.Type;
 
@@ -60,6 +70,8 @@ const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
   "missing-id": "error",
   "no-commits-landed": "warning",
   "parent-mismatch": "error",
+  "stale-section": "warning",
+  "stale-task": "warning",
   "unknown-section": "error",
   "unmapped-section": "error",
   "worktree-clash": "error",
@@ -97,25 +109,6 @@ const identifiedOf = (document: Document): ReadonlyArray<Identified> =>
       })),
     ),
   );
-
-/** A section with the IDs of the headings above it. */
-interface Placed {
-  readonly ancestors: ReadonlyArray<string>;
-  readonly section: Section;
-}
-
-/** Each section with its place in the heading tree: a heading is under the nearest one above it of a lower level. */
-const placedOf = (sections: ReadonlyArray<Section>): ReadonlyArray<Placed> =>
-  Array.mapAccum(sections, Array.empty<Section>(), (stack, section) => {
-    const above = Array.filter(stack, (open) => open.level < section.level);
-    const placed: Placed = {
-      ancestors: Array.filterMap(above, (open) =>
-        Predicate.isUndefined(open.id) ? Result.failVoid : Result.succeed(open.id),
-      ),
-      section,
-    };
-    return [Array.append(above, section), placed];
-  })[1];
 
 const missingIds = (document: Document): ReadonlyArray<Finding> =>
   Array.filterMap(document.sections, (section) =>
@@ -223,47 +216,48 @@ const unknownInTasks = (
     );
   });
 
-/**
- * PRD sections no spec section covers (see `spec.format`). A section is covered when it, or a
- * section under it, is named in an `Implements`, `Defers` or `Context` key, or when a section
- * above it is named in a `Defers` or `Context` key.
- */
-const unmapped = (prd: Document, spec: Document): ReadonlyArray<Finding> => {
-  const named = HashSet.fromIterable<string>(
-    Array.flatMap(spec.sections, ({ keys }) =>
-      Array.flatten([keys.implements, keys.defers, keys.context]),
+/** PRD sections no spec section covers (see `spec.format`). */
+const unmapped = (prd: Document, spec: Document): ReadonlyArray<Finding> =>
+  Array.map(uncoveredOf(prd.sections, spec.sections), ({ id, section }) =>
+    findingOf(
+      "unmapped-section",
+      prd.file,
+      Option.some(section.line),
+      `${id} is not implemented, deferred or given as context by any spec section.`,
     ),
   );
-  const spread = HashSet.fromIterable<string>(
-    Array.flatMap(spec.sections, ({ keys }) => Array.appendAll(keys.defers, keys.context)),
-  );
-  const placed = placedOf(prd.sections);
-  return Array.filterMap(placed, ({ ancestors, section }) => {
-    if (Predicate.isUndefined(section.id)) {
-      return Result.failVoid;
-    }
-    const id = section.id;
-    const covered =
-      HashSet.has(named, id) ||
-      Array.some(
-        placed,
-        (below) =>
-          Array.contains(below.ancestors, id) &&
-          Predicate.isNotUndefined(below.section.id) &&
-          HashSet.has(named, below.section.id),
-      ) ||
-      Array.some(ancestors, (above) => HashSet.has(spread, above));
-    return covered
-      ? Result.failVoid
-      : Result.succeed(
-          findingOf(
-            "unmapped-section",
-            prd.file,
-            Option.some(section.line),
-            `${id} is not implemented, deferred or given as context by any spec section.`,
+
+/** Spec sections and tasks that went out of date (see `spec.planning.again`). */
+const staleFindings = (
+  prd: Document,
+  spec: Document,
+  index: SpecIndex,
+  tasks: ReadonlyArray<ManifestTask>,
+): ReadonlyArray<Finding> => {
+  const staleness = stalenessOf(prd.sections, spec.sections, index, tasks);
+  return Array.appendAll(
+    Array.map(staleness.sections, ({ changed, id, section }) =>
+      findingOf(
+        "stale-section",
+        spec.file,
+        Option.some(section.line),
+        `${id} implements ${Array.join(changed, ", ")}, which changed after ${id} was written. Update the section if it needs it, then run cairn plan --accept ${id}.`,
+      ),
+    ),
+    Array.flatMap(staleness.tasks, ({ edited, stale, task }) =>
+      Array.appendAll(
+        Array.map(stale, (id) =>
+          taskFinding("stale-task", `${task.id} builds ${id}, which is stale.`),
+        ),
+        Array.map(edited, (id) =>
+          taskFinding(
+            "stale-task",
+            `${task.id} builds ${id}, which was edited after ${task.id} was planned.`,
           ),
-        );
-  });
+        ),
+      ),
+    ),
+  );
 };
 
 /** Every node reachable from `start` along `edges`; `start` is in it only when a cycle leads back. */
@@ -435,15 +429,17 @@ const byPlace: Order.Order<Finding> = Order.combine(
 );
 
 /**
- * What is wrong with a plan (see `spec.lint`): its section IDs and coverage, and its stacks and
- * gates. `prd` and `spec` are the markdown of `prd.md` and `spec.md`; there is no manifest
- * before the tasks are planned. `config` gives the high-trust paths gate detection reads.
+ * What is wrong with a plan (see `spec.lint`): its section IDs and coverage, its stacks and
+ * gates, and what went out of date. `prd` and `spec` are the markdown of `prd.md` and
+ * `spec.md`; there is no manifest before the tasks are planned. `config` gives the high-trust
+ * paths gate detection reads. `index` is `spec.json`; without it nothing is reported stale.
  */
 export const lint = (
   prd: string,
   spec: string,
   manifest: Option.Option<Manifest>,
   config: GateConfig,
+  index: Option.Option<SpecIndex> = Option.none(),
 ): ReadonlyArray<Finding> => {
   const prdDocument: Document = { file: "prd.md", prefix: "prd", sections: sectionsOf(prd) };
   const specDocument: Document = { file: "spec.md", prefix: "spec", sections: sectionsOf(spec) };
@@ -463,6 +459,16 @@ export const lint = (
         Array.appendAll(
           unknownInTasks(plan, prdIds, specIds),
           stackFindings(plan, Array.appendAll(prdDocument.sections, specDocument.sections), config),
+        ),
+    }),
+    Option.match(index, {
+      onNone: () => [],
+      onSome: (written) =>
+        staleFindings(
+          prdDocument,
+          specDocument,
+          written,
+          Option.match(manifest, { onNone: () => [], onSome: (plan) => plan.tasks }),
         ),
     }),
   ]);
