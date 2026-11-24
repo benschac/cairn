@@ -16,6 +16,7 @@ Read [the source guide](../README.md) before applying examples.
 | @effect/ai-anthropic | 4.1.5 | 8 | 1817 | `packages/cli/node_modules/@effect/ai-anthropic/dist` |
 | @effect/platform-browser | 4.1.5 | 17 | 95 | `apps/viewer/node_modules/@effect/platform-browser/dist` |
 | @effect/platform-node | 4.1.5 | 29 | 69 | `node_modules/@effect/platform-node/dist` |
+| @effect/sql-sqlite-node | 4.1.5 | 2 | 11 | `packages/cli/node_modules/@effect/sql-sqlite-node/dist` |
 | @effect/vitest | 4.1.5 | 1 | 21 | `apps/viewer/node_modules/@effect/vitest/dist` |
 
 ## effect@4.1.5
@@ -534,6 +535,15 @@ Declarations: `node_modules/@effect/platform-node/dist/<module>.d.ts`. Guides: `
 | @effect/platform-node/NodeWorker | 2 | 24 | Parent-side Node.js support for Effect workers. |
 | @effect/platform-node/NodeWorkerRunner | 1 | 13 | Node.js runtime support for workers that serve Effect worker requests. |
 | @effect/platform-node/Undici | 0 | 31 | Re-export of the Undici HTTP client package used by the Node platform. |
+
+## @effect/sql-sqlite-node@4.1.5
+
+Declarations: `packages/cli/node_modules/@effect/sql-sqlite-node/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/sql-sqlite-node/AGENTS.md`, `packages/cli/node_modules/@effect/sql-sqlite-node/ai-docs`, `packages/cli/node_modules/@effect/sql-sqlite-node/README.md`.
+
+| Module | Exports | Lines | Summary |
+| --- | ---: | ---: | --- |
+| @effect/sql-sqlite-node/SqliteClient | 9 | 107 | Connects Effect SQL to SQLite on Node.js using `node:sqlite`. |
+| @effect/sql-sqlite-node/SqliteMigrator | 2 | 44 | Runs database migrations for Node.js SQLite projects that use Effect SQL. |
 
 ## @effect/vitest@4.1.5
 
