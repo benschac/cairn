@@ -150,6 +150,31 @@ it.prop(
   },
 );
 
+it.prop(
+  "an api planner with planner.gatewayTokenEnv and no planner.baseUrl is refused, and the refusal names the field",
+  [Schema.NonEmptyString, Schema.NonEmptyString],
+  ([model, gatewayTokenEnv]) => {
+    const input = withPlanner({ gatewayTokenEnv, model, source: "api" });
+    expect(refused(input)).toBe(true);
+    expect(refusal(input)).toContain("planner.baseUrl");
+  },
+);
+
+it.prop(
+  "an api planner with planner.gatewayTokenEnv and a baseUrl is accepted, and keeps the variable's name",
+  [Schema.NonEmptyString, Schema.NonEmptyString, Schema.NonEmptyString],
+  ([model, baseUrl, gatewayTokenEnv]) => {
+    const input = withPlanner({ baseUrl, gatewayTokenEnv, model, source: "api" });
+    expect(refused(input)).toBe(false);
+    expect(decode(input).planner.gatewayTokenEnv).toBe(gatewayTokenEnv);
+  },
+);
+
+it("a cli planner ignores planner.gatewayTokenEnv, and the default has none", () => {
+  expect(refused(withPlanner({ gatewayTokenEnv: "TOKEN", source: "cli" }))).toBe(false);
+  expect(defaultConfig.planner.gatewayTokenEnv).toBeUndefined();
+});
+
 it("the baseUrl rule applies only to an api planner: a cli planner ignores the provider", () => {
   expect(refused(withPlanner({ provider: "openai-compatible" }))).toBe(false);
   expect(refused(withPlanner({ provider: "openai-compatible", source: "cli" }))).toBe(false);
