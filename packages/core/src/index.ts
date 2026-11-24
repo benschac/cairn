@@ -11,6 +11,16 @@ export {
   taskQuestions,
   type JudgingInputs,
 } from "./judging/questions.ts";
+export {
+  routeOf,
+  verdictOf,
+  type Answer,
+  type Route,
+  type RouteThresholds,
+  type RoutedTask,
+  type Thresholds,
+  type Verdicted,
+} from "./judging/verdicts.ts";
 export { roomMachine } from "./room-machine.ts";
 export { gateOf, matchesPath, patternsMatching, type GateConfig, type GateTask } from "./gates.ts";
 export { Finding, LintFile, LintRule, Severity, lint } from "./lint.ts";
