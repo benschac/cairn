@@ -92,8 +92,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["995f0206a9da863ef9d3abd87a224442085527cc"],
       "sessions": []
     },
     {
@@ -266,8 +266,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["9097c4bed5eb459ebc1bc32ca9085068d35d27a9"],
       "sessions": []
     },
     {
@@ -388,8 +388,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["e8856c17e62a66731177178c05e29f97e90c3129"],
       "sessions": []
     },
     {
@@ -412,8 +412,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["d1897b5baec5d49089d688350748a32390a6b430"],
       "sessions": []
     },
     {
@@ -432,8 +432,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["e73f38a2b9307a195f24e72bad281f6f1348ca4e"],
       "sessions": []
     },
     {
@@ -721,8 +721,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["cec51907839b9e2dd770e6d85cb98665e2071d93"],
       "sessions": []
     },
     {
@@ -741,8 +741,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["c16c78df6b060dc358d4cf6822460179ce974262"],
       "sessions": []
     },
     {
@@ -2594,8 +2594,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["23cc809ba0f16a699ad1aa2a0a9b154a8e53e4b5"],
       "sessions": []
     },
     {

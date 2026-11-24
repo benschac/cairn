@@ -739,7 +739,7 @@
     },
     {
       "id": "prd.human-gates",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "prd.judging-the-plan",
@@ -803,7 +803,7 @@
     },
     {
       "id": "prd.acceptance-criteria",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "prd.one-day-build-order",
@@ -915,11 +915,11 @@
     },
     {
       "id": "spec.sections",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.sections.parsing",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.sections.cairn-ids",
@@ -927,15 +927,15 @@
     },
     {
       "id": "spec.gates",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.gates.path-matching",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.gates.detection",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.models",
@@ -999,15 +999,15 @@
     },
     {
       "id": "spec.status",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.status.task-machine",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.status.derivation",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.status.section-rollup",
@@ -1159,7 +1159,7 @@
     },
     {
       "id": "spec.testing.derivation-model",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.acceptance",
@@ -2873,14 +2873,42 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "packages/contract/src/index.ts",
+            "packages/core/src/task-machine.ts",
+            "packages/core/test/task-machine.test.ts"
+          ],
+          "parents": ["0e204664e8cc5fa8a3944918f5bc47d9c491d966"],
+          "sections": ["spec.status.task-machine", "spec.contract.manifest"],
+          "session": null,
+          "sha": "995f0206a9da863ef9d3abd87a224442085527cc",
+          "subject": "Add the failed status to the task machine"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t5",
+          "ts": "2026-11-24T13:00:08.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t5",
+          "ts": "2026-11-24T13:00:08.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t6",
@@ -3181,14 +3209,44 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "packages/contract/src/index.ts",
+            "packages/contract/test/task.test.ts",
+            "packages/core/src/index.ts",
+            "packages/core/src/task-machine.ts",
+            "packages/core/test/task-machine.test.ts"
+          ],
+          "parents": ["995f0206a9da863ef9d3abd87a224442085527cc"],
+          "sections": ["spec.status.task-machine", "spec.contract.manifest"],
+          "session": null,
+          "sha": "9097c4bed5eb459ebc1bc32ca9085068d35d27a9",
+          "subject": "Move the task machine to ManifestTask and an effective gate, and remove Task"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t12",
+          "ts": "2026-11-24T13:00:18.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t12",
+          "ts": "2026-11-24T13:00:18.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t13",
@@ -3333,14 +3391,47 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "packages/contract/src/index.ts",
+            "packages/contract/src/section.ts",
+            "packages/core/package.json",
+            "packages/core/src/index.ts",
+            "packages/core/src/section-ids.ts",
+            "packages/core/src/sections.ts",
+            "packages/core/test/sections.test.ts",
+            "pnpm-lock.yaml"
+          ],
+          "parents": ["9097c4bed5eb459ebc1bc32ca9085068d35d27a9"],
+          "sections": ["spec.sections.parsing", "spec.format"],
+          "session": null,
+          "sha": "e8856c17e62a66731177178c05e29f97e90c3129",
+          "subject": "Parse markdown into sections with keys and human tags"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t17",
+          "ts": "2026-11-24T13:00:19.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t17",
+          "ts": "2026-11-24T13:00:19.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t18",
@@ -3363,14 +3454,42 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "packages/core/src/gates.ts",
+            "packages/core/src/index.ts",
+            "packages/core/test/gates.test.ts"
+          ],
+          "parents": ["e8856c17e62a66731177178c05e29f97e90c3129"],
+          "sections": ["spec.gates.path-matching"],
+          "session": null,
+          "sha": "d1897b5baec5d49089d688350748a32390a6b430",
+          "subject": "Match gate patterns against declared paths"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t18",
+          "ts": "2026-11-24T13:00:19.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t18",
+          "ts": "2026-11-24T13:00:19.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t19",
@@ -3389,14 +3508,42 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "packages/core/src/gates.ts",
+            "packages/core/src/index.ts",
+            "packages/core/test/gates.test.ts"
+          ],
+          "parents": ["d1897b5baec5d49089d688350748a32390a6b430"],
+          "sections": ["spec.gates.detection"],
+          "session": null,
+          "sha": "e73f38a2b9307a195f24e72bad281f6f1348ca4e",
+          "subject": "Detect human gates from tags and paths"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t19",
+          "ts": "2026-11-24T13:00:19.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t19",
+          "ts": "2026-11-24T13:00:19.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t20",
@@ -3750,14 +3897,42 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "packages/core/src/derive.ts",
+            "packages/core/src/index.ts",
+            "packages/core/test/derive-events.test.ts"
+          ],
+          "parents": ["e73f38a2b9307a195f24e72bad281f6f1348ca4e"],
+          "sections": ["spec.status.derivation"],
+          "session": null,
+          "sha": "cec51907839b9e2dd770e6d85cb98665e2071d93",
+          "subject": "Derive task status from events"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t31",
+          "ts": "2026-11-24T13:00:20.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t31",
+          "ts": "2026-11-24T13:00:20.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t32",
@@ -3776,14 +3951,43 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "packages/core/src/derive.ts",
+            "packages/core/src/index.ts",
+            "packages/core/test/derive-commits.test.ts",
+            "packages/core/test/derive-events.test.ts"
+          ],
+          "parents": ["cec51907839b9e2dd770e6d85cb98665e2071d93"],
+          "sections": ["spec.status.derivation"],
+          "session": null,
+          "sha": "c16c78df6b060dc358d4cf6822460179ce974262",
+          "subject": "Derive effective gates and landing from commits"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t32",
+          "ts": "2026-11-24T13:00:20.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t32",
+          "ts": "2026-11-24T13:00:20.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t33",
@@ -6638,14 +6842,44 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            ".cairn/manifest.json",
+            ".cairn/spec.md",
+            "apps/viewer/src/demo-trace.json",
+            "packages/core/test/derive.model.test.ts",
+            "packages/core/test/fixtures/derive-gate.ts"
+          ],
+          "parents": ["c16c78df6b060dc358d4cf6822460179ce974262"],
+          "sections": ["spec.testing.derivation-model"],
+          "session": null,
+          "sha": "23cc809ba0f16a699ad1aa2a0a9b154a8e53e4b5",
+          "subject": "Test derivation against a model of its inputs"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t105",
+          "ts": "2026-11-24T13:00:20.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t105",
+          "ts": "2026-11-24T13:00:20.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t106",

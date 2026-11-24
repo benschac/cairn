@@ -1,6 +1,6 @@
 import { Sha, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Option, Result, String, Struct } from "effect";
+import { Array, Option, Predicate, Result, String, Struct } from "effect";
 import {
   Command,
   all,
@@ -31,9 +31,11 @@ import { canvasEnded, focusedDrawerHeading, loaded, mounted, taskButton } from "
 
 const sha = (character: string) => Sha.make(String.repeat(40)(character));
 
-/** A task with two commits, the second without a session, and a task with none. */
+/** A task with two commits, the first with a session and the second without, and a task with none. */
 const stackedBase = Option.getOrThrow(
-  Array.findFirst(demoTrace.tasks, (t) => Array.isReadonlyArrayNonEmpty(t.commits)),
+  Array.findFirst(demoTrace.tasks, (t) =>
+    Option.exists(Array.head(t.commits), (commit) => Predicate.isNotNull(commit.session)),
+  ),
 );
 const template = Option.getOrThrow(Array.head(stackedBase.commits));
 const first = Struct.evolve(template, {
