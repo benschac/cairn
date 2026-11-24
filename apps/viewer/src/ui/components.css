@@ -1,0 +1,427 @@
+/*
+ * One class for each piece of the design system (spec.viewer.design-system). A piece takes its
+ * look from tokens.css and its state from the attribute its own section names: aria-pressed,
+ * aria-checked, aria-expanded, aria-current, data-current and data-ran stay as the sections
+ * give them, and the data-* attributes below are the ones this file chose where the table of
+ * pieces describes a state and no section names an attribute.
+ *
+ * Only opacity, transform and colours are animated.
+ */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 52px;
+  padding: 0 20px;
+  border-bottom: var(--line) solid var(--hair);
+}
+
+.label {
+  font-size: var(--t-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* The status is data-status; every status not named here is a task not started. */
+.dot {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--pending);
+}
+
+.dot[data-status="done"],
+.dot[data-status="landed"] {
+  background-color: var(--done);
+}
+
+.dot[data-status="running"],
+.dot[data-status="in_progress"] {
+  background-color: var(--progress);
+}
+
+.dot[data-status="failed"],
+.dot[data-status="blocked_on_human"] {
+  background-color: var(--blocked);
+}
+
+/* The kind is data-kind: prd, spec, task or sha. */
+.tag {
+  display: inline-block;
+  flex: none;
+  padding: 1px 6px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-s);
+  background-color: var(--raised);
+  color: var(--ink);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tag[data-kind="prd"] {
+  background-color: var(--prd);
+}
+
+.tag[data-kind="spec"] {
+  background-color: var(--spec);
+}
+
+.gate {
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--blocked-ink);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-m);
+  background-color: var(--card);
+  box-shadow: var(--lift);
+  color: var(--ink);
+  font-size: var(--t-s);
+  text-align: left;
+  transition:
+    transform var(--d-press) var(--ease),
+    background-color var(--d-fade) ease-out;
+}
+
+.btn:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.btn[aria-pressed="true"],
+.btn[aria-checked="true"] {
+  background-color: var(--green);
+}
+
+/* A switch is a btn with a small box in front of its label, ticked while it is on. */
+.btn[role="switch"]::before {
+  content: "";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-s);
+  background-color: var(--raised);
+  color: var(--ink);
+  font-size: var(--t-xs);
+  line-height: 1;
+}
+
+.btn[role="switch"][aria-checked="true"]::before {
+  content: "\2713";
+}
+
+.seg {
+  display: inline-flex;
+  overflow: hidden;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-m);
+  background-color: var(--card);
+}
+
+.seg > button {
+  padding: 3px 9px;
+  border-inline-end: var(--line) solid var(--ink);
+  font-size: var(--t-s);
+  transition: background-color var(--d-fade) ease-out;
+}
+
+.seg > button:last-child {
+  border-inline-end: 0;
+}
+
+.seg > button[aria-pressed="true"] {
+  background-color: var(--green);
+}
+
+/* The seg clips its buttons, so the focus ring sits inside them. */
+.seg > button:focus-visible {
+  outline-offset: -2px;
+}
+
+/*
+ * A chip is a button or a span. State: data-ran ("true" what ran, "false" what is planned),
+ * data-model (the model's name, --m-other for any other), data-done, data-gated, data-current
+ * and data-faded. A gated chip's border wins over a current chip's.
+ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border: var(--line) solid var(--edge);
+  border-radius: var(--r-s);
+  background-color: var(--raised);
+  color: var(--ink);
+  font-size: var(--t-s);
+  font-variant-numeric: tabular-nums;
+  transition:
+    opacity var(--d-fade) ease-out,
+    background-color var(--d-fade) ease-out,
+    border-color var(--d-fade) ease-out;
+}
+
+.chip[data-done] {
+  background-color: var(--green);
+}
+
+.chip[data-model] {
+  background-color: var(--m-other);
+}
+
+.chip[data-model="opus"] {
+  background-color: var(--m-opus);
+}
+
+.chip[data-model="sonnet"] {
+  background-color: var(--m-sonnet);
+}
+
+.chip[data-model="haiku"] {
+  background-color: var(--m-haiku);
+}
+
+.chip[data-ran="true"] {
+  border-color: var(--ink);
+}
+
+.chip[data-ran="false"] {
+  border-style: dashed;
+}
+
+.chip[data-current] {
+  border-color: var(--ink);
+  box-shadow: var(--lift);
+  font-weight: 700;
+}
+
+.chip[data-gated] {
+  border-color: var(--blocked);
+}
+
+.chip[data-faded] {
+  opacity: 0.45;
+}
+
+/* The current row is data-current or aria-current, as its section gives it. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: var(--r-m);
+  font-size: var(--t-s);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  transition: background-color var(--d-fade) ease-out;
+}
+
+.row:hover,
+.row[data-current],
+.row[aria-current]:not([aria-current="false"]) {
+  background-color: var(--tint);
+}
+
+/* The card of strays is data-strays on the card: its head is --prd. */
+.card {
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-l);
+  background-color: var(--card);
+  box-shadow: var(--lift-l);
+  color: var(--ink);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-bottom: var(--line) solid var(--ink);
+  border-radius: calc(var(--r-l) - var(--line)) calc(var(--r-l) - var(--line)) 0 0;
+  background-color: var(--spec);
+  font-size: var(--t-l);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.card[data-strays] > .card-head {
+  background-color: var(--prd);
+}
+
+.card-body {
+  padding: 8px 12px;
+  color: var(--ink-soft);
+  font-size: var(--t-s);
+}
+
+.card-body .prose {
+  font-size: var(--t-l);
+}
+
+.card-tasks {
+  padding: 4px;
+  border-top: var(--line) solid var(--ink);
+}
+
+/* The stack's number is a label, the last thing in the box, under a rule. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 4px 0;
+  border: var(--line) solid var(--edge);
+  border-radius: var(--r-m);
+}
+
+.stack > .label {
+  margin-top: 3px;
+  border-top: var(--line) solid var(--hair);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.stack[data-current] {
+  border-color: var(--ink);
+  background-color: var(--card);
+  box-shadow: var(--lift-l);
+}
+
+.stack[data-current] > .label {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.base-bar {
+  position: sticky;
+  bottom: 0;
+  padding: 4px 0;
+  border-top: 3px solid var(--ink);
+  background-color: var(--bg);
+  font-size: var(--t-s);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Between panes; data-dragging while it is dragged. The grip is its ::before. */
+.divider {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.divider::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--line);
+  background-color: var(--hair);
+  transition: background-color var(--d-fade) ease-out;
+}
+
+.divider::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 14px;
+  height: 34px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-m);
+  background-color: var(--card);
+  box-shadow: var(--lift);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity var(--d-fade) ease-out;
+}
+
+.divider:hover::after,
+.divider:focus-visible::after,
+.divider[data-dragging]::after {
+  width: 3px;
+  background-color: var(--ink);
+}
+
+.divider:hover::before,
+.divider:focus-visible::before,
+.divider[data-dragging]::before {
+  opacity: 1;
+}
+
+.panel {
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-l);
+  background-color: var(--card);
+  box-shadow: var(--lift-l);
+  color: var(--ink);
+  animation: panel-in var(--d-move) var(--ease) both;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The fill is the meter's one child; its width is computed and set inline. */
+.meter {
+  flex: none;
+  width: 160px;
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--hair);
+  overflow: hidden;
+}
+
+.meter > * {
+  display: block;
+  height: 100%;
+  background-color: var(--done);
+}
+
+/* A curve: data-lit when it is lit, data-off when an end is off the pane. */
+.wire {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.4;
+  opacity: 0.4;
+  pointer-events: none;
+  transition: opacity var(--d-fade) ease-out;
+}
+
+.wire[data-lit] {
+  opacity: 1;
+}
+
+.wire[data-off] {
+  opacity: 0.18;
+  stroke-dasharray: 3 4;
+}
+
+.wire[data-lit][data-off] {
+  opacity: 0.25;
+}
