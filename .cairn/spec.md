@@ -765,6 +765,19 @@ flowchart BT
     t100["t100 · 100-ui-pieces<br/>Build the shared marks and controls on the tokens<br/>wt-28"]
     t101["t101 · 101-restyle-code-view<br/>Move the code view, search and code blocks to the design system<br/>wt-28"]
   end
+  subgraph s38["Stack 38 · testing"]
+    direction BT
+    t102["t102 · 102-xstate-test<br/>Add @xstate/test and move xstate to 6.0.0-beta.5<br/>wt-29"]
+    t103["t103 · 103-presence-model<br/>Test the presence server against the room machine<br/>wt-29"]
+  end
+  subgraph s39["Stack 39 · testing"]
+    direction BT
+    t104["t104 · 104-reader-models<br/>Test the reader's trail, pin and dividers against models<br/>wt-30"]
+  end
+  subgraph s40["Stack 40 · testing"]
+    direction BT
+    t105["t105 · 105-derive-model<br/>Test derivation against a model of its inputs<br/>wt-31"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -903,9 +916,17 @@ flowchart BT
   main --> t99
   t99 --> t100
   t100 --> t101
-  class t1,t3,t20,t31,t32,t58,t60,t62,t80 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101 sonnet
-  class t11,t24,t27,t44,t56,t66 haiku
+  main --> t102
+  t102 --> t103
+  t85 -.-> t104
+  t92 -.-> t104
+  t93 -.-> t104
+  t102 -.-> t104
+  t32 -.-> t105
+  t102 -.-> t105
+  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105 opus
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104 sonnet
+  class t11,t24,t27,t44,t56,t66,t102 haiku
   class t1,t2,t3,t81,t97 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
   classDef sonnet fill:#2563eb,color:#ffffff,stroke:#1e3a8a
@@ -1825,6 +1846,94 @@ Code in the demo. The deployed demo has no server, so its build writes the patch
 
 Tests: the script against a temporary repository with two commits writes one file per commit and one per range, and skips a SHA git does not have without failing. A Scene test in the demo build finds the diff mount requesting a commit's path, and a `text/html` reply shown as a missing patch.
 
+## Testing {#spec.testing}
+
+Each section below is one model and the code tested against it (see `prd.implementation-in-effect.model-based-testing`). The first adds the tools; the others each need the code they test.
+
+### Model-based tests {#spec.testing.model-based}
+
+- Implements: `prd.implementation-in-effect.model-based-testing`
+- Files: `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `packages/core/package.json`, `packages/cli/package.json`, `apps/viewer/package.json`, `AGENTS.md`, `.agent_sources/xstate/index.md`
+
+The catalog moves `xstate` to `6.0.0-beta.5`, the version `@xstate/test` needs, and adds `@xstate/test` `2.0.0-beta.3` and `fast-check` `4.11.0`. `@xstate/effect` `1.0.0-beta.3` accepts beta.5 as it is. `core`, `cli` and `viewer` take `@xstate/test` and `fast-check` as dev dependencies, and `viewer` takes `xstate` too, for the machines its tests write. After the bump, `node scripts/agent-sources/index-xstate-docs.ts` rewrites the xstate docs index, and the lookup table in `AGENTS.md` gains a row: model-based testing starts at `node_modules/xstate/docs/model-based-testing.md` and the `@xstate/test` README.
+
+`@xstate/test` names `vitest ^3 || ^4` as a peer, and Cairn is on Vitest 5. Cairn does not use `@xstate/test/vitest`, and `propertyTest` runs under Vitest 5, so the peer warning is expected.
+
+A model test:
+
+- Lives in `<subject>.model.test.ts` beside the subject's other tests.
+- Has a machine for its model, never the code under test. When the code under test runs that machine, as the presence server runs `roomMachine`, the test is of what the code adds around it, and the machine's own tests cover its transitions.
+- Runs `propertyTest` inside `it.effect` through `Effect.promise`, with a fixed `seed` so a run repeats, and passes the `coverage` it returns to `assertTestCoverage` with `{ transitions: 1 }`.
+- Takes its events from the model's `schemas.events` through `eventsFromSchemas` from `@xstate/test/effect-schema`. An `Option` is a `Declaration` node it cannot derive, so the test passes an `override` for it. An event the system under test cannot perform as generated gets its own generator in `events`.
+- Opens a fresh system under test for each run in `sut.create`. `read` and `projectModel` return the same plain shape, so a failure names the field that differs.
+- Commits a failure's `failure.fixture` to the test's `fixtures/` directory and replays it with `replayTest` and `expect: "pass"`. It does not pass `failures: true`: a check writes no files.
+
+A model test has to be able to fail. Each task breaks its code once, watches the test fail with a shrunk sequence, and says in its pull request what it broke.
+
+### Presence against the room machine {#spec.testing.presence-model}
+
+- Implements: `prd.implementation-in-effect.model-based-testing`, `prd.acceptance-criteria`
+- Files: `packages/cli/test/presence.model.test.ts`
+- Depends on: `spec.testing.model-based`
+
+The model is `roomMachine`. The server runs the same machine, so what is under test is what the server adds: the sockets, the broadcast to every participant and leaving when a socket closes. The system under test is the presence server as `presence.test.ts` starts it: `PresenceRoute` and `Room.layer` on a Node server on port 0, with real WebSocket clients.
+
+- The server names participants `p1`, `p2`, …, so the test keeps its own names. The model's `joined` takes an ID from a pool of three, and the session maps each to the client it opened and the ID the server gave that client.
+- `joined` opens a client with the participant's name and kind in its query. For an ID already in the room it closes the old client first; the machine replaces that participant at the end of the list, and the server does the same.
+- `moved` writes the cursor as `CursorJson` from that participant's client. Cursors are generated as `presence.test.ts` generates them, on the unit square and through the JSON round trip.
+- `left` closes that participant's client. A `moved` or `left` for an ID with no client does nothing, as the machine ignores it.
+- `read` returns once every open client has received the room that followed the last event, or after two seconds with what each has. It returns each client's last room with the server's IDs mapped back. `projectModel` returns the machine's participants once for each open client.
+
+The two agree when every participant sees the same room as the machine, in the same order. The test fails when a client misses a broadcast, a closed socket does not leave, or a cursor lands on the wrong participant.
+
+### Reader interactions against models {#spec.testing.viewer-models}
+
+- Implements: `prd.implementation-in-effect.model-based-testing`, `prd.viewer.reader`, `prd.viewer.panes`, `prd.viewer.task-detail`, `prd.acceptance-criteria`
+- Files: `apps/viewer/test/reader.model.test.ts`, `apps/viewer/test/panes.model.test.ts`
+- Depends on: `spec.testing.model-based`, `spec.viewer.reader`, `spec.viewer.panes`, `spec.viewer.detail-panel`
+
+Two machines, written in the test files from `spec.viewer.detail-panel`, `spec.viewer.reader` and `spec.viewer.panes`, not from the viewer's code. The system under test is the viewer's `update`, started from `init` on the demo trace with the reader open. `send` turns a model event into the Message the click or key sends, and `read` picks the model's fields out of the Model. Commands are dropped. There is no Scene and no render loop.
+
+The reader model has the states `closed` and `open`. Its context is the trail, as node IDs, and the pinned PRD section.
+
+- `clickedTask`, with a task, starts a trail of one from either state.
+- `openedInside`, with a task or a spec section, adds it to the end of the trail. It only happens in `open`.
+- `clickedStep`, with an index into the trail, cuts the trail back to that step.
+- `clickedClose` empties the trail.
+- `pressedEscape` removes the last step, and from a trail of one goes to `closed`. In `closed` it unpins.
+- `clickedStatusLine`, with a PRD section, pins it, or unpins it when it is the pinned one.
+
+Payloads come from the demo trace's task, spec section and PRD section IDs. A step index comes from the current trail, through a case generator that reads the snapshot.
+
+The panes model has the states `idle` and `resizing`. Its context is the widths and, while resizing, the pane, the pointer, its x at the press and the pane's width at the press.
+
+- `pressedArrow`, with a pane and a direction, moves that pane by 24px within its limits, in either state.
+- `pressedDivider`, with a pane, a pointer and an x, starts resizing that pane.
+- `movedPointer`, with a pointer, an x and whether a button is held: from the pressed pointer with a button held it sets the width to the width at the press plus the pointer's travel, reversed for the detail panel, within limits. With no button held it ends the resize. Another pointer changes nothing.
+- `releasedPointer`, with a pointer: the pressed pointer ends the resize; another changes nothing.
+
+The limits are written out in the model, 300 to 1000 for the PRD, 260 to 1100 for the spec and 360 to 1400 for the detail panel, and the model does not import `resized`. Pointers come from a pool of two, so another pointer is generated as often as the pressed one.
+
+The tests fail when Escape unpins while the panel is open, or a move from another pointer changes a width.
+
+### Derivation against a model of its inputs {#spec.testing.derivation-model}
+
+- Implements: `prd.implementation-in-effect.model-based-testing`, `prd.orchestrator-contract`, `prd.human-gates`
+- Files: `packages/core/test/derive.model.test.ts`
+- Depends on: `spec.testing.model-based`, `spec.status.derivation`
+
+`derive` takes report lines and commits, not the task machine's events, and its work is the mapping between them, so its model is written over those inputs: a machine of one task's inputs, written from `prd.orchestrator-contract` and `prd.human-gates`, of what an orchestrator writes to `events.jsonl` and what git shows.
+
+Its states are the task's statuses: `pending`, `running`, `blocked_on_human`, `done`, `failed` and `landed`. `derive` recomputes from scratch, so the model keeps facts, not a running status: its context is the reports so far, whether any commit has touched a gated path and whether the task has landed. After each event it replays its reports from the start under those facts, and goes to the status they give with the warnings they give. Nothing is carried over from the step before.
+
+- `reported`, with a status and an actor that is a human or an agent, is a line the orchestrator wrote. A gated task reported `done` goes to `blocked_on_human`, and only a human's `done` takes it on to `done`. A report the lifecycle does not allow leaves the status and adds a warning.
+- `committed`, with whether it touches a gated path such as a migration, is a commit with the task's trailers. A gated path gates the task for all its reports, those before the commit too.
+- `merged` and `squashed` make the task's commits reachable from `baseBranch`, or put its trailer on a commit there. That stays true for every later event. A task whose replayed reports end in `done` lands; one that ends anywhere else keeps its status, with a warning for landing without approval.
+
+The system under test is `derive` with a test `Git` Layer. `send` adds an event line, with a later `ts` than the one before, or a commit to what the session holds. `read` runs `derive` over all of it and returns the task's status and its number of warnings. Each `read` shuffles the event lines with a seeded generator first, since their order in the file must not matter.
+
+The test fails when an agent's `done` approves a gated task, or a landing skips the gate.
+
 ## Acceptance {#spec.acceptance}
 
 - Implements: `prd.acceptance-criteria`
@@ -1846,3 +1955,4 @@ Tests: the script against a temporary repository with two commits writes one fil
 | Scrolling the PRD changes the cards and the lit stacks | `sectionAtTop` properties; a Scene sends `ScrolledPrd` and finds the cards and current chips of that section; a pinned section holds |
 | Models and reasoning show what ran or what is planned  | `ranOf` properties; a Scene finds `data-ran` on rows and chips and none of them with the switch off                                  |
 | A task's code shows in the detail panel                | A Scene clicks a task row and finds the diff mount keyed by the task's range, with the reader still under it                         |
+| A broken broadcast or Escape fails a model-based test  | The presence and reader model tests, each broken once by its task, print the shortest failing event sequence                         |
