@@ -2827,7 +2827,7 @@
       "branch": "cairn-mvp/114-plan-dry-run",
       "parent": null,
       "dependsOn": ["t106", "t113"],
-      "worktree": "wt-32",
+      "worktree": "wt-34",
       "model": "sonnet",
       "reasoning": "medium",
       "humanGate": {

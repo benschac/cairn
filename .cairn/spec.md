@@ -866,7 +866,7 @@ flowchart BT
   end
   subgraph s48["Stack 48 · planning"]
     direction BT
-    t114["t114 · 114-plan-dry-run<br/>Add dry runs and one-run planner choices to cairn plan<br/>wt-32"]
+    t114["t114 · 114-plan-dry-run<br/>Add dry runs and one-run planner choices to cairn plan<br/>wt-34"]
   end
   main --> t1
   main --> t2
