@@ -26,7 +26,10 @@
     "@effect/vitest": "catalog:",
     "@foldkit/vite-plugin": "0.29.1",
     "@types/mdast": "4.0.4",
+    "@xstate/test": "catalog:",
+    "fast-check": "catalog:",
     "vite": "8.3.8",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "xstate": "catalog:"
   }
 }

@@ -18,6 +18,8 @@
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
+    "@xstate/test": "catalog:",
+    "fast-check": "catalog:",
     "vitest": "catalog:"
   }
 }

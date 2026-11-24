@@ -19,6 +19,8 @@
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@oxlint/plugins": "1.94.0",
+    "@xstate/test": "catalog:",
+    "fast-check": "catalog:",
     "vitest": "catalog:"
   }
 }
