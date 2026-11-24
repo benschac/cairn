@@ -338,6 +338,17 @@ Code and conversation link both ways:
 
 Cairn reads Claude Code session logs first. Other agents' logs come with their adapters.
 
+## Documentation {#prd.docs}
+
+Cairn has a docs site for the person setting it up in a repo and for the agents working there. It sits beside the demo on `prdtrace.com`.
+
+This section is written ahead of its spec on purpose. It is the first section `cairn plan` plans on this repo (see planning again): nobody writes its spec sections or tasks by hand.
+
+- It covers getting started (from `cairn init` to a landed stack), every CLI command, the files in `.cairn/`, and how planning, judging and gates work.
+- The CLI reference is built from the command definitions in `packages/cli`, and the file formats from the schemas in `packages/contract`. A command or a field added there shows up in the docs without editing a page, and a page that names a command that no longer exists fails the build.
+- A picture of the viewer is the viewer: a page shows a sample plan in the real reader and stacks, not a screenshot, so it never goes out of date.
+- Pages are markdown. The site is a Foldkit app, prerendered to static pages, with search across every page, and is deployed by `apps/site` like the demo.
+
 ## Implementation in Effect {#prd.implementation-in-effect}
 
 The CLI and local server are written in Effect, so every side effect is a typed service that tests can swap out.
@@ -398,6 +409,8 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - A judgment on a task that has since changed shows as stale.
 - With no `TYPESAFE_API_KEY`, `cairn plan` still writes the manifest and says that judging was skipped.
 - In the code view, a hunk an agent wrote with its edit tools reaches the tool call that wrote it in one click, and a hunk written another way says it is not traced.
+- A command added to the CLI appears in the docs reference without a docs edit, and a docs page that names a removed command fails the build.
+- The spec sections and tasks for the docs were written by `cairn plan`, not by hand.
 
 ## One-day build order {#prd.one-day-build-order}
 
@@ -505,3 +518,5 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 - Cairn's commands as MCP tools, so an agent session plans as a participant in the room instead of being run by `cairn plan`.
 - Scoring planners against a reference plan, so a provider is chosen on measured quality and cost.
 - State diagrams drawn from the machines themselves.
+- A plan split across several PRD files, with one set of section IDs and one manifest.
+- Several independent plans in one repo, for a monorepo that holds more than one product.
