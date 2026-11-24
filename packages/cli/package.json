@@ -19,6 +19,7 @@
     "@effect/ai-openai": "4.1.5",
     "@effect/ai-openai-compat": "4.1.5",
     "@effect/ai-openrouter": "4.1.5",
+    "@effect/ai-typesafe": "4.1.5",
     "@effect/platform-node": "4.1.5",
     "@effect/sql-sqlite-node": "4.1.5",
     "@xstate/effect": "catalog:",

@@ -6,6 +6,7 @@ import {
   OpenAiLanguageModel as OpenAiCompatLanguageModel,
 } from "@effect/ai-openai-compat";
 import { OpenRouterClient, OpenRouterLanguageModel } from "@effect/ai-openrouter";
+import { TypeSafeClient, TypeSafeDecisionModel } from "@effect/ai-typesafe";
 import { Array, Config, Effect, FileSystem, Layer, Match, Option, Path, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 import type { HttpClient } from "effect/http";
@@ -237,3 +238,36 @@ export const languageModel = (config: CairnConfig) => languageModelFor(config, "
 /** `languageModel` over `fetch`: what the CLI composition root provides. */
 export const liveLanguageModel = (config: CairnConfig) =>
   languageModel(config).pipe(Layer.provide(FetchHttpClient.layer));
+
+/** The environment variable the Judge's key is read from (`spec.models`). */
+export const TYPESAFE_API_KEY = "TYPESAFE_API_KEY";
+
+/**
+ * The `DecisionModel` the Judge uses: `TypeSafeDecisionModel.model(judge.model)` over a TypeSafe
+ * client, with `judge.model` passed as written (it defaults to the pinned `jev-1.14.0`, never
+ * `jev-latest`). The client reads `TYPESAFE_API_KEY` with `Config.Redacted` when this layer is
+ * built, so a command that never provides it never reads the key, and building it without the key
+ * fails with a `ModelKeyError`. `judge.baseUrl`, when set, is the client's `apiUrl`, which routes
+ * calls through a proxy; TypeSafe's own host is the default.
+ */
+export const decisionModel = (config: CairnConfig) =>
+  TypeSafeDecisionModel.model(config.judge.model).pipe(
+    Layer.provide(
+      Layer.unwrap(
+        Config.Redacted(TYPESAFE_API_KEY).pipe(
+          Effect.mapError(
+            () =>
+              new ModelKeyError({
+                reason: `${TYPESAFE_API_KEY} is not set, or could not be read. The judge needs it to call its model: set it in your environment.`,
+                variable: TYPESAFE_API_KEY,
+              }),
+          ),
+          Effect.map((apiKey) => TypeSafeClient.layer({ apiKey, apiUrl: config.judge.baseUrl })),
+        ),
+      ),
+    ),
+  );
+
+/** `decisionModel` over `fetch`: what the CLI composition root provides. */
+export const liveDecisionModel = (config: CairnConfig) =>
+  decisionModel(config).pipe(Layer.provide(FetchHttpClient.layer));

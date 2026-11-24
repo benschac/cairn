@@ -171,6 +171,9 @@ importers:
       '@effect/ai-openrouter':
         specifier: 4.1.5
         version: 4.1.5(effect@4.1.5)
+      '@effect/ai-typesafe':
+        specifier: 4.1.5
+        version: 4.1.5(effect@4.1.5)
       '@effect/platform-node':
         specifier: 4.1.5
         version: 4.1.5(effect@4.1.5)(redis@6.3.1)
@@ -440,6 +443,11 @@ packages:
 
   '@effect/ai-openrouter@4.1.5':
     resolution: {integrity: sha512-4x1m+FVlZUugEJMHoUOF/6bEYaqIWXYCC2x3xF8s11543YXX+AqMHIjgUisuX8OLVX4BRW1OxmzlUHgP6P5lUw==}
+    peerDependencies:
+      effect: ^4.1.5
+
+  '@effect/ai-typesafe@4.1.5':
+    resolution: {integrity: sha512-QvCGWIssDkd/de101yh2WSJ41lKFWzsV8AMs2fwZEAKXTfH0298LaWcPnmQdQJcU3mggcJScLVsRVk5wt26uNQ==}
     peerDependencies:
       effect: ^4.1.5
 
@@ -2598,6 +2606,10 @@ snapshots:
       effect: 4.1.5
 
   '@effect/ai-openrouter@4.1.5(effect@4.1.5)':
+    dependencies:
+      effect: 4.1.5
+
+  '@effect/ai-typesafe@4.1.5(effect@4.1.5)':
     dependencies:
       effect: 4.1.5
 
