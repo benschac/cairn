@@ -57,17 +57,11 @@ it("this repo's .cairn/spec.json decodes", () => {
   expect(refused(SpecIndex, repoSpecIndex)).toBe(false);
 });
 
-it.prop(
-  "a spec index survives a round trip through JSON",
-  [SpecIndex],
-  ([specIndex]) => {
-    // Compare the JSON text: JSON has no -0, so a generated -0 would fail toEqual for no real reason.
-    const json = encode(specIndex);
-    expect(encode(decode(json))).toBe(json);
-  },
-  // A generated index can be large; the default 5 s is too tight on a busy CI runner.
-  { timeout: 30_000 },
-);
+it.prop("a spec index survives a round trip through JSON", [SpecIndex], ([specIndex]) => {
+  // Compare the JSON text: JSON has no -0, so a generated -0 would fail toEqual for no real reason.
+  const json = encode(specIndex);
+  expect(encode(decode(json))).toBe(json);
+});
 
 it("the example index and section decode, so each refusal below is its patch's doing", () => {
   expect(refused(SpecIndex, index)).toBe(false);
