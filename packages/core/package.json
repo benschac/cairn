@@ -14,11 +14,13 @@
     "@cairn/contract": "workspace:*",
     "@xstate/effect": "catalog:",
     "effect": "catalog:",
+    "mdast-util-from-markdown": "2.1.0",
     "xstate": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@oxlint/plugins": "1.94.0",
+    "@types/mdast": "4.0.4",
     "@xstate/test": "catalog:",
     "fast-check": "catalog:",
     "vitest": "catalog:"

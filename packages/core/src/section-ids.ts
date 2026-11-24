@@ -5,7 +5,7 @@ const FENCE = /^\s*(?:```|~~~)/u;
 const HEADING = /^(#{1,6})[ \t]+(.*?)[ \t]*$/u;
 const TRAILING_ID = /[ \t]*\{#([^}\s]+)\}$/u;
 
-interface Heading {
+export interface Heading {
   readonly id: Option.Option<string>;
   readonly level: number;
   readonly text: string;
@@ -57,12 +57,17 @@ const namespaceOf = (ancestors: readonly Ancestor[], prefix: SectionPrefix): str
     Option.getOrElse(() => prefix),
   );
 
-const headingsOf = (lines: readonly string[]): readonly Option.Option<Heading>[] =>
+/** Per line: is it a fence marker or inside a fenced block? Nothing there is a heading or a marker. */
+export const fencedOf = (lines: readonly string[]): readonly boolean[] =>
   Array.mapAccum(lines, false, (fenced, line) =>
-    FENCE.test(line)
-      ? [!fenced, Option.none()]
-      : [fenced, fenced ? Option.none() : headingOf(line)],
+    FENCE.test(line) ? [!fenced, true] : [fenced, fenced],
   )[1];
+
+/** Per line: the heading on it, if it is one outside a fence. */
+export const headingsOf = (lines: readonly string[]): readonly Option.Option<Heading>[] =>
+  Array.zipWith(lines, fencedOf(lines), (line, fenced) =>
+    fenced ? Option.none() : headingOf(line),
+  );
 
 const idsOf = (headings: readonly Option.Option<Heading>[]): string[] =>
   Array.getSomes(
@@ -72,7 +77,7 @@ const idsOf = (headings: readonly Option.Option<Heading>[]): string[] =>
     ),
   );
 
-const linesOf = String.split("\n");
+export const linesOf = String.split("\n");
 
 export const assignSectionIds = (
   markdown: string,
