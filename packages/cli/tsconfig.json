@@ -15,6 +15,7 @@
           "@effect/platform-node/NodeSocket",
           "effect/FileSystem",
           "effect/cli/Command",
+          "effect/cli/Flag",
           "effect/ai/AiError",
           "effect/ai/AnthropicStructuredOutput",
           "effect/ai/LanguageModel",
@@ -34,7 +35,8 @@
           "effect/http/HttpServerResponse",
           "effect/process/ChildProcess",
           "effect/process/ChildProcessSpawner",
-          "effect/socket/Socket"
+          "effect/socket/Socket",
+          "effect/testing/TestConsole"
         ]
       }
     ]
