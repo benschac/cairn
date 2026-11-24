@@ -467,7 +467,11 @@
       "title": "Add the Git service with live and in-memory layers",
       "prdSections": ["prd.orchestrator-contract"],
       "specSections": ["spec.status.cairn-status-and-cairn-approve"],
-      "files": ["packages/cli/src/git.ts", "packages/cli/test/git.test.ts"],
+      "files": [
+        "packages/cli/src/git.ts",
+        "packages/cli/test/git.test.ts",
+        "packages/core/test/derive.model.test.ts"
+      ],
       "branch": "cairn-mvp/21-git-service",
       "parent": null,
       "dependsOn": ["t8", "t9", "t12", "t19"],

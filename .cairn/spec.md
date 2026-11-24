@@ -1283,7 +1283,7 @@ A section's status comes from the tasks linked to it or to any section under it.
 
 `cairn approve <taskId>` appends `{ status: "done", actor: "human:<git user.name>" }` and prints the new status. It refuses a task that is not `blocked_on_human`. The PRD has no way to approve a gate; this is it.
 
-`Git.log` reads each task branch with `git log --format=%H%x1f%P%x1f%(trailers:key=Cairn-Task,key=Cairn-Section,key=Cairn-Session)` and `git show --name-only` for changed files.
+`Git.log` reads each task branch with `git log --format=%H%x1f%P%x1f%(trailers:key=Cairn-Task,key=Cairn-Section,key=Cairn-Session)` and `git show --name-only` for changed files. Its in-memory layer replaces the stand-in `Git` in `packages/core/test/derive.model.test.ts`.
 
 ## Sessions {#spec.sessions}
 
@@ -2097,7 +2097,7 @@ Its states are the task's statuses: `pending`, `running`, `blocked_on_human`, `d
 - `committed`, with whether it touches a gated path such as a migration, is a commit with the task's trailers. A gated path gates the task for all its reports, those before the commit too.
 - `merged` and `squashed` make the task's commits reachable from `baseBranch`, or put its trailer on a commit there. That stays true for every later event. A task whose replayed reports end in `done` lands; one that ends anywhere else keeps its status, with a warning for landing without approval.
 
-The system under test is `derive` with a test `Git` Layer. `send` adds an event line, with a later `ts` than the one before, or a commit to what the session holds. `read` runs `derive` over all of it and returns the task's status and its number of warnings. Each `read` shuffles the event lines with a seeded generator first, since their order in the file must not matter.
+The system under test is `derive` with a test `Git` Layer. `send` adds an event line, with a later `ts` than the one before, or a commit to what the session holds. `read` runs `derive` over all of it and returns the task's status and its number of warnings. Each `read` shuffles the event lines with a seeded generator first, since their order in the file must not matter. Until t21 adds the `Git` service, the test defines a stand-in with the reads derivation needs; t21 replaces it with that service's in-memory layer.
 
 The test fails when an agent's `done` approves a gated task, or a landing skips the gate.
 
