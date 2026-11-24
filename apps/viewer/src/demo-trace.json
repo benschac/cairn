@@ -880,7 +880,7 @@
     },
     {
       "id": "spec.viewer.design-system",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.viewer.reader",
@@ -5939,14 +5939,45 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/index.html",
+            "apps/viewer/src/entry.ts",
+            "apps/viewer/src/ui/base.css",
+            "apps/viewer/src/ui/tokens.css",
+            "apps/viewer/src/view/view.ts",
+            "apps/viewer/test/design.test.ts"
+          ],
+          "parents": ["9ae7d57eb7c44d0a4155e535c7dafb86e2b55782"],
+          "sections": ["spec.viewer.design-system"],
+          "session": null,
+          "sha": "c298697328f6c920e97d6ecd7c68c3e0085927ed",
+          "subject": "Add the design tokens and the base stylesheet (t99)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t99",
+          "ts": "2026-11-24T02:04:40.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t99",
+          "ts": "2026-11-24T02:04:40.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t100",
@@ -5972,14 +6003,47 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/package.json",
+            "apps/viewer/src/entry.ts",
+            "apps/viewer/src/ui/components.css",
+            "apps/viewer/src/ui/controls.ts",
+            "apps/viewer/src/ui/marks.ts",
+            "apps/viewer/test/design.test.ts",
+            "apps/viewer/test/ui.scene.test.ts",
+            "pnpm-lock.yaml"
+          ],
+          "parents": ["c298697328f6c920e97d6ecd7c68c3e0085927ed"],
+          "sections": ["spec.viewer.design-system"],
+          "session": null,
+          "sha": "6e44044d7b9213c24a5a162c665ebd0d2db31f4b",
+          "subject": "Build the shared marks and controls on the tokens (t100)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t100",
+          "ts": "2026-11-24T02:17:23.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t100",
+          "ts": "2026-11-24T02:17:23.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t101",
@@ -6008,14 +6072,50 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/code.ts",
+            "apps/viewer/src/diagram.ts",
+            "apps/viewer/src/ui/components.css",
+            "apps/viewer/src/view/codeView.ts",
+            "apps/viewer/src/view/diffView.ts",
+            "apps/viewer/src/view/nodeView.ts",
+            "apps/viewer/src/view/searchView.ts",
+            "apps/viewer/src/view/treeView.ts",
+            "apps/viewer/src/view/view.ts",
+            "apps/viewer/test/design.test.ts",
+            "apps/viewer/test/viewer.scene.test.ts"
+          ],
+          "parents": ["6e44044d7b9213c24a5a162c665ebd0d2db31f4b"],
+          "sections": ["spec.viewer.design-system"],
+          "session": null,
+          "sha": "01aa35d66c92b5e456b4d6ea13fc1a147e103e83",
+          "subject": "Move the code view, search and code blocks to the design system (t101)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t101",
+          "ts": "2026-11-24T02:17:23.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t101",
+          "ts": "2026-11-24T02:17:23.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t102",

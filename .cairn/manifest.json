@@ -2430,8 +2430,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["c298697328f6c920e97d6ecd7c68c3e0085927ed"],
       "sessions": []
     },
     {
@@ -2457,8 +2457,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["6e44044d7b9213c24a5a162c665ebd0d2db31f4b"],
       "sessions": []
     },
     {
@@ -2487,8 +2487,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["01aa35d66c92b5e456b4d6ea13fc1a147e103e83"],
       "sessions": []
     },
     {
