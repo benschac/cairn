@@ -875,31 +875,31 @@
     },
     {
       "id": "prd.viewer.reader",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "prd.viewer.spec-cards",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "prd.viewer.stacks",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "prd.viewer.models",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "prd.viewer.panes",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "prd.viewer.task-detail",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "prd.viewer.fuzzy-search",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "prd.code-view",
@@ -1003,7 +1003,7 @@
     },
     {
       "id": "spec.contract.events",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "spec.contract.trailers",
@@ -1011,7 +1011,7 @@
     },
     {
       "id": "spec.contract.trace",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.contract.session",
@@ -1179,11 +1179,11 @@
     },
     {
       "id": "spec.viewer.model-and-messages",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.viewer.markdown-rendering",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "spec.viewer.design-system",
@@ -1191,11 +1191,11 @@
     },
     {
       "id": "spec.viewer.reader",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.viewer.spec-cards",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.viewer.fuzzy-matching",
@@ -1203,11 +1203,11 @@
     },
     {
       "id": "spec.viewer.search-interaction",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "spec.viewer.prose-search",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "spec.viewer.curves",
@@ -1215,23 +1215,23 @@
     },
     {
       "id": "spec.viewer.stacks",
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "spec.viewer.models",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.viewer.panes",
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": "spec.viewer.presence",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.viewer.detail-panel",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.viewer.code-view",
@@ -1251,7 +1251,7 @@
     },
     {
       "id": "spec.viewer.detail-code",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.viewer.canvas-removal",
@@ -1259,7 +1259,7 @@
     },
     {
       "id": "spec.viewer.demo-data",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": "spec.testing",
@@ -6030,14 +6030,42 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/demo-trace.json",
+            "packages/contract/src/events.ts",
+            "packages/contract/test/events.test.ts"
+          ],
+          "parents": ["9117c9f06dfaca6666cc11b02d32f3f542f19d8d"],
+          "sections": ["spec.contract.events", "spec.viewer.demo-data"],
+          "session": null,
+          "sha": "2683b9371fadbad9de420da2735f87d771f220fb",
+          "subject": "Record the model and reasoning a task ran with on its running event (t82)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t82",
+          "ts": "2026-11-24T12:21:39.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t82",
+          "ts": "2026-11-24T12:21:39.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t83",
@@ -6061,14 +6089,46 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/demo-trace.json",
+            "apps/viewer/test/curves.test.ts",
+            "apps/viewer/test/demo.test.ts",
+            "apps/viewer/test/search.scene.test.ts",
+            "apps/viewer/test/trace.test.ts",
+            "packages/contract/src/trace.ts",
+            "packages/contract/test/trace.test.ts"
+          ],
+          "parents": ["2683b9371fadbad9de420da2735f87d771f220fb"],
+          "sections": ["spec.contract.trace"],
+          "session": null,
+          "sha": "c7d954d90c2af97cd31019bc87e7734efb82b7d6",
+          "subject": "Carry each spec section's summary in the Trace (t83)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t83",
+          "ts": "2026-11-24T12:23:30.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t83",
+          "ts": "2026-11-24T12:23:30.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t84",
@@ -6087,14 +6147,38 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": ["apps/viewer/src/reader.ts", "apps/viewer/test/reader.test.ts"],
+          "parents": ["c7d954d90c2af97cd31019bc87e7734efb82b7d6"],
+          "sections": ["spec.viewer.reader", "spec.viewer.spec-cards", "spec.viewer.models"],
+          "session": null,
+          "sha": "d67161dbbe125ec28c2dc6b0f154ddec4f5bc913",
+          "subject": "Derive what the reader shows for a PRD section (t84)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t84",
+          "ts": "2026-11-24T12:25:28.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t84",
+          "ts": "2026-11-24T12:25:28.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t85",
@@ -6122,14 +6206,50 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/init.ts",
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/subscription/escape.ts",
+            "apps/viewer/src/subscription/subscription.ts",
+            "apps/viewer/src/ui/components.css",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/prdPaneView.ts",
+            "apps/viewer/src/view/readerView.ts",
+            "apps/viewer/src/view/view.ts",
+            "apps/viewer/test/reader.scene.test.ts"
+          ],
+          "parents": ["d67161dbbe125ec28c2dc6b0f154ddec4f5bc913"],
+          "sections": ["spec.viewer.reader"],
+          "session": null,
+          "sha": "01a85f4f3f3399bbb90f98631b87fb61dabfc851",
+          "subject": "Add the reader screen with the PRD pane and its current section (t85)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t85",
+          "ts": "2026-11-24T12:27:29.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t85",
+          "ts": "2026-11-24T12:27:29.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t86",
@@ -6154,14 +6274,50 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/init.ts",
+            "apps/viewer/src/markdown.ts",
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/reader.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/readerView.ts",
+            "apps/viewer/src/view/specPaneView.ts",
+            "apps/viewer/test/markdown.test.ts",
+            "apps/viewer/test/reader.scene.test.ts",
+            "apps/viewer/test/spec-cards.scene.test.ts"
+          ],
+          "parents": ["01a85f4f3f3399bbb90f98631b87fb61dabfc851"],
+          "sections": ["spec.viewer.spec-cards"],
+          "session": null,
+          "sha": "e8d215b190d655c55ee4156e3d61bfb5194bc981",
+          "subject": "Show the current section's spec as cards with their tasks (t86)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t86",
+          "ts": "2026-11-24T12:29:28.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t86",
+          "ts": "2026-11-24T12:29:28.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t87",
@@ -6188,14 +6344,41 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/test/markdown.test.ts",
+            "apps/viewer/test/spec-cards.scene.test.ts"
+          ],
+          "parents": ["607dbe5cfc66484b42a2ac8ff57eec473d643801"],
+          "sections": ["spec.viewer.spec-cards", "spec.viewer.markdown-rendering"],
+          "session": null,
+          "sha": "c645f4cb712b3799416aad0a2714430a04e713d9",
+          "subject": "Test the density control and a card's full section (t87)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t87",
+          "ts": "2026-11-24T12:31:49.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t87",
+          "ts": "2026-11-24T12:31:49.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t88",
@@ -6219,14 +6402,47 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/reader.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/readerView.ts",
+            "apps/viewer/src/view/stackChipsView.ts",
+            "apps/viewer/test/reader.scene.test.ts",
+            "apps/viewer/test/spec-cards.scene.test.ts",
+            "apps/viewer/test/stack-chips.scene.test.ts"
+          ],
+          "parents": ["5c2893cf502ad8dc6bf3506f4a65504d0f710b20"],
+          "sections": ["spec.viewer.stacks"],
+          "session": null,
+          "sha": "868a04208b448fa335b896bb624b5232e5abe6dd",
+          "subject": "Draw the stacks pane as chips over the base branch (t88)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t88",
+          "ts": "2026-11-24T12:48:01.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t88",
+          "ts": "2026-11-24T12:48:01.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t89",
@@ -6245,14 +6461,38 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": ["apps/viewer/src/wires.ts", "apps/viewer/test/wires.test.ts"],
+          "parents": ["c5293ac0b938c6bd1761ba82d350c580d601e7ca"],
+          "sections": ["spec.viewer.curves"],
+          "session": null,
+          "sha": "68d545989738287d4d39f58f418c4109ac904e54",
+          "subject": "Compute the reader's curves from measured boxes (t89)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t89",
+          "ts": "2026-11-24T13:40:59.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t89",
+          "ts": "2026-11-24T13:40:59.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t90",
@@ -6281,14 +6521,56 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/init.ts",
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/reader.ts",
+            "apps/viewer/src/ui/components.css",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/prdPaneView.ts",
+            "apps/viewer/src/view/readerView.ts",
+            "apps/viewer/src/view/specPaneView.ts",
+            "apps/viewer/src/view/stackChipsView.ts",
+            "apps/viewer/src/view/wiresView.ts",
+            "apps/viewer/src/wires.ts",
+            "apps/viewer/test/fixtures.ts",
+            "apps/viewer/test/reader.scene.test.ts",
+            "apps/viewer/test/spec-cards.scene.test.ts",
+            "apps/viewer/test/stack-chips.scene.test.ts",
+            "apps/viewer/test/wires.scene.test.ts"
+          ],
+          "parents": ["68d545989738287d4d39f58f418c4109ac904e54"],
+          "sections": ["spec.viewer.curves", "spec.viewer.model-and-messages"],
+          "session": null,
+          "sha": "38c57e534a0170fa0b5b57e23312ea10e34c4e8e",
+          "subject": "Measure the panes, draw the curves and light a chain on hover (t90)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t90",
+          "ts": "2026-11-24T13:42:29.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t90",
+          "ts": "2026-11-24T13:42:29.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t91",
@@ -6316,14 +6598,57 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/init.ts",
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/ui/components.css",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/modelView.ts",
+            "apps/viewer/src/view/readerView.ts",
+            "apps/viewer/src/view/specPaneView.ts",
+            "apps/viewer/src/view/stackChipsView.ts",
+            "apps/viewer/test/models.scene.test.ts"
+          ],
+          "parents": ["38c57e534a0170fa0b5b57e23312ea10e34c4e8e"],
+          "sections": ["spec.viewer.models"],
+          "session": null,
+          "sha": "a4b2f6057fee56a1a0b8fba64add718d8651a67c",
+          "subject": "Show the model and reasoning each task ran with or is planned for (t91)"
+        },
+        {
+          "files": ["apps/viewer/src/view/readerView.ts", "apps/viewer/test/models.scene.test.ts"],
+          "parents": ["a4b2f6057fee56a1a0b8fba64add718d8651a67c"],
+          "sections": ["spec.viewer.models"],
+          "session": null,
+          "sha": "d6488fd16447b336740d1dc6e38094e002161668",
+          "subject": "Remeasure wires when the models switch toggles (t91 review)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t91",
+          "ts": "2026-11-24T13:44:29.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t91",
+          "ts": "2026-11-24T13:44:29.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t92",
@@ -6353,14 +6678,63 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/init.ts",
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/panes.ts",
+            "apps/viewer/src/subscription/resize.ts",
+            "apps/viewer/src/subscription/subscription.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/dividerView.ts",
+            "apps/viewer/src/view/readerView.ts",
+            "apps/viewer/test/panes.scene.test.ts",
+            "apps/viewer/test/panes.test.ts"
+          ],
+          "parents": ["d6488fd16447b336740d1dc6e38094e002161668"],
+          "sections": ["spec.viewer.panes"],
+          "session": null,
+          "sha": "d263f8ecf3648fb8f6824b05ba1e5754cd331d02",
+          "subject": "Resize the panes by dragging their dividers (t92)"
+        },
+        {
+          "files": [
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/dividerView.ts",
+            "apps/viewer/test/panes.scene.test.ts"
+          ],
+          "parents": ["d263f8ecf3648fb8f6824b05ba1e5754cd331d02"],
+          "sections": ["spec.viewer.panes"],
+          "session": null,
+          "sha": "42a4c4202c9b06c0baa145b0a87909936635d96f",
+          "subject": "Start divider drags from the rendered pane width (t92 review)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t92",
+          "ts": "2026-11-24T13:46:29.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t92",
+          "ts": "2026-11-24T13:46:29.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t93",
@@ -6389,14 +6763,65 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/detail.ts",
+            "apps/viewer/src/drawer.ts",
+            "apps/viewer/src/init.ts",
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/detailView.ts",
+            "apps/viewer/src/view/readerView.ts",
+            "apps/viewer/test/detail.scene.test.ts",
+            "apps/viewer/test/detail.test.ts",
+            "apps/viewer/test/fixtures.ts",
+            "apps/viewer/test/spec-cards.scene.test.ts",
+            "apps/viewer/test/stack-chips.scene.test.ts"
+          ],
+          "parents": ["42a4c4202c9b06c0baa145b0a87909936635d96f"],
+          "sections": ["spec.viewer.detail-panel"],
+          "session": null,
+          "sha": "b67546ac3867775850d0c0570aad4d0efab024e1",
+          "subject": "Open a task's detail in a panel with a trail (t93)"
+        },
+        {
+          "files": [
+            "apps/viewer/src/view/detailView.ts",
+            "apps/viewer/src/view/dividerView.ts",
+            "apps/viewer/test/detail.scene.test.ts",
+            "apps/viewer/test/panes.scene.test.ts"
+          ],
+          "parents": ["b67546ac3867775850d0c0570aad4d0efab024e1"],
+          "sections": ["spec.viewer.detail-panel"],
+          "session": null,
+          "sha": "bfa39464aeb2b470b8b6d2172fb618b35460e321",
+          "subject": "Keep the detail panel resize handle clear of its controls (t93 review)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t93",
+          "ts": "2026-11-24T13:48:30.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t93",
+          "ts": "2026-11-24T13:48:30.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t94",
@@ -6419,14 +6844,44 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/detailView.ts",
+            "apps/viewer/src/view/readerView.ts",
+            "apps/viewer/test/detail-code.scene.test.ts",
+            "apps/viewer/test/detail.scene.test.ts"
+          ],
+          "parents": ["bfa39464aeb2b470b8b6d2172fb618b35460e321"],
+          "sections": ["spec.viewer.detail-code"],
+          "session": null,
+          "sha": "f14bd286f0fbfa721e514ff2cde14bcb001fd461",
+          "subject": "Show a task's stacked diff in its detail (t94)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t94",
+          "ts": "2026-11-24T13:50:30.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t94",
+          "ts": "2026-11-24T13:50:30.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t95",
@@ -6454,14 +6909,52 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/message.ts",
+            "apps/viewer/src/reader.ts",
+            "apps/viewer/src/search.ts",
+            "apps/viewer/src/ui/components.css",
+            "apps/viewer/src/ui/marks.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/canvasView.ts",
+            "apps/viewer/src/view/nodeView.ts",
+            "apps/viewer/src/view/prdPaneView.ts",
+            "apps/viewer/src/view/readerView.ts",
+            "apps/viewer/src/view/specPaneView.ts",
+            "apps/viewer/src/view/stackChipsView.ts",
+            "apps/viewer/test/search-reader.scene.test.ts"
+          ],
+          "parents": ["f14bd286f0fbfa721e514ff2cde14bcb001fd461"],
+          "sections": ["spec.viewer.search-interaction", "spec.viewer.prose-search"],
+          "session": null,
+          "sha": "c146dd16935e4bdbffa02ad5958f3d687955d6ff",
+          "subject": "Bring search results into view in the reader (t95)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t95",
+          "ts": "2026-11-24T13:52:30.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t95",
+          "ts": "2026-11-24T13:52:30.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t96",
@@ -6490,14 +6983,69 @@
         "reasons": []
       },
       "sessions": [],
-      "status": "pending",
+      "status": "done",
       "waiting": false,
       "gate": {
         "required": false,
         "reasons": []
       },
-      "commits": [],
-      "events": []
+      "commits": [
+        {
+          "files": [
+            "apps/viewer/src/subscription/presence.ts",
+            "apps/viewer/src/view/prdPaneView.ts",
+            "apps/viewer/src/view/readerView.ts",
+            "apps/viewer/test/failure.scene.test.ts",
+            "apps/viewer/test/presence.scene.test.ts",
+            "apps/viewer/test/presence.test.ts",
+            "apps/viewer/test/story.test.ts",
+            "packages/cli/src/presence.ts",
+            "packages/cli/test/fixtures/presence-left-on-close.ts",
+            "packages/cli/test/presence.model.test.ts",
+            "packages/cli/test/presence.test.ts",
+            "packages/contract/src/index.ts",
+            "packages/core/src/room-machine.ts",
+            "packages/core/test/room-machine.test.ts"
+          ],
+          "parents": ["c146dd16935e4bdbffa02ad5958f3d687955d6ff"],
+          "sections": ["spec.viewer.presence"],
+          "session": null,
+          "sha": "634607da41875f55a2f3de81b954ca4210548d1b",
+          "subject": "Show who is reading which PRD section (t96)"
+        },
+        {
+          "files": [
+            "apps/viewer/src/init.ts",
+            "apps/viewer/src/model.ts",
+            "apps/viewer/src/readers.ts",
+            "apps/viewer/src/update.ts",
+            "apps/viewer/src/view/prdPaneView.ts",
+            "apps/viewer/src/view/readerView.ts",
+            "apps/viewer/test/presence.scene.test.ts"
+          ],
+          "parents": ["634607da41875f55a2f3de81b954ca4210548d1b"],
+          "sections": ["spec.viewer.presence"],
+          "session": null,
+          "sha": "d9b1683c897e42138fb2e3fa9e5a985ad4dafa0e",
+          "subject": "Keep cursor-only presence out of the PRD body (t96 review)"
+        }
+      ],
+      "events": [
+        {
+          "actor": "orchestrator",
+          "status": "running",
+          "taskId": "t96",
+          "ts": "2026-11-24T13:54:29.000Z",
+          "v": 1
+        },
+        {
+          "actor": "orchestrator",
+          "status": "done",
+          "taskId": "t96",
+          "ts": "2026-11-24T13:54:29.000Z",
+          "v": 1
+        }
+      ]
     },
     {
       "id": "t97",

@@ -1959,8 +1959,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["2683b9371fadbad9de420da2735f87d771f220fb"],
       "sessions": []
     },
     {
@@ -1984,8 +1984,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["c7d954d90c2af97cd31019bc87e7734efb82b7d6"],
       "sessions": []
     },
     {
@@ -2004,8 +2004,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["d67161dbbe125ec28c2dc6b0f154ddec4f5bc913"],
       "sessions": []
     },
     {
@@ -2033,8 +2033,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["01a85f4f3f3399bbb90f98631b87fb61dabfc851"],
       "sessions": []
     },
     {
@@ -2059,8 +2059,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["e8d215b190d655c55ee4156e3d61bfb5194bc981"],
       "sessions": []
     },
     {
@@ -2087,8 +2087,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["c645f4cb712b3799416aad0a2714430a04e713d9"],
       "sessions": []
     },
     {
@@ -2112,8 +2112,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["868a04208b448fa335b896bb624b5232e5abe6dd"],
       "sessions": []
     },
     {
@@ -2132,8 +2132,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["68d545989738287d4d39f58f418c4109ac904e54"],
       "sessions": []
     },
     {
@@ -2162,8 +2162,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["38c57e534a0170fa0b5b57e23312ea10e34c4e8e"],
       "sessions": []
     },
     {
@@ -2191,8 +2191,11 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": [
+        "a4b2f6057fee56a1a0b8fba64add718d8651a67c",
+        "d6488fd16447b336740d1dc6e38094e002161668"
+      ],
       "sessions": []
     },
     {
@@ -2222,8 +2225,11 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": [
+        "d263f8ecf3648fb8f6824b05ba1e5754cd331d02",
+        "42a4c4202c9b06c0baa145b0a87909936635d96f"
+      ],
       "sessions": []
     },
     {
@@ -2252,8 +2258,11 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": [
+        "b67546ac3867775850d0c0570aad4d0efab024e1",
+        "bfa39464aeb2b470b8b6d2172fb618b35460e321"
+      ],
       "sessions": []
     },
     {
@@ -2276,8 +2285,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["f14bd286f0fbfa721e514ff2cde14bcb001fd461"],
       "sessions": []
     },
     {
@@ -2305,8 +2314,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["c146dd16935e4bdbffa02ad5958f3d687955d6ff"],
       "sessions": []
     },
     {
@@ -2335,8 +2344,11 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": [
+        "634607da41875f55a2f3de81b954ca4210548d1b",
+        "d9b1683c897e42138fb2e3fa9e5a985ad4dafa0e"
+      ],
       "sessions": []
     },
     {

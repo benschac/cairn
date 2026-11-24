@@ -94,8 +94,8 @@ it("over the document sit its title and how many of the plan's tasks are done, w
     given(reading),
     scrolledTo("prd.goal"),
     expect(selector("[data-prd-title]")).toHaveText("Cairn MVP"),
-    expect(selector("[data-plan-count]")).toHaveText("28 of 113 tasks done"),
-    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuenow", "28"),
+    expect(selector("[data-plan-count]")).toHaveText("43 of 113 tasks done"),
+    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuenow", "43"),
     expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuemax", "113"),
   );
 });
@@ -131,8 +131,8 @@ it("the status line of a section reads its status, spec sections and done tasks"
     { update, view },
     given(reading),
     scrolledTo("prd.goal"),
-    expect(statusLine("prd.viewer")).toHaveText("in progress · 14 spec · 7/41 tasks"),
-    expect(statusLine("prd.viewer.reader")).toHaveText("not started · 2 spec · 0/3 tasks"),
+    expect(statusLine("prd.viewer")).toHaveText("in progress · 14 spec · 16/41 tasks"),
+    expect(statusLine("prd.viewer.reader")).toHaveText("in progress · 2 spec · 2/3 tasks"),
     expect(statusLine("prd.viewer")).toHaveAttr("aria-pressed", "false"),
   );
 });
