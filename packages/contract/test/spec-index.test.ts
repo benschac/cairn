@@ -21,6 +21,8 @@ const artifact = {
 };
 const field = { description: "", name: "id", optional: false, type: "SectionId" };
 
+const HASH = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
 const section = {
   artifacts: [artifact],
   children: [],
@@ -40,6 +42,7 @@ const section = {
   tasks: ["t17"],
   tests: [test],
   title: "Format",
+  writtenFrom: { body: null, prd: { "prd.repo-layout": HASH } },
 };
 const index = {
   manifest: ".cairn/manifest.json",
@@ -82,6 +85,15 @@ it("refuses a section id under the wrong document", () => {
   expect(refusedSection({ defers: ["spec.scope"] })).toBe(true);
   expect(refusedSection({ dependsOn: ["prd.goal"] })).toBe(true);
   expect(refusedSection({ children: ["prd.goal"] })).toBe(true);
+});
+
+it("writtenFrom takes a hash or null for the body, and refuses what is not a SHA-256 in hex", () => {
+  const hash = HASH;
+  expect(refusedSection({ writtenFrom: { body: hash, prd: {} } })).toBe(false);
+  expect(refusedSection({ writtenFrom: { body: "abc", prd: {} } })).toBe(true);
+  expect(refusedSection({ writtenFrom: { body: null, prd: { "prd.goal": "ABC" } } })).toBe(true);
+  expect(refusedSection({ writtenFrom: undefined })).toBe(true);
+  expect(refusedSection({ writtenFrom: { prd: {} } })).toBe(true);
 });
 
 it("refuses a level or line below 1", () => {

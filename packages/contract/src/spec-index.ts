@@ -92,9 +92,27 @@ export const Artifact = Schema.Struct({
 });
 export type Artifact = typeof Artifact.Type;
 
+/** A SHA-256 in hex: the hash of a section's body with trailing whitespace removed from each line. */
+export const BodyHash = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/)).pipe(
+  Schema.brand("BodyHash"),
+);
+export type BodyHash = typeof BodyHash.Type;
+
+/**
+ * What a spec section was written from, set once when it is written or first indexed (see
+ * `prd.planning.again`). `body` is null for a section a person wrote; `prd` holds the hash of each
+ * PRD section it implements, as it was then.
+ */
+export const WrittenFrom = Schema.Struct({
+  body: Schema.NullOr(BodyHash),
+  prd: Schema.Record(PrdSectionId, BodyHash),
+});
+export type WrittenFrom = typeof WrittenFrom.Type;
+
 /**
  * One spec section in `spec.json`. Code derives the fields down to `tasks` from `spec.md` and
- * `manifest.json`; the planner extracts the rest from the section's prose.
+ * `manifest.json` and `writtenFrom` is recorded when the section is written; the planner extracts
+ * the rest from the section's prose.
  */
 export const IndexedSection = Schema.Struct({
   artifacts: Schema.Array(Artifact),
@@ -115,6 +133,7 @@ export const IndexedSection = Schema.Struct({
   tasks: Schema.Array(TaskId),
   tests: Schema.Array(SpecTest),
   title: Schema.String,
+  writtenFrom: WrittenFrom,
 });
 export type IndexedSection = typeof IndexedSection.Type;
 

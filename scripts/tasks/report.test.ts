@@ -301,6 +301,7 @@ const section = (id: string, level: number, line: number) => ({
   tasks: [],
   tests: [],
   title: id,
+  writtenFrom: { body: null, prd: {} },
 });
 
 const index = decodeIndex({
