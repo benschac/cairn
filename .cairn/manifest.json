@@ -900,8 +900,8 @@
       ],
       "branch": "cairn-mvp/39-api-trace",
       "parent": null,
-      "dependsOn": ["t34", "t36"],
-      "worktree": "wt-8",
+      "dependsOn": ["t21", "t34"],
+      "worktree": "wt-4",
       "model": "sonnet",
       "reasoning": "medium",
       "humanGate": {
@@ -925,7 +925,7 @@
       "branch": "cairn-mvp/40-api-sessions-commits",
       "parent": "t39",
       "dependsOn": ["t39"],
-      "worktree": "wt-8",
+      "worktree": "wt-4",
       "model": "sonnet",
       "reasoning": "low",
       "humanGate": {
@@ -950,7 +950,7 @@
       "branch": "cairn-mvp/41-cairn-serve",
       "parent": "t40",
       "dependsOn": ["t40"],
-      "worktree": "wt-8",
+      "worktree": "wt-4",
       "model": "sonnet",
       "reasoning": "low",
       "humanGate": {

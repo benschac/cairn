@@ -725,9 +725,9 @@ flowchart BT
   end
   subgraph s22["Stack 22 · server"]
     direction BT
-    t39["t39 · 39-api-trace<br/>Serve the trace at /api/trace with an ETag<br/>wt-8"]
-    t40["t40 · 40-api-sessions-commits<br/>Serve sessions and commit patches<br/>wt-8"]
-    t41["t41 · 41-cairn-serve<br/>Add cairn serve with the built viewer<br/>wt-8"]
+    t39["t39 · 39-api-trace<br/>Serve the trace at /api/trace with an ETag<br/>wt-4"]
+    t40["t40 · 40-api-sessions-commits<br/>Serve sessions and commit patches<br/>wt-4"]
+    t41["t41 · 41-cairn-serve<br/>Add cairn serve with the built viewer<br/>wt-4"]
   end
   subgraph s23["Stack 23 · viewer"]
     direction BT
@@ -925,8 +925,8 @@ flowchart BT
   t16 -.-> t38
   t36 -.-> t38
   t37 -.-> t38
+  t21 -.-> t39
   t34 -.-> t39
-  t36 -.-> t39
   t39 --> t40
   t40 --> t41
   main --> t42
