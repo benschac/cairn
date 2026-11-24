@@ -13,6 +13,12 @@ export default Alchemy.Stack(
       rootDir: "../viewer",
       domain: { name: "prdtrace.com", redirects: ["www.prdtrace.com"] },
     });
-    return { url: demo.url };
+    // The gateway the planner's API calls go through, for logs and spend (see spec.models).
+    // Cloudflare requires authentication on a new gateway, so callers send its token.
+    const gateway = yield* Cloudflare.AI.Gateway("Planner", {
+      authentication: true,
+      collectLogs: true,
+    });
+    return { url: demo.url, gatewayId: gateway.gatewayId, accountId: gateway.accountId };
   }),
 );
