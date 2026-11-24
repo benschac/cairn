@@ -42,6 +42,45 @@ export const screenSwitchView = (selected: Destination, h: HtmlBuilder<Message>)
     ),
   );
 
+const cairnLogoView = (h: HtmlBuilder<Message>): Html =>
+  h.svg(
+    [h.Width("20"), h.Height("20"), h.ViewBox("0 0 22 22"), h.AriaHidden(true)],
+    [
+      h.ellipse([
+        h.Cx("11"),
+        h.Cy("18"),
+        h.Rx("9"),
+        h.Ry("3.2"),
+        h.Fill("currentColor"),
+        h.Opacity("0.9"),
+      ]),
+      h.ellipse([
+        h.Cx("11"),
+        h.Cy("12.2"),
+        h.Rx("6.5"),
+        h.Ry("2.8"),
+        h.Fill("currentColor"),
+        h.Opacity("0.7"),
+      ]),
+      h.ellipse([
+        h.Cx("11"),
+        h.Cy("7.2"),
+        h.Rx("4.2"),
+        h.Ry("2.3"),
+        h.Fill("currentColor"),
+        h.Opacity("0.5"),
+      ]),
+      h.ellipse([
+        h.Cx("11"),
+        h.Cy("3.4"),
+        h.Rx("2.2"),
+        h.Ry("1.5"),
+        h.Fill("currentColor"),
+        h.Opacity("0.35"),
+      ]),
+    ],
+  );
+
 const topBarView = (trace: Trace, model: Model, presence: string, h: HtmlBuilder<Message>): Html =>
   h.header(
     [
@@ -50,7 +89,10 @@ const topBarView = (trace: Trace, model: Model, presence: string, h: HtmlBuilder
       h.Style({ position: "relative", "z-index": "10" }),
     ],
     [
-      h.h1([h.Style({ "font-size": "var(--t-xl)", margin: "0" })], ["Cairn"]),
+      h.span(
+        [h.Class("topbar-brand")],
+        [cairnLogoView(h), h.h1([h.Style({ "font-size": "var(--t-xl)", margin: "0" })], ["Cairn"])],
+      ),
       h.span([h.DataAttribute("feature", "")], [trace.feature]),
       screenSwitchView("Reader", h),
       searchView(trace, model.search, h),
@@ -63,7 +105,7 @@ const topBarView = (trace: Trace, model: Model, presence: string, h: HtmlBuilder
         },
         h,
       ),
-      h.p([h.Role("status"), h.Style({ margin: "0 0 0 auto" })], [presence]),
+      h.p([h.Role("status")], [presence]),
     ],
   );
 
@@ -88,8 +130,11 @@ export const readerView = (
       h.Style({
         display: "grid",
         flex: "1",
+        "grid-template-columns": "minmax(0, 1fr)",
         "grid-template-rows": "auto minmax(0, 1fr)",
         "min-height": "0",
+        "min-width": "0",
+        overflow: "hidden",
       }),
     ],
     Array.appendAll(

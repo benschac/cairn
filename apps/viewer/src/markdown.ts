@@ -293,21 +293,26 @@ const tableRow = <Message>(
 
 const tableView = <Message>(context: RenderContext<Message>, node: Table): Html => {
   const { h } = context;
-  return h.table(
-    [],
-    Array.matchLeft(node.children, {
-      onEmpty: () => [h.thead([]), h.tbody([])],
-      onNonEmpty: (head, body) => {
-        const align = Option.getOrElse(Option.fromNullishOr(node.align), () => []);
-        return [
-          h.thead([], [tableRow(context, h.th, align, head)]),
-          h.tbody(
-            [],
-            Array.map(body, (row) => tableRow(context, h.td, align, row)),
-          ),
-        ];
-      },
-    }),
+  return h.div(
+    [h.Class("tbl")],
+    [
+      h.table(
+        [],
+        Array.matchLeft(node.children, {
+          onEmpty: () => [h.thead([]), h.tbody([])],
+          onNonEmpty: (head, body) => {
+            const align = Option.getOrElse(Option.fromNullishOr(node.align), () => []);
+            return [
+              h.thead([], [tableRow(context, h.th, align, head)]),
+              h.tbody(
+                [],
+                Array.map(body, (row) => tableRow(context, h.td, align, row)),
+              ),
+            ];
+          },
+        }),
+      ),
+    ],
   );
 };
 
@@ -408,10 +413,12 @@ const render = <Message>(
           Option.getOrElse(Option.fromNullishOr(node.alt), () => ""),
           at,
         ),
-      inlineCode: (node) => [h.code([], leafView(context, node.value, at))],
+      inlineCode: (node) => [
+        h.code(isSectionId(node.value) ? [h.Class("ref")] : [], leafView(context, node.value, at)),
+      ],
       link: (node) => [
         h.a(
-          SAFE_HREF_PATTERN.test(node.url) ? [h.Href(node.url)] : [],
+          SAFE_HREF_PATTERN.test(node.url) ? [h.Class("lnk"), h.Href(node.url)] : [h.Class("lnk")],
           renderInline(context, node.children, at),
         ),
       ],
@@ -650,4 +657,31 @@ export const renderSection = <Message>(
   h.div(
     [h.Class("markdown")],
     Array.drop(renderBlocks(contextOf(h, hooks), sectionNodesOf(document.tree.children, id)), 1),
+  );
+
+/**
+ * One section's heading title, rendered with its inline formatting and any search marks for that
+ * section ID, without its trailing `{#id}`. Empty when the document has no heading with that ID.
+ */
+export const renderSectionTitle = <Message>(
+  document: MarkdownDocument,
+  id: SectionId,
+  h: HtmlBuilder<Message>,
+  hooks: SectionHooks<Message> = {},
+): Rendered =>
+  Option.match(
+    Array.findFirst(
+      document.tree.children,
+      (node): node is Heading => node.type === "heading" && Option.contains(sectionOf(node), id),
+    ),
+    {
+      onNone: () => [],
+      onSome: (heading) => {
+        const context = contextOf(h, hooks);
+        return renderInline(context, headingOf(heading).children, {
+          from: 0,
+          ranges: Option.getOrElse(Record.get(context.marks.titles, id), () => []),
+        });
+      },
+    },
   );

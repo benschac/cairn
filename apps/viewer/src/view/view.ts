@@ -195,7 +195,14 @@ const readerScreenView = (model: Model, h: HtmlBuilder<Message>): Document => {
   const loaded = (trace: Trace) => readerView(trace, model, presence, h);
   return {
     body: h.main(
-      [h.Style({ display: "flex", "flex-direction": "column", height: "100vh" })],
+      [
+        h.Style({
+          display: "flex",
+          "flex-direction": "column",
+          height: "100vh",
+          overflow: "hidden",
+        }),
+      ],
       AsyncData.match(model.trace, {
         onFailure: (error) => [alertView(error, h)],
         onIdle: () => [loadingView(h)],

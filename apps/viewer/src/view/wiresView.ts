@@ -3,6 +3,7 @@ import {
   Array,
   Cause,
   Effect,
+  Match,
   MutableRef,
   Option,
   Predicate,
@@ -10,6 +11,7 @@ import {
   Record,
   Schema,
   Stream,
+  String,
 } from "effect";
 import { Mount } from "foldkit";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
@@ -176,9 +178,27 @@ export const hoverAttributesOf = (
   h.OnBlur(Message.LeftNode()),
 ];
 
-/** How faint a wire is while it is not lit, and how faint one with an end moved is. */
-const DIMMED_OPACITY = "0.15";
-const OFF_PANE_OPACITY = "0.45";
+/** How faint a wire is while another chain is hovered, when off-pane, and at rest. */
+const DIMMED_OPACITY = "0.1";
+const OFF_PANE_OPACITY = "0.18";
+const LIT_OFF_PANE_OPACITY = "0.28";
+const PRD_OPACITY = "0.8";
+const ROW_OPACITY = "0.4";
+
+const opacityOf = (wire: Wire, isLit: boolean, isDimmed: boolean): string =>
+  Match.value({
+    isDimmed,
+    isLit,
+    isOffPane: wire.isOffPane,
+    isPrd: String.startsWith("prd:")(wire.source),
+  }).pipe(
+    Match.when({ isLit: true, isOffPane: true }, () => LIT_OFF_PANE_OPACITY),
+    Match.when({ isLit: true }, () => "1"),
+    Match.when({ isDimmed: true }, () => DIMMED_OPACITY),
+    Match.when({ isOffPane: true }, () => OFF_PANE_OPACITY),
+    Match.when({ isPrd: true }, () => PRD_OPACITY),
+    Match.orElse(() => ROW_OPACITY),
+  );
 
 const wireView = (wire: Wire, maybeChain: Option.Option<Chain>, h: HtmlBuilder<Message>): Html => {
   const isLit = Option.exists(maybeChain, (chain) => isWireLit(chain, wire));
@@ -192,12 +212,11 @@ const wireView = (wire: Wire, maybeChain: Option.Option<Chain>, h: HtmlBuilder<M
         h.D(wire.path),
         h.Fill("none"),
         h.Style({
-          opacity: isDimmed ? DIMMED_OPACITY : wire.isOffPane ? OFF_PANE_OPACITY : "1",
-          stroke: isLit ? "var(--ink)" : "var(--muted)",
+          opacity: opacityOf(wire, isLit, isDimmed),
+          stroke: "var(--ink)",
           "stroke-dasharray": wire.isOffPane ? "5 4" : "none",
           "stroke-width": isLit ? "2.5" : "1.5",
-          transition:
-            "opacity var(--d-fade) ease-out, stroke var(--d-fade) ease-out, stroke-width var(--d-fade) ease-out",
+          transition: "opacity var(--d-fade) ease-out, stroke-width var(--d-fade) ease-out",
         }),
       ],
       isLit ? [h.DataAttribute("lit", "")] : [],
@@ -235,6 +254,7 @@ export const wiresView = (
         "pointer-events": "none",
         position: "fixed",
         width: "100%",
+        "z-index": "2",
       }),
     ],
     Array.map(wires, (wire) => wireView(wire, maybeChain, h)),

@@ -5,12 +5,12 @@ import {
   type TraceSection,
   type TraceTask,
 } from "@cairn/contract";
-import { Array, Option, Predicate } from "effect";
+import { Array, Option, Predicate, String } from "effect";
 import { createKeyedLazy, type Html, type HtmlBuilder } from "foldkit/html";
 
 import { diagramView } from "../diagram.ts";
 import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
-import { documentOf, renderSection } from "../markdown.ts";
+import { documentOf, renderSection, type Rendered } from "../markdown.ts";
 import { Message } from "../message.ts";
 import type { Density, Reader } from "../model.ts";
 import { cardsOf, coverageOf, isOpenCard, ranOf, statusWordOf, tasksOf } from "../reader.ts";
@@ -79,6 +79,7 @@ const taskRowView = (
         h.Class("row"),
         h.DataAttribute("task-row", `${specId}:${task.id}`),
         h.DataAttribute("wire", rowKey(specId, task.id)),
+        h.Title(task.title),
         h.OnClick(Message.ClickedTask({ id: task.id })),
       ],
       hoverAttributesOf({ id: task.id, kind: "task" }, h),
@@ -89,7 +90,7 @@ const taskRowView = (
       [
         dotView(task.status, h),
         tagView("task", fieldView(search, "id", task.id, h), h),
-        h.span([h.Style({ flex: "1", "min-width": "0" })], titleView(search, [task.title], h)),
+        h.span([h.Class("row-title")], titleView(search, [task.title], h)),
       ],
       Array.appendAll(
         Array.appendAll(
@@ -100,9 +101,9 @@ const taskRowView = (
             ),
           ),
         ),
-        Array.prepend(
+        Array.append(
           isShowingModels ? [modelChipView(ranOf(task), h)] : [],
-          h.span([h.Class("label")], [progressText(task)]),
+          h.span([h.Class("row-count")], [progressText(task)]),
         ),
       ),
     ),
@@ -126,6 +127,12 @@ const tasksView = (
     ),
   );
 
+/** Renders inline backtick spans in a plain summary string as `code` elements. */
+const summaryContentOf = (summary: string, h: HtmlBuilder<Message>): Rendered =>
+  Array.map(String.split(summary, "`"), (part, index) =>
+    index % 2 === 1 ? h.code([], [part]) : part,
+  );
+
 /**
  * The line with the section's ID, then the section's own markdown, with the matched text of its
  * prose marked. Each marked block carries `data-block`, which a selected result scrolls to.
@@ -138,17 +145,22 @@ const fullSectionView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
-    [h.Class("prose"), h.DataAttribute("full-spec", section.id)],
+    [h.DataAttribute("full-spec", section.id)],
     [
-      tagView("spec", fieldView(search, "id", section.id, h), h),
-      renderSection(documentOf(trace.spec.markdown), section.id, h, {
-        blockAttributesOf: (offset: number) => [
-          h.DataAttribute("block", blockKeyFor("spec", offset)),
+      h.div([h.Class("card-meta")], fieldView(search, "id", section.id, h)),
+      h.div(
+        [h.Class("prose")],
+        [
+          renderSection(documentOf(trace.spec.markdown), section.id, h, {
+            blockAttributesOf: (offset: number) => [
+              h.DataAttribute("block", blockKeyFor("spec", offset)),
+            ],
+            diagramView: (source, key) => diagramView(h, source, key),
+            marks: marksOf("spec", results),
+            markView: (text: string) => matchView(text, h),
+          }),
         ],
-        diagramView: (source, key) => diagramView(h, source, key),
-        marks: marksOf("spec", results),
-        markView: (text: string) => matchView(text, h),
-      }),
+      ),
     ],
   );
 
@@ -198,30 +210,34 @@ const cardView = (
                     h.DataAttribute("wire", specKey(section.id)),
                   ),
                 ),
-                Array.appendAll(
-                  Array.appendAll(
-                    [
-                      h.span([], titleView(search, [section.title], h)),
-                      h.span(
-                        [h.DataAttribute("done", "")],
-                        [`${Array.length(Array.filter(tasks, isDone))}/${Array.length(tasks)}`],
-                      ),
-                    ],
-                    isShowingModels
-                      ? [
-                          h.span(
-                            [h.DataAttribute("model-squares", section.id)],
-                            Array.map(tasks, (task) => modelSquareView(ranOf(task), h)),
-                          ),
-                        ]
-                      : [],
-                  ),
+                Array.flatten([
+                  [
+                    tagView("spec", "SPEC", h),
+                    h.span([h.Class("card-title")], titleView(search, [section.title], h)),
+                  ],
                   Array.fromOption(
                     Option.map(judgmentMarkOf(trace, { id: section.id, kind: "section" }), (mark) =>
                       judgmentView(mark, h),
                     ),
                   ),
-                ),
+                  isShowingModels && Array.isReadonlyArrayNonEmpty(tasks)
+                    ? [
+                        h.span(
+                          [h.Class("card-mix"), h.DataAttribute("model-squares", section.id)],
+                          Array.map(tasks, (task) => modelSquareView(ranOf(task), h)),
+                        ),
+                      ]
+                    : [],
+                  Array.isReadonlyArrayNonEmpty(tasks)
+                    ? [
+                        h.span(
+                          [h.Class("card-count"), h.DataAttribute("done", "")],
+                          [`${Array.length(Array.filter(tasks, isDone))}/${Array.length(tasks)}`],
+                        ),
+                      ]
+                    : [],
+                  [h.span([h.Class("card-arrow"), h.AriaHidden(true)], ["›"])],
+                ]),
               ),
             ],
             Array.appendAll(
@@ -243,7 +259,7 @@ const cardView = (
                           h.DataAttribute("summary", section.id),
                           h.Style({ margin: "0" }),
                         ],
-                        [summary],
+                        summaryContentOf(summary, h),
                       ),
                   ),
               [
@@ -287,7 +303,13 @@ const straysView = (
               : [],
           ),
           [
-            h.div([h.Class("card-head")], ["Tasks that name this section directly"]),
+            h.div(
+              [h.Class("card-head")],
+              [
+                tagView("prd", "PRD", h),
+                h.span([h.Class("card-title")], ["Tasks that name this section directly"]),
+              ],
+            ),
             tasksView(
               trace,
               strayKey,
@@ -318,15 +340,14 @@ const paneView = (children: ReadonlyArray<Html>, key: string, h: HtmlBuilder<Mes
       h.Role("region"),
       h.AriaLabel("Spec"),
       h.DataAttribute("spec-pane", ""),
-      h.Style({ "min-height": "0", "overflow-y": "auto" }),
+      h.Style({
+        "min-height": "0",
+        "min-width": "0",
+        "overflow-x": "hidden",
+        "overflow-y": "auto",
+      }),
     ],
-    [
-      h.keyed("div")(
-        key,
-        [h.Style({ display: "grid", gap: "12px", padding: "24px 20px 96px" })],
-        children,
-      ),
-    ],
+    [h.keyed("div")(key, [h.Class("spec-col")], children)],
   );
 
 /**
@@ -356,14 +377,7 @@ export const specPaneView = (
             return Array.appendAll(
               [
                 h.div(
-                  [
-                    h.Style({
-                      "align-items": "center",
-                      display: "flex",
-                      "justify-content": "space-between",
-                      gap: "12px",
-                    }),
-                  ],
+                  [h.Class("col-head")],
                   [
                     labelView(
                       sectionsText(
@@ -401,7 +415,13 @@ export const specPaneView = (
               ),
             );
           },
-          onSome: (note) => [h.p([h.DataAttribute("spec-note", "")], [note])],
+          onSome: (note) => [
+            h.div(
+              [h.Class("col-head")],
+              [labelView(sectionsText(0, sectionTitleOf(trace, SectionId.make(current))), h)],
+            ),
+            h.p([h.Class("spec-note"), h.DataAttribute("spec-note", "")], [note]),
+          ],
         }),
         current,
         h,

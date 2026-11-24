@@ -23,7 +23,14 @@ import { createLazy, type Html, type HtmlBuilder } from "foldkit/html";
 import { diagramView } from "../diagram.ts";
 import type { SectionReader } from "../readers.ts";
 import { Message } from "../message.ts";
-import { renderMarkdown } from "../markdown.ts";
+import {
+  documentOf,
+  renderSection,
+  renderSectionTitle,
+  type MarkdownDocument,
+  type Rendered,
+  type SectionHooks,
+} from "../markdown.ts";
 import { blockKeyFor, marksOf, type SearchResult } from "../search.ts";
 import {
   coverageOf,
@@ -135,9 +142,6 @@ export const TrackPrdScroll = Mount.defineStream("TrackPrdScroll", {
   messages: [Message.ScrolledPrd],
 });
 
-const levelOf = (trace: Trace, id: SectionId): Option.Option<TraceSection> =>
-  Array.findFirst(trace.prd.sections, (section) => section.id === id);
-
 /** `in progress · 3 spec · 5/12 tasks`. */
 export const statusLineText = (status: SectionStatus, counts: Counts): string =>
   `${statusWordOf(status)} · ${counts.specs} spec · ${counts.done}/${counts.tasks} tasks`;
@@ -152,17 +156,22 @@ const statusLineView = (
 ): Html =>
   Option.match(coverageOf(status), {
     onNone: () =>
-      h.button(
+      h.div(
+        [h.Class("prd-pinrow")],
         [
-          h.Type("button"),
-          h.Class("btn"),
-          h.DataAttribute("status-line", id),
-          h.AriaPressed(`${isPinned}`),
-          h.OnClick(Message.ClickedStatusLine({ id })),
+          h.button(
+            [
+              h.Type("button"),
+              h.Class("btn"),
+              h.DataAttribute("status-line", id),
+              h.AriaPressed(`${isPinned}`),
+              h.OnClick(Message.ClickedStatusLine({ id })),
+            ],
+            [dotView(status, h), statusLineText(status, countsOf(trace, id))],
+          ),
         ],
-        [dotView(status, h), statusLineText(status, countsOf(trace, id))],
       ),
-    onSome: (note) => h.span([h.DataAttribute("coverage", status)], [note]),
+    onSome: (note) => h.p([h.Class("prd-covnote"), h.DataAttribute("coverage", status)], [note]),
   });
 
 /** The section's ID, small beside its title; it reads "copied" once the clipboard took it. */
@@ -175,10 +184,10 @@ const idButtonView = (
   h.button(
     [
       h.Type("button"),
-      h.Class("tag"),
-      h.DataAttribute("kind", "prd"),
+      h.Class("prd-id"),
       h.DataAttribute("section-id", id),
       h.AriaLabel(`Copy the section ID ${id}`),
+      h.Title("Copy the section ID"),
       h.OnClick(Message.ClickedSectionId({ id })),
     ],
     isCopied ? ["copied"] : fieldView(search, "id", id, h),
@@ -217,51 +226,160 @@ const readersView = (
   });
 };
 
-/** The title over the document, and how many of the plan's tasks are done, with a meter. */
-const headerView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
+const titleContentOf = (
+  document: MarkdownDocument,
+  section: TraceSection,
+  hooks: SectionHooks<Message>,
+  h: HtmlBuilder<Message>,
+): Rendered => {
+  const rendered = renderSectionTitle(document, section.id, h, hooks);
+  return Array.isReadonlyArrayEmpty(rendered) ? [section.title] : rendered;
+};
+
+const headingTagOf = (level: number, h: HtmlBuilder<Message>) =>
+  Option.getOrElse(Array.get([h.h2, h.h3, h.h4, h.h5, h.h6], level - 2), () => h.h6);
+
+/** The progress meter and done count at the bottom of the document head. */
+const progressView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
   const counts = planCountsOf(trace);
   const percent = counts.tasks === 0 ? 0 : (counts.done * 100) / counts.tasks;
   return h.div(
-    [h.DataAttribute("prd-header", ""), h.Style({ margin: "0 0 20px" })],
+    [h.Class("prd-prog")],
     [
-      h.p(
-        [h.DataAttribute("prd-title", ""), h.Style({ "font-size": "var(--t-2xl)", margin: "0" })],
-        [
-          Option.match(
-            Array.findFirst(trace.prd.sections, (section) => section.level === 1),
-            { onNone: () => trace.feature, onSome: (title) => title.title },
-          ),
-        ],
-      ),
       h.div(
-        [h.Style({ "align-items": "center", display: "flex", gap: "12px", "margin-top": "6px" })],
         [
-          h.span(
-            [h.DataAttribute("plan-count", "")],
-            [`${counts.done} of ${counts.tasks} tasks done`],
+          h.Class("meter"),
+          h.Role("meter"),
+          h.AriaLabel("Tasks done"),
+          h.AriaValuemin(0),
+          h.AriaValuemax(counts.tasks),
+          h.AriaValuenow(counts.done),
+        ],
+        [h.div([h.Style({ width: `${percent}%` })])],
+      ),
+      h.span([h.DataAttribute("plan-count", "")], [`${counts.done} of ${counts.tasks} tasks done`]),
+    ],
+  );
+};
+
+/** The document head: source path, title, intro prose and plan progress with a meter. */
+const headerView = (
+  trace: Trace,
+  document: MarkdownDocument,
+  maybeTitle: Option.Option<TraceSection>,
+  maybeCopied: Option.Option<PrdSectionId>,
+  searchOf: (sectionId: SectionId) => NodeSearch,
+  readers: ReadonlyArray<SectionReader>,
+  hooks: SectionHooks<Message>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.div(
+    [h.Class("prd-head"), h.DataAttribute("prd-header", "")],
+    Option.match(maybeTitle, {
+      onNone: () => [
+        h.div([h.Class("prd-crumb")], [".cairn/prd.md"]),
+        h.div(
+          [h.Class("prd-doc-title")],
+          [h.h2([h.Class("prd-doc-heading"), h.DataAttribute("prd-title", "")], [trace.feature])],
+        ),
+        progressView(trace, h),
+      ],
+      onSome: (section) => [
+        h.div([h.Class("prd-crumb")], [".cairn/prd.md"]),
+        h.header(
+          Array.appendAll(
+            [
+              h.Class("prd-doc-title"),
+              h.Id(section.id),
+              h.DataAttribute("section", section.id),
+              h.Attribute(TITLE_ATTRIBUTE, ""),
+            ],
+            searchedAttributesOf(searchOf(section.id), h),
+          ),
+          Array.prepend(
+            Array.flatMap(Array.fromOption(Option.liftPredicate(section.id, isPrdSection)), (id) =>
+              Array.prepend(
+                readersView(id, readers, h),
+                idButtonView(id, Option.contains(maybeCopied, id), searchOf(id), h),
+              ),
+            ),
+            h.h2(
+              [h.Class("prd-doc-heading"), h.DataAttribute("prd-title", "")],
+              titleContentOf(document, section, hooks, h),
+            ),
+          ),
+        ),
+        h.div([h.Class("prose")], [renderSection(document, section.id, h, hooks)]),
+        progressView(trace, h),
+      ],
+    }),
+  );
+
+/** One PRD section below the title: a monospace header, status line or coverage note, and prose. */
+const sectionView = (
+  trace: Trace,
+  document: MarkdownDocument,
+  section: TraceSection,
+  maybeCurrent: Option.Option<PrdSectionId>,
+  maybePinned: Option.Option<PrdSectionId>,
+  maybeCopied: Option.Option<PrdSectionId>,
+  searchOf: (sectionId: SectionId) => NodeSearch,
+  readers: ReadonlyArray<SectionReader>,
+  hooks: SectionHooks<Message>,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const maybeId = Option.liftPredicate(section.id, isPrdSection);
+  const headingTag = headingTagOf(section.level, h);
+  const isCurrent = Option.exists(maybeCurrent, (current) =>
+    String.Equivalence(current, section.id),
+  );
+  return h.section(
+    [h.Class("prd-sec"), h.DataAttribute("depth", `${section.level}`)],
+    [
+      h.header(
+        Array.flatten([
+          [h.Class("prd-sec-head"), h.Id(section.id), h.DataAttribute("section", section.id)],
+          searchedAttributesOf(searchOf(section.id), h),
+          isCurrent
+            ? [
+                h.DataAttribute("current", ""),
+                h.DataAttribute("wire", prdKey(PrdSectionId.make(section.id))),
+              ]
+            : [],
+        ]),
+        Array.prepend(
+          Array.flatMap(Array.fromOption(maybeId), (id) =>
+            Array.map(Array.fromOption(sectionStatusOf(trace, id)), (status) =>
+              statusLineView(trace, id, status, Option.contains(maybePinned, id), h),
+            ),
           ),
           h.div(
-            [
-              h.Class("meter"),
-              h.Role("meter"),
-              h.AriaLabel("Tasks done"),
-              h.AriaValuemin(0),
-              h.AriaValuemax(counts.tasks),
-              h.AriaValuenow(counts.done),
-            ],
-            [h.div([h.Style({ width: `${percent}%` })])],
+            [h.Class("prd-sh")],
+            Array.prepend(
+              Array.flatMap(Array.fromOption(maybeId), (id) =>
+                Array.prepend(
+                  readersView(id, readers, h),
+                  idButtonView(id, Option.contains(maybeCopied, id), searchOf(id), h),
+                ),
+              ),
+              headingTag(
+                [h.Class("prd-title"), h.DataAttribute("depth", `${section.level}`)],
+                titleContentOf(document, section, hooks, h),
+              ),
+            ),
           ),
-        ],
+        ),
       ),
+      h.div([h.Class("prose")], [renderSection(document, section.id, h, hooks)]),
     ],
   );
 };
 
 /**
- * What the PRD pane holds: the title, then the document as prose with a status line and a copyable
- * ID on each heading. The current section's heading has `data-current`, and `data-wire`, which
- * the curve to its spec cards starts from. What the search matched is marked in the headings and
- * the prose, and a heading it matched is outlined, as is the active result.
+ * What the PRD pane holds: the document head, then each section as a monospace header with its
+ * copyable ID and status line over its prose. The current section's header has `data-current` and
+ * `data-wire`, which the curve to its spec cards starts from. What the search matched is marked in
+ * the headings and the prose, and a heading it matched is outlined, as is the active result.
  */
 const prdBodyView = (
   trace: Trace,
@@ -273,62 +391,36 @@ const prdBodyView = (
   readers: ReadonlyArray<SectionReader>,
   h: HtmlBuilder<Message>,
 ): Html => {
+  const document = documentOf(trace.prd.markdown);
   const searchOf = (sectionId: SectionId) =>
     nodeSearchOf(results, maybeActive, { id: sectionId, kind: "section" });
-  const attributesOf = (sectionId: SectionId) =>
-    Array.flatten([
-      searchedAttributesOf(searchOf(sectionId), h),
-      Option.exists(maybeCurrent, (current) => String.Equivalence(current, sectionId))
-        ? [
-            h.DataAttribute("current", ""),
-            h.DataAttribute("wire", prdKey(PrdSectionId.make(sectionId))),
-          ]
-        : [],
-      Option.exists(levelOf(trace, sectionId), (section) => section.level === 1)
-        ? [h.Attribute(TITLE_ATTRIBUTE, "")]
-        : [],
-    ]);
-  const decorate = (sectionId: SectionId): ReadonlyArray<Html> =>
-    Array.flatMap(
-      Array.fromOption(Option.liftPredicate(sectionId, isPrdSection)),
-      (id): ReadonlyArray<Html> =>
-        Array.appendAll(
-          Array.prepend(
-            readersView(id, readers, h),
-            idButtonView(id, Option.contains(maybeCopied, id), searchOf(id), h),
-          ),
-          // The document's title is not a section a reader is on, so it has no status line.
-          Option.exists(levelOf(trace, id), (section) => section.level === 1)
-            ? []
-            : Array.map(Array.fromOption(sectionStatusOf(trace, id)), (status) =>
-                h.span(
-                  [h.Style({ display: "block", "margin-top": "4px" })],
-                  [statusLineView(trace, id, status, Option.contains(maybePinned, id), h)],
-                ),
-              ),
-        ),
-    );
+  const hooks: SectionHooks<Message> = {
+    blockAttributesOf: (offset: number) => [h.DataAttribute("block", blockKeyFor("prd", offset))],
+    diagramView: (source, key) => diagramView(h, source, key),
+    marks: marksOf("prd", results),
+    markView: (text: string) => matchView(text, h),
+  };
+  const maybeTitle = Array.findFirst(trace.prd.sections, (section) => section.level === 1);
+  const bodySections = Array.filter(trace.prd.sections, (section) => section.level > 1);
   return h.div(
-    [h.Style({ margin: "0 auto", "max-width": "760px", padding: "24px 28px 96px" })],
-    [
-      headerView(trace, h),
-      h.div(
-        [h.Class("prose")],
-        [
-          renderMarkdown(trace.prd.markdown, h, {
-            attributesOf,
-            decorate,
-            blockAttributesOf: (offset: number) => [
-              h.DataAttribute("block", blockKeyFor("prd", offset)),
-            ],
-            diagramView: (source, key) => diagramView(h, source, key),
-            headingOffset: 1,
-            marks: marksOf("prd", results),
-            markView: (text: string) => matchView(text, h),
-          }),
-        ],
+    [h.Class("prd-body")],
+    Array.prepend(
+      Array.map(bodySections, (section) =>
+        sectionView(
+          trace,
+          document,
+          section,
+          maybeCurrent,
+          maybePinned,
+          maybeCopied,
+          searchOf,
+          readers,
+          hooks,
+          h,
+        ),
       ),
-    ],
+      headerView(trace, document, maybeTitle, maybeCopied, searchOf, readers, hooks, h),
+    ),
   );
 };
 
@@ -359,7 +451,12 @@ export const prdPaneView = (
       h.AriaLabel("PRD"),
       h.DataAttribute("prd-pane", ""),
       h.OnMount(TrackPrdScroll()),
-      h.Style({ "min-height": "0", "overflow-y": "auto" }),
+      h.Style({
+        "min-height": "0",
+        "min-width": "0",
+        "overflow-x": "hidden",
+        "overflow-y": "auto",
+      }),
     ],
     [
       prdBodyLazy(prdBodyView, [

@@ -131,7 +131,7 @@ const stackView = (
     ),
     [
       h.div(
-        [h.Style({ display: "grid", gap: "4px", "justify-items": "start" })],
+        [h.Class("stack-grid")],
         Array.map(
           Array.filter(trace.tasks, (task) => Record.has(stack.cells, task.id)),
           (task) =>
@@ -163,33 +163,31 @@ export const summaryOf = (trace: Trace, current: HashSet.HashSet<string>): strin
   return `${holding} of ${Array.length(stacks)} stacks hold this section · ${counts.done} of ${counts.tasks} tasks done`;
 };
 
-const swatchView = (
+const dotLegendView = (text: string, status: SectionStatus, h: HtmlBuilder<Message>): Html =>
+  h.span([h.Class("stacks-legend-item")], [dotView(status, h), text]);
+
+const swatchLegendView = (
   text: string,
-  status: SectionStatus,
   attributes: ReadonlyArray<Attribute<Message>>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.span(
-    [h.Style({ "align-items": "center", display: "inline-flex", gap: "4px" })],
-    [h.span(Array.prepend(attributes, h.Class("chip")), [dotView(status, h)]), text],
+    [h.Class("stacks-legend-item")],
+    [h.span(Array.prepend(attributes, h.Class("swatch"))), text],
   );
 
-/** The legend's colours: the three models Cairn colours, and any other. */
-const MODEL_ENTRIES: ReadonlyArray<string> = ["opus", "sonnet", "haiku", "other"];
+/** The legend's colours: the three models Cairn colours. */
+const MODEL_ENTRIES: ReadonlyArray<string> = ["opus", "sonnet", "haiku"];
 
 const modelLegendView = (model: string, h: HtmlBuilder<Message>): Html =>
-  h.span(
-    [h.Style({ "align-items": "center", display: "inline-flex", gap: "4px" })],
+  swatchLegendView(
+    model,
     [
-      h.span([
-        h.Class("chip"),
-        h.DataAttribute("legend-model", model),
-        // "other" is a name no model has a rule for, so it takes the grey.
-        h.DataAttribute("model", model),
-        h.DataAttribute("ran", "true"),
-      ]),
-      model,
+      h.DataAttribute("legend-model", model),
+      h.DataAttribute("model", model),
+      h.DataAttribute("ran", "true"),
     ],
+    h,
   );
 
 /** Over the diagram, held to the top of the pane: the count and the legend. */
@@ -200,34 +198,25 @@ const overviewView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
+    [h.Class("stacks-top"), h.DataAttribute("stacks-summary", "")],
     [
-      h.DataAttribute("stacks-summary", ""),
-      h.Style({
-        background: "var(--bg)",
-        display: "grid",
-        gap: "4px",
-        padding: "8px 12px",
-        position: "sticky",
-        top: "0",
-        "z-index": "1",
-      }),
-    ],
-    [
-      h.p([h.Style({ margin: "0" })], [summaryOf(trace, current)]),
+      h.div([h.Class("col-head")], [labelView(`Stacks · ${summaryOf(trace, current)}`, h)]),
       h.div(
-        [
-          h.DataAttribute("legend", ""),
-          h.Style({ display: "flex", "flex-wrap": "wrap", gap: "4px 12px" }),
-        ],
+        [h.Class("stacks-legend"), h.DataAttribute("legend", "")],
         Array.flatten([
-          [labelView("Legend", h)],
-          isShowingModels
-            ? Array.map(MODEL_ENTRIES, (model) => modelLegendView(model, h))
-            : [swatchView("done", "done", [h.DataAttribute("done", "")], h)],
           [
-            swatchView("pending", "pending", [], h),
-            swatchView("in this section", "pending", [h.DataAttribute("current", "")], h),
-            swatchView("a human gate", "blocked_on_human", [h.DataAttribute("gated", "")], h),
+            dotLegendView("done", "done", h),
+            dotLegendView("pending", "pending", h),
+            swatchLegendView("in this section", [h.DataAttribute("current", "")], h),
+          ],
+          isShowingModels
+            ? Array.append(
+                Array.map(MODEL_ENTRIES, (model) => modelLegendView(model, h)),
+                h.span([], ["lo · med · hi · xhi = reasoning"]),
+              )
+            : [swatchLegendView("done", [h.DataAttribute("done", "")], h)],
+          [
+            h.span([h.Class("stacks-gate-note")], ["red = human gate"]),
             h.span([], ["read up from main"]),
           ],
         ]),
@@ -260,42 +249,20 @@ export const stackChipsView = (
   );
   return h.div(
     [
+      h.Class("stacks-pane"),
       h.Role("region"),
       h.AriaLabel("Stacks"),
       h.DataAttribute("stacks-pane", ""),
       h.OnMount(ScrollStacksToBottom()),
-      h.Style({
-        display: "flex",
-        "flex-direction": "column",
-        "min-height": "0",
-        "overflow-y": "auto",
-      }),
     ],
     [
       overviewView(trace, current, isShowingModels, h),
       h.div(
-        [
-          h.DataAttribute("stacks", ""),
-          h.Style({
-            display: "flex",
-            "flex-direction": "column",
-            gap: "24px",
-            "margin-top": "auto",
-            padding: "12px",
-          }),
-        ],
+        [h.Class("stacks-list"), h.DataAttribute("stacks", "")],
         Array.map(levels, (row) =>
           h.keyed("div")(
             `level-${Array.headNonEmpty(row).level}`,
-            [
-              h.DataAttribute("level", `${Array.headNonEmpty(row).level}`),
-              h.Style({
-                "align-items": "flex-end",
-                display: "flex",
-                "flex-wrap": "wrap",
-                gap: "12px",
-              }),
-            ],
+            [h.Class("stacks-level"), h.DataAttribute("level", `${Array.headNonEmpty(row).level}`)],
             Array.map(row, (stack) =>
               stackView(
                 trace,

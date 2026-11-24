@@ -15,6 +15,37 @@
   height: 52px;
   padding: 0 20px;
   border-bottom: var(--line) solid var(--hair);
+  background-color: var(--bg);
+  min-width: 0;
+}
+
+.topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.topbar [data-feature] {
+  flex: none;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.topbar [role="status"] {
+  min-width: 0;
+  margin: 0 0 0 auto;
+  color: var(--muted);
+  font-size: var(--t-s);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar > .btn,
+.topbar > .seg {
+  flex: none;
+  white-space: nowrap;
 }
 
 .label {
@@ -127,6 +158,7 @@
 
 .seg {
   display: inline-flex;
+  flex: none;
   overflow: hidden;
   border: var(--line) solid var(--ink);
   border-radius: var(--r-m);
@@ -137,6 +169,7 @@
   padding: 3px 9px;
   border-inline-end: var(--line) solid var(--ink);
   font-size: var(--t-s);
+  white-space: nowrap;
   transition: background-color var(--d-fade) ease-out;
 }
 
@@ -147,6 +180,7 @@
 .seg > button[aria-pressed="true"],
 .seg > button[aria-current="page"] {
   background-color: var(--green);
+  font-weight: 600;
 }
 
 /* The seg clips its buttons, so the focus ring sits inside them. */
@@ -170,10 +204,16 @@
   color: var(--ink);
   font-size: var(--t-s);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   transition:
     opacity var(--d-fade) ease-out,
     background-color var(--d-fade) ease-out,
-    border-color var(--d-fade) ease-out;
+    border-color var(--d-fade) ease-out,
+    transform var(--d-press) var(--ease);
+}
+
+button.chip:active {
+  transform: scale(0.95);
 }
 
 .chip[data-done] {
@@ -196,14 +236,26 @@
   background-color: var(--m-haiku);
 }
 
-/* A small square for one task in a card's header; it takes the chip's model colours and border. */
+/* A small square for one task in a card's header or a legend entry; always framed in ink. */
 .swatch {
   display: inline-block;
+  flex: none;
   width: 10px;
   height: 10px;
-  border: var(--line) solid var(--edge);
-  border-radius: var(--r-s);
+  border: var(--line) solid var(--ink);
+  border-radius: 2px;
   background-color: var(--m-other);
+}
+
+.swatch[data-done] {
+  background-color: var(--green);
+  border-color: var(--done);
+}
+
+.swatch[data-current] {
+  background-color: var(--raised);
+  border-color: var(--ink);
+  box-shadow: var(--lift);
 }
 
 .swatch[data-model="opus"] {
@@ -218,20 +270,18 @@
   background-color: var(--m-haiku);
 }
 
-.swatch[data-ran="true"] {
-  border-color: var(--ink);
-}
-
-.swatch[data-ran="false"] {
-  border-style: dashed;
-}
-
 .chip[data-ran="true"] {
   border-color: var(--ink);
 }
 
 .chip[data-ran="false"] {
+  border-color: var(--ink);
   border-style: dashed;
+}
+
+.chip[data-gated] {
+  border-color: var(--blocked);
+  color: var(--blocked-ink);
 }
 
 .chip[data-current] {
@@ -240,12 +290,8 @@
   font-weight: 700;
 }
 
-.chip[data-gated] {
-  border-color: var(--blocked);
-}
-
 .chip[data-faded] {
-  opacity: 0.45;
+  opacity: 0.55;
 }
 
 /* Outside the hovered chain: a card, a row or a chip is dimmed while a node is hovered. */
@@ -277,8 +323,26 @@
   background-color: var(--tint);
 }
 
+.row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-count {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* The card of strays is data-strays on the card: its head is --prd. */
 .card {
+  min-width: 0;
+  overflow: hidden;
   border: var(--line) solid var(--ink);
   border-radius: var(--r-l);
   background-color: var(--card);
@@ -290,12 +354,10 @@
 .card-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 8px 11px;
   border-bottom: var(--line) solid var(--ink);
-  border-radius: calc(var(--r-l) - var(--line)) calc(var(--r-l) - var(--line)) 0 0;
   background-color: var(--spec);
   font-size: var(--t-l);
   font-weight: 700;
@@ -303,23 +365,119 @@
   text-align: left;
 }
 
-.card[data-strays] > .card-head {
-  background-color: var(--prd);
+.card-head:last-child {
+  border-bottom: 0;
+}
+
+.card-head:focus-visible {
+  outline-offset: -2px;
+}
+
+.card-head > .tag {
+  background-color: var(--raised);
+}
+
+.card-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-mix {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+}
+
+.card-count {
+  flex: none;
+  font-size: var(--t-s);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.card-arrow {
+  flex: none;
+  color: var(--ink-soft);
+  font-weight: 400;
+  transition: transform var(--d-press) var(--ease);
+}
+
+.card-head[aria-expanded="true"] > .card-arrow {
+  transform: rotate(90deg);
 }
 
 .card-body {
-  padding: 8px 12px;
+  min-width: 0;
+  padding: 8px 11px;
   color: var(--ink-soft);
   font-size: var(--t-s);
+  line-height: 1.45;
+  overflow-wrap: break-word;
+}
+
+.card-body > code {
+  padding: 1px 4px;
+  border-radius: var(--r-s);
+  background-color: var(--tint);
+  color: var(--ink);
+  font-size: 0.92em;
+}
+
+.card-meta {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: var(--t-xs);
+  overflow-wrap: anywhere;
 }
 
 .card-body .prose {
   font-size: var(--t-l);
+  line-height: 1.55;
+}
+
+.card-body .prose pre {
+  font-size: var(--t-s);
+}
+
+.card-body .prose table {
+  font-size: var(--t-m);
+}
+
+.card-body .prose > .markdown > :last-child {
+  margin-bottom: 0;
 }
 
 .card-tasks {
-  padding: 4px;
+  padding: 5px;
   border-top: var(--line) solid var(--ink);
+}
+
+.card-head + .card-tasks {
+  border-top: 0;
+}
+
+.card-tasks:empty {
+  display: none;
+}
+
+.card-tasks .row {
+  gap: 7px;
+}
+
+.card-tasks .tag {
+  min-width: 30px;
+  text-align: center;
+}
+
+.card-tasks .chip {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-size: var(--t-xs);
 }
 
 /* The stack's number is a label, the last thing in the box, under a rule. */
@@ -333,7 +491,8 @@
 
 .stack > .label {
   margin-top: 3px;
-  border-top: var(--line) solid var(--hair);
+  border-top: var(--line) solid var(--edge);
+  line-height: 1.3;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -345,14 +504,45 @@
 }
 
 .stack[data-current] > .label {
+  border-top-color: var(--ink);
   color: var(--ink);
   font-weight: 700;
+}
+
+.stack .chip {
+  height: 21px;
+  padding: 0 6px;
+  border-color: var(--edge);
+  border-style: solid;
+  border-radius: 5px;
+  font-size: var(--t-xs);
+  line-height: 1;
+}
+
+.stack .chip[data-gated] {
+  border-color: var(--blocked);
+}
+
+.stack .chip[data-current] {
+  border-color: var(--ink);
+}
+
+.stack .chip > .dot {
+  width: 6px;
+  height: 6px;
+}
+
+.stack .chip [data-model-mark] {
+  font-weight: 400;
+  opacity: 0.75;
 }
 
 .base-bar {
   position: sticky;
   bottom: 0;
-  padding: 4px 0;
+  z-index: 1;
+  margin-top: 2px;
+  padding: 4px 0 12px;
   border-top: 3px solid var(--ink);
   background-color: var(--bg);
   font-size: var(--t-s);
@@ -405,6 +595,26 @@
 .divider:focus-visible::before,
 .divider[data-dragging]::before {
   opacity: 1;
+}
+
+.divider[data-divider="spec"]::after,
+.divider[data-divider="detail"]::after {
+  left: 50%;
+  background-color: transparent;
+}
+
+.divider[data-divider="spec"]::before,
+.divider[data-divider="detail"]::before {
+  left: 50%;
+}
+
+.divider[data-divider="spec"]:hover::after,
+.divider[data-divider="spec"]:focus-visible::after,
+.divider[data-divider="spec"][data-dragging]::after,
+.divider[data-divider="detail"]:hover::after,
+.divider[data-divider="detail"]:focus-visible::after,
+.divider[data-divider="detail"][data-dragging]::after {
+  background-color: var(--ink);
 }
 
 .panel {
@@ -568,8 +778,15 @@
 /* In the reader's top bar the results float over the panes instead of growing the bar. */
 .reader .topbar .search-box {
   position: relative;
-  flex: 0 1 320px;
+  flex: 0 1 280px;
+  min-width: 140px;
   margin: 0;
+}
+
+.reader .topbar .search-box input {
+  padding: 3px 10px;
+  font-size: var(--t-s);
+  line-height: 1.5;
 }
 
 .reader .topbar .search-list {
@@ -640,4 +857,253 @@ mark[data-search-match] {
   margin: 8px 0;
   border-radius: var(--r-m);
   background-color: var(--card);
+}
+
+/* The PRD pane: paper document header, monospace section headings, quiet ID badge and active bar. */
+.prd-body {
+  min-width: 0;
+  padding: 0 34px 140px;
+}
+
+.prd-head {
+  padding: 36px 0 14px;
+}
+
+.prd-crumb {
+  color: var(--muted);
+  font-size: var(--t-s);
+}
+
+.prd-doc-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 8px 0 10px;
+  font-size: var(--t-3xl);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.prd-doc-heading {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+}
+
+.prd-doc-title:not([data-searched]) > .prd-id {
+  display: none;
+}
+
+.prd-prog {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: var(--t-s);
+  font-variant-numeric: tabular-nums;
+}
+
+.prd-sec {
+  position: relative;
+  padding: 22px 0 6px;
+  border-top: var(--line) solid var(--hair);
+}
+
+.prd-sec[data-depth="3"],
+.prd-sec[data-depth="4"],
+.prd-sec[data-depth="5"],
+.prd-sec[data-depth="6"] {
+  padding-top: 8px;
+  border-top: 0;
+}
+
+.prd-sec:has(> [data-current])::before {
+  content: "";
+  position: absolute;
+  top: 22px;
+  bottom: 8px;
+  left: -18px;
+  width: 3px;
+  border-radius: 2px;
+  background-color: var(--ink);
+}
+
+.prd-sec[data-depth="3"]:has(> [data-current])::before,
+.prd-sec[data-depth="4"]:has(> [data-current])::before,
+.prd-sec[data-depth="5"]:has(> [data-current])::before,
+.prd-sec[data-depth="6"]:has(> [data-current])::before {
+  top: 8px;
+}
+
+.prd-sec-head {
+  margin: 0 0 12px;
+  scroll-margin-top: 22px;
+}
+
+.prd-sh {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+
+.prd-title {
+  margin: 0;
+  font-size: var(--t-2xl);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.prd-title[data-depth="3"],
+.prd-title[data-depth="4"],
+.prd-title[data-depth="5"],
+.prd-title[data-depth="6"] {
+  font-size: var(--t-xl);
+}
+
+.prd-id {
+  padding: 1px 6px;
+  border: 1px dashed var(--hair);
+  border-radius: var(--r-s);
+  color: var(--muted);
+  font-size: var(--t-xs);
+  font-weight: 400;
+  letter-spacing: 0;
+  transition:
+    transform var(--d-press) var(--ease),
+    color var(--d-fade) ease-out,
+    border-color var(--d-fade) ease-out;
+}
+
+.prd-id:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.prd-id:active {
+  transform: scale(0.97);
+}
+
+.prd-covnote {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--t-s);
+}
+
+.prd-pinrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prd-pinrow > .btn {
+  gap: 8px;
+  padding: 5px 10px;
+}
+
+/* The spec pane: header bar and stacked cards, constrained to the pane's width. */
+.spec-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 14px 4px 96px;
+}
+
+.spec-col > .col-head {
+  margin-bottom: -4px;
+}
+
+.col-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 26px;
+}
+
+.col-head > .label {
+  flex: 1;
+  min-width: 0;
+}
+
+.spec-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--t-s);
+}
+
+/* The stacks pane: sticky summary and compact legend over bottom-aligned stack levels. */
+.stacks-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 18px 0 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.stacks-top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0 6px;
+  background-color: var(--bg);
+}
+
+.stacks-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--muted);
+  font-size: var(--t-xs);
+}
+
+.stacks-legend .swatch {
+  border-radius: 3px;
+}
+
+.stacks-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.stacks-gate-note {
+  color: var(--blocked-ink);
+  white-space: nowrap;
+}
+
+.stacks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.stacks-level {
+  display: flex;
+  flex-wrap: wrap-reverse;
+  align-items: flex-end;
+  gap: 10px 7px;
+}
+
+.stack-grid {
+  display: grid;
+  gap: 3px;
+  justify-items: start;
 }

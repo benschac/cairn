@@ -96,6 +96,7 @@ export const pressOnDivider =
 export const dividerView = (pane: Pane, widths: Widths, h: HtmlBuilder<Message>): Html => {
   const { max, min } = limitsOf(pane);
   return h.div([
+    h.Class("divider"),
     h.Role("separator"),
     h.AriaOrientation("vertical"),
     h.AriaLabel(labelOf(pane)),
@@ -109,9 +110,6 @@ export const dividerView = (pane: Pane, widths: Widths, h: HtmlBuilder<Message>)
       Option.map(dividerKeyOf(key), (arrow) => Message.PressedArrowOnDivider({ key: arrow, pane })),
     ),
     h.Style({
-      background: "linear-gradient(var(--hair), var(--hair)) center / var(--line) 100% no-repeat",
-      cursor: "col-resize",
-      "touch-action": "none",
       "user-select": "none",
       width: `${handleWidthOf(pane)}px`,
     }),
