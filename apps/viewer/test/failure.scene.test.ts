@@ -69,6 +69,7 @@ it("a closed presence connection says so and drops the stale participants", () =
               id: ParticipantId.make("p2"),
               kind: "agent",
               name: "Planner",
+              reading: Option.none(),
             },
           ],
           you: ParticipantId.make("p1"),

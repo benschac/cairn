@@ -1,14 +1,29 @@
-import { Cursor, ParticipantId } from "@cairn/contract";
+import { Cursor, ParticipantId, PrdSectionId } from "@cairn/contract";
 import { it } from "@effect/vitest";
-import { Option, Schema } from "effect";
-import { Mount, Subscription, expect, given, role, scene, selector } from "foldkit/scene";
+import { Array, Option, Schema } from "effect";
+import { modifyFields } from "foldkit/struct";
+import {
+  Mount,
+  Subscription,
+  all,
+  expect,
+  expectAll,
+  given,
+  role,
+  scene,
+  selector,
+} from "foldkit/scene";
 
 import { PanZoomCanvas, transformOf } from "../src/canvas.ts";
 import { Viewport } from "../src/geometry.ts";
 import { Message } from "../src/message.ts";
+import { Screen } from "../src/model.ts";
 import { update } from "../src/update.ts";
+import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
+import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
+import { MeasureWires } from "../src/view/wiresView.ts";
 import { view } from "../src/view/view.ts";
-import { layerMounted, loaded, paneSize } from "./fixtures.ts";
+import { layerMounted, loaded, paneSize, unmeasuredWires } from "./fixtures.ts";
 
 const presenceWith = (agentCursor: Cursor) =>
   Message.ReceivedPresence({
@@ -19,14 +34,22 @@ const presenceWith = (agentCursor: Cursor) =>
           id: ParticipantId.make("p1"),
           kind: "human",
           name: "Ada",
+          reading: Option.none(),
         },
         {
           cursor: Option.some(agentCursor),
           id: ParticipantId.make("p2"),
           kind: "agent",
           name: "Planner",
+          reading: Option.none(),
         },
-        { cursor: Option.none(), id: ParticipantId.make("p3"), kind: "human", name: "Grace" },
+        {
+          cursor: Option.none(),
+          id: ParticipantId.make("p3"),
+          kind: "human",
+          name: "Grace",
+          reading: Option.none(),
+        },
       ],
       you: ParticipantId.make("p1"),
     },
@@ -73,3 +96,85 @@ it.prop(
   // Each run renders the whole demo trace, so a few runs cover it.
   { arbitrary: { runs: 10 }, timeout: 30_000 },
 );
+
+/** The reader open on the demo trace, as the Plan button leaves it. */
+const reader = modifyFields(loaded, { screen: () => Screen.Reader() });
+
+const goal = PrdSectionId.make("prd.goal");
+const viewer = PrdSectionId.make("prd.viewer");
+
+const participant = (
+  id: string,
+  kind: "agent" | "human",
+  name: string,
+  reading: Option.Option<PrdSectionId>,
+) => ({ cursor: Option.none(), id: ParticipantId.make(id), kind, name, reading });
+
+/** A room as the server sends it to p1, who is Ada. */
+const roomWith = (...others: ReadonlyArray<ReturnType<typeof participant>>) =>
+  Message.ReceivedPresence({
+    presence: {
+      participants: Array.prepend(others, participant("p1", "human", "Ada", Option.some(goal))),
+      you: ParticipantId.make("p1"),
+    },
+  });
+
+const mountedReader = Mount.resolveAll(
+  [TrackPrdScroll, Message.ScrolledPrd({ id: goal })],
+  [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+  [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
+);
+
+/** The chips beside a PRD heading, one for each other participant reading that section. */
+const chipsAt = (id: string) => selector(`[data-prd-pane] [data-section="${id}"] [data-reading]`);
+
+const chipCount = (id: string) =>
+  expectAll(all.selector(`[data-prd-pane] [data-section="${id}"] [data-reading]`));
+
+it("each other participant's label shows beside the heading they are reading, and moves with them", () => {
+  scene(
+    { update, view },
+    given(reader),
+    mountedReader,
+    chipCount(goal).toHaveCount(0),
+    Subscription.emit(
+      roomWith(
+        participant("p2", "agent", "Planner", Option.some(goal)),
+        participant("p3", "human", "Grace", Option.some(viewer)),
+        participant("p4", "human", "Lin", Option.none()),
+      ),
+    ),
+    // Ada is you and is reading prd.goal too, so you get no chip for yourself.
+    expect(chipsAt(goal)).toHaveText("Planner (agent)"),
+    chipCount(goal).toHaveCount(1),
+    expect(chipsAt(viewer)).toHaveText("Grace"),
+    chipCount(viewer).toHaveCount(1),
+    expect(role("status")).toHaveText("Here now: Planner (agent), Grace, Lin"),
+    Subscription.emit(
+      roomWith(
+        participant("p2", "agent", "Planner", Option.some(viewer)),
+        participant("p3", "human", "Grace", Option.some(viewer)),
+      ),
+    ),
+    chipCount(goal).toHaveCount(0),
+    chipCount(viewer).toHaveCount(2),
+  );
+});
+
+it("two participants on one section show two chips, each with its own label", () => {
+  scene(
+    { update, view },
+    given(reader),
+    mountedReader,
+    Subscription.emit(
+      roomWith(
+        participant("p2", "human", "Grace", Option.some(viewer)),
+        participant("p3", "agent", "Planner", Option.some(viewer)),
+      ),
+    ),
+    chipCount(viewer).toHaveCount(2),
+    expect(selector('[data-prd-pane] [data-reading="p2"]')).toHaveText("Grace"),
+    expect(selector('[data-prd-pane] [data-reading="p3"]')).toHaveText("Planner (agent)"),
+    chipCount(goal).toHaveCount(0),
+  );
+});

@@ -36,6 +36,15 @@ export const roomMachine = setupEffect({
             ),
           },
         }),
+        read: ({ context, event }) => ({
+          context: {
+            participants: Array.map(context.participants, (participant) =>
+              participant.id === event.id
+                ? Struct.evolve(participant, { reading: () => Option.some(event.section) })
+                : participant,
+            ),
+          },
+        }),
       },
     },
   },

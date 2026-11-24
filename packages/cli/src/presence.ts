@@ -1,12 +1,27 @@
-import { CursorJson, ParticipantId, ParticipantKind, PresenceJson } from "@cairn/contract";
+import {
+  ClientFrameJson,
+  Reading,
+  ParticipantId,
+  ParticipantKind,
+  PresenceJson,
+} from "@cairn/contract";
+import type { Cursor } from "@cairn/contract";
 import { roomMachine } from "@cairn/core";
 import { createEffectActor, send, snapshots } from "@xstate/effect";
 import type { EffectActor } from "@xstate/effect";
-import { Context, Effect, Layer, Number, Option, Ref, Schema, Stream } from "effect";
+import { Context, Effect, Layer, Match, Number, Option, Ref, Schema, Stream } from "effect";
 import type { Scope } from "effect";
 import { HttpRouter, HttpServerResponse } from "effect/http";
 
-const decodeCursor = Schema.decodeUnknownEffect(CursorJson);
+const decodeFrame = Schema.decodeUnknownEffect(ClientFrameJson);
+const isReading = Schema.is(Reading);
+
+/** The room's event for what a participant sent: a reading, or else a cursor. */
+const eventOf = (id: ParticipantId) => (frame: Cursor | Reading) =>
+  Match.value(frame).pipe(
+    Match.when(isReading, ({ reading }) => ({ id, section: reading, type: "read" as const })),
+    Match.orElse((cursor) => ({ cursor, id, type: "moved" as const })),
+  );
 const encodePresence = Schema.encodeEffect(PresenceJson);
 
 /** The query a client connects with. A missing or unusable value falls back instead of refusing the client. */
@@ -44,6 +59,7 @@ export class Room extends Context.Service<
               id,
               kind,
               name: Option.getOrElse(name, () => `Guest ${n}`),
+              reading: Option.none(),
             },
             type: "joined",
           }),
@@ -79,9 +95,12 @@ export const PresenceRoute = HttpRouter.add("GET", "/presence", (request) =>
         Effect.forEach(
           frames,
           (frame) =>
-            decodeCursor(frame).pipe(
-              Effect.flatMap((cursor) => send(room.actor, { cursor, id, type: "moved" })),
-              Effect.ignore({ log: "Debug", message: "Ignored a frame that is not a cursor" }),
+            decodeFrame(frame).pipe(
+              Effect.flatMap((sent) => send(room.actor, eventOf(id)(sent))),
+              Effect.ignore({
+                log: "Debug",
+                message: "Ignored a frame that is not a cursor or a reading",
+              }),
             ),
           { discard: true },
         ),

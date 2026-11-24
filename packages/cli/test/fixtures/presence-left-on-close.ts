@@ -5,7 +5,7 @@ const joined = (kind: "agent" | "human", name: string) =>
   ({
     caseId: '["event-case","joined","default"]',
     event: {
-      participant: { cursor: Option.none(), id: "bo", kind, name },
+      participant: { cursor: Option.none(), id: "bo", kind, name, reading: Option.none() },
       type: "joined",
     },
     origin: "generator",

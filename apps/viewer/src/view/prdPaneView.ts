@@ -1,4 +1,6 @@
 import {
+  type Participant,
+  type ParticipantId,
   PrdSectionId,
   type SectionId,
   type SectionStatus,
@@ -37,6 +39,7 @@ import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
 import { sectionStatusOf, type Node } from "../trace.ts";
 import { dotView } from "../ui/marks.ts";
 import { prdKey } from "../wires.ts";
+import { labelOf } from "./cursorsView.ts";
 import { fieldView, matchView, searchedAttributesOf } from "./nodeView.ts";
 
 /** How far below the pane's top the line is that decides which section is being read. */
@@ -183,6 +186,44 @@ const idButtonView = (
     isCopied ? ["copied"] : fieldView(search, "id", id, h),
   );
 
+/**
+ * A chip for each other participant reading the section, beside its heading: their label, as the
+ * top bar's "Here now" has it. Two readers on one section show two chips; nobody shows none.
+ */
+const readersView = (
+  id: PrdSectionId,
+  participants: ReadonlyArray<Participant>,
+  maybeYou: Option.Option<ParticipantId>,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> => {
+  const readers = Array.filter(
+    participants,
+    (participant) =>
+      !Option.contains(maybeYou, participant.id) && Option.contains(participant.reading, id),
+  );
+  return Array.match(readers, {
+    onEmpty: () => [],
+    onNonEmpty: (present) => [
+      h.span(
+        [
+          h.DataAttribute("readers", id),
+          h.Style({ display: "inline-flex", gap: "4px", "margin-left": "8px" }),
+        ],
+        Array.map(present, (participant) =>
+          h.span(
+            [
+              h.Class("chip"),
+              h.DataAttribute("reading", participant.id),
+              h.Title(`${labelOf(participant)} is reading this section`),
+            ],
+            [labelOf(participant)],
+          ),
+        ),
+      ),
+    ],
+  });
+};
+
 /** The title over the document, and how many of the plan's tasks are done, with a meter. */
 const headerView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
   const counts = planCountsOf(trace);
@@ -236,6 +277,8 @@ const prdBodyView = (
   maybeCopied: Option.Option<PrdSectionId>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
+  participants: ReadonlyArray<Participant>,
+  maybeYou: Option.Option<ParticipantId>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const searchOf = (sectionId: SectionId) =>
@@ -258,7 +301,10 @@ const prdBodyView = (
       Array.fromOption(Option.liftPredicate(sectionId, isPrdSection)),
       (id): ReadonlyArray<Html> =>
         Array.appendAll(
-          [idButtonView(id, Option.contains(maybeCopied, id), searchOf(id), h)],
+          Array.prepend(
+            readersView(id, participants, maybeYou, h),
+            idButtonView(id, Option.contains(maybeCopied, id), searchOf(id), h),
+          ),
           // The document's title is not a section a reader is on, so it has no status line.
           Option.exists(levelOf(trace, id), (section) => section.level === 1)
             ? []
@@ -295,8 +341,8 @@ const prdBodyView = (
 };
 
 /**
- * One slot: the body is rebuilt only when the trace, the current section, the pin, the copied ID or
- * the search changes, so a measurement or a hover never renders the document again, and a query
+ * One slot: the body is rebuilt only when the trace, the current section, the pin, the copied ID,
+ * the search or the room changes, so a measurement or a hover never renders the document again, and a query
  * only matches and marks: the parsed document is shared.
  */
 const prdBodyLazy = createLazy();
@@ -312,6 +358,8 @@ export const prdPaneView = (
   maybeCopied: Option.Option<PrdSectionId>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
+  participants: ReadonlyArray<Participant>,
+  maybeYou: Option.Option<ParticipantId>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
@@ -330,6 +378,8 @@ export const prdPaneView = (
         maybeCopied,
         results,
         maybeActive,
+        participants,
+        maybeYou,
         h,
       ]),
     ],

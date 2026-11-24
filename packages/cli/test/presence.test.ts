@@ -1,6 +1,13 @@
 import { createServer } from "node:http";
 
-import { Cursor, CursorJson, ParticipantKind, PresenceJson } from "@cairn/contract";
+import {
+  Cursor,
+  CursorJson,
+  ParticipantKind,
+  PrdSectionId,
+  PresenceJson,
+  ReadingJson,
+} from "@cairn/contract";
 import type { Presence } from "@cairn/contract";
 import { NodeHttpServer, NodeSocket } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
@@ -22,6 +29,7 @@ const Server = HttpRouter.serve(PresenceRoute, {
 const decodePresence = Schema.decodeUnknownEffect(PresenceJson);
 const encodeCursor = Schema.encodeEffect(CursorJson);
 const decodeCursor = Schema.decodeEffect(CursorJson);
+const encodeReading = Schema.encodeEffect(ReadingJson);
 
 // The room keeps cursors on the surface, so a cursor already on it arrives unchanged.
 const OnSurface = Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 }));
@@ -48,7 +56,10 @@ const join = Effect.fn("join")(function* (query: string) {
   // Sends a cursor and returns it as the wire carries it: JSON turns -0 into 0.
   const moves = (cursor: Cursor) =>
     encodeCursor(cursor).pipe(Effect.tap(writer.write), Effect.flatMap(decodeCursor));
-  return { moves, sees, writer };
+  // Sends the section this client is reading.
+  const reads = (reading: PrdSectionId) =>
+    encodeReading({ reading }).pipe(Effect.flatMap(writer.write));
+  return { moves, reads, sees, writer };
 });
 
 const someoneMoved = (presence: Presence) =>
@@ -71,8 +82,8 @@ it.live.prop(
         expect(
           Array.map(seen.participants, (participant) => Struct.omit(participant, ["id"])),
         ).toEqual([
-          { cursor: Option.none(), kind: "human", name: "Planner" },
-          { cursor: Option.some(sent), kind, name: "Ada" },
+          { cursor: Option.none(), kind: "human", name: "Planner", reading: Option.none() },
+          { cursor: Option.some(sent), kind, name: "Ada", reading: Option.none() },
         ]);
       }).pipe(Effect.scoped);
 
@@ -94,7 +105,57 @@ it.live("a client without a usable name or kind joins as a numbered human guest"
         id: seen.you,
         kind: "human",
         name: `Guest ${String.slice(1)(seen.you)}`,
+        reading: Option.none(),
       },
+    ]);
+  }).pipe(Effect.provide(Server)),
+);
+
+/** What the named participant is reading in a room, if they are in it. */
+const readingOf = (name: string) => (presence: Presence) =>
+  Array.findFirst(presence.participants, (participant) => participant.name === name).pipe(
+    Option.flatMap((participant) => participant.reading),
+  );
+
+const someoneReads = (presence: Presence) =>
+  Array.some(presence.participants, (participant) => Option.isSome(participant.reading));
+
+it.live.prop(
+  "a participant sees what another is reading, and the next section replaces it",
+  { first: PrdSectionId, second: PrdSectionId },
+  ({ first, second }) =>
+    Effect.gen(function* () {
+      const planner = yield* join("name=Planner");
+      const ada = yield* join("name=Ada");
+
+      yield* ada.reads(first);
+      const seen = yield* planner.sees((presence) => Option.isSome(readingOf("Ada")(presence)));
+      expect(readingOf("Ada")(seen)).toEqual(Option.some(first));
+      // Only the one who sent it is reading, and nobody's cursor moved.
+      expect(readingOf("Planner")(seen)).toEqual(Option.none());
+      expect(
+        Array.some(seen.participants, (participant) => Option.isSome(participant.cursor)),
+      ).toBe(false);
+
+      yield* ada.reads(second);
+      const later = yield* planner.sees((presence) =>
+        Option.contains(readingOf("Ada")(presence), second),
+      );
+      expect(readingOf("Ada")(later)).toEqual(Option.some(second));
+    }).pipe(Effect.provide(Server)),
+);
+
+it.live("a frame that names no PRD section is not a reading", () =>
+  Effect.gen(function* () {
+    const planner = yield* join("name=Planner");
+    const ada = yield* join("name=Ada");
+    yield* ada.writer.write('{"reading":"spec.format"}');
+    yield* ada.writer.write('{"reading":3}');
+    yield* ada.reads(PrdSectionId.make("prd.goal"));
+    // Frames arrive in order, so once the good one shows the two before it were dropped.
+    const seen = yield* planner.sees(someoneReads);
+    expect(Array.getSomes(Array.map(seen.participants, ({ reading }) => reading))).toEqual([
+      "prd.goal",
     ]);
   }).pipe(Effect.provide(Server)),
 );
