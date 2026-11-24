@@ -1,4 +1,4 @@
-import { Effect, Number, Schema } from "effect";
+import { Effect, Number, Predicate, Schema } from "effect";
 
 /** The high-trust paths the PRD's human gate uses by default (`prd.human-gates`). */
 const HUMAN_PATHS = [
@@ -20,10 +20,49 @@ const JUDGE_MODELS = {
   opus: "Logic where a subtle bug costs a lot: derivation, ordering, redaction, concurrency",
 };
 
-const Planner = Schema.Struct({
+/**
+ * The planner's fields (`spec.contract.config`). `source` picks the agent CLI on the person's
+ * machine or an API key. `cli` is read when `source` is "cli", and `provider` when it is "api".
+ * `model` has no default: undefined leaves the choice to the CLI.
+ */
+const PlannerFields = Schema.Struct({
   baseUrl: Schema.optionalKey(Schema.String),
-  model: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed("claude-opus-5-5"))),
+  cli: Schema.Literals(["claude", "codex"]).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed("claude" as const)),
+  ),
+  keyEnv: Schema.optionalKey(Schema.String),
+  model: Schema.optionalKey(Schema.String),
+  provider: Schema.Literals(["anthropic", "openai", "openrouter", "openai-compatible"]).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed("anthropic" as const)),
+  ),
+  small: Schema.optionalKey(Schema.String),
+  source: Schema.Literals(["cli", "api"]).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed("cli" as const)),
+  ),
 });
+
+/** `planner.model` is required when `planner.source` is "api". */
+const apiNeedsModel = Schema.makeFilter<typeof PlannerFields.Type>(({ model, source }) =>
+  source === "api" && Predicate.isUndefined(model)
+    ? "planner.model is required when planner.source is api"
+    : undefined,
+);
+
+/**
+ * `planner.baseUrl` is required when the provider is "openai-compatible". The provider is only
+ * read when `planner.source` is "api", so the rule applies only then: a CLI planner ignores it.
+ */
+const compatibleNeedsBaseUrl = Schema.makeFilter<typeof PlannerFields.Type>(
+  ({ baseUrl, provider, source }) =>
+    source === "api" && provider === "openai-compatible" && Predicate.isUndefined(baseUrl)
+      ? "planner.baseUrl is required when planner.source is api and planner.provider is openai-compatible"
+      : undefined,
+);
+
+const Planner = PlannerFields.pipe(
+  Schema.check(apiNeedsModel),
+  Schema.check(compatibleNeedsBaseUrl),
+);
 
 const JudgeFields = Schema.Struct({
   baseUrl: Schema.optionalKey(Schema.String),
