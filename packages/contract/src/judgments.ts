@@ -60,3 +60,16 @@ export const Judgment = Schema.Struct({
   verdict: Verdict,
 });
 export type Judgment = typeof Judgment.Type;
+
+/**
+ * `.cairn/judgments.json` (`spec.contract.judgments`): the decision model that answered, and
+ * every judgment it gave, one per target and question and round.
+ */
+export const Judgments = Schema.Struct({
+  judgments: Schema.Array(Judgment),
+  model: Schema.String,
+  version: Schema.Literal(1),
+});
+export type Judgments = typeof Judgments.Type;
+
+export const JudgmentsJson = Schema.fromJsonString(Judgments);
