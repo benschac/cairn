@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "cairn": "node packages/cli/src/main.ts",
     "check": "node scripts/gate/gate.ts check",
     "check:commit": "turbo run typecheck typecheck:root lint format:check",
     "check:effect-api": "node scripts/effect-api/refresh-effect-api.ts --check && node scripts/effect-api/index-effect-core.ts --check",
