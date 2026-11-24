@@ -74,6 +74,7 @@ New:
 | `@effect/ai-anthropic`                                                  | 4.1.5               | MIT        | The live `LanguageModel`, for the `Planner`                                                                 |
 | `@effect/ai-typesafe`                                                   | 4.1.5               | MIT        | The live `DecisionModel` (Jev), for the `Judge`                                                             |
 | `mdast-util-from-markdown`, `mdast-util-gfm`, `micromark-extension-gfm` | 2.1.0, 3.1.0, 3.0.0 | MIT        | Markdown to nodes for the viewer                                                                            |
+| `@foldkit/ui`                                                           | 0.171.0             | MIT        | The switch and the disclosure in the viewer's design system; pinned with `foldkit`                          |
 
 Built into Node 24, so no package: `node:sqlite` for `cairn.db`, and `path.matchesGlob` for gate patterns. Diffs come from `git`, so the CLI needs no diff library.
 
@@ -758,6 +759,12 @@ flowchart BT
     direction BT
     t98["t98 · 98-detail-session<br/>Show the agent session in a task's detail<br/>wt-27"]
   end
+  subgraph s37["Stack 37 · viewer"]
+    direction BT
+    t99["t99 · 99-design-tokens<br/>Add the design tokens and the base stylesheet<br/>wt-28"]
+    t100["t100 · 100-ui-pieces<br/>Build the shared marks and controls on the tokens<br/>wt-28"]
+    t101["t101 · 101-restyle-code-view<br/>Move the code view, search and code blocks to the design system<br/>wt-28"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -877,6 +884,7 @@ flowchart BT
   t82 --> t83
   t69 -.-> t84
   t83 -.-> t84
+  t101 -.-> t84
   t84 --> t85
   t85 --> t86
   t86 --> t87
@@ -892,8 +900,11 @@ flowchart BT
   t96 --> t97
   t79 -.-> t98
   t97 -.-> t98
+  main --> t99
+  t99 --> t100
+  t100 --> t101
   class t1,t3,t20,t31,t32,t58,t60,t62,t80 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98 sonnet
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101 sonnet
   class t11,t24,t27,t44,t56,t66 haiku
   class t1,t2,t3,t81,t97 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
@@ -1273,13 +1284,113 @@ Parse with `mdast-util-from-markdown` plus GFM tables and map the nodes to Foldk
 
 A fenced block with a language `@pierre/highlights` has a lexer for renders a span per token, coloured inline, and keeps `language-x` on its `code` element. The highlighter is synchronous, so a block needs no Message. Any other language stays plain text. A `mermaid` fence renders through the caller's `diagramView` hook, which for the canvas is an empty placeholder with a `DrawDiagram` Mount. A Mount runs once, when its element is inserted, so the placeholder is keyed by the diagram's source and the line its fence starts on: a diagram that changes gets a new element and is drawn again. The Mount draws the diagram with `pele` (links and images off, text escaped), which is the one place SVG becomes DOM. A diagram that cannot be drawn shows its source and a one-line reason in its place. A diagram changes the height of its column, so the Mount measures the canvas layer once it has drawn and sends `MeasuredLayout`; the layer's own `ResizeObserver` only fires when the layer itself changes size.
 
+### Design system {#spec.viewer.design-system}
+
+- Implements: `prd.viewer`
+- Files: `apps/viewer/src/ui/tokens.css`, `apps/viewer/src/ui/base.css`, `apps/viewer/src/ui/components.css`, `apps/viewer/src/ui/marks.ts`, `apps/viewer/src/ui/controls.ts`, `apps/viewer/src/entry.ts`, `apps/viewer/index.html`, `apps/viewer/package.json`, `apps/viewer/src/code.ts`, `apps/viewer/src/diagram.ts`, `apps/viewer/src/view/view.ts`, `apps/viewer/src/view/codeView.ts`, `apps/viewer/src/view/diffView.ts`, `apps/viewer/src/view/treeView.ts`, `apps/viewer/src/view/searchView.ts`, `apps/viewer/src/view/nodeView.ts`, `apps/viewer/test/design.test.ts`, `apps/viewer/test/ui.scene.test.ts`
+- Depends on: `spec.viewer.markdown-rendering`
+
+The viewer has one look, the paper look of the Curves mockup in `.cairn/design/prd-curves.html`: paper and ink, 1.5px ink borders, a flat ink shadow under what is raised or selected, monospace for the interface and a serif for prose. This section gives each value of that look one name. A view uses the names and never writes a colour, a size or a timing of its own. Where the mockup and this section disagree, this section wins.
+
+Three stylesheets in `apps/viewer/src/ui/`, imported by `entry.ts` in this order:
+
+- `tokens.css`: the custom properties below on `:root`, and nothing else.
+- `base.css`: the page (border-box sizing, the body's paper, ink, font and size), the button reset, the focus ring, `prose`, the search mark, `light-only` and the reduced-motion rule.
+- `components.css`: one class for each piece in the table of pieces below.
+
+They are plain CSS. There is no Tailwind, no CSS-in-JS and no preprocessor. A view puts a class on an element with `h.Class` and says what state the element is in with the attributes its own section gives it, such as `aria-pressed`, `aria-expanded`, `aria-checked`, `aria-current`, `data-current` and `data-ran`. The stylesheets select on those, so a Scene test and a style read the same attribute. `h.Style` is kept for a value that is computed: a pane's width, a meter's fill, a table cell's alignment, a highlighted token's colour.
+
+Every colour is a token, and every colour token is written once as `light-dark(<light>, <dark>)`. `:root` sets `color-scheme: light dark`, and `index.html` has `<meta name="color-scheme" content="light dark" />` so the page is not white before the stylesheet loads. The palette then follows the system's setting with no switch, no Model field and no Message, as the diff view does (see `spec.viewer.diff-view`). The light values are the mockup's, but for `--muted`, which is one step darker so that it reads on paper, and `--blocked-ink`, which is new for the same reason.
+
+| Token           | Light     | Dark      | Used for                                                    |
+| --------------- | --------- | --------- | ----------------------------------------------------------- |
+| `--bg`          | `#f3efe6` | `#1a1815` | The page and the panes                                      |
+| `--card`        | `#fbf9f4` | `#23201c` | Cards, buttons, code blocks, the detail panel               |
+| `--raised`      | `#ffffff` | `#2c2823` | Tags and chips, which sit on a card or a fill               |
+| `--ink`         | `#1d1b18` | `#ece6d9` | Text, strong borders, the flat shadow                       |
+| `--ink-soft`    | `#4c463c` | `#cfc7b8` | A card's summary                                            |
+| `--muted`       | `#736b5e` | `#9c9385` | Labels, counts and other small print                        |
+| `--hair`        | `#ddd5c6` | `#3a352e` | Quiet borders and rules                                     |
+| `--green`       | `#cfe7b3` | `#3d5a2a` | What is on or selected; a done chip while models are hidden |
+| `--prd`         | `#f4dc96` | `#6b5516` | PRD fills, section references, the search mark              |
+| `--spec`        | `#dcd0f4` | `#4a3d73` | Spec card headers and spec tags                             |
+| `--pending`     | `#bdb3a2` | `#6f675b` | The dot of a task not started                               |
+| `--progress`    | `#e7a13a` | `#e7a13a` | The dot of a task or section under way                      |
+| `--done`        | `#5ea659` | `#6fbf68` | The dot of a done task, a meter's fill                      |
+| `--blocked`     | `#df513c` | `#f0705c` | The dot of a failed or waiting task, a gated chip's border  |
+| `--blocked-ink` | `#b93a27` | `#f0705c` | `GATE` and gate reasons, as text                            |
+| `--m-opus`      | `#dcd0f4` | `#4a3d73` | Opus (see `spec.viewer.models`)                             |
+| `--m-sonnet`    | `#cfe0fb` | `#2c4a73` | Sonnet                                                      |
+| `--m-haiku`     | `#f7e6a6` | `#6b5516` | Haiku                                                       |
+| `--m-other`     | `#e4ded2` | `#3f3a33` | Any other model                                             |
+
+`--edge` is `color-mix(in srgb, var(--ink) 50%, transparent)`, the border of a stack box and of a chip at rest. `--tint` is `color-mix(in srgb, var(--ink) 6%, transparent)`, the fill of a hovered row and of inline code. Text on any fill is `--ink`.
+
+`light-only` sets `color-scheme: light` and sets the element's own `color` and `background` again from the tokens, so everything inside it takes the light values. Three things carry it: a highlighted code block and a drawn diagram, whose colours come from `pierre-light` and from Pele and are light only, and the canvas screen's `main` until `spec.viewer.canvas-removal`, because the canvas's views carry light colours inline. The diff is drawn by `@pierre/diffs` with its own light and dark themes.
+
+Shape:
+
+- `--line: 1.5px` is the width of every border and rule. The base branch's bar is 3px.
+- Radii: `--r-s: 4px` for tags, chips and inline code; `--r-m: 8px` for buttons, rows, code blocks, stack boxes and the segmented control; `--r-l: 12px` for cards and the detail panel. A dot and a pill are fully round.
+- `--lift: 0 2px 0 var(--ink)` sits under a button, the selected chip and a divider's grip. `--lift-l: 0 3px 0 var(--ink)` sits under a card, the detail panel and a stack that holds the current section. A pressed button moves down 2px and loses its shadow. There is no blurred shadow and no gradient.
+
+Type:
+
+- `--mono` is `ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace`, for the interface. `--prose` is `Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif`, for prose. No web font is shipped.
+- Sizes: `--t-xs: 10px` for tags, `GATE`, reasoning marks, stack numbers and labels; `--t-s: 11.5px` for rows, chips, counts and controls; `--t-m: 12.5px` for the body; `--t-l: 14px` for card titles and a card's full section; `--t-xl: 16px` for the name, level 3 headings and the detail panel's title; `--t-2xl: 20px` for level 2 headings; `--t-3xl: 30px` for the document's title; and `--t-prose: 16.5px` for PRD prose, at a line height of 1.62. Monospace text has a line height of 1.5.
+- A label is uppercase `--t-xs` with `0.08em` of letter spacing. Counts use tabular numbers.
+
+Motion:
+
+- `--ease` is `cubic-bezier(0.23, 1, 0.32, 1)`.
+- `--d-fade: 150ms` with `ease-out`, for opacity and colour. `--d-press: 160ms` with `--ease`, for a press and an arrow's turn. `--d-move: 240ms` with `--ease`, for the detail panel sliding in and the page's first paint.
+- Only `opacity`, `transform` and colours are animated.
+- Under `prefers-reduced-motion: reduce`, `base.css` turns every transition and animation off.
+
+Every button, link and divider shows `:focus-visible` as a 2px `--ink` outline, 2px off the element.
+
+The pieces. Each is a class in `components.css`. The views named use it and write no rule of their own for it.
+
+| Class                                          | Look                                                                                                                                                                                                                                                                               | Used by                                                                           |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `topbar`                                       | A 52px bar with a `--hair` rule under it                                                                                                                                                                                                                                           | The reader, the code view                                                         |
+| `label`                                        | Uppercase `--t-xs` in `--muted`                                                                                                                                                                                                                                                    | The heading over a pane, the legend                                               |
+| `dot`                                          | An 8px round mark: `--done` for `done` and `landed`, `--progress` for `running` and `in_progress`, `--blocked` for `failed` and `blocked_on_human`, `--pending` otherwise                                                                                                          | Task rows, stack chips, status lines                                              |
+| `tag`                                          | A bold `--t-xs` word in an ink border. A PRD tag and a spec tag take their fill; a task ID and a SHA are `--raised`                                                                                                                                                                | Task IDs, `SPEC` and `PRD` in card headers, short SHAs                            |
+| `gate`                                         | `GATE` in bold `--t-xs` `--blocked-ink`                                                                                                                                                                                                                                            | Task rows, the detail panel                                                       |
+| `btn`                                          | A raised button: `--card`, an ink border and `--lift`; `--green` when `aria-pressed` or `aria-checked` is `true`                                                                                                                                                                   | The status line, the models switch, "Open in code view", the code view's way back |
+| `seg`                                          | Buttons joined in one ink border; the pressed one is `--green`                                                                                                                                                                                                                     | The density control, the diff style control                                       |
+| `chip`                                         | A small `--r-s` box with an `--edge` border on `--raised`. A model gives it that model's fill. What is planned has a dashed border. The current section's chip has an ink border, bold text and `--lift`. A gated chip has a `--blocked` border. A chip outside the chain is faded | Stack chips, the model chip in a task row, key list chips, legend swatches        |
+| `row`                                          | A full-width button, filled `--tint` on hover and when it is the current one                                                                                                                                                                                                       | Task rows in a card, tree rows, search results                                    |
+| `card`, `card-head`, `card-body`, `card-tasks` | An ink border, `--r-l` and `--lift-l`. The head is a solid `--spec` fill, or `--prd` for the card of strays, over an ink rule. The task list sits over an ink rule                                                                                                                 | Spec cards, a file's diff in the detail panel                                     |
+| `stack`, `base-bar`                            | A box with an `--edge` border and its number under a rule; a stack that holds the current section has an ink border, `--card` and `--lift-l`. The bar is a 3px ink rule that stays at the bottom of the pane                                                                       | The stacks pane                                                                   |
+| `divider`                                      | A `--hair` line, ink and 3px wide on hover, focus and drag, with a grip                                                                                                                                                                                                            | Between panes, the detail panel's edge                                            |
+| `panel`                                        | `--card`, an ink border, `--r-l` and `--lift-l`; it slides in over `--d-move`                                                                                                                                                                                                      | The detail panel                                                                  |
+| `meter`                                        | A 6px `--hair` bar with a `--done` fill                                                                                                                                                                                                                                            | The PRD pane's head                                                               |
+| `wire`                                         | An SVG path with a 1.4px `--ink` stroke at 0.4 opacity; full when lit, dashed and faint when its end is off the pane                                                                                                                                                               | The curves                                                                        |
+| `prose`                                        | `--prose` at `--t-prose`, with its code, tables and blocks as the mockup has them                                                                                                                                                                                                  | The PRD pane, a card's full section, session replies                              |
+
+`marks.ts` holds the pieces that only show something, each a function of its data and `h`: `dotView(status, h)`, `tagView(kind, text, h)`, `gateView(h)` and `labelView(text, h)`.
+
+`controls.ts` holds the pieces a person works:
+
+- `switchView({ id, label, isChecked, onToggle }, h)` is `Switch.view` from `@foldkit/ui`, drawn as a `btn` with a small box that is ticked when on. It has `role="switch"` and `aria-checked`, and toggles on a click and on Space.
+- `disclosureView({ id, isOpen, onToggle, toView }, h)` is `Disclosure.view` from `@foldkit/ui`. It gives a header button its `aria-expanded` and, while open, `aria-controls` naming its panel. The panel is rendered only while open, so `animatePanel` is not used.
+- `segmentedView({ label, options, selected, onSelect }, h)` is a `role="group"` with that label and one native button for each option, with `aria-pressed`.
+
+`@foldkit/ui` is pinned to the version of `foldkit` (see `spec.libraries`). Its `Switch` and `Disclosure` are views with no model of their own, so the state stays in the viewer's Model. Its `RadioGroup` keeps a Model and Messages of its own for what is one field here, so the segmented control does not use it, and its `Button` adds nothing to a native button.
+
+The views that outlive the canvas move to these classes and lose their inline colours: the code view's bars and its way back, the tree's rows, the diff style control, the search box and its results, the search mark (`mark[data-search-match]`, filled `--prd`), and code blocks and diagrams, which also become `light-only`. The canvas's own views (`canvasView`, `nodeView` apart from the search mark, `edgesView`, `moveHandleView`, `stacksView`, `cursorsView`, `drawer.ts` and the toolbar in `view.ts`) keep their inline styles until they are deleted.
+
+Tests: `design.test.ts` reads the stylesheets and the sources as text. Every colour token in `tokens.css` is a `light-dark()` pair of hex colours or a `color-mix()` of other tokens. In each palette `--ink` has a contrast of at least 4.5 to 1 on `--bg`, `--card`, `--raised`, `--green`, `--prd`, `--spec` and each model colour, and `--ink-soft`, `--muted` and `--blocked-ink` have it on `--bg` and `--card`. Every `var()` in `base.css` and `components.css` names a token that `tokens.css` defines, and neither file has a hex colour, an `rgb()` or an `hsl()`. No TypeScript file under `apps/viewer/src/` has a hex colour, but for the canvas's files, which the test lists by name. `ui.scene.test.ts` clicks a switch and presses Space on it and finds `aria-checked` and the Message it sent, clicks a segmented control's option and finds `aria-pressed` move to it, and opens a disclosure and finds `aria-expanded`, `aria-controls` and the panel.
+
 ### Reader {#spec.viewer.reader}
 
 - Implements: `prd.viewer.reader`, `prd.viewer`
 - Files: `apps/viewer/src/reader.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/view/view.ts`, `apps/viewer/test/reader.test.ts`, `apps/viewer/test/reader.scene.test.ts`
-- Depends on: `spec.contract.trace`, `spec.contract.events`, `spec.viewer.model-and-messages`, `spec.viewer.markdown-rendering`
+- Depends on: `spec.contract.trace`, `spec.contract.events`, `spec.viewer.model-and-messages`, `spec.viewer.markdown-rendering`, `spec.viewer.design-system`
 
-The reader is the plan screen: a top bar over three panes, the PRD, the spec and the stacks. The window does not scroll; each pane has its own vertical scroll. The Curves variant of the prototype in `.cairn/design/prd-curves.html` is the reference for spacing, type and colour. Read it before writing a view.
+The reader is the plan screen: a top bar over three panes, the PRD, the spec and the stacks. The window does not scroll; each pane has its own vertical scroll. The Curves variant of the prototype in `.cairn/design/prd-curves.html` is the reference for layout and spacing. Colour, type, borders, shadows and motion come from `spec.viewer.design-system`, and so do the classes and controls a view is built from. Read both before writing a view.
 
 `Screen` gains `Reader`. Until the canvas is removed (see `spec.viewer.canvas-removal`) the viewer still opens on the canvas, and the top bar has a "Plan" and "Canvas" pair of buttons (`ClickedScreen`) to move between the two, so the reader can be tried on the demo as it is built.
 
@@ -1332,14 +1443,14 @@ Tests: properties in `reader.test.ts` that `sectionAtTop` returns the last secti
 
 A card is an `article` with `data-spec` holding the spec section's ID:
 
-- Header: a native button with the section's title and `done/total` of its tasks, and `aria-expanded`. Its fill is a solid colour; the card has an ink border and a hard offset shadow. No stripe runs down a card's side.
+- Header: a native button with the section's title and `done/total` of its tasks, and `aria-expanded`, which `disclosureView` gives it. The card is the `card` of `spec.viewer.design-system`: its header's fill is a solid colour, and it has an ink border and a hard offset shadow. No stripe runs down a card's side.
 - Summary: `TraceSection.summary` as one paragraph. A section with no summary shows none.
 - Tasks: one row per task, at every density. A row is a native button with `data-task-row` holding `<spec>:<task>`: a status dot, the ID, the title, `GATE` for a gated task, the model chip (see `spec.viewer.models`), and then the commit count, with "· session" when a commit has one, or the status word before there is a commit. It sends `ClickedTask`, which opens the task's detail. A task with a judgment mark shows it in its row; a section with one shows it in its header.
 - After the cards, when there are strays, one more card headed "Tasks that name this section directly", whose header is not a button and whose rows have `data-task-row` of `_:<task>`.
 
 A PRD section with a coverage note shows the note in place of the cards.
 
-Density is one of `titles`, `summary` and `full`, `summary` at first. The control is a group of three native buttons labelled "Titles", "Summary" and "Full spec", each with `aria-pressed`, in a group labelled "How much of the spec to show". `ClickedDensity` sets it and empties `opened`. A card is open when `opened` holds it as open, or holds nothing for it and the density is `full`. `ClickedCardHeader` sets `opened` for that card to the opposite of what it shows now.
+Density is one of `titles`, `summary` and `full`, `summary` at first. The control is `segmentedView` (see `spec.viewer.design-system`): a group of three native buttons labelled "Titles", "Summary" and "Full spec", each with `aria-pressed`, in a group labelled "How much of the spec to show". `ClickedDensity` sets it and empties `opened`. A card is open when `opened` holds it as open, or holds nothing for it and the density is `full`. `ClickedCardHeader` sets `opened` for that card to the opposite of what it shows now.
 
 - `titles`: the header and the task rows.
 - `summary`: the summary too.
@@ -1468,7 +1579,7 @@ Stack = {
 
 - The pane is the levels stacked bottom to top, highest level at the top. Each level is a row of its stacks in number order, aligned to the bottom. Under the bottom row is a bar the width of the pane labelled with `trace.baseBranch`, held to the bottom of the pane with `position: sticky` so it stays in view. The bar is not a node: nothing hovers it and no curve runs to it, since every stack in the bottom row starts from it. The pane starts scrolled to the bottom, where the bar is.
 - A stack is a box (`data-stack` holding its number) with its number in a corner, `labelOf(stack)` as its `title` and `aria-label`, and a CSS grid of its cells. A cell's `grid-row` counts down from the box's own top row, so each box is only as tall as its deepest chain.
-- A task is a chip: a native button with `data-task` holding its ID and `data-wire` holding `task:<id>`, showing a status dot and the ID. Its `title` and `aria-label` give the ID, the title, the branch without its `<feature>/` prefix, the worktree (`main checkout` for `null`) and the status. A gated chip has a 2px `#dc2626` border. The model's colour and the reasoning mark are in `spec.viewer.models`. It sends `ClickedTask`.
+- A task is a chip: a native button with `data-task` holding its ID and `data-wire` holding `task:<id>`, showing a status dot and the ID. Its `title` and `aria-label` give the ID, the title, the branch without its `<feature>/` prefix, the worktree (`main checkout` for `null`) and the status. A gated chip has a `--blocked` border (see `spec.viewer.design-system`). The model's colour and the reasoning mark are in `spec.viewer.models`. It sends `ClickedTask`.
 - A chip whose task is in the current section's chain has `data-current`, an ink border and a hard shadow, and so does its box. Every other chip is at 45% opacity and still takes focus, hover and clicks.
 - Over the diagram, held to the top of the pane: "N of M stacks hold this section · X of Y tasks done", from the stacks with a current chip and `planCountsOf`, and a legend for done, pending, in this section, a human gate and "read up from main".
 - No curve is drawn inside the pane. A chip sits directly on its parent, and the detail panel names the other tasks a task depends on (see `spec.viewer.detail-panel`).
@@ -1493,9 +1604,9 @@ Considered and left out: `@dagrejs/dagre` with compound nodes, which is how Merm
 - On a stack chip: the chip's fill is the model's colour and a small mark follows the ID, `lo`, `med`, `hi`, `xhi` or `max`.
 - In a spec card's header: one small square per task in its model's colour.
 
-Colours are the diagram's: opus `#7c3aed`, sonnet `#2563eb`, haiku `#facc15` with dark text, and `#6b7280` for any other model, which is still named. What ran is a solid fill with an ink border. What is planned has a dashed border and a paler fill, so the two can be told apart without reading. The `title` says "Ran on sonnet, medium reasoning" or "Planned for sonnet, medium reasoning".
+Colours are the design system's model tokens (see `spec.viewer.design-system`): `--m-opus`, `--m-sonnet` and `--m-haiku`, and `--m-other` for any other model, which is still named. A view sets `data-model` to the model's name and the stylesheet gives the fill; the text on it is ink. They are the hues of the spec's stack diagram, paler. What ran has a solid ink border. What is planned has a dashed one, so the two can be told apart without reading. The `title` says "Ran on sonnet, medium reasoning" or "Planned for sonnet, medium reasoning".
 
-The switch is a native button in the top bar labelled "Models and reasoning" with `aria-pressed`. `ClickedModelsSwitch` flips `isShowingModels`, which starts `true`. With it off the views render no chip, mark or square, a done stack chip is filled green and a pending one is white, and the legend's model entries are replaced by one for done.
+The switch is `switchView` (see `spec.viewer.design-system`) in the top bar, labelled "Models and reasoning", with `role="switch"` and `aria-checked`. `ClickedModelsSwitch` flips `isShowingModels`, which starts `true`. With it off the views render no chip, mark or square, a done stack chip is filled green and a pending one is white, and the legend's model entries are replaced by one for done.
 
 Tests: properties that `ranOf` returns the manifest's pair and `ran: false` for a task with no `running` event that names a model, and the latest such event's pair and `ran: true` when there is one. Scene tests find `data-ran="true"` on a task the demo trace has a record for and `"false"` on a pending one, then turn the switch off and find no model chip, mark or square on the page, and on again.
 
@@ -1688,6 +1799,7 @@ Until this section is built the viewer opens on the canvas, and the reader is on
 - `DrawDiagram` no longer measures a canvas layer. A diagram that changes a pane's height is seen by the wires' `ResizeObserver`.
 - `stackLayoutOf` and `columnOf` stay only if the code view's tree still uses them.
 - `@xyflow/system` is removed from `apps/viewer/package.json` once nothing imports it.
+- `light-only` comes off the screen with the canvas, and `design.test.ts` no longer excuses any file: the canvas's views were the only ones with colours of their own (see `spec.viewer.design-system`).
 - The code view's button reads "Back to the plan" and its message is `ClickedBackToPlan`.
 
 Tests: a Scene test for a behaviour the reader keeps is moved to the reader, not deleted: loading and the error over the last good trace, the two clicks from a section to a commit, search, the code view and back, presence, and judgment markers. A test for a behaviour that is removed is deleted with it. `pnpm check` passes with no unused export left behind.

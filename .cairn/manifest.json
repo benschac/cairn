@@ -1990,7 +1990,7 @@
       "files": ["apps/viewer/src/reader.ts", "apps/viewer/test/reader.test.ts"],
       "branch": "cairn-mvp/84-reader-derive",
       "parent": null,
-      "dependsOn": ["t69", "t83"],
+      "dependsOn": ["t69", "t83", "t101"],
       "worktree": "wt-27",
       "model": "sonnet",
       "reasoning": "medium",
@@ -2397,6 +2397,90 @@
       "parent": null,
       "dependsOn": ["t79", "t97"],
       "worktree": "wt-27",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t99",
+      "title": "Add the design tokens and the base stylesheet",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.design-system"],
+      "files": [
+        "apps/viewer/src/ui/tokens.css",
+        "apps/viewer/src/ui/base.css",
+        "apps/viewer/src/entry.ts",
+        "apps/viewer/index.html",
+        "apps/viewer/src/view/view.ts",
+        "apps/viewer/test/design.test.ts"
+      ],
+      "branch": "cairn-mvp/99-design-tokens",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-28",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t100",
+      "title": "Build the shared marks and controls on the tokens",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.design-system"],
+      "files": [
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/src/ui/marks.ts",
+        "apps/viewer/src/ui/controls.ts",
+        "apps/viewer/package.json",
+        "apps/viewer/test/design.test.ts",
+        "apps/viewer/test/ui.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/100-ui-pieces",
+      "parent": "t99",
+      "dependsOn": ["t99"],
+      "worktree": "wt-28",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t101",
+      "title": "Move the code view, search and code blocks to the design system",
+      "prdSections": ["prd.viewer"],
+      "specSections": ["spec.viewer.design-system"],
+      "files": [
+        "apps/viewer/src/code.ts",
+        "apps/viewer/src/diagram.ts",
+        "apps/viewer/src/view/codeView.ts",
+        "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/src/view/treeView.ts",
+        "apps/viewer/src/view/searchView.ts",
+        "apps/viewer/src/view/nodeView.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/design.test.ts"
+      ],
+      "branch": "cairn-mvp/101-restyle-code-view",
+      "parent": "t100",
+      "dependsOn": ["t100"],
+      "worktree": "wt-28",
       "model": "sonnet",
       "reasoning": "medium",
       "humanGate": {

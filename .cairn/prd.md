@@ -178,7 +178,7 @@ Layout, under a top bar:
 - Judgment markers: a spec card or task with a `flag` or `unsure` judgment shows a marker. Stale judgments are shown as stale.
 - Top bar: the feature's name, search (see Fuzzy search), the models and reasoning switch (see Models and reasoning), and who else is here.
 
-The look is the prototype's paper look: ink borders, hard offset shadows and solid colour fills on headers. No gradients, and no accent stripe down the side of a card.
+The look is the prototype's paper look: ink borders, hard offset shadows and solid colour fills on headers. No gradients, and no accent stripe down the side of a card. It comes in a light and a dark palette and follows the system's setting, with no switch.
 
 The reader replaces the canvas that could be panned, zoomed and rearranged. There is no pan or zoom, no dragging a document or a task card, no Fit and no Reset layout. Each pane scrolls on its own, and the panes can be made wider or narrower (see Panes).
 
