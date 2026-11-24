@@ -1399,7 +1399,7 @@ The `adapters` package from the vision comes later. For dogfooding, this list is
 
 One `cairn` binary built with `effect/cli`. Each command finds `.cairn/` in the repo's main checkout, from `git rev-parse --path-format=absolute --git-common-dir`, not from the current worktree. Commands run inside a worktree read and write the same `events.jsonl` and `cairn.db` as everyone else.
 
-`cairn init` creates `.cairn/` with a PRD template, an empty `events.jsonl` and the default `config.json`, and adds `.cairn/cairn.db` to `.gitignore`. It refuses to overwrite an existing `.cairn/`.
+`cairn init` creates `.cairn/` with a PRD template, an empty `events.jsonl` and a `config.json` that lists the default `humanPaths` for the project to edit, and adds `.cairn/cairn.db` to `.gitignore`. It refuses to overwrite an existing `.cairn/`.
 
 ## Patch routes {#spec.patch-routes}
 

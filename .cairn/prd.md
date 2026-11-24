@@ -162,16 +162,16 @@ A task is gated if either is true:
 - Tagged: any linked PRD or spec section contains `<!-- human -->`.
 - Detected: the task's planned or actual diff touches configured high-trust paths.
 
-Default high-trust patterns in `.cairn/config.json`:
+Default high-trust patterns, named for what is risky rather than for one ORM or language. `cairn init` writes them into `.cairn/config.json`, where a project edits them for its own stack:
 
 ```json
 {
   "humanPaths": [
     "**/migrations/**",
+    "**/migrate/**",
     "**/auth/**",
     "**/payments/**",
     "infra/**",
-    "*.sql",
     ".github/workflows/**"
   ]
 }

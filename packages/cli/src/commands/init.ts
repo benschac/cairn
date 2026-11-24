@@ -1,12 +1,26 @@
 import { Array, Console, Effect, FileSystem, Path, Runtime, Schema, String } from "effect";
 import { Command } from "effect/cli";
 
+import { defaultConfig } from "@cairn/contract";
+
 import { MainCheckout } from "../main-checkout.ts";
 
 export const CAIRN_DIRECTORY = ".cairn";
 export const IGNORED_LINE = ".cairn/cairn.db";
-/** The default config: the config schema decodes every missing field to its default. */
-export const DEFAULT_CONFIG = '{\n  "version": 1\n}\n';
+/** The part of the config `cairn init` writes out, pretty-printed. */
+const InitConfigJson = Schema.fromJsonString(
+  Schema.Struct({ version: Schema.Literal(1), humanPaths: Schema.Array(Schema.String) }),
+  { space: 2 },
+);
+
+/**
+ * The config `cairn init` writes: the version and the default `humanPaths`, listed so a project
+ * sees them and edits them for its own stack (`spec.cli`). Every other field decodes to its default.
+ */
+export const DEFAULT_CONFIG = `${Schema.encodeSync(InitConfigJson)({
+  version: 1,
+  humanPaths: defaultConfig.humanPaths,
+})}\n`;
 
 /** `.cairn/` is already there, so init changed nothing. */
 export class AlreadyInitialized extends Schema.TaggedError<

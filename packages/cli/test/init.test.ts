@@ -3,6 +3,8 @@ import { expect, it } from "@effect/vitest";
 import { Array, Effect, FileSystem, Option, Path, Schema, String } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
+import { ConfigJson, defaultConfig } from "@cairn/contract";
+
 import {
   AlreadyInitialized,
   DEFAULT_CONFIG,
@@ -84,10 +86,16 @@ it.effect("the PRD template has an ID on every heading", () =>
   }).pipe(Effect.provide(NodeServices.layer)),
 );
 
-it.effect("the default config is the version alone, pretty-printed with a newline", () =>
-  Effect.sync(() => {
-    expect(DEFAULT_CONFIG).toBe('{\n  "version": 1\n}\n');
-  }),
+it.effect(
+  "the default config lists the version and the default humanPaths, pretty-printed with a newline",
+  () =>
+    Effect.gen(function* () {
+      expect(DEFAULT_CONFIG).toBe(
+        '{\n  "version": 1,\n  "humanPaths": [\n    "**/migrations/**",\n    "**/migrate/**",\n    "**/auth/**",\n    "**/payments/**",\n    "infra/**",\n    ".github/workflows/**"\n  ]\n}\n',
+      );
+      const decoded = yield* Schema.decodeEffect(ConfigJson)(DEFAULT_CONFIG);
+      expect(decoded).toEqual(defaultConfig);
+    }),
 );
 
 const ignoredLines = (text: string) =>
