@@ -2,7 +2,7 @@
 
 This spec turns [prd.md](prd.md) into code. It is the first spec Cairn has, so it also sets the format that `cairn plan` writes.
 
-Already built: the section ID parser (`packages/core/src/section-ids.ts`), a task machine without `failed`, the presence room and server, and a viewer that lists demo rows. Everything else below is new.
+Current implementation: the contract schemas, section parsing, task machine (including `failed`), gate detection, event and commit status derivation, presence, and the viewer’s canvas and reader are built. The CLI exposes `cairn init`; workspace loading and planner services are implemented underneath it. The viewer still loads a bundled demo trace. Planning commands, live trace integration, sessions and judging remain unfinished. Until live trace integration ships, the manifest and bundled demo are manually reconciled progress snapshots. Historical events are retained; they do not encode reopening completed tasks. The requirements below describe the complete target, not a claim that every section is built.
 
 ## Format {#spec.format}
 
@@ -60,10 +60,10 @@ Already installed, and kept:
 | Library                       | Version                    | Used for                                          |
 | ----------------------------- | -------------------------- | ------------------------------------------------- |
 | `effect`                      | 4.1.5                      | Schema, services, `effect/cli`, `effect/ai`, HTTP |
-| `xstate` and `@xstate/effect` | 6.0.0-beta.4, 1.0.0-beta.3 | Task and room machines                            |
+| `xstate` and `@xstate/effect` | 6.0.0-beta.5, 1.0.0-beta.3 | Task and room machines                            |
 | `foldkit`                     | 0.171.0                    | The viewer                                        |
 
-New:
+Additional libraries, some installed and some planned:
 
 | Library                                                                  | Version             | License    | Used for                                                                                                    |
 | ------------------------------------------------------------------------ | ------------------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
@@ -492,6 +492,8 @@ Runs `assignSectionIds` on `prd.md` with `prd` and on `spec.md` with `spec`. Wri
 
 Patterns use `path.matchesGlob` from Node, with one gitignore rule added: a pattern without a `/` matches the file name in any directory. Without it, `*.sql` would miss `db/001.sql`. A declared path ending in `/` is a directory and matches when a file inside it would.
 
+Outstanding correction: task `t18` is recorded as `failed`, with its existing commits retained, because the current matcher probes only a file named `x` inside a declared directory. It therefore misses patterns such as `*.sql` for `db/`, and `**/migrations/**` for `db/`, even though files beneath that directory can match. Directory matching and its tests must cover those cases. Post-commit detection against actual file paths does not replace the plan-time requirement.
+
 ### Detection {#spec.gates.detection}
 
 - Implements: `prd.human-gates`
@@ -519,6 +521,8 @@ Cairn uses two kinds of model, each behind an `effect/ai` service. `models.ts` b
 | `DecisionModel` | Answers typed questions with probabilities | `@effect/ai-typesafe`, `TypeSafeDecisionModel.model(judge.model)` | `Judge`   |
 
 The `cli` source, the default. `cli-model.ts` is a `LanguageModel` that runs the person's agent CLI once per call and reads its answer, so planning uses that CLI's sign-in and Cairn reads no key.
+
+Current support: the Claude CLI source and Anthropic API layer are implemented. Codex remains unavailable: `models.ts` returns `ModelUnavailable` before running it because disabling the user’s configured tools, MCP servers, apps and plugins has not been established. Task `t29` remains `pending`, with its partial implementation commits retained, until that isolation is implemented and verified. The table below remains the target; it does not claim Codex is usable today. The other API providers are pending in `t106`.
 
 | `planner.cli` | Command                                                      | Structured output                             |
 | ------------- | ------------------------------------------------------------ | --------------------------------------------- |
@@ -1226,7 +1230,7 @@ Tests use the scripted `Judge` and `Planner` layers: one `too_large` answer caus
 
 - `--fresh` ignores previous judgments and asks again.
 - `--strict` exits 1 on any `flag`. Without it the command exits 0 unless it fails.
-- It never writes `manifest.json`, `spec.md`, `spec.json` or `prd.md`. To act on a flag, edit the spec or re-run `cairn plan` while every task is `pending`.
+- It never writes `manifest.json`, `spec.md`, `spec.json` or `prd.md`. To act on a flag, edit the spec or re-run additive `cairn plan`, which preserves existing tasks and reports stale work. Only `cairn plan --respec`, which replaces the plan, requires every task to be `pending`.
 
 ## Status {#spec.status}
 
@@ -1709,7 +1713,7 @@ Tests:
 - Find prose spanning bold text and a link, inspect the highlighted snippet and inline marks, select the matching block, and clear without losing formatting or pins.
 - Nested sections, inline code, tables, escaped markdown and Unicode retain correct offsets; comments, code fences and diagram labels do not match; query changes reuse the parsed AST.
 
-Build order: `t71` → `t72` → `t73`, branching from the existing detail drawer (`t52`) in `wt-20`. This independent viewer branch can be built without waiting for API polling or commit-diff rendering. The matching layer is first, a usable title/ID/branch search follows, and prose completes the PRD requirement. All three tasks remain pending.
+Completed build order: `t71` → `t72` → `t73`, built independently of API polling and commit-diff rendering. The matching layer, title/ID/branch search, and prose search with inline highlights are implemented and recorded as done in the manifest.
 
 ### Curves {#spec.viewer.curves}
 

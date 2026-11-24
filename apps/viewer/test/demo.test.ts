@@ -35,6 +35,11 @@ const headingIds = (markdown: string): ReadonlyArray<string> => {
 const idsOf = (sections: ReadonlyArray<{ readonly id: string }>) =>
   Array.map(sections, (section) => section.id);
 
+const progressOf = (task: { readonly id: string; readonly status: string }) => ({
+  id: task.id,
+  status: task.status,
+});
+
 /** Whether the Trace schema refuses the fixture after an edit. */
 const refused = (edit: (copy: typeof fixture) => void) => {
   const copy = structuredClone(fixture);
@@ -57,6 +62,21 @@ it("every task in the manifest appears in the trace", () => {
   expect(demoTrace.tasks.length).toBe(manifest.tasks.length);
 });
 
+it("the demo reports the manifest's task progress", () => {
+  const manifest = decodeManifest(repo(".cairn/manifest.json"));
+  expect(Array.map(demoTrace.tasks, progressOf)).toEqual(Array.map(manifest.tasks, progressOf));
+});
+
+it("the demo links each task to the manifest's recorded commits", () => {
+  const manifest = decodeManifest(repo(".cairn/manifest.json"));
+  expect(
+    Array.map(demoTrace.tasks, (task) => ({
+      id: task.id,
+      commits: Array.map(task.commits, (commit) => commit.sha),
+    })),
+  ).toEqual(Array.map(manifest.tasks, (task) => ({ id: task.id, commits: task.commits })));
+});
+
 it.each([
   ["prd", ".cairn/prd.md", demoTrace.prd],
   ["spec", ".cairn/spec.md", demoTrace.spec],
@@ -66,6 +86,7 @@ it.each([
     const ids = headingIds(repo(path));
     expect(ids.length).toBeGreaterThan(0);
     expect(doc.path).toBe(path);
+    expect(doc.markdown).toBe(repo(path));
     expect(Array.difference(ids, idsOf(demoTrace.sections))).toEqual([]);
     expect(Array.difference(ids, idsOf(doc.sections))).toEqual([]);
     expect(doc.sections.length).toBe(ids.length);

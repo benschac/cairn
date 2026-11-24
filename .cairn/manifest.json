@@ -412,7 +412,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "done",
+      "status": "failed",
       "commits": ["d1897b5baec5d49089d688350748a32390a6b430"],
       "sessions": []
     },
@@ -672,7 +672,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "done",
+      "status": "pending",
       "commits": ["27d3785c82383b7d37a34ded0ea07c273399e62b"],
       "sessions": []
     },
@@ -1363,8 +1363,8 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
-      "commits": [],
+      "status": "done",
+      "commits": ["5153cf874a265cdc571f680db629e04886856ed8"],
       "sessions": []
     },
     {
