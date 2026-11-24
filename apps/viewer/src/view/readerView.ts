@@ -148,7 +148,9 @@ export const readerView = (
       ],
       Array.match(model.detail, {
         onEmpty: () => [],
-        onNonEmpty: (trail) => [detailView(trace, trail, model.widths, h)],
+        onNonEmpty: (trail) => [
+          detailView(trace, trail, model.widths, model.patches, model.diffStyle, h),
+        ],
       }),
     ),
   );

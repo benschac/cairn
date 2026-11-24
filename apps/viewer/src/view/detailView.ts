@@ -4,12 +4,14 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { DETAIL_HEADING_ID, type Trail } from "../detail.ts";
 import { eventsView, gateView, judgmentsView } from "../drawer.ts";
-import { shortSha } from "../codeView.ts";
+import { filesOf, patchPathOf, shortSha } from "../codeView.ts";
 import { Message } from "../message.ts";
+import { Shown, type DiffStyle, type PatchData } from "../model.ts";
 import { ranOf, statusWordOf } from "../reader.ts";
 import { stacksOf } from "../stacks.ts";
 import { Node, nodeKeyOf, sectionTitleOf } from "../trace.ts";
 import { dotView, labelView, tagView } from "../ui/marks.ts";
+import { patchView } from "./diffView.ts";
 import { dividerView, handleWidthOf } from "./dividerView.ts";
 import type { Widths } from "../panes.ts";
 
@@ -140,6 +142,52 @@ const commitsView = (task: TraceTask, h: HtmlBuilder<Message>): Html =>
     h,
   );
 
+const codeNoteOf = (task: TraceTask): string =>
+  task.status === "done" || task.status === "landed"
+    ? "No commit carries this task's Cairn-Task trailer."
+    : "No code yet. The task has not started.";
+
+const countText = (count: number, noun: string): string =>
+  `${count} ${noun}${count === 1 ? "" : "s"}`;
+
+/**
+ * The task's whole stacked diff, drawn by the mount the code view uses. The list scrolls itself,
+ * so it sits in a region of 60% of the window's height, under the commit and file counts.
+ */
+const codePartView = (
+  task: TraceTask,
+  patches: Record.ReadonlyRecord<string, PatchData>,
+  diffStyle: DiffStyle,
+  h: HtmlBuilder<Message>,
+): Html =>
+  partView(
+    "code",
+    "Code",
+    Array.match(task.commits, {
+      onEmpty: () => [h.p([h.DataAttribute("detail-code-note", "")], [codeNoteOf(task)])],
+      onNonEmpty: (commits) => [
+        h.p(
+          [h.DataAttribute("detail-code-summary", "")],
+          [
+            `${countText(Array.length(commits), "commit")} · ${countText(Array.length(filesOf(task, Shown.WholeTask())), "file")} changed`,
+          ],
+        ),
+        Option.match(patchPathOf(task, Shown.WholeTask()), {
+          onNone: () => h.p([], ["This task has no diff to show."]),
+          onSome: (path) =>
+            h.div(
+              [
+                h.DataAttribute("detail-code", ""),
+                h.Style({ display: "flex", "flex-direction": "column", height: "60vh" }),
+              ],
+              [patchView(patches, path, diffStyle, Option.none(), h)],
+            ),
+        }),
+      ],
+    }),
+    h,
+  );
+
 const tracesView = (trace: Trace, task: TraceTask, h: HtmlBuilder<Message>): Html =>
   partView(
     "traces",
@@ -186,7 +234,13 @@ const stackNumberOf = (trace: Trace, task: TraceTask): Option.Option<number> =>
     (stack) => stack.number,
   );
 
-const taskView = (trace: Trace, task: TraceTask, h: HtmlBuilder<Message>): ReadonlyArray<Html> => {
+const taskView = (
+  trace: Trace,
+  task: TraceTask,
+  patches: Record.ReadonlyRecord<string, PatchData>,
+  diffStyle: DiffStyle,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> => {
   const ran = ranOf(task);
   return Array.flatten([
     [
@@ -230,6 +284,7 @@ const taskView = (trace: Trace, task: TraceTask, h: HtmlBuilder<Message>): Reado
     task.gate.required ? [gateView(task, h)] : [],
     [
       commitsView(task, h),
+      codePartView(task, patches, diffStyle, h),
       tracesView(trace, task, h),
       partView(
         "files",
@@ -308,13 +363,22 @@ const sectionView = (trace: Trace, id: string, h: HtmlBuilder<Message>): Readonl
 };
 
 /** What the last node of the trail shows. A task the trace does not have shows its ID and nothing else. */
-const bodyOf = (trace: Trace, node: Node, h: HtmlBuilder<Message>): ReadonlyArray<Html> =>
+const bodyOf = (
+  trace: Trace,
+  node: Node,
+  patches: Record.ReadonlyRecord<string, PatchData>,
+  diffStyle: DiffStyle,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> =>
   Node.match(node, {
     section: ({ id }) => sectionView(trace, id, h),
     task: ({ id }) =>
       Option.match(
         Array.findFirst(trace.tasks, (task) => task.id === id),
-        { onNone: () => [headingView(id, h)], onSome: (task) => taskView(trace, task, h) },
+        {
+          onNone: () => [headingView(id, h)],
+          onSome: (task) => taskView(trace, task, patches, diffStyle, h),
+        },
       ),
   });
 
@@ -328,6 +392,8 @@ export const detailView = (
   trace: Trace,
   trail: Trail & Array.NonEmptyReadonlyArray<Node>,
   widths: Widths,
+  patches: Record.ReadonlyRecord<string, PatchData>,
+  diffStyle: DiffStyle,
   h: HtmlBuilder<Message>,
 ): Html => {
   const node = Array.lastNonEmpty(trail);
@@ -374,7 +440,7 @@ export const detailView = (
             padding: `12px ${DETAIL_PADDING}px`,
           }),
         ],
-        Array.prepend(bodyOf(trace, node, h), trailView(trace, trail, h)),
+        Array.prepend(bodyOf(trace, node, patches, diffStyle, h), trailView(trace, trail, h)),
       ),
     ],
   );

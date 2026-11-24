@@ -51,6 +51,13 @@ const task6 = Option.getOrThrow(Array.findFirst(demoTrace.tasks, (each) => each.
 const commit = Option.getOrThrow(Array.head(task6.commits));
 const SPEC = "spec.contract.manifest";
 const PRD = "prd.manifest-schema";
+/** Opening the task asks for its whole diff. */
+const wholePath = `/api/diffs/${Option.getOrThrow(Array.head(commit.parents))}/${commit.sha}`;
+const fetchedWhole = Command.resolve(
+  FetchPatch({ path: wholePath }),
+  Message.ReceivedPatch({ path: wholePath, result: Result.succeed("") }),
+);
+const drawn = Mount.resolve(RenderDiff, Message.CompletedRenderDiff());
 const row = selector(`[data-task-row="${SPEC}:t6"]`);
 const statusLine = selector(`[data-status-line="${PRD}"]`);
 
@@ -62,6 +69,8 @@ it("clicking a task row opens the panel on that task, heading and focus first, w
     click(statusLine),
     click(row),
     focusedDetailHeading,
+    fetchedWhole,
+    drawn,
     expect(panel).toHaveAttr("data-detail-id", "t6"),
     expect(heading).toContainText(`t6 ${task6.title}`),
     expect(selector("[data-detail-part='where']")).toContainText(task6.branch),
@@ -87,6 +96,8 @@ it("a spec section opened from Traces to is a second step; the first step goes b
     expect(selector("[data-trail-step='1']")).toHaveAttr("aria-current", "step"),
     click(selector("[data-trail-step='0']")),
     focusedDetailHeading,
+    fetchedWhole,
+    drawn,
     expectAll(steps).toHaveCount(1),
     expect(panel).toHaveAttr("data-detail-id", "t6"),
   );
@@ -97,9 +108,12 @@ it("a spec section opened from Traces to is a second step; the first step goes b
     expectAll(steps).toHaveCount(2),
     escape,
     focusedDetailHeading,
+    fetchedWhole,
+    drawn,
     expectAll(steps).toHaveCount(1),
     expect(panel).toHaveAttr("data-detail-id", "t6"),
     escape,
+    Mount.expectEnded(RenderDiff),
     expect(panel).toBeAbsent(),
     expect(selector("[data-reader-grid]")).toExist(),
   );
@@ -189,10 +203,13 @@ it("a row, then a commit: the code view on that commit, two clicks from the sect
     click(statusLine),
     click(row),
     focusedDetailHeading,
+    fetchedWhole,
+    drawn,
     click(selector(`[data-detail-commit="${commit.sha}"]`)),
     Mount.expectEnded(TrackPrdScroll),
     Mount.expectEnded(ScrollStacksToBottom),
     Mount.expectEnded(MeasureWires),
+    Mount.expectEnded(RenderDiff),
     Command.resolve(
       FetchPatch({ path: `/api/commits/${commit.sha}` }),
       Message.ReceivedPatch({ path: `/api/commits/${commit.sha}`, result: Result.succeed("") }),
