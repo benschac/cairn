@@ -19,7 +19,7 @@ import { FetchPatch } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
 import { RenderDiff } from "../src/diff.ts";
 import { Message } from "../src/message.ts";
-import { Screen } from "../src/model.ts";
+import { Screen, TraceData } from "../src/model.ts";
 import type { Node } from "../src/trace.ts";
 import { ScrollPrdSection, update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
@@ -129,14 +129,35 @@ it("the close button empties the trail", () => {
   );
 });
 
+/**
+ * The demo trace with t41, which sits on t40, also depending on t39 below it. No task in the
+ * manifest has a parent and another dependency, so the test adds one.
+ */
+const alsoNeedsT39 = modifyFields(reading, {
+  trace: () =>
+    TraceData.Success({
+      data: modifyFields(demoTrace, {
+        tasks: (tasks) =>
+          Array.map(tasks, (each) =>
+            each.id === "t41"
+              ? modifyFields(each, {
+                  dependsOn: (dependsOn) =>
+                    Array.append(dependsOn, Schema.decodeSync(TaskId)("t39")),
+                })
+              : each,
+          ),
+      }),
+    }),
+});
+
 it("a task with a parent and another dependency names both, and the dependency opens as a step", () => {
   scene(
     { update, view },
-    given(opened(task("t68"))),
+    given(modifyFields(alsoNeedsT39, { detail: () => [task("t41")] })),
     scrolledTop,
-    expect(selector("[data-detail-parent]")).toContainText("on t52"),
+    expect(selector("[data-detail-parent]")).toContainText("on t40"),
     expect(selector("[data-detail-depends]")).toContainText("t39"),
-    expect(selector("[data-detail-add='task:t52']")).toBeAbsent(),
+    expect(selector("[data-detail-add='task:t40']")).toBeAbsent(),
     click(selector("[data-detail-add='task:t39']")),
     focusedDetailHeading,
     expectAll(steps).toHaveCount(2),

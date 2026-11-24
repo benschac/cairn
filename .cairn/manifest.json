@@ -1254,7 +1254,7 @@
         "apps/viewer/test/load.test.ts"
       ],
       "branch": "cairn-mvp/68-api-trace-polling",
-      "parent": "t52",
+      "parent": null,
       "dependsOn": ["t52", "t39"],
       "worktree": "wt-14",
       "model": "sonnet",
