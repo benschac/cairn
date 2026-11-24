@@ -1,12 +1,11 @@
-import { PrdSectionId, type Trace } from "@cairn/contract";
-import { Array, Option, Schema } from "effect";
+import type { Trace } from "@cairn/contract";
+import { Array, Option } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { Message } from "../message.ts";
 import type { Destination, Model } from "../model.ts";
-import { currentOf } from "../reader.ts";
+import { currentOf, searchedSectionOf } from "../reader.ts";
 import { Resize, limitsOf } from "../panes.ts";
-import { Node } from "../trace.ts";
 import { switchView } from "../ui/controls.ts";
 import { detailView } from "./detailView.ts";
 import { dividerView, DIVIDER_WIDTH } from "./dividerView.ts";
@@ -15,17 +14,6 @@ import { searchView } from "./searchView.ts";
 import { specPaneView } from "./specPaneView.ts";
 import { stackChipsView } from "./stackChipsView.ts";
 import { MeasureWires, WIRES_ATTRIBUTE, wiresView } from "./wiresView.ts";
-
-const isPrdSection = Schema.is(PrdSectionId);
-
-/** The PRD section the active search result is, when it is one. */
-const searchedOf = (model: Model): Option.Option<PrdSectionId> =>
-  Option.flatMap(model.search.maybeActive, (node) =>
-    Node.match(node, {
-      section: ({ id }) => Option.liftPredicate(id, isPrdSection),
-      task: () => Option.none(),
-    }),
-  );
 
 /**
  * The "Plan" and "Canvas" pair, until the canvas is removed: it moves between the two screens, so
@@ -81,7 +69,9 @@ const topBarView = (trace: Trace, model: Model, presence: string, h: HtmlBuilder
 
 /**
  * The plan screen: a top bar over the panes. The window does not scroll; each pane has its own
- * scroll. The current section is the search result's, else the pinned one, else the one at the top.
+ * scroll. The current section is the active search result's first PRD section, else the pinned
+ * one, else the one at the top. The panes preview a chain as a hover does: the hovered node's, and
+ * the active result's while nothing is hovered.
  */
 export const readerView = (
   trace: Trace,
@@ -89,7 +79,8 @@ export const readerView = (
   presence: string,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const maybeCurrent = currentOf(model.reader, searchedOf(model));
+  const maybeCurrent = currentOf(model.reader, searchedSectionOf(trace, model.search.maybeActive));
+  const maybePreview = Option.orElse(model.maybeHovered, () => model.search.maybeActive);
   return h.div(
     [
       h.Class("reader"),
@@ -130,19 +121,37 @@ export const readerView = (
             ),
           ],
           [
-            prdPaneView(trace, maybeCurrent, model.reader.maybePinned, model.maybeCopied, h),
+            prdPaneView(
+              trace,
+              maybeCurrent,
+              model.reader.maybePinned,
+              model.maybeCopied,
+              model.search.results,
+              model.search.maybeActive,
+              h,
+            ),
             dividerView("prd", model.widths, h),
             specPaneView(
               trace,
               maybeCurrent,
               model.reader,
               model.isShowingModels,
-              model.maybeHovered,
+              maybePreview,
+              model.search.results,
+              model.search.maybeActive,
               h,
             ),
             dividerView("spec", model.widths, h),
-            stackChipsView(trace, maybeCurrent, model.isShowingModels, model.maybeHovered, h),
-            wiresView(trace, maybeCurrent, model.maybeMeasuredWires, model.maybeHovered, h),
+            stackChipsView(
+              trace,
+              maybeCurrent,
+              model.isShowingModels,
+              maybePreview,
+              model.search.results,
+              model.search.maybeActive,
+              h,
+            ),
+            wiresView(trace, maybeCurrent, model.maybeMeasuredWires, maybePreview, h),
           ],
         ),
       ],

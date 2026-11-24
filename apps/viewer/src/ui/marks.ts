@@ -1,5 +1,8 @@
 import type { SectionStatus } from "@cairn/contract";
+import { Array } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
+
+import type { Rendered } from "../markdown.ts";
 
 /**
  * What a tag names: a PRD or a spec section, a task ID or a short SHA. `components.css` fills a
@@ -16,9 +19,15 @@ export type TagKind = "prd" | "spec" | "task" | "sha";
 export const dotView = <Message>(status: SectionStatus, h: HtmlBuilder<Message>): Html =>
   h.span([h.Class("dot"), h.DataAttribute("status", status), h.AriaHidden(true)]);
 
-/** A task ID, a short SHA, or `SPEC` or `PRD` in a card's header; `data-kind` is its fill. */
-export const tagView = <Message>(kind: TagKind, text: string, h: HtmlBuilder<Message>): Html =>
-  h.span([h.Class("tag"), h.DataAttribute("kind", kind)], [text]);
+/**
+ * A task ID, a short SHA, or `SPEC` or `PRD` in a card's header; `data-kind` is its fill. The text
+ * is a string, or rendered nodes when a search marked part of it.
+ */
+export const tagView = <Message>(
+  kind: TagKind,
+  text: string | Rendered,
+  h: HtmlBuilder<Message>,
+): Html => h.span([h.Class("tag"), h.DataAttribute("kind", kind)], Array.ensure(text));
 
 /** `GATE`, on a task that waits for a human. */
 export const gateView = <Message>(h: HtmlBuilder<Message>): Html =>

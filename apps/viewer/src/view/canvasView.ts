@@ -1,5 +1,5 @@
 import type { Participant, SectionId, SectionPrefix, Trace } from "@cairn/contract";
-import { Array, Match, Option, Record, String } from "effect";
+import { Array, Match, Option, Record } from "effect";
 import { createKeyedLazy, createLazy, type Html, type HtmlBuilder } from "foldkit/html";
 
 import { PanZoomCanvas, VIEWPORT_ATTRIBUTE, transformOf, viewportAttribute } from "../canvas.ts";
@@ -15,9 +15,9 @@ import type { Positions, Viewport } from "../geometry.ts";
 import { litChainsOf, nodeSearchOf, type Pin } from "../highlight.ts";
 import { diagramView } from "../diagram.ts";
 import { BLOCKS_ATTRIBUTE, MeasureLayout } from "../layout.ts";
-import { renderMarkdown, type Marks, type Rendered } from "../markdown.ts";
+import { renderMarkdown, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
-import { blockKeyFor, blockKeyOf, type SearchResult } from "../search.ts";
+import { blockKeyFor, blockKeyOf, marksOf, type SearchResult } from "../search.ts";
 import type { Node } from "../trace.ts";
 import { cursorsView } from "./cursorsView.ts";
 import { edgesView } from "./edgesView.ts";
@@ -55,24 +55,6 @@ const columnView = (
 
 /** The page has its own h1, so a document's "# " heading renders as an h2. */
 const HEADING_OFFSET = 1;
-
-/** The ranges the results matched in one document's section titles and prose blocks. */
-const marksOf = (document: SectionPrefix, results: ReadonlyArray<SearchResult>): Marks => {
-  const own = Array.filter(
-    results,
-    (result) => result.node.kind === "section" && String.startsWith(`${document}.`)(result.node.id),
-  );
-  return {
-    blocks: Record.fromIterableWith(
-      Array.filter(own, (result) => Option.isSome(result.maybeOffset)),
-      (result) => [`${Option.getOrElse(result.maybeOffset, () => 0)}`, result.ranges],
-    ),
-    titles: Record.fromIterableWith(
-      Array.filter(own, (result) => result.field === "title"),
-      (result) => [result.node.id, result.ranges],
-    ),
-  };
-};
 
 /**
  * The PRD's or the spec's markdown, each section a node in the chain.

@@ -1,7 +1,7 @@
 import { PrdSectionId, type SectionPrefix, type Trace, type TraceSection } from "@cairn/contract";
 import { Array, MutableRef, Number, Option, Order, Record, Schema, String, pipe } from "effect";
 
-import { documentOf, type MarkdownDocument } from "./markdown.ts";
+import { documentOf, type Marks, type MarkdownDocument } from "./markdown.ts";
 import { Range, withinOf } from "./range.ts";
 import { Node, nodeKeyOf } from "./trace.ts";
 
@@ -691,6 +691,24 @@ export const blockKeyOf = (result: SearchResult): Option.Option<string> =>
       task: () => Option.none(),
     }),
   );
+
+/** The ranges the results matched in one document's section titles and prose blocks. */
+export const marksOf = (document: SectionPrefix, results: ReadonlyArray<SearchResult>): Marks => {
+  const own = Array.filter(
+    results,
+    (result) => result.node.kind === "section" && String.startsWith(`${document}.`)(result.node.id),
+  );
+  return {
+    blocks: Record.fromIterableWith(
+      Array.filter(own, (result) => Option.isSome(result.maybeOffset)),
+      (result) => [`${Option.getOrElse(result.maybeOffset, () => 0)}`, result.ranges],
+    ),
+    titles: Record.fromIterableWith(
+      Array.filter(own, (result) => result.field === "title"),
+      (result) => [result.node.id, result.ranges],
+    ),
+  };
+};
 
 // SEARCH STATE
 

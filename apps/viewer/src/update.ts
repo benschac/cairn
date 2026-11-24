@@ -56,7 +56,7 @@ import {
 } from "./search.ts";
 import { Resize, deltaOf, draggedTo, resized, stepOf } from "./panes.ts";
 import type { Trail } from "./detail.ts";
-import { isOpenCard } from "./reader.ts";
+import { ScrollTarget, isCardless, isOpenCard, targetsOf } from "./reader.ts";
 import { Node } from "./trace.ts";
 
 // UPDATE
@@ -227,10 +227,35 @@ const centeredOnSearch = (model: Model): Model =>
     },
   );
 
-/** A result chosen by Enter or a click: it is active, and the canvas moves to it. */
-const selectedResult = (model: Model, node: Node) => ({
-  model: centeredOnSearch(modifyFields(model, { search: (search) => chosen(search, node) })),
-});
+/**
+ * A result chosen by Enter or a click in the reader: it is active, which makes its first PRD
+ * section current while it stays so. Its place in each pane is brought into view. A spec section
+ * that implements no PRD section has no card to go to, so it opens in the detail panel, the one
+ * case where a result opens the panel. Nothing here moves focus: it stays in the search input.
+ */
+const selectedInReader = (model: Model, node: Node): Update.Return<Model, Message> => {
+  const selected = modifyFields(model, {
+    search: (search) => modifyFields(chosen(search, node), { maybeToCenter: () => Option.none() }),
+  });
+  return Option.match(
+    Option.all({ result: resultOf(selected.search.results, node), trace: traceOf(model) }),
+    {
+      onNone: () => ({ model: selected }),
+      onSome: ({ result, trace }) =>
+        isCardless(trace, node)
+          ? { model: modifyFields(selected, { detail: () => openedOn(node) }) }
+          : { commands: [ScrollSearchTargets({ targets: targetsOf(result) })], model: selected },
+    },
+  );
+};
+
+/** A result chosen by Enter or a click: it is active, and the screen moves to it. */
+const selectedResult = (model: Model, node: Node): Update.Return<Model, Message> =>
+  Screen.guards.Reader(model.screen)
+    ? selectedInReader(model, node)
+    : {
+        model: centeredOnSearch(modifyFields(model, { search: (search) => chosen(search, node) })),
+      };
 
 /** The model with this search, and the list scrolled to its active result so it is not offscreen. */
 const searchedWith = (model: Model, search: SearchState) => ({
@@ -375,10 +400,16 @@ export const update = (model: Model, message: Message) =>
     }),
     ClickedResetLayout: () => ({ model: modifyFields(model, { offsets: () => ({}) }) }),
     // A click takes focus from the input, so it goes back: the keyboard stays in search.
-    ClickedSearchResult: ({ node }) => ({
-      ...selectedResult(model, node),
-      commands: [FocusSearchInput()],
-    }),
+    ClickedSearchResult: ({ node }) => {
+      const selected = selectedResult(model, node);
+      return {
+        commands: Array.append(
+          Option.getOrElse(Option.fromNullishOr(selected.commands), () => []),
+          FocusSearchInput(),
+        ),
+        model: selected.model,
+      };
+    },
     ClickedDiffStyle: ({ style }) => ({
       model: modifyFields(model, { diffStyle: () => style }),
     }),
@@ -411,6 +442,7 @@ export const update = (model: Model, message: Message) =>
     CompletedFocusNode: () => ({ model }),
     CompletedFocusSearchInput: () => ({ model }),
     CompletedScrollSearchResult: () => ({ model }),
+    CompletedScrollSearchTargets: () => ({ model }),
     CompletedScrollStacks: () => ({ model }),
     CompletedRenderDiff: () => ({ model }),
     FailedPanZoomCanvas: ({ reason }) => ({
@@ -601,6 +633,25 @@ export const ScrollPrdSection = Command.define("ScrollPrdSection", {
       Effect.ignore,
       Effect.as(Message.CompletedScrollPrdSection()),
     ),
+});
+
+/**
+ * Brings what a selected result points at into view, each target in its own pane. A target whose
+ * element is not in the page, such as a prose block still to be rendered, falls back to the next
+ * selector; one that has none is left alone.
+ */
+export const ScrollSearchTargets = Command.define("ScrollSearchTargets", {
+  args: { targets: Schema.Array(ScrollTarget) },
+  messages: [Message.CompletedScrollSearchTargets],
+  execute: ({ targets }) =>
+    Effect.forEach(
+      targets,
+      ({ block, selectors }) =>
+        Effect.firstSuccessOf(
+          Array.map(selectors, (selector) => Dom.scrollIntoViewAfterPaint(selector, { block })),
+        ).pipe(Effect.ignore),
+      { discard: true },
+    ).pipe(Effect.as(Message.CompletedScrollSearchTargets())),
 });
 
 /** Writes a section's ID to the clipboard, and says whether the browser took it. */

@@ -23,6 +23,7 @@ import { createLazy, type Html, type HtmlBuilder } from "foldkit/html";
 import { diagramView } from "../diagram.ts";
 import { Message } from "../message.ts";
 import { renderMarkdown } from "../markdown.ts";
+import { blockKeyFor, marksOf, type SearchResult } from "../search.ts";
 import {
   coverageOf,
   countsOf,
@@ -32,9 +33,11 @@ import {
   type Counts,
   type SectionTop,
 } from "../reader.ts";
-import { sectionStatusOf } from "../trace.ts";
+import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
+import { sectionStatusOf, type Node } from "../trace.ts";
 import { dotView } from "../ui/marks.ts";
 import { prdKey } from "../wires.ts";
+import { fieldView, matchView, searchedAttributesOf } from "./nodeView.ts";
 
 /** How far below the pane's top the line is that decides which section is being read. */
 export const TOP_LINE = 140;
@@ -162,7 +165,12 @@ const statusLineView = (
   });
 
 /** The section's ID, small beside its title; it reads "copied" once the clipboard took it. */
-const idButtonView = (id: PrdSectionId, isCopied: boolean, h: HtmlBuilder<Message>): Html =>
+const idButtonView = (
+  id: PrdSectionId,
+  isCopied: boolean,
+  search: NodeSearch,
+  h: HtmlBuilder<Message>,
+): Html =>
   h.button(
     [
       h.Type("button"),
@@ -172,7 +180,7 @@ const idButtonView = (id: PrdSectionId, isCopied: boolean, h: HtmlBuilder<Messag
       h.AriaLabel(`Copy the section ID ${id}`),
       h.OnClick(Message.ClickedSectionId({ id })),
     ],
-    [isCopied ? "copied" : id],
+    isCopied ? ["copied"] : fieldView(search, "id", id, h),
   );
 
 /** The title over the document, and how many of the plan's tasks are done, with a meter. */
@@ -218,17 +226,23 @@ const headerView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
 /**
  * What the PRD pane holds: the title, then the document as prose with a status line and a copyable
  * ID on each heading. The current section's heading has `data-current`, and `data-wire`, which
- * the curve to its spec cards starts from.
+ * the curve to its spec cards starts from. What the search matched is marked in the headings and
+ * the prose, and a heading it matched is outlined, as is the active result.
  */
 const prdBodyView = (
   trace: Trace,
   maybeCurrent: Option.Option<PrdSectionId>,
   maybePinned: Option.Option<PrdSectionId>,
   maybeCopied: Option.Option<PrdSectionId>,
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
+  const searchOf = (sectionId: SectionId) =>
+    nodeSearchOf(results, maybeActive, { id: sectionId, kind: "section" });
   const attributesOf = (sectionId: SectionId) =>
     Array.flatten([
+      searchedAttributesOf(searchOf(sectionId), h),
       Option.exists(maybeCurrent, (current) => String.Equivalence(current, sectionId))
         ? [
             h.DataAttribute("current", ""),
@@ -244,7 +258,7 @@ const prdBodyView = (
       Array.fromOption(Option.liftPredicate(sectionId, isPrdSection)),
       (id): ReadonlyArray<Html> =>
         Array.appendAll(
-          [idButtonView(id, Option.contains(maybeCopied, id), h)],
+          [idButtonView(id, Option.contains(maybeCopied, id), searchOf(id), h)],
           // The document's title is not a section a reader is on, so it has no status line.
           Option.exists(levelOf(trace, id), (section) => section.level === 1)
             ? []
@@ -266,8 +280,13 @@ const prdBodyView = (
           renderMarkdown(trace.prd.markdown, h, {
             attributesOf,
             decorate,
+            blockAttributesOf: (offset: number) => [
+              h.DataAttribute("block", blockKeyFor("prd", offset)),
+            ],
             diagramView: (source, key) => diagramView(h, source, key),
             headingOffset: 1,
+            marks: marksOf("prd", results),
+            markView: (text: string) => matchView(text, h),
           }),
         ],
       ),
@@ -276,8 +295,9 @@ const prdBodyView = (
 };
 
 /**
- * One slot: the body is rebuilt only when the trace, the current section, the pin or the copied ID
- * changes, so a measurement or a hover never parses the document again.
+ * One slot: the body is rebuilt only when the trace, the current section, the pin, the copied ID or
+ * the search changes, so a measurement or a hover never renders the document again, and a query
+ * only matches and marks: the parsed document is shared.
  */
 const prdBodyLazy = createLazy();
 
@@ -290,6 +310,8 @@ export const prdPaneView = (
   maybeCurrent: Option.Option<PrdSectionId>,
   maybePinned: Option.Option<PrdSectionId>,
   maybeCopied: Option.Option<PrdSectionId>,
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
@@ -300,5 +322,15 @@ export const prdPaneView = (
       h.OnMount(TrackPrdScroll()),
       h.Style({ "min-height": "0", "overflow-y": "auto" }),
     ],
-    [prdBodyLazy(prdBodyView, [trace, maybeCurrent, maybePinned, maybeCopied, h])],
+    [
+      prdBodyLazy(prdBodyView, [
+        trace,
+        maybeCurrent,
+        maybePinned,
+        maybeCopied,
+        results,
+        maybeActive,
+        h,
+      ]),
+    ],
   );

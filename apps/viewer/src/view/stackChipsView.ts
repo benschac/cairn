@@ -5,11 +5,14 @@ import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
 import { Message } from "../message.ts";
 import { currentTasksOf, planCountsOf, ranOf } from "../reader.ts";
+import { nodeSearchOf } from "../highlight.ts";
+import type { SearchResult } from "../search.ts";
 import { labelOf, stacksOf, type Stack } from "../stacks.ts";
 import type { Chain, Node } from "../trace.ts";
 import { dotView, labelView } from "../ui/marks.ts";
 import { hoverChainOf, isTaskDimmed, taskKey } from "../wires.ts";
 import { modelAttributesOf, modelMarkView } from "./modelView.ts";
+import { fieldView, searchedAttributesOf } from "./nodeView.ts";
 import { branchStartOf } from "./stacksView.ts";
 import { hoverAttributesOf } from "./wiresView.ts";
 
@@ -54,9 +57,12 @@ const chipView = (
   hasCurrent: boolean,
   isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const ran = ranOf(task);
+  const search = nodeSearchOf(results, maybeActive, { id: task.id, kind: "task" });
   const position = Option.getOrElse(Record.get(stack.cells, task.id), () => ({
     column: 1,
     row: 1,
@@ -81,6 +87,7 @@ const chipView = (
         }),
       ],
       hoverAttributesOf({ id: task.id, kind: "task" }, h),
+      searchedAttributesOf(search, h),
       isShowingModels ? modelAttributesOf(ran, h) : [],
       isDone(task) ? [h.DataAttribute("done", "")] : [],
       task.gate.required ? [h.DataAttribute("gated", "")] : [],
@@ -89,7 +96,7 @@ const chipView = (
       isTaskDimmed(maybeChain, task.id) ? [h.DataAttribute("dimmed", "")] : [],
     ]),
     Array.appendAll(
-      [dotView(task.status, h), task.id],
+      Array.prepend(fieldView(search, "id", task.id, h), dotView(task.status, h)),
       isShowingModels ? [modelMarkView(ran, h)] : [],
     ),
   );
@@ -102,6 +109,8 @@ const stackView = (
   hasCurrent: boolean,
   isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const topRow = Array.reduce(Record.values(stack.cells), 1, (highest, cell) =>
@@ -135,6 +144,8 @@ const stackView = (
               hasCurrent,
               isShowingModels,
               maybeChain,
+              results,
+              maybeActive,
               h,
             ),
         ),
@@ -235,6 +246,8 @@ export const stackChipsView = (
   maybeCurrent: Option.Option<PrdSectionId>,
   isShowingModels: boolean,
   maybeHovered: Option.Option<Node>,
+  results: ReadonlyArray<SearchResult>,
+  maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const current = currentTasksOf(trace, maybeCurrent);
@@ -284,7 +297,17 @@ export const stackChipsView = (
               }),
             ],
             Array.map(row, (stack) =>
-              stackView(trace, stack, current, hasCurrent, isShowingModels, maybeChain, h),
+              stackView(
+                trace,
+                stack,
+                current,
+                hasCurrent,
+                isShowingModels,
+                maybeChain,
+                results,
+                maybeActive,
+                h,
+              ),
             ),
           ),
         ),
