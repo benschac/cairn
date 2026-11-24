@@ -29,6 +29,7 @@
         "spec.patch-routes",
         "spec.server",
         "spec.viewer",
+        "spec.testing",
         "spec.acceptance"
       ],
       "human": false,
@@ -2406,7 +2407,7 @@
       "id": "spec.planning.cairn-plan",
       "title": "`cairn plan`",
       "level": 3,
-      "line": 917,
+      "line": 938,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2513,7 +2514,7 @@
       "id": "spec.lint",
       "title": "Lint",
       "level": 2,
-      "line": 932,
+      "line": 953,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -2736,7 +2737,7 @@
       "id": "spec.judging",
       "title": "Judging",
       "level": 2,
-      "line": 954,
+      "line": 975,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.judging.questions",
@@ -2779,7 +2780,7 @@
       "id": "spec.judging.questions",
       "title": "Questions",
       "level": 3,
-      "line": 960,
+      "line": 981,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2882,7 +2883,7 @@
       "id": "spec.judging.verdicts",
       "title": "Verdicts",
       "level": 3,
-      "line": 984,
+      "line": 1005,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2992,7 +2993,7 @@
       "id": "spec.judging.judge-service",
       "title": "Judge service",
       "level": 3,
-      "line": 999,
+      "line": 1020,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3077,7 +3078,7 @@
       "id": "spec.judging.checkpoints",
       "title": "Checkpoints",
       "level": 3,
-      "line": 1010,
+      "line": 1031,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3179,7 +3180,7 @@
       "id": "spec.judging.cairn-judge",
       "title": "`cairn judge`",
       "level": 3,
-      "line": 1032,
+      "line": 1053,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3247,7 +3248,7 @@
       "id": "spec.status",
       "title": "Status",
       "level": 2,
-      "line": 1043,
+      "line": 1064,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.status.task-machine",
@@ -3272,7 +3273,7 @@
       "id": "spec.status.task-machine",
       "title": "Task machine",
       "level": 3,
-      "line": 1045,
+      "line": 1066,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3349,7 +3350,7 @@
       "id": "spec.status.derivation",
       "title": "Derivation",
       "level": 3,
-      "line": 1053,
+      "line": 1074,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3450,7 +3451,7 @@
       "id": "spec.status.section-rollup",
       "title": "Section rollup",
       "level": 3,
-      "line": 1072,
+      "line": 1093,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3531,7 +3532,7 @@
       "id": "spec.status.cairn-status-and-cairn-approve",
       "title": "`cairn status` and `cairn approve`",
       "level": 3,
-      "line": 1088,
+      "line": 1109,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3628,7 +3629,7 @@
       "id": "spec.sessions",
       "title": "Sessions",
       "level": 2,
-      "line": 1100,
+      "line": 1121,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.sessions.trace-store",
@@ -3653,7 +3654,7 @@
       "id": "spec.sessions.trace-store",
       "title": "Trace store",
       "level": 3,
-      "line": 1102,
+      "line": 1123,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -3845,7 +3846,7 @@
       "id": "spec.sessions.redaction",
       "title": "Redaction",
       "level": 3,
-      "line": 1134,
+      "line": 1155,
       "parent": "spec.sessions",
       "children": [],
       "human": true,
@@ -3963,7 +3964,7 @@
       "id": "spec.sessions.cairn-session",
       "title": "`cairn session`",
       "level": 3,
-      "line": 1153,
+      "line": 1174,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -4043,7 +4044,7 @@
       "id": "spec.sessions.reading",
       "title": "Reading a session",
       "level": 3,
-      "line": 1164,
+      "line": 1185,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -4109,7 +4110,7 @@
       "id": "spec.orchestrator-adapter",
       "title": "Orchestrator adapter",
       "level": 2,
-      "line": 1189,
+      "line": 1210,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4330,7 +4331,7 @@
       "id": "spec.cli",
       "title": "CLI",
       "level": 2,
-      "line": 1207,
+      "line": 1228,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4417,7 +4418,7 @@
       "id": "spec.patch-routes",
       "title": "Patch routes",
       "level": 2,
-      "line": 1216,
+      "line": 1237,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4505,7 +4506,7 @@
       "id": "spec.server",
       "title": "Server",
       "level": 2,
-      "line": 1237,
+      "line": 1258,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4661,7 +4662,7 @@
       "id": "spec.viewer",
       "title": "Viewer",
       "level": 2,
-      "line": 1260,
+      "line": 1281,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.viewer.model-and-messages",
@@ -4703,7 +4704,7 @@
       "id": "spec.viewer.model-and-messages",
       "title": "Model and messages",
       "level": 3,
-      "line": 1262,
+      "line": 1283,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4840,7 +4841,7 @@
       "id": "spec.viewer.markdown-rendering",
       "title": "Markdown rendering",
       "level": 3,
-      "line": 1278,
+      "line": 1299,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4914,7 +4915,7 @@
       "id": "spec.viewer.design-system",
       "title": "Design system",
       "level": 3,
-      "line": 1287,
+      "line": 1308,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5169,7 +5170,7 @@
       "id": "spec.viewer.reader",
       "title": "Reader",
       "level": 3,
-      "line": 1387,
+      "line": 1408,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5408,7 +5409,7 @@
       "id": "spec.viewer.spec-cards",
       "title": "Spec cards",
       "level": 3,
-      "line": 1436,
+      "line": 1457,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5573,7 +5574,7 @@
       "id": "spec.viewer.fuzzy-matching",
       "title": "Fuzzy matching",
       "level": 3,
-      "line": 1463,
+      "line": 1484,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5625,7 +5626,7 @@
       "id": "spec.viewer.search-interaction",
       "title": "Search controls and chain highlighting",
       "level": 3,
-      "line": 1482,
+      "line": 1503,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5707,7 +5708,7 @@
       "id": "spec.viewer.prose-search",
       "title": "Prose search and inline highlights",
       "level": 3,
-      "line": 1504,
+      "line": 1525,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5771,7 +5772,7 @@
       "id": "spec.viewer.curves",
       "title": "Curves",
       "level": 3,
-      "line": 1526,
+      "line": 1547,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5927,7 +5928,7 @@
       "id": "spec.viewer.stacks",
       "title": "Stacks",
       "level": 3,
-      "line": 1553,
+      "line": 1574,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6071,7 +6072,7 @@
       "id": "spec.viewer.models",
       "title": "Models and reasoning",
       "level": 3,
-      "line": 1593,
+      "line": 1614,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6188,7 +6189,7 @@
       "id": "spec.viewer.panes",
       "title": "Panes",
       "level": 3,
-      "line": 1613,
+      "line": 1634,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6350,7 +6351,7 @@
       "id": "spec.viewer.presence",
       "title": "Presence in the reader",
       "level": 3,
-      "line": 1634,
+      "line": 1655,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6444,7 +6445,7 @@
       "id": "spec.viewer.detail-panel",
       "title": "Detail panel",
       "level": 3,
-      "line": 1649,
+      "line": 1670,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6581,7 +6582,7 @@
       "id": "spec.viewer.code-view",
       "title": "Code view",
       "level": 3,
-      "line": 1683,
+      "line": 1704,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6680,7 +6681,7 @@
       "id": "spec.viewer.diff-view",
       "title": "Diff view",
       "level": 3,
-      "line": 1710,
+      "line": 1731,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6863,7 +6864,7 @@
       "id": "spec.viewer.session-view",
       "title": "Session pane",
       "level": 3,
-      "line": 1736,
+      "line": 1757,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6923,7 +6924,7 @@
       "id": "spec.viewer.attribution",
       "title": "Hunks and turns",
       "level": 3,
-      "line": 1752,
+      "line": 1773,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7007,7 +7008,7 @@
       "id": "spec.viewer.detail-code",
       "title": "Code in the detail panel",
       "level": 3,
-      "line": 1772,
+      "line": 1793,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7134,7 +7135,7 @@
       "id": "spec.viewer.canvas-removal",
       "title": "Replacing the canvas",
       "level": 3,
-      "line": 1786,
+      "line": 1807,
       "parent": "spec.viewer",
       "children": [],
       "human": true,
@@ -7286,7 +7287,7 @@
       "id": "spec.viewer.demo-data",
       "title": "Demo data",
       "level": 3,
-      "line": 1807,
+      "line": 1828,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7390,10 +7391,352 @@
       "decisions": []
     },
     {
+      "id": "spec.testing",
+      "title": "Testing",
+      "level": 2,
+      "line": 1849,
+      "parent": "spec.cairn-mvp-spec",
+      "children": [
+        "spec.testing.model-based",
+        "spec.testing.presence-model",
+        "spec.testing.viewer-models",
+        "spec.testing.derivation-model"
+      ],
+      "human": false,
+      "implements": [],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Groups the model-based tests: the tools, then one model per piece of code tested against it.",
+      "requirements": [],
+      "artifacts": [],
+      "tests": [],
+      "decisions": []
+    },
+    {
+      "id": "spec.testing.model-based",
+      "title": "Model-based tests",
+      "level": 3,
+      "line": 1853,
+      "parent": "spec.testing",
+      "children": [],
+      "human": false,
+      "implements": ["prd.implementation-in-effect.model-based-testing"],
+      "files": [
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "packages/core/package.json",
+        "packages/cli/package.json",
+        "apps/viewer/package.json",
+        "AGENTS.md",
+        ".agent_sources/xstate/index.md"
+      ],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t102"],
+      "summary": "Adds @xstate/test on xstate 6.0.0-beta.5 and sets how a model test is written, seeded, covered and replayed.",
+      "requirements": [
+        {
+          "id": "spec.testing.model-based#r1",
+          "level": "must",
+          "text": "The catalog moves `xstate` to `6.0.0-beta.5` and adds `@xstate/test` `2.0.0-beta.3` and `fast-check` `4.11.0`; `core`, `cli` and `viewer` take them as dev dependencies, and `viewer` takes `xstate`."
+        },
+        {
+          "id": "spec.testing.model-based#r2",
+          "level": "must",
+          "text": "The xstate docs index is regenerated and `AGENTS.md` gains a lookup row for model-based testing."
+        },
+        {
+          "id": "spec.testing.model-based#r3",
+          "level": "must",
+          "text": "A model test lives in `<subject>.model.test.ts`, and its model is a machine that is never the code under test; when the code runs that machine, the test is of what the code adds around it."
+        },
+        {
+          "id": "spec.testing.model-based#r4",
+          "level": "must",
+          "text": "A model test runs `propertyTest` in `it.effect` with a fixed seed and asserts `{ transitions: 1 }` coverage."
+        },
+        {
+          "id": "spec.testing.model-based#r5",
+          "level": "must",
+          "text": "Events come from the model's schemas through `eventsFromSchemas` from `@xstate/test/effect-schema`, with an `override` for `Option`."
+        },
+        {
+          "id": "spec.testing.model-based#r6",
+          "level": "must",
+          "text": "A failure's fixture is committed and replayed with `replayTest` and `expect: \"pass\"`; no test passes `failures: true`."
+        },
+        {
+          "id": "spec.testing.model-based#r7",
+          "level": "must",
+          "text": "Each task breaks its code once and shows the test fail with a shrunk sequence."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.testing.model-based#library:xstate-test",
+          "kind": "library",
+          "name": "@xstate/test",
+          "location": "pnpm-workspace.yaml",
+          "description": "Generates event sequences from a machine and checks code against it."
+        },
+        {
+          "id": "spec.testing.model-based#library:fast-check",
+          "kind": "library",
+          "name": "fast-check",
+          "location": "pnpm-workspace.yaml",
+          "description": "The generator @xstate/test uses."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.testing.model-based#d1",
+          "text": "Stay on Vitest 5 and accept the peer warning.",
+          "why": "Cairn does not use @xstate/test/vitest, and propertyTest runs under Vitest 5."
+        },
+        {
+          "id": "spec.testing.model-based#d2",
+          "text": "Commit failure fixtures by hand instead of `failures: true`.",
+          "why": "A check writes no files."
+        }
+      ]
+    },
+    {
+      "id": "spec.testing.presence-model",
+      "title": "Presence against the room machine",
+      "level": 3,
+      "line": 1873,
+      "parent": "spec.testing",
+      "children": [],
+      "human": false,
+      "implements": ["prd.implementation-in-effect.model-based-testing", "prd.acceptance-criteria"],
+      "files": ["packages/cli/test/presence.model.test.ts"],
+      "dependsOn": ["spec.testing.model-based"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t103"],
+      "summary": "Tests the presence server over real WebSockets against the room machine, so every participant sees the machine's room.",
+      "requirements": [
+        {
+          "id": "spec.testing.presence-model#r1",
+          "level": "must",
+          "text": "The server runs `roomMachine`, so the test is of what it adds: the sockets, the broadcast to every participant and leaving when a socket closes."
+        },
+        {
+          "id": "spec.testing.presence-model#r2",
+          "level": "must",
+          "text": "The model is `roomMachine` and the system under test is `PresenceRoute` with `Room.layer` on a Node server on port 0, with real WebSocket clients."
+        },
+        {
+          "id": "spec.testing.presence-model#r3",
+          "level": "must",
+          "text": "Model IDs come from a pool of three and map to the client and server ID each joined with."
+        },
+        {
+          "id": "spec.testing.presence-model#r4",
+          "level": "must",
+          "text": "`joined` opens a client, replacing an existing one; `moved` writes a `CursorJson` frame; `left` closes the client; an event for an ID with no client does nothing."
+        },
+        {
+          "id": "spec.testing.presence-model#r5",
+          "level": "must",
+          "text": "`read` waits until every open client has the room after the last event, up to two seconds, and returns each client's room with IDs mapped back; `projectModel` returns the machine's participants once per open client."
+        }
+      ],
+      "artifacts": [],
+      "tests": [
+        {
+          "id": "spec.testing.presence-model#t1",
+          "kind": "property",
+          "text": "Every participant sees the room machine's participants, in order, after every generated join, move and leave."
+        },
+        {
+          "id": "spec.testing.presence-model#t2",
+          "kind": "mutation",
+          "text": "Sending the room only to the participant who changed it fails the test."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.testing.presence-model#d1",
+          "text": "Test the server against the machine it runs.",
+          "why": "The machine's transitions have their own tests; this one checks the sockets and the broadcast the server adds."
+        }
+      ]
+    },
+    {
+      "id": "spec.testing.viewer-models",
+      "title": "Reader interactions against models",
+      "level": 3,
+      "line": 1889,
+      "parent": "spec.testing",
+      "children": [],
+      "human": false,
+      "implements": [
+        "prd.implementation-in-effect.model-based-testing",
+        "prd.viewer.reader",
+        "prd.viewer.panes",
+        "prd.viewer.task-detail",
+        "prd.acceptance-criteria"
+      ],
+      "files": ["apps/viewer/test/reader.model.test.ts", "apps/viewer/test/panes.model.test.ts"],
+      "dependsOn": [
+        "spec.testing.model-based",
+        "spec.viewer.reader",
+        "spec.viewer.panes",
+        "spec.viewer.detail-panel"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t104"],
+      "summary": "Tests the viewer's update against two machines written from the spec: the detail trail with pinning and Escape, and the pane dividers.",
+      "requirements": [
+        {
+          "id": "spec.testing.viewer-models#r1",
+          "level": "must",
+          "text": "The models are written from the spec sections, not from the viewer's code, and the system under test is `update` from `init` on the demo trace with the reader open."
+        },
+        {
+          "id": "spec.testing.viewer-models#r2",
+          "level": "must",
+          "text": "The reader model covers starting, extending, cutting and closing the trail, Escape that steps back or unpins, and pinning by the status line."
+        },
+        {
+          "id": "spec.testing.viewer-models#r3",
+          "level": "must",
+          "text": "The panes model covers arrow keys, a press, moves and releases from the pressed pointer and from another, and a move with no button held, within limits written out in the model."
+        },
+        {
+          "id": "spec.testing.viewer-models#r4",
+          "level": "must",
+          "text": "Payloads come from the demo trace's IDs, and a step index from the current trail."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.testing.viewer-models#machine-state:closed",
+          "kind": "machine-state",
+          "name": "closed",
+          "location": "apps/viewer/test/reader.model.test.ts",
+          "description": "The reader model with no trail."
+        },
+        {
+          "id": "spec.testing.viewer-models#machine-state:open",
+          "kind": "machine-state",
+          "name": "open",
+          "location": "apps/viewer/test/reader.model.test.ts",
+          "description": "The reader model with a trail."
+        },
+        {
+          "id": "spec.testing.viewer-models#machine-state:idle",
+          "kind": "machine-state",
+          "name": "idle",
+          "location": "apps/viewer/test/panes.model.test.ts",
+          "description": "The panes model with no resize."
+        },
+        {
+          "id": "spec.testing.viewer-models#machine-state:resizing",
+          "kind": "machine-state",
+          "name": "resizing",
+          "location": "apps/viewer/test/panes.model.test.ts",
+          "description": "The panes model while a pointer resizes a pane."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.testing.viewer-models#t1",
+          "kind": "property",
+          "text": "The viewer's update agrees with the reader model on the trail and the pinned section after every generated click and key."
+        },
+        {
+          "id": "spec.testing.viewer-models#t2",
+          "kind": "property",
+          "text": "The viewer's update agrees with the panes model on every width after every generated key and pointer event."
+        },
+        {
+          "id": "spec.testing.viewer-models#t3",
+          "kind": "mutation",
+          "text": "Escape that unpins while the panel is open, and a move from another pointer that changes a width, each fail a test."
+        }
+      ],
+      "decisions": []
+    },
+    {
+      "id": "spec.testing.derivation-model",
+      "title": "Derivation against a model of its inputs",
+      "level": 3,
+      "line": 1919,
+      "parent": "spec.testing",
+      "children": [],
+      "human": false,
+      "implements": [
+        "prd.implementation-in-effect.model-based-testing",
+        "prd.orchestrator-contract",
+        "prd.human-gates"
+      ],
+      "files": ["packages/core/test/derive.model.test.ts"],
+      "dependsOn": ["spec.testing.model-based", "spec.status.derivation"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t105"],
+      "summary": "Tests derive against a machine of what an orchestrator writes and what git shows, which keeps facts and replays them as derive recomputes.",
+      "requirements": [
+        {
+          "id": "spec.testing.derivation-model#r1",
+          "level": "must",
+          "text": "The model is a machine of one task's inputs, written from the PRD, and not the task machine."
+        },
+        {
+          "id": "spec.testing.derivation-model#r2",
+          "level": "must",
+          "text": "The model keeps facts: the reports so far, whether a commit touched a gated path and whether the task landed; after each event it replays its reports from the start and carries nothing over."
+        },
+        {
+          "id": "spec.testing.derivation-model#r3",
+          "level": "must",
+          "text": "`reported` lines follow the lifecycle, a gated `done` waits for a human, and a report the lifecycle does not allow adds a warning."
+        },
+        {
+          "id": "spec.testing.derivation-model#r4",
+          "level": "must",
+          "text": "`committed` on a gated path gates every report of the task, earlier ones too; `merged` and `squashed` stay true, land a task whose reports end in `done` and otherwise add a warning for landing without approval."
+        },
+        {
+          "id": "spec.testing.derivation-model#r5",
+          "level": "must",
+          "text": "`read` runs `derive` with a test `Git` Layer over shuffled event lines and returns the status and the number of warnings."
+        }
+      ],
+      "artifacts": [],
+      "tests": [
+        {
+          "id": "spec.testing.derivation-model#t1",
+          "kind": "property",
+          "text": "derive agrees with the model on status and warnings after every generated report, commit and landing, whatever the order of the lines."
+        },
+        {
+          "id": "spec.testing.derivation-model#t2",
+          "kind": "mutation",
+          "text": "Letting an agent's done approve a gated task fails the test."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.testing.derivation-model#d1",
+          "text": "Replay the facts in the model instead of keeping a running status.",
+          "why": "derive computes the gate from every commit before it replays events, and landing is git state that stays true."
+        }
+      ]
+    },
+    {
       "id": "spec.acceptance",
       "title": "Acceptance",
       "level": 2,
-      "line": 1828,
+      "line": 1937,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -7464,6 +7807,11 @@
           "id": "spec.acceptance#r12",
           "level": "must",
           "text": "A task's code shows in the detail panel, checked by a Scene that clicks a task row and finds the diff mount keyed by the task's range with the reader still under it."
+        },
+        {
+          "id": "spec.acceptance#r13",
+          "level": "must",
+          "text": "A broken broadcast or Escape fails a model-based test that prints the shortest failing event sequence."
         }
       ],
       "artifacts": [

@@ -2490,6 +2490,107 @@
       "status": "pending",
       "commits": [],
       "sessions": []
+    },
+    {
+      "id": "t102",
+      "title": "Add @xstate/test and move xstate to 6.0.0-beta.5",
+      "prdSections": ["prd.implementation-in-effect.model-based-testing"],
+      "specSections": ["spec.testing.model-based"],
+      "files": [
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "packages/core/package.json",
+        "packages/cli/package.json",
+        "apps/viewer/package.json",
+        "AGENTS.md",
+        ".agent_sources/xstate/index.md"
+      ],
+      "branch": "cairn-mvp/102-xstate-test",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-29",
+      "model": "haiku",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t103",
+      "title": "Test the presence server against the room machine",
+      "prdSections": [
+        "prd.implementation-in-effect.model-based-testing",
+        "prd.acceptance-criteria"
+      ],
+      "specSections": ["spec.testing.presence-model"],
+      "files": ["packages/cli/test/presence.model.test.ts"],
+      "branch": "cairn-mvp/103-presence-model",
+      "parent": "t102",
+      "dependsOn": ["t102"],
+      "worktree": "wt-29",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t104",
+      "title": "Test the reader's trail, pin and dividers against models",
+      "prdSections": [
+        "prd.implementation-in-effect.model-based-testing",
+        "prd.viewer.reader",
+        "prd.viewer.panes",
+        "prd.viewer.task-detail",
+        "prd.acceptance-criteria"
+      ],
+      "specSections": ["spec.testing.viewer-models"],
+      "files": ["apps/viewer/test/reader.model.test.ts", "apps/viewer/test/panes.model.test.ts"],
+      "branch": "cairn-mvp/104-reader-models",
+      "parent": null,
+      "dependsOn": ["t85", "t92", "t93", "t102"],
+      "worktree": "wt-30",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t105",
+      "title": "Test derivation against a model of its inputs",
+      "prdSections": [
+        "prd.implementation-in-effect.model-based-testing",
+        "prd.orchestrator-contract",
+        "prd.human-gates"
+      ],
+      "specSections": ["spec.testing.derivation-model"],
+      "files": ["packages/core/test/derive.model.test.ts"],
+      "branch": "cairn-mvp/105-derive-model",
+      "parent": null,
+      "dependsOn": ["t32", "t102"],
+      "worktree": "wt-31",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
     }
   ]
 }
