@@ -1,13 +1,12 @@
 import { Schema } from "effect";
 
-import { PrdSectionId, sectionPattern, SpecSectionId, TaskId } from "./ids.ts";
+import { KEBAB, PrdSectionId, sectionPattern, SpecSectionId, TaskId } from "./ids.ts";
 
 /** The id of something a spec section holds: the section's id, `#`, then `suffix`. */
 const itemId = (suffix: string) =>
   Schema.String.check(Schema.isPattern(sectionPattern("spec", `#${suffix}`)));
 
 const NUMBER = String.raw`[1-9]\d*`;
-const KEBAB = "[a-z0-9]+(?:-[a-z0-9]+)*";
 
 export const RequirementLevel = Schema.Literals(["must", "must-not", "should", "may"]);
 export type RequirementLevel = typeof RequirementLevel.Type;

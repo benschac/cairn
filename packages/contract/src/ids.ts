@@ -1,11 +1,18 @@
 import { Schema } from "effect";
 
 /**
+ * Regex source for a lowercase kebab-case name, such as `cairn-mvp` or `v2-on-cloudflare`.
+ * A pattern, not `String.kebabCase(s) === s`: that function converts and does not test. It
+ * splits a letter from a digit (`v2` becomes `v-2`) and keeps letters outside ASCII.
+ */
+export const KEBAB = "[a-z0-9]+(?:-[a-z0-9]+)*";
+
+/**
  * An id under `prefix`: one or more `.`-separated lowercase kebab-case segments. `suffix` is
  * regex source for what follows the id, such as `#r\d+` for a requirement in a section.
  */
 export const sectionPattern = (prefix: string, suffix = "") =>
-  new RegExp(String.raw`^${prefix}(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)+${suffix}$`, "u");
+  new RegExp(String.raw`^${prefix}(?:\.${KEBAB})+${suffix}$`, "u");
 
 export const SECTION_ID = sectionPattern("(?:prd|spec)");
 

@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { PrdSectionId, SpecSectionId, TaskId } from "./ids.ts";
+import { KEBAB, PrdSectionId, SpecSectionId, TaskId } from "./ids.ts";
 import { SessionId, Sha } from "./trailers.ts";
 
 export const TaskStatus = Schema.Literals([
@@ -29,7 +29,7 @@ export const SectionStatus = Schema.Literals([
 export type SectionStatus = typeof SectionStatus.Type;
 
 /** A lowercase kebab-case name, such as `cairn-mvp`. */
-export const Slug = Schema.String.check(Schema.isPattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)).pipe(
+export const Slug = Schema.String.check(Schema.isPattern(new RegExp(`^${KEBAB}$`, "u"))).pipe(
   Schema.brand("Slug"),
 );
 export type Slug = typeof Slug.Type;
@@ -51,7 +51,7 @@ export const HumanGate = Schema.Struct({
 });
 export type HumanGate = typeof HumanGate.Type;
 
-const BRANCH = /^[a-z0-9]+(?:-[a-z0-9]+)*\/\d{2,}-[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const BRANCH = new RegExp(String.raw`^${KEBAB}/\d{2,}-${KEBAB}$`, "u");
 
 export const ManifestTask = Schema.Struct({
   branch: Schema.String.check(Schema.isPattern(BRANCH)),
