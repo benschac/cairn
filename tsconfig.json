@@ -9,6 +9,7 @@
           "@effect/vitest",
           "@effect/platform-node/NodeRuntime",
           "@effect/platform-node/NodeServices",
+          "effect/cli/Argument",
           "effect/cli/Command",
           "effect/cli/Flag",
           "effect/crypto/Digest",

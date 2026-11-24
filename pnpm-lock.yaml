@@ -35,6 +35,9 @@ importers:
 
   .:
     devDependencies:
+      '@cairn/contract':
+        specifier: workspace:*
+        version: link:packages/contract
       '@effect/platform-node':
         specifier: 4.1.5
         version: 4.1.5(effect@4.1.5)(redis@6.3.1)

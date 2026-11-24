@@ -15,6 +15,7 @@
     "//#typecheck:root": {
       "inputs": [
         "scripts/**",
+        "packages/contract/src/**",
         "*.config.ts",
         "tsconfig.json",
         "tsconfig.base.json",
@@ -32,6 +33,10 @@
     },
     "//#test:land": {
       "inputs": ["scripts/land/**", "package.json"],
+      "outputs": []
+    },
+    "//#test:tasks": {
+      "inputs": ["scripts/tasks/**", "packages/contract/src/**", "package.json"],
       "outputs": []
     },
     "//#test:lint": {
