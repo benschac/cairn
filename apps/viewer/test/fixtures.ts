@@ -14,6 +14,8 @@ import {
 import { demoTrace } from "../src/demo.ts";
 import { DrawDiagram } from "../src/diagram.ts";
 import type { Positions } from "../src/geometry.ts";
+import { MeasureWires } from "../src/view/wiresView.ts";
+import type { Measured } from "../src/wires.ts";
 import { init } from "../src/init.ts";
 import { MeasureLayout } from "../src/layout.ts";
 import { Message } from "../src/message.ts";
@@ -69,6 +71,24 @@ export const canvasEnded = () => [
 
 /** The pane sized and nothing measured. */
 export const mounted = mountedWith({});
+
+/** What the reader's mount measures on a page with no layout: every pane empty and no wire end boxed. */
+export const unmeasuredWires: Measured = {
+  boxes: {},
+  panes: {
+    prd: { height: 0, width: 0, x: 0, y: 0 },
+    spec: { height: 0, width: 0, x: 0, y: 0 },
+    stacks: { height: 0, width: 0, x: 0, y: 0 },
+  },
+};
+
+/** The reader body's mount, answering with what it measured: a Scene has no hooks, so the test says. */
+export const wiresMountedWith = (measured: Measured) =>
+  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+  Mount.resolve(MeasureWires, Message.MeasuredWires({ measured }));
+
+/** The reader body's mount answering that nothing is measured. */
+export const wiresMounted = wiresMountedWith(unmeasuredWires);
 
 /** Opening a drawer moves focus to its heading; the test answers for the focus. */
 export const focusedDrawerHeading = Command.resolve(

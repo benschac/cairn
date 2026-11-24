@@ -17,6 +17,7 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
     isShowingAllCurves: false,
     maybeCopied: Option.none(),
     maybeHovered: Option.none(),
+    maybeMeasuredWires: Option.none(),
     maybePaneSize: Option.none(),
     maybePanZoomFailure: Option.none(),
     maybeYou: Option.none(),

@@ -23,7 +23,7 @@ import { update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom, chipTitleOf } from "../src/view/stackChipsView.ts";
 import { view } from "../src/view/view.ts";
-import { loaded } from "./fixtures.ts";
+import { loaded, wiresMounted } from "./fixtures.ts";
 
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 const stacks = stacksOf(demoTrace.tasks);
@@ -36,7 +36,7 @@ const scrolledTo = (id: string) =>
 const scrolledStacks = Mount.resolve(ScrollStacksToBottom, Message.CompletedScrollStacks());
 
 /** The reader, with the pane's mounts answered. */
-const opened = [scrolledTo("prd.goal"), scrolledStacks] as const;
+const opened = [scrolledTo("prd.goal"), scrolledStacks, wiresMounted] as const;
 
 it("every stack is a box with its label for a title, holding its own chips", () => {
   const viewer = stackOf("t52");

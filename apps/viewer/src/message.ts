@@ -6,6 +6,7 @@ import { ArrowKey, ClientPoint, Movable, PointerId } from "./drag.ts";
 import { Positions, Size, Viewport } from "./geometry.ts";
 import { Density, Destination, DiffStyle } from "./model.ts";
 import { Node } from "./trace.ts";
+import { Measured } from "./wires.ts";
 
 export const Message = defineMessageUnion({
   /** The code view's "Back to canvas" button. */
@@ -70,6 +71,8 @@ export const Message = defineMessageUnion({
   MeasuredLayout: { positions: Positions },
   /** A pointer moved anywhere on the page while a drag was in progress, with the buttons it held. */
   MovedDragPointer: { buttons: Schema.Int, pointer: ClientPoint, pointerId: PointerId },
+  /** The reader's mount measured every `data-wire` element and the three panes, in window coordinates. */
+  MeasuredWires: { measured: Measured },
   /** The canvas mount measured the pane. */
   MeasuredPane: { size: Size },
   /**

@@ -6,8 +6,11 @@ import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message.ts";
 import { currentTasksOf, planCountsOf } from "../reader.ts";
 import { labelOf, stacksOf, type Stack } from "../stacks.ts";
+import type { Chain, Node } from "../trace.ts";
 import { dotView, labelView } from "../ui/marks.ts";
+import { hoverChainOf, isTaskDimmed, taskKey } from "../wires.ts";
 import { branchStartOf } from "./stacksView.ts";
+import { hoverAttributesOf } from "./wiresView.ts";
 
 const isDone = (task: TraceTask): boolean => task.status === "done" || task.status === "landed";
 
@@ -48,6 +51,7 @@ const chipView = (
   topRow: number,
   current: HashSet.HashSet<string>,
   hasCurrent: boolean,
+  maybeChain: Option.Option<Chain>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const position = Option.getOrElse(Record.get(stack.cells, task.id), () => ({
@@ -63,7 +67,7 @@ const chipView = (
         h.Type("button"),
         h.Class("chip"),
         h.DataAttribute("task", task.id),
-        h.DataAttribute("wire", `task:${task.id}`),
+        h.DataAttribute("wire", taskKey(task.id)),
         h.Title(title),
         h.AriaLabel(title),
         h.OnClick(Message.ClickedTask({ id: task.id })),
@@ -73,10 +77,12 @@ const chipView = (
           "grid-row": `${topRow - position.row + 1}`,
         }),
       ],
+      hoverAttributesOf({ id: task.id, kind: "task" }, h),
       isDone(task) ? [h.DataAttribute("done", "")] : [],
       task.gate.required ? [h.DataAttribute("gated", "")] : [],
       isCurrent ? [h.DataAttribute("current", "")] : [],
       hasCurrent && !isCurrent ? [h.DataAttribute("faded", "")] : [],
+      isTaskDimmed(maybeChain, task.id) ? [h.DataAttribute("dimmed", "")] : [],
     ]),
     [dotView(task.status, h), task.id],
   );
@@ -87,6 +93,7 @@ const stackView = (
   stack: Stack,
   current: HashSet.HashSet<string>,
   hasCurrent: boolean,
+  maybeChain: Option.Option<Chain>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const topRow = Array.reduce(Record.values(stack.cells), 1, (highest, cell) =>
@@ -110,7 +117,7 @@ const stackView = (
         [h.Style({ display: "grid", gap: "4px", "justify-items": "start" })],
         Array.map(
           Array.filter(trace.tasks, (task) => Record.has(stack.cells, task.id)),
-          (task) => chipView(trace, task, stack, topRow, current, hasCurrent, h),
+          (task) => chipView(trace, task, stack, topRow, current, hasCurrent, maybeChain, h),
         ),
       ),
       h.div([h.Class("label"), h.DataAttribute("stack-label", "")], [`${stack.number}`]),
@@ -184,9 +191,11 @@ const overviewView = (
 export const stackChipsView = (
   trace: Trace,
   maybeCurrent: Option.Option<PrdSectionId>,
+  maybeHovered: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const current = currentTasksOf(trace, maybeCurrent);
+  const maybeChain = hoverChainOf(trace, maybeHovered);
   const hasCurrent = Option.isSome(maybeCurrent);
   const levels = pipe(
     Array.groupBy(stacksOf(trace.tasks), (stack) => `${stack.level}`),
@@ -231,7 +240,7 @@ export const stackChipsView = (
                 gap: "12px",
               }),
             ],
-            Array.map(row, (stack) => stackView(trace, stack, current, hasCurrent, h)),
+            Array.map(row, (stack) => stackView(trace, stack, current, hasCurrent, maybeChain, h)),
           ),
         ),
       ),

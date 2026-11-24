@@ -16,6 +16,7 @@ import { Positions, Size, Viewport } from "./geometry.ts";
 import { Pin } from "./highlight.ts";
 import { SearchState } from "./search.ts";
 import { Node } from "./trace.ts";
+import { Measured } from "./wires.ts";
 
 /** The trace as it loads: nothing yet, a failure, the trace, or the last good trace beside a failure. */
 export const TraceData = AsyncData.Schema(Schema.toType(Trace), Schema.String);
@@ -113,6 +114,8 @@ export const Model = Schema.Struct({
   /** The section whose ID was just copied; its button reads "copied" until another reader click. */
   maybeCopied: Schema.Option(PrdSectionId),
   maybeHovered: Schema.Option(Node),
+  /** What the reader's mount last measured for its curves; none until the three panes are in the page. */
+  maybeMeasuredWires: Schema.Option(Measured),
   /** The canvas pane's size, once its mount has measured it. */
   maybePaneSize: Schema.Option(Size),
   /** Why pan and zoom did not start on the canvas pane; none while it works. */

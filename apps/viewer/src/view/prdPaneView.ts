@@ -18,7 +18,7 @@ import {
   String,
 } from "effect";
 import { Mount } from "foldkit";
-import type { Html, HtmlBuilder } from "foldkit/html";
+import { createLazy, type Html, type HtmlBuilder } from "foldkit/html";
 
 import { diagramView } from "../diagram.ts";
 import { Message } from "../message.ts";
@@ -34,6 +34,7 @@ import {
 } from "../reader.ts";
 import { sectionStatusOf } from "../trace.ts";
 import { dotView } from "../ui/marks.ts";
+import { prdKey } from "../wires.ts";
 
 /** How far below the pane's top the line is that decides which section is being read. */
 export const TOP_LINE = 140;
@@ -215,11 +216,11 @@ const headerView = (trace: Trace, h: HtmlBuilder<Message>): Html => {
 };
 
 /**
- * The PRD pane: the document as prose, with a status line and a copyable ID on each heading. The
- * current section's heading has `data-current`. The pane scrolls on its own and its mount follows
- * the section at its top.
+ * What the PRD pane holds: the title, then the document as prose with a status line and a copyable
+ * ID on each heading. The current section's heading has `data-current`, and `data-wire`, which
+ * the curve to its spec cards starts from.
  */
-export const prdPaneView = (
+const prdBodyView = (
   trace: Trace,
   maybeCurrent: Option.Option<PrdSectionId>,
   maybePinned: Option.Option<PrdSectionId>,
@@ -227,14 +228,17 @@ export const prdPaneView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const attributesOf = (sectionId: SectionId) =>
-    Array.appendAll(
+    Array.flatten([
       Option.exists(maybeCurrent, (current) => String.Equivalence(current, sectionId))
-        ? [h.DataAttribute("current", "")]
+        ? [
+            h.DataAttribute("current", ""),
+            h.DataAttribute("wire", prdKey(PrdSectionId.make(sectionId))),
+          ]
         : [],
       Option.exists(levelOf(trace, sectionId), (section) => section.level === 1)
         ? [h.Attribute(TITLE_ATTRIBUTE, "")]
         : [],
-    );
+    ]);
   const decorate = (sectionId: SectionId): ReadonlyArray<Html> =>
     Array.flatMap(
       Array.fromOption(Option.liftPredicate(sectionId, isPrdSection)),
@@ -253,6 +257,42 @@ export const prdPaneView = (
         ),
     );
   return h.div(
+    [h.Style({ margin: "0 auto", "max-width": "760px", padding: "24px 28px 96px" })],
+    [
+      headerView(trace, h),
+      h.div(
+        [h.Class("prose")],
+        [
+          renderMarkdown(trace.prd.markdown, h, {
+            attributesOf,
+            decorate,
+            diagramView: (source, key) => diagramView(h, source, key),
+            headingOffset: 1,
+          }),
+        ],
+      ),
+    ],
+  );
+};
+
+/**
+ * One slot: the body is rebuilt only when the trace, the current section, the pin or the copied ID
+ * changes, so a measurement or a hover never parses the document again.
+ */
+const prdBodyLazy = createLazy();
+
+/**
+ * The PRD pane: the document as prose, with a status line and a copyable ID on each heading. The
+ * pane scrolls on its own and its mount follows the section at its top.
+ */
+export const prdPaneView = (
+  trace: Trace,
+  maybeCurrent: Option.Option<PrdSectionId>,
+  maybePinned: Option.Option<PrdSectionId>,
+  maybeCopied: Option.Option<PrdSectionId>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.div(
     [
       h.Role("region"),
       h.AriaLabel("PRD"),
@@ -260,24 +300,5 @@ export const prdPaneView = (
       h.OnMount(TrackPrdScroll()),
       h.Style({ "min-height": "0", "overflow-y": "auto" }),
     ],
-    [
-      h.div(
-        [h.Style({ margin: "0 auto", "max-width": "760px", padding: "24px 28px 96px" })],
-        [
-          headerView(trace, h),
-          h.div(
-            [h.Class("prose")],
-            [
-              renderMarkdown(trace.prd.markdown, h, {
-                attributesOf,
-                decorate,
-                diagramView: (source, key) => diagramView(h, source, key),
-                headingOffset: 1,
-              }),
-            ],
-          ),
-        ],
-      ),
-    ],
+    [prdBodyLazy(prdBodyView, [trace, maybeCurrent, maybePinned, maybeCopied, h])],
   );
-};
