@@ -127,11 +127,15 @@ await test("threadTasks prefers the tasks label, then the task label with the id
   ]);
 });
 
-await test("a thread is open until its latest reply says the work stopped or landed", () => {
+await test("a thread is open until a sentence of its latest reply starts with Stopping or Landed", () => {
   assert.equal(isOpen(thread("Starting t1")), true);
   assert.equal(isOpen(thread("Starting t1", {}, "PR open: https://example.test/1")), true);
   assert.equal(isOpen(thread("Starting t1", {}, "PR open. Stopping here.")), false);
   assert.equal(isOpen(thread("Starting t1", {}, "Landed: abc1234")), false);
+  assert.equal(isOpen(thread("Starting t1", {}, "t104 waits on t93. Stopping.")), false);
+  // Progress that mentions another task landing, or stopping in passing, keeps the claim.
+  assert.equal(isOpen(thread("Starting t1", {}, "Dependency t30 landed; continuing on t1.")), true);
+  assert.equal(isOpen(thread("Starting t1", {}, "Not stopping: the fix is small.")), true);
 });
 
 const ago = (iso: string) => age(DateTime.makeUnsafe(iso), NOW);
