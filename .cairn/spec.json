@@ -272,7 +272,7 @@
           "kind": "service",
           "name": "TraceStore",
           "location": null,
-          "description": "Live: node:sqlite on .cairn/cairn.db. Test: node:sqlite on :memory:."
+          "description": "Live: SqliteClient on .cairn/cairn.db. Test: SqliteClient on :memory:."
         },
         {
           "id": "spec.package-layout#service:planner",
@@ -324,7 +324,7 @@
         {
           "id": "spec.libraries#r1",
           "level": "must",
-          "text": "Use node:sqlite for cairn.db and path.matchesGlob for gate patterns, which are built into Node 24 and need no package."
+          "text": "Use path.matchesGlob for gate patterns and node:sqlite under @effect/sql-sqlite-node for cairn.db; both are built into Node 24 and need no native package."
         },
         {
           "id": "spec.libraries#r2",
@@ -418,11 +418,18 @@
           "description": "The switch and the disclosure in the viewer's design system. Version 0.171.0, MIT."
         },
         {
+          "id": "spec.libraries#library:effect-sql-sqlite-node",
+          "kind": "library",
+          "name": "@effect/sql-sqlite-node",
+          "location": null,
+          "description": "SqliteClient and SqliteMigrator for cairn.db, on node:sqlite. Version 4.1.5, MIT."
+        },
+        {
           "id": "spec.libraries#library:node-sqlite",
           "kind": "library",
           "name": "node:sqlite",
           "location": null,
-          "description": "Built into Node 24; used for cairn.db."
+          "description": "Built into Node 24; @effect/sql-sqlite-node runs on it for cairn.db."
         },
         {
           "id": "spec.libraries#function:path-matchesglob",
@@ -467,8 +474,8 @@
         },
         {
           "id": "spec.libraries#d3",
-          "text": "Leave out a SQLite package such as better-sqlite3.",
-          "why": "node:sqlite needs no native build."
+          "text": "Leave out a SQLite driver such as better-sqlite3.",
+          "why": "@effect/sql-sqlite-node runs on node:sqlite, which needs no native build."
         },
         {
           "id": "spec.libraries#d4",
@@ -494,6 +501,11 @@
           "id": "spec.libraries#d8",
           "text": "Leave out Workers AI.",
           "why": "Cairn runs on the user's machine, not in a Worker."
+        },
+        {
+          "id": "spec.libraries#d9",
+          "text": "Leave out an ORM such as Drizzle or Prisma.",
+          "why": "One table needs no query builder, an ORM would declare row types a second time beside Effect Schema, and the same SqlClient runs on a Durable Object or D1 if v2 needs it."
         }
       ]
     },
@@ -4233,27 +4245,27 @@
       "children": [],
       "human": false,
       "implements": ["prd.orchestrator-contract", "prd.repo-layout"],
-      "files": ["packages/cli/src/trace-store.ts", "packages/cli/src/migrations/001-init.sql"],
+      "files": ["packages/cli/src/trace-store.ts", "packages/cli/src/migrations/"],
       "dependsOn": [],
       "defers": [],
       "context": [],
       "tasks": ["t2"],
-      "summary": "Specifies the SQLite trace store for redacted sessions and their notes, using node:sqlite and numbered migrations.",
+      "summary": "Specifies the SQLite trace store for redacted sessions, on Effect SQL's SqliteClient with Effect migrations; notes wait for their own migration.",
       "requirements": [
         {
           "id": "spec.sessions.trace-store#r1",
           "level": "must",
-          "text": "Use `node:sqlite` so there is no native dependency."
+          "text": "`TraceStore` is a service over `SqlClient` from `@effect/sql-sqlite-node`, which runs on `node:sqlite`, so there is no native dependency."
         },
         {
           "id": "spec.sessions.trace-store#r2",
           "level": "must",
-          "text": "Keep migrations as numbered SQL files tracked with `PRAGMA user_version`."
+          "text": "Migrations are Effect modules named `NNNN_<name>.ts`, run by `SqliteMigrator.layer` through `Migrator.fromRecord`."
         },
         {
           "id": "spec.sessions.trace-store#r3",
-          "level": "must",
-          "text": "Attach notes to sessions, never to commits."
+          "level": "must-not",
+          "text": "Edit a migration once it lands; a change is a new migration."
         },
         {
           "id": "spec.sessions.trace-store#r4",
@@ -4263,22 +4275,32 @@
         {
           "id": "spec.sessions.trace-store#r5",
           "level": "must",
-          "text": "The database opens with journal_mode = WAL and a five-second busy_timeout, because tasks running in parallel store sessions at the same time."
+          "text": "The database opens with journal_mode = WAL and a five-second busy timeout, because tasks running in parallel store sessions at the same time."
+        },
+        {
+          "id": "spec.sessions.trace-store#r6",
+          "level": "must",
+          "text": "Rows decode through Effect Schema, so a row that does not match is a typed error."
+        },
+        {
+          "id": "spec.sessions.trace-store#r7",
+          "level": "must",
+          "text": "`0001_init` creates only the `sessions` table; `Session.notes` is empty until notes have their own migration."
         }
       ],
       "artifacts": [
         {
-          "id": "spec.sessions.trace-store#library:node-sqlite",
+          "id": "spec.sessions.trace-store#library:effect-sql-sqlite-node",
           "kind": "library",
-          "name": "node:sqlite",
+          "name": "@effect/sql-sqlite-node",
           "location": null,
-          "description": "Built-in SQLite module used for the store; no native dependency."
+          "description": "SqliteClient and SqliteMigrator on node:sqlite; no native dependency."
         },
         {
           "id": "spec.sessions.trace-store#table:sessions",
           "kind": "table",
           "name": "sessions",
-          "location": "packages/cli/src/migrations/001-init.sql",
+          "location": "packages/cli/src/migrations/0001_init.ts",
           "description": "Stored redacted agent sessions.",
           "fields": [
             {
@@ -4338,76 +4360,31 @@
           ]
         },
         {
-          "id": "spec.sessions.trace-store#table:notes",
-          "kind": "table",
-          "name": "notes",
-          "location": "packages/cli/src/migrations/001-init.sql",
-          "description": "Notes attached to sessions.",
-          "fields": [
-            {
-              "name": "id",
-              "type": "integer primary key",
-              "optional": false,
-              "description": "Note ID"
-            },
-            {
-              "name": "session_id",
-              "type": "text not null references sessions (id)",
-              "optional": false,
-              "description": "Owning session"
-            },
-            {
-              "name": "kind",
-              "type": "text not null check (kind in ('note', 'review', 'annotation'))",
-              "optional": false,
-              "description": "Note kind"
-            },
-            {
-              "name": "author",
-              "type": "text not null",
-              "optional": false,
-              "description": "Author"
-            },
-            {
-              "name": "body",
-              "type": "text not null",
-              "optional": false,
-              "description": "Note body"
-            },
-            {
-              "name": "created_at",
-              "type": "text not null",
-              "optional": false,
-              "description": "Creation time"
-            }
-          ]
-        },
-        {
-          "id": "spec.sessions.trace-store#config-key:pragma-user-version",
-          "kind": "config-key",
-          "name": "PRAGMA user_version",
-          "location": null,
-          "description": "Tracks which numbered migration has been applied."
+          "id": "spec.sessions.trace-store#file:migrations",
+          "kind": "file",
+          "name": "migrations",
+          "location": "packages/cli/src/migrations/",
+          "description": "Numbered Effect migration modules, run by SqliteMigrator."
         },
         {
           "id": "spec.sessions.trace-store#file:cairn-db",
           "kind": "file",
           "name": "cairn.db",
           "location": ".cairn/cairn.db",
-          "description": "Gitignored SQLite database holding sessions and notes."
+          "description": "Gitignored SQLite database holding sessions."
         }
       ],
       "tests": [],
       "decisions": [
         {
           "id": "spec.sessions.trace-store#d1",
-          "text": "Use node:sqlite rather than a native SQLite dependency.",
-          "why": "No native dependency."
+          "text": "Use Effect SQL's SqliteClient on node:sqlite rather than a native driver or an ORM.",
+          "why": "No native dependency, rows decode through Schema, and the same SqlClient runs on Cloudflare if v2 needs it."
         },
         {
           "id": "spec.sessions.trace-store#d2",
-          "text": "Notes attach to sessions, not commits.",
-          "why": null
+          "text": "Leave notes out of 0001_init.",
+          "why": "The PRD's notes need a deep-link anchor and an open or resolved state and can exist without a session; their table waits for the notes and deep-link work to be planned."
         },
         {
           "id": "spec.sessions.trace-store#d3",
@@ -4548,17 +4525,12 @@
       "defers": [],
       "context": [],
       "tasks": ["t37"],
-      "summary": "Specifies the `cairn session put` and `cairn session note` commands.",
+      "summary": "Specifies the `cairn session put` command, which redacts and stores a session log.",
       "requirements": [
         {
           "id": "spec.sessions.cairn-session#r1",
           "level": "must",
           "text": "`cairn session put` redacts the log, stores it and prints the session ID, generating one if none is given."
-        },
-        {
-          "id": "spec.sessions.cairn-session#r2",
-          "level": "must",
-          "text": "`cairn session note <id> --kind review <text>` adds a note."
         },
         {
           "id": "spec.sessions.cairn-session#r3",
@@ -4576,14 +4548,6 @@
           "signature": "cairn session put --task t1 [--id s_x] < log.jsonl"
         },
         {
-          "id": "spec.sessions.cairn-session#command:cairn-session-note",
-          "kind": "command",
-          "name": "cairn session note",
-          "location": null,
-          "description": "Adds a note to a session.",
-          "signature": "cairn session note <id> --kind review <text>"
-        },
-        {
           "id": "spec.sessions.cairn-session#flag:task",
           "kind": "flag",
           "name": "--task",
@@ -4596,13 +4560,6 @@
           "name": "--id",
           "location": null,
           "description": "Optional session ID; generated if absent."
-        },
-        {
-          "id": "spec.sessions.cairn-session#flag:kind",
-          "kind": "flag",
-          "name": "--kind",
-          "location": null,
-          "description": "Note kind for session note."
         }
       ],
       "tests": [],

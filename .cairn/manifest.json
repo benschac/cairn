@@ -34,8 +34,9 @@
       "specSections": ["spec.sessions.trace-store"],
       "files": [
         "packages/cli/src/trace-store.ts",
-        "packages/cli/src/migrations/001-init.sql",
+        "packages/cli/src/migrations/0001_init.ts",
         "packages/cli/test/trace-store.test.ts",
+        "packages/cli/package.json",
         ".gitignore"
       ],
       "branch": "cairn-mvp/02-trace-store",
@@ -845,7 +846,7 @@
     },
     {
       "id": "t37",
-      "title": "Add cairn session put and note",
+      "title": "Add cairn session put",
       "prdSections": ["prd.orchestrator-contract", "prd.redaction"],
       "specSections": ["spec.sessions.cairn-session"],
       "files": [

@@ -44,7 +44,7 @@ Core takes plain values and does no IO. Only the CLI touches disk, git, the data
 | Service      | Live                                 | Test                           |
 | ------------ | ------------------------------------ | ------------------------------ |
 | `Git`        | `git` subprocesses                   | An in-memory commit graph      |
-| `TraceStore` | `node:sqlite` on `.cairn/cairn.db`   | `node:sqlite` on `:memory:`    |
+| `TraceStore` | `SqliteClient` on `.cairn/cairn.db`  | `SqliteClient` on `:memory:`   |
 | `Planner`    | `LanguageModel` (see `spec.models`)  | Scripted replies from fixtures |
 | `Judge`      | `DecisionModel` (see `spec.models`)  | Scripted answers               |
 | `Redactor`   | Reads `.env*` and config, calls core | Fixed secret set               |
@@ -74,17 +74,19 @@ Additional libraries, some installed and some planned:
 | `@effect/ai-anthropic`                                                   | 4.1.5               | MIT        | A live `LanguageModel` for the `Planner` when `planner.source` is `api`                                     |
 | `@effect/ai-openai`, `@effect/ai-openai-compat`, `@effect/ai-openrouter` | 4.1.5               | MIT        | The other `api` providers (see `spec.models`)                                                               |
 | `@effect/ai-typesafe`                                                    | 4.1.5               | MIT        | The live `DecisionModel` (Jev), for the `Judge`                                                             |
+| `@effect/sql-sqlite-node`                                                | 4.1.5               | MIT        | `SqliteClient` and `SqliteMigrator` for `cairn.db`, on `node:sqlite` (see `spec.sessions.trace-store`)      |
 | `mdast-util-from-markdown`, `mdast-util-gfm`, `micromark-extension-gfm`  | 2.1.0, 3.1.0, 3.0.0 | MIT        | Markdown to nodes for the viewer                                                                            |
 | `@foldkit/ui`                                                            | 0.171.0             | MIT        | The switch and the disclosure in the viewer's design system; pinned with `foldkit`                          |
 
-Built into Node 24, so no package: `node:sqlite` for `cairn.db`, and `path.matchesGlob` for gate patterns. Diffs come from `git`, so the CLI needs no diff library.
+Built into Node 24, so no package: `path.matchesGlob` for gate patterns, and `node:sqlite`, which `@effect/sql-sqlite-node` runs on. Diffs come from `git`, so the CLI needs no diff library.
 
 Considered and left out:
 
 - `@pierre/words` renders markdown to HTML strings through WebAssembly and is built for streaming model output. It drops raw HTML and checks URLs, but its output is still a string, so the viewer would need `innerHTML` for the whole document, and its hooks take and return HTML strings, so the `{#id}` headings, their `data-section` attributes and the title buttons that send Messages would have to be rebuilt from strings. Its Mermaid plugin needs `pele` anyway, and its code plugin needs `@pierre/highlights`; the viewer uses both directly. It may suit streaming session logs later.
 - `mermaid` for diagrams: 123 MB unpacked with d3, cytoscape and elkjs behind it, and an asynchronous render that needs a DOM. `pele` draws the same syntax (Mermaid 12.1.0) synchronously from one dependency-free package, and escapes the diagram text itself.
 - Shiki, through `@pierre/diffs`, for code blocks: it loads grammars asynchronously, so a block would need a Model field and Messages to arrive after the first render. `@pierre/highlights` returns tokens synchronously, and the view turns them into spans with no `innerHTML`. It is in beta, so its version is pinned exactly. Diffs use it too: `@pierre/diffs` takes `preferredHighlighter: "highlights"`, so one set of lexers colours both fences and diffs and Shiki is never loaded.
-- A SQLite package such as `better-sqlite3`, since `node:sqlite` needs no native build.
+- A SQLite driver such as `better-sqlite3`: `@effect/sql-sqlite-node` runs on `node:sqlite`, which needs no native build.
+- An ORM such as Drizzle or Prisma. One table needs no query builder, and an ORM would declare row types a second time beside Effect Schema. Effect SQL decodes rows through Schema, and the same `SqlClient` runs on a Durable Object (`@effect/sql-sqlite-do`) or D1 (`@effect/sql-d1`) if v2 needs it.
 - Rete, JointJS, Cytoscape, Drawflow and LiteGraph. Each owns its scene and graph state, which would put state in two places beside the Foldkit model.
 - `elkjs` for layout: EPL-2.0 or GPL-3.0 and 8 MB. `@dagrejs/dagre` (MIT) is the choice when layout stops being fixed.
 - The AI SDK (`ai`, `@ai-sdk/anthropic`, `@ai-sdk/typesafe-ai`). It would add a second schema language and a Promise API beside Effect, and `effect/ai` already covers both language and decision models with Effect Schema.
@@ -710,7 +712,7 @@ flowchart BT
   end
   subgraph s20["Stack 20 · sessions"]
     direction BT
-    t37["t37 · 37-cairn-session<br/>Add cairn session put and note<br/>main checkout"]
+    t37["t37 · 37-cairn-session<br/>Add cairn session put<br/>main checkout"]
   end
   subgraph s21["Stack 21 · orchestrator-adapter"]
     direction BT
@@ -1294,9 +1296,15 @@ A section's status comes from the tasks linked to it or to any section under it.
 ### Trace store {#spec.sessions.trace-store}
 
 - Implements: `prd.orchestrator-contract`, `prd.repo-layout`
-- Files: `packages/cli/src/trace-store.ts`, `packages/cli/src/migrations/001-init.sql`
+- Files: `packages/cli/src/trace-store.ts`, `packages/cli/src/migrations/`
 
-`node:sqlite`, so there is no native dependency. Migrations are numbered SQL files, tracked with `PRAGMA user_version`. The database opens with `journal_mode = WAL` and a five-second `busy_timeout`, because tasks running in parallel store sessions at the same time.
+`TraceStore` is a service over Effect SQL's `SqlClient`, from `@effect/sql-sqlite-node`, which runs on `node:sqlite`, so there is no native dependency. Queries are `SqlClient` tagged templates, and rows decode through Effect Schema, so a row that does not match is a typed error, not a cast.
+
+The live layer is `SqliteClient.layer` on `.cairn/cairn.db`; the test layer is the same client on `:memory:`. The client opens with `journal_mode = WAL` and a five-second busy timeout, its defaults, because tasks running in parallel store sessions at the same time.
+
+Migrations are Effect modules named `NNNN_<name>.ts` in `packages/cli/src/migrations/`, each exporting an Effect that runs its SQL. `SqliteMigrator.layer` runs them through `Migrator.fromRecord`, so a bundled CLI needs no directory scan, and records what has run in its own table. A migration is never edited once it lands; a change is a new migration.
+
+`0001_init` creates one table:
 
 ```sql
 create table sessions (
@@ -1310,18 +1318,11 @@ create table sessions (
   redactions text not null,     -- JSON: count per kind
   stored_at text not null
 );
-
-create table notes (
-  id integer primary key,
-  session_id text not null references sessions (id),
-  kind text not null check (kind in ('note', 'review', 'annotation')),
-  author text not null,
-  body text not null,
-  created_at text not null
-);
 ```
 
-Notes attach to sessions, never to commits. `cairn.db` is gitignored: even redacted, session logs stay on the machine that made them.
+Notes are not stored yet. A note in the PRD (`prd.viewer.notes`) has a deep-link anchor and an open or resolved state, and can be about a section or a task that has no session, so its table waits for the notes and deep-link work to be planned and comes in its own migration. Until then `Session.notes` is empty.
+
+`cairn.db` is gitignored: even redacted, session logs stay on the machine that made them.
 
 ### Redaction {#spec.sessions.redaction}
 
@@ -1349,7 +1350,6 @@ Redaction is a mutation-testing target, as is gate detection and derivation.
 - Depends on: `spec.sessions.trace-store`, `spec.sessions.redaction`
 
 - `cairn session put --task t1 [--id s_x] < log.jsonl` redacts, stores and prints the session ID, generating one if none is given.
-- `cairn session note <id> --kind review <text>` adds a note.
 
 Redaction lives in Cairn, not in each adapter, so there is one implementation to get right and to test.
 
