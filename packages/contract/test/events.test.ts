@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { DateTime, Exit, Schema, Struct } from "effect";
 
 import { Actor, Event, EventJson } from "../src/events.ts";
-import { TaskStatus } from "../src/index.ts";
+import { Reasoning, TaskStatus } from "../src/index.ts";
 
 const encode = Schema.encodeSync(EventJson);
 const encodeFields = Schema.encodeSync(Event);
@@ -20,6 +20,18 @@ it.prop("an event survives a round trip through a JSON line", [Event], ([event])
 it.prop("a line without v or actor decodes with v 1 and the orchestrator", [Event], ([event]) => {
   const bare = Struct.omit(encodeFields(event), ["actor", "v"]);
   expect(decode(toJson(bare))).toEqual({ ...event, actor: "orchestrator", v: 1 });
+});
+
+it.prop("model and reasoning on a running event are kept", [Reasoning], ([reasoning]) => {
+  const event = decode(line({ model: "sonnet", reasoning }));
+  expect(event.model).toBe("sonnet");
+  expect(event.reasoning).toBe(reasoning);
+});
+
+it("a line without model or reasoning decodes without them", () => {
+  const event = decode(line({}));
+  expect("model" in event).toBe(false);
+  expect("reasoning" in event).toBe(false);
 });
 
 it("ts decodes to the instant it names", () => {
@@ -47,6 +59,8 @@ it.each([
   line({ taskId: "" }),
   line({ status: "nope" }),
   line({ detail: 5 }),
+  line({ model: "" }),
+  line({ reasoning: "extreme" }),
   "not json",
 ])("refuses %s", (bad) => {
   expect(Exit.isFailure(decodeExit(bad))).toBe(true);

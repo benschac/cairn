@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 
 import { TaskId } from "./ids.ts";
-import { TaskStatus } from "./manifest.ts";
+import { Reasoning, TaskStatus } from "./manifest.ts";
 
 /**
  * Who wrote an event. Only a `human:` actor can move a task out of
@@ -20,10 +20,15 @@ export type Actor = typeof Actor.Type;
  * Decoding fills the defaults: a missing `v` is `1` and a missing `actor` is
  * `"orchestrator"`. Encoding writes them out, so a decoded event re-encodes
  * with `v` and `actor` present. `ts` decodes to a `DateTime.Utc`.
+ *
+ * `model` and `reasoning` belong on a `running` event: what the task was
+ * started with. They are optional, and ignored on any other status.
  */
 export const Event = Schema.Struct({
   actor: Actor.pipe(Schema.withDecodingDefaultKey(Effect.succeed("orchestrator" as const))),
   detail: Schema.optionalKey(Schema.String),
+  model: Schema.optionalKey(Schema.NonEmptyString),
+  reasoning: Schema.optionalKey(Reasoning),
   status: TaskStatus,
   taskId: TaskId,
   ts: Schema.DateTimeUtcFromString,
