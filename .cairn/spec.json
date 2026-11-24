@@ -43,7 +43,11 @@
       "requirements": [],
       "artifacts": [],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.format",
@@ -141,7 +145,11 @@
           "text": "Coverage follows the heading tree, not ID prefix.",
           "why": "The top heading does not namespace its children, so prd.goal sits under prd.cairn-mvp."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.scope",
@@ -173,7 +181,11 @@
           "text": "Cover v1 only; presence is the one v2 piece already built and it stays.",
           "why": null
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.package-layout",
@@ -303,7 +315,13 @@
           "text": "Use Effect's own Clock instead of a separate Clock service.",
           "why": null
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.implementation-in-effect": "1f3ab37662470bcddc111cd7c02492137ad5c6bb0f14856e46a91c01d22ff125"
+        }
+      }
     },
     {
       "id": "spec.libraries",
@@ -507,7 +525,14 @@
           "text": "Leave out an ORM such as Drizzle or Prisma.",
           "why": "One table needs no query builder, an ORM would declare row types a second time beside Effect Schema, and the same SqlClient runs on a Durable Object or D1 if v2 needs it."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.implementation-in-effect": "1f3ab37662470bcddc111cd7c02492137ad5c6bb0f14856e46a91c01d22ff125",
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+        }
+      }
     },
     {
       "id": "spec.contract",
@@ -549,7 +574,13 @@
       ],
       "artifacts": [],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.contract-package": "551b4a3a03e1a891237eb95cc13dcf3c857c7fcb1dba44704e24ec579d21d7f1"
+        }
+      }
     },
     {
       "id": "spec.contract.section-ids",
@@ -611,7 +642,13 @@
           "text": "IDs move to their own module.",
           "why": "trailers.ts, events.ts and manifest.ts all need them, and importing through index.ts is circular."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.section-ids": "cd9d46193fb94372cca90f6306c650143e22974ddc6a9059e9632b56a362c171"
+        }
+      }
     },
     {
       "id": "spec.contract.manifest",
@@ -815,7 +852,13 @@
           "text": "status, commits and sessions are a snapshot; derived status is the truth.",
           "why": "Cairn writes them but nothing reads them to decide anything."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.manifest-schema": "5ad34eef5a29f2e88f02dbbf0457cdcd4cde91044007a4d6b4f416ed408e4409"
+        }
+      }
     },
     {
       "id": "spec.contract.events",
@@ -923,7 +966,13 @@
           "text": "Add actor to Event.",
           "why": "Approvals need it."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.orchestrator-contract": "0e93a8a6b0b4f47dc8ccc0d8313f283a297e71d4e5d65d405115d5b955f10cf4"
+        }
+      }
     },
     {
       "id": "spec.contract.trailers",
@@ -994,7 +1043,13 @@
           "text": "Cairn-Section repeats rather than holding a list.",
           "why": "A task can have several spec sections."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.orchestrator-contract": "0e93a8a6b0b4f47dc8ccc0d8313f283a297e71d4e5d65d405115d5b955f10cf4"
+        }
+      }
     },
     {
       "id": "spec.contract.trace",
@@ -1114,7 +1169,14 @@
           "text": "The demo trace decodes through Trace."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.contract-package": "551b4a3a03e1a891237eb95cc13dcf3c857c7fcb1dba44704e24ec579d21d7f1"
+        }
+      }
     },
     {
       "id": "spec.contract.session",
@@ -1183,7 +1245,13 @@
           "text": "cairn.db keeps the redacted log as the agent wrote it; Session is how Cairn reads it.",
           "why": "A better reader later needs no migration."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.code-view": "c684c9e4bdc527daf0d529aa8f075d878e91f7cc423ef0aa5d1f70e88ce1daa9"
+        }
+      }
     },
     {
       "id": "spec.contract.config",
@@ -1329,7 +1397,13 @@
         }
       ],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.human-gates": "147731265c908adf1b2c738051b3dee003d3badad232d47bd40cd037f8d4b39d"
+        }
+      }
     },
     {
       "id": "spec.contract.judgments",
@@ -1397,7 +1471,13 @@
         }
       ],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.judging-the-plan": "27cabc7f46d1e11fa72bc976a037fef9232317b278f483992bdce59a39ab1633"
+        }
+      }
     },
     {
       "id": "spec.contract.spec-index",
@@ -1508,7 +1588,13 @@
           "text": "Derive structure in code and extract prose with the Planner.",
           "why": null
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.repo-layout": "1fb9e25263a6cbb20939f24cdb2ca7b090cf3fd19c2ac60dc13daea54fbb47b8"
+        }
+      }
     },
     {
       "id": "spec.contract.javascript-entry",
@@ -1677,7 +1763,13 @@
           "text": "A test regenerates the JSON Schema files and fails if the committed files differ, so pnpm check catches drift."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.contract-package": "551b4a3a03e1a891237eb95cc13dcf3c857c7fcb1dba44704e24ec579d21d7f1"
+        }
+      }
     },
     {
       "id": "spec.sections",
@@ -1697,7 +1789,11 @@
       "requirements": [],
       "artifacts": [],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.sections.parsing",
@@ -1832,7 +1928,13 @@
           "text": "Reuse the fence and heading rules of assignSectionIds rather than defining new ones.",
           "why": "So both agree on what counts as a heading."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.section-ids": "cd9d46193fb94372cca90f6306c650143e22974ddc6a9059e9632b56a362c171"
+        }
+      }
     },
     {
       "id": "spec.sections.cairn-ids",
@@ -1889,7 +1991,14 @@
         }
       ],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.cli": "b2e8689bc863745d998817d4ce776ba834a1103fbaae43dece28651b8af1c4e1",
+          "prd.section-ids": "cd9d46193fb94372cca90f6306c650143e22974ddc6a9059e9632b56a362c171"
+        }
+      }
     },
     {
       "id": "spec.gates",
@@ -1909,7 +2018,11 @@
       "requirements": [],
       "artifacts": [],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.gates.path-matching",
@@ -1959,7 +2072,13 @@
           "text": "Add one gitignore rule to path.matchesGlob: a pattern without a / matches the file name in any directory.",
           "why": "Without it, *.sql would miss db/001.sql."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.human-gates": "147731265c908adf1b2c738051b3dee003d3badad232d47bd40cd037f8d4b39d"
+        }
+      }
     },
     {
       "id": "spec.gates.detection",
@@ -2014,7 +2133,13 @@
         }
       ],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.human-gates": "147731265c908adf1b2c738051b3dee003d3badad232d47bd40cd037f8d4b39d"
+        }
+      }
     },
     {
       "id": "spec.models",
@@ -2219,7 +2344,15 @@
           "text": "Keep the Codex planner source unavailable until tool isolation is implemented and verified.",
           "why": "The current implementation cannot establish that the user's configured tools, MCP servers, apps and plugins are disabled; t29 remains pending with its partial implementation commits retained."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.implementation-in-effect": "1f3ab37662470bcddc111cd7c02492137ad5c6bb0f14856e46a91c01d22ff125",
+          "prd.judging-the-plan": "27cabc7f46d1e11fa72bc976a037fef9232317b278f483992bdce59a39ab1633",
+          "prd.planning.writers": "4da01fcca44de5ec2bf6e4f2fa0742dca2c9d64beb7ce92d285a5b6d83b139bf"
+        }
+      }
     },
     {
       "id": "spec.planning",
@@ -2246,7 +2379,11 @@
       "requirements": [],
       "artifacts": [],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.planning.planner-service",
@@ -2460,7 +2597,14 @@
           "text": "Gates, IDs, branch names and order are deterministic code, not model output.",
           "why": "They are deterministic and tested."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.cli": "b2e8689bc863745d998817d4ce776ba834a1103fbaae43dece28651b8af1c4e1",
+          "prd.planning.diagrams": "75c706d23d9228079313b96159b3824539206bfaadd8b5427cf1d7f8befb600a"
+        }
+      }
     },
     {
       "id": "spec.planning.stack-order",
@@ -2580,7 +2724,15 @@
           "text": "Every ancestor of a task is something it depends on.",
           "why": "So a gated task has nothing below it but its own dependencies, and tasks on different stacks can be built at the same time."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.human-gates": "147731265c908adf1b2c738051b3dee003d3badad232d47bd40cd037f8d4b39d",
+          "prd.cli": "b2e8689bc863745d998817d4ce776ba834a1103fbaae43dece28651b8af1c4e1",
+          "prd.manifest-schema": "5ad34eef5a29f2e88f02dbbf0457cdcd4cde91044007a4d6b4f416ed408e4409"
+        }
+      }
     },
     {
       "id": "spec.planning.cairn-plan",
@@ -2735,7 +2887,14 @@
           "text": "Planning from nothing over a started stack is not supported in the MVP; planning again only adds.",
           "why": "Re-planning a started stack from nothing is v2's rebase flow."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.cli": "b2e8689bc863745d998817d4ce776ba834a1103fbaae43dece28651b8af1c4e1",
+          "prd.planning.two-reviews": "0d30cd444b886a4aaba0a071ef7de4736fdf24fb6e2b7672d6adec1c5b8fba49"
+        }
+      }
     },
     {
       "id": "spec.planning.again",
@@ -2852,7 +3011,13 @@
           "text": "Changing a task that is already in the manifest is left to a person, or to v2's rebase flow.",
           "why": "A started task has commits and sessions that a rewritten plan would orphan."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.planning.again": "f82c465c4304c0d707e3f7a3d9b14e01914a4e30bc5cb89efecb88dee35978fd"
+        }
+      }
     },
     {
       "id": "spec.planning.stack-diagram",
@@ -2954,7 +3119,13 @@
           "text": "The stack diagram is drawn by code, never by a model or by hand.",
           "why": "It is derived from manifest.json, so a hand-drawn copy can only drift."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.planning.diagrams": "75c706d23d9228079313b96159b3824539206bfaadd8b5427cf1d7f8befb600a"
+        }
+      }
     },
     {
       "id": "spec.planning.dry-run",
@@ -3040,7 +3211,13 @@
           "text": "--source api without a model fails before any call."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.planning.comparing": "31e6511e6104275ab10f84d51b3ba68635017b1594566f2a872d152d04834b0e"
+        }
+      }
     },
     {
       "id": "spec.lint",
@@ -3312,7 +3489,15 @@
         }
       ],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.cli": "b2e8689bc863745d998817d4ce776ba834a1103fbaae43dece28651b8af1c4e1",
+          "prd.section-ids": "cd9d46193fb94372cca90f6306c650143e22974ddc6a9059e9632b56a362c171",
+          "prd.planning.diagrams": "75c706d23d9228079313b96159b3824539206bfaadd8b5427cf1d7f8befb600a"
+        }
+      }
     },
     {
       "id": "spec.judging",
@@ -3355,7 +3540,13 @@
           "text": "The decision model decides when to split and which model to use; the language model writes and splits.",
           "why": null
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.judging-the-plan": "27cabc7f46d1e11fa72bc976a037fef9232317b278f483992bdce59a39ab1633"
+        }
+      }
     },
     {
       "id": "spec.judging.questions",
@@ -3458,7 +3649,11 @@
         }
       ],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.judging.verdicts",
@@ -3568,7 +3763,11 @@
           "text": "Property: routeOf never returns a model that is not in judge.models."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.judging.judge-service",
@@ -3653,7 +3852,11 @@
           "text": "Tests count the scripted decide calls to show that an unchanged target is not asked again."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.judging.checkpoints",
@@ -3755,7 +3958,11 @@
           "text": "Bound splitting by rounds and by coverage.",
           "why": null
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.judging.cairn-judge",
@@ -3828,7 +4035,11 @@
         }
       ],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.status",
@@ -3853,7 +4064,11 @@
       "requirements": [],
       "artifacts": [],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.status.task-machine",
@@ -3930,7 +4145,13 @@
         }
       ],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.orchestrator-contract": "0e93a8a6b0b4f47dc8ccc0d8313f283a297e71d4e5d65d405115d5b955f10cf4"
+        }
+      }
     },
     {
       "id": "spec.status.derivation",
@@ -4031,7 +4252,14 @@
           "text": "Ignored machine input yields warnings, not errors.",
           "why": null
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.orchestrator-contract": "0e93a8a6b0b4f47dc8ccc0d8313f283a297e71d4e5d65d405115d5b955f10cf4",
+          "prd.human-gates": "147731265c908adf1b2c738051b3dee003d3badad232d47bd40cd037f8d4b39d"
+        }
+      }
     },
     {
       "id": "spec.status.section-rollup",
@@ -4112,7 +4340,13 @@
         }
       ],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+        }
+      }
     },
     {
       "id": "spec.status.cairn-status-and-cairn-approve",
@@ -4209,7 +4443,14 @@
           "text": "Approval is a CLI command, since the PRD has no way to approve a gate.",
           "why": "The PRD has no way to approve a gate; this is it."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.cli": "b2e8689bc863745d998817d4ce776ba834a1103fbaae43dece28651b8af1c4e1",
+          "prd.human-gates": "147731265c908adf1b2c738051b3dee003d3badad232d47bd40cd037f8d4b39d"
+        }
+      }
     },
     {
       "id": "spec.sessions",
@@ -4234,7 +4475,11 @@
       "requirements": [],
       "artifacts": [],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.sessions.trace-store",
@@ -4391,7 +4636,14 @@
           "text": "cairn.db is gitignored.",
           "why": "Even redacted, session logs stay on the machine that made them."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.orchestrator-contract": "0e93a8a6b0b4f47dc8ccc0d8313f283a297e71d4e5d65d405115d5b955f10cf4",
+          "prd.repo-layout": "1fb9e25263a6cbb20939f24cdb2ca7b090cf3fd19c2ac60dc13daea54fbb47b8"
+        }
+      }
     },
     {
       "id": "spec.sessions.redaction",
@@ -4509,7 +4761,13 @@
           "text": "Fail closed on any error.",
           "why": null
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.redaction": "f4189954c2509a5e78007a94854c5d49d7de5c043f508a34995788116525422c"
+        }
+      }
     },
     {
       "id": "spec.sessions.cairn-session",
@@ -4569,7 +4827,13 @@
           "text": "Redaction lives in Cairn, not in each adapter.",
           "why": "One implementation to get right and to test."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.orchestrator-contract": "0e93a8a6b0b4f47dc8ccc0d8313f283a297e71d4e5d65d405115d5b955f10cf4"
+        }
+      }
     },
     {
       "id": "spec.sessions.reading",
@@ -4635,7 +4899,13 @@
           "text": "Every tool_use ID gives exactly one tool turn, and each edit's added and removed are exactly the + and - lines of its patch."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.code-view": "c684c9e4bdc527daf0d529aa8f075d878e91f7cc423ef0aa5d1f70e88ce1daa9"
+        }
+      }
     },
     {
       "id": "spec.orchestrator-adapter",
@@ -4856,7 +5126,13 @@
           "text": "Stacks are managed with Graphite.",
           "why": null
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.orchestrator-contract": "0e93a8a6b0b4f47dc8ccc0d8313f283a297e71d4e5d65d405115d5b955f10cf4"
+        }
+      }
     },
     {
       "id": "spec.cli",
@@ -4943,7 +5219,14 @@
         }
       ],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.cli": "b2e8689bc863745d998817d4ce776ba834a1103fbaae43dece28651b8af1c4e1",
+          "prd.repo-layout": "1fb9e25263a6cbb20939f24cdb2ca7b090cf3fd19c2ac60dc13daea54fbb47b8"
+        }
+      }
     },
     {
       "id": "spec.patch-routes",
@@ -5031,7 +5314,13 @@
           "text": "Ship the patch routes on the existing presence server before the rest of the API.",
           "why": "They need only git, so the code view can show real diffs before status derivation and the trace store exist."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.code-view": "c684c9e4bdc527daf0d529aa8f075d878e91f7cc423ef0aa5d1f70e88ce1daa9"
+        }
+      }
     },
     {
       "id": "spec.server",
@@ -5187,7 +5476,15 @@
           "text": "Poll /api/trace every two seconds with If-None-Match; a file watcher can replace polling later.",
           "why": "The PRD allows either."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.cli": "b2e8689bc863745d998817d4ce776ba834a1103fbaae43dece28651b8af1c4e1",
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.code-view": "c684c9e4bdc527daf0d529aa8f075d878e91f7cc423ef0aa5d1f70e88ce1daa9"
+        }
+      }
     },
     {
       "id": "spec.viewer",
@@ -5229,7 +5526,11 @@
       "requirements": [],
       "artifacts": [],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.viewer.model-and-messages",
@@ -5366,7 +5667,13 @@
         }
       ],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+        }
+      }
     },
     {
       "id": "spec.viewer.markdown-rendering",
@@ -5440,7 +5747,13 @@
           "text": "Render with no innerHTML.",
           "why": "A PRD cannot inject markup, and Scene tests see the rendered text."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+        }
+      }
     },
     {
       "id": "spec.viewer.design-system",
@@ -5695,7 +6008,13 @@
           "text": "Darken the mockup's `--muted` one step and add `--blocked-ink`.",
           "why": "The mockup's values are under 4.5 to 1 as small text on paper."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+        }
+      }
     },
     {
       "id": "spec.viewer.reader",
@@ -5971,7 +6290,14 @@
           "text": "Test the scroll through `sectionAtTop` and `ScrolledPrd`.",
           "why": "A Mount does not run in a Scene."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.reader": "b1d0ddbef0b30446c3a5458c37b61eb8c07dcec49eb9823a13d0821aef7595d6",
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+        }
+      }
     },
     {
       "id": "spec.viewer.spec-cards",
@@ -6136,7 +6462,13 @@
           "text": "Do not repeat a section's children in its card.",
           "why": "They are their own cards."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.spec-cards": "fb8bb7bc40d1356f47b67d702aa7a46aa81579714d43456fddb677939356eb54"
+        }
+      }
     },
     {
       "id": "spec.viewer.fuzzy-matching",
@@ -6188,7 +6520,13 @@
           "text": "Exact titles outrank fuzzy titles; abbreviations and one-edit typos match; blank and unmatched queries, punctuation and mixed-case Unicode are covered."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.fuzzy-search": "e67042221aaa8282cbce6f7493e2fc1977c38ebee51d074f11846d9e2b63b1eb"
+        }
+      }
     },
     {
       "id": "spec.viewer.search-interaction",
@@ -6270,7 +6608,13 @@
           "text": "Select a spec section and a task whose PRD section is not the pinned one: its PRD section is current while the result is active and the pin comes back when the search is cleared; unrelated curves stay unlit. Select spec.format, which implements no PRD section, and find it open in the detail panel."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.fuzzy-search": "e67042221aaa8282cbce6f7493e2fc1977c38ebee51d074f11846d9e2b63b1eb"
+        }
+      }
     },
     {
       "id": "spec.viewer.prose-search",
@@ -6334,7 +6678,13 @@
           "text": "Nested sections, inline code, tables, escaped markdown and Unicode retain correct offsets; comments, code fences and diagram labels do not match; query changes reuse the parsed AST."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.fuzzy-search": "e67042221aaa8282cbce6f7493e2fc1977c38ebee51d074f11846d9e2b63b1eb"
+        }
+      }
     },
     {
       "id": "spec.viewer.curves",
@@ -6515,7 +6865,13 @@
           "text": "Compute the bezier path in the reader, not with `getBezierPath`.",
           "why": "`@xyflow/system` goes with the canvas."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+        }
+      }
     },
     {
       "id": "spec.viewer.stacks",
@@ -6659,7 +7015,13 @@
           "text": "Leave out curves between chips for dependencies across stacks.",
           "why": "The rows already say what waits on what."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.stacks": "f9975808cd61b5f8dfba9ce9107b4bcb4e898eee2618cedc1cbbc782da48f5ea"
+        }
+      }
     },
     {
       "id": "spec.viewer.models",
@@ -6776,7 +7138,13 @@
           "text": "Tell ran from planned by the border, not by text.",
           "why": "So the two can be told apart without reading."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.models": "b0efcebf28e0d5489dce5d9069da98a1970cbaab331b8bb01bb565555ea2f689"
+        }
+      }
     },
     {
       "id": "spec.viewer.panes",
@@ -6957,7 +7325,13 @@
           "text": "Fit a narrow window in the layout, not in the model.",
           "why": "The widths are what a person chose; no width in the model changes when the window does."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.panes": "177ca41dc86d443423cf8efa0989dfb49b1e7d36aa9352c84fb4db19035ed2c1"
+        }
+      }
     },
     {
       "id": "spec.viewer.presence",
@@ -7058,7 +7432,14 @@
           "text": "Share what a participant is reading, not where their pointer is.",
           "why": "Each reader window scrolls its panes on its own, wraps the PRD at its own width and shows the spec of its own current section, so there are no shared coordinates."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.v2-multiplayer-on-cloudflare.presence": "51e30f98371b0ea5a05e6dd300745ebb24f87c3e9bb3e2275fa8ee5c395eabef",
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+        }
+      }
     },
     {
       "id": "spec.viewer.detail-panel",
@@ -7195,7 +7576,15 @@
           "text": "Find the parent and the other dependencies named on a task that has both; click a row and then a commit and find the code view on that commit."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.task-detail": "aad700d240deb90a0ac013429e9d72ade39399be8f4021ee38bb9bc279b9862d",
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.acceptance-criteria": "6b1c682a06fdee3715beb9d161148094143bc0682040a588cabe180a6904ed5a"
+        }
+      }
     },
     {
       "id": "spec.viewer.code-view",
@@ -7294,7 +7683,13 @@
           "text": "A task's diff runs from the first parent of its oldest commit to its newest commit.",
           "why": "It reads the same before and after the branch lands and is deleted."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.code-view": "c684c9e4bdc527daf0d529aa8f075d878e91f7cc423ef0aa5d1f70e88ce1daa9"
+        }
+      }
     },
     {
       "id": "spec.viewer.diff-view",
@@ -7477,7 +7872,14 @@
           "text": "Scene tests check mount element and attributes, not the diff inside.",
           "why": "Snabbdom hooks do not fire in Scene tests."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.code-view": "c684c9e4bdc527daf0d529aa8f075d878e91f7cc423ef0aa5d1f70e88ce1daa9"
+        }
+      }
     },
     {
       "id": "spec.viewer.session-view",
@@ -7537,7 +7939,13 @@
           "text": "Over a fixture Session: turns in order, a failed tool call's mark, opening a tool turn, a redaction chip, and the unknown-format and no-session messages."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.code-view": "c684c9e4bdc527daf0d529aa8f075d878e91f7cc423ef0aa5d1f70e88ce1daa9"
+        }
+      }
     },
     {
       "id": "spec.viewer.attribution",
@@ -7621,7 +8029,13 @@
           "text": "Take the last edit that wrote a line.",
           "why": "The turn whose text survived gets the line when a session edits it twice."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.code-view": "c684c9e4bdc527daf0d529aa8f075d878e91f7cc423ef0aa5d1f70e88ce1daa9"
+        }
+      }
     },
     {
       "id": "spec.viewer.detail-code",
@@ -7748,7 +8162,14 @@
           "text": "Give the diff a region of its own height.",
           "why": "The list virtualizes and scrolls itself."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.task-detail": "aad700d240deb90a0ac013429e9d72ade39399be8f4021ee38bb9bc279b9862d",
+          "prd.acceptance-criteria": "6b1c682a06fdee3715beb9d161148094143bc0682040a588cabe180a6904ed5a"
+        }
+      }
     },
     {
       "id": "spec.viewer.canvas-removal",
@@ -7900,7 +8321,13 @@
           "text": "Gate the removal on a human.",
           "why": "It takes away things people can do today: panning and zooming, moving the documents and the task cards, several coloured pins, Fit, Reset layout, Show all curves and pointer cursors."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+        }
+      }
     },
     {
       "id": "spec.viewer.demo-data",
@@ -8007,7 +8434,14 @@
           "text": "In the demo build the diff mount requests a commit's path, and a text/html reply is shown as a missing patch."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.viewer.task-detail": "aad700d240deb90a0ac013429e9d72ade39399be8f4021ee38bb9bc279b9862d"
+        }
+      }
     },
     {
       "id": "spec.testing",
@@ -8032,7 +8466,11 @@
       "requirements": [],
       "artifacts": [],
       "tests": [],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
     },
     {
       "id": "spec.testing.model-based",
@@ -8122,7 +8560,13 @@
           "text": "Commit failure fixtures by hand instead of `failures: true`.",
           "why": "A check writes no files."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.implementation-in-effect.model-based-testing": "6bf80146c53b34e22036929cd098212cb8eb829efc25612d41db73c0a9ce3006"
+        }
+      }
     },
     {
       "id": "spec.testing.presence-model",
@@ -8185,7 +8629,14 @@
           "text": "Test the server against the machine it runs.",
           "why": "The machine's transitions have their own tests; this one checks the sockets and the broadcast the server adds."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.implementation-in-effect.model-based-testing": "6bf80146c53b34e22036929cd098212cb8eb829efc25612d41db73c0a9ce3006",
+          "prd.acceptance-criteria": "6b1c682a06fdee3715beb9d161148094143bc0682040a588cabe180a6904ed5a"
+        }
+      }
     },
     {
       "id": "spec.testing.viewer-models",
@@ -8282,7 +8733,17 @@
           "text": "Escape that unpins while the panel is open, and a move from another pointer that changes a width, each fail a test."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.implementation-in-effect.model-based-testing": "6bf80146c53b34e22036929cd098212cb8eb829efc25612d41db73c0a9ce3006",
+          "prd.viewer.reader": "b1d0ddbef0b30446c3a5458c37b61eb8c07dcec49eb9823a13d0821aef7595d6",
+          "prd.viewer.panes": "177ca41dc86d443423cf8efa0989dfb49b1e7d36aa9352c84fb4db19035ed2c1",
+          "prd.viewer.task-detail": "aad700d240deb90a0ac013429e9d72ade39399be8f4021ee38bb9bc279b9862d",
+          "prd.acceptance-criteria": "6b1c682a06fdee3715beb9d161148094143bc0682040a588cabe180a6904ed5a"
+        }
+      }
     },
     {
       "id": "spec.testing.derivation-model",
@@ -8349,7 +8810,15 @@
           "text": "Replay the facts in the model instead of keeping a running status.",
           "why": "derive computes the gate from every commit before it replays events, and landing is git state that stays true."
         }
-      ]
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.implementation-in-effect.model-based-testing": "6bf80146c53b34e22036929cd098212cb8eb829efc25612d41db73c0a9ce3006",
+          "prd.orchestrator-contract": "0e93a8a6b0b4f47dc8ccc0d8313f283a297e71d4e5d65d405115d5b955f10cf4",
+          "prd.human-gates": "147731265c908adf1b2c738051b3dee003d3badad232d47bd40cd037f8d4b39d"
+        }
+      }
     },
     {
       "id": "spec.acceptance",
@@ -8488,7 +8957,13 @@
           "text": "Lint tests for `unknown-section` and `unmapped-section`."
         }
       ],
-      "decisions": []
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.acceptance-criteria": "6b1c682a06fdee3715beb9d161148094143bc0682040a588cabe180a6904ed5a"
+        }
+      }
     }
   ]
 }
