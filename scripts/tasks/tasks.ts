@@ -46,7 +46,7 @@ const CHANNEL = "cairn/work";
 const MANIFEST = ".cairn/manifest.json";
 const SPEC_INDEX = ".cairn/spec.json";
 const LIST_LIMIT = 300;
-const THREAD_LIMIT = 50;
+const THREAD_LIMIT = 200;
 
 // Each expected failure logs its own message once (see the command below), so the runtime is told not to print it again.
 class UnknownTask extends Schema.TaggedError<UnknownTask>()("UnknownTask", {
@@ -119,6 +119,15 @@ const tasks = Effect.fn("tasks")(function* ({ task }: { task: Option.Option<stri
       read: Effect.Effect<ReadonlyArray<A>, E, R>,
     ): Effect.Effect<ReadonlyArray<A>, never, R> =>
       read.pipe(Effect.catch((error) => Effect.as(leftOut(source, error), Array.empty<A>())));
+  // Says so when a listing came back full: what lies past its limit was not read, so a claim there is not seen.
+  const noteIfFull =
+    (what: string, limit: number) =>
+    <A, E, R>(read: Effect.Effect<ReadonlyArray<A>, E, R>) =>
+      Effect.tap(read, (items) =>
+        items.length < limit
+          ? Effect.void
+          : note(`only the latest ${limit} ${what} were read; an older claim may be missing`),
+      );
   const pulls = (state: string) =>
     sh("gh", [
       "pr",
@@ -129,7 +138,11 @@ const tasks = Effect.fn("tasks")(function* ({ task }: { task: Option.Option<stri
       `${LIST_LIMIT}`,
       "--json",
       PULL_FIELDS,
-    ]).pipe(Effect.flatMap(decodePulls), orLeftOut(`${state} pull requests`));
+    ]).pipe(
+      Effect.flatMap(decodePulls),
+      noteIfFull(`${state} pull requests`, LIST_LIMIT),
+      orLeftOut(`${state} pull requests`),
+    );
 
   const manifest = yield* fs
     .readFileString(path.join(repo, MANIFEST))
@@ -158,6 +171,7 @@ const tasks = Effect.fn("tasks")(function* ({ task }: { task: Option.Option<stri
       sh("vercel", ["board", "read", CHANNEL, "--json", "--limit", `${THREAD_LIMIT}`]).pipe(
         Effect.flatMap(decodeBoard),
         Effect.map((board) => board.threads),
+        noteIfFull(`${CHANNEL} board threads`, THREAD_LIMIT),
         orLeftOut(`the ${CHANNEL} board channel`),
       ),
     ],
