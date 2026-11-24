@@ -390,15 +390,16 @@ Done when the Viewer section of this repo's PRD shows a card for each spec secti
 The stacks pane is the plan's stack diagram, live and whole. Every stack is always on the pane, so a person sees where the current section's work sits in the plan, where `main` is and what is done. Anyone who knows the diagram in the spec should find the same picture in the viewer: the same boxes, the same tasks in each, read the same way. Work that is finished folds out of the way, so the forks still to build or review stand out from the history they were built on.
 
 - One box per stack, numbered as the spec's diagram numbers it. A stack is a task that starts from the base branch and every task built on it through parent branches. Stacks are numbered in the order of their first task. A box's label, `Stack N · <area>`, shows on hover; the area is the part of the spec its first task builds.
-- Inside a box, tasks read bottom to top, each directly above its parent, with no gaps. A fork puts the children side by side in the same box.
-- A finished trunk folds. Starting at a box's root, the run of `done` or `landed` tasks up to the first fork or the first unfinished task becomes one segment at the bottom of the box, showing its first and last IDs, its area and its count, such as `t45–t52 · viewer · 8 done`. The columns above it stand on the segment as if each started from it. A run of one task stays a chip. Clicking the segment unfolds it into its chips, and clicking again folds it. Folding changes only what this viewer window shows, not the plan or other participants' views.
-- Each column a fork starts is labelled at its foot with the part of the spec its first task builds: the last part of that task's first spec section, such as `fuzzy-matching`. A fork of a large stack reads as its own feature.
+- Inside a box, tasks read bottom to top, each above its parent, with a solid arrow from the parent up to it. A fork puts the children side by side in the same box, with an arrow to each, and the task they share sits centred beneath them. Chips are spaced so every arrow can be read. These arrows always show.
+- A finished trunk folds. Starting at a box's root, the run of `done` or `landed` tasks up to the first fork or the first unfinished task becomes one segment at the bottom of the box, showing its first and last IDs, its area and its count, such as `t45–t52 · viewer · 8 done`. The columns above it stand on the segment as if each started from it. A run of one task stays a chip. Clicking the segment unfolds it into its chips, and clicking again folds it. Folding changes only what this viewer window shows, not the plan or other participants' views. An arrow to or from a folded task ends on its segment.
+- Each column a fork starts is labelled at its foot with the part of the spec its first task builds: the last part of that task's first spec section, such as `fuzzy-matching`. A fork of a large stack reads as its own feature. The labels and the layout come from the manifest and the spec alone; no task ID is written into either.
 - The base branch (`main`) is a bar under everything, and it stays in view while the pane scrolls. The bottom row holds the stacks that start from it now. A stack that waits for other stacks sits one row above the highest of them. Reading up the page is reading forward in build order, and the stacks in one row can be built at the same time.
 - A task is a chip: a status dot and its ID, with a red border for a human gate. Its title, branch, worktree and status show on hover. Clicking it opens the task detail.
-- The tasks of the current section stand out, and their stacks with them. A folded segment holding one of them stands out too. Every other task is dimmed but can still be read and clicked.
+- A task's dependencies on other stacks are dashed arrows, from each task it needs to it. They show only for the task that is hovered, focused from the keyboard or open in the detail panel: the arrows into it and out of it, with the tasks at their other ends lit. With no task in focus, no dashed arrow is drawn, so the diagram never becomes a web of lines.
+- The tasks of the current section stand out, and their stacks with them. A folded segment holding one of them, or the selected task, stands out too. Every other task is dimmed but can still be read and clicked.
 - Above the diagram: how many stacks hold the current section's tasks, how many of the plan's tasks are done, and a legend.
 
-Done when the viewer, opened on this repo, shows the same stacks with the same tasks as the spec's diagram, and a test fails when the two disagree; Stack 24's finished trunk, t45 to t52, shows as one segment with the stacks, fuzzy search, code view and polling forks labelled above it, and unfolds into the same chips as the diagram.
+Done when the viewer, opened on this repo, shows the same stacks with the same tasks and the same parent arrows as the spec's diagram, and a test fails when the two disagree. Stack 24's finished trunk, t45 to t52, shows as one segment of eight, centred under arrows to the stacks fork (t69 → t70), the fuzzy search fork (t71 → t72 → t73) and the code view fork (t75 → t53 → t54), each labelled, with t54's own fork to t67 and t81 drawn the same way; it unfolds into the same chips as the diagram. Polling, t68, is its own stack: hovering t52 draws a dashed arrow from it to t68, and hovering t68 with the trunk folded draws the same arrow from the segment. In Stack 13, t19 → t20 splits into the lint chain t25 → t26 → t27 → t66 and t111.
 
 ### Models and reasoning {#prd.viewer.models}
 
@@ -444,6 +445,21 @@ Search the current feature locally across PRD and spec section titles and IDs, t
 - Recompute results when the trace changes; a removed result must not leave a stale highlight. Searching must not reparse both documents on each keystroke.
 
 Ship this in three diffs: matching titles/IDs/branches; search controls, navigation and chain highlighting; then prose snippets and inline highlights. The full feature is complete only after all three.
+
+### Command menu {#prd.viewer.command-menu}
+
+The fastest way around the viewer is the search it already has. The command menu puts that search, and the viewer's own controls, one keystroke away, the way [⌘K](https://github.com/dip/cmdk) does. ⌘K is a React component and the viewer is Foldkit, so the menu rebuilds its behaviour rather than using the package. It ranks with the fuzzy search above, so the menu and the toolbar box never disagree.
+
+- ⌘K on macOS, Ctrl+K elsewhere, opens the menu from anywhere in the viewer and closes it again. So do `/` outside a text field and a click on the toolbar search box, which becomes the menu's trigger. The menu is a dialog over the centre of the window with the query at its top and the results below. It is private to this viewer window.
+- With an empty query, the menu lists the commands and the tasks of the current section. As the query is typed, results are grouped under headings in a fixed order: PRD, Spec, Tasks, then Commands. A group with no matches is hidden. Each result shows its kind, its title, the matched text marked and, for a task, its status dot and ID.
+- Commands are the controls the viewer already has: models and reasoning on or off, how much of each card shows, folding or unfolding every finished trunk, opening the code view for the current task, and copying a link to what is in view. A command with a keyboard shortcut shows it on the right. A command that does not apply to what is in view is not listed.
+- Some results open a page of their own, as ⌘K's nested items do: `Search tasks…`, `Search the PRD…` and `Search the spec…` narrow the menu to one kind and show it as a badge before the query. Backspace in an empty query, or Escape, goes back one page.
+- Up and Down move through the results and wrap at the ends. Moving the pointer over a result selects it. The selected result previews its PRD → spec → task chain in the panes behind the menu, as fuzzy search does. Enter, or a click, runs it: a search result closes the menu and does what selecting it in fuzzy search does, and a command closes the menu and runs.
+- Escape on the first page closes the menu without changing the panes, and focus returns to where it was. A second Escape after a search result clears the search, as it does today. The detail panel closes on Escape only when the menu is closed.
+- The list grows and shrinks with its results, and the menu opens and closes with a short fade and scale; with reduced motion they change at once. A query with no matches says so.
+- The menu is an accessible combobox: the query is a combobox, the results a listbox of options, the selected one its active descendant, and focus stays in the dialog while it is open.
+
+Done when, on this repo, ⌘K then `fuzy matchng` and Enter brings the Fuzzy matching spec section and its chain into view; ⌘K, `Search tasks…`, then `t52` and Enter opens t52's stack lit, with its folded segment standing out; Backspace in an empty query returns to the first page; and Escape closes the menu with the panes, pin and detail panel as they were.
 
 ### Notes {#prd.viewer.notes}
 
@@ -572,8 +588,10 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - Breaking the presence server's broadcast, or Escape in the task detail panel, fails a model-based test that prints the shortest event sequence that shows the break.
 - Opening a task in the code view shows its whole stacked diff with syntax-highlighted code, and each of its commits can be shown alone.
 - Fuzzy search finds abbreviated and mistyped titles and prose, marks the matched text, and brings the selected result and its chain into view; clearing it preserves the pinned section and the detail panel.
+- ⌘K opens the command menu from anywhere in the viewer; its results match the toolbar search's, a nested page narrows them to one kind, and every result and command can be reached and run from the keyboard alone.
 - The viewer shows correct status for every PRD section, and a PRD section's commits are two clicks or fewer from it.
 - Scrolling the PRD changes the spec cards and the lit stacks to the section at the top of the pane, and a pinned section stays current while the PRD scrolls.
+- In the stacks pane every parent link is a solid arrow, and a task's dependencies on other stacks show as dashed arrows only while it is hovered, focused or selected.
 - With models and reasoning on, every task shows the model and reasoning it ran with, or the plan's choice marked as planned; with it off, none shows.
 - Opening a task shows its code in the detail panel without leaving the plan.
 - `cairn lint` catches an orphaned section ID and an unmapped PRD section.
