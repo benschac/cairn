@@ -8,6 +8,12 @@
         "allowedUnstableApis": [
           "@effect/ai-anthropic/AnthropicClient",
           "@effect/ai-anthropic/AnthropicLanguageModel",
+          "@effect/ai-openai/OpenAiClient",
+          "@effect/ai-openai/OpenAiLanguageModel",
+          "@effect/ai-openai-compat/OpenAiClient",
+          "@effect/ai-openai-compat/OpenAiLanguageModel",
+          "@effect/ai-openrouter/OpenRouterClient",
+          "@effect/ai-openrouter/OpenRouterLanguageModel",
           "@effect/vitest",
           "@effect/platform-node/NodeHttpServer",
           "@effect/platform-node/NodeRuntime",
