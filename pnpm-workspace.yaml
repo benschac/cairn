@@ -13,3 +13,11 @@ allowBuilds:
   esbuild: true
   lefthook: true
   workerd: true
+
+# Foldkit's Scene harness re-rendered the whole view after every step and gave
+# each render a fresh boundary registry, so lazy views never hit. The patch
+# reuses the view after a step that leaves the Model unchanged and keeps one
+# registry per scene. Sent upstream from benschac/foldkit (branch
+# perf/scene-reuse-renders); drop the patch once a Foldkit release has it.
+patchedDependencies:
+  foldkit@0.171.0: patches/foldkit@0.171.0.patch
