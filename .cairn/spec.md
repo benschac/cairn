@@ -738,7 +738,6 @@ flowchart BT
     t50["t50 · 50-canvas-pan-zoom<br/>Pan and zoom the canvas with XYPanZoom<br/>wt-14"]
     t51["t51 · 51-canvas-presence<br/>Keep presence cursors in canvas coordinates<br/>wt-14"]
     t52["t52 · 52-detail-drawer<br/>Open the detail drawer from sections and tasks<br/>wt-14"]
-    t68["t68 · 68-api-trace-polling<br/>Poll /api/trace under cairn serve<br/>wt-14"]
     t69["t69 · 69-stacks-of<br/>Group the tasks into stacks and levels<br/>wt-19"]
     t70["t70 · 70-stack-boxes<br/>Draw the stacks as boxes over the base branch<br/>wt-19"]
     t71["t71 · 71-fuzzy-matching<br/>Index and rank fuzzy matches for titles, IDs and branches<br/>wt-20"]
@@ -779,20 +778,24 @@ flowchart BT
     direction BT
     t64["t64 · 64-plan-checkpoints<br/>Run the checkpoints inside cairn plan<br/>wt-16"]
   end
-  subgraph s32["Stack 32 · patch-routes"]
+  subgraph s32["Stack 32 · viewer"]
+    direction BT
+    t68["t68 · 68-api-trace-polling<br/>Poll /api/trace under cairn serve<br/>wt-14"]
+  end
+  subgraph s33["Stack 33 · patch-routes"]
     direction BT
     t74["t74 · 74-patch-routes<br/>Serve commit and task patches from git<br/>wt-25"]
   end
-  subgraph s33["Stack 33 · server"]
+  subgraph s34["Stack 34 · server"]
     direction BT
     t78["t78 · 78-session-route<br/>Serve sessions from cairn.db<br/>wt-23"]
   end
-  subgraph s34["Stack 34 · viewer"]
+  subgraph s35["Stack 35 · viewer"]
     direction BT
     t79["t79 · 79-session-pane<br/>Draw the session pane<br/>wt-24"]
     t80["t80 · 80-attribution<br/>Mark each hunk with the turn that wrote it<br/>wt-24"]
   end
-  subgraph s35["Stack 35 · viewer"]
+  subgraph s36["Stack 36 · viewer"]
     direction BT
     t84["t84 · 84-reader-derive<br/>Derive what the reader shows for a PRD section<br/>wt-27"]
     t85["t85 · 85-reader-screen<br/>Add the reader screen with the PRD pane and its current section<br/>wt-27"]
@@ -809,54 +812,54 @@ flowchart BT
     t96["t96 · 96-reading-presence<br/>Show who is reading which PRD section<br/>wt-27"]
     t97["t97 · 97-remove-canvas · GATE<br/>Make the reader the viewer and remove the canvas<br/>wt-27"]
   end
-  subgraph s36["Stack 36 · viewer"]
+  subgraph s37["Stack 37 · viewer"]
     direction BT
     t98["t98 · 98-detail-session<br/>Show the agent session in a task's detail<br/>wt-27"]
   end
-  subgraph s37["Stack 37 · viewer"]
+  subgraph s38["Stack 38 · viewer"]
     direction BT
     t99["t99 · 99-design-tokens<br/>Add the design tokens and the base stylesheet<br/>wt-28"]
     t100["t100 · 100-ui-pieces<br/>Build the shared marks and controls on the tokens<br/>wt-28"]
     t101["t101 · 101-restyle-code-view<br/>Move the code view, search and code blocks to the design system<br/>wt-28"]
   end
-  subgraph s38["Stack 38 · testing"]
+  subgraph s39["Stack 39 · testing"]
     direction BT
     t102["t102 · 102-xstate-test<br/>Add @xstate/test and move xstate to 6.0.0-beta.5<br/>wt-29"]
     t103["t103 · 103-presence-model<br/>Test the presence server against the room machine<br/>wt-29"]
   end
-  subgraph s39["Stack 39 · testing"]
+  subgraph s40["Stack 40 · testing"]
     direction BT
     t104["t104 · 104-reader-models<br/>Test the reader's trail, pin and dividers against models<br/>wt-30"]
   end
-  subgraph s40["Stack 40 · testing"]
+  subgraph s41["Stack 41 · testing"]
     direction BT
     t105["t105 · 105-derive-model<br/>Test derivation against a model of its inputs<br/>wt-31"]
   end
-  subgraph s41["Stack 41 · contract"]
+  subgraph s42["Stack 42 · contract"]
     direction BT
     t107["t107 · 107-written-from<br/>Record what each spec section was written from<br/>wt-33"]
   end
-  subgraph s42["Stack 42 · lint"]
+  subgraph s43["Stack 43 · lint"]
     direction BT
     t108["t108 · 108-diagram-draws<br/>Check that a Mermaid block draws<br/>wt-34"]
   end
-  subgraph s43["Stack 43 · planning"]
+  subgraph s44["Stack 44 · planning"]
     direction BT
     t109["t109 · 109-stack-diagram<br/>Draw the stack diagram from the manifest<br/>wt-34"]
   end
-  subgraph s44["Stack 44 · lint"]
+  subgraph s45["Stack 45 · lint"]
     direction BT
     t110["t110 · 110-diagram-checks<br/>Keep diagrams true in cairn lint and cairn plan<br/>wt-34"]
   end
-  subgraph s45["Stack 45 · planning"]
+  subgraph s46["Stack 46 · planning"]
     direction BT
     t112["t112 · 112-replan<br/>Find what planning again has to add<br/>wt-33"]
   end
-  subgraph s46["Stack 46 · planning"]
+  subgraph s47["Stack 47 · planning"]
     direction BT
     t113["t113 · 113-plan-again<br/>Plan again after the PRD changes<br/>wt-34"]
   end
-  subgraph s47["Stack 47 · planning"]
+  subgraph s48["Stack 48 · planning"]
     direction BT
     t114["t114 · 114-plan-dry-run<br/>Add dry runs and one-run planner choices to cairn plan<br/>wt-32"]
   end
@@ -934,7 +937,7 @@ flowchart BT
   t49 --> t50
   t50 --> t51
   t51 --> t52
-  t52 --> t68
+  t52 -.-> t68
   t39 -.-> t68
   t52 --> t75
   t75 --> t53
