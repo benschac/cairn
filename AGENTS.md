@@ -51,19 +51,8 @@ search the lookup: Effect probably already has it.
   signature from memory. Most `String` functions are data-last only.
 - A script under `scripts/` is an Effect program run by `NodeRuntime.runMain`
   with `NodeServices.layer`; see `scripts/land/land.ts`.
-- `lint/effect-core-plugin.mjs` enforces, in files that import Effect,
-  `core/no-native-loop`, `core/no-yield-in-loop`, `core/no-native-collection`,
-  `core/no-array-spread`, `core/no-length-check`, `core/no-typeof-check`,
-  `core/no-switch`, `core/no-native-sort` and `core/no-set-dedupe`. A loop
-  that must stop early, poll or walk by index may stay a loop with
+- A loop that must stop early, poll or walk by index may stay a loop with
   `// loop: <reason>` on the line above it.
-- `tsconfig.base.json` makes these `@effect/tsgo` diagnostics errors:
-  `preferEffectArray`, `preferEffectString` and `preferEffectRecord` for
-  native array, string and `Object` methods; `strictBooleanExpressions` for a
-  non-boolean condition; the platform globals (`Date`, `console`,
-  `Math.random`, timers, `fetch`, `JSON`, `process.env`); `new Promise`;
-  try/catch in `Effect.gen`; `extends Error`; and `Effect.all` over a `map`.
-  `pnpm test:lint` proves the rules fire.
 - A file that is not Effect code, such as `scripts/guard/policy.ts`, turns a
   diagnostic off at its top with `// @effect-diagnostics <rule>:off -- <reason>`.
   Nothing else does.
@@ -80,16 +69,6 @@ One command runs every check:
 ```sh
 pnpm check
 ```
-
-It runs these through Turborepo, which reruns only what a change affects:
-
-| Check  | Command                     | What it covers                                                                                                                                      |
-| ------ | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Types  | `effect-tsgo tsc --noEmit`  | Strict TypeScript 7 plus the Effect language-service diagnostics, in every package and in the root scripts. An Effect warning fails the run.        |
-| Lint   | `oxlint`                    | Type-aware Oxlint, including the `@xstate/effect` rule against inline Effects in machines and the recommended `@foldkit/oxlint-plugin` rules.       |
-| Format | `oxfmt --check`             | Formatting. `pnpm fix` rewrites files.                                                                                                              |
-| Tests  | `vitest run`, `node --test` | Each package's tests, and the tests for the hook guard in `scripts/guard`, the push gate in `scripts/gate` and the stack planner in `scripts/land`. |
-| Build  | `vite build`                | The viewer bundles.                                                                                                                                 |
 
 A stack is checked once, at its top, not on every commit. Two lefthook hooks
 enforce that; `pnpm install` installs them.
