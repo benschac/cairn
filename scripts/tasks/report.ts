@@ -118,9 +118,10 @@ export const threadTasks = (thread: Thread): Array<string> =>
     ),
   );
 
-const STOPPED = /\b(?:stopping|stopped|landed|abandoned)\b/iu;
+// A sentence that opens with one of these words, capitalised. "t30 landed; continuing on t31" is progress, not an end.
+const STOPPED = /(?:^|[.!?;:]\s+)(?:Stopping|Stopped|Landed|Abandoned)\b/u;
 
-// A thread is open until its latest reply says the work stopped or landed.
+// A thread is open until a sentence of its latest reply starts with Stopping, Stopped, Landed or Abandoned.
 export const isOpen = (thread: Thread): boolean =>
   Option.match(Option.fromNullOr(thread.last), {
     onNone: () => true,
@@ -322,7 +323,7 @@ export const renderOverview = (
         ),
       ),
       block(
-        "Board threads that claim unfinished tasks (a thread closes when its last reply says stopping or landed)",
+        "Board threads that claim unfinished tasks (a thread closes when a sentence of its last reply starts with Stopping or Landed)",
         Array.map(Array.filter(evidence.threads, claimsUnfinished), (thread) => {
           const branch = Option.getOrElse(label(thread, "branch"), () => "no branch");
           return `  ${String.padEnd(5)(age(thread.message.createdAt, evidence.now))}${branch}: ${thread.message.text}`;
