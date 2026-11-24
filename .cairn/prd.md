@@ -209,16 +209,18 @@ Done when the Viewer section of this repo's PRD shows a card for each spec secti
 
 ### Stacks {#prd.viewer.stacks}
 
-The stacks pane is the plan's stack diagram, live and whole. Every stack is always on the pane, so a person sees where the current section's work sits in the plan, where `main` is and what is done. Anyone who knows the diagram in the spec should find the same picture in the viewer: the same boxes, the same tasks in each, read the same way.
+The stacks pane is the plan's stack diagram, live and whole. Every stack is always on the pane, so a person sees where the current section's work sits in the plan, where `main` is and what is done. Anyone who knows the diagram in the spec should find the same picture in the viewer: the same boxes, the same tasks in each, read the same way. Work that is finished folds out of the way, so the forks still to build or review stand out from the history they were built on.
 
 - One box per stack, numbered as the spec's diagram numbers it. A stack is a task that starts from the base branch and every task built on it through parent branches. Stacks are numbered in the order of their first task. A box's label, `Stack N · <area>`, shows on hover; the area is the part of the spec its first task builds.
 - Inside a box, tasks read bottom to top, each directly above its parent, with no gaps. A fork puts the children side by side in the same box.
+- A finished trunk folds. Starting at a box's root, the run of `done` or `landed` tasks up to the first fork or the first unfinished task becomes one segment at the bottom of the box, showing its first and last IDs, its area and its count, such as `t45–t52 · viewer · 8 done`. The columns above it stand on the segment as if each started from it. A run of one task stays a chip. Clicking the segment unfolds it into its chips, and clicking again folds it. Folding changes only what this viewer window shows, not the plan or other participants' views.
+- Each column a fork starts is labelled at its foot with the part of the spec its first task builds: the last part of that task's first spec section, such as `fuzzy-matching`. A fork of a large stack reads as its own feature.
 - The base branch (`main`) is a bar under everything, and it stays in view while the pane scrolls. The bottom row holds the stacks that start from it now. A stack that waits for other stacks sits one row above the highest of them. Reading up the page is reading forward in build order, and the stacks in one row can be built at the same time.
 - A task is a chip: a status dot and its ID, with a red border for a human gate. Its title, branch, worktree and status show on hover. Clicking it opens the task detail.
-- The tasks of the current section stand out, and their stacks with them. Every other task is dimmed but can still be read and clicked.
+- The tasks of the current section stand out, and their stacks with them. A folded segment holding one of them stands out too. Every other task is dimmed but can still be read and clicked.
 - Above the diagram: how many stacks hold the current section's tasks, how many of the plan's tasks are done, and a legend.
 
-Done when the viewer, opened on this repo, shows the same stacks with the same tasks as the spec's diagram, and a test fails when the two disagree.
+Done when the viewer, opened on this repo, shows the same stacks with the same tasks as the spec's diagram, and a test fails when the two disagree; Stack 24's finished trunk, t45 to t52, shows as one segment with the stacks, fuzzy search, code view and polling forks labelled above it, and unfolds into the same chips as the diagram.
 
 ### Models and reasoning {#prd.viewer.models}
 
