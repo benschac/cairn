@@ -176,7 +176,7 @@ it.effect(
 );
 
 it.effect(
-  "codex gets the prompt on stdin and the call's schema in a file, in a read-only sandbox",
+  "codex gets the prompt on stdin and the call's schema in a file, with the person's config, rules and every tool switched off",
   () =>
     Effect.gen(function* () {
       const dir = yield* stubbed("codex", { stdout: '{"colour":"blue"}' });
@@ -185,13 +185,19 @@ it.effect(
       );
       expect(picked.value).toEqual({ colour: "blue" });
       const argv = yield* argvOf(dir, "codex");
-      expect(Array.take(argv, 4)).toEqual([
+      // The person's own config (MCP servers, hooks, plugins), rules and session files are left out.
+      expect(Array.take(argv, 7)).toEqual([
         "exec",
         "--skip-git-repo-check",
+        "--ephemeral",
+        "--ignore-user-config",
+        "--ignore-rules",
         "--sandbox",
         "read-only",
       ]);
-      // Each tool of codex that acts on the machine is switched off by its feature name.
+      expect(Array.contains(argv, 'web_search="disabled"')).toBe(true);
+      expect(after(argv, "-c")).toEqual(Option.some('web_search="disabled"'));
+      // Each tool of codex, or way to reach tools, is switched off by its feature name.
       const disabled = Array.filterMap(argv, (arg, index) =>
         Option.match(Array.get(argv, index + 1), {
           onNone: () => Result.failVoid,
@@ -205,6 +211,14 @@ it.effect(
         "view_image",
         "computer_use",
         "browser_use",
+        "code_mode_host",
+        "apps",
+        "plugins",
+        "hooks",
+        "memories",
+        "image_generation",
+        "tool_suggest",
+        "skill_search",
       ]);
       expect(after(argv, "--model")).toEqual(Option.some("model-b"));
       const sentSchema = yield* recorded(dir, "codex", "schema");

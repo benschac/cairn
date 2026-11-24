@@ -524,7 +524,7 @@ Cairn uses two kinds of model, each behind an `effect/ai` service. `models.ts` b
 
 The `cli` source, the default. `cli-model.ts` is a `LanguageModel` that runs the person's agent CLI once per call and reads its answer, so planning uses that CLI's sign-in and Cairn reads no key.
 
-Current support: the Claude CLI source and Anthropic API layer are implemented. Codex remains unavailable: `models.ts` returns `ModelUnavailable` before running it because disabling the user’s configured tools, MCP servers, apps and plugins has not been established. Task `t29` remains `pending`, with its partial implementation commits retained, until that isolation is implemented and verified. The table below remains the target; it does not claim Codex is usable today. The other API providers are pending in `t106`.
+Current support: the Claude CLI source, the Codex CLI source and the Anthropic API layer are implemented. Codex runs with the person's `~/.codex/config.toml` and execpolicy rules ignored and every tool, app, plugin and hook switched off, each flag checked against a real `codex-cli 0.172.0` run (`cli-model.ts` lists them and what a run showed). The other API providers are pending in `t106`.
 
 | `planner.cli` | Command                                                      | Structured output                             |
 | ------------- | ------------------------------------------------------------ | --------------------------------------------- |

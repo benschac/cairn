@@ -355,8 +355,8 @@ const recording = Effect.gen(function* () {
 });
 
 it.effect.prop(
-  "the default config plans with the claude CLI and reads no key at all",
-  [Schema.Literals(["claude"])],
+  "a configured agent CLI is looked for when its layer is built, and no key is read",
+  [Schema.Literals(["claude", "codex"])],
   ([cli]) => {
     const config = Schema.decodeSync(CairnConfig)({ planner: { cli } });
     return Effect.gen(function* () {
@@ -375,25 +375,6 @@ it.effect.prop(
       expect(reads).toEqual([]);
     }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer)));
   },
-);
-
-it.effect("the codex CLI is refused with a ModelUnavailable before anything is run or read", () =>
-  Effect.gen(function* () {
-    const config = Schema.decodeSync(CairnConfig)({ planner: { cli: "codex" } });
-    const none = yield* absent;
-    const keys = yield* recording;
-    const failure = yield* Effect.flip(
-      Layer.build(languageModel(config).pipe(Layer.provide(keys.layer))).pipe(
-        Effect.scoped,
-        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, none.spawner),
-      ),
-    ).pipe(Effect.flatMap(only(Schema.is(ModelUnavailable))));
-    expect(failure.message).toContain("codex CLI is not available yet");
-    const programs = yield* none.programs;
-    const reads = yield* keys.reads;
-    expect(programs).toEqual([]);
-    expect(reads).toEqual([]);
-  }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer))),
 );
 
 it.effect("building no layer looks for no CLI and reads no key", () =>

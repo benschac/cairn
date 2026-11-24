@@ -2159,7 +2159,7 @@
       "defers": [],
       "context": [],
       "tasks": ["t29", "t57", "t106"],
-      "summary": "Defines the two model services. LanguageModel comes from a planner source: the person's agent CLI by default, so planning runs on a subscription, or an API provider with a key. DecisionModel is TypeSafe Jev for the Judge, pinned to a version. Claude CLI and Anthropic API are implemented; t29 remains pending because Codex is unavailable pending verified tool isolation, and the other API providers are pending.",
+      "summary": "Defines the two model services. LanguageModel comes from a planner source: the person's agent CLI by default, so planning runs on a subscription, or an API provider with a key. DecisionModel is TypeSafe Jev for the Judge, pinned to a version. Claude CLI, Codex CLI and Anthropic API are implemented, and the other API providers are pending.",
       "requirements": [
         {
           "id": "spec.models#r1",
@@ -2341,8 +2341,8 @@
         },
         {
           "id": "spec.models#d5",
-          "text": "Keep the Codex planner source unavailable until tool isolation is implemented and verified.",
-          "why": "The current implementation cannot establish that the user's configured tools, MCP servers, apps and plugins are disabled; t29 remains pending with its partial implementation commits retained."
+          "text": "Run codex with the person's config and rules ignored and each tool, app, plugin and hook switched off by feature name.",
+          "why": "codex exec has no switch that turns off every tool, so each flag was checked against a real codex-cli 0.172.0 run before the source was enabled."
         }
       ],
       "writtenFrom": {

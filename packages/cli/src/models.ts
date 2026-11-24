@@ -138,16 +138,6 @@ const notYet = (provider: string) =>
     `The ${provider} provider is not available yet. Use planner.provider anthropic, or set planner.source to cli in .cairn/config.json.`,
   );
 
-/**
- * The codex CLI is refused for now. `spec.models` says the planner's CLI runs with no tools, and
- * `codex exec` documents no switch that turns off the MCP servers, apps and plugins of the
- * person's own codex config, so a PRD could steer a codex planner into using them. `cli-model.ts`
- * keeps its codex support for when that can be enforced and checked against a real run.
- */
-const codexNotYet = unavailable(
-  "The codex CLI is not available yet: Cairn cannot run it without its tools. Set planner.cli to claude, or set planner.source to api in .cairn/config.json.",
-);
-
 /** What a planner layer can fail with, and what it needs to be built. */
 type PlannerLayer = Layer.Layer<
   LanguageModel.LanguageModel,
@@ -162,8 +152,8 @@ type PlannerLayer = Layer.Layer<
  * The `LanguageModel` the planner uses for one call, from `planner.source`:
  *
  * - `cli`, the default: the person's agent CLI (`cli-model.ts`). It reads no key and looks for the
- *   CLI only when this layer is built. Only `claude` is allowed so far; `codex` fails with a
- *   `ModelUnavailable`.
+ *   CLI only when this layer is built. `claude` and `codex` both run without tools
+ *   (`cli-model.ts` says how codex is isolated).
  * - `api`: the layer of `planner.provider`. Only `anthropic` is built so far.
  *
  * The model name is `planner.small` for the small calls and `planner.model` otherwise
@@ -178,10 +168,9 @@ export const languageModelFor = (
   return Match.value(config.planner.source).pipe(
     Match.when("cli", () =>
       Match.value(config.planner.cli).pipe(
-        Match.when("claude", (cli) =>
+        Match.whenOr("claude", "codex", (cli) =>
           cliLanguageModel({ cli, environment, model: Option.getOrUndefined(model) }),
         ),
-        Match.when("codex", () => codexNotYet),
         Match.exhaustive,
       ),
     ),
