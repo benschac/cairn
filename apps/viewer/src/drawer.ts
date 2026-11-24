@@ -74,7 +74,7 @@ const judgmentView = <Message>(judgment: TraceJudgment, h: HtmlBuilder<Message>)
     ],
   );
 
-const judgmentsView = <Message>(trace: Trace, node: Node, h: HtmlBuilder<Message>): Html =>
+export const judgmentsView = <Message>(trace: Trace, node: Node, h: HtmlBuilder<Message>): Html =>
   h.section(
     [h.DataAttribute("drawer-part", "judgments")],
     [
@@ -124,7 +124,7 @@ const sessionsView = <Message>(task: TraceTask, h: HtmlBuilder<Message>): Html =
     ],
   );
 
-const eventsView = <Message>(task: TraceTask, h: HtmlBuilder<Message>): Html =>
+export const eventsView = <Message>(task: TraceTask, h: HtmlBuilder<Message>): Html =>
   h.section(
     [h.DataAttribute("drawer-part", "events")],
     [
@@ -142,7 +142,7 @@ const eventsView = <Message>(task: TraceTask, h: HtmlBuilder<Message>): Html =>
   );
 
 /** The gate the plan set and the gate in effect, each with its reasons. */
-const gateView = <Message>(task: TraceTask, h: HtmlBuilder<Message>): Html =>
+export const gateView = <Message>(task: TraceTask, h: HtmlBuilder<Message>): Html =>
   h.section(
     [h.DataAttribute("drawer-part", "gate")],
     [

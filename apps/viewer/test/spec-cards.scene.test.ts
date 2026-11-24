@@ -24,7 +24,7 @@ import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
 import { MeasureWires } from "../src/view/wiresView.ts";
 import { view } from "../src/view/view.ts";
-import { loaded, unmeasuredWires } from "./fixtures.ts";
+import { focusedDetailHeading, loaded, unmeasuredWires } from "./fixtures.ts";
 
 const prd = (id: string) => PrdSectionId.make(id);
 
@@ -112,9 +112,10 @@ it("a task row shows its status, ID, title and the commit count or the status wo
         : `${Array.length(task.commits)} commit`,
     ),
     click(row),
+    focusedDetailHeading,
   );
   const model = update(reading, Message.ClickedTask({ id: task.id })).model;
-  assert(model.drawer).toStrictEqual({ _tag: "Open", node: { id: task.id, kind: "task" } });
+  assert(model.detail).toStrictEqual([{ id: task.id, kind: "task" }]);
 });
 
 it("the control steps through titles, summaries and full sections while the rows stay", () => {
