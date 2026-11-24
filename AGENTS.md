@@ -167,13 +167,6 @@ land on `main` with one fast-forward push, and what blocks each one. Without
   replace the pull request's own commit titles and messages in the history; the
   script refuses a stack that contains one.
 
-## Running it
-
-`pnpm dev` starts the presence server on port 4310 and the viewer on Vite's
-port, which proxies `/presence` to the server. Open the viewer in two windows
-to see two cursors. `?name=Ada` sets a name, and a client that connects with
-`?kind=agent` is shown as an agent.
-
 ## Tests
 
 - Prefer a property over an example. `it.prop` from `@effect/vitest` generates
