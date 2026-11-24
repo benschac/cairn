@@ -22,7 +22,7 @@ const SESSION_WIDTH = "420px";
 
 /**
  * The diff pane does not scroll: the list the mount draws scrolls inside it and fills it. The
- * notes in it (loading, failed, no commits) carry their own padding.
+ * notes in it (loading, failed, no commits) carry their own padding, from the stylesheet.
  */
 const diffPaneStyle = {
   display: "flex",
@@ -30,13 +30,6 @@ const diffPaneStyle = {
   "flex-direction": "column",
   "min-height": "0",
   "min-width": "0",
-};
-
-const paneStyle = {
-  "box-sizing": "border-box",
-  "min-width": "0",
-  "overflow-y": "auto",
-  padding: "8px 12px",
 };
 
 const plural = (count: number): string => (count === 1 ? "1 commit" : `${count} commits`);
@@ -68,32 +61,19 @@ const barView = (
   messages: CodeMessages,
 ): Html =>
   h.header(
-    [
-      h.DataAttribute("code-bar", ""),
-      h.Style({
-        "align-items": "center",
-        "border-bottom": "1px solid #cbd5e1",
-        display: "flex",
-        flex: "none",
-        gap: "16px",
-        padding: "8px 12px",
-      }),
-    ],
+    [h.Class("topbar"), h.DataAttribute("code-bar", "")],
     Array.prepend(
       Array.append(
         Option.match(task, {
           onNone: () => [h.span([h.Role("alert")], [`No task ${code.taskId} in the trace.`])],
           onSome: (found) => [
-            h.h1([h.Style({ "font-size": "16px", margin: "0" })], [`${found.id} ${found.branch}`]),
+            h.h1([], [`${found.id} ${found.branch}`]),
             h.span([h.DataAttribute("shown", "")], [shownText(found, code.shown)]),
           ],
         }),
-        h.div(
-          [h.Style({ "margin-left": "auto" })],
-          [diffStyleToggleView(diffStyle, messages.onDiffStyle, h)],
-        ),
+        diffStyleToggleView(diffStyle, messages.onDiffStyle, h),
       ),
-      h.button([h.Type("button"), h.OnClick(messages.onBack)], ["Back to canvas"]),
+      h.button([h.Type("button"), h.Class("btn"), h.OnClick(messages.onBack)], ["Back to canvas"]),
     ),
   );
 
@@ -106,7 +86,12 @@ const diffPane = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.section(
-    [h.AriaLabel("Diff"), h.DataAttribute("code-pane", "diff"), h.Style(diffPaneStyle)],
+    [
+      h.Class("code-pane"),
+      h.AriaLabel("Diff"),
+      h.DataAttribute("code-pane", "diff"),
+      h.Style(diffPaneStyle),
+    ],
     [
       Option.match(task, {
         onNone: () => h.p([], ["This task is not in the trace."]),
@@ -135,14 +120,11 @@ const sessionPane = (
 ): Html =>
   h.aside(
     [
+      h.Class("code-pane"),
       h.AriaLabel("Session"),
       h.DataAttribute("code-pane", "session"),
-      h.Style({
-        ...paneStyle,
-        "border-left": "1px solid #cbd5e1",
-        flex: "none",
-        width: SESSION_WIDTH,
-      }),
+      // The width is the pane's own; the scroll stays with it.
+      h.Style({ "overflow-y": "auto", width: SESSION_WIDTH }),
     ],
     [
       Option.match(
@@ -173,23 +155,11 @@ export const codeView = (
 ): Html => {
   const task = taskOf(trace, code.taskId);
   return h.div(
-    [
-      h.DataAttribute("code-view", code.taskId),
-      h.Style({
-        background: "#ffffff",
-        bottom: "0",
-        display: "flex",
-        "flex-direction": "column",
-        left: "0",
-        position: "fixed",
-        right: "0",
-        top: "0",
-      }),
-    ],
+    [h.Class("code-screen"), h.DataAttribute("code-view", code.taskId)],
     [
       barView(task, code, diffStyle, h, messages),
       h.div(
-        [h.Style({ display: "flex", flex: "1", "min-height": "0" })],
+        [h.Class("code-body")],
         [
           treeView(trace, code, h, messages),
           diffPane(task, code, patches, diffStyle, h),

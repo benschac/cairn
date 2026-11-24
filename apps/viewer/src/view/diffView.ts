@@ -5,17 +5,18 @@ import { DIFF_STYLE_ATTRIBUTE, FILE_ATTRIBUTE, RenderDiff } from "../diff.ts";
 import { isDemoBuild } from "../load.ts";
 import type { Message } from "../message.ts";
 import { PatchData, type DiffStyle } from "../model.ts";
+import { segmentedView } from "../ui/controls.ts";
 
-/** The words on each of the diff style toggle's buttons, in the order they are shown. */
-const DIFF_STYLE_LABEL = { unified: "Unified", split: "Split" } satisfies Record.ReadonlyRecord<
-  DiffStyle,
-  string
->;
+/** The words on each of the diff style control's buttons, in the order they are shown. */
+const DIFF_STYLE_OPTIONS: ReadonlyArray<{ readonly value: DiffStyle; readonly label: string }> = [
+  { label: "Unified", value: "unified" },
+  { label: "Split", value: "split" },
+];
 
 /**
- * The diff style toggle for the top bar: a group of two buttons, one pressed. Each button says
- * for itself whether it is the style in use, so the group reads the same to a screen reader as it
- * looks.
+ * The diff style control for the top bar: a segmented group of two buttons, one pressed. Each
+ * button says for itself whether it is the style in use, so the group reads the same to a screen
+ * reader as it looks.
  */
 export const diffStyleToggleView = (
   current: DiffStyle,
@@ -23,28 +24,18 @@ export const diffStyleToggleView = (
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
-    [h.Role("group"), h.AriaLabel("Diff style"), h.DataAttribute("diff-style-toggle", "")],
-    Array.map(Record.toEntries(DIFF_STYLE_LABEL), ([style, label]) =>
-      h.button(
-        [
-          h.Type("button"),
-          h.DataAttribute("diff-style-option", style),
-          h.AriaPressed(String(style === current)),
-          h.OnClick(onSelect(style)),
-        ],
-        [label],
+    [h.DataAttribute("diff-style-toggle", "")],
+    [
+      segmentedView(
+        { label: "Diff style", onSelect, options: DIFF_STYLE_OPTIONS, selected: current },
+        h,
       ),
-    ),
+    ],
   );
 
 /** A sentence in the pane, with the room the diff itself does not need; a failure is an alert. */
 const noteView = (note: string, isAlert: boolean, h: HtmlBuilder<Message>): Html =>
-  h.p(
-    Array.appendAll(isAlert ? [h.Role("alert")] : [], [
-      h.Style({ margin: "0", padding: "8px 12px" }),
-    ]),
-    [note],
-  );
+  h.p(isAlert ? [h.Role("alert")] : [], [note]);
 
 /** The attribute that carries the tree's selected file to the mount, when there is one. */
 const fileAttributes = (
@@ -73,6 +64,7 @@ const diffListView = (
         h.DataAttribute("patch-path", path),
         h.Attribute(DIFF_STYLE_ATTRIBUTE, diffStyle),
         h.OnMount(RenderDiff({ text })),
+        // The list scrolls inside the pane and fills it.
         h.Style({ flex: "1", "min-height": "0", "overflow-y": "auto" }),
       ],
       fileAttributes(maybeFile, h),

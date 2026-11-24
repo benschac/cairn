@@ -60,17 +60,11 @@ export const styleOf = (token: ThemedToken): Readonly<Record<string, string>> =>
   );
 };
 
-/** The look of a code block, shared by a highlighted block and a diagram shown as its source. */
-export const CODE_BLOCK_STYLE = {
-  background: "#f6f8fa",
-  "border-radius": "4px",
-  "font-size": "12px",
-  margin: "8px 0",
-  // The canvas never scrolls, so a long line wraps instead of running out of its column.
-  "overflow-wrap": "anywhere",
-  padding: "8px",
-  "white-space": "pre-wrap",
-} satisfies Record.ReadonlyRecord<string, string>;
+/**
+ * The classes of a code block, shared by a highlighted block and a diagram shown as its source.
+ * Its colours come from pierre-light, so it is `light-only`.
+ */
+export const CODE_BLOCK_CLASS = "code-block light-only";
 
 /** The lines of tokens as spans, with a newline between lines. */
 const tokensView = <Message>(
@@ -104,7 +98,7 @@ export const codeBlockView = <Message>(
       Array.fromOption(
         Option.map(maybeLanguage, (language) => h.DataAttribute("language", language)),
       ),
-      h.Style(CODE_BLOCK_STYLE),
+      h.Class(CODE_BLOCK_CLASS),
     ),
     [
       h.code(
