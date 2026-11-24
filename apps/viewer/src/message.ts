@@ -5,6 +5,7 @@ import { defineMessageUnion } from "foldkit/message";
 import { ArrowKey, ClientPoint, Movable, PointerId } from "./drag.ts";
 import { Positions, Size, Viewport } from "./geometry.ts";
 import { Density, Destination, DiffStyle } from "./model.ts";
+import { DividerKey, Pane } from "./panes.ts";
 import { Node } from "./trace.ts";
 import { Measured } from "./wires.ts";
 
@@ -92,6 +93,14 @@ export const Message = defineMessageUnion({
   PressedSearchEnter: {},
   /** In the search input: clears the search. */
   PressedSearchEscape: {},
+  /** An arrow key went down on a focused divider. */
+  PressedArrowOnDivider: { key: DividerKey, pane: Pane },
+  /** The primary button or a touch went down on a divider. */
+  PressedDivider: { pane: Pane, pointerId: PointerId, x: Schema.Finite },
+  /** A pointer moved anywhere on the page while a divider was being dragged, with the buttons it held. */
+  MovedResizePointer: { buttons: Schema.Int, pointerId: PointerId, x: Schema.Finite },
+  /** A pointer went up or was cancelled anywhere on the page while a divider was being dragged. */
+  ReleasedResizePointer: { pointerId: PointerId },
   /** An arrow key went down on a move handle. */
   PressedArrowOnMoveHandle: { key: ArrowKey, movable: Movable },
   /** The primary button or a touch went down on a move handle. */

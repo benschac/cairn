@@ -5,6 +5,7 @@ import { ORIGIN_VIEWPORT } from "./canvas.ts";
 import { DragState } from "./drag.ts";
 import type { Message } from "./message.ts";
 import { Drawer, PresenceConnection, Screen, TraceData, type Model } from "./model.ts";
+import { INITIAL_WIDTHS, Resize } from "./panes.ts";
 import { NO_SEARCH } from "./search.ts";
 import { LoadTrace } from "./update.ts";
 
@@ -34,9 +35,11 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
       maybePinned: Option.none(),
       opened: {},
     },
+    resize: Resize.Idle(),
     search: NO_SEARCH,
     screen: Screen.Canvas(),
     trace: TraceData.Loading(),
     viewport: ORIGIN_VIEWPORT,
+    widths: INITIAL_WIDTHS,
   },
 });

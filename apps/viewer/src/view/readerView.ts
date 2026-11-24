@@ -5,8 +5,10 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message.ts";
 import type { Destination, Model } from "../model.ts";
 import { currentOf } from "../reader.ts";
+import { Resize, limitsOf } from "../panes.ts";
 import { Node } from "../trace.ts";
 import { switchView } from "../ui/controls.ts";
+import { dividerView, DIVIDER_WIDTH } from "./dividerView.ts";
 import { prdPaneView } from "./prdPaneView.ts";
 import { searchView } from "./searchView.ts";
 import { specPaneView } from "./specPaneView.ts";
@@ -104,9 +106,19 @@ export const readerView = (
         [
           h.Style({
             display: "grid",
-            "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr) minmax(240px, 1fr)",
+            // The widths are what a person chose; the columns give each pane up to that, and
+            // down to its least before the stacks pane goes under 240px.
+            "--prd-width": `${model.widths.prd}px`,
+            "--spec-width": `${model.widths.spec}px`,
+            "grid-template-columns": `minmax(${limitsOf("prd").min}px, var(--prd-width)) ${DIVIDER_WIDTH}px minmax(${limitsOf("spec").min}px, var(--spec-width)) ${DIVIDER_WIDTH}px minmax(240px, 1fr)`,
+            "grid-template-rows": "minmax(0, 1fr)",
             "min-height": "0",
+            // Narrower than every least width and both dividers, the reader scrolls sideways.
+            "overflow-x": "auto",
+            "overflow-y": "hidden",
+            "user-select": Resize.guards.Resizing(model.resize) ? "none" : "auto",
           }),
+          h.DataAttribute("reader-grid", ""),
           h.OnMount(MeasureWires()),
           // What changes the layout without changing a size the mount's observers see: the
           // current section, and whether the model chips wrap the rows.
@@ -117,6 +129,7 @@ export const readerView = (
         ],
         [
           prdPaneView(trace, maybeCurrent, model.reader.maybePinned, model.maybeCopied, h),
+          dividerView("prd", model.widths, h),
           specPaneView(
             trace,
             maybeCurrent,
@@ -125,6 +138,7 @@ export const readerView = (
             model.maybeHovered,
             h,
           ),
+          dividerView("spec", model.widths, h),
           stackChipsView(trace, maybeCurrent, model.isShowingModels, model.maybeHovered, h),
           wiresView(trace, maybeCurrent, model.maybeMeasuredWires, model.maybeHovered, h),
         ],

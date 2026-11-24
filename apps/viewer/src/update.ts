@@ -45,6 +45,7 @@ import {
   resultOf,
   type SearchState,
 } from "./search.ts";
+import { Resize, deltaOf, draggedTo, resized, stepOf } from "./panes.ts";
 import { isOpenCard } from "./reader.ts";
 import { Node } from "./trace.ts";
 
@@ -108,6 +109,13 @@ const dragByPointer = (drag: DragState, pointerId: number) =>
   Option.filter(
     Option.liftPredicate(drag, DragState.guards.Dragging),
     (dragging) => dragging.pointerId === pointerId,
+  );
+
+/** The resize this pointer is making; none while nothing is resized or another pointer resizes. */
+const resizeByPointer = (resize: Resize, pointerId: number) =>
+  Option.filter(
+    Option.liftPredicate(resize, Resize.guards.Resizing),
+    (resizing) => resizing.pointerId === pointerId,
   );
 
 /** A drag that has just ended is over; any other drag state stays as it is. */
@@ -404,6 +412,36 @@ export const update = (model: Model, message: Message) =>
         isPrimaryPointer && DragState.guards.Dragging(model.drag)
           ? modifyFields(model, { drag: () => DragState.Idle() })
           : idleAfterRelease(model),
+    }),
+    PressedArrowOnDivider: ({ key, pane }) => ({
+      model: modifyFields(model, {
+        widths: (widths) => resized(widths, pane, deltaOf(pane, stepOf(key))),
+      }),
+    }),
+    // One resize at a time, as with a drag: a second finger cannot take it over.
+    PressedDivider: ({ pane, pointerId, x }) => ({
+      model: Resize.guards.Resizing(model.resize)
+        ? model
+        : modifyFields(model, {
+            resize: () =>
+              Resize.Resizing({ pane, pointerId, startWidth: model.widths[pane], startX: x }),
+          }),
+    }),
+    // A move with no button held means the release was missed: the resize ends there.
+    MovedResizePointer: ({ buttons, pointerId, x }) => ({
+      model: Option.match(resizeByPointer(model.resize, pointerId), {
+        onNone: () => model,
+        onSome: (resizing) =>
+          buttons === NO_BUTTONS
+            ? modifyFields(model, { resize: () => Resize.Idle() })
+            : modifyFields(model, { widths: (widths) => draggedTo(widths, resizing, x) }),
+      }),
+    }),
+    ReleasedResizePointer: ({ pointerId }) => ({
+      model: Option.match(resizeByPointer(model.resize, pointerId), {
+        onNone: () => model,
+        onSome: () => modifyFields(model, { resize: () => Resize.Idle() }),
+      }),
     }),
     PressedArrowOnMoveHandle: ({ key, movable }) => ({
       model: modifyFields(model, { offsets: moveBy(movable, nudgeOf(key)) }),
