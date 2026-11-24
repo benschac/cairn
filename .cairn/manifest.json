@@ -2834,6 +2834,31 @@
       "status": "pending",
       "commits": [],
       "sessions": []
+    },
+    {
+      "id": "t115",
+      "title": "Send the AI Gateway token with planner requests",
+      "prdSections": ["prd.planning.writers"],
+      "specSections": ["spec.models", "spec.contract.config"],
+      "files": [
+        "packages/contract/src/config.ts",
+        "packages/cli/src/models.ts",
+        "packages/cli/test/planner-live.test.ts",
+        "packages/contract/test/config.test.ts"
+      ],
+      "branch": "cairn-mvp/115-gateway-token",
+      "parent": "t106",
+      "dependsOn": ["t106"],
+      "worktree": "wt-32",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
     }
   ]
 }
