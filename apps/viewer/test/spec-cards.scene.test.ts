@@ -1,7 +1,8 @@
 import { PrdSectionId, SectionId, TaskId, type TraceTask } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Option, Schema } from "effect";
+import { Array, Option, Result, Schema } from "effect";
 import {
+  Command,
   Mount,
   Subscription,
   all,
@@ -15,9 +16,12 @@ import {
 } from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
 
+import { patchPathOf } from "../src/codeView.ts";
+import { FetchPatch } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
+import { RenderDiff } from "../src/diff.ts";
 import { Message } from "../src/message.ts";
-import { Screen, TraceData } from "../src/model.ts";
+import { Screen, Shown, TraceData } from "../src/model.ts";
 import { cardsOf, statusWordOf } from "../src/reader.ts";
 import { update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
@@ -113,6 +117,18 @@ it("a task row shows its status, ID, title and the commit count or the status wo
     ),
     click(row),
     focusedDetailHeading,
+    ...Array.flatMap(Option.toArray(patchPathOf(task, Shown.WholeTask())), (path) => [
+      Command.resolve(
+        FetchPatch({ path }),
+        // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+        Message.ReceivedPatch({ path, result: Result.succeed("") }),
+      ),
+      Mount.resolve(
+        RenderDiff,
+        // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+        Message.CompletedRenderDiff(),
+      ),
+    ]),
   );
   const model = update(reading, Message.ClickedTask({ id: task.id })).model;
   assert(model.detail).toStrictEqual([{ id: task.id, kind: "task" }]);
