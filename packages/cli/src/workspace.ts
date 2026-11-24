@@ -1,4 +1,13 @@
-import { Event, EventJson, Manifest, SpecIndex, SpecIndexJson } from "@cairn/contract";
+import {
+  ConfigJson,
+  defaultConfig,
+  Event,
+  EventJson,
+  Manifest,
+  SpecIndex,
+  SpecIndexJson,
+} from "@cairn/contract";
+import type { Config } from "@cairn/contract";
 import {
   Array,
   Effect,
@@ -160,6 +169,11 @@ export const loadSpec: Loaded<string> = required("spec.md", (_file, text) => Eff
 export const loadManifest: Loaded<Manifest> = required(
   "manifest.json",
   decodeDocument(ManifestJson),
+);
+
+/** `.cairn/config.json`. Absent is the defaults; a wrong field is `MalformedFile` with its path. */
+export const loadConfig: Loaded<Config> = optional("config.json", decodeDocument(ConfigJson)).pipe(
+  Effect.map(Option.getOrElse(() => defaultConfig)),
 );
 
 /** `.cairn/spec.json`, the spec index. Absent is none: it is derived and `cairn plan` writes it. */
