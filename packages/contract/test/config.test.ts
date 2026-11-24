@@ -35,6 +35,8 @@ const notIn = (values: ReadonlyArray<string>) =>
 it('{"version":1} decodes to the full defaults', () => {
   expect(decode({ version: 1 })).toEqual(defaultConfig);
   expect(defaultConfig.humanPaths).toContain("**/migrations/**");
+  expect(defaultConfig.humanPaths).toContain("**/migrate/**");
+  expect(defaultConfig.humanPaths).not.toContain("*.sql");
   expect(defaultConfig.redact.deny).toEqual([]);
   expect(defaultConfig.planner).toEqual({ cli: "claude", provider: "anthropic", source: "cli" });
   expect(defaultConfig.planner.model).toBeUndefined();

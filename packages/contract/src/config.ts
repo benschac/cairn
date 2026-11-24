@@ -3,10 +3,10 @@ import { Effect, Number, Predicate, Schema } from "effect";
 /** The high-trust paths the PRD's human gate uses by default (`prd.human-gates`). */
 const HUMAN_PATHS = [
   "**/migrations/**",
+  "**/migrate/**",
   "**/auth/**",
   "**/payments/**",
   "infra/**",
-  "*.sql",
   ".github/workflows/**",
 ];
 

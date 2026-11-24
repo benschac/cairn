@@ -46,7 +46,7 @@
       "reasoning": "high",
       "humanGate": {
         "required": true,
-        "reasons": ["path:**/migrations/**", "path:*.sql"]
+        "reasons": ["path:**/migrations/**"]
       },
       "status": "pending",
       "commits": [],

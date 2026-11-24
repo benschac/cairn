@@ -4924,7 +4924,7 @@
         {
           "id": "spec.cli#r3",
           "level": "must",
-          "text": "`cairn init` creates `.cairn/` with a PRD template, an empty `events.jsonl` and the default `config.json`."
+          "text": "`cairn init` creates `.cairn/` with a PRD template, an empty `events.jsonl` and a `config.json` that lists the default `humanPaths` for the project to edit."
         },
         {
           "id": "spec.cli#r4",
@@ -4950,7 +4950,7 @@
           "kind": "command",
           "name": "cairn init",
           "location": null,
-          "description": "Creates .cairn/ with PRD template, empty events.jsonl and default config.json; adds .cairn/cairn.db to .gitignore; refuses to overwrite.",
+          "description": "Creates .cairn/ with PRD template, empty events.jsonl and a config.json listing the default humanPaths; adds .cairn/cairn.db to .gitignore; refuses to overwrite.",
           "signature": "cairn init"
         },
         {
