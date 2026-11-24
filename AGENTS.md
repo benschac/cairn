@@ -23,6 +23,7 @@ and docs under `node_modules` instead of trusting memory.
 | A native pattern         | `.agent_sources/effect/native-to-effect.md`: the Effect replacement for a loop, comparator, `Set`, `JSON`, `Date`, ...            |
 | Effect idioms            | `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/src/`                                                            |
 | XState, `@xstate/effect` | `.agent_sources/xstate/index.md`, `.agent_sources/xstate-effect/index.md`                                                         |
+| Model-based testing      | `node_modules/xstate/docs/model-based-testing.md`, then the `@xstate/test` README in `node_modules/@xstate/test/README.md`        |
 | Ratstack patterns        | `.agent_sources/ratstack/README.md`: offline `llms.txt` and `llms-full.txt` with line-range indexes                               |
 | Upstream source          | `.agent_sources/github.com/`: full clones of effect, xstate, rat-stack, foldkit, alchemy (gitignored)                             |
 
