@@ -39,6 +39,7 @@ import {
   PatchData,
   PresenceConnection,
   Screen,
+  Shown,
   selectedNodeOf,
   type Destination,
   type Model,
@@ -83,22 +84,32 @@ const shownIn = (model: Model) =>
  * alone; one that is new, or failed before, is marked loading and fetched. The demo build has no
  * server, so it fetches nothing.
  */
+const patchRequested = (model: Model, path: string): Update.Return<Model, Message> =>
+  isDemoBuild() ||
+  Option.exists(Record.get(model.patches, path), (data) => !PatchData.guards.Failed(data))
+    ? { model }
+    : {
+        commands: [FetchPatch({ path })],
+        model: modifyFields(model, { patches: Record.set(path, PatchData.Loading()) }),
+      };
+
 const withPatchRequested = (model: Model): Update.Return<Model, Message> =>
   Option.match(
-    Option.filter(
-      Option.flatMap(shownIn(model), ({ code, task }) => patchPathOf(task, code.shown)),
-      () => !isDemoBuild(),
-    ),
-    {
-      onNone: () => ({ model }),
-      onSome: (path) =>
-        Option.exists(Record.get(model.patches, path), (data) => !PatchData.guards.Failed(data))
-          ? { model }
-          : {
-              commands: [FetchPatch({ path })],
-              model: modifyFields(model, { patches: Record.set(path, PatchData.Loading()) }),
-            },
-    },
+    Option.flatMap(shownIn(model), ({ code, task }) => patchPathOf(task, code.shown)),
+    { onNone: () => ({ model }), onSome: (path) => patchRequested(model, path) },
+  );
+
+/** The route of the whole diff of the task the detail panel is on; none for a section or a task without one. */
+const detailPatchPathOf = (model: Model): Option.Option<string> =>
+  Option.flatMap(nodeShownBy(model.detail), (node) =>
+    Node.match(node, {
+      section: () => Option.none(),
+      task: ({ id }) =>
+        Option.flatMap(
+          Option.flatMap(traceOf(model), (trace) => taskOf(trace, id)),
+          (task) => patchPathOf(task, Shown.WholeTask()),
+        ),
+    }),
   );
 
 /** The code view with what is shown of a task, when the trace has that task and commit. */
@@ -119,13 +130,23 @@ const codeOn = (
  * The model with this trail. When the panel is open and its last node changed, focus moves to the
  * panel's heading; a trail that shows the same node, or none, moves no focus.
  */
-const detailTrailed = (model: Model, trail: Trail): Update.Return<Model, Message> => ({
-  commands:
-    Option.isSome(nodeShownBy(trail)) && !sameNode(nodeShownBy(trail), nodeShownBy(model.detail))
-      ? [FocusDetailHeading()]
-      : [],
-  model: modifyFields(model, { detail: () => trail }),
-});
+const detailTrailed = (model: Model, trail: Trail): Update.Return<Model, Message> => {
+  const trailed = modifyFields(model, { detail: () => trail });
+  // A task with commits shows its whole diff, so it is fetched unless the model has it.
+  const requested = Option.match(detailPatchPathOf(trailed), {
+    onNone: (): Update.Return<Model, Message> => ({ model: trailed }),
+    onSome: (path) => patchRequested(trailed, path),
+  });
+  return {
+    commands: Array.appendAll(
+      Option.isSome(nodeShownBy(trail)) && !sameNode(nodeShownBy(trail), nodeShownBy(model.detail))
+        ? [FocusDetailHeading()]
+        : [],
+      Option.getOrElse(Option.fromNullishOr(requested.commands), () => []),
+    ),
+    model: requested.model,
+  };
+};
 
 /** The drag this pointer is making; none while nothing is dragged or another pointer drags. */
 const dragByPointer = (drag: DragState, pointerId: number) =>
