@@ -17,6 +17,7 @@ Read [the source guide](../README.md) before applying examples.
 | @effect/ai-openai | 4.1.5 | 12 | 7304 | `packages/cli/node_modules/@effect/ai-openai/dist` |
 | @effect/ai-openai-compat | 4.1.5 | 6 | 64 | `packages/cli/node_modules/@effect/ai-openai-compat/dist` |
 | @effect/ai-openrouter | 4.1.5 | 8 | 4915 | `packages/cli/node_modules/@effect/ai-openrouter/dist` |
+| @effect/ai-typesafe | 4.1.5 | 4 | 27 | `packages/cli/node_modules/@effect/ai-typesafe/dist` |
 | @effect/platform-browser | 4.1.5 | 17 | 95 | `apps/viewer/node_modules/@effect/platform-browser/dist` |
 | @effect/platform-node | 4.1.5 | 29 | 69 | `node_modules/@effect/platform-node/dist` |
 | @effect/sql-sqlite-node | 4.1.5 | 2 | 11 | `packages/cli/node_modules/@effect/sql-sqlite-node/dist` |
@@ -525,6 +526,17 @@ Declarations: `packages/cli/node_modules/@effect/ai-openrouter/dist/<module>.d.t
 | @effect/ai-openrouter/OpenRouterLanguageModel | 7 | 1320 | The `OpenRouterLanguageModel` module provides the OpenRouter implementation of Effect AI's `LanguageModel` service. |
 | @effect/ai-openrouter/OpenRouterSchema | 7 | 346 | Schemas for OpenRouter's alpha Decisions API. |
 | @effect/ai-openrouter/OpenRouterWorkloadIdentity | 3 | 148 | The `OpenRouterWorkloadIdentity` module authenticates `OpenRouterClient` with [workload identity federation](https://openrouter.ai/docs/guides/overview/auth/workload-identity-federation). |
+
+## @effect/ai-typesafe@4.1.5
+
+Declarations: `packages/cli/node_modules/@effect/ai-typesafe/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/ai-typesafe/AGENTS.md`, `packages/cli/node_modules/@effect/ai-typesafe/ai-docs`, `packages/cli/node_modules/@effect/ai-typesafe/README.md`.
+
+| Module | Exports | Lines | Summary |
+| --- | ---: | ---: | --- |
+| @effect/ai-typesafe/TypeSafeClient | 6 | 82 | HTTP client for TypeSafe System One and model discovery. |
+| @effect/ai-typesafe/TypeSafeConfig | 3 | 74 | Scoped HTTP client customization for TypeSafe requests. |
+| @effect/ai-typesafe/TypeSafeDecisionModel | 4 | 59 | TypeSafe's System One implementation of DecisionModel. |
+| @effect/ai-typesafe/TypeSafeSchema | 14 | 273 | Codecs for the TypeSafe System One API. |
 
 ## @effect/platform-browser@4.1.5
 
