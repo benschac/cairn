@@ -4,4 +4,13 @@ export { gateOf, matchesPath, patternsMatching, type GateConfig, type GateTask }
 export { assignSectionIds, sectionIdsOf } from "./section-ids.ts";
 export { sectionsOf } from "./sections.ts";
 export { sessionOf, type StoredSession } from "./session.ts";
+export {
+  StackOrderError,
+  StackProblem,
+  parentOf,
+  stackOf,
+  worktreesOf,
+  type StackLink,
+  type StackTask,
+} from "./stack.ts";
 export { TaskInput, statusOf, taskMachine } from "./task-machine.ts";
