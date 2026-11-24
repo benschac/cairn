@@ -167,6 +167,22 @@ land on `main` with one fast-forward push, and what blocks each one. Without
   replace the pull request's own commit titles and messages in the history; the
   script refuses a stack that contains one.
 
+## Review by a second model
+
+Each pull request in a stack is reviewed by a second model before the owner
+reads it: Codex reviews what Claude built, and Claude reviews what Codex built.
+
+- Once the branch is committed and `pnpm check` passes, run
+  `codex review --base <parent branch>` in its worktree (`--base main` for a
+  task that starts from `main`). `codex review` takes no prompt with `--base`;
+  it reads this file.
+- Fix what it finds that breaks the task's spec sections, the Effect checklist
+  or a test that cannot fail, then run it once more. After the second round,
+  stop: list what is still open in the pull request and leave it to the owner.
+- Say in the pull request what the review found, what was fixed and what was
+  left and why. The review replaces neither `pnpm check` nor the owner's
+  `reviewed` label.
+
 ## Tests
 
 - Prefer a property over an example. `it.prop` from `@effect/vitest` generates
