@@ -1,6 +1,4 @@
 import {
-  type Participant,
-  type ParticipantId,
   PrdSectionId,
   type SectionId,
   type SectionStatus,
@@ -23,6 +21,7 @@ import { Mount } from "foldkit";
 import { createLazy, type Html, type HtmlBuilder } from "foldkit/html";
 
 import { diagramView } from "../diagram.ts";
+import type { SectionReader } from "../readers.ts";
 import { Message } from "../message.ts";
 import { renderMarkdown } from "../markdown.ts";
 import { blockKeyFor, marksOf, type SearchResult } from "../search.ts";
@@ -39,7 +38,6 @@ import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
 import { sectionStatusOf, type Node } from "../trace.ts";
 import { dotView } from "../ui/marks.ts";
 import { prdKey } from "../wires.ts";
-import { labelOf } from "./cursorsView.ts";
 import { fieldView, matchView, searchedAttributesOf } from "./nodeView.ts";
 
 /** How far below the pane's top the line is that decides which section is being read. */
@@ -192,15 +190,10 @@ const idButtonView = (
  */
 const readersView = (
   id: PrdSectionId,
-  participants: ReadonlyArray<Participant>,
-  maybeYou: Option.Option<ParticipantId>,
+  everyone: ReadonlyArray<SectionReader>,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> => {
-  const readers = Array.filter(
-    participants,
-    (participant) =>
-      !Option.contains(maybeYou, participant.id) && Option.contains(participant.reading, id),
-  );
+  const readers = Array.filter(everyone, (reader) => reader.section === id);
   return Array.match(readers, {
     onEmpty: () => [],
     onNonEmpty: (present) => [
@@ -209,14 +202,14 @@ const readersView = (
           h.DataAttribute("readers", id),
           h.Style({ display: "inline-flex", gap: "4px", "margin-left": "8px" }),
         ],
-        Array.map(present, (participant) =>
+        Array.map(present, (reader) =>
           h.span(
             [
               h.Class("chip"),
-              h.DataAttribute("reading", participant.id),
-              h.Title(`${labelOf(participant)} is reading this section`),
+              h.DataAttribute("reading", reader.id),
+              h.Title(`${reader.label} is reading this section`),
             ],
-            [labelOf(participant)],
+            [reader.label],
           ),
         ),
       ),
@@ -277,8 +270,7 @@ const prdBodyView = (
   maybeCopied: Option.Option<PrdSectionId>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
-  participants: ReadonlyArray<Participant>,
-  maybeYou: Option.Option<ParticipantId>,
+  readers: ReadonlyArray<SectionReader>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const searchOf = (sectionId: SectionId) =>
@@ -302,7 +294,7 @@ const prdBodyView = (
       (id): ReadonlyArray<Html> =>
         Array.appendAll(
           Array.prepend(
-            readersView(id, participants, maybeYou, h),
+            readersView(id, readers, h),
             idButtonView(id, Option.contains(maybeCopied, id), searchOf(id), h),
           ),
           // The document's title is not a section a reader is on, so it has no status line.
@@ -358,8 +350,7 @@ export const prdPaneView = (
   maybeCopied: Option.Option<PrdSectionId>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
-  participants: ReadonlyArray<Participant>,
-  maybeYou: Option.Option<ParticipantId>,
+  readers: ReadonlyArray<SectionReader>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
@@ -378,8 +369,7 @@ export const prdPaneView = (
         maybeCopied,
         results,
         maybeActive,
-        participants,
-        maybeYou,
+        readers,
         h,
       ]),
     ],

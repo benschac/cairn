@@ -34,6 +34,7 @@ import type { Rect } from "./geometry.ts";
 import { isPinned, pin, togglePin } from "./highlight.ts";
 import { describeTraceError, isDemoBuild, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
+import { keptReaders, readersOf } from "./readers.ts";
 import {
   Drawer,
   PatchData,
@@ -427,6 +428,7 @@ export const update = (model: Model, message: Message) =>
       model: modifyFields(model, {
         maybeYou: () => Option.none(),
         participants: () => [],
+        readers: () => [],
         presenceConnection: () => PresenceConnection.Disconnected(),
       }),
     }),
@@ -584,6 +586,8 @@ export const update = (model: Model, message: Message) =>
       model: modifyFields(model, {
         participants: () => presence.participants,
         maybeYou: () => Option.some(presence.you),
+        readers: (current) =>
+          keptReaders(current, readersOf(presence.participants, Option.some(presence.you))),
       }),
     }),
     ReleasedDragPointer: ({ pointerId }) => ({
