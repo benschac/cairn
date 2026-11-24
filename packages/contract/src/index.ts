@@ -20,12 +20,13 @@ export type Task = typeof Task.Type;
 
 export const TaskEvents = {
   approve: Schema.Struct({}),
+  fail: Schema.Struct({}),
   finish: Schema.Struct({}),
   land: Schema.Struct({}),
   start: Schema.Struct({}),
 };
 
-export const TaskEventType = Schema.Literals(["approve", "finish", "land", "start"]);
+export const TaskEventType = Schema.Literals(["approve", "fail", "finish", "land", "start"]);
 export type TaskEventType = typeof TaskEventType.Type;
 
 export const ParticipantKind = Schema.Literals(["human", "agent"]);

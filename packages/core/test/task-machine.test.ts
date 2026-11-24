@@ -20,10 +20,10 @@ const lifecycle = (
 ): Record.ReadonlyRecord<TaskStatus, Record.ReadonlyRecord<string, TaskStatus>> => ({
   blocked_on_human: { approve: "done" },
   done: { land: "landed" },
-  failed: {},
+  failed: { start: "running" },
   landed: {},
   pending: { start: "running" },
-  running: { finish: gated ? "blocked_on_human" : "done" },
+  running: { fail: "failed", finish: gated ? "blocked_on_human" : "done" },
 });
 
 it.prop(
@@ -70,11 +70,23 @@ it("a gated task can reach every status in the contract", () => {
     statusOf(path.state),
   );
   expect(Array.sort(Array.dedupe(reached), Order.String)).toStrictEqual(
-    Array.sort(
-      Array.filter(TaskStatus.literals, (status) => status !== "failed"),
-      Order.String,
-    ),
+    Array.sort(TaskStatus.literals, Order.String),
   );
+});
+
+const step = (state: Parameters<typeof transition<typeof taskMachine>>[1], type: TaskEventType) =>
+  transition(taskMachine, state, { type })[0];
+
+it.prop("a failed task starts again and then finishes like any other", [Task], ([task]) => {
+  const failed = Array.reduce(
+    ["start", "fail"] as const,
+    initialTransition(taskMachine, task)[0],
+    step,
+  );
+  expect(statusOf(failed)).toBe("failed");
+  const again = step(failed, "start");
+  expect(statusOf(again)).toBe("running");
+  expect(statusOf(step(again, "finish"))).toBe(task.gated ? "blocked_on_human" : "done");
 });
 
 it.effect("a running actor holds a migration until it is approved", () =>

@@ -23,12 +23,16 @@ export const taskMachine = setupEffect({
     done: {
       on: { land: { target: "landed" } },
     },
+    failed: {
+      on: { start: { target: "running" } },
+    },
     landed: { type: "final" },
     pending: {
       on: { start: { target: "running" } },
     },
     running: {
       on: {
+        fail: { target: "failed" },
         finish: ({ context }) => ({
           target: context.gated ? "blocked_on_human" : "done",
         }),
