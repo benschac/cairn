@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
 import { it } from "@effect/vitest";
 import { Array, Number, Option, Order, Record, String, pipe } from "effect";
@@ -223,4 +223,53 @@ it("a pressed btn moves down 2px and loses its shadow", () => {
   );
   expect(pressed).toContain("transform: translateY(2px)");
   expect(pressed).toContain("box-shadow: none");
+});
+
+/** A TypeScript file under src/, by its path from there. */
+const sourcePaths = pipe(
+  Array.fromIterable(
+    readdirSync(new URL("../src/", import.meta.url), { encoding: "utf8", recursive: true }),
+  ),
+  Array.filter(String.endsWith(".ts")),
+);
+
+const source = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
+
+const hexColour = /#[0-9a-f]{3,8}\b/iu;
+
+/**
+ * The files that may still write a colour: the canvas's views, which keep their inline styles
+ * until spec.viewer.canvas-removal deletes them. highlight.ts is among them because its hex
+ * colours are the canvas's: the fills and strokes of the pin palette and the hover and search
+ * fills, each chosen per node and curve. It is not the code's token colours: code.ts takes those
+ * from the theme at run time. A file leaves this list when its colours go, and the test below
+ * fails until it does.
+ */
+const canvasFiles = [
+  "drawer.ts",
+  "highlight.ts",
+  "view/cursorsView.ts",
+  "view/edgesView.ts",
+  "view/moveHandleView.ts",
+  "view/nodeView.ts",
+  "view/stacksView.ts",
+  "view/view.ts",
+];
+
+it("no TypeScript file under src/ has a hex colour but the canvas's", () => {
+  expect(Array.isReadonlyArrayNonEmpty(sourcePaths)).toBe(true);
+  expect(
+    Array.filter(
+      sourcePaths,
+      (path) =>
+        !Array.contains(canvasFiles, path) && Option.isSome(String.match(hexColour)(source(path))),
+    ),
+  ).toEqual([]);
+});
+
+it.each(canvasFiles)("%s is still a file with a hex colour, or leaves the list", (path) => {
+  expect(Array.contains(sourcePaths, path), `${path} no longer exists`).toBe(true);
+  expect(Option.isSome(String.match(hexColour)(source(path))), `${path} has no hex colour`).toBe(
+    true,
+  );
 });

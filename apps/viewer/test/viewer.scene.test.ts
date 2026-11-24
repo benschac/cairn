@@ -676,7 +676,7 @@ it("nothing in the canvas scrolls or clips, so every node can be hovered and cli
     // The stacks grid is as wide as its columns, however many there are.
     expect(stacks).toHaveStyle("width", "max-content"),
     expect(layer).toHaveStyle("width", "max-content"),
-    expect(selector("[data-column] pre")).toHaveStyle("white-space", "pre-wrap"),
+    expect(selector("[data-column] pre")).toHaveClass("code-block"),
   );
 });
 

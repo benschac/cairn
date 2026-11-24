@@ -12,6 +12,7 @@ import {
 } from "../codeView.ts";
 import type { CodeScreen } from "../model.ts";
 import { Shown } from "../model.ts";
+import { dotView, gateView, labelView, tagView } from "../ui/marks.ts";
 
 /** The message constructors the tree's view needs; the app supplies its own. */
 export interface TreeMessages<Message> {
@@ -23,19 +24,6 @@ export interface TreeMessages<Message> {
 /** The tree's width; the diff takes the rest and the session has its own. */
 export const TREE_WIDTH = "280px";
 
-const rowStyle = (isCurrent: boolean) => ({
-  background: isCurrent ? "#e0e7ff" : "transparent",
-  border: "0",
-  cursor: "pointer",
-  display: "block",
-  "font-weight": isCurrent ? "600" : "400",
-  padding: "2px 6px",
-  "text-align": "left",
-  width: "100%",
-});
-
-const listStyle = { "list-style": "none", margin: "0", "padding-left": "12px" };
-
 // NOTE: native buttons with Type("button"), as in the drawer. @foldkit/ui's Button.view adds only
 // Tabindex(0) over that, so it is not a dependency.
 const rowButton = <Message>(
@@ -44,19 +32,16 @@ const rowButton = <Message>(
   dataValue: string,
   isCurrent: boolean,
   onClick: Message,
-  label: string,
+  content: ReadonlyArray<Html | string>,
+  label?: string,
 ): Html =>
   h.button(
-    Array.appendAll(
-      [
-        h.Type("button"),
-        h.OnClick(onClick),
-        h.Style(rowStyle(isCurrent)),
-        h.DataAttribute(dataName, dataValue),
-      ],
+    Array.flatten([
+      [h.Type("button"), h.Class("row"), h.OnClick(onClick), h.DataAttribute(dataName, dataValue)],
       isCurrent ? [h.AriaCurrent("true")] : [],
-    ),
-    [label],
+      Array.fromOption(Option.map(Option.fromNullishOr(label), (name) => h.AriaLabel(name))),
+    ]),
+    content,
   );
 
 /** A directory is a label, not a button: there is nothing to do with it. */
@@ -74,7 +59,7 @@ const nodeView = <Message>(
         [
           h.span([], [`${dir.name}/`]),
           h.ul(
-            [h.Style(listStyle)],
+            [h.Class("tree-list")],
             Array.map(dir.children, (child) => nodeView(child, maybeFile, h, messages)),
           ),
         ],
@@ -91,7 +76,7 @@ const nodeView = <Message>(
             file.path,
             Option.contains(maybeFile, file.path),
             messages.onClickFile(file.path),
-            file.name,
+            [file.name],
           ),
         ],
       ),
@@ -106,7 +91,7 @@ const filesView = <Message>(
   messages: TreeMessages<Message>,
 ): Html =>
   h.ul(
-    [h.Style(listStyle), h.DataAttribute("tree-files", "")],
+    [h.Class("tree-list"), h.DataAttribute("tree-files", "")],
     Array.map(treeOf(files), (node) => nodeView(node, maybeFile, h, messages)),
   );
 
@@ -124,14 +109,10 @@ const commitRow = <Message>(
     commit.sha,
     [],
     Array.prependAll(isCurrent ? [filesView(commit.files, code.maybeFile, h, messages)] : [], [
-      rowButton(
-        h,
-        "tree-commit",
-        commit.sha,
-        isCurrent,
-        messages.onClickCommit(commit.sha),
-        `${commit.subject} ${shortSha(commit.sha)}`,
-      ),
+      rowButton(h, "tree-commit", commit.sha, isCurrent, messages.onClickCommit(commit.sha), [
+        `${commit.subject} `,
+        tagView("sha", shortSha(commit.sha), h),
+      ]),
     ]),
   );
 };
@@ -155,10 +136,15 @@ const taskRow = <Message>(
           task.id,
           isWhole,
           messages.onClickTask(task.id),
+          Array.flatten([
+            [dotView(task.status, h), tagView("task", task.id, h), task.title],
+            task.gate.required ? [gateView(h)] : [],
+          ]),
+          // The dot is hidden from a screen reader, so the label says the status and the gate.
           `${task.id} ${task.title}, ${task.status}${task.gate.required ? ", gated" : ""}`,
         ),
         h.ol(
-          [h.Style(listStyle), h.DataAttribute("tree-commits", task.id)],
+          [h.Class("tree-list"), h.DataAttribute("tree-commits", task.id)],
           Array.map(task.commits, (commit) => commitRow(task, commit, code, h, messages)),
         ),
       ],
@@ -177,9 +163,9 @@ const stackView = <Message>(
     String(column.column),
     [h.DataAttribute("tree-stack", String(column.column))],
     [
-      h.h3([h.Style({ "font-size": "13px", margin: "8px 0 4px" })], [`From ${column.from}`]),
+      h.h3([], [labelView(`From ${column.from}`, h)]),
       h.ol(
-        [h.Style(listStyle)],
+        [h.Class("tree-list")],
         Array.map(column.tasks, (task) => taskRow(task, code, h, messages)),
       ),
     ],
@@ -198,16 +184,11 @@ export const treeView = <Message>(
 ): Html =>
   h.nav(
     [
+      h.Class("code-pane"),
       h.AriaLabel("Stacks"),
       h.DataAttribute("code-pane", "tree"),
-      h.Style({
-        "border-right": "1px solid #cbd5e1",
-        "box-sizing": "border-box",
-        flex: "none",
-        "overflow-y": "auto",
-        padding: "8px",
-        width: TREE_WIDTH,
-      }),
+      // The width is the pane's own; the scroll stays with it.
+      h.Style({ "overflow-y": "auto", width: TREE_WIDTH }),
     ],
     Array.map(stackColumnsOf(trace), (column) => stackView(column, code, h, messages)),
   );

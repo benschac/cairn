@@ -172,9 +172,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document =>
     Canvas: () => canvasScreenView(model, h),
     Code: (code) => ({
       body: h.main(
-        // The code view still carries light colours inline; spec.viewer.design-system moves it to
-        // the tokens, and this class goes then.
-        [h.Class("light-only")],
+        [],
         Option.match(AsyncData.getData(model.trace), {
           onNone: () => [loadingView(h)],
           onSome: (trace) => [
