@@ -13,6 +13,7 @@ Read [the source guide](../README.md) before applying examples.
 | Package | Version | Modules | Exports | Declarations |
 | --- | --- | ---: | ---: | --- |
 | effect | 4.1.5 | 435 | 9554 | `node_modules/effect/dist` |
+| @effect/ai-anthropic | 4.1.5 | 8 | 1817 | `packages/cli/node_modules/@effect/ai-anthropic/dist` |
 | @effect/platform-browser | 4.1.5 | 17 | 95 | `apps/viewer/node_modules/@effect/platform-browser/dist` |
 | @effect/platform-node | 4.1.5 | 29 | 69 | `node_modules/@effect/platform-node/dist` |
 | @effect/vitest | 4.1.5 | 1 | 21 | `apps/viewer/node_modules/@effect/vitest/dist` |
@@ -458,6 +459,21 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/workflow/WorkflowEngine | 7 | 292 | Defines workflow engine services and an in-memory implementation. |
 | effect/workflow/WorkflowProxy | 4 | 122 | RPC and HTTP API definitions for workflows. |
 | effect/workflow/WorkflowProxyServer | 3 | 49 | Server-side layers for workflow proxy APIs. |
+
+## @effect/ai-anthropic@4.1.5
+
+Declarations: `packages/cli/node_modules/@effect/ai-anthropic/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/ai-anthropic/AGENTS.md`, `packages/cli/node_modules/@effect/ai-anthropic/ai-docs`, `packages/cli/node_modules/@effect/ai-anthropic/README.md`.
+
+| Module | Exports | Lines | Summary |
+| --- | ---: | ---: | --- |
+| @effect/ai-anthropic/AnthropicClient | 7 | 231 | The `AnthropicClient` module defines the low-level Effect service for Anthropic's Messages API. |
+| @effect/ai-anthropic/AnthropicConfig | 3 | 98 | The `AnthropicConfig` module lets a workflow temporarily customize the HTTP client used by generated Anthropic requests. |
+| @effect/ai-anthropic/AnthropicError | 2 | 204 | Anthropic error metadata augmentation. |
+| @effect/ai-anthropic/AnthropicLanguageModel | 8 | 939 | The `AnthropicLanguageModel` module provides the Anthropic implementation of Effect AI's `LanguageModel` service. |
+| @effect/ai-anthropic/AnthropicTelemetry | 5 | 128 | The `AnthropicTelemetry` module defines Anthropic-specific telemetry attributes and a helper for adding them to a tracing span. |
+| @effect/ai-anthropic/AnthropicTool | 111 | 3365 | The `AnthropicTool` module defines Anthropic provider tools and the schemas for their inputs and results. |
+| @effect/ai-anthropic/AnthropicWorkloadIdentity | 3 | 159 | The `AnthropicWorkloadIdentity` module authenticates `AnthropicClient` with [Workload Identity Federation](https://platform.claude.com/docs/en/manage-claude/workload-identity-federation). |
+| @effect/ai-anthropic/Generated | 1678 | 48702 |  |
 
 ## @effect/platform-browser@4.1.5
 

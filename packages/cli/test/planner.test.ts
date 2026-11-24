@@ -18,6 +18,7 @@ const planning = <A, E>(
   program.pipe(
     Effect.provide(
       Planner.layer.pipe(
+        Layer.provide(NodeServices.layer),
         Layer.provideMerge(
           scripted(
             Array.map(replies, (reply) =>
@@ -168,8 +169,8 @@ it.effect("the retry prompt holds the decode error of the first reply", () =>
     Effect.gen(function* () {
       yield* tasks("prd", "spec");
       const [first = "", second = ""] = yield* prompts;
-      expect(first).not.toContain("dependsOn");
-      expect(second).toContain("dependsOn");
+      expect(first).not.toContain('["dependsOn"]');
+      expect(second).toContain('["dependsOn"]');
     }),
   ),
 );
