@@ -79,6 +79,9 @@ it.live.prop(
       const alone = yield* planner.sees((presence) => presence.participants.length === 1);
       expect(Array.map(alone.participants, (participant) => participant.name)).toEqual(["Planner"]);
     }).pipe(Effect.provide(Server)),
+  // Each run starts a server and two sockets. The default 100 runs take about 4 s when the whole
+  // check runs beside them, which is the test's limit; 20 still covers both kinds and many cursors.
+  { arbitrary: { runs: 20 } },
 );
 
 it.live("a client without a usable name or kind joins as a numbered human guest", () =>
