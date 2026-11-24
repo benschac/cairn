@@ -579,8 +579,7 @@ export const documentOf = (markdown: string): MarkdownDocument =>
 /** The tree of a document, parsed once while its text is the same. */
 export const treeOf = (markdown: string): Root => documentOf(markdown).tree;
 
-export const renderMarkdown = <Message>(
-  markdown: string,
+const contextOf = <Message>(
   h: HtmlBuilder<Message>,
   {
     attributesOf = () => [],
@@ -591,24 +590,64 @@ export const renderMarkdown = <Message>(
     marks = NO_MARKS,
     markView = (text) => h.mark([], [text]),
     wrapTitle = (_sectionId, title) => title,
-  }: SectionHooks<Message> = {},
-): Html => {
-  const tree = treeOf(markdown);
-  return h.div(
-    [h.Class("markdown")],
-    renderBlocks(
-      {
-        attributesOf,
-        blockAttributesOf,
-        decorate,
-        diagramView,
-        h,
-        headingOffset,
-        marks,
-        markView,
-        wrapTitle,
-      },
-      tree.children,
+  }: SectionHooks<Message>,
+): RenderContext<Message> => ({
+  attributesOf,
+  blockAttributesOf,
+  decorate,
+  diagramView,
+  h,
+  headingOffset,
+  marks,
+  markView,
+  wrapTitle,
+});
+
+export const renderMarkdown = <Message>(
+  markdown: string,
+  h: HtmlBuilder<Message>,
+  hooks: SectionHooks<Message> = {},
+): Html =>
+  h.div([h.Class("markdown")], renderBlocks(contextOf(h, hooks), treeOf(markdown).children));
+
+/**
+ * The nodes of a section's own body, from its heading to the next heading of any level, with the
+ * heading itself first so a key list right after it is still read as one.
+ */
+const sectionNodesOf = (
+  nodes: ReadonlyArray<RootContent>,
+  id: SectionId,
+): ReadonlyArray<RootContent> =>
+  Option.match(
+    Array.findFirstIndex(
+      nodes,
+      (node) => node.type === "heading" && Option.contains(sectionOf(node), id),
     ),
+    {
+      onNone: () => [],
+      onSome: (start) => {
+        const body = Array.drop(nodes, start + 1);
+        return Array.take(
+          Array.drop(nodes, start),
+          1 + Array.length(Array.takeWhile(body, (node) => node.type !== "heading")),
+        );
+      },
+    },
   );
-};
+
+/**
+ * One section of an already parsed document, rendered as `renderMarkdown` renders a whole one: its
+ * key list as chips, prose, lists, tables, code and diagrams. The heading is not rendered and
+ * neither are the section's children, which are sections of their own. The nodes are the
+ * document's own, so a block's offset is the one a whole render gives it.
+ */
+export const renderSection = <Message>(
+  document: MarkdownDocument,
+  id: SectionId,
+  h: HtmlBuilder<Message>,
+  hooks: SectionHooks<Message> = {},
+): Html =>
+  h.div(
+    [h.Class("markdown")],
+    Array.drop(renderBlocks(contextOf(h, hooks), sectionNodesOf(document.tree.children, id)), 1),
+  );

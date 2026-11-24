@@ -1,4 +1,12 @@
-import { Participant, ParticipantId, PrdSectionId, Sha, TaskId, Trace } from "@cairn/contract";
+import {
+  Participant,
+  ParticipantId,
+  PrdSectionId,
+  SectionId,
+  Sha,
+  TaskId,
+  Trace,
+} from "@cairn/contract";
 import { Option, Schema } from "effect";
 import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
@@ -58,6 +66,10 @@ export type CodeScreen = Extract<Screen, { readonly _tag: "Code" }>;
 export const Destination = Schema.Literals(["Canvas", "Reader"]);
 export type Destination = typeof Destination.Type;
 
+/** How much of every spec card shows: the titles, the summaries, or the full sections. */
+export const Density = Schema.Literals(["titles", "summary", "full"]);
+export type Density = typeof Density.Type;
+
 /**
  * What a person chose in the reader (see spec.viewer.reader). The section at the top of the PRD
  * pane is measured, but it is kept here with the pin because the current section is decided
@@ -68,6 +80,10 @@ export const Reader = Schema.Struct({
   maybeAtTop: Schema.Option(PrdSectionId),
   /** The section whose status line was clicked; it stays current while the PRD scrolls. */
   maybePinned: Schema.Option(PrdSectionId),
+  /** How much of every spec card shows. */
+  density: Density,
+  /** The cards opened or closed on their own, apart from the density. */
+  opened: Schema.Record(SectionId, Schema.Boolean),
 });
 export type Reader = typeof Reader.Type;
 

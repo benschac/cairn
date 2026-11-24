@@ -7,8 +7,9 @@ import {
   TraceSection,
   TraceTask,
 } from "@cairn/contract";
-import { Array, DateTime, HashSet, Match, Option, Order, String, pipe } from "effect";
+import { Array, DateTime, HashSet, Match, Option, Order, Record, String, pipe } from "effect";
 
+import type { Density } from "./model.ts";
 import { chainOf } from "./trace.ts";
 
 /** What a person chose that decides the current section: the model's `reader`, as far as it goes. */
@@ -48,6 +49,16 @@ export const sectionAtTop = (
     Option.orElse(() => Array.head(tops)),
     Option.map((section) => section.id),
   );
+
+/** What decides whether a spec card is open: the density, and the cards opened or closed on their own. */
+export interface Disclosed {
+  readonly density: Density;
+  readonly opened: Record.ReadonlyRecord<string, boolean>;
+}
+
+/** A card is open when it was opened or closed on its own, and else when the density is `full`. */
+export const isOpenCard = (disclosed: Disclosed, id: SectionId): boolean =>
+  Option.getOrElse(Record.get(disclosed.opened, id), () => disclosed.density === "full");
 
 /** A spec section and the tasks that name it. */
 export interface Card {

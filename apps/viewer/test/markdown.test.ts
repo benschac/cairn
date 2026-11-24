@@ -18,7 +18,13 @@ import type { Html } from "foldkit/html";
 import { expect, given, scene, selector } from "foldkit/scene";
 import { expect as assert } from "vitest";
 
-import { documentOf, renderMarkdown, treeOf, type SectionHooks } from "../src/markdown.ts";
+import {
+  documentOf,
+  renderMarkdown,
+  renderSection,
+  treeOf,
+  type SectionHooks,
+} from "../src/markdown.ts";
 
 type VNode = NonNullable<Html>;
 
@@ -721,3 +727,96 @@ it.prop(
     assert(elementsOf(marked)).toEqual(elementsOf(plain));
   },
 );
+
+/** Renders one section of a parsed document through a real Scene, and hands back the vnode tree. */
+const renderOne = (markdown: string, id: string, hooks?: SectionHooks<never>): VNode => {
+  let rendered = Option.none<VNode>();
+  scene(
+    {
+      update: (model: null) => ({ model }),
+      view: (_model: null, h) => {
+        const body = renderSection(documentOf(markdown), SectionId.make(id), h, hooks);
+        rendered = Option.fromNullOr(body);
+        return { body, title: "markdown" };
+      },
+    },
+    given(null),
+  );
+  return Option.getOrThrow(rendered);
+};
+
+const HEADING_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6"];
+
+const NESTED = Array.join(
+  [
+    "# Top {#spec.top}",
+    "",
+    "Before.",
+    "",
+    "## Heading text {#spec.own}",
+    "",
+    "- Implements: `prd.a`, `prd.b`",
+    "- Files: `a.ts`",
+    "",
+    "Own prose.",
+    "",
+    "| H |",
+    "| - |",
+    "| own cell |",
+    "",
+    "### Child {#spec.child}",
+    "",
+    "Child prose.",
+    "",
+    "## Next {#spec.next}",
+    "",
+    "Next prose.",
+  ],
+  "\n",
+);
+
+it("renderSection renders a section's own body without its heading or its child sections", () => {
+  const root = renderOne(NESTED, "spec.own");
+  const text = textOf(root);
+  assert(text).toContain("Own prose.");
+  assert(text).toContain("own cell");
+  assert(text).not.toContain("Heading text");
+  assert(text).not.toContain("Child");
+  assert(text).not.toContain("Next");
+  assert(text).not.toContain("Before.");
+  assert(
+    Array.filter(tags(root), (tag) => Predicate.isString(tag) && Array.contains(HEADING_TAGS, tag)),
+  ).toEqual([]);
+});
+
+it("renderSection renders a section with only a key list as its chips", () => {
+  const root = renderOne(
+    "## Keys {#spec.keys}\n\n- Implements: `prd.a`, `prd.b`\n- Files: `a.ts`",
+    "spec.keys",
+  );
+  const chips = Array.filter(walk(root), (element) =>
+    Predicate.isNotUndefined(attr(element, "data-key")),
+  );
+  assert(Array.map(chips, textOf)).toEqual(["prd.a", "prd.b", "a.ts"]);
+  assert(Array.map(chips, (chip) => attr(chip, "data-key"))).toEqual([
+    "Implements",
+    "Implements",
+    "Files",
+  ]);
+});
+
+it("renderSection of an unknown section renders nothing", () => {
+  assert(textOf(renderOne(NESTED, "spec.missing"))).toBe("");
+});
+
+it("renderSection keeps the offsets a whole render gives a block, so marks land where they do there", () => {
+  const block = Option.getOrThrow(
+    Array.head(Option.getOrThrow(Record.get(documentOf(NESTED).blocks, "spec.own"))),
+  );
+  const marks = { blocks: { [`${block.offset}`]: [{ end: 3, start: 0 }] }, titles: {} };
+  const marked = Array.filter(
+    walk(renderOne(NESTED, "spec.own", { marks })),
+    (element) => tagOf(element) === "mark",
+  );
+  assert(Array.map(marked, textOf)).toEqual([String.slice(0, 3)(block.text)]);
+});
