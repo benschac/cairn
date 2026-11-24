@@ -1,10 +1,10 @@
 import { TaskId } from "@cairn/contract";
+import { labelOf, stacksOf, type Stack } from "@cairn/core/stacks";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Number, Option, Record } from "effect";
 import { all, expect, expectAll, given, role, scene, selector, within } from "foldkit/scene";
 
 import { demoTrace } from "../src/demo.ts";
-import { labelOf, stacksOf, type Stack } from "../src/stacks.ts";
 import { update } from "../src/update.ts";
 import { view } from "../src/view/view.ts";
 import { loaded, mounted } from "./fixtures.ts";

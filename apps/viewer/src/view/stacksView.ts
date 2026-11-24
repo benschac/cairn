@@ -1,4 +1,5 @@
 import type { Trace, TraceTask } from "@cairn/contract";
+import { labelOf, stacksOf, type Stack, type StackPosition } from "@cairn/core/stacks";
 import { Array, Number, Option, Order, Record, String, pipe } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
@@ -6,7 +7,6 @@ import { Movable, offsetStyleOf, type Offsets } from "../drag.ts";
 import { nodeSearchOf, type LitChain, type Pin } from "../highlight.ts";
 import type { Message } from "../message.ts";
 import type { SearchResult } from "../search.ts";
-import { labelOf, stacksOf, type Stack, type StackPosition } from "../stacks.ts";
 import type { Node } from "../trace.ts";
 import { moveHandleView } from "./moveHandleView.ts";
 import {
