@@ -14,6 +14,9 @@ Read [the source guide](../README.md) before applying examples.
 | --- | --- | ---: | ---: | --- |
 | effect | 4.1.5 | 435 | 9554 | `node_modules/effect/dist` |
 | @effect/ai-anthropic | 4.1.5 | 8 | 1817 | `packages/cli/node_modules/@effect/ai-anthropic/dist` |
+| @effect/ai-openai | 4.1.5 | 12 | 7304 | `packages/cli/node_modules/@effect/ai-openai/dist` |
+| @effect/ai-openai-compat | 4.1.5 | 6 | 64 | `packages/cli/node_modules/@effect/ai-openai-compat/dist` |
+| @effect/ai-openrouter | 4.1.5 | 8 | 4915 | `packages/cli/node_modules/@effect/ai-openrouter/dist` |
 | @effect/platform-browser | 4.1.5 | 17 | 95 | `apps/viewer/node_modules/@effect/platform-browser/dist` |
 | @effect/platform-node | 4.1.5 | 29 | 69 | `node_modules/@effect/platform-node/dist` |
 | @effect/sql-sqlite-node | 4.1.5 | 2 | 11 | `packages/cli/node_modules/@effect/sql-sqlite-node/dist` |
@@ -475,6 +478,53 @@ Declarations: `packages/cli/node_modules/@effect/ai-anthropic/dist/<module>.d.ts
 | @effect/ai-anthropic/AnthropicTool | 111 | 3365 | The `AnthropicTool` module defines Anthropic provider tools and the schemas for their inputs and results. |
 | @effect/ai-anthropic/AnthropicWorkloadIdentity | 3 | 159 | The `AnthropicWorkloadIdentity` module authenticates `AnthropicClient` with [Workload Identity Federation](https://platform.claude.com/docs/en/manage-claude/workload-identity-federation). |
 | @effect/ai-anthropic/Generated | 1678 | 48702 |  |
+
+## @effect/ai-openai@4.1.5
+
+Declarations: `packages/cli/node_modules/@effect/ai-openai/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/ai-openai/AGENTS.md`, `packages/cli/node_modules/@effect/ai-openai/ai-docs`, `packages/cli/node_modules/@effect/ai-openai/README.md`.
+
+| Module | Exports | Lines | Summary |
+| --- | ---: | ---: | --- |
+| @effect/ai-openai/Generated | 7202 | 146335 |  |
+| @effect/ai-openai/OpenAiClient | 10 | 294 | The `OpenAiClient` module defines the low-level Effect service used by the OpenAI integration for Responses API and embedding requests. |
+| @effect/ai-openai/OpenAiClientGenerated | 5 | 96 |  |
+| @effect/ai-openai/OpenAiConfig | 3 | 131 | The `OpenAiConfig` module lets a workflow temporarily customize the HTTP client used by `@effect/ai-openai` request helpers. |
+| @effect/ai-openai/OpenAiDecisionModel | 4 | 63 | OpenAI implementation of DecisionModel over the Decisions API. |
+| @effect/ai-openai/OpenAiEmbeddingModel | 6 | 191 | The `OpenAiEmbeddingModel` module provides the OpenAI implementation of Effect AI's `EmbeddingModel` service. |
+| @effect/ai-openai/OpenAiError | 2 | 234 | OpenAI error metadata augmentation. |
+| @effect/ai-openai/OpenAiLanguageModel | 6 | 681 | The `OpenAiLanguageModel` module provides the OpenAI Responses API implementation of Effect AI's `LanguageModel` service. |
+| @effect/ai-openai/OpenAiSchema | 47 | 2909 | The `OpenAiSchema` module defines the request, response, streaming, and embedding schemas used by the handwritten OpenAI client. |
+| @effect/ai-openai/OpenAiTelemetry | 6 | 152 | The `OpenAiTelemetry` module defines OpenAI-specific telemetry attributes and a helper for adding them to a tracing span. |
+| @effect/ai-openai/OpenAiTool | 10 | 609 | The `OpenAiTool` module defines OpenAI provider tools for Effect AI language model requests. |
+| @effect/ai-openai/OpenAiWorkloadIdentity | 3 | 160 | The `OpenAiWorkloadIdentity` module authenticates `OpenAiClient` with [workload identity federation](https://developers.openai.com/api/docs/guides/workload-identity-federation). |
+
+## @effect/ai-openai-compat@4.1.5
+
+Declarations: `packages/cli/node_modules/@effect/ai-openai-compat/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/ai-openai-compat/AGENTS.md`, `packages/cli/node_modules/@effect/ai-openai-compat/ai-docs`, `packages/cli/node_modules/@effect/ai-openai-compat/README.md`.
+
+| Module | Exports | Lines | Summary |
+| --- | ---: | ---: | --- |
+| @effect/ai-openai-compat/OpenAiClient | 42 | 1046 | The `OpenAiClient` module provides an Effect service for OpenAI-compatible chat completions and embeddings APIs. |
+| @effect/ai-openai-compat/OpenAiConfig | 3 | 111 | The `OpenAiConfig` module lets a workflow temporarily customize the HTTP client used by OpenAI-compatible request helpers. |
+| @effect/ai-openai-compat/OpenAiEmbeddingModel | 6 | 196 | The `OpenAiEmbeddingModel` module adapts OpenAI-compatible embeddings endpoints to Effect's embedding model service. |
+| @effect/ai-openai-compat/OpenAiError | 2 | 170 | The `OpenAiError` module defines OpenAI-specific metadata that can be attached to the shared `AiError` error types used by the AI packages. |
+| @effect/ai-openai-compat/OpenAiLanguageModel | 5 | 636 | The `OpenAiLanguageModel` module adapts OpenAI-compatible chat completions providers to Effect AI's `LanguageModel` service. |
+| @effect/ai-openai-compat/OpenAiTelemetry | 6 | 158 | The `OpenAiTelemetry` module defines OpenAI-compatible telemetry attributes and a helper for adding them to a tracing span. |
+
+## @effect/ai-openrouter@4.1.5
+
+Declarations: `packages/cli/node_modules/@effect/ai-openrouter/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/ai-openrouter/AGENTS.md`, `packages/cli/node_modules/@effect/ai-openrouter/ai-docs`, `packages/cli/node_modules/@effect/ai-openrouter/README.md`.
+
+| Module | Exports | Lines | Summary |
+| --- | ---: | ---: | --- |
+| @effect/ai-openrouter/Generated | 4882 | 84696 | Generated from OpenRouter's MIT-licensed specification. |
+| @effect/ai-openrouter/OpenRouterClient | 7 | 190 | HTTP client for OpenRouter's chat completions and alpha Decisions APIs, with authentication, site ranking headers, typed errors, and chat streaming. |
+| @effect/ai-openrouter/OpenRouterConfig | 3 | 77 | Scoped HTTP client customization for OpenRouter requests. |
+| @effect/ai-openrouter/OpenRouterDecisionModel | 4 | 617 | Decision models backed by OpenRouter's alpha Decisions API. |
+| @effect/ai-openrouter/OpenRouterError | 2 | 217 | OpenRouter error metadata augmentation. |
+| @effect/ai-openrouter/OpenRouterLanguageModel | 7 | 1320 | The `OpenRouterLanguageModel` module provides the OpenRouter implementation of Effect AI's `LanguageModel` service. |
+| @effect/ai-openrouter/OpenRouterSchema | 7 | 346 | Schemas for OpenRouter's alpha Decisions API. |
+| @effect/ai-openrouter/OpenRouterWorkloadIdentity | 3 | 148 | The `OpenRouterWorkloadIdentity` module authenticates `OpenRouterClient` with [workload identity federation](https://openrouter.ai/docs/guides/overview/auth/workload-identity-federation). |
 
 ## @effect/platform-browser@4.1.5
 

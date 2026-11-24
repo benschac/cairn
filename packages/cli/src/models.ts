@@ -1,5 +1,11 @@
 import type { Config as CairnConfig } from "@cairn/contract";
 import { AnthropicClient, AnthropicLanguageModel } from "@effect/ai-anthropic";
+import { OpenAiClient, OpenAiLanguageModel } from "@effect/ai-openai";
+import {
+  OpenAiClient as OpenAiCompatClient,
+  OpenAiLanguageModel as OpenAiCompatLanguageModel,
+} from "@effect/ai-openai-compat";
+import { OpenRouterClient, OpenRouterLanguageModel } from "@effect/ai-openrouter";
 import { Array, Config, Effect, FileSystem, Layer, Match, Option, Path, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 import type { HttpClient } from "effect/http";
@@ -53,7 +59,7 @@ export class ModelKeyError extends Schema.TaggedError<
   }
 }
 
-/** The configured planner cannot be built: its provider has no layer yet, or its model is not set. */
+/** The configured planner cannot be built: its model is not set. */
 export class ModelUnavailable extends Schema.TaggedError<
   ModelUnavailable,
   { readonly brand: unique symbol }
@@ -101,42 +107,88 @@ const missingKey = (variable: string) =>
     variable,
   });
 
-/**
- * The Anthropic provider (`planner.provider` "anthropic"): `AnthropicLanguageModel.model(name)`
- * over an Anthropic client. The client reads its key, `planner.keyEnv` or `ANTHROPIC_API_KEY`, when
- * this layer is built, so a command that never provides the layer never reads it, and building it
- * without the key fails with a `ModelKeyError`. `planner.baseUrl`, when set, is the client's
- * `apiUrl`, which routes calls through a proxy such as Cloudflare AI Gateway; the provider's own
- * host is the default.
- */
-const anthropic = (config: CairnConfig, model: Option.Option<string>) => {
-  const variable = Option.getOrElse(
+/** The variable a provider's key is read from: `planner.keyEnv`, or the provider's own. */
+const keyVariable = (config: CairnConfig) =>
+  Option.getOrElse(
     Option.fromUndefinedOr(config.planner.keyEnv),
-    () => ANTHROPIC_API_KEY,
+    () => DEFAULT_KEY_VARIABLES[config.planner.provider],
   );
+
+/** The key from the environment: a `ModelKeyError` naming the variable when it is not there. */
+const requiredKey = (variable: string) =>
+  Config.Redacted(variable).pipe(Effect.mapError(() => missingKey(variable)));
+
+/** The key from the environment when it is there: a local endpoint needs none. */
+const optionalKey = (variable: string) =>
+  Config.Redacted(variable).pipe(
+    Config.option,
+    Effect.mapError(() => missingKey(variable)),
+    Effect.map(Option.getOrUndefined),
+  );
+
+/**
+ * The `api` providers (`planner.provider`): the provider's `model(name)` over its client. A client
+ * reads its key, `planner.keyEnv` or the provider's own variable, when its layer is built, so a
+ * command that never provides the layer never reads it, and building one without the key fails with
+ * a `ModelKeyError`; `openai-compatible` treats a missing key as fine. `planner.baseUrl`, when set,
+ * is each client's `apiUrl`, which routes calls through a proxy such as Cloudflare AI Gateway; the
+ * provider's own host is the default, and `openai-compatible` has none, so the config requires it.
+ */
+const apiModel = (config: CairnConfig, model: Option.Option<string>) => {
+  const variable = keyVariable(config);
+  const apiUrl = config.planner.baseUrl;
   return Option.match(model, {
     onNone: () => unavailable("planner.model is required when planner.source is api"),
     onSome: (name) =>
-      AnthropicLanguageModel.model(name).pipe(
-        Layer.provide(
-          Layer.unwrap(
-            Config.Redacted(variable).pipe(
-              Effect.mapError(() => missingKey(variable)),
-              Effect.map((apiKey) =>
-                AnthropicClient.layer({ apiKey, apiUrl: config.planner.baseUrl }),
+      Match.value(config.planner.provider).pipe(
+        Match.when("anthropic", () =>
+          AnthropicLanguageModel.model(name).pipe(
+            Layer.provide(
+              Layer.unwrap(
+                requiredKey(variable).pipe(
+                  Effect.map((apiKey) => AnthropicClient.layer({ apiKey, apiUrl })),
+                ),
               ),
             ),
           ),
         ),
+        Match.when("openai", () =>
+          OpenAiLanguageModel.model(name).pipe(
+            Layer.provide(
+              Layer.unwrap(
+                requiredKey(variable).pipe(
+                  Effect.map((apiKey) => OpenAiClient.layer({ apiKey, apiUrl })),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Match.when("openrouter", () =>
+          OpenRouterLanguageModel.model(name).pipe(
+            Layer.provide(
+              Layer.unwrap(
+                requiredKey(variable).pipe(
+                  Effect.map((apiKey) => OpenRouterClient.layer({ apiKey, apiUrl })),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Match.when("openai-compatible", () =>
+          OpenAiCompatLanguageModel.model(name).pipe(
+            Layer.provide(
+              Layer.unwrap(
+                optionalKey(variable).pipe(
+                  Effect.map((apiKey) => OpenAiCompatClient.layer({ apiKey, apiUrl })),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Match.exhaustive,
       ),
   });
 };
-
-/** A provider whose package a later task adds (t106): selecting it fails with a typed error. */
-const notYet = (provider: string) =>
-  unavailable(
-    `The ${provider} provider is not available yet. Use planner.provider anthropic, or set planner.source to cli in .cairn/config.json.`,
-  );
 
 /** What a planner layer can fail with, and what it needs to be built. */
 type PlannerLayer = Layer.Layer<
@@ -154,7 +206,7 @@ type PlannerLayer = Layer.Layer<
  * - `cli`, the default: the person's agent CLI (`cli-model.ts`). It reads no key and looks for the
  *   CLI only when this layer is built. `claude` and `codex` both run without tools
  *   (`cli-model.ts` says how codex is isolated).
- * - `api`: the layer of `planner.provider`. Only `anthropic` is built so far.
+ * - `api`: the layer of `planner.provider`: `anthropic`, `openai`, `openrouter` or `openai-compatible`.
  *
  * The model name is `planner.small` for the small calls and `planner.model` otherwise
  * (`modelNameFor`). `environment` adds variables to the CLI's environment; a test sets `PATH`.
@@ -174,13 +226,7 @@ export const languageModelFor = (
         Match.exhaustive,
       ),
     ),
-    Match.when("api", () =>
-      Match.value(config.planner.provider).pipe(
-        Match.when("anthropic", () => anthropic(config, model)),
-        Match.whenOr("openai", "openrouter", "openai-compatible", (provider) => notYet(provider)),
-        Match.exhaustive,
-      ),
-    ),
+    Match.when("api", () => apiModel(config, model)),
     Match.exhaustive,
   );
 };

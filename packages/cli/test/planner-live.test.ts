@@ -391,24 +391,95 @@ it.effect("building no layer looks for no CLI and reads no key", () =>
   }),
 );
 
+/** What each provider's request shows: where it goes, how it signs in and the model it names. */
+const Providers = [
+  { provider: "openai", variable: "OPENAI_API_KEY" },
+  { provider: "openrouter", variable: "OPENROUTER_API_KEY" },
+  { provider: "openai-compatible", variable: "OPENAI_COMPATIBLE_API_KEY" },
+] as const;
+
+/** An answer no provider can read: the request is what these tests look at. */
+const refuses: Answer = (request) =>
+  Effect.succeed(HttpClientResponse.fromWeb(request, Response.json({}, { status: 500 })));
+
+const providerConfig = (provider: (typeof Providers)[number]["provider"], keyEnv?: string) =>
+  Schema.decodeSync(CairnConfig)({
+    planner: {
+      baseUrl: "https://gateway.test/v1",
+      model: "test-model",
+      provider,
+      source: "api",
+      ...(keyEnv === undefined ? {} : { keyEnv }),
+    },
+  });
+
+/** The one request a provider's planner sent, after its call has failed on the refusal. */
+const requestOf = (config: CairnConfig, env: Layer.Layer<never>) =>
+  Effect.gen(function* () {
+    yield* Effect.ignore(spec("a prd"));
+    const wired = yield* Wire;
+    const [request] = yield* wired.requests;
+    if (Predicate.isUndefined(request)) {
+      return yield* Effect.die("the stub saw no request");
+    }
+    return request;
+  }).pipe(Effect.provide(livePlanner(config, env, refuses)));
+
+Array.forEach(Providers, ({ provider, variable }) => {
+  it.effect(
+    `${provider}: spec goes to planner.baseUrl, names planner.model and signs in with the key`,
+    () =>
+      Effect.gen(function* () {
+        const request = yield* requestOf(
+          providerConfig(provider),
+          environment({ [variable]: FAKE_KEY }),
+        );
+        expect(String.startsWith("https://gateway.test/v1/")(request.url)).toBe(true);
+        expect(Headers.get(request.headers, "authorization")).toEqual(
+          Option.some(`Bearer ${FAKE_KEY}`),
+        );
+        const body = Predicate.isTagged("Uint8Array")(request.body)
+          ? new TextDecoder().decode(request.body.body)
+          : "";
+        expect(body).toContain('"model":"test-model"');
+      }),
+  );
+
+  it.effect(`${provider}: planner.keyEnv names the variable the key is read from`, () =>
+    Effect.gen(function* () {
+      const request = yield* requestOf(
+        providerConfig(provider, "MY_KEY"),
+        environment({ MY_KEY: FAKE_KEY }),
+      );
+      expect(Headers.get(request.headers, "authorization")).toEqual(
+        Option.some(`Bearer ${FAKE_KEY}`),
+      );
+    }),
+  );
+});
+
 it.effect.prop(
-  "a provider whose package is not built yet fails the layer with a ModelUnavailable that names it",
-  [Schema.Literals(["openai", "openrouter", "openai-compatible"])],
-  ([provider]) => {
-    const config = Schema.decodeSync(CairnConfig)({
-      planner: { baseUrl: "https://gateway.test", model: "m", provider, source: "api" },
-    });
-    return Effect.gen(function* () {
-      const keys = yield* recording;
+  "openai and openrouter fail the layer with a ModelKeyError that names their variable when the key is missing",
+  [Schema.Literals(["openai", "openrouter"])],
+  ([provider]) =>
+    Effect.gen(function* () {
       const failure = yield* Effect.flip(
-        Layer.build(languageModel(config).pipe(Layer.provide(keys.layer))).pipe(Effect.scoped),
-      ).pipe(Effect.flatMap(only(Schema.is(ModelUnavailable))));
-      expect(failure.message).toContain(provider);
-      expect(failure.message).toContain("not available yet");
-      const reads = yield* keys.reads;
-      expect(reads).toEqual([]);
-    }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer)));
-  },
+        Layer.build(
+          languageModel(providerConfig(provider)).pipe(Layer.provide(environment({}))),
+        ).pipe(Effect.scoped),
+      ).pipe(Effect.flatMap(only(Schema.is(ModelKeyError))));
+      expect(failure.variable).toBe(
+        provider === "openai" ? "OPENAI_API_KEY" : "OPENROUTER_API_KEY",
+      );
+    }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer))),
+);
+
+it.effect("openai-compatible builds its layer and calls without a key", () =>
+  Effect.gen(function* () {
+    const request = yield* requestOf(providerConfig("openai-compatible"), environment({}));
+    expect(String.startsWith("https://gateway.test/v1/")(request.url)).toBe(true);
+    expect(Headers.has(request.headers, "authorization")).toBe(false);
+  }),
 );
 
 const ModelNames = Schema.Struct({
