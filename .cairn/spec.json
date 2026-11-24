@@ -3819,6 +3819,11 @@
           "id": "spec.judging.judge-service#r7",
           "level": "must",
           "text": "A missing key fails with a JudgeError naming TYPESAFE_API_KEY."
+        },
+        {
+          "id": "spec.judging.judge-service#r8",
+          "level": "must",
+          "text": "A task's model question is left out when judge.models names fewer than two models."
         }
       ],
       "artifacts": [
