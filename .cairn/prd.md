@@ -86,6 +86,7 @@ The plan is a set of stacks that can be built at the same time, not one long sta
 - `cairn judge` judges the current spec and manifest again and writes `judgments.json`.
 - `cairn status` prints the manifest as a tree with status.
 - `cairn serve` starts the local viewer.
+- `cairn link` prints a link into the viewer (see deep links).
 
 ## Planning from a PRD {#prd.planning}
 
@@ -379,6 +380,40 @@ Code and conversation link both ways:
 
 Cairn reads Claude Code session logs first. Other agents' logs come with their adapters.
 
+## Deep links {#prd.deep-links}
+
+Everything the viewer shows has a link, and links compose, so a person can send someone to an exact point: this passage of the PRD, then the spec section that implements it, then the line of the stacked diff that builds it.
+
+### What has a link {#prd.deep-links.targets}
+
+- A PRD or spec section, by its section ID.
+- A passage: text selected in the PRD or the spec. Its link is the section ID and the quoted text, so it survives edits elsewhere in the document.
+- A note or review in `cairn.db` (see the orchestrator contract), which opens where it is attached.
+- A task, a stack, and a folded segment of finished tasks.
+- A task's stacked diff, a commit's diff, a file in either, and a line or range of lines in that file, in the unified or the split view.
+- A turn of an agent session.
+
+### Composing links {#prd.deep-links.composing}
+
+- A link is a list of steps, read left to right. Opening it does what a person would do clicking each step in turn: the PRD scrolls to the passage and pins its section, the spec section opens, the task detail opens with each step on its trail, and the code view opens on the line.
+- The address bar always holds the link to what is on screen, so copying the address copies the link. Each step is a browser history entry: Back goes back one step, like Escape in the detail panel.
+- Every step has "Copy link", which copies the whole path up to it. Each thing in the viewer can also be copied alone.
+- A link to a line in a task's diff records the commit it was copied at, so it opens on the same code after more commits land.
+- A link carries what was opened, not how the window looked: pane widths, the models switch, the cards' detail and a search stay with each viewer.
+- A link is a path, the same on `cairn serve` and on the demo site, so it opens in either on the same plan.
+- Links are the viewer's Foldkit routes. One definition both reads a link and writes it, so a link the viewer copies always opens on the same steps, and every ID in it is decoded through its contract schema.
+- Opening a link in a new window loads everything its steps need, the same as clicking through them: the patches for a diff and the session for a turn.
+
+### Links that no longer resolve {#prd.deep-links.missing}
+
+- A link opens as far as it resolves and says which step is missing and why: the section was deleted, the passage was edited, the task is gone, or the file is not in that diff. It never opens a blank window.
+- A passage that no longer matches opens its section and says the passage changed.
+
+### Links from agents {#prd.deep-links.agents}
+
+- `cairn link` prints the link to a section, a passage, a task, a commit, a file or a line, and composes them in the order given, such as `cairn link prd.code-view t74 --file packages/cli/src/api.ts --line 40`.
+- Agents and the orchestrator put these links in pull requests, gate notices and board posts, so a person lands on the exact place a message is about.
+
 ## Documentation {#prd.docs}
 
 Cairn has a docs site for the person setting it up in a repo and for the agents working there. It sits beside the demo on `prdtrace.com`.
@@ -450,6 +485,9 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - A judgment on a task that has since changed shows as stale.
 - With no `TYPESAFE_API_KEY`, `cairn plan` still writes the manifest and says that judging was skipped.
 - In the code view, a hunk an agent wrote with its edit tools reaches the tool call that wrote it in one click, and a hunk written another way says it is not traced.
+- A link copied after opening a PRD passage, then a spec section, then a line of a task's stacked diff opens in a new window on the same passage, the same trail and the same line, and Back walks the trail one step at a time.
+- A link to a passage still opens on it after an edit elsewhere in the PRD; after its passage is edited it opens on the section and says the passage changed.
+- Writing a link for any list of steps and reading it back gives the same steps, property tested over generated steps.
 - A command added to the CLI appears in the docs reference without a docs edit, and a docs page that names a removed command fails the build.
 - The spec sections and tasks for the docs were written by `cairn plan`, not by hand.
 - Two parallel tasks planned against the same source file score higher than two that share only a generated file, and the plan output names the file.
