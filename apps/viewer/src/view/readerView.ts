@@ -108,10 +108,11 @@ export const readerView = (
             "min-height": "0",
           }),
           h.OnMount(MeasureWires()),
-          // What changes the layout without changing a size the mount's observers see.
+          // What changes the layout without changing a size the mount's observers see: the
+          // current section, and whether the model chips wrap the rows.
           h.Attribute(
             WIRES_ATTRIBUTE,
-            Option.getOrElse(maybeCurrent, () => ""),
+            `${Option.getOrElse(maybeCurrent, () => "")}|${model.isShowingModels ? "models" : "plain"}`,
           ),
         ],
         [

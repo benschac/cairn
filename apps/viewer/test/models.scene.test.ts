@@ -77,6 +77,19 @@ it("a stack chip carries its model's mark, and a card's header and rows carry sq
   );
 });
 
+it("turning the switch changes the attribute the wires are measured again on", () => {
+  scene(
+    { update, view },
+    given(reading),
+    ...opened,
+    expect(selector("[data-wires]")).toHaveAttr("data-wires", "prd.viewer.models|models"),
+    click(modelsSwitch),
+    expect(selector("[data-wires]")).toHaveAttr("data-wires", "prd.viewer.models|plain"),
+    click(modelsSwitch),
+    expect(selector("[data-wires]")).toHaveAttr("data-wires", "prd.viewer.models|models"),
+  );
+});
+
 it("turning the switch off removes every chip, mark and square, and on brings them back", () => {
   scene(
     { update, view },
