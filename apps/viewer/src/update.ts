@@ -419,12 +419,18 @@ export const update = (model: Model, message: Message) =>
       }),
     }),
     // One resize at a time, as with a drag: a second finger cannot take it over.
-    PressedDivider: ({ pane, pointerId, x }) => ({
+    PressedDivider: ({ maybeWidth, pane, pointerId, x }) => ({
       model: Resize.guards.Resizing(model.resize)
         ? model
         : modifyFields(model, {
             resize: () =>
-              Resize.Resizing({ pane, pointerId, startWidth: model.widths[pane], startX: x }),
+              Resize.Resizing({
+                pane,
+                pointerId,
+                // The rendered width, which the grid may hold below the chosen one.
+                startWidth: Option.getOrElse(maybeWidth, () => model.widths[pane]),
+                startX: x,
+              }),
           }),
     }),
     // A move with no button held means the release was missed: the resize ends there.

@@ -17,7 +17,7 @@ import { modifyFields } from "foldkit/struct";
 import { Message } from "../src/message.ts";
 import { Screen } from "../src/model.ts";
 import { update } from "../src/update.ts";
-import { pressOnDivider } from "../src/view/dividerView.ts";
+import { pressOnDivider, renderedWidthOf } from "../src/view/dividerView.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
 import { MeasureWires } from "../src/view/wiresView.ts";
@@ -42,8 +42,8 @@ const grid = selector("[data-reader-grid]");
 const pointerId = 4;
 // Scene's pointer steps need a DOM, so a press sends what the divider's handler sends, which is
 // tested on its own below; the page's pointer events reach update through a Subscription.
-const pressed = (pane: "prd" | "spec" | "detail", x: number) =>
-  Subscription.emit(Message.PressedDivider({ pane, pointerId, x }));
+const pressed = (pane: "prd" | "spec" | "detail", x: number, maybeWidth = Option.none<number>()) =>
+  Subscription.emit(Message.PressedDivider({ maybeWidth, pane, pointerId, x }));
 const movedTo = (x: number, id = pointerId, buttons = 1) =>
   Subscription.emit(Message.MovedResizePointer({ buttons, pointerId: id, x }));
 const released = (id = pointerId) =>
@@ -162,7 +162,14 @@ it("a second press while one resize is going on is ignored", () => {
     given(reading),
     mountedReader,
     pressed("prd", 100),
-    Subscription.emit(Message.PressedDivider({ pane: "spec", pointerId: pointerId + 1, x: 9 })),
+    Subscription.emit(
+      Message.PressedDivider({
+        maybeWidth: Option.none(),
+        pane: "spec",
+        pointerId: pointerId + 1,
+        x: 9,
+      }),
+    ),
     movedTo(130),
     expect(prdDivider).toHaveAttr("aria-valuenow", "550"),
     expect(specDivider).toHaveAttr("aria-valuenow", "440"),
@@ -171,8 +178,38 @@ it("a second press while one resize is going on is ignored", () => {
 
 it("only the primary button presses a divider", () => {
   const press = pressOnDivider("prd");
-  assert(press("mouse", 0, 0, 0, 0, 33, 0, 9)).toEqual(
-    Option.some(Message.PressedDivider({ pane: "prd", pointerId: 9, x: 33 })),
+  assert(press("mouse", 0, 0, 0, 0, 33, 0, 9, null)).toEqual(
+    Option.some(
+      Message.PressedDivider({ maybeWidth: Option.none(), pane: "prd", pointerId: 9, x: 33 }),
+    ),
   );
-  assert(press("mouse", 2, 0, 0, 0, 33, 0, 9)).toEqual(Option.none());
+  assert(press("mouse", 2, 0, 0, 0, 33, 0, 9, null)).toEqual(Option.none());
+});
+
+const boxOf = (width: number) => ({ getBoundingClientRect: () => ({ width }) });
+
+it("a press carries the rendered width of the pane beside the divider, and of the panel around the detail divider", () => {
+  const beside = { previousElementSibling: boxOf(312) };
+  const inside = { parentElement: boxOf(480) };
+  assert(renderedWidthOf("prd", beside)).toEqual(Option.some(312));
+  assert(renderedWidthOf("spec", beside)).toEqual(Option.some(312));
+  assert(renderedWidthOf("detail", inside)).toEqual(Option.some(480));
+  assert(renderedWidthOf("prd", inside)).toEqual(Option.none());
+  assert(renderedWidthOf("prd", null)).toEqual(Option.none());
+});
+
+it("a drag starts from the rendered width when the grid holds the pane below the chosen one", () => {
+  scene(
+    { update, view },
+    given(reading),
+    mountedReader,
+    expect(prdDivider).toHaveAttr("aria-valuenow", "520"),
+    pressed("prd", 100, Option.some(300)),
+    movedTo(130),
+    // 300 rendered plus 30 of travel, not the chosen 520 plus 30.
+    expect(prdDivider).toHaveAttr("aria-valuenow", "330"),
+    movedTo(90),
+    expect(prdDivider).toHaveAttr("aria-valuenow", "300"),
+    released(),
+  );
 });

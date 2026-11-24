@@ -1,4 +1,4 @@
-import { Match, Option } from "effect";
+import { Match, Option, Predicate } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { Message } from "../message.ts";
@@ -18,7 +18,37 @@ const labelOf = (pane: Pane): string =>
     Match.exhaustive,
   );
 
-/** What a pointer press on a divider says: a resize starts with the primary button, and no other. */
+/** Something with a rendered box, as an element is. */
+interface Boxed {
+  readonly getBoundingClientRect: () => { readonly width: number };
+}
+
+const isBoxed = (u: unknown): u is Boxed =>
+  Predicate.hasProperty(u, "getBoundingClientRect") &&
+  Predicate.isFunction(u.getBoundingClientRect);
+
+/**
+ * The width a pane is rendered at, read from the divider that was pressed: the PRD's and the spec's
+ * dividers follow their pane in the grid, and the detail panel's sits inside it. It differs from the
+ * chosen width when the grid's `minmax` holds the pane narrower. None when the target is no element
+ * with a pane beside it.
+ */
+export const renderedWidthOf = (pane: Pane, target: unknown): Option.Option<number> => {
+  const key = pane === "detail" ? "parentElement" : "previousElementSibling";
+  return Option.flatMap(
+    Option.liftPredicate(target, (t) => Predicate.hasProperty(t, key)),
+    (t) =>
+      Option.map(
+        Option.liftPredicate(t[key], isBoxed),
+        (paneElement) => paneElement.getBoundingClientRect().width,
+      ),
+  );
+};
+
+/**
+ * What a pointer press on a divider says: a resize starts with the primary button, and no other.
+ * It carries the pane's rendered width, so the drag starts from what the person sees.
+ */
 export const pressOnDivider =
   (pane: Pane) =>
   (
@@ -30,9 +60,17 @@ export const pressOnDivider =
     clientX: number,
     _clientY: number,
     pointerId: number,
+    target: EventTarget | null,
   ): Option.Option<Message> =>
     button === PRIMARY_BUTTON
-      ? Option.some(Message.PressedDivider({ pane, pointerId, x: clientX }))
+      ? Option.some(
+          Message.PressedDivider({
+            maybeWidth: renderedWidthOf(pane, target),
+            pane,
+            pointerId,
+            x: clientX,
+          }),
+        )
       : Option.none();
 
 /**

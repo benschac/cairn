@@ -96,7 +96,12 @@ export const Message = defineMessageUnion({
   /** An arrow key went down on a focused divider. */
   PressedArrowOnDivider: { key: DividerKey, pane: Pane },
   /** The primary button or a touch went down on a divider. */
-  PressedDivider: { pane: Pane, pointerId: PointerId, x: Schema.Finite },
+  PressedDivider: {
+    maybeWidth: Schema.Option(Schema.Finite), // the pane as rendered; none when it could not be read
+    pane: Pane,
+    pointerId: PointerId,
+    x: Schema.Finite,
+  },
   /** A pointer moved anywhere on the page while a divider was being dragged, with the buttons it held. */
   MovedResizePointer: { buttons: Schema.Int, pointerId: PointerId, x: Schema.Finite },
   /** A pointer went up or was cancelled anywhere on the page while a divider was being dragged. */
