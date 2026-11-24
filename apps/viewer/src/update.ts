@@ -384,6 +384,9 @@ export const update = (model: Model, message: Message) =>
               }),
       }),
     }),
+    MeasuredWires: ({ measured }) => ({
+      model: modifyFields(model, { maybeMeasuredWires: () => Option.some(measured) }),
+    }),
     MeasuredPane: ({ size }) => ({
       model: centeredOnSearch(modifyFields(model, { maybePaneSize: () => Option.some(size) })),
     }),

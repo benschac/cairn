@@ -24,8 +24,9 @@ import { escapeMessage } from "../src/subscription/escape.ts";
 import { CopySectionId, update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
+import { MeasureWires } from "../src/view/wiresView.ts";
 import { view } from "../src/view/view.ts";
-import { canvasEnded, loaded, mounted } from "./fixtures.ts";
+import { canvasEnded, loaded, mounted, unmeasuredWires } from "./fixtures.ts";
 
 const prd = (id: string) => PrdSectionId.make(id);
 const prdIds = Array.map(demoTrace.prd.sections, (section) => section.id);
@@ -38,6 +39,7 @@ const scrolledTo = (id: string) =>
   Mount.resolveAll(
     [TrackPrdScroll, Message.ScrolledPrd({ id: prd(id) })],
     [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+    [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
   );
 /** Later scrolls come from the same mount; a Scene has no hooks, so it feeds them in as it would. */
 const scrolledAgainTo = (id: string) => Subscription.emit(Message.ScrolledPrd({ id: prd(id) }));
@@ -67,6 +69,7 @@ it("the Plan button opens the reader, and the Canvas button goes back to the can
     click(role("button", { name: "Canvas" })),
     Mount.expectEnded(TrackPrdScroll),
     Mount.expectEnded(ScrollStacksToBottom),
+    Mount.expectEnded(MeasureWires),
     mounted,
     expect(selector("[data-canvas]")).toExist(),
     expect(selector("[data-reader]")).toBeAbsent(),

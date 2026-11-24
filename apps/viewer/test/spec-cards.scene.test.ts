@@ -22,8 +22,9 @@ import { cardsOf, statusWordOf } from "../src/reader.ts";
 import { update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
+import { MeasureWires } from "../src/view/wiresView.ts";
 import { view } from "../src/view/view.ts";
-import { loaded } from "./fixtures.ts";
+import { loaded, unmeasuredWires } from "./fixtures.ts";
 
 const prd = (id: string) => PrdSectionId.make(id);
 
@@ -33,6 +34,7 @@ const scrolledTo = (id: string) =>
   Mount.resolveAll(
     [TrackPrdScroll, Message.ScrolledPrd({ id: prd(id) })],
     [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+    [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
   );
 const statusLine = (id: string) => selector(`[data-status-line="${id}"]`);
 const card = (id: string) => selector(`[data-spec="${id}"]`);

@@ -6,16 +6,25 @@ import {
   type TraceTask,
 } from "@cairn/contract";
 import { Array, Option, Predicate } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
+import { createKeyedLazy, type Html, type HtmlBuilder } from "foldkit/html";
 
 import { diagramView } from "../diagram.ts";
 import { documentOf, renderSection } from "../markdown.ts";
 import { Message } from "../message.ts";
 import type { Density, Reader } from "../model.ts";
-import { cardsOf, coverageOf, isOpenCard, statusWordOf, type Card } from "../reader.ts";
-import { judgmentMarkOf, sectionStatusOf, sectionTitleOf, type JudgmentMark } from "../trace.ts";
+import { cardsOf, coverageOf, isOpenCard, statusWordOf, tasksOf } from "../reader.ts";
+import {
+  judgmentMarkOf,
+  sectionStatusOf,
+  sectionTitleOf,
+  type Chain,
+  type JudgmentMark,
+  type Node,
+} from "../trace.ts";
 import { disclosureView, segmentedView } from "../ui/controls.ts";
 import { dotView, gateView, labelView, tagView } from "../ui/marks.ts";
+import { hoverChainOf, isSpecDimmed, isTaskDimmed, rowKey, specKey, strayKey } from "../wires.ts";
+import { hoverAttributesOf } from "./wiresView.ts";
 
 const DENSITIES: ReadonlyArray<{ readonly label: string; readonly value: Density }> = [
   { label: "Titles", value: "titles" },
@@ -44,20 +53,29 @@ const progressText = (task: TraceTask): string =>
           : ""
       }`;
 
-/** A task row: a button that opens the task's detail. `specId` is `_` in the card of strays. */
+/**
+ * A task row: a button that opens the task's detail. `specId` is `_` in the card of strays. The row
+ * is where a curve to its task's chip starts, and counts as its task when hovered or dimmed.
+ */
 const taskRowView = (
   trace: Trace,
   specId: string,
   task: TraceTask,
+  maybeChain: Option.Option<Chain>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.button(
-    [
-      h.Type("button"),
-      h.Class("row"),
-      h.DataAttribute("task-row", `${specId}:${task.id}`),
-      h.OnClick(Message.ClickedTask({ id: task.id })),
-    ],
+    Array.flatten([
+      [
+        h.Type("button"),
+        h.Class("row"),
+        h.DataAttribute("task-row", `${specId}:${task.id}`),
+        h.DataAttribute("wire", rowKey(specId, task.id)),
+        h.OnClick(Message.ClickedTask({ id: task.id })),
+      ],
+      hoverAttributesOf({ id: task.id, kind: "task" }, h),
+      isTaskDimmed(maybeChain, task.id) ? [h.DataAttribute("dimmed", "")] : [],
+    ]),
     Array.appendAll(
       [
         dotView(task.status, h),
@@ -82,11 +100,12 @@ const tasksView = (
   trace: Trace,
   specId: string,
   tasks: ReadonlyArray<TraceTask>,
+  maybeChain: Option.Option<Chain>,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.div(
     [h.Class("card-tasks")],
-    Array.map(tasks, (task) => taskRowView(trace, specId, task, h)),
+    Array.map(tasks, (task) => taskRowView(trace, specId, task, maybeChain, h)),
   );
 
 /** The line with the section's ID, then the section's own markdown. */
@@ -101,8 +120,19 @@ const fullSectionView = (trace: Trace, section: TraceSection, h: HtmlBuilder<Mes
     ],
   );
 
-const cardView = (trace: Trace, card: Card, reader: Reader, h: HtmlBuilder<Message>): Html => {
-  const { section, tasks } = card;
+/**
+ * One spec card. Its header is where the curve from the PRD heading ends, and hovering it lights
+ * its chain; a card outside the hovered chain is dimmed.
+ */
+const cardView = (
+  trace: Trace,
+  section: TraceSection,
+  reader: Reader,
+  maybeHovered: Option.Option<Node>,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const tasks = tasksOf(trace, section);
+  const maybeChain = hoverChainOf(trace, maybeHovered);
   const isOpen = isOpenCard(reader, section.id);
   const showsSummary = !isOpen && reader.density !== "titles";
   return disclosureView(
@@ -112,11 +142,20 @@ const cardView = (trace: Trace, card: Card, reader: Reader, h: HtmlBuilder<Messa
       onToggle: () => Message.ClickedCardHeader({ id: section.id }),
       toView: ({ button, panel }) =>
         h.article(
-          [h.Class("card"), h.DataAttribute("spec", section.id)],
+          Array.appendAll(
+            [h.Class("card"), h.DataAttribute("spec", section.id)],
+            isSpecDimmed(maybeChain, section.id) ? [h.DataAttribute("dimmed", "")] : [],
+          ),
           Array.appendAll(
             [
               h.button(
-                Array.prepend(button, h.Class("card-head")),
+                Array.appendAll(
+                  Array.prepend(button, h.Class("card-head")),
+                  Array.prepend(
+                    hoverAttributesOf({ id: section.id, kind: "section" }, h),
+                    h.DataAttribute("wire", specKey(section.id)),
+                  ),
+                ),
                 Array.appendAll(
                   [
                     h.span([], [section.title]),
@@ -155,7 +194,7 @@ const cardView = (trace: Trace, card: Card, reader: Reader, h: HtmlBuilder<Messa
                         [summary],
                       ),
                   ),
-              [tasksView(trace, section.id, tasks, h)],
+              [tasksView(trace, section.id, tasks, maybeChain, h)],
             ),
           ),
         ),
@@ -168,19 +207,31 @@ const cardView = (trace: Trace, card: Card, reader: Reader, h: HtmlBuilder<Messa
 const straysView = (
   trace: Trace,
   strays: ReadonlyArray<TraceTask>,
+  maybeChain: Option.Option<Chain>,
   h: HtmlBuilder<Message>,
 ): ReadonlyArray<Html> =>
   Array.isReadonlyArrayEmpty(strays)
     ? []
     : [
         h.article(
-          [h.Class("card"), h.DataAttribute("strays", "")],
+          Array.appendAll(
+            [h.Class("card"), h.DataAttribute("strays", "")],
+            Array.every(strays, (task) => isTaskDimmed(maybeChain, task.id))
+              ? [h.DataAttribute("dimmed", "")]
+              : [],
+          ),
           [
             h.div([h.Class("card-head")], ["Tasks that name this section directly"]),
-            tasksView(trace, "_", strays, h),
+            tasksView(trace, strayKey, strays, maybeChain, h),
           ],
         ),
       ];
+
+/**
+ * One slot per card, keyed by its section: a card is rebuilt only when the trace, the density, the
+ * cards opened on their own or the hovered node changes, so a measurement never renders markdown.
+ */
+const cardLazy = createKeyedLazy();
 
 const sectionsText = (count: number, title: string): string =>
   `Spec · ${pluralOf(count, "section")} for ${title}`;
@@ -212,6 +263,7 @@ export const specPaneView = (
   trace: Trace,
   maybeCurrent: Option.Option<PrdSectionId>,
   reader: Reader,
+  maybeHovered: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html =>
   Option.match(maybeCurrent, {
@@ -221,6 +273,7 @@ export const specPaneView = (
         Option.match(Option.flatMap(sectionStatusOf(trace, SectionId.make(current)), coverageOf), {
           onNone: () => {
             const { cards, strays } = cardsOf(trace, current);
+            const maybeChain = hoverChainOf(trace, maybeHovered);
             return Array.appendAll(
               [
                 h.div(
@@ -253,8 +306,10 @@ export const specPaneView = (
                 ),
               ],
               Array.appendAll(
-                Array.map(cards, (card) => cardView(trace, card, reader, h)),
-                straysView(trace, strays, h),
+                Array.map(cards, ({ section }) =>
+                  cardLazy(section.id, cardView, [trace, section, reader, maybeHovered, h]),
+                ),
+                straysView(trace, strays, maybeChain, h),
               ),
             );
           },

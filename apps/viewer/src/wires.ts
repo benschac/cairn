@@ -1,8 +1,9 @@
-import type { PrdSectionId } from "@cairn/contract";
-import { Array, Match, Number, Option, Record, String } from "effect";
+import type { PrdSectionId, Trace } from "@cairn/contract";
+import { Array, HashSet, Match, Number, Option, Record, Schema, String } from "effect";
 
-import type { Rect } from "./geometry.ts";
+import { Positions, Rect } from "./geometry.ts";
 import type { Cards } from "./reader.ts";
+import { chainOf, type Chain, type Node } from "./trace.ts";
 
 /** What the reader's curves join, as `data-wire` keys: a source key and a target key. */
 export interface Link {
@@ -11,11 +12,12 @@ export interface Link {
 }
 
 /** The three panes, each the rectangle it clips to, in window coordinates. */
-export interface Panes {
-  readonly prd: Rect;
-  readonly spec: Rect;
-  readonly stacks: Rect;
-}
+export const Panes = Schema.Struct({ prd: Rect, spec: Rect, stacks: Rect });
+export type Panes = typeof Panes.Type;
+
+/** What `MeasureWires` read from the page: the rectangle of each `data-wire` key, and of the panes. */
+export const Measured = Schema.Struct({ boxes: Positions, panes: Panes });
+export type Measured = typeof Measured.Type;
 
 /** A curve to draw: its two keys, its SVG path and whether an end had to be moved into its pane. */
 export interface Wire {
@@ -119,3 +121,36 @@ export const wiresOf = (
       ),
     ),
   );
+
+/** The chain of the hovered node, when a node is hovered. */
+export const hoverChainOf = (
+  trace: Trace,
+  maybeHovered: Option.Option<Node>,
+): Option.Option<Chain> => Option.map(maybeHovered, (node) => chainOf(trace, node));
+
+/** Whether a spec section is outside the hovered chain: its card is dimmed. */
+export const isSpecDimmed = (maybeChain: Option.Option<Chain>, id: string): boolean =>
+  Option.exists(maybeChain, (chain) => !HashSet.has(chain.spec, id));
+
+/** Whether a task is outside the hovered chain: its row and its chip are dimmed. */
+export const isTaskDimmed = (maybeChain: Option.Option<Chain>, id: string): boolean =>
+  Option.exists(maybeChain, (chain) => !HashSet.has(chain.tasks, id));
+
+/**
+ * Whether the element a key names is in the chain. A row counts as its task, and a key that names
+ * nothing the chain holds is not in it.
+ */
+export const isKeyInChain = (chain: Chain, key: string): boolean => {
+  const parts = String.split(":")(key);
+  const id = Array.lastNonEmpty(parts);
+  return Match.value(Array.headNonEmpty(parts)).pipe(
+    Match.when("prd", () => HashSet.has(chain.prd, id)),
+    Match.when("spec", () => HashSet.has(chain.spec, id)),
+    Match.whenOr("row", "task", () => HashSet.has(chain.tasks, id)),
+    Match.orElse(() => false),
+  );
+};
+
+/** Whether the chain holds both ends of the wire: it is lit while its node is hovered. */
+export const isWireLit = (chain: Chain, wire: Wire): boolean =>
+  isKeyInChain(chain, wire.source) && isKeyInChain(chain, wire.target);

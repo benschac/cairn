@@ -72,6 +72,12 @@ export interface Cards {
   readonly strays: ReadonlyArray<TraceTask>;
 }
 
+/** The tasks that name the spec section, in manifest order. */
+export const tasksOf = (trace: Trace, section: TraceSection): ReadonlyArray<TraceTask> =>
+  Array.filter(trace.tasks, (task) =>
+    Array.some(task.specSections, (id) => String.Equivalence(id, section.id)),
+  );
+
 const chainFor = (trace: Trace, prd: PrdSectionId) =>
   chainOf(trace, { id: SectionId.make(prd), kind: "section" });
 
@@ -83,12 +89,7 @@ export const cardsOf = (trace: Trace, prd: PrdSectionId): Cards => {
   const chain = chainFor(trace, prd);
   const cards = Array.map(
     Array.filter(trace.spec.sections, (section) => HashSet.has(chain.spec, section.id)),
-    (section) => ({
-      section,
-      tasks: Array.filter(trace.tasks, (task) =>
-        Array.some(task.specSections, (id) => String.Equivalence(id, section.id)),
-      ),
-    }),
+    (section) => ({ section, tasks: tasksOf(trace, section) }),
   );
   const strays = Array.filter(
     trace.tasks,

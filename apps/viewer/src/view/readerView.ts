@@ -10,6 +10,7 @@ import { prdPaneView } from "./prdPaneView.ts";
 import { searchView } from "./searchView.ts";
 import { specPaneView } from "./specPaneView.ts";
 import { stackChipsView } from "./stackChipsView.ts";
+import { MeasureWires, WIRES_ATTRIBUTE, wiresView } from "./wiresView.ts";
 
 const isPrdSection = Schema.is(PrdSectionId);
 
@@ -96,11 +97,18 @@ export const readerView = (
             "grid-template-columns": "minmax(0, 1fr) minmax(0, 1fr) minmax(240px, 1fr)",
             "min-height": "0",
           }),
+          h.OnMount(MeasureWires()),
+          // What changes the layout without changing a size the mount's observers see.
+          h.Attribute(
+            WIRES_ATTRIBUTE,
+            Option.getOrElse(maybeCurrent, () => ""),
+          ),
         ],
         [
           prdPaneView(trace, maybeCurrent, model.reader.maybePinned, model.maybeCopied, h),
-          specPaneView(trace, maybeCurrent, model.reader, h),
-          stackChipsView(trace, maybeCurrent, h),
+          specPaneView(trace, maybeCurrent, model.reader, model.maybeHovered, h),
+          stackChipsView(trace, maybeCurrent, model.maybeHovered, h),
+          wiresView(trace, maybeCurrent, model.maybeMeasuredWires, model.maybeHovered, h),
         ],
       ),
     ],
