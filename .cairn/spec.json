@@ -5331,7 +5331,44 @@
           "name": "Reader",
           "location": "apps/viewer/src/model.ts",
           "description": "The reader's own state.",
-          "fields": ["maybeAtTop", "maybePinned", "density", "opened", "isShowingModels", "widths"]
+          "fields": [
+            {
+              "name": "maybeAtTop",
+              "type": "Option<PrdSectionId>",
+              "optional": false,
+              "description": "The section at the top of the PRD pane, once it is measured."
+            },
+            {
+              "name": "maybePinned",
+              "type": "Option<PrdSectionId>",
+              "optional": false,
+              "description": "The section a person pinned."
+            },
+            {
+              "name": "density",
+              "type": "\"titles\" | \"summary\" | \"full\"",
+              "optional": false,
+              "description": "How much of every card shows; see spec.viewer.spec-cards."
+            },
+            {
+              "name": "opened",
+              "type": "Record<SpecSectionId, boolean>",
+              "optional": false,
+              "description": "Cards opened or closed apart from the density."
+            },
+            {
+              "name": "isShowingModels",
+              "type": "boolean",
+              "optional": false,
+              "description": "See spec.viewer.models."
+            },
+            {
+              "name": "widths",
+              "type": "Widths",
+              "optional": false,
+              "description": "See spec.viewer.panes."
+            }
+          ]
         },
         {
           "id": "spec.viewer.reader#message:scrolledprd",
@@ -5871,7 +5908,32 @@
           "name": "Wire",
           "location": "apps/viewer/src/wires.ts",
           "description": "A curve between two measured elements.",
-          "fields": ["from", "to", "path", "isOffPane"]
+          "fields": [
+            {
+              "name": "from",
+              "type": "string",
+              "optional": false,
+              "description": "The key of the element the curve leaves."
+            },
+            {
+              "name": "to",
+              "type": "string",
+              "optional": false,
+              "description": "The key of the element the curve arrives at."
+            },
+            {
+              "name": "path",
+              "type": "string",
+              "optional": false,
+              "description": "The cubic bezier, as SVG path data."
+            },
+            {
+              "name": "isOffPane",
+              "type": "boolean",
+              "optional": false,
+              "description": "Whether an end was scrolled out of view and had to be moved."
+            }
+          ]
         },
         {
           "id": "spec.viewer.curves#function:wiresview",
@@ -6281,7 +6343,26 @@
           "name": "Widths",
           "location": "apps/viewer/src/panes.ts",
           "description": "The widths a person can change.",
-          "fields": ["prd", "spec", "detail"]
+          "fields": [
+            {
+              "name": "prd",
+              "type": "number",
+              "optional": false,
+              "description": "The PRD pane's width."
+            },
+            {
+              "name": "spec",
+              "type": "number",
+              "optional": false,
+              "description": "The spec pane's width."
+            },
+            {
+              "name": "detail",
+              "type": "number",
+              "optional": false,
+              "description": "The detail panel's width."
+            }
+          ]
         },
         {
           "id": "spec.viewer.panes#function:dividerview",
@@ -6410,7 +6491,14 @@
           "name": "Participant",
           "location": "packages/contract/src/index.ts",
           "description": "A participant with the PRD section they are reading.",
-          "fields": ["reading"]
+          "fields": [
+            {
+              "name": "reading",
+              "type": "PrdSectionId | null",
+              "optional": false,
+              "description": "The PRD section current in their window; null before the first is known."
+            }
+          ]
         },
         {
           "id": "spec.viewer.presence#machine-event:read",

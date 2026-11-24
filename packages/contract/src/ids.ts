@@ -1,8 +1,11 @@
 import { Schema } from "effect";
 
-/** An id under `prefix`: one or more `.`-separated lowercase kebab-case segments. */
-const sectionPattern = (prefix: string) =>
-  new RegExp(String.raw`^${prefix}(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)+$`, "u");
+/**
+ * An id under `prefix`: one or more `.`-separated lowercase kebab-case segments. `suffix` is
+ * regex source for what follows the id, such as `#r\d+` for a requirement in a section.
+ */
+export const sectionPattern = (prefix: string, suffix = "") =>
+  new RegExp(String.raw`^${prefix}(?:\.[a-z0-9]+(?:-[a-z0-9]+)*)+${suffix}$`, "u");
 
 export const SECTION_ID = sectionPattern("(?:prd|spec)");
 
