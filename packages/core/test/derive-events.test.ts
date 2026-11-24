@@ -56,7 +56,7 @@ const run = (
   events: ReadonlyArray<Event>,
   sections: ReadonlyArray<Section> = [],
   config: GateConfig = noPaths,
-): Derived => derive(manifest, sections, config, events);
+): Derived => derive(manifest, sections, config, events, []);
 
 const taskOf = (derived: Derived, id: string): DerivedTask =>
   Option.getOrThrow(Array.findFirst(derived.tasks, (derivedTask) => derivedTask.id === id));

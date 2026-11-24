@@ -1,4 +1,4 @@
-import { TaskStatus } from "@cairn/contract";
+import { TaskId, TaskStatus, TraceCommit } from "@cairn/contract";
 import type {
   Actor,
   Event,
@@ -6,8 +6,9 @@ import type {
   Manifest,
   ManifestTask,
   Section,
+  Sha,
   TaskEventType,
-  TaskId,
+  TraceTask,
   TraceWarning,
 } from "@cairn/contract";
 import {
@@ -17,7 +18,9 @@ import {
   Match,
   Option,
   Order,
+  Predicate,
   Record,
+  Schema,
   String,
   Struct,
   pipe,
@@ -30,15 +33,27 @@ import type { GateConfig } from "./gates.ts";
 import { statusOf, taskMachine } from "./task-machine.ts";
 
 /**
- * A manifest task as `derive` recomputes it: `status` is derived from the events, not the
- * manifest snapshot, `gate` is its effective gate, `events` are its events in the order they
- * were folded, and `waiting` says a task below it is `blocked_on_human`.
+ * A commit as git shows it: what the trace shows of it, its `Cairn-Task` trailer (`null` when it
+ * has none), the task branch it was read from (`parent..branch`, `null` for a commit read only
+ * from `baseBranch`, such as a squash merge), and whether `baseBranch` reaches it. One entry per
+ * sha.
  */
-export interface DerivedTask extends ManifestTask {
-  readonly events: ReadonlyArray<Event>;
-  readonly gate: HumanGate;
-  readonly waiting: boolean;
-}
+export const GitCommit = TraceCommit.pipe(
+  Schema.fieldsAssign({
+    branch: Schema.NullOr(Schema.String),
+    onBase: Schema.Boolean,
+    taskId: Schema.NullOr(TaskId),
+  }),
+);
+export type GitCommit = typeof GitCommit.Type;
+
+/**
+ * A manifest task as `derive` recomputes it: `status` is derived from the events and git, not the
+ * manifest snapshot, `gate` is its effective gate, `commits` are the commits that carry its
+ * trailer, `events` are its events in the order they were folded, and `waiting` says a task below
+ * it is `blocked_on_human`.
+ */
+export type DerivedTask = TraceTask;
 
 /** What `derive` returns: every manifest task in manifest order, and what the machine ignored. */
 export interface Derived {
@@ -93,12 +108,14 @@ const machineEventOf = (event: Event, current: TaskStatus): Option.Option<TaskEv
     Match.exhaustive,
   );
 
-const warning = (kind: TraceWarning["kind"], taskId: TaskId, message: string): TraceWarning => ({
-  kind,
-  message,
-  sha: null,
-  taskId,
-});
+const warning = (
+  kind: TraceWarning["kind"],
+  taskId: TaskId | null,
+  message: string,
+  sha: Sha | null = null,
+): TraceWarning => ({ kind, message, sha, taskId });
+
+const short = (sha: Sha): string => String.slice(0, 7)(sha);
 
 const at = (event: Event): string => DateTime.formatIso(event.ts);
 
@@ -139,15 +156,21 @@ const step = (folded: Folded, event: Event): Folded => {
 };
 
 /**
- * The task's effective gate: its own `humanGate` and what `gateOf` finds in the sections and
- * config now. A gate the manifest records is never dropped.
+ * The task's effective gate: its own `humanGate` and what `gateOf` finds in the sections, the
+ * config and the files its commits changed now. A gate the manifest records is never dropped.
  */
 const effectiveGate = (
   task: ManifestTask,
   sections: ReadonlyArray<Section>,
   config: GateConfig,
+  commits: ReadonlyArray<GitCommit>,
 ): HumanGate => {
-  const detected = gateOf(task, sections, config, []);
+  const detected = gateOf(
+    task,
+    sections,
+    config,
+    Array.dedupe(Array.flatMap(commits, ({ files }) => files)),
+  );
   return {
     reasons: Array.dedupe(Array.appendAll(task.humanGate.reasons, detected.reasons)),
     required: task.humanGate.required || detected.required,
@@ -158,6 +181,82 @@ interface Walk {
   readonly next: Option.Option<TaskId>;
   readonly seen: HashSet.HashSet<TaskId>;
 }
+
+/**
+ * Sends `land` when `baseBranch` reaches a commit that carries the task's trailer: its own commits
+ * after a merge, or the commit a squash merge made. Only `done` lands; a task that landed from
+ * anywhere else keeps its status, and the landing is a warning.
+ */
+const landOn = (folded: Folded, task: ManifestTask, commits: ReadonlyArray<GitCommit>): Folded => {
+  const current = statusOf(folded.snapshot);
+  return pipe(
+    Array.findFirst(commits, ({ onBase }) => onBase),
+    Option.filter(() => current !== "landed"),
+    Option.match({
+      onNone: () => folded,
+      onSome: ({ sha }) =>
+        current === "done"
+          ? {
+              snapshot: transition(taskMachine, folded.snapshot, { type: "land" })[0],
+              warnings: folded.warnings,
+            }
+          : {
+              snapshot: folded.snapshot,
+              warnings: Array.append(
+                folded.warnings,
+                warning(
+                  "landed-without-approval",
+                  task.id,
+                  `${task.id}: ${short(sha)} reached the base branch while the task was ${current}; it stays ${current}`,
+                  sha,
+                ),
+              ),
+            },
+    }),
+  );
+};
+
+/** The trailers `spec.contract.trailers` requires: a task, a session and at least one section. */
+const hasTrailers = (commit: GitCommit): boolean =>
+  Predicate.isNotNull(commit.taskId) &&
+  Predicate.isNotNull(commit.session) &&
+  Array.isReadonlyArrayNonEmpty(commit.sections);
+
+/**
+ * What the commits say that the machine cannot: a commit on a task branch without its trailers, and
+ * a trailer for a task the manifest does not have.
+ */
+const commitWarnings = (
+  commit: GitCommit,
+  byId: Record.ReadonlyRecord<string, ManifestTask>,
+  byBranch: Record.ReadonlyRecord<string, ManifestTask>,
+): ReadonlyArray<TraceWarning> =>
+  Array.getSomes([
+    pipe(
+      Option.fromNullOr(commit.branch),
+      Option.filter(() => !hasTrailers(commit)),
+      Option.map((branch) =>
+        warning(
+          "missing-trailers",
+          Option.getOrNull(Option.map(Record.get(byBranch, branch), ({ id }) => id)),
+          `${short(commit.sha)} on ${branch} is missing Cairn-Task, Cairn-Session or Cairn-Section trailers`,
+          commit.sha,
+        ),
+      ),
+    ),
+    pipe(
+      Option.fromNullOr(commit.taskId),
+      Option.filter((id) => !Record.has(byId, id)),
+      Option.map((id) =>
+        warning(
+          "unknown-task",
+          id,
+          `${id}: ${short(commit.sha)} carries a Cairn-Task trailer for a task the manifest does not have`,
+          commit.sha,
+        ),
+      ),
+    ),
+  ]);
 
 /** The tasks below a task in its stack, nearest first. A parent cycle stops at the first repeat. */
 const below = (
@@ -184,28 +283,49 @@ const below = (
   );
 
 /**
- * Recomputes every task from scratch (see `spec.status.derivation`). Each task's events are sorted
- * with `EventOrder` and folded through the task machine under its effective gate. What the
- * machine ignores, and an event for a task the manifest does not have, is a warning, never an
- * error. A `pending` task with a `blocked_on_human` task below it is `waiting`.
+ * Recomputes every task from scratch (see `spec.status.derivation`). Commits are grouped by their
+ * `Cairn-Task` trailer, and the files they change join the task's effective gate. Each task's
+ * events are sorted with `EventOrder` and folded through the task machine under that gate, then
+ * `land` is sent when `baseBranch` reaches a commit with its trailer. What the machine ignores, an
+ * event or trailer for a task the manifest does not have, a commit on a task branch without
+ * trailers and a landing without approval are warnings, never errors. A `pending` task with a
+ * `blocked_on_human` task below it is `waiting`.
  */
 export const derive = (
   manifest: Manifest,
   sections: ReadonlyArray<Section>,
   config: GateConfig,
   events: ReadonlyArray<Event>,
+  commits: ReadonlyArray<GitCommit>,
 ): Derived => {
   const sorted = Array.sort(events, EventOrder);
   const byTask = Array.groupBy(sorted, (event) => event.taskId);
+  const commitsByTask = Array.groupBy(
+    Array.filter(commits, (commit): commit is GitCommit & { taskId: TaskId } =>
+      Predicate.isNotNull(commit.taskId),
+    ),
+    ({ taskId }) => taskId,
+  );
   const folded = Array.map(manifest.tasks, (task) => {
-    const gate = effectiveGate(task, sections, config);
     const own = Option.getOrElse(Record.get(byTask, task.id), (): ReadonlyArray<Event> => []);
-    const result = Array.reduce(
-      own,
-      { snapshot: initialTransition(taskMachine, { gated: gate.required, task })[0], warnings: [] },
-      step,
+    const ownCommits = Option.getOrElse(
+      Record.get(commitsByTask, task.id),
+      (): ReadonlyArray<GitCommit> => [],
     );
-    return { events: own, gate, task, result };
+    const gate = effectiveGate(task, sections, config, ownCommits);
+    const result = landOn(
+      Array.reduce(
+        own,
+        {
+          snapshot: initialTransition(taskMachine, { gated: gate.required, task })[0],
+          warnings: [],
+        },
+        step,
+      ),
+      task,
+      ownCommits,
+    );
+    return { commits: ownCommits, events: own, gate, task, result };
   });
   const statuses = Record.fromIterableWith(folded, ({ result, task }) => [
     task.id,
@@ -214,15 +334,20 @@ export const derive = (
   const byId = Record.fromIterableBy(manifest.tasks, (task) => task.id);
   const isBlocked = (id: TaskId) =>
     Option.exists(Record.get(statuses, id), (status) => status === "blocked_on_human");
-  const tasks = Array.map(folded, ({ events: own, gate, result, task }): DerivedTask => {
-    const status = statusOf(result.snapshot);
-    return Struct.assign(task, {
-      events: own,
-      gate,
-      status,
-      waiting: status === "pending" && Array.some(below(byId, task), isBlocked),
-    });
-  });
+  const byBranch = Record.fromIterableBy(manifest.tasks, (task) => task.branch);
+  const tasks = Array.map(
+    folded,
+    ({ commits: own, events: lines, gate, result, task }): DerivedTask => {
+      const status = statusOf(result.snapshot);
+      return Struct.assign(task, {
+        commits: Array.map(own, (commit) => Struct.omit(commit, ["branch", "onBase", "taskId"])),
+        events: lines,
+        gate,
+        status,
+        waiting: status === "pending" && Array.some(below(byId, task), isBlocked),
+      });
+    },
+  );
   const unknown = Array.map(
     Array.filter(sorted, (event) => !Record.has(byId, event.taskId)),
     (event) =>
@@ -234,9 +359,10 @@ export const derive = (
   );
   return {
     tasks,
-    warnings: Array.appendAll(
+    warnings: Array.flatten([
       Array.flatMap(folded, ({ result }) => result.warnings),
       unknown,
-    ),
+      Array.flatMap(commits, (commit) => commitWarnings(commit, byId, byBranch)),
+    ]),
   };
 };
