@@ -81,11 +81,57 @@ The plan is a set of stacks that can be built at the same time, not one long sta
 
 - `cairn init` creates `.cairn/` and a PRD template.
 - `cairn ids` assigns missing section IDs in `prd.md` and `spec.md`.
-- `cairn plan` calls a model to generate `spec.md` and `spec.json` from `prd.md`, then generates `manifest.json`: tasks, stack order, parent links, model and reasoning level per task, human gates. A decision model checks the breakdown at each step (see judging the plan). Prints the plan with what judging changed and reported, and waits for approval.
+- `cairn plan` turns `prd.md` into `spec.md` and `spec.json`, then into `manifest.json`: tasks, stack order, parent links, model and reasoning level per task, human gates. It stops for a review after the spec and again after the tasks (see planning from a PRD). A decision model checks the breakdown at each step (see judging the plan).
 - `cairn lint` checks that every task references real section IDs, every PRD section maps to at least one task, and every task's parent follows from its dependencies, so nothing sits below a gated task except what it depends on.
 - `cairn judge` judges the current spec and manifest again and writes `judgments.json`.
 - `cairn status` prints the manifest as a tree with status.
 - `cairn serve` starts the local viewer.
+
+## Planning from a PRD {#prd.planning}
+
+A person edits `prd.md` and runs `cairn plan`. Everything after that is the tool's work: the spec sections, the tasks, their order, gates and worktrees, the stack diagram and `spec.json`. Nobody writes a spec section, a manifest entry or a diagram by hand to keep the plan going, though anyone may edit what the tool wrote.
+
+### Two reviews {#prd.planning.two-reviews}
+
+`cairn plan` has two steps, and a person reviews after each.
+
+1. Spec. It writes `spec.md`, prints the sections it wrote and asks whether to go on to tasks. Answering no leaves the spec on disk to read and edit.
+2. Tasks. It drafts tasks from the spec as it is on disk, prints the stack with what judging changed and reported, and asks whether to write `manifest.json`.
+
+- Running `cairn plan` again after editing the spec continues from the file. It does not write the spec again.
+- `cairn plan --spec` stops after the first step without asking. `--yes` answers yes to both questions.
+
+### Planning again {#prd.planning.again}
+
+A PRD changes while its stack is being built. Running `cairn plan` on a plan that already has a spec and tasks adds to it and never rewrites what is there.
+
+- A PRD section that no spec section covers gets new spec sections, written to fit the spec that exists.
+- A spec section that no task builds gets new tasks. They take the next free IDs and may depend on tasks already in the manifest.
+- A task already in the manifest is never changed, renumbered or reordered, whatever its status.
+- Cairn records what each spec section was written from. When a PRD section changes afterwards, the spec sections that implement it are reported as out of date, and so are their tasks. Cairn rewrites an out-of-date spec section only when it wrote the section, nobody has edited it and no task builds it yet. Everything else is for a person to settle; changing a task that has started is v2's rebase flow.
+- `cairn plan --respec` writes the whole spec again and plans from nothing. It is refused once any task has left `pending`.
+
+### Diagrams {#prd.planning.diagrams}
+
+A spec explains some things better with a picture, and the plan keeps its pictures true.
+
+- The stack diagram in the spec is drawn by code from `manifest.json`, never by a model or by hand. Each write of the manifest draws it again, and `cairn lint` fails when the two disagree.
+- The planner draws a Mermaid diagram in a spec section where one says more than prose: the states of a machine, the messages between two processes, the path data takes. The planner prompt says when a diagram earns its place.
+- Every Mermaid block in the PRD and the spec has to draw. `cairn plan` sends a block that does not draw back to the planner once and then leaves it out with a warning; `cairn lint` reports one a person wrote.
+
+### Who writes the plan {#prd.planning.writers}
+
+Planning should cost a person nothing beyond what they already pay for.
+
+- By default the planner runs the agent CLI on the person's machine, Claude Code or Codex, without tools. It uses that CLI's own sign-in, so planning runs on a subscription and Cairn needs no key.
+- A person can give Cairn a provider and an API key instead: Anthropic, OpenAI, OpenRouter, or any endpoint that speaks the OpenAI API, which covers Google's models and open-weight models, hosted or local.
+- The planner's small calls, indexing a section and splitting one, can name a cheaper model than the calls that write the spec and draft the tasks.
+- A key is read from the environment and never stored. With no CLI found and no key set, `cairn plan` fails before it changes a file and says which setting to change.
+
+### Comparing planners {#prd.planning.comparing}
+
+- `cairn plan --dry-run` plans in memory and writes nothing. It prints the spec sections and the stack it would write, then one line of totals: sections, tasks, lint errors, flagged judgments and seconds taken.
+- `--source`, `--provider` and `--model` replace the config's planner for one run, so the same PRD can be planned by two models and the totals compared.
 
 ## Orchestrator contract {#prd.orchestrator-contract}
 
@@ -344,6 +390,9 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - With models and reasoning on, every task shows the model and reasoning it ran with, or the plan's choice marked as planned; with it off, none shows.
 - Opening a task shows its code in the detail panel without leaving the plan.
 - `cairn lint` catches an orphaned section ID and an unmapped PRD section.
+- With no API key set and Claude Code signed in, `cairn plan` on a new PRD writes a spec, stops for review, and after a yes writes a manifest that passes `cairn lint`.
+- Adding a section to this repo's PRD and running `cairn plan` adds spec sections and tasks for it and changes no task that was already in the manifest.
+- After `cairn plan`, the stack diagram in `spec.md` shows every task in the manifest, and editing the diagram by hand fails `cairn lint`.
 - A drafted task judged too large is broken down before the plan is printed, and the plan output says so.
 - A task's model is changed only when Jev is confident; otherwise the planner's choice stands and is reported as `unsure`.
 - A judgment on a task that has since changed shows as stale.
@@ -453,3 +502,6 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 - Cost per section and per model.
 - Judging during a run: before a task starts, and on its diff after it is done.
 - Adapters for Vercel Board and other agent message boards.
+- Cairn's commands as MCP tools, so an agent session plans as a participant in the room instead of being run by `cairn plan`.
+- Scoring planners against a reference plan, so a provider is chosen on measured quality and cost.
+- State diagrams drawn from the machines themselves.

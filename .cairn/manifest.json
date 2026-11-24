@@ -646,15 +646,17 @@
     },
     {
       "id": "t29",
-      "title": "Add the live language model layer and planner prompts",
-      "prdSections": ["prd.cli", "prd.implementation-in-effect"],
+      "title": "Add the planner's CLI source and its prompts",
+      "prdSections": ["prd.cli", "prd.implementation-in-effect", "prd.planning.writers"],
       "specSections": ["spec.planning.planner-service", "spec.libraries", "spec.models"],
       "files": [
         "packages/cli/src/models.ts",
+        "packages/cli/src/cli-model.ts",
         "packages/cli/src/planner.ts",
         "packages/cli/prompts/",
         "packages/cli/package.json",
-        "packages/cli/test/planner-live.test.ts"
+        "packages/cli/test/planner-live.test.ts",
+        "packages/cli/test/cli-model.test.ts"
       ],
       "branch": "cairn-mvp/29-planner-live",
       "parent": "t28",
@@ -673,7 +675,7 @@
     {
       "id": "t30",
       "title": "Add cairn plan",
-      "prdSections": ["prd.cli", "prd.manifest-schema"],
+      "prdSections": ["prd.cli", "prd.manifest-schema", "prd.planning.two-reviews"],
       "specSections": ["spec.planning.cairn-plan"],
       "files": [
         "packages/cli/src/commands/plan.ts",
@@ -2584,6 +2586,230 @@
       "worktree": "wt-31",
       "model": "opus",
       "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t106",
+      "title": "Add the API providers for the planner",
+      "prdSections": ["prd.planning.writers"],
+      "specSections": ["spec.models", "spec.libraries"],
+      "files": [
+        "packages/cli/src/models.ts",
+        "packages/cli/package.json",
+        "packages/cli/test/models.test.ts"
+      ],
+      "branch": "cairn-mvp/106-planner-providers",
+      "parent": "t29",
+      "dependsOn": ["t29"],
+      "worktree": "wt-32",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t107",
+      "title": "Record what each spec section was written from",
+      "prdSections": ["prd.planning.again"],
+      "specSections": ["spec.contract.spec-index"],
+      "files": [
+        "packages/contract/src/spec-index.ts",
+        "packages/contract/test/spec-index.test.ts",
+        ".cairn/spec.json"
+      ],
+      "branch": "cairn-mvp/107-written-from",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-33",
+      "model": "haiku",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t108",
+      "title": "Check that a Mermaid block draws",
+      "prdSections": ["prd.planning.diagrams"],
+      "specSections": ["spec.lint"],
+      "files": [
+        "packages/core/src/diagrams.ts",
+        "packages/core/src/index.ts",
+        "packages/core/package.json",
+        "packages/core/test/diagrams.test.ts"
+      ],
+      "branch": "cairn-mvp/108-diagram-draws",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-34",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t109",
+      "title": "Draw the stack diagram from the manifest",
+      "prdSections": ["prd.planning.diagrams"],
+      "specSections": ["spec.planning.stack-diagram"],
+      "files": [
+        "packages/core/src/stack-diagram.ts",
+        "packages/core/src/stacks.ts",
+        "packages/core/src/index.ts",
+        "apps/viewer/src/stacks.ts",
+        "packages/core/test/stack-diagram.test.ts",
+        ".cairn/spec.md"
+      ],
+      "branch": "cairn-mvp/109-stack-diagram",
+      "parent": null,
+      "dependsOn": ["t88", "t108"],
+      "worktree": "wt-34",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t110",
+      "title": "Keep diagrams true in cairn lint and cairn plan",
+      "prdSections": ["prd.planning.diagrams"],
+      "specSections": ["spec.lint", "spec.planning.planner-service", "spec.planning.stack-diagram"],
+      "files": [
+        "packages/core/src/lint.ts",
+        "packages/core/test/lint-diagrams.test.ts",
+        "packages/cli/src/planner.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/test/plan-diagrams.test.ts"
+      ],
+      "branch": "cairn-mvp/110-diagram-checks",
+      "parent": null,
+      "dependsOn": ["t30", "t109"],
+      "worktree": "wt-34",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t111",
+      "title": "Order new drafts after the tasks a manifest already has",
+      "prdSections": ["prd.planning.again"],
+      "specSections": ["spec.planning.stack-order"],
+      "files": ["packages/core/src/stack.ts", "packages/core/test/stack.test.ts"],
+      "branch": "cairn-mvp/111-stack-existing",
+      "parent": "t20",
+      "dependsOn": ["t20"],
+      "worktree": "wt-35",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t112",
+      "title": "Find what planning again has to add",
+      "prdSections": ["prd.planning.again"],
+      "specSections": ["spec.planning.again", "spec.lint"],
+      "files": [
+        "packages/core/src/replan.ts",
+        "packages/core/src/lint.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/replan.test.ts"
+      ],
+      "branch": "cairn-mvp/112-replan",
+      "parent": null,
+      "dependsOn": ["t26", "t107"],
+      "worktree": "wt-33",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t113",
+      "title": "Plan again after the PRD changes",
+      "prdSections": ["prd.planning.again"],
+      "specSections": [
+        "spec.planning.again",
+        "spec.planning.cairn-plan",
+        "spec.contract.spec-index"
+      ],
+      "files": [
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/src/planner.ts",
+        "packages/cli/src/spec-index.ts",
+        "packages/cli/test/plan-again.test.ts"
+      ],
+      "branch": "cairn-mvp/113-plan-again",
+      "parent": null,
+      "dependsOn": ["t30", "t63", "t110", "t111", "t112"],
+      "worktree": "wt-34",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t114",
+      "title": "Add dry runs and one-run planner choices to cairn plan",
+      "prdSections": ["prd.planning.comparing"],
+      "specSections": ["spec.planning.dry-run"],
+      "files": [
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/src/print-stack.ts",
+        "packages/cli/test/plan-dry-run.test.ts"
+      ],
+      "branch": "cairn-mvp/114-plan-dry-run",
+      "parent": null,
+      "dependsOn": ["t106", "t113"],
+      "worktree": "wt-32",
+      "model": "sonnet",
+      "reasoning": "medium",
       "humanGate": {
         "required": false,
         "reasons": []

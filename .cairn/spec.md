@@ -65,16 +65,17 @@ Already installed, and kept:
 
 New:
 
-| Library                                                                 | Version             | License    | Used for                                                                                                    |
-| ----------------------------------------------------------------------- | ------------------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
-| `@pierre/diffs`                                                         | 1.6.4               | Apache-2.0 | Parsing patches into hunks and rendering task and commit diffs                                              |
-| `@pierre/highlights`                                                    | 0.5.2               | Apache-2.0 | Syntax colours for fenced code in the viewer                                                                |
-| `pele`                                                                  | 1.13.0              | MIT        | Drawing Mermaid diagrams as SVG in the viewer                                                               |
-| `@xyflow/system`                                                        | 1.0.0               | MIT        | Bezier paths, viewport math and pan/zoom for the canvas; removed with it (see `spec.viewer.canvas-removal`) |
-| `@effect/ai-anthropic`                                                  | 4.1.5               | MIT        | The live `LanguageModel`, for the `Planner`                                                                 |
-| `@effect/ai-typesafe`                                                   | 4.1.5               | MIT        | The live `DecisionModel` (Jev), for the `Judge`                                                             |
-| `mdast-util-from-markdown`, `mdast-util-gfm`, `micromark-extension-gfm` | 2.1.0, 3.1.0, 3.0.0 | MIT        | Markdown to nodes for the viewer                                                                            |
-| `@foldkit/ui`                                                           | 0.171.0             | MIT        | The switch and the disclosure in the viewer's design system; pinned with `foldkit`                          |
+| Library                                                                  | Version             | License    | Used for                                                                                                    |
+| ------------------------------------------------------------------------ | ------------------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `@pierre/diffs`                                                          | 1.6.4               | Apache-2.0 | Parsing patches into hunks and rendering task and commit diffs                                              |
+| `@pierre/highlights`                                                     | 0.5.2               | Apache-2.0 | Syntax colours for fenced code in the viewer                                                                |
+| `pele`                                                                   | 1.13.0              | MIT        | Drawing Mermaid diagrams as SVG in the viewer, and checking that one draws in `cairn lint` and `cairn plan` |
+| `@xyflow/system`                                                         | 1.0.0               | MIT        | Bezier paths, viewport math and pan/zoom for the canvas; removed with it (see `spec.viewer.canvas-removal`) |
+| `@effect/ai-anthropic`                                                   | 4.1.5               | MIT        | A live `LanguageModel` for the `Planner` when `planner.source` is `api`                                     |
+| `@effect/ai-openai`, `@effect/ai-openai-compat`, `@effect/ai-openrouter` | 4.1.5               | MIT        | The other `api` providers (see `spec.models`)                                                               |
+| `@effect/ai-typesafe`                                                    | 4.1.5               | MIT        | The live `DecisionModel` (Jev), for the `Judge`                                                             |
+| `mdast-util-from-markdown`, `mdast-util-gfm`, `micromark-extension-gfm`  | 2.1.0, 3.1.0, 3.0.0 | MIT        | Markdown to nodes for the viewer                                                                            |
+| `@foldkit/ui`                                                            | 0.171.0             | MIT        | The switch and the disclosure in the viewer's design system; pinned with `foldkit`                          |
 
 Built into Node 24, so no package: `node:sqlite` for `cairn.db`, and `path.matchesGlob` for gate patterns. Diffs come from `git`, so the CLI needs no diff library.
 
@@ -89,6 +90,8 @@ Considered and left out:
 - The AI SDK (`ai`, `@ai-sdk/anthropic`, `@ai-sdk/typesafe-ai`). It would add a second schema language and a Promise API beside Effect, and `effect/ai` already covers both language and decision models with Effect Schema.
 - Cloudflare AI Gateway as a dependency. It is a proxy, not a library; `baseUrl` in config lets a user route through it (see `spec.models`).
 - Workers AI. Cairn runs on the user's machine, not in a Worker.
+- A Google provider package. `@effect/ai-google` has no 4.1.5 release, and Google's models answer the OpenAI API, so `openai-compatible` with a `baseUrl` reaches them.
+- The Claude Agent SDK for the `cli` source. It would run an agent loop inside Cairn; the planner needs one prompt in and one answer out, which `claude -p` gives with the person's own sign-in.
 
 ## Contract {#spec.contract}
 
@@ -318,8 +321,13 @@ Config = {
   humanPaths: Array<string> // defaults to the PRD's list
   redact: { deny: Array<string> } // defaults to []
   planner: {
-    model: string // defaults to "claude-opus-5-5"
-    baseUrl: string | undefined // e.g. a Cloudflare AI Gateway URL
+    source: "cli" | "api" // defaults to "cli"
+    cli: "claude" | "codex" // defaults to "claude"; read when source is "cli"
+    provider: "anthropic" | "openai" | "openrouter" | "openai-compatible" // defaults to "anthropic"; read when source is "api"
+    model: string | undefined // undefined leaves the choice to the CLI; required when source is "api"
+    small: string | undefined // the model for index and the two splits; defaults to model
+    keyEnv: string | undefined // the environment variable holding the key; defaults per provider
+    baseUrl: string | undefined // e.g. a Cloudflare AI Gateway URL; required for "openai-compatible"
   }
   judge: {
     model: string // defaults to "jev-1.14.0"
@@ -333,7 +341,7 @@ Config = {
 }
 ```
 
-A missing `.cairn/config.json` decodes to the defaults. `judge.pass` must be greater than `judge.flag`, and all three thresholds lie in `[0, 1]`. `judge.models` defaults to:
+A missing `.cairn/config.json` decodes to the defaults. A config whose `planner.source` is `api` with no `planner.model`, or whose provider is `openai-compatible` with no `planner.baseUrl`, fails to decode with a message naming the field. `judge.pass` must be greater than `judge.flag`, and all three thresholds lie in `[0, 1]`. `judge.models` defaults to:
 
 | Name     | When to use it                                                                     |
 | -------- | ---------------------------------------------------------------------------------- |
@@ -408,6 +416,11 @@ IndexedSection = {
   defers: Array<PrdSectionId>
   context: Array<PrdSectionId>
   tasks: Array<TaskId> // tasks whose specSections name this section
+  // recorded when the section is written or first indexed
+  writtenFrom: {
+    body: string | null // hash of the section's body as the planner wrote it; null for a section a person wrote
+    prd: Record<PrdSectionId, string> // hash of each PRD section it implements, as it was then
+  }
   // extracted from the section's prose by Planner.index
   summary: string
   requirements: Array<{ id: `${SpecSectionId}#r${number}`; level: "must" | "must-not" | "should" | "may"; text: string }>
@@ -418,6 +431,8 @@ IndexedSection = {
 ```
 
 `cairn plan` writes `spec.json` whenever it writes `spec.md` or `manifest.json`. Code fills the derived fields. `Planner.index` fills the rest, one call per section whose body changed; a section whose body is unchanged keeps its entry.
+
+`writtenFrom` is what planning again reads (see `spec.planning.again`). A hash is the SHA-256 of the section's body with trailing whitespace removed from each line, in hex. A section's body hash differing from `writtenFrom.body` means a person edited it. `writtenFrom` is set once, when the section is written or first indexed, and only a rewrite of that section replaces it.
 
 Until the CLI exists, `spec.json` is written by hand in this format, and the lint rule `index-drift` is what keeps it honest.
 
@@ -492,44 +507,75 @@ The plan stores the plan-time result in `humanGate`. Status derivation recompute
 
 ## Models {#spec.models}
 
-- Implements: `prd.implementation-in-effect`, `prd.judging-the-plan`
-- Files: `packages/cli/src/models.ts`
+- Implements: `prd.implementation-in-effect`, `prd.judging-the-plan`, `prd.planning.writers`
+- Files: `packages/cli/src/models.ts`, `packages/cli/src/cli-model.ts`
 - Depends on: `spec.contract.config`
 
 Cairn uses two kinds of model, each behind an `effect/ai` service. `models.ts` builds both Layers from config, and the CLI composition root provides them.
 
-| Service         | Does                                       | Live provider                                                         | Key                 | Used by   |
-| --------------- | ------------------------------------------ | --------------------------------------------------------------------- | ------------------- | --------- |
-| `LanguageModel` | Writes text and schema-decoded objects     | `@effect/ai-anthropic`, `AnthropicLanguageModel.model(planner.model)` | `ANTHROPIC_API_KEY` | `Planner` |
-| `DecisionModel` | Answers typed questions with probabilities | `@effect/ai-typesafe`, `TypeSafeDecisionModel.model(judge.model)`     | `TYPESAFE_API_KEY`  | `Judge`   |
+| Service         | Does                                       | Live layer                                                        | Used by   |
+| --------------- | ------------------------------------------ | ----------------------------------------------------------------- | --------- |
+| `LanguageModel` | Writes text and schema-decoded objects     | One of the planner sources below, chosen by `planner.source`      | `Planner` |
+| `DecisionModel` | Answers typed questions with probabilities | `@effect/ai-typesafe`, `TypeSafeDecisionModel.model(judge.model)` | `Judge`   |
 
-- Keys are read with `Config.Redacted`, never written and never logged. The `Redactor` adds both keys' values to its secret set, so a key in the shell environment is stripped from session logs like one in `.env`.
-- Layers are built only when a command needs them. A command that calls no model never reads a key. `cairn plan` without `ANTHROPIC_API_KEY` fails before it changes any file.
+The `cli` source, the default. `cli-model.ts` is a `LanguageModel` that runs the person's agent CLI once per call and reads its answer, so planning uses that CLI's sign-in and Cairn reads no key.
+
+| `planner.cli` | Command                                                      | Structured output                             |
+| ------------- | ------------------------------------------------------------ | --------------------------------------------- |
+| `claude`      | `claude -p --tools "" --output-format json`, prompt on stdin | `--json-schema` with the call's JSON Schema   |
+| `codex`       | `codex exec`, prompt on stdin                                | The schema flag `codex exec --help` documents |
+
+- `--model` is passed only when `planner.model` or `planner.small` is set.
+- The CLI runs with no tools, in a temporary directory, so it cannot read or change the repository. Everything it needs is in the prompt.
+- The command runs through `ChildProcess` from `effect/unstable/process`. A non-zero exit, or output that is not the expected JSON, is a `PlannerError` carrying the CLI's stderr.
+- Read `claude --help` and `codex exec --help` on the machine before writing the flags; both CLIs change often. A flag the installed CLI does not have fails with a message naming the CLI's version.
+- A binary that is not on `PATH` fails before any file changes: `claude was not found. Install Claude Code, or set planner.cli or planner.source in .cairn/config.json.`
+
+The `api` source. `planner.provider` picks the layer:
+
+| Provider            | Layer                                 | Key, unless `planner.keyEnv` names another |
+| ------------------- | ------------------------------------- | ------------------------------------------ |
+| `anthropic`         | `@effect/ai-anthropic`                | `ANTHROPIC_API_KEY`                        |
+| `openai`            | `@effect/ai-openai`                   | `OPENAI_API_KEY`                           |
+| `openrouter`        | `@effect/ai-openrouter`               | `OPENROUTER_API_KEY`                       |
+| `openai-compatible` | `@effect/ai-openai-compat`, `baseUrl` | `OPENAI_COMPATIBLE_API_KEY`, or none       |
+
+- `openai-compatible` is how Google's models and open-weight models are reached, hosted or on the person's machine. A local endpoint needs no key, so a missing key is not an error for this provider.
+- Read each package's `index.d.ts` for its layer and client constructors before writing `models.ts`.
+
+Both sources:
+
+- `languageModelFor(call)` gives the `Planner` its model per call: `planner.small` for `index`, `splitSection` and `splitTask` when it is set, and `planner.model` otherwise.
+- Keys are read with `Config.Redacted`, never written and never logged. The `Redactor` adds the value of every key Cairn reads to its secret set, so a key in the shell environment is stripped from session logs like one in `.env`.
+- Layers are built only when a command needs them. A command that calls no model never reads a key or looks for a CLI. `cairn plan` with `source: "api"` and no key for its provider fails before it changes any file.
 - `planner.baseUrl` and `judge.baseUrl` become each client's `apiUrl`. Setting them routes calls through a proxy, such as Cloudflare AI Gateway for logs, caching and spend. Cairn ships no gateway and needs no Cloudflare account.
 - The Jev model is pinned (`jev-1.14.0`, not `jev-latest`) so the same input gets the same model, and `judgments.json` records it.
-- No test reads a key or touches the network. `Planner` and `Judge` tests provide scripted Layers.
+- No test reads a key, touches the network or runs a real CLI. `Planner` and `Judge` tests provide scripted Layers. `cli-model.ts` is tested against a stub executable on a temporary `PATH` that prints a recorded answer: it gets the prompt on stdin and the schema flag, a non-zero exit becomes a `PlannerError` with its stderr, and a missing binary gives the message above.
 
 ## Planning {#spec.planning}
 
 ### Planner service {#spec.planning.planner-service}
 
-- Implements: `prd.cli`
+- Implements: `prd.cli`, `prd.planning.diagrams`
 - Files: `packages/cli/src/planner.ts`, `packages/cli/prompts/`
 - Depends on: `spec.models`
 
-Five calls, each with a prompt file in `packages/cli/prompts/`:
+Six calls, each with a prompt file in `packages/cli/prompts/`:
 
 - `spec(prd)` returns spec markdown. The prompt includes this file as its worked example.
-- `tasks(prd, spec)` returns `TaskDraft[]`: title, PRD and spec sections, files, the drafts it depends on, model and reasoning. Model and reasoning are proposals; routing (see `spec.judging.checkpoints`) can replace them.
+- `sections(prd, spec, prdSections)` returns markdown for new spec sections that implement the given PRD sections, written to sit in the spec it is given: it reuses that spec's names and files, and each section says which existing section it goes under.
+- `tasks(prd, spec, specSections, existing)` returns `TaskDraft[]` for the given spec sections: title, PRD and spec sections, files, what it depends on, model and reasoning. A draft depends on other drafts or on tasks in `existing`, by ID. On a first plan `specSections` is every section and `existing` is empty. Model and reasoning are proposals; routing (see `spec.judging.checkpoints`) can replace them.
 - `splitSection(section, reason)` returns markdown for two or more sections that replace it, under the same parent and with the same `Implements`.
 - `splitTask(draft, spec, reason)` returns two or more `TaskDraft`s that together cover the draft's spec sections and files.
 - `index(section)` returns the prose fields of an `IndexedSection` (see `spec.contract.spec-index`).
 
 `reason` is the judgment that asked for the split, so the prompt says what was wrong. Every structured output is decoded through its schema. A failed decode retries once with the error in the prompt, then fails with a `PlannerError`.
 
-The model never decides gates, IDs, branch names or order. Those are deterministic and tested.
+Diagrams. The `spec` and `sections` prompts say when to draw a Mermaid diagram: for a machine's states and events, for messages between two processes, and for data that passes through three or more steps, and not for anything a list already says. Each Mermaid block in the returned markdown goes through `drawsOf` (see `spec.lint`). A block that does not draw is sent back once with the error, as a failed decode is; if it still does not draw, the block is removed and the plan output warns, naming the section.
 
-The live layer uses the `LanguageModel` from `spec.models`, so the key comes from `ANTHROPIC_API_KEY` and is never written anywhere. The test layer replays fixtures: this `spec.md`, the drafts behind this repo's `manifest.json`, this repo's `spec.json`, and scripted splits.
+The model never decides gates, IDs, branch names, order or the stack diagram. Those are deterministic and tested.
+
+The live layer uses the `LanguageModel` from `spec.models`, whichever source config names. The test layer replays fixtures: this `spec.md`, the drafts behind this repo's `manifest.json`, this repo's `spec.json`, the sections and drafts of one later addition to the plan, and scripted splits.
 
 ### Stack order {#spec.planning.stack-order}
 
@@ -537,7 +583,7 @@ The live layer uses the `LanguageModel` from `spec.models`, so the key comes fro
 - Files: `packages/core/src/stack.ts`
 - Depends on: `spec.gates.detection`
 
-`stackOf(feature, drafts, gates)` returns the tasks as a set of stacks:
+`stackOf(feature, drafts, gates, existing)` returns the tasks as a set of stacks. `existing` is the tasks already in the manifest, empty on a first plan. They are returned as they are and placed first; the steps below order the drafts after them, with IDs continuing from the highest existing one, and a draft's parent, dependencies and worktree may be existing tasks.
 
 1. Topologically sort by dependency. Among tasks whose dependencies are placed, take gated ones first, then planner order. IDs are `t1`… in that order. Branches are `<feature>/<NN>-<slug>`.
 2. `dependsOn` is the draft's dependencies, as task IDs.
@@ -595,10 +641,11 @@ flowchart BT
     direction BT
     t11["t11 · 11-config-schema<br/>Add the config schema with defaults<br/>wt-8"]
     t28["t28 · 28-planner-service<br/>Add the Planner service with a fixture layer<br/>wt-8"]
-    t29["t29 · 29-planner-live<br/>Add the live language model layer and planner prompts<br/>wt-8"]
+    t29["t29 · 29-planner-live<br/>Add the planner's CLI source and its prompts<br/>wt-8"]
     t57["t57 · 57-decision-model<br/>Add the Jev decision model layer<br/>wt-17"]
     t61["t61 · 61-planner-split<br/>Add the split and index planner calls<br/>wt-17"]
     t55["t55 · 55-judgment-schema<br/>Add the judgments file schema and the judge config<br/>wt-15"]
+    t106["t106 · 106-planner-providers<br/>Add the API providers for the planner<br/>wt-32"]
   end
   subgraph s9["Stack 9 · status"]
     direction BT
@@ -627,6 +674,7 @@ flowchart BT
     t26["t26 · 26-lint-stack<br/>Lint parents, dependencies and gates<br/>wt-11"]
     t27["t27 · 27-cairn-lint<br/>Add cairn lint<br/>wt-11"]
     t66["t66 · 66-index-drift<br/>Lint spec.json for drift<br/>wt-11"]
+    t111["t111 · 111-stack-existing<br/>Order new drafts after the tasks a manifest already has<br/>wt-35"]
   end
   subgraph s14["Stack 14 · status"]
     direction BT
@@ -778,6 +826,34 @@ flowchart BT
     direction BT
     t105["t105 · 105-derive-model<br/>Test derivation against a model of its inputs<br/>wt-31"]
   end
+  subgraph s41["Stack 41 · contract"]
+    direction BT
+    t107["t107 · 107-written-from<br/>Record what each spec section was written from<br/>wt-33"]
+  end
+  subgraph s42["Stack 42 · lint"]
+    direction BT
+    t108["t108 · 108-diagram-draws<br/>Check that a Mermaid block draws<br/>wt-34"]
+  end
+  subgraph s43["Stack 43 · planning"]
+    direction BT
+    t109["t109 · 109-stack-diagram<br/>Draw the stack diagram from the manifest<br/>wt-34"]
+  end
+  subgraph s44["Stack 44 · lint"]
+    direction BT
+    t110["t110 · 110-diagram-checks<br/>Keep diagrams true in cairn lint and cairn plan<br/>wt-34"]
+  end
+  subgraph s45["Stack 45 · planning"]
+    direction BT
+    t112["t112 · 112-replan<br/>Find what planning again has to add<br/>wt-33"]
+  end
+  subgraph s46["Stack 46 · planning"]
+    direction BT
+    t113["t113 · 113-plan-again<br/>Plan again after the PRD changes<br/>wt-34"]
+  end
+  subgraph s47["Stack 47 · planning"]
+    direction BT
+    t114["t114 · 114-plan-dry-run<br/>Add dry runs and one-run planner choices to cairn plan<br/>wt-32"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -924,9 +1000,26 @@ flowchart BT
   t102 -.-> t104
   t32 -.-> t105
   t102 -.-> t105
-  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104 sonnet
-  class t11,t24,t27,t44,t56,t66,t102 haiku
+  t29 --> t106
+  main --> t107
+  main --> t108
+  t88 -.-> t109
+  t108 -.-> t109
+  t30 -.-> t110
+  t109 -.-> t110
+  t20 --> t111
+  t26 -.-> t112
+  t107 -.-> t112
+  t30 -.-> t113
+  t63 -.-> t113
+  t110 -.-> t113
+  t111 -.-> t113
+  t112 -.-> t113
+  t106 -.-> t114
+  t113 -.-> t114
+  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112 opus
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114 sonnet
+  class t11,t24,t27,t44,t56,t66,t102,t107 haiku
   class t1,t2,t3,t81,t97 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
   classDef sonnet fill:#2563eb,color:#ffffff,stroke:#1e3a8a
@@ -937,40 +1030,114 @@ flowchart BT
 
 ### `cairn plan` {#spec.planning.cairn-plan}
 
-- Implements: `prd.cli`
+- Implements: `prd.cli`, `prd.planning.two-reviews`
 - Files: `packages/cli/src/commands/plan.ts`
 - Depends on: `spec.planning.planner-service`, `spec.planning.stack-order`, `spec.lint`, `spec.sections.cairn-ids`, `spec.judging.checkpoints`, `spec.contract.spec-index`
 
+The command runs two steps and asks before each write that follows a model's work.
+
+Step 1, the spec:
+
 1. Assign missing IDs in `prd.md`.
-2. If `spec.md` is missing, or `--respec` is passed, generate it and assign its IDs. Otherwise keep the human's edits and plan from the file as it is.
-3. Draft tasks.
-4. If `TYPESAFE_API_KEY` is set, `refine` the spec and drafts (see `spec.judging.checkpoints`). Otherwise print `Judging skipped: TYPESAFE_API_KEY is not set.` and keep the drafts as they are.
-5. Compute gates, order the stack, ask the stack questions, and lint the result in memory.
-6. Print what judging changed, then the stack as `cairn status` would, with lint findings and `flag` or `unsure` judgments, and ask `Write manifest.json? [y/N]`. `--yes` skips the question.
-7. Refuse to write if lint has errors, or if an existing manifest has a task that is not `pending`. Re-planning a started stack is v2's rebase flow. Judgments never block the write.
-8. Write `spec.md` if it was generated or split, then `spec.json`, `manifest.json` and `judgments.json`.
+2. If `spec.md` is missing, or `--respec` is passed, generate it with `Planner.spec`. If it exists, find what planning again adds (see `spec.planning.again`). If there is nothing to write, go to step 2.
+3. If `TYPESAFE_API_KEY` is set, run the sections checkpoint on what was written (see `spec.judging.checkpoints`). Otherwise print `Judging skipped: TYPESAFE_API_KEY is not set.` once.
+4. Assign IDs, write `spec.md` and `spec.json`, and print each section written with its line and the PRD sections it implements.
+5. With `--spec`, stop. Otherwise ask `Draft tasks from this spec? [y/N]`. No stops with the spec on disk and prints `Edit .cairn/spec.md, then run cairn plan again.`
+
+Step 2, the tasks:
+
+6. Read `spec.md` from disk. Draft tasks for the spec sections that need them: every section on a first plan, and otherwise the ones `spec.planning.again` names.
+7. Run the task size and routing checkpoints on the drafts when the key is set.
+8. Compute gates, order the stack with the existing tasks, ask the stack questions, and lint the result in memory.
+9. Print what judging changed, then the stack as `cairn status` would with new tasks marked `new`, lint findings and `flag` or `unsure` judgments, and ask `Write manifest.json? [y/N]`.
+10. Refuse to write if lint has errors. Judgments never block the write.
+11. Write `manifest.json`, then `spec.md` with the stack diagram drawn again (see `spec.planning.stack-diagram`) and any split sections, then `spec.json` and `judgments.json`.
+
+- `--yes` answers yes to both questions.
+- `--respec` is refused when the manifest has a task that is not `pending`. It replaces the spec and the manifest; re-planning a started stack from nothing is v2's rebase flow.
+- A run that finds nothing to write in either step prints `The plan is up to date.` and exits 0.
+
+Tests use the scripted `Planner` and `Judge` in a temporary repository: answering no after the spec leaves `spec.md` written and no manifest; a second run does not call `Planner.spec` and plans from the edited file; `--spec` never asks; `--yes` writes both; a lint error refuses the write and leaves the manifest as it was.
+
+### Planning again {#spec.planning.again}
+
+- Implements: `prd.planning.again`
+- Files: `packages/core/src/replan.ts`, `packages/cli/src/commands/plan.ts`, `packages/core/src/lint.ts`
+- Depends on: `spec.planning.cairn-plan`, `spec.contract.spec-index`, `spec.planning.stack-order`, `spec.lint`
+
+`replanOf(prd, spec, index, manifest)` is pure and returns what a second `cairn plan` has to do:
+
+| Field           | Holds                                                                                                                           | `cairn plan` does                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `uncovered`     | PRD sections that are not covered (see `spec.format`)                                                                           | `Planner.sections` writes spec for them |
+| `rewritable`    | Spec sections Cairn wrote, nobody edited and no task builds, that implement a PRD section whose hash differs from `writtenFrom` | `Planner.sections` writes them again    |
+| `staleSections` | Every other spec section that implements a changed PRD section                                                                  | Reported                                |
+| `untasked`      | Spec sections with a `Files` key that no task names in `specSections`, and are not parents of sections that have tasks          | `Planner.tasks` drafts tasks for them   |
+| `staleTasks`    | Tasks whose spec sections are in `staleSections`, or whose spec section's body hash differs from the index's                    | Reported                                |
+
+- New spec sections go where the planner says: under the existing section it names, after that section's last child. A section it places nowhere goes at the end of the spec, before `spec.acceptance` when there is one.
+- A rewritten section keeps its ID and its place.
+- Existing tasks pass through `stackOf` untouched. After the write, every task that was in the manifest is equal to what it was, field for field.
+- `staleSections` and `staleTasks` are the lint rules `stale-section` and `stale-task`, so `cairn lint` and the plan output report them the same way. A person settles one by editing the spec section, which makes it theirs, or by accepting it: `cairn plan --accept <section>` records the current hashes in `writtenFrom` and changes nothing else.
+
+Tests: properties over generated plans with an added PRD section, that every existing task is unchanged and every new ID is higher than every old one; that a section a person edited is never in `rewritable`; that a section with a task is never in `rewritable`; and that `replanOf` of a plan just written is empty. One example in a temporary repository adds a section to a PRD and finds new spec sections, new tasks and an unchanged old manifest.
+
+### Stack diagram {#spec.planning.stack-diagram}
+
+- Implements: `prd.planning.diagrams`
+- Files: `packages/core/src/stack-diagram.ts`, `packages/core/src/stacks.ts`, `apps/viewer/src/stacks.ts`
+- Depends on: `spec.planning.stack-order`, `spec.viewer.stacks`
+
+`stackDiagramOf(manifest)` is pure and returns the Mermaid text of the plan's stacks, in the format of the diagram in `spec.planning.stack-order`: a `main` node, a subgraph per stack labelled `Stack N · <area>`, a node per task with its ID, branch slug, `GATE` when gated, title and worktree, a solid arrow from a parent, a dashed arrow from a dependency on another stack, and a class per model plus `gate`.
+
+- Which tasks form a stack, its number and its area are the viewer's rules (see `spec.viewer.stacks`). That grouping moves from `apps/viewer/src/stacks.ts` to `packages/core/src/stacks.ts`, and the viewer imports it, so the pane and the diagram cannot disagree. The viewer keeps its layout: rows, columns and levels.
+- The diagram sits between `<!-- cairn:stacks -->` and `<!-- /cairn:stacks -->` in `spec.md`. `withStackDiagram(spec, manifest)` replaces what is between them. A spec without the markers gets a `## Stacks {#spec.stacks}` section with a `Context` key naming the PRD's top section, before `spec.acceptance` when there is one and at the end otherwise.
+- `cairn plan` calls it on every manifest write. Nothing else writes between the markers.
+- Model classes come from the manifest's model names. `opus`, `sonnet` and `haiku` keep the colours this file uses; any other model takes one neutral class.
+
+Done when `stackDiagramOf` of this repo's manifest equals the diagram in this file byte for byte, with the markers added round it by this task, and the viewer's stacks tests pass against the moved grouping.
+
+Tests: properties that every task is a node in exactly one subgraph, every `parent` is a solid arrow and every other dependency a dashed one, the text draws (`drawsOf`), and `withStackDiagram` applied twice equals applied once and changes nothing outside the markers.
+
+### Dry runs {#spec.planning.dry-run}
+
+- Implements: `prd.planning.comparing`
+- Files: `packages/cli/src/commands/plan.ts`, `packages/cli/src/print-stack.ts`
+- Depends on: `spec.planning.cairn-plan`, `spec.models`
+
+- `cairn plan --dry-run` runs both steps in memory, asks nothing and writes nothing. It prints what step 4 and step 9 print, then one line: `planned <n> sections, <n> tasks, <n> lint errors, <n> flags in <n>s with <source> <provider or cli> <model>`.
+- `--source`, `--provider` and `--model` replace `planner.source`, `planner.provider` and `planner.model` for the run. The merged planner config is decoded again, so `--source api` with no model fails as the config would.
+- A dry run plans from the files on disk, so it also shows what planning again would add.
+
+Tests, with the scripted layers: a dry run leaves every file in `.cairn/` byte for byte as it was; the totals line counts what the scripted plan holds; `--source api` without a model fails before any call.
 
 ## Lint {#spec.lint}
 
-- Implements: `prd.cli`, `prd.section-ids`
-- Files: `packages/core/src/lint.ts`, `packages/cli/src/commands/lint.ts`
+- Implements: `prd.cli`, `prd.section-ids`, `prd.planning.diagrams`
+- Files: `packages/core/src/lint.ts`, `packages/core/src/diagrams.ts`, `packages/cli/src/commands/lint.ts`
 - Depends on: `spec.sections.parsing`, `spec.gates.detection`, `spec.planning.stack-order`
 
 `lint(prd, spec, manifest, config)` is pure and returns a list of `Finding`, each `{ rule, severity, file, line, message }`. The command prints `file:line rule message` and exits 1 on any error.
 
-| Rule                | Severity | Fires when                                                                                                        |
-| ------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
-| `unknown-section`   | error    | A task or spec key names an ID that no heading has, including a deleted heading                                   |
-| `unmapped-section`  | error    | A PRD section is not covered (see `spec.format`)                                                                  |
-| `missing-id`        | error    | A heading has no ID. The message says to run `cairn ids`                                                          |
-| `duplicate-id`      | error    | Two headings share an ID                                                                                          |
-| `wrong-prefix`      | error    | A `spec.` ID in `prd.md`, or the reverse                                                                          |
-| `bad-parent`        | error    | A parent or dependency that is not in the manifest, or a cycle                                                    |
-| `parent-mismatch`   | error    | `parent` differs from what `parentOf` computes from `dependsOn`                                                   |
-| `worktree-clash`    | error    | Two tasks share a `worktree` and neither depends on the other                                                     |
-| `gate-mismatch`     | error    | `humanGate` differs from what plan-time detection computes                                                        |
-| `no-commits-landed` | warning  | A task is `landed` with no commits                                                                                |
-| `index-drift`       | warning  | A derived field in `spec.json` differs from `spec.md` or `manifest.json`; the message names the section and field |
+| Rule                | Severity | Fires when                                                                                                                 |
+| ------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `unknown-section`   | error    | A task or spec key names an ID that no heading has, including a deleted heading                                            |
+| `unmapped-section`  | error    | A PRD section is not covered (see `spec.format`)                                                                           |
+| `missing-id`        | error    | A heading has no ID. The message says to run `cairn ids`                                                                   |
+| `duplicate-id`      | error    | Two headings share an ID                                                                                                   |
+| `wrong-prefix`      | error    | A `spec.` ID in `prd.md`, or the reverse                                                                                   |
+| `bad-parent`        | error    | A parent or dependency that is not in the manifest, or a cycle                                                             |
+| `parent-mismatch`   | error    | `parent` differs from what `parentOf` computes from `dependsOn`                                                            |
+| `worktree-clash`    | error    | Two tasks share a `worktree` and neither depends on the other                                                              |
+| `gate-mismatch`     | error    | `humanGate` differs from what plan-time detection computes                                                                 |
+| `no-commits-landed` | warning  | A task is `landed` with no commits                                                                                         |
+| `index-drift`       | warning  | A derived field in `spec.json` differs from `spec.md` or `manifest.json`; the message names the section and field          |
+| `bad-diagram`       | error    | A Mermaid block in `prd.md` or `spec.md` does not draw; the message carries the parser's error                             |
+| `diagram-drift`     | error    | The text between the stack diagram's markers differs from `stackDiagramOf(manifest)`. The message says to run `cairn plan` |
+| `stale-section`     | warning  | A spec section implements a PRD section that changed after the spec section was written (see `spec.planning.again`)        |
+| `stale-task`        | warning  | A task builds a spec section that is stale or was edited after the task was planned                                        |
+
+`drawsOf(mermaid)` in `diagrams.ts` returns the parser's error or nothing. It parses with `pele`, the library the viewer draws with, so a block that passes lint draws in the viewer. Read `pele`'s `core` and `detect` declarations for a parse that needs no DOM; lint runs in Node. `diagram-drift` does not fire on a spec with no markers and no manifest.
 
 ## Judging {#spec.judging}
 
@@ -1035,7 +1202,7 @@ Properties: raising a probability never turns `pass` into `flag`; lowering confi
 
 `refine({ prd, spec, drafts, specGenerated })` runs the first three checkpoints in order and returns the refined spec, the refined drafts and the judgments behind every change:
 
-1. Sections, only when `specGenerated` is true. A section whose `size` is `too_large` with confidence at or above `judge.minConfidence` goes to `Planner.splitSection`. Its replacement sections get IDs and are judged again. `too_small`, `faithful` and `buildable` are reported. A spec a human wrote or edited is reported on, never rewritten.
+1. Sections, only for the sections written in this run: every section when `specGenerated` is true, and the new or rewritten ones when planning again. A section whose `size` is `too_large` with confidence at or above `judge.minConfidence` goes to `Planner.splitSection`. Its replacement sections get IDs and are judged again. `too_small`, `faithful` and `buildable` are reported. A spec a human wrote or edited is reported on, never rewritten.
 2. Task size. A draft whose `size` is confidently `too_large` goes to `Planner.splitTask`, and the new drafts are judged again. `too_small` and `matches` are reported.
 3. Routing. Each draft's `model` and `reasoning` answers go through `routeOf`. A confident answer replaces the planner's value; otherwise the planner's value stays and the judgment is `unsure`.
 
@@ -1938,21 +2105,24 @@ The test fails when an agent's `done` approves a gated task, or a landing skips 
 
 - Implements: `prd.acceptance-criteria`
 
-| PRD criterion                                          | How it is checked                                                                                                                    |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Three or more stacked tasks on a RinkSide feature      | Dogfood run; `cairn status` output kept with the feature                                                                             |
-| Trailers and resolvable sessions                       | `cairn status` warns on a commit without trailers or with a session missing from `cairn.db`                                          |
-| A migrations task is gated and blocks children         | Derivation property test: no child leaves `pending` before a human approves its gated parent                                         |
-| Correct status and two clicks to commits               | Rollup property tests; a Scene test clicks a section and then a commit                                                               |
-| Lint catches orphaned and unmapped sections            | Lint tests for `unknown-section` and `unmapped-section`                                                                              |
-| An oversized draft is broken down before printing      | `refine` test: a scripted `too_large` answer splits a draft, and the plan output lists the split                                     |
-| A model changes only when Jev is confident             | `routeOf` property test and a `refine` test with a low-confidence `model` answer                                                     |
-| A changed task's judgment shows stale                  | Trace test: edit a task and check `stale`                                                                                            |
-| Planning without `TYPESAFE_API_KEY` still writes       | `cairn plan` test with no key: manifest written, skip message printed                                                                |
-| A task's stacked diff opens highlighted                | Patch route tests; a Scene opens a task and finds its range requested and mounted; `diffOptionsOf` test                              |
-| Hunks reach the turn that wrote them                   | `attributionOf` property test; a story sends `ClickedHunkMark` and a Scene finds the turn                                            |
-| Fuzzy search finds and highlights text and its chain   | Matching properties and Scene tests for navigation, markdown spans, refresh, and preserving the pin on clear                         |
-| Scrolling the PRD changes the cards and the lit stacks | `sectionAtTop` properties; a Scene sends `ScrolledPrd` and finds the cards and current chips of that section; a pinned section holds |
-| Models and reasoning show what ran or what is planned  | `ranOf` properties; a Scene finds `data-ran` on rows and chips and none of them with the switch off                                  |
-| A task's code shows in the detail panel                | A Scene clicks a task row and finds the diff mount keyed by the task's range, with the reader still under it                         |
-| A broken broadcast or Escape fails a model-based test  | The presence and reader model tests, each broken once by its task, print the shortest failing event sequence                         |
+| PRD criterion                                                  | How it is checked                                                                                                                    |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Three or more stacked tasks on a RinkSide feature              | Dogfood run; `cairn status` output kept with the feature                                                                             |
+| Trailers and resolvable sessions                               | `cairn status` warns on a commit without trailers or with a session missing from `cairn.db`                                          |
+| A migrations task is gated and blocks children                 | Derivation property test: no child leaves `pending` before a human approves its gated parent                                         |
+| Correct status and two clicks to commits                       | Rollup property tests; a Scene test clicks a section and then a commit                                                               |
+| Lint catches orphaned and unmapped sections                    | Lint tests for `unknown-section` and `unmapped-section`                                                                              |
+| An oversized draft is broken down before printing              | `refine` test: a scripted `too_large` answer splits a draft, and the plan output lists the split                                     |
+| A model changes only when Jev is confident                     | `routeOf` property test and a `refine` test with a low-confidence `model` answer                                                     |
+| A changed task's judgment shows stale                          | Trace test: edit a task and check `stale`                                                                                            |
+| Planning with no API key writes a spec, stops, then a manifest | `cairn plan` test with the stub CLI on `PATH` and no key: spec written, no manifest after a no, a linted manifest after a yes        |
+| Planning again adds and changes no existing task               | The `replanOf` properties and the temporary repository example in `spec.planning.again`                                              |
+| The stack diagram matches the manifest                         | `stackDiagramOf` of this repo's manifest equals the diagram in this file; a lint test edits the diagram and finds `diagram-drift`    |
+| Planning without `TYPESAFE_API_KEY` still writes               | `cairn plan` test with no key: manifest written, skip message printed                                                                |
+| A task's stacked diff opens highlighted                        | Patch route tests; a Scene opens a task and finds its range requested and mounted; `diffOptionsOf` test                              |
+| Hunks reach the turn that wrote them                           | `attributionOf` property test; a story sends `ClickedHunkMark` and a Scene finds the turn                                            |
+| Fuzzy search finds and highlights text and its chain           | Matching properties and Scene tests for navigation, markdown spans, refresh, and preserving the pin on clear                         |
+| Scrolling the PRD changes the cards and the lit stacks         | `sectionAtTop` properties; a Scene sends `ScrolledPrd` and finds the cards and current chips of that section; a pinned section holds |
+| Models and reasoning show what ran or what is planned          | `ranOf` properties; a Scene finds `data-ran` on rows and chips and none of them with the switch off                                  |
+| A task's code shows in the detail panel                        | A Scene clicks a task row and finds the diff mount keyed by the task's range, with the reader still under it                         |
+| A broken broadcast or Escape fails a model-based test          | The presence and reader model tests, each broken once by its task, print the shortest failing event sequence                         |

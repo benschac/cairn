@@ -318,7 +318,7 @@
       "dependsOn": [],
       "defers": [],
       "context": [],
-      "tasks": ["t29", "t42", "t53", "t57"],
+      "tasks": ["t29", "t42", "t53", "t57", "t106"],
       "summary": "Names the libraries kept and added with versions and uses, the Node built-ins relied on, and the libraries considered and left out.",
       "requirements": [
         {
@@ -430,6 +430,27 @@
           "name": "path.matchesGlob",
           "location": null,
           "description": "Built into Node 24; used for gate patterns."
+        },
+        {
+          "id": "spec.libraries#library:effect-ai-openai",
+          "kind": "library",
+          "name": "@effect/ai-openai",
+          "location": null,
+          "description": "An api provider for the planner. Version 4.1.5."
+        },
+        {
+          "id": "spec.libraries#library:effect-ai-openai-compat",
+          "kind": "library",
+          "name": "@effect/ai-openai-compat",
+          "location": null,
+          "description": "An api provider for the planner. Version 4.1.5."
+        },
+        {
+          "id": "spec.libraries#library:effect-ai-openrouter",
+          "kind": "library",
+          "name": "@effect/ai-openrouter",
+          "location": null,
+          "description": "An api provider for the planner. Version 4.1.5."
         }
       ],
       "tests": [],
@@ -480,7 +501,7 @@
       "id": "spec.contract",
       "title": "Contract",
       "level": 2,
-      "line": 93,
+      "line": 96,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.contract.section-ids",
@@ -522,7 +543,7 @@
       "id": "spec.contract.section-ids",
       "title": "Section IDs",
       "level": 3,
-      "line": 100,
+      "line": 103,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -584,7 +605,7 @@
       "id": "spec.contract.manifest",
       "title": "Manifest",
       "level": 3,
-      "line": 109,
+      "line": 112,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -788,7 +809,7 @@
       "id": "spec.contract.events",
       "title": "Events",
       "level": 3,
-      "line": 148,
+      "line": 151,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -896,7 +917,7 @@
       "id": "spec.contract.trailers",
       "title": "Trailers",
       "level": 3,
-      "line": 172,
+      "line": 175,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -967,7 +988,7 @@
       "id": "spec.contract.trace",
       "title": "Trace",
       "level": 3,
-      "line": 186,
+      "line": 189,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1087,7 +1108,7 @@
       "id": "spec.contract.session",
       "title": "Session",
       "level": 3,
-      "line": 262,
+      "line": 265,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1156,7 +1177,7 @@
       "id": "spec.contract.config",
       "title": "Config",
       "level": 3,
-      "line": 310,
+      "line": 313,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1177,6 +1198,31 @@
           "id": "spec.contract.config#r2",
           "level": "must",
           "text": "judge.pass is greater than judge.flag, and all three thresholds lie in [0, 1]."
+        },
+        {
+          "id": "spec.contract.config#r3",
+          "level": "must",
+          "text": "planner.source defaults to cli and planner.cli to claude; planner.provider defaults to anthropic."
+        },
+        {
+          "id": "spec.contract.config#r4",
+          "level": "must",
+          "text": "planner.model is optional with source cli and required with source api."
+        },
+        {
+          "id": "spec.contract.config#r5",
+          "level": "must",
+          "text": "planner.small names the model for index and the two splits and defaults to planner.model."
+        },
+        {
+          "id": "spec.contract.config#r6",
+          "level": "must",
+          "text": "planner.keyEnv names the environment variable holding the key and defaults per provider."
+        },
+        {
+          "id": "spec.contract.config#r7",
+          "level": "must",
+          "text": "A config with provider openai-compatible and no planner.baseUrl fails to decode with a message naming the field."
         }
       ],
       "artifacts": [
@@ -1277,7 +1323,7 @@
       "id": "spec.contract.judgments",
       "title": "Judgments",
       "level": 3,
-      "line": 344,
+      "line": 352,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1345,7 +1391,7 @@
       "id": "spec.contract.spec-index",
       "title": "Spec index",
       "level": 3,
-      "line": 379,
+      "line": 387,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1354,7 +1400,7 @@
       "dependsOn": ["spec.sections.parsing", "spec.planning.planner-service"],
       "defers": [],
       "context": [],
-      "tasks": ["t56", "t63"],
+      "tasks": ["t56", "t63", "t107", "t113"],
       "summary": "Defines spec.json, a structured copy of spec.md: derived fields filled by code and prose fields extracted by Planner.index; written by hand until the CLI exists.",
       "requirements": [
         {
@@ -1396,6 +1442,21 @@
           "id": "spec.contract.spec-index#r8",
           "level": "must",
           "text": "A decision's why is null when the spec gives no reason."
+        },
+        {
+          "id": "spec.contract.spec-index#r9",
+          "level": "must",
+          "text": "Each IndexedSection carries writtenFrom: a hash of its body as the planner wrote it, null for a section a person wrote, and a hash of each PRD section it implements."
+        },
+        {
+          "id": "spec.contract.spec-index#r10",
+          "level": "must",
+          "text": "A hash is the SHA-256, in hex, of the section's body with trailing whitespace removed from each line."
+        },
+        {
+          "id": "spec.contract.spec-index#r11",
+          "level": "must",
+          "text": "writtenFrom is set when the section is written or first indexed, and only a rewrite of that section replaces it."
         }
       ],
       "artifacts": [
@@ -1441,7 +1502,7 @@
       "id": "spec.contract.javascript-entry",
       "title": "JavaScript entry",
       "level": 3,
-      "line": 424,
+      "line": 439,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1610,7 +1671,7 @@
       "id": "spec.sections",
       "title": "Sections",
       "level": 2,
-      "line": 439,
+      "line": 454,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.sections.parsing", "spec.sections.cairn-ids"],
       "human": false,
@@ -1630,7 +1691,7 @@
       "id": "spec.sections.parsing",
       "title": "Parsing",
       "level": 3,
-      "line": 441,
+      "line": 456,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -1765,7 +1826,7 @@
       "id": "spec.sections.cairn-ids",
       "title": "`cairn ids`",
       "level": 3,
-      "line": 463,
+      "line": 478,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -1822,7 +1883,7 @@
       "id": "spec.gates",
       "title": "Gates",
       "level": 2,
-      "line": 471,
+      "line": 486,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.gates.path-matching", "spec.gates.detection"],
       "human": false,
@@ -1842,7 +1903,7 @@
       "id": "spec.gates.path-matching",
       "title": "Path matching",
       "level": 3,
-      "line": 473,
+      "line": 488,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -1892,7 +1953,7 @@
       "id": "spec.gates.detection",
       "title": "Detection",
       "level": 3,
-      "line": 480,
+      "line": 495,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -1947,17 +2008,21 @@
       "id": "spec.models",
       "title": "Models",
       "level": 2,
-      "line": 493,
+      "line": 508,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
-      "implements": ["prd.implementation-in-effect", "prd.judging-the-plan"],
-      "files": ["packages/cli/src/models.ts"],
+      "implements": [
+        "prd.implementation-in-effect",
+        "prd.judging-the-plan",
+        "prd.planning.writers"
+      ],
+      "files": ["packages/cli/src/models.ts", "packages/cli/src/cli-model.ts"],
       "dependsOn": ["spec.contract.config"],
       "defers": [],
       "context": [],
-      "tasks": ["t29", "t57"],
-      "summary": "Defines the two model services: LanguageModel (Anthropic) for the Planner and DecisionModel (TypeSafe Jev) for the Judge, with keys from the environment, optional base URLs and a pinned Jev version.",
+      "tasks": ["t29", "t57", "t106"],
+      "summary": "Defines the two model services. LanguageModel comes from a planner source: the person's agent CLI by default, so planning runs on a subscription, or an API provider with a key. DecisionModel is TypeSafe Jev for the Judge, pinned to a version.",
       "requirements": [
         {
           "id": "spec.models#r1",
@@ -1967,7 +2032,7 @@
         {
           "id": "spec.models#r2",
           "level": "must",
-          "text": "Keys are read with Config.Redacted from ANTHROPIC_API_KEY and TYPESAFE_API_KEY."
+          "text": "Keys are read with Config.Redacted from the provider's environment variable, or the one planner.keyEnv names, and from TYPESAFE_API_KEY."
         },
         {
           "id": "spec.models#r3",
@@ -1977,7 +2042,7 @@
         {
           "id": "spec.models#r4",
           "level": "must",
-          "text": "The Redactor adds both keys' values to its secret set."
+          "text": "The Redactor adds the value of every key Cairn reads to its secret set."
         },
         {
           "id": "spec.models#r5",
@@ -1987,7 +2052,7 @@
         {
           "id": "spec.models#r6",
           "level": "must",
-          "text": "cairn plan without ANTHROPIC_API_KEY fails before it changes any file."
+          "text": "cairn plan with source api and no key for its provider fails before it changes any file."
         },
         {
           "id": "spec.models#r7",
@@ -2008,6 +2073,51 @@
           "id": "spec.models#r10",
           "level": "must-not",
           "text": "No test reads a key or touches the network."
+        },
+        {
+          "id": "spec.models#r11",
+          "level": "must",
+          "text": "planner.source picks the LanguageModel layer: cli, the default, or api."
+        },
+        {
+          "id": "spec.models#r12",
+          "level": "must",
+          "text": "The cli source runs claude -p or codex exec once per call with the prompt on stdin, no tools and a temporary working directory."
+        },
+        {
+          "id": "spec.models#r13",
+          "level": "must",
+          "text": "The cli source passes the call's JSON Schema to the CLI's structured output flag."
+        },
+        {
+          "id": "spec.models#r14",
+          "level": "must",
+          "text": "A non-zero exit or unexpected output from the CLI is a PlannerError carrying its stderr."
+        },
+        {
+          "id": "spec.models#r15",
+          "level": "must",
+          "text": "A CLI that is not on PATH fails before any file changes, with a message naming planner.cli and planner.source."
+        },
+        {
+          "id": "spec.models#r16",
+          "level": "must",
+          "text": "planner.provider picks the api layer: anthropic, openai, openrouter or openai-compatible."
+        },
+        {
+          "id": "spec.models#r17",
+          "level": "must-not",
+          "text": "A missing key is not an error for the openai-compatible provider."
+        },
+        {
+          "id": "spec.models#r18",
+          "level": "must",
+          "text": "languageModelFor(call) uses planner.small for index, splitSection and splitTask when it is set."
+        },
+        {
+          "id": "spec.models#r19",
+          "level": "must-not",
+          "text": "No test runs a real CLI; cli-model.ts is tested against a stub executable on a temporary PATH."
         }
       ],
       "artifacts": [
@@ -2059,6 +2169,20 @@
           "name": "TYPESAFE_API_KEY",
           "location": null,
           "description": "Key for the decision model."
+        },
+        {
+          "id": "spec.models#file:cli-model",
+          "kind": "file",
+          "name": "cli-model.ts",
+          "location": "packages/cli/src/cli-model.ts",
+          "description": "A LanguageModel that runs the person's agent CLI once per call."
+        },
+        {
+          "id": "spec.models#function:languagemodelfor",
+          "kind": "function",
+          "name": "languageModelFor",
+          "location": "packages/cli/src/models.ts",
+          "description": "The model for one planner call: planner.small for the small calls, planner.model otherwise."
         }
       ],
       "tests": [],
@@ -2072,6 +2196,11 @@
           "id": "spec.models#d3",
           "text": "Pin the Jev model to jev-1.14.0, not jev-latest.",
           "why": "So the same input gets the same model; judgments.json records it."
+        },
+        {
+          "id": "spec.models#d3",
+          "text": "The default planner source is the person's agent CLI, not an API key.",
+          "why": "It uses the CLI's own sign-in, so planning runs on a subscription and Cairn needs no key."
         }
       ]
     },
@@ -2079,12 +2208,15 @@
       "id": "spec.planning",
       "title": "Planning",
       "level": 2,
-      "line": 512,
+      "line": 555,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.planning.planner-service",
         "spec.planning.stack-order",
-        "spec.planning.cairn-plan"
+        "spec.planning.cairn-plan",
+        "spec.planning.again",
+        "spec.planning.stack-diagram",
+        "spec.planning.dry-run"
       ],
       "human": false,
       "implements": [],
@@ -2103,17 +2235,17 @@
       "id": "spec.planning.planner-service",
       "title": "Planner service",
       "level": 3,
-      "line": 514,
+      "line": 557,
       "parent": "spec.planning",
       "children": [],
       "human": false,
-      "implements": ["prd.cli"],
+      "implements": ["prd.cli", "prd.planning.diagrams"],
       "files": ["packages/cli/src/planner.ts", "packages/cli/prompts/"],
       "dependsOn": ["spec.models"],
       "defers": [],
       "context": [],
-      "tasks": ["t28", "t29", "t61"],
-      "summary": "The planner makes five calls through the LanguageModel: spec, tasks, splitSection, splitTask and index, each with a prompt file and one decode retry; model and reasoning are proposals, and the model never decides gates, IDs, branch names or order.",
+      "tasks": ["t28", "t29", "t61", "t110"],
+      "summary": "The Planner service makes six model calls (spec, sections, tasks, splitSection, splitTask, index), each decoded through its schema with one retry, checks that every Mermaid block it returns draws, and never decides gates, IDs, branches, order or the stack diagram.",
       "requirements": [
         {
           "id": "spec.planning.planner-service#r1",
@@ -2169,6 +2301,31 @@
           "id": "spec.planning.planner-service#r11",
           "level": "must",
           "text": "The test layer replays fixtures: this spec.md, the drafts behind manifest.json, this repo's spec.json and scripted splits."
+        },
+        {
+          "id": "spec.planning.planner-service#r12",
+          "level": "must",
+          "text": "sections(prd, spec, prdSections) returns new spec sections for the given PRD sections, each saying which existing section it goes under."
+        },
+        {
+          "id": "spec.planning.planner-service#r13",
+          "level": "must",
+          "text": "tasks(prd, spec, specSections, existing) drafts tasks for the given spec sections, and a draft may depend on an existing task by ID."
+        },
+        {
+          "id": "spec.planning.planner-service#r14",
+          "level": "must",
+          "text": "The spec and sections prompts say when to draw a Mermaid diagram."
+        },
+        {
+          "id": "spec.planning.planner-service#r15",
+          "level": "must",
+          "text": "A Mermaid block that does not draw is sent back once with the error, then removed with a warning naming the section."
+        },
+        {
+          "id": "spec.planning.planner-service#r16",
+          "level": "must-not",
+          "text": "The model never decides the stack diagram."
         }
       ],
       "artifacts": [
@@ -2292,7 +2449,7 @@
       "id": "spec.planning.stack-order",
       "title": "Stack order",
       "level": 3,
-      "line": 534,
+      "line": 580,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2301,7 +2458,7 @@
       "dependsOn": ["spec.gates.detection"],
       "defers": [],
       "context": [],
-      "tasks": ["t20"],
+      "tasks": ["t20", "t111"],
       "summary": "stackOf orders drafts by dependency and returns a set of stacks: parentOf puts a task on the latest of its dependencies when they share one chain, and starts it from baseBranch after they land when they do not.",
       "requirements": [
         {
@@ -2368,6 +2525,11 @@
           "id": "spec.planning.stack-order#r13",
           "level": "must",
           "text": "The diagram is redrawn whenever the manifest changes; a viewer test fails when the two disagree."
+        },
+        {
+          "id": "spec.planning.stack-order#r14",
+          "level": "must",
+          "text": "stackOf takes the manifest's existing tasks, returns them as they are, and orders drafts after them with IDs continuing from the highest."
         }
       ],
       "artifacts": [
@@ -2407,11 +2569,11 @@
       "id": "spec.planning.cairn-plan",
       "title": "`cairn plan`",
       "level": 3,
-      "line": 938,
+      "line": 1031,
       "parent": "spec.planning",
       "children": [],
       "human": false,
-      "implements": ["prd.cli"],
+      "implements": ["prd.cli", "prd.planning.two-reviews"],
       "files": ["packages/cli/src/commands/plan.ts"],
       "dependsOn": [
         "spec.planning.planner-service",
@@ -2423,8 +2585,8 @@
       ],
       "defers": [],
       "context": [],
-      "tasks": ["t30", "t64"],
-      "summary": "cairn plan assigns IDs, generates or reuses the spec, drafts and orders tasks, lints in memory, confirms and writes manifest.json.",
+      "tasks": ["t30", "t64", "t113"],
+      "summary": "cairn plan runs two steps with a review after each: it writes the spec and asks before drafting tasks, then drafts, judges, orders and lints the tasks and asks before writing manifest.json. A second run continues from the files on disk.",
       "requirements": [
         {
           "id": "spec.planning.cairn-plan#r1",
@@ -2434,47 +2596,67 @@
         {
           "id": "spec.planning.cairn-plan#r2",
           "level": "must",
-          "text": "If spec.md is missing or --respec is passed, generate it and assign its IDs; otherwise keep the human's edits."
+          "text": "If spec.md is missing or --respec is passed, generate it with Planner.spec; if it exists, find what planning again adds."
         },
         {
           "id": "spec.planning.cairn-plan#r3",
           "level": "must",
-          "text": "Draft tasks."
+          "text": "If TYPESAFE_API_KEY is set, run the sections checkpoint on what was written; otherwise print \"Judging skipped: TYPESAFE_API_KEY is not set.\" once."
         },
         {
           "id": "spec.planning.cairn-plan#r4",
           "level": "must",
-          "text": "If TYPESAFE_API_KEY is set, refine the spec and drafts; otherwise print \"Judging skipped: TYPESAFE_API_KEY is not set.\" and keep the drafts."
+          "text": "Write spec.md and spec.json, and print each section written with its line and the PRD sections it implements."
         },
         {
           "id": "spec.planning.cairn-plan#r5",
           "level": "must",
-          "text": "Compute gates, order the stack, ask the stack questions, and lint in memory."
+          "text": "With --spec, stop after the spec; otherwise ask \"Draft tasks from this spec? [y/N]\", and on no leave the spec on disk."
         },
         {
           "id": "spec.planning.cairn-plan#r6",
           "level": "must",
-          "text": "Print what judging changed, then the stack with lint findings and flag or unsure judgments, and ask \"Write manifest.json? [y/N]\"."
+          "text": "Draft tasks from spec.md as it is on disk."
         },
         {
           "id": "spec.planning.cairn-plan#r7",
           "level": "must",
-          "text": "--yes skips the question."
+          "text": "Compute gates, order the stack with the existing tasks, ask the stack questions, and lint in memory."
         },
         {
           "id": "spec.planning.cairn-plan#r8",
           "level": "must",
-          "text": "Refuse to write if lint has errors, or if an existing manifest has a task that is not pending."
+          "text": "Print what judging changed, then the stack with new tasks marked, lint findings and flag or unsure judgments, and ask \"Write manifest.json? [y/N]\"."
         },
         {
           "id": "spec.planning.cairn-plan#r9",
+          "level": "must",
+          "text": "Refuse to write if lint has errors."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r10",
           "level": "must-not",
           "text": "Judgments never block the write."
         },
         {
-          "id": "spec.planning.cairn-plan#r10",
+          "id": "spec.planning.cairn-plan#r11",
           "level": "must",
-          "text": "Write spec.md if it was generated or split, then spec.json, manifest.json and judgments.json."
+          "text": "Write manifest.json, then spec.md with the stack diagram drawn again, then spec.json and judgments.json."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r12",
+          "level": "must",
+          "text": "--yes answers yes to both questions."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r13",
+          "level": "must",
+          "text": "--respec is refused when the manifest has a task that is not pending."
+        },
+        {
+          "id": "spec.planning.cairn-plan#r14",
+          "level": "must",
+          "text": "A run with nothing to write prints \"The plan is up to date.\" and exits 0."
         }
       ],
       "artifacts": [
@@ -2484,46 +2666,383 @@
           "kind": "command",
           "name": "cairn plan",
           "description": "Plans the task stack and writes manifest.json.",
-          "signature": "cairn plan [--respec] [--yes]"
+          "signature": "cairn plan [--spec] [--respec] [--yes] [--dry-run] [--accept <section>]"
         },
         {
           "id": "spec.planning.cairn-plan#flag:respec",
           "location": null,
           "kind": "flag",
           "name": "--respec",
-          "description": "Regenerate spec.md even if it exists."
+          "description": "Writes the whole spec again and plans from nothing; refused once a task has left pending."
         },
         {
           "id": "spec.planning.cairn-plan#flag:yes",
           "location": null,
           "kind": "flag",
           "name": "--yes",
-          "description": "Skips the Write manifest.json? question."
+          "description": "Answers yes to both questions."
+        },
+        {
+          "id": "spec.planning.cairn-plan#flag:spec",
+          "location": null,
+          "kind": "flag",
+          "name": "--spec",
+          "description": "Stops after the spec step without asking."
         }
       ],
-      "tests": [],
+      "tests": [
+        {
+          "id": "spec.planning.cairn-plan#t1",
+          "kind": "integration",
+          "text": "Answering no after the spec leaves spec.md written and no manifest."
+        },
+        {
+          "id": "spec.planning.cairn-plan#t2",
+          "kind": "integration",
+          "text": "A second run does not call Planner.spec and plans from the edited file."
+        },
+        {
+          "id": "spec.planning.cairn-plan#t3",
+          "kind": "integration",
+          "text": "--spec never asks, and --yes writes both."
+        },
+        {
+          "id": "spec.planning.cairn-plan#t4",
+          "kind": "integration",
+          "text": "A lint error refuses the write and leaves the manifest as it was."
+        }
+      ],
       "decisions": [
         {
           "id": "spec.planning.cairn-plan#d1",
-          "text": "Re-planning a started stack is not supported in the MVP; it is left to v2's rebase flow.",
-          "why": "Re-planning a started stack is v2's rebase flow."
+          "text": "Planning from nothing over a started stack is not supported in the MVP; planning again only adds.",
+          "why": "Re-planning a started stack from nothing is v2's rebase flow."
         }
       ]
+    },
+    {
+      "id": "spec.planning.again",
+      "title": "Planning again",
+      "level": 3,
+      "line": 1062,
+      "parent": "spec.planning",
+      "children": [],
+      "human": false,
+      "implements": ["prd.planning.again"],
+      "files": [
+        "packages/core/src/replan.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/core/src/lint.ts"
+      ],
+      "dependsOn": [
+        "spec.planning.cairn-plan",
+        "spec.contract.spec-index",
+        "spec.planning.stack-order",
+        "spec.lint"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t112", "t113"],
+      "summary": "replanOf finds what a second cairn plan adds: spec for uncovered PRD sections, tasks for spec sections without one, and reports of what went stale. Existing tasks are never changed.",
+      "requirements": [
+        {
+          "id": "spec.planning.again#r1",
+          "level": "must",
+          "text": "replanOf(prd, spec, index, manifest) is pure and returns uncovered, rewritable, staleSections, untasked and staleTasks."
+        },
+        {
+          "id": "spec.planning.again#r2",
+          "level": "must",
+          "text": "Planner.sections writes spec for uncovered PRD sections and rewrites rewritable sections."
+        },
+        {
+          "id": "spec.planning.again#r3",
+          "level": "must",
+          "text": "A section is rewritable only when Cairn wrote it, nobody edited it and no task builds it."
+        },
+        {
+          "id": "spec.planning.again#r4",
+          "level": "must",
+          "text": "Planner.tasks drafts tasks for untasked spec sections."
+        },
+        {
+          "id": "spec.planning.again#r5",
+          "level": "must",
+          "text": "New spec sections go under the existing section the planner names, after its last child, or at the end before spec.acceptance."
+        },
+        {
+          "id": "spec.planning.again#r6",
+          "level": "must",
+          "text": "A rewritten section keeps its ID and its place."
+        },
+        {
+          "id": "spec.planning.again#r7",
+          "level": "must",
+          "text": "After the write, every task that was in the manifest equals what it was, field for field."
+        },
+        {
+          "id": "spec.planning.again#r8",
+          "level": "must",
+          "text": "staleSections and staleTasks are reported as the lint rules stale-section and stale-task."
+        },
+        {
+          "id": "spec.planning.again#r9",
+          "level": "must",
+          "text": "cairn plan --accept <section> records the current hashes in writtenFrom and changes nothing else."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.planning.again#function:replanof",
+          "kind": "function",
+          "name": "replanOf",
+          "location": "packages/core/src/replan.ts",
+          "description": "Pure: what a second cairn plan has to write and report."
+        },
+        {
+          "id": "spec.planning.again#flag:accept",
+          "location": null,
+          "kind": "flag",
+          "name": "--accept",
+          "description": "Records a stale section's current hashes and changes nothing else."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.planning.again#t1",
+          "kind": "property",
+          "text": "Every existing task is unchanged and every new ID is higher than every old one."
+        },
+        {
+          "id": "spec.planning.again#t2",
+          "kind": "property",
+          "text": "A section a person edited, or one with a task, is never rewritable."
+        },
+        {
+          "id": "spec.planning.again#t3",
+          "kind": "property",
+          "text": "replanOf of a plan just written is empty."
+        },
+        {
+          "id": "spec.planning.again#t4",
+          "kind": "integration",
+          "text": "Adding a section to a PRD in a temporary repository adds spec sections and tasks and leaves the old manifest entries unchanged."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.planning.again#d1",
+          "text": "Changing a task that is already in the manifest is left to a person, or to v2's rebase flow.",
+          "why": "A started task has commits and sessions that a rewritten plan would orphan."
+        }
+      ]
+    },
+    {
+      "id": "spec.planning.stack-diagram",
+      "title": "Stack diagram",
+      "level": 3,
+      "line": 1085,
+      "parent": "spec.planning",
+      "children": [],
+      "human": false,
+      "implements": ["prd.planning.diagrams"],
+      "files": [
+        "packages/core/src/stack-diagram.ts",
+        "packages/core/src/stacks.ts",
+        "apps/viewer/src/stacks.ts"
+      ],
+      "dependsOn": ["spec.planning.stack-order", "spec.viewer.stacks"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t109", "t110"],
+      "summary": "stackDiagramOf draws the plan's stacks as Mermaid from manifest.json, and withStackDiagram writes it between markers in spec.md on every manifest write. The stack grouping moves to core and the viewer imports it.",
+      "requirements": [
+        {
+          "id": "spec.planning.stack-diagram#r1",
+          "level": "must",
+          "text": "stackDiagramOf(manifest) is pure and returns the Mermaid text in the format of the diagram in spec.planning.stack-order."
+        },
+        {
+          "id": "spec.planning.stack-diagram#r2",
+          "level": "must",
+          "text": "Stack grouping, numbering and area move from apps/viewer/src/stacks.ts to packages/core/src/stacks.ts, and the viewer imports them."
+        },
+        {
+          "id": "spec.planning.stack-diagram#r3",
+          "level": "must",
+          "text": "The diagram sits between <!-- cairn:stacks --> and <!-- /cairn:stacks -->, and withStackDiagram replaces what is between them."
+        },
+        {
+          "id": "spec.planning.stack-diagram#r4",
+          "level": "must",
+          "text": "A spec without the markers gets a Stacks section with id spec.stacks."
+        },
+        {
+          "id": "spec.planning.stack-diagram#r5",
+          "level": "must",
+          "text": "cairn plan redraws the diagram on every manifest write."
+        },
+        {
+          "id": "spec.planning.stack-diagram#r6",
+          "level": "must-not",
+          "text": "Nothing else writes between the markers."
+        },
+        {
+          "id": "spec.planning.stack-diagram#r7",
+          "level": "must",
+          "text": "stackDiagramOf of this repo's manifest equals the diagram in spec.md byte for byte."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.planning.stack-diagram#function:stackdiagramof",
+          "kind": "function",
+          "name": "stackDiagramOf",
+          "location": "packages/core/src/stack-diagram.ts",
+          "description": "Pure: the Mermaid text of a manifest's stacks."
+        },
+        {
+          "id": "spec.planning.stack-diagram#function:withstackdiagram",
+          "kind": "function",
+          "name": "withStackDiagram",
+          "location": "packages/core/src/stack-diagram.ts",
+          "description": "Replaces the diagram between the markers in spec.md."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.planning.stack-diagram#t1",
+          "kind": "property",
+          "text": "Every task is a node in exactly one subgraph, every parent a solid arrow and every other dependency a dashed one."
+        },
+        {
+          "id": "spec.planning.stack-diagram#t2",
+          "kind": "property",
+          "text": "The diagram text draws."
+        },
+        {
+          "id": "spec.planning.stack-diagram#t3",
+          "kind": "property",
+          "text": "withStackDiagram applied twice equals applied once and changes nothing outside the markers."
+        },
+        {
+          "id": "spec.planning.stack-diagram#t4",
+          "kind": "check",
+          "text": "stackDiagramOf of this repo's manifest equals the diagram in spec.md."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.planning.stack-diagram#d1",
+          "text": "The stack diagram is drawn by code, never by a model or by hand.",
+          "why": "It is derived from manifest.json, so a hand-drawn copy can only drift."
+        }
+      ]
+    },
+    {
+      "id": "spec.planning.dry-run",
+      "title": "Dry runs",
+      "level": 3,
+      "line": 1102,
+      "parent": "spec.planning",
+      "children": [],
+      "human": false,
+      "implements": ["prd.planning.comparing"],
+      "files": ["packages/cli/src/commands/plan.ts", "packages/cli/src/print-stack.ts"],
+      "dependsOn": ["spec.planning.cairn-plan", "spec.models"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t114"],
+      "summary": "cairn plan --dry-run plans in memory, writes nothing and prints a totals line; --source, --provider and --model replace the config's planner for one run so two planners can be compared.",
+      "requirements": [
+        {
+          "id": "spec.planning.dry-run#r1",
+          "level": "must",
+          "text": "cairn plan --dry-run runs both steps in memory, asks nothing and writes nothing."
+        },
+        {
+          "id": "spec.planning.dry-run#r2",
+          "level": "must",
+          "text": "It prints the sections and the stack, then one totals line with sections, tasks, lint errors, flags, seconds and the planner used."
+        },
+        {
+          "id": "spec.planning.dry-run#r3",
+          "level": "must",
+          "text": "--source, --provider and --model replace the planner config for the run, and the merged config is decoded again."
+        },
+        {
+          "id": "spec.planning.dry-run#r4",
+          "level": "must",
+          "text": "A dry run plans from the files on disk."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.planning.dry-run#flag:dry-run",
+          "location": null,
+          "kind": "flag",
+          "name": "--dry-run",
+          "description": "Plans in memory and writes nothing."
+        },
+        {
+          "id": "spec.planning.dry-run#flag:source",
+          "location": null,
+          "kind": "flag",
+          "name": "--source",
+          "description": "Replaces planner.source for one run."
+        },
+        {
+          "id": "spec.planning.dry-run#flag:provider",
+          "location": null,
+          "kind": "flag",
+          "name": "--provider",
+          "description": "Replaces planner.provider for one run."
+        },
+        {
+          "id": "spec.planning.dry-run#flag:model",
+          "location": null,
+          "kind": "flag",
+          "name": "--model",
+          "description": "Replaces planner.model for one run."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.planning.dry-run#t1",
+          "kind": "integration",
+          "text": "A dry run leaves every file in .cairn/ byte for byte as it was."
+        },
+        {
+          "id": "spec.planning.dry-run#t2",
+          "kind": "integration",
+          "text": "The totals line counts what the scripted plan holds."
+        },
+        {
+          "id": "spec.planning.dry-run#t3",
+          "kind": "integration",
+          "text": "--source api without a model fails before any call."
+        }
+      ],
+      "decisions": []
     },
     {
       "id": "spec.lint",
       "title": "Lint",
       "level": 2,
-      "line": 953,
+      "line": 1114,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
-      "implements": ["prd.cli", "prd.section-ids"],
-      "files": ["packages/core/src/lint.ts", "packages/cli/src/commands/lint.ts"],
+      "implements": ["prd.cli", "prd.section-ids", "prd.planning.diagrams"],
+      "files": [
+        "packages/core/src/lint.ts",
+        "packages/core/src/diagrams.ts",
+        "packages/cli/src/commands/lint.ts"
+      ],
       "dependsOn": ["spec.sections.parsing", "spec.gates.detection", "spec.planning.stack-order"],
       "defers": [],
       "context": [],
-      "tasks": ["t25", "t26", "t27", "t66"],
+      "tasks": ["t25", "t26", "t27", "t66", "t108", "t110", "t112"],
       "summary": "lint is a pure function returning findings for eleven rules, printed by a command that exits 1 on any error.",
       "requirements": [
         {
@@ -2595,6 +3114,16 @@
           "id": "spec.lint#r14",
           "level": "must",
           "text": "index-drift names the section and field that drifted."
+        },
+        {
+          "id": "spec.lint#r15",
+          "level": "must",
+          "text": "drawsOf parses with pele, the library the viewer draws with, and needs no DOM."
+        },
+        {
+          "id": "spec.lint#r16",
+          "level": "must-not",
+          "text": "diagram-drift does not fire on a spec with no markers and no manifest."
         }
       ],
       "artifacts": [
@@ -2728,6 +3257,41 @@
           "name": "index-drift",
           "location": null,
           "description": "Warning: a derived field in spec.json differs from spec.md or manifest.json."
+        },
+        {
+          "id": "spec.lint#lint-rule:bad-diagram",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "bad-diagram",
+          "description": "error: fires when a Mermaid block in prd.md or spec.md does not draw."
+        },
+        {
+          "id": "spec.lint#lint-rule:diagram-drift",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "diagram-drift",
+          "description": "error: fires when the text between the stack diagram's markers differs from stackDiagramOf(manifest)."
+        },
+        {
+          "id": "spec.lint#lint-rule:stale-section",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "stale-section",
+          "description": "warning: fires when a spec section implements a PRD section that changed after the spec section was written."
+        },
+        {
+          "id": "spec.lint#lint-rule:stale-task",
+          "location": "packages/core/src/lint.ts",
+          "kind": "lint-rule",
+          "name": "stale-task",
+          "description": "warning: fires when a task builds a spec section that is stale or was edited after the task was planned."
+        },
+        {
+          "id": "spec.lint#function:drawsof",
+          "kind": "function",
+          "name": "drawsOf",
+          "location": "packages/core/src/diagrams.ts",
+          "description": "Returns the parser's error for a Mermaid block, or nothing when it draws."
         }
       ],
       "tests": [],
@@ -2737,7 +3301,7 @@
       "id": "spec.judging",
       "title": "Judging",
       "level": 2,
-      "line": 975,
+      "line": 1142,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.judging.questions",
@@ -2780,7 +3344,7 @@
       "id": "spec.judging.questions",
       "title": "Questions",
       "level": 3,
-      "line": 981,
+      "line": 1148,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2883,7 +3447,7 @@
       "id": "spec.judging.verdicts",
       "title": "Verdicts",
       "level": 3,
-      "line": 1005,
+      "line": 1172,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -2993,7 +3557,7 @@
       "id": "spec.judging.judge-service",
       "title": "Judge service",
       "level": 3,
-      "line": 1020,
+      "line": 1187,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3078,7 +3642,7 @@
       "id": "spec.judging.checkpoints",
       "title": "Checkpoints",
       "level": 3,
-      "line": 1031,
+      "line": 1198,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3180,7 +3744,7 @@
       "id": "spec.judging.cairn-judge",
       "title": "`cairn judge`",
       "level": 3,
-      "line": 1053,
+      "line": 1220,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3248,7 +3812,7 @@
       "id": "spec.status",
       "title": "Status",
       "level": 2,
-      "line": 1064,
+      "line": 1231,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.status.task-machine",
@@ -3273,7 +3837,7 @@
       "id": "spec.status.task-machine",
       "title": "Task machine",
       "level": 3,
-      "line": 1066,
+      "line": 1233,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3350,7 +3914,7 @@
       "id": "spec.status.derivation",
       "title": "Derivation",
       "level": 3,
-      "line": 1074,
+      "line": 1241,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3451,7 +4015,7 @@
       "id": "spec.status.section-rollup",
       "title": "Section rollup",
       "level": 3,
-      "line": 1093,
+      "line": 1260,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3532,7 +4096,7 @@
       "id": "spec.status.cairn-status-and-cairn-approve",
       "title": "`cairn status` and `cairn approve`",
       "level": 3,
-      "line": 1109,
+      "line": 1276,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -3629,7 +4193,7 @@
       "id": "spec.sessions",
       "title": "Sessions",
       "level": 2,
-      "line": 1121,
+      "line": 1288,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.sessions.trace-store",
@@ -3654,7 +4218,7 @@
       "id": "spec.sessions.trace-store",
       "title": "Trace store",
       "level": 3,
-      "line": 1123,
+      "line": 1290,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -3846,7 +4410,7 @@
       "id": "spec.sessions.redaction",
       "title": "Redaction",
       "level": 3,
-      "line": 1155,
+      "line": 1322,
       "parent": "spec.sessions",
       "children": [],
       "human": true,
@@ -3964,7 +4528,7 @@
       "id": "spec.sessions.cairn-session",
       "title": "`cairn session`",
       "level": 3,
-      "line": 1174,
+      "line": 1341,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -4044,7 +4608,7 @@
       "id": "spec.sessions.reading",
       "title": "Reading a session",
       "level": 3,
-      "line": 1185,
+      "line": 1352,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -4110,7 +4674,7 @@
       "id": "spec.orchestrator-adapter",
       "title": "Orchestrator adapter",
       "level": 2,
-      "line": 1210,
+      "line": 1377,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4331,7 +4895,7 @@
       "id": "spec.cli",
       "title": "CLI",
       "level": 2,
-      "line": 1228,
+      "line": 1395,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4418,7 +4982,7 @@
       "id": "spec.patch-routes",
       "title": "Patch routes",
       "level": 2,
-      "line": 1237,
+      "line": 1404,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4506,7 +5070,7 @@
       "id": "spec.server",
       "title": "Server",
       "level": 2,
-      "line": 1258,
+      "line": 1425,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4662,7 +5226,7 @@
       "id": "spec.viewer",
       "title": "Viewer",
       "level": 2,
-      "line": 1281,
+      "line": 1448,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.viewer.model-and-messages",
@@ -4704,7 +5268,7 @@
       "id": "spec.viewer.model-and-messages",
       "title": "Model and messages",
       "level": 3,
-      "line": 1283,
+      "line": 1450,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4841,7 +5405,7 @@
       "id": "spec.viewer.markdown-rendering",
       "title": "Markdown rendering",
       "level": 3,
-      "line": 1299,
+      "line": 1466,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -4915,7 +5479,7 @@
       "id": "spec.viewer.design-system",
       "title": "Design system",
       "level": 3,
-      "line": 1308,
+      "line": 1475,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5170,7 +5734,7 @@
       "id": "spec.viewer.reader",
       "title": "Reader",
       "level": 3,
-      "line": 1408,
+      "line": 1575,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5446,7 +6010,7 @@
       "id": "spec.viewer.spec-cards",
       "title": "Spec cards",
       "level": 3,
-      "line": 1457,
+      "line": 1624,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5611,7 +6175,7 @@
       "id": "spec.viewer.fuzzy-matching",
       "title": "Fuzzy matching",
       "level": 3,
-      "line": 1484,
+      "line": 1651,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5663,7 +6227,7 @@
       "id": "spec.viewer.search-interaction",
       "title": "Search controls and chain highlighting",
       "level": 3,
-      "line": 1503,
+      "line": 1670,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5745,7 +6309,7 @@
       "id": "spec.viewer.prose-search",
       "title": "Prose search and inline highlights",
       "level": 3,
-      "line": 1525,
+      "line": 1692,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5809,7 +6373,7 @@
       "id": "spec.viewer.curves",
       "title": "Curves",
       "level": 3,
-      "line": 1547,
+      "line": 1714,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5990,7 +6554,7 @@
       "id": "spec.viewer.stacks",
       "title": "Stacks",
       "level": 3,
-      "line": 1574,
+      "line": 1741,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6134,7 +6698,7 @@
       "id": "spec.viewer.models",
       "title": "Models and reasoning",
       "level": 3,
-      "line": 1614,
+      "line": 1781,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6251,7 +6815,7 @@
       "id": "spec.viewer.panes",
       "title": "Panes",
       "level": 3,
-      "line": 1634,
+      "line": 1801,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6432,7 +6996,7 @@
       "id": "spec.viewer.presence",
       "title": "Presence in the reader",
       "level": 3,
-      "line": 1655,
+      "line": 1822,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6533,7 +7097,7 @@
       "id": "spec.viewer.detail-panel",
       "title": "Detail panel",
       "level": 3,
-      "line": 1670,
+      "line": 1837,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6670,7 +7234,7 @@
       "id": "spec.viewer.code-view",
       "title": "Code view",
       "level": 3,
-      "line": 1704,
+      "line": 1871,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6769,7 +7333,7 @@
       "id": "spec.viewer.diff-view",
       "title": "Diff view",
       "level": 3,
-      "line": 1731,
+      "line": 1898,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6952,7 +7516,7 @@
       "id": "spec.viewer.session-view",
       "title": "Session pane",
       "level": 3,
-      "line": 1757,
+      "line": 1924,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7012,7 +7576,7 @@
       "id": "spec.viewer.attribution",
       "title": "Hunks and turns",
       "level": 3,
-      "line": 1773,
+      "line": 1940,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7096,7 +7660,7 @@
       "id": "spec.viewer.detail-code",
       "title": "Code in the detail panel",
       "level": 3,
-      "line": 1793,
+      "line": 1960,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7223,7 +7787,7 @@
       "id": "spec.viewer.canvas-removal",
       "title": "Replacing the canvas",
       "level": 3,
-      "line": 1807,
+      "line": 1974,
       "parent": "spec.viewer",
       "children": [],
       "human": true,
@@ -7375,7 +7939,7 @@
       "id": "spec.viewer.demo-data",
       "title": "Demo data",
       "level": 3,
-      "line": 1828,
+      "line": 1995,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7482,7 +8046,7 @@
       "id": "spec.testing",
       "title": "Testing",
       "level": 2,
-      "line": 1849,
+      "line": 2016,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.testing.model-based",
@@ -7507,7 +8071,7 @@
       "id": "spec.testing.model-based",
       "title": "Model-based tests",
       "level": 3,
-      "line": 1853,
+      "line": 2020,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -7597,7 +8161,7 @@
       "id": "spec.testing.presence-model",
       "title": "Presence against the room machine",
       "level": 3,
-      "line": 1873,
+      "line": 2040,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -7660,7 +8224,7 @@
       "id": "spec.testing.viewer-models",
       "title": "Reader interactions against models",
       "level": 3,
-      "line": 1889,
+      "line": 2056,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -7757,7 +8321,7 @@
       "id": "spec.testing.derivation-model",
       "title": "Derivation against a model of its inputs",
       "level": 3,
-      "line": 1919,
+      "line": 2086,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -7824,7 +8388,7 @@
       "id": "spec.acceptance",
       "title": "Acceptance",
       "level": 2,
-      "line": 1937,
+      "line": 2104,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
