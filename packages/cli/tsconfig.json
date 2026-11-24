@@ -13,6 +13,8 @@
           "@effect/platform-node/NodeRuntime",
           "@effect/platform-node/NodeServices",
           "@effect/platform-node/NodeSocket",
+          "@effect/sql-sqlite-node/SqliteClient",
+          "@effect/sql-sqlite-node/SqliteMigrator",
           "effect/FileSystem",
           "effect/cli/Command",
           "effect/cli/Flag",
@@ -23,6 +25,7 @@
           "effect/ai/Prompt",
           "effect/ai/Tool",
           "effect/Path",
+          "effect/String#isWellFormed",
           "effect/PlatformError",
           "effect/http/FetchHttpClient",
           "effect/http/Headers",
@@ -35,6 +38,10 @@
           "effect/http/HttpServerResponse",
           "effect/process/ChildProcess",
           "effect/process/ChildProcessSpawner",
+          "effect/sql/Migrator",
+          "effect/sql/SqlClient",
+          "effect/sql/SqlError",
+          "effect/sql/SqlSchema",
           "effect/socket/Socket",
           "effect/testing/TestConsole"
         ]

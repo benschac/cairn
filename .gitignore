@@ -8,6 +8,9 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .claude/settings.local.json
+# Session logs stay on the machine that made them, even redacted.
+.cairn/cairn.db
+.cairn/cairn.db-*
 # Full upstream clones for agents to read; they carry their own lint configs. The
 # generated indexes beside them in .agent_sources/ are tracked.
 .agent_sources/github.com/
