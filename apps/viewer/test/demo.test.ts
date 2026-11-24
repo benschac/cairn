@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { Manifest, SectionStatus, TaskStatus, Trace } from "@cairn/contract";
+import { Manifest, SectionStatus, SpecIndexJson, TaskStatus, Trace } from "@cairn/contract";
 import { it } from "@effect/vitest";
 import { Array, Option, Schema, String } from "effect";
 import { expect } from "vitest";
@@ -71,6 +71,15 @@ it.each([
     expect(doc.sections.length).toBe(ids.length);
   },
 );
+
+it("every spec section carries its summary from spec.json, and a PRD section none", () => {
+  const index = Schema.decodeSync(SpecIndexJson)(repo(".cairn/spec.json"));
+  const summaries = Array.map(index.sections, (section) => [section.id, section.summary] as const);
+  expect(Array.map(demoTrace.spec.sections, (section) => [section.id, section.summary])).toEqual(
+    summaries,
+  );
+  expect(Array.every(demoTrace.prd.sections, (section) => section.summary === null)).toBe(true);
+});
 
 it("a copy with a corrupted field is refused", () => {
   expect(

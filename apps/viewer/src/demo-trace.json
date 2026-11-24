@@ -19,6 +19,7 @@
         "level": 1,
         "line": 1,
         "parent": null,
+        "summary": null,
         "title": "Cairn MVP"
       },
       {
@@ -34,6 +35,7 @@
         "level": 2,
         "line": 5,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Goal"
       },
       {
@@ -49,6 +51,7 @@
         "level": 2,
         "line": 9,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Non-goals for v1"
       },
       {
@@ -64,6 +67,7 @@
         "level": 2,
         "line": 17,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Repo layout"
       },
       {
@@ -79,6 +83,7 @@
         "level": 2,
         "line": 30,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Section IDs"
       },
       {
@@ -94,6 +99,7 @@
         "level": 2,
         "line": 46,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Manifest schema"
       },
       {
@@ -109,6 +115,7 @@
         "level": 2,
         "line": 80,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "CLI"
       },
       {
@@ -124,6 +131,7 @@
         "level": 2,
         "line": 90,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Orchestrator contract"
       },
       {
@@ -139,6 +147,7 @@
         "level": 2,
         "line": 110,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Human gates"
       },
       {
@@ -154,6 +163,7 @@
         "level": 2,
         "line": 136,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Judging the plan"
       },
       {
@@ -169,6 +179,7 @@
         "level": 2,
         "line": 161,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Redaction"
       },
       {
@@ -184,6 +195,7 @@
         "level": 2,
         "line": 165,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Viewer"
       },
       {
@@ -199,6 +211,7 @@
         "level": 3,
         "line": 187,
         "parent": "prd.viewer",
+        "summary": null,
         "title": "Reading the plan"
       },
       {
@@ -214,6 +227,7 @@
         "level": 3,
         "line": 198,
         "parent": "prd.viewer",
+        "summary": null,
         "title": "Spec cards"
       },
       {
@@ -229,6 +243,7 @@
         "level": 3,
         "line": 210,
         "parent": "prd.viewer",
+        "summary": null,
         "title": "Stacks"
       },
       {
@@ -244,6 +259,7 @@
         "level": 3,
         "line": 225,
         "parent": "prd.viewer",
+        "summary": null,
         "title": "Models and reasoning"
       },
       {
@@ -259,6 +275,7 @@
         "level": 3,
         "line": 236,
         "parent": "prd.viewer",
+        "summary": null,
         "title": "Panes"
       },
       {
@@ -274,6 +291,7 @@
         "level": 3,
         "line": 244,
         "parent": "prd.viewer",
+        "summary": null,
         "title": "Task detail"
       },
       {
@@ -289,6 +307,7 @@
         "level": 3,
         "line": 257,
         "parent": "prd.viewer",
+        "summary": null,
         "title": "Fuzzy search"
       },
       {
@@ -304,6 +323,7 @@
         "level": 2,
         "line": 270,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Code view"
       },
       {
@@ -319,6 +339,7 @@
         "level": 2,
         "line": 295,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Implementation in Effect"
       },
       {
@@ -334,6 +355,7 @@
         "level": 3,
         "line": 306,
         "parent": "prd.implementation-in-effect",
+        "summary": null,
         "title": "Model-based testing"
       },
       {
@@ -349,6 +371,7 @@
         "level": 2,
         "line": 322,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Contract package"
       },
       {
@@ -364,6 +387,7 @@
         "level": 2,
         "line": 334,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Acceptance criteria"
       },
       {
@@ -379,6 +403,7 @@
         "level": 2,
         "line": 353,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "One-day build order"
       },
       {
@@ -394,6 +419,7 @@
         "level": 2,
         "line": 365,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "v2: diverging state"
       },
       {
@@ -409,6 +435,7 @@
         "level": 3,
         "line": 378,
         "parent": "prd.v2-diverging-state",
+        "summary": null,
         "title": "Versioning and branching"
       },
       {
@@ -424,6 +451,7 @@
         "level": 3,
         "line": 383,
         "parent": "prd.v2-diverging-state",
+        "summary": null,
         "title": "Rebase flow"
       },
       {
@@ -439,6 +467,7 @@
         "level": 3,
         "line": 394,
         "parent": "prd.v2-diverging-state",
+        "summary": null,
         "title": "v2 acceptance criteria"
       },
       {
@@ -454,6 +483,7 @@
         "level": 2,
         "line": 400,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "v2: multiplayer on Cloudflare"
       },
       {
@@ -469,6 +499,7 @@
         "level": 3,
         "line": 404,
         "parent": "prd.v2-multiplayer-on-cloudflare",
+        "summary": null,
         "title": "Architecture"
       },
       {
@@ -484,6 +515,7 @@
         "level": 3,
         "line": 413,
         "parent": "prd.v2-multiplayer-on-cloudflare",
+        "summary": null,
         "title": "Presence"
       },
       {
@@ -499,6 +531,7 @@
         "level": 3,
         "line": 433,
         "parent": "prd.v2-multiplayer-on-cloudflare",
+        "summary": null,
         "title": "Permissions"
       },
       {
@@ -514,6 +547,7 @@
         "level": 3,
         "line": 439,
         "parent": "prd.v2-multiplayer-on-cloudflare",
+        "summary": null,
         "title": "Multiplayer acceptance criteria"
       },
       {
@@ -529,6 +563,7 @@
         "level": 2,
         "line": 447,
         "parent": "prd.cairn-mvp",
+        "summary": null,
         "title": "Later"
       }
     ]
@@ -996,6 +1031,7 @@
         "level": 1,
         "line": 1,
         "parent": null,
+        "summary": "This spec turns prd.md into code, sets the format that `cairn plan` writes, and lists what is already built.",
         "title": "Cairn MVP spec"
       },
       {
@@ -1011,6 +1047,7 @@
         "level": 2,
         "line": 7,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Defines the key list that starts each spec section and the rules for how PRD sections count as covered.",
         "title": "Format"
       },
       {
@@ -1026,6 +1063,7 @@
         "level": 2,
         "line": 25,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Scopes the spec to v1 and keeps the already-built presence piece.",
         "title": "Scope"
       },
       {
@@ -1041,6 +1079,7 @@
         "level": 2,
         "line": 31,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Lists the packages, the pure-core rule, and the services the CLI uses for IO with live and test implementations.",
         "title": "Package layout"
       },
       {
@@ -1056,6 +1095,7 @@
         "level": 2,
         "line": 54,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Names the libraries kept and added with versions and uses, the Node built-ins relied on, and the libraries considered and left out.",
         "title": "Libraries"
       },
       {
@@ -1071,6 +1111,7 @@
         "level": 2,
         "line": 93,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Requires everything a file in .cairn/ holds to be decoded through a contract schema with typed decode errors.",
         "title": "Contract"
       },
       {
@@ -1090,6 +1131,7 @@
         "level": 3,
         "line": 100,
         "parent": "spec.contract",
+        "summary": "Adds PrdSectionId and SpecSectionId schemas that also check the prefix, and keeps every contract ID in ids.ts.",
         "title": "Section IDs"
       },
       {
@@ -1109,6 +1151,7 @@
         "level": 3,
         "line": 109,
         "parent": "spec.contract",
+        "summary": "Defines the Manifest, ManifestTask, GateReason and TaskStatus schemas and that status, commits and sessions are only a snapshot.",
         "title": "Manifest"
       },
       {
@@ -1128,6 +1171,7 @@
         "level": 3,
         "line": 148,
         "parent": "spec.contract",
+        "summary": "Defines the Event schema, one JSON object per line of events.jsonl, with an actor and, on a running event, the model and reasoning the task was started with.",
         "title": "Events"
       },
       {
@@ -1147,6 +1191,7 @@
         "level": 3,
         "line": 172,
         "parent": "spec.contract",
+        "summary": "Defines the commit trailer format carrying task, section and session IDs.",
         "title": "Trailers"
       },
       {
@@ -1166,6 +1211,7 @@
         "level": 3,
         "line": 186,
         "parent": "spec.contract",
+        "summary": "Defines Trace field by field: both documents with their sections, derived tasks with commits and events, section statuses, warnings and judgments, with no positions; the viewer depends only on this schema.",
         "title": "Trace"
       },
       {
@@ -1185,6 +1231,7 @@
         "level": 3,
         "line": 262,
         "parent": "spec.contract",
+        "summary": "Defines Session, what GET /api/sessions/:id sends: its turns (prompt, reply, tool with file edits), skipped-line count, redaction counts and notes.",
         "title": "Session"
       },
       {
@@ -1204,6 +1251,7 @@
         "level": 3,
         "line": 310,
         "parent": "spec.contract",
+        "summary": "Defines the Config schema with defaults and that a missing config file decodes to the defaults.",
         "title": "Config"
       },
       {
@@ -1223,6 +1271,7 @@
         "level": 3,
         "line": 344,
         "parent": "spec.contract",
+        "summary": "Defines the judgments.json schema: the model that answered, and per target and question a verdict, the answer behind it, a message and the hash of the judged input.",
         "title": "Judgments"
       },
       {
@@ -1243,6 +1292,7 @@
         "level": 3,
         "line": 379,
         "parent": "spec.contract",
+        "summary": "Defines spec.json, a structured copy of spec.md: derived fields filled by code and prose fields extracted by Planner.index; written by hand until the CLI exists.",
         "title": "Spec index"
       },
       {
@@ -1263,6 +1313,7 @@
         "level": 3,
         "line": 424,
         "parent": "spec.contract",
+        "summary": "Defines @cairn/contract/js, an Effect-free entry of parse, format, append and migrate functions plus shipped types and JSON Schemas.",
         "title": "JavaScript entry"
       },
       {
@@ -1278,6 +1329,7 @@
         "level": 2,
         "line": 439,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Groups the section parsing and cairn ids specs.",
         "title": "Sections"
       },
       {
@@ -1293,6 +1345,7 @@
         "level": 3,
         "line": 441,
         "parent": "spec.sections",
+        "summary": "sectionsOf(markdown) returns every heading outside a fence as a Section with id, level, title, line, parent, body, human flag and keys.",
         "title": "Parsing"
       },
       {
@@ -1308,6 +1361,7 @@
         "level": 3,
         "line": 463,
         "parent": "spec.sections",
+        "summary": "cairn ids assigns missing section IDs in prd.md and spec.md, with a --check mode.",
         "title": "`cairn ids`"
       },
       {
@@ -1323,6 +1377,7 @@
         "level": 2,
         "line": 471,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Groups the gate path matching and detection specs.",
         "title": "Gates"
       },
       {
@@ -1338,6 +1393,7 @@
         "level": 3,
         "line": 473,
         "parent": "spec.gates",
+        "summary": "Gate path patterns use Node path.matchesGlob plus a gitignore rule for slash-less patterns and directory paths.",
         "title": "Path matching"
       },
       {
@@ -1357,6 +1413,7 @@
         "level": 3,
         "line": 480,
         "parent": "spec.gates",
+        "summary": "gateOf returns whether a task needs a human gate and the reasons, from tags and path patterns, and status derivation recomputes it after commits.",
         "title": "Detection"
       },
       {
@@ -1372,6 +1429,7 @@
         "level": 2,
         "line": 493,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Defines the two model services: LanguageModel (Anthropic) for the Planner and DecisionModel (TypeSafe Jev) for the Judge, with keys from the environment, optional base URLs and a pinned Jev version.",
         "title": "Models"
       },
       {
@@ -1387,6 +1445,7 @@
         "level": 2,
         "line": 512,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Groups the planner service, stack order and cairn plan specs.",
         "title": "Planning"
       },
       {
@@ -1402,6 +1461,7 @@
         "level": 3,
         "line": 514,
         "parent": "spec.planning",
+        "summary": "The planner makes five calls through the LanguageModel: spec, tasks, splitSection, splitTask and index, each with a prompt file and one decode retry; model and reasoning are proposals, and the model never decides gates, IDs, branch names or order.",
         "title": "Planner service"
       },
       {
@@ -1417,6 +1477,7 @@
         "level": 3,
         "line": 534,
         "parent": "spec.planning",
+        "summary": "stackOf orders drafts by dependency and returns a set of stacks: parentOf puts a task on the latest of its dependencies when they share one chain, and starts it from baseBranch after they land when they do not.",
         "title": "Stack order"
       },
       {
@@ -1439,6 +1500,7 @@
         "level": 3,
         "line": 938,
         "parent": "spec.planning",
+        "summary": "cairn plan assigns IDs, generates or reuses the spec, drafts and orders tasks, lints in memory, confirms and writes manifest.json.",
         "title": "`cairn plan`"
       },
       {
@@ -1458,6 +1520,7 @@
         "level": 2,
         "line": 953,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "lint is a pure function returning findings for eleven rules, printed by a command that exits 1 on any error.",
         "title": "Lint"
       },
       {
@@ -1473,6 +1536,7 @@
         "level": 2,
         "line": 975,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Judging asks a decision model at each step of the breakdown whether pieces are the right size and which model each task needs; the language model writes and splits, and code keeps every change within bounds.",
         "title": "Judging"
       },
       {
@@ -1488,6 +1552,7 @@
         "level": 3,
         "line": 981,
         "parent": "spec.judging",
+        "summary": "Three Decision.make definitions in core, for spec sections, tasks and the stack, and a pure inputsOf; tasks are asked size, matches, model and reasoning.",
         "title": "Questions"
       },
       {
@@ -1503,6 +1568,7 @@
         "level": 3,
         "line": 1005,
         "parent": "spec.judging",
+        "summary": "verdictOf turns judging answers into pass, flag or unsure, and routeOf picks the model and reasoning, using Jev only when it is confident.",
         "title": "Verdicts"
       },
       {
@@ -1518,6 +1584,7 @@
         "level": 3,
         "line": 1020,
         "parent": "spec.judging",
+        "summary": "The Judge hashes each input, keeps unchanged judgments without a call, and asks the rest through DecisionModel.decideSettled, four requests at a time, with typed errors and rate-limit retries.",
         "title": "Judge service"
       },
       {
@@ -1533,6 +1600,7 @@
         "level": 3,
         "line": 1031,
         "parent": "spec.judging",
+        "summary": "refine runs the section, task-size and routing checkpoints, splitting confidently oversized pieces through the Planner within judge.maxRounds and recording every change as a judgment.",
         "title": "Checkpoints"
       },
       {
@@ -1548,6 +1616,7 @@
         "level": 3,
         "line": 1053,
         "parent": "spec.judging",
+        "summary": "cairn judge judges the current spec and manifest, writes judgments.json and prints flag and unsure lines; --fresh asks again and --strict exits 1 on a flag.",
         "title": "`cairn judge`"
       },
       {
@@ -1563,6 +1632,7 @@
         "level": 2,
         "line": 1064,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Groups the task machine, derivation, section rollup and cairn status/approve specs.",
         "title": "Status"
       },
       {
@@ -1578,6 +1648,7 @@
         "level": 3,
         "line": 1066,
         "parent": "spec.status",
+        "summary": "The task machine gains a failed state while keeping the gate and land behaviour.",
         "title": "Task machine"
       },
       {
@@ -1598,6 +1669,7 @@
         "level": 3,
         "line": 1074,
         "parent": "spec.status",
+        "summary": "derive recomputes every task status from manifest, events and commits by folding events through the task machine, with warnings for anything ignored.",
         "title": "Derivation"
       },
       {
@@ -1613,6 +1685,7 @@
         "level": 3,
         "line": 1093,
         "parent": "spec.status",
+        "summary": "A section's status is rolled up from its linked tasks and descendants by an ordered first-match rule list.",
         "title": "Section rollup"
       },
       {
@@ -1632,6 +1705,7 @@
         "level": 3,
         "line": 1109,
         "parent": "spec.status",
+        "summary": "cairn status prints the stack and warnings; cairn approve records a human approval; Git.log reads task branches.",
         "title": "`cairn status` and `cairn approve`"
       },
       {
@@ -1647,6 +1721,7 @@
         "level": 2,
         "line": 1121,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Groups the specification of session storage, redaction and the session command.",
         "title": "Sessions"
       },
       {
@@ -1662,6 +1737,7 @@
         "level": 3,
         "line": 1123,
         "parent": "spec.sessions",
+        "summary": "Specifies the SQLite trace store for redacted sessions and their notes, using node:sqlite and numbered migrations.",
         "title": "Trace store"
       },
       {
@@ -1677,6 +1753,7 @@
         "level": 3,
         "line": 1155,
         "parent": "spec.sessions",
+        "summary": "Specifies redact(jsonl, secrets), which rewrites every decoded string value in a session log, its secret sources and fail-closed behaviour.",
         "title": "Redaction"
       },
       {
@@ -1692,6 +1769,7 @@
         "level": 3,
         "line": 1174,
         "parent": "spec.sessions",
+        "summary": "Specifies the `cairn session put` and `cairn session note` commands.",
         "title": "`cairn session`"
       },
       {
@@ -1707,6 +1785,7 @@
         "level": 3,
         "line": 1185,
         "parent": "spec.sessions",
+        "summary": "sessionOf(log, stored) in core reads a redacted Claude Code JSONL log into a Session, decoding only the fields it uses and taking file edits from toolUseResult.",
         "title": "Reading a session"
       },
       {
@@ -1726,6 +1805,7 @@
         "level": 2,
         "line": 1210,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Lists what the existing orchestrator must do per task using only @cairn/contract/js and the CLI.",
         "title": "Orchestrator adapter"
       },
       {
@@ -1745,6 +1825,7 @@
         "level": 2,
         "line": 1228,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Specifies the single cairn binary built with effect/cli and the cairn init command.",
         "title": "CLI"
       },
       {
@@ -1765,6 +1846,7 @@
         "level": 2,
         "line": 1237,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Two git-backed routes on the dev server, GET /api/commits/:sha and GET /api/diffs/:base/:head, return a commit's patch and a task's whole diff as text for the code view.",
         "title": "Patch routes"
       },
       {
@@ -1784,6 +1866,7 @@
         "level": 2,
         "line": 1258,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Specifies the cairn serve HTTP and WebSocket routes on port 4310 and how the viewer polls them.",
         "title": "Server"
       },
       {
@@ -1799,6 +1882,7 @@
         "level": 2,
         "line": 1281,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Groups the viewer specification.",
         "title": "Viewer"
       },
       {
@@ -1819,6 +1903,7 @@
         "level": 3,
         "line": 1283,
         "parent": "spec.viewer",
+        "summary": "Specifies the viewer model, the messages every screen shares, the pure chainOf function, hovering a chain, and the three-pane layout.",
         "title": "Model and messages"
       },
       {
@@ -1838,6 +1923,7 @@
         "level": 3,
         "line": 1299,
         "parent": "spec.viewer",
+        "summary": "Specifies how the viewer renders markdown to Foldkit nodes without innerHTML.",
         "title": "Markdown rendering"
       },
       {
@@ -1872,6 +1958,7 @@
         "level": 3,
         "line": 1308,
         "parent": "spec.viewer",
+        "summary": "Specifies the viewer's design tokens for a light and a dark palette, its three stylesheets, the classes and controls every view is built from, and the move of the code view to them.",
         "title": "Design system"
       },
       {
@@ -1903,6 +1990,7 @@
         "level": 3,
         "line": 1408,
         "parent": "spec.viewer",
+        "summary": "Specifies the reader screen: the PRD read as a document in its own pane, with a status line under each heading, and the section at the top of the pane, or the pinned one, as the current section the other panes follow.",
         "title": "Reader"
       },
       {
@@ -1925,6 +2013,7 @@
         "level": 3,
         "line": 1457,
         "parent": "spec.viewer",
+        "summary": "Specifies the spec pane: one card per spec section that implements the current PRD section, with its summary, its tasks as rows inside it, and one control for how much of every card shows.",
         "title": "Spec cards"
       },
       {
@@ -1940,6 +2029,7 @@
         "level": 3,
         "line": 1484,
         "parent": "spec.viewer",
+        "summary": "Index and rank fuzzy matches for titles, IDs and branches.",
         "title": "Fuzzy matching"
       },
       {
@@ -1979,6 +2069,7 @@
         "level": 3,
         "line": 1503,
         "parent": "spec.viewer",
+        "summary": "Add search navigation and temporary chain highlighting.",
         "title": "Search controls and chain highlighting"
       },
       {
@@ -2001,6 +2092,7 @@
         "level": 3,
         "line": 1525,
         "parent": "spec.viewer",
+        "summary": "Search markdown prose with snippets and inline match highlights.",
         "title": "Prose search and inline highlights"
       },
       {
@@ -2023,6 +2115,7 @@
         "level": 3,
         "line": 1547,
         "parent": "spec.viewer",
+        "summary": "Specifies the curves that join the three panes for the current section: pure links and paths from measured rectangles, held inside their panes, measured by one Mount and lit along a chain on hover.",
         "title": "Curves"
       },
       {
@@ -2044,6 +2137,7 @@
         "level": 3,
         "line": 1574,
         "parent": "spec.viewer",
+        "summary": "Lays the stacks pane out like the spec's stack diagram: one numbered box per stack, a chip per task bottom to top inside it, and the boxes in rows over the base branch by what they wait on, with the current section's tasks standing out.",
         "title": "Stacks"
       },
       {
@@ -2068,6 +2162,7 @@
         "level": 3,
         "line": 1614,
         "parent": "spec.viewer",
+        "summary": "Specifies how the reader shows the model and reasoning each task ran with, or the plan's choice when it has not run, and the switch that shows or hides them everywhere.",
         "title": "Models and reasoning"
       },
       {
@@ -2091,6 +2186,7 @@
         "level": 3,
         "line": 1634,
         "parent": "spec.viewer",
+        "summary": "Specifies the dividers that resize the PRD pane, the spec pane and the detail panel by pointer or arrow keys, within limits, with the stacks pane taking what is left.",
         "title": "Panes"
       },
       {
@@ -2116,6 +2212,7 @@
         "level": 3,
         "line": 1655,
         "parent": "spec.viewer",
+        "summary": "Presence says which PRD section each participant is reading, shown as a chip beside that heading; pointer cursors stay on the canvas until it is removed, since no two reader windows could place one alike.",
         "title": "Presence in the reader"
       },
       {
@@ -2138,6 +2235,7 @@
         "level": 3,
         "line": 1670,
         "parent": "spec.viewer",
+        "summary": "Specifies the detail panel over the right of the reader: a trail of nodes, and for a task its status, what ran, its parent and dependencies, gate reasons, code, commits, traces and timeline.",
         "title": "Detail panel"
       },
       {
@@ -2157,6 +2255,7 @@
         "level": 3,
         "line": 1704,
         "parent": "spec.viewer",
+        "summary": "The code view screen: a stack tree, the selected task's whole diff or one commit's diff, and the session pane, opened from the detail panel and left with Back to the plan.",
         "title": "Code view"
       },
       {
@@ -2176,6 +2275,7 @@
         "level": 3,
         "line": 1731,
         "parent": "spec.viewer",
+        "summary": "Renders a task's whole diff or one commit's diff with @pierre/diffs: parsePatchFiles into FileDiffMetadata, one vanilla CodeView in a Foldkit Mount, syntax-highlighted through the Highlights backend.",
         "title": "Diff view"
       },
       {
@@ -2191,6 +2291,7 @@
         "level": 3,
         "line": 1757,
         "parent": "spec.viewer",
+        "summary": "The session pane draws the selected commit's session: notes and redaction counts, prompts and replies as markdown, and each tool call as one line that opens.",
         "title": "Session pane"
       },
       {
@@ -2206,6 +2307,7 @@
         "level": 3,
         "line": 1773,
         "parent": "spec.viewer",
+        "summary": "attributionOf(files, session) traces each hunk's changed lines to the last tool turn whose edit wrote them, and the diff and session pane link through those marks.",
         "title": "Hunks and turns"
       },
       {
@@ -2230,6 +2332,7 @@
         "level": 3,
         "line": 1793,
         "parent": "spec.viewer",
+        "summary": "Specifies the code and the agent session inside a task's detail: its whole stacked diff in the code view's mount, and the first prompt and tool calls of its latest commit's session.",
         "title": "Code in the detail panel"
       },
       {
@@ -2284,6 +2387,7 @@
         "level": 3,
         "line": 1807,
         "parent": "spec.viewer",
+        "summary": "Makes the reader the only plan screen and deletes the canvas with everything only it uses, after a human approves the loss of pan and zoom, dragging, coloured pins and pointer cursors.",
         "title": "Replacing the canvas"
       },
       {
@@ -2309,6 +2413,7 @@
         "level": 3,
         "line": 1828,
         "parent": "spec.viewer",
+        "summary": "Specifies the demo: a Trace generated from this repo's own .cairn/, what ran on its running events, and the commit patches its build ships as static files so the demo shows code without a server.",
         "title": "Demo data"
       },
       {
@@ -2324,6 +2429,7 @@
         "level": 2,
         "line": 1849,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Groups the model-based tests: the tools, then one model per piece of code tested against it.",
         "title": "Testing"
       },
       {
@@ -2347,6 +2453,7 @@
         "level": 3,
         "line": 1853,
         "parent": "spec.testing",
+        "summary": "Adds @xstate/test on xstate 6.0.0-beta.5 and sets how a model test is written, seeded, covered and replayed.",
         "title": "Model-based tests"
       },
       {
@@ -2365,6 +2472,7 @@
         "level": 3,
         "line": 1873,
         "parent": "spec.testing",
+        "summary": "Tests the presence server over real WebSockets against the room machine, so every participant sees the machine's room.",
         "title": "Presence against the room machine"
       },
       {
@@ -2394,6 +2502,7 @@
         "level": 3,
         "line": 1889,
         "parent": "spec.testing",
+        "summary": "Tests the viewer's update against two machines written from the spec: the detail trail with pinning and Escape, and the pane dividers.",
         "title": "Reader interactions against models"
       },
       {
@@ -2413,6 +2522,7 @@
         "level": 3,
         "line": 1919,
         "parent": "spec.testing",
+        "summary": "Tests derive against a machine of what an orchestrator writes and what git shows, which keeps facts and replays them as derive recomputes.",
         "title": "Derivation against a model of its inputs"
       },
       {
@@ -2428,6 +2538,7 @@
         "level": 2,
         "line": 1937,
         "parent": "spec.cairn-mvp-spec",
+        "summary": "Maps each PRD acceptance criterion to how it is checked.",
         "title": "Acceptance"
       }
     ]

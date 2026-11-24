@@ -560,6 +560,7 @@ const proseSection = (id: typeof zebraId, title: string, level: number) => ({
   level,
   line: 1,
   parent: null,
+  summary: null,
   title,
 });
 

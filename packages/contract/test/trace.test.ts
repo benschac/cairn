@@ -4,7 +4,14 @@ import { Exit, Schema } from "effect";
 import { SectionId } from "../src/ids.ts";
 import { Judgment } from "../src/judgments.ts";
 import { SectionStatus } from "../src/manifest.ts";
-import { Trace, TraceJson, TraceJudgment, TraceTask, TraceWarning } from "../src/trace.ts";
+import {
+  Trace,
+  TraceJson,
+  TraceSection,
+  TraceJudgment,
+  TraceTask,
+  TraceWarning,
+} from "../src/trace.ts";
 
 const encode = Schema.encodeSync(TraceJson);
 const decode = Schema.decodeUnknownSync(TraceJson);
@@ -39,6 +46,18 @@ it("a minimal trace decodes", () => {
   };
   expect(refused(Trace, minimal)).toBe(false);
 });
+
+it.prop(
+  "a section keeps its summary, and one written without it decodes with null",
+  [TraceSection],
+  ([section]) => {
+    const encoded = Schema.encodeSync(TraceSection)(section);
+    expect(Schema.decodeSync(TraceSection)(encoded).summary).toBe(section.summary);
+    const { summary: _summary, ...without } = encoded;
+    expect(Schema.decodeUnknownSync(TraceSection)(without).summary).toBeNull();
+    expect(refused(TraceSection, { ...encoded, summary: 1 })).toBe(true);
+  },
+);
 
 it.prop(
   "every section status decodes and an unknown one is refused",
