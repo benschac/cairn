@@ -12,6 +12,7 @@
           "@effect/platform-node/NodeServices",
           "@effect/platform-node/NodeSocket",
           "effect/FileSystem",
+          "effect/cli/Command",
           "effect/Path",
           "effect/PlatformError",
           "effect/http/HttpClient",

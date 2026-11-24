@@ -2,8 +2,12 @@
   "name": "@cairn/cli",
   "version": "0.0.0",
   "private": true,
+  "bin": {
+    "cairn": "src/main.ts"
+  },
   "type": "module",
   "scripts": {
+    "cairn": "node src/main.ts",
     "dev": "node src/serve.ts",
     "test": "vitest run",
     "typecheck": "effect-tsgo tsc --noEmit"
