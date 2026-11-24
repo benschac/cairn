@@ -172,7 +172,9 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document =>
     Canvas: () => canvasScreenView(model, h),
     Code: (code) => ({
       body: h.main(
-        [],
+        // The code view still carries light colours inline; spec.viewer.design-system moves it to
+        // the tokens, and this class goes then.
+        [h.Class("light-only")],
         Option.match(AsyncData.getData(model.trace), {
           onNone: () => [loadingView(h)],
           onSome: (trace) => [
@@ -189,7 +191,9 @@ const canvasScreenView = (model: Model, h: HtmlBuilder<Message>): Document => {
   const parts = traceParts(model, others, h);
   return {
     body: h.main(
-      [],
+      // The canvas is fixed over the page, so main has no height of its own: it fills the screen
+      // for light-only's paper to cover the page's dark one.
+      [h.Class("light-only"), h.Style({ "min-height": "100vh" })],
       Array.prepend(
         parts.screen,
         h.header(

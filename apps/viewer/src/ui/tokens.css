@@ -1,0 +1,48 @@
+:root {
+  color-scheme: light dark;
+
+  --bg: light-dark(#f3efe6, #1a1815);
+  --card: light-dark(#fbf9f4, #23201c);
+  --raised: light-dark(#ffffff, #2c2823);
+  --ink: light-dark(#1d1b18, #ece6d9);
+  --ink-soft: light-dark(#4c463c, #cfc7b8);
+  --muted: light-dark(#736b5e, #9c9385);
+  --hair: light-dark(#ddd5c6, #3a352e);
+  --green: light-dark(#cfe7b3, #3d5a2a);
+  --prd: light-dark(#f4dc96, #6b5516);
+  --spec: light-dark(#dcd0f4, #4a3d73);
+  --pending: light-dark(#bdb3a2, #6f675b);
+  --progress: light-dark(#e7a13a, #e7a13a);
+  --done: light-dark(#5ea659, #6fbf68);
+  --blocked: light-dark(#df513c, #f0705c);
+  --blocked-ink: light-dark(#b93a27, #f0705c);
+  --m-opus: light-dark(#dcd0f4, #4a3d73);
+  --m-sonnet: light-dark(#cfe0fb, #2c4a73);
+  --m-haiku: light-dark(#f7e6a6, #6b5516);
+  --m-other: light-dark(#e4ded2, #3f3a33);
+  --edge: color-mix(in srgb, var(--ink) 50%, transparent);
+  --tint: color-mix(in srgb, var(--ink) 6%, transparent);
+
+  --line: 1.5px;
+  --r-s: 4px;
+  --r-m: 8px;
+  --r-l: 12px;
+  --lift: 0 2px 0 var(--ink);
+  --lift-l: 0 3px 0 var(--ink);
+
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --prose: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --t-xs: 10px;
+  --t-s: 11.5px;
+  --t-m: 12.5px;
+  --t-l: 14px;
+  --t-xl: 16px;
+  --t-2xl: 20px;
+  --t-3xl: 30px;
+  --t-prose: 16.5px;
+
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --d-fade: 150ms;
+  --d-press: 160ms;
+  --d-move: 240ms;
+}

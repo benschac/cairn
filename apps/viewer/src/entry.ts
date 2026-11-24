@@ -1,5 +1,10 @@
 import { Runtime } from "foldkit";
 
+// oxlint-disable-next-line import/no-unassigned-import -- a stylesheet is imported for its effect on the page
+import "./ui/tokens.css";
+// oxlint-disable-next-line import/no-unassigned-import -- a stylesheet is imported for its effect on the page
+import "./ui/base.css";
+
 import { init } from "./init.ts";
 import { Message } from "./message.ts";
 import { Model } from "./model.ts";
