@@ -15,6 +15,7 @@ import { DragState, Offsets } from "./drag.ts";
 import { Positions, Size, Viewport } from "./geometry.ts";
 import { Pin } from "./highlight.ts";
 import { Resize, Widths } from "./panes.ts";
+import { SectionReader } from "./readers.ts";
 import { SearchState } from "./search.ts";
 import { Node } from "./trace.ts";
 import { Measured } from "./wires.ts";
@@ -127,6 +128,8 @@ export const Model = Schema.Struct({
   maybePanZoomFailure: Schema.Option(Schema.String),
   maybeYou: Schema.Option(ParticipantId),
   participants: Schema.Array(Participant),
+  /** Who else is reading which section: what the PRD pane draws of the room, kept the same reference until it changes. */
+  readers: Schema.Array(SectionReader),
   /** The patches the code view has asked for, by route path. A loaded one is never fetched again. */
   patches: Schema.Record(Schema.String, PatchData),
   /** The pinned nodes, in the order they were pinned; each chain stays lit in its pin's colour. */

@@ -1,6 +1,7 @@
 import { Cursor, ParticipantId, PrdSectionId } from "@cairn/contract";
-import { it } from "@effect/vitest";
+import { expect as assert, it } from "@effect/vitest";
 import { Array, Option, Schema } from "effect";
+import { Lazy } from "foldkit/test";
 import { modifyFields } from "foldkit/struct";
 import {
   Mount,
@@ -17,13 +18,13 @@ import {
 import { PanZoomCanvas, transformOf } from "../src/canvas.ts";
 import { Viewport } from "../src/geometry.ts";
 import { Message } from "../src/message.ts";
-import { Screen } from "../src/model.ts";
+import { Screen, type Model } from "../src/model.ts";
 import { update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
 import { MeasureWires } from "../src/view/wiresView.ts";
 import { view } from "../src/view/view.ts";
-import { layerMounted, loaded, paneSize, unmeasuredWires } from "./fixtures.ts";
+import { layerMounted, loaded, paneSize, sequence, unmeasuredWires } from "./fixtures.ts";
 
 const presenceWith = (agentCursor: Cursor) =>
   Message.ReceivedPresence({
@@ -108,7 +109,8 @@ const participant = (
   kind: "agent" | "human",
   name: string,
   reading: Option.Option<PrdSectionId>,
-) => ({ cursor: Option.none(), id: ParticipantId.make(id), kind, name, reading });
+  cursor: Option.Option<Cursor> = Option.none(),
+) => ({ cursor, id: ParticipantId.make(id), kind, name, reading });
 
 /** A room as the server sends it to p1, who is Ada. */
 const roomWith = (...others: ReadonlyArray<ReturnType<typeof participant>>) =>
@@ -176,5 +178,49 @@ it("two participants on one section show two chips, each with its own label", ()
     expect(selector('[data-prd-pane] [data-reading="p2"]')).toHaveText("Grace"),
     expect(selector('[data-prd-pane] [data-reading="p3"]')).toHaveText("Planner (agent)"),
     chipCount(goal).toHaveCount(0),
+  );
+});
+
+/** The room with a pointer somewhere: Planner reads `section`, and every cursor is at `x`. */
+const roomAt = (x: number, section: PrdSectionId) => {
+  const cursor = Option.some({ x, y: x });
+  return roomWith(
+    participant("p2", "agent", "Planner", Option.some(section), cursor),
+    participant("p3", "human", "Grace", Option.none(), cursor),
+  );
+};
+
+const afterRoom = (model: Model, message: Message) => {
+  return update(model, message).model;
+};
+
+it("a pointer that only moves rebuilds nothing in the PRD body, and a changed reading does", () => {
+  const first = afterRoom(reader, roomAt(1, viewer));
+  const moved = afterRoom(first, roomAt(2, viewer));
+  const read = afterRoom(first, roomAt(1, goal));
+  // The room's participants are new values each frame, but who reads what is kept as it was.
+  assert(moved.participants).not.toBe(first.participants);
+  assert(moved.readers).toBe(first.readers);
+  assert(() =>
+    Lazy.expectAllReused({ model: first, view: sequence([first, moved]) }),
+  ).not.toThrow();
+  assert(() => Lazy.expectAllReused({ model: first, view: sequence([first, read]) })).toThrow(
+    "1 lazy cache miss on the second render",
+  );
+});
+
+it("a chip stays through cursor-only presence and follows a changed reading", () => {
+  scene(
+    { update, view },
+    given(reader),
+    mountedReader,
+    Subscription.emit(roomAt(1, viewer)),
+    expect(chipsAt(viewer)).toHaveText("Planner (agent)"),
+    Subscription.emit(roomAt(2, viewer)),
+    expect(chipsAt(viewer)).toHaveText("Planner (agent)"),
+    chipCount(viewer).toHaveCount(1),
+    Subscription.emit(roomAt(3, goal)),
+    chipCount(viewer).toHaveCount(0),
+    expect(chipsAt(goal)).toHaveText("Planner (agent)"),
   );
 });
