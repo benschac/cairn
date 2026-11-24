@@ -159,6 +159,9 @@ importers:
       '@cairn/core':
         specifier: workspace:*
         version: link:../core
+      '@effect/ai-anthropic':
+        specifier: 4.1.5
+        version: 4.1.5(effect@4.1.5)
       '@effect/platform-node':
         specifier: 4.1.5
         version: 4.1.5(effect@4.1.5)(redis@6.3.1)
@@ -398,6 +401,11 @@ packages:
     resolution: {integrity: sha512-MqJlG+CVCgkIX7iPDo8hb4YlcEELYTlJFLg2Whp8TjBPieViNiiRAJR/5TtDApa38dzrTsMc69ul965Myagrdg==}
     peerDependencies:
       effect: ^4.1.2
+
+  '@effect/ai-anthropic@4.1.5':
+    resolution: {integrity: sha512-rLqL6hm/8J/CXJDNYhbF9g+isyZjiRNtiekL7iUxwflaEGLclXTP31/RxQwEzb6ihGeMMYmJz3yt6+besNaUzg==}
+    peerDependencies:
+      effect: ^4.1.5
 
   '@effect/platform-browser@4.1.5':
     resolution: {integrity: sha512-48wRnowGMrUtcF8A0xlqPh6HY/01NTYoA9HNwqGRLNGUXbQHbN97zhr6+qvsxJ4seHipjLXazegSwMkUHarPdQ==}
@@ -2534,6 +2542,10 @@ snapshots:
     dependencies:
       '@distilled.cloud/aws4signer': 1.0.0-rc.20(effect@4.1.5)
       '@distilled.cloud/core': 1.0.0-rc.20(effect@4.1.5)
+      effect: 4.1.5
+
+  '@effect/ai-anthropic@4.1.5(effect@4.1.5)':
+    dependencies:
       effect: 4.1.5
 
   '@effect/platform-browser@4.1.5(effect@4.1.5)':
