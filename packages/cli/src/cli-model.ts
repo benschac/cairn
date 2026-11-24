@@ -28,24 +28,37 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
  * per call and reads its answer, so planning uses that CLI's own sign-in and Cairn reads no key.
  *
  * The flags below are what `claude --help` and `codex exec --help` documented when this was written,
- * on claude 2.1.331 (Claude Code) and codex-cli 0.171.0. Both CLIs change often. A flag an
+ * on claude 2.1.331 (Claude Code) and codex-cli 0.172.0. Both CLIs change often. A flag an
  * installed CLI no longer has makes it exit non-zero with a usage error, which this module turns
  * into a failure that names the CLI's version.
  *
  * - claude: `claude -p --tools "" --output-format json`, the prompt on stdin, and the call's JSON
  *   Schema as `--json-schema` for a structured answer, which comes back as `structured_output`.
- * - codex: `codex exec --skip-git-repo-check --sandbox read-only --disable shell_tool ...`, the
- *   prompt on stdin, and the call's JSON Schema in a file given to `--output-schema`. Codex prints
- *   its last message on stdout.
+ * - codex: `codex exec`, the prompt on stdin, and the call's JSON Schema in a file given to
+ *   `--output-schema`. Codex prints its last message on stdout and its progress on stderr.
  *
- * Codex's isolation is weaker than claude's `--tools ""`. Codex 0.171.0 documents no single switch
- * for every tool, so each is switched off by its feature name with `--disable` (the same as
- * `-c features.<name>=false`): `shell_tool` and `unified_exec` (running commands), `view_image`
- * (reading image files), and `computer_use` and `browser_use` (driving the machine). These are the
- * stable features of `codex features list` that plainly act on the machine. What stays on: MCP
- * servers, apps and plugins from the person's own codex config are not switched off, and the
- * read-only sandbox and the empty temporary directory only limit what the shell would have done.
- * Nothing here has been checked against a real codex run.
+ * Codex has no `--tools ""`, so its isolation is several switches, each checked against a real
+ * codex-cli 0.172.0 run in an empty directory (a prompt that asked it to run `ls ~`, call any
+ * MCP, app, plugin, browser, web or image tool and read `/etc/hosts`; none of it ran):
+ *
+ * - `--ignore-user-config` does not load `~/.codex/config.toml`, so none of the person's MCP
+ *   servers, hooks, notify program or marketplaces exist (auth still comes from `CODEX_HOME`).
+ *   Without it the same prompt ran `ls` in the person's home and listed their MCP tools.
+ * - `--ignore-rules` loads no execpolicy `.rules`; `--ephemeral` writes no session files.
+ * - `--sandbox read-only` and the empty temporary directory only limit what a shell would have
+ *   done: a read-only sandbox still lets `ls ~` run, so the shell is switched off as well.
+ * - `--disable <feature>` (the same as `-c features.<feature>=false`) switches off each tool by
+ *   its name: `shell_tool` and `unified_exec` (commands), `view_image`, `computer_use`,
+ *   `browser_use`, `apps`, `plugins`, `hooks`, `memories`, `image_generation`, `tool_suggest`
+ *   and `skill_search`. `code_mode_host` is off too: with it on, codex's code-mode tool runs
+ *   scripts that reach every tool the person's account has, with it off the tool fails closed
+ *   ("code-mode host is disabled").
+ * - `-c web_search="disabled"` switches off web search.
+ *
+ * What stays: the person's global `~/.codex/AGENTS.md` and skill list are still sent to the model
+ * as instructions (no flag drops them; `CODEX_HOME` cannot be swapped without copying the sign-in,
+ * whose refresh token rotates), and codex's built-in `list_mcp_resources`, which answers with an
+ * empty list because no server is configured. Neither acts on the machine.
  *
  * `--model` is passed only when a model is configured.
  */
@@ -223,8 +236,22 @@ const answerOf = (cli: CliName, finished: Finished) =>
     Match.exhaustive,
   );
 
-/** The codex features switched off, because each is a tool that acts on the machine. */
-const CODEX_DISABLED = ["shell_tool", "unified_exec", "view_image", "computer_use", "browser_use"];
+/** The codex features switched off, because each is a tool, or reaches tools, that act beyond the prompt. */
+const CODEX_DISABLED = [
+  "shell_tool",
+  "unified_exec",
+  "view_image",
+  "computer_use",
+  "browser_use",
+  "code_mode_host",
+  "apps",
+  "plugins",
+  "hooks",
+  "memories",
+  "image_generation",
+  "tool_suggest",
+  "skill_search",
+];
 
 const codecOf = Match.type<CliName>().pipe(
   Match.when("claude", () => AnthropicStructuredOutput.toCodecAnthropic),
@@ -302,8 +329,17 @@ export const layer = (options: CliModelOptions) =>
                 onSome: (text) => fs.writeFileString(file, text),
               });
               return Array.flatten([
-                ["exec", "--skip-git-repo-check", "--sandbox", "read-only"],
+                [
+                  "exec",
+                  "--skip-git-repo-check",
+                  "--ephemeral",
+                  "--ignore-user-config",
+                  "--ignore-rules",
+                  "--sandbox",
+                  "read-only",
+                ],
                 Array.flatMap(CODEX_DISABLED, (feature) => ["--disable", feature]),
+                ["-c", 'web_search="disabled"'],
                 optionally("--model", model),
                 optionally(
                   "--output-schema",
