@@ -1,0 +1,142 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--t-m);
+  line-height: 1.5;
+}
+
+button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="separator"]:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.prose {
+  font-family: var(--prose);
+  font-size: var(--t-prose);
+  line-height: 1.62;
+  color: var(--ink);
+}
+
+.prose p {
+  margin: 0 0 12px;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.prose li {
+  margin: 3px 0;
+}
+
+.prose li > ul {
+  margin: 3px 0;
+}
+
+.prose code {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  background: var(--tint);
+  padding: 1px 4px;
+  border-radius: var(--r-s);
+}
+
+.prose pre {
+  font-family: var(--mono);
+  font-size: var(--t-m);
+  line-height: 1.5;
+  background: var(--card);
+  border: var(--line) solid var(--hair);
+  border-radius: var(--r-m);
+  padding: 10px 12px;
+  overflow: auto;
+  margin: 0 0 14px;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.prose .tbl {
+  overflow: auto;
+  margin: 0 0 14px;
+}
+
+.prose table {
+  border-collapse: collapse;
+  font-size: var(--t-l);
+}
+
+.prose th,
+.prose td {
+  border: var(--line) solid var(--hair);
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  font-family: var(--mono);
+  font-size: var(--t-s);
+  background: var(--card);
+}
+
+.prose .ref {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.prose .ref code {
+  background: var(--prd);
+  color: var(--ink);
+}
+
+.prose .lnk {
+  text-decoration: underline;
+  text-decoration-color: var(--hair);
+  text-underline-offset: 3px;
+}
+
+mark[data-search-match] {
+  background: var(--prd);
+  color: var(--ink);
+}
+
+.light-only {
+  color-scheme: light;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
