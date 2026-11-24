@@ -87,6 +87,7 @@ The plan is a set of stacks that can be built at the same time, not one long sta
 - `cairn status` prints the manifest as a tree with status.
 - `cairn serve` starts the local viewer.
 - `cairn link` prints a link into the viewer (see deep links).
+- `cairn note` adds a note or a review to `cairn.db`, anchored by a link (see notes).
 
 ## Planning from a PRD {#prd.planning}
 
@@ -149,7 +150,7 @@ The existing orchestrator reads `manifest.json` and runs tasks. It must:
    ```
 
 4. Redact the session log, then store it in `.cairn/cairn.db` under its `Cairn-Session` ID.
-5. Attach later notes, reviews, and annotations to the session ID in `cairn.db`, never to the commit. The trailer is an immutable pointer; the database holds everything that can change.
+5. Attach later notes, reviews, and annotations to the session ID in `cairn.db`, never to the commit, each with the link to what it is about (see notes). The trailer is an immutable pointer; the database holds everything that can change.
 6. Stop and emit `blocked_on_human` for any task with `humanGate.required`, and do not start its children.
 
 Cairn derives manifest status from `events.jsonl` and git, so the orchestrator never edits `manifest.json` directly.
@@ -355,6 +356,16 @@ Search the current feature locally across PRD and spec section titles and IDs, t
 
 Ship this in three diffs: matching titles/IDs/branches; search controls, navigation and chain highlighting; then prose snippets and inline highlights. The full feature is complete only after all three.
 
+### Notes {#prd.viewer.notes}
+
+Agents leave notes on the plan and the code: a review finding on a line, a question about a spec section, a remark on a task. The viewer shows them where they are about. In v1 it only shows them; people write notes in the room (see notes in the room).
+
+- A note has a kind (`note` or `review`), an author, a body in markdown, whether it is open or resolved, and an anchor: the deep link to what it is about, such as a PRD passage, a spec section, a task, a commit or a line of a diff.
+- Agents and the orchestrator write notes with `cairn note`, which stores them in `cairn.db` (see the orchestrator contract). The second-model review of each pull request writes its findings as review notes on the lines they are about.
+- A note shows as a marker where it is anchored: beside the passage or the spec section, on the line in the diff, on the task's row and chip with a count of open notes. The task detail lists the task's notes, and each note opens its link.
+- A note whose anchor no longer resolves shows in the task detail, or under its section, with the step that is missing (see deep links).
+- A resolved note is hidden until a person asks to see resolved notes.
+
 ## Code view {#prd.code-view}
 
 The reader shows where the work stands. The code view shows the work itself: the code each task changed, beside the agent conversation that changed it. It is read-only, like the rest of the viewer.
@@ -488,6 +499,7 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - A link copied after opening a PRD passage, then a spec section, then a line of a task's stacked diff opens in a new window on the same passage, the same trail and the same line, and Back walks the trail one step at a time.
 - A link to a passage still opens on it after an edit elsewhere in the PRD; after its passage is edited it opens on the section and says the passage changed.
 - Writing a link for any list of steps and reading it back gives the same steps, property tested over generated steps.
+- A review an agent writes with `cairn note` on a line of a task's diff shows on that line in the code view and in the task detail, and its link opens there.
 - A command added to the CLI appears in the docs reference without a docs edit, and a docs page that names a removed command fails the build.
 - The spec sections and tasks for the docs were written by `cairn plan`, not by hand.
 - Two parallel tasks planned against the same source file score higher than two that share only a generated file, and the plan output names the file.
@@ -511,12 +523,12 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 
 v2 lets humans and agents change the PRD and statuses at the same time, and keeps work correct when the PRD moves mid-stack. Each kind of state gets the strategy that fits it.
 
-| State                                         | Strategy                              | Why                                                                                               |
-| --------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| PRD and spec prose                            | Loro CRDT                             | Human and agent edits land concurrently and must merge without conflicts                          |
-| Section IDs                                   | Loro marks on the text                | IDs must survive concurrent edits around them                                                     |
-| Events, task status, leases and agent notices | Effect `EventLog`, one store per room | One writer per task, so status is a projection of ordered events, not a merge (see the event log) |
-| Presence                                      | Ephemeral, on the presence socket     | Cursors and heartbeats are never persisted                                                        |
+| State                                                | Strategy                              | Why                                                                                               |
+| ---------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| PRD and spec prose                                   | Loro CRDT                             | Human and agent edits land concurrently and must merge without conflicts                          |
+| Section IDs                                          | Loro marks on the text                | IDs must survive concurrent edits around them                                                     |
+| Events, task status, leases, notes and agent notices | Effect `EventLog`, one store per room | One writer per task, so status is a projection of ordered events, not a merge (see the event log) |
+| Presence                                             | Ephemeral, on the presence socket     | Cursors and heartbeats are never persisted                                                        |
 
 Yjs stays an option for the editor if Loro's bindings fall short. Strategies can coexist per field.
 
@@ -549,7 +561,7 @@ A feature's PRD, spec, and stack live in a shared room. Humans and agents see ea
 ### Architecture {#prd.v2-multiplayer-on-cloudflare.architecture}
 
 - One Durable Object per room (one feature). It holds the Loro document and the room's event log, applies updates, and fans them out over hibernatable WebSockets.
-- Storage: Durable Object SQLite for Loro updates and snapshots and for the event log's entries. R2 for version snapshots and opt-in redacted sessions.
+- Storage: Durable Object SQLite for Loro updates and snapshots and for the event log's entries. R2 for version snapshots, opt-in redacted sessions and files attached to notes.
 - Statuses and leases are events written through the room's Durable Object, and its sequence orders them (see the event log).
 - Local bridge: `cairn connect` links a repo's `.cairn/` to a room. It pushes events, commit SHAs, and session IDs, and pulls PRD and spec edits back to markdown on disk.
 - Offline: the viewer still works on local files. Loro merges edits made while disconnected.
@@ -568,6 +580,16 @@ A room's events run on Effect's `EventLog` (`effect/eventlog`).
 - Prose stays out of the log, because Loro merges text. Presence stays out, because it is never persisted.
 
 A spike proves the fit before the room is built on it: one Durable Object running the event-log server on its own SQLite, with a browser client and a CLI client. If it misses the latency target or loses events when the Object hibernates, status and leases go back to registers the Durable Object writes, and the rest of v2 stands.
+
+### Notes in the room {#prd.v2-multiplayer-on-cloudflare.notes}
+
+In the room, people write notes too.
+
+- A note is a row in the room's event log, so two people editing one note at once each keep the fields they changed.
+- A note on a passage holds a Loro cursor, so it follows its text through concurrent edits. Other anchors are deep links, as in v1.
+- A note's author is its writer's identity. An agent may resolve its own notes; only a human resolves a human's note.
+- Files attached to a note, such as a screenshot, are stored in R2.
+- `cairn connect` sends the notes in `cairn.db` to the room, and pulls the room's notes back.
 
 ### Presence {#prd.v2-multiplayer-on-cloudflare.presence}
 
@@ -603,6 +625,7 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 - Clients that edit offline converge on reconnect with no lost edits, property tested with random edits and partitions.
 - `alchemy deploy` brings up a working room from an empty Cloudflare account.
 - The event-log spike: a Durable Object running the event-log server on its own SQLite syncs a browser client and a CLI client within the latency target, and an Object that hibernated wakes with no lost events.
+- Two people editing one note at once each keep the fields they changed, and a note on a passage follows its text through concurrent edits.
 - A client that writes events offline sends them on reconnect, and every client then derives the same task statuses.
 
 ## Later {#prd.later}
@@ -614,6 +637,7 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 - Cost per section and per model.
 - Judging during a run: before a task starts, and on its diff after it is done.
 - Adapters for Vercel Board and other agent message boards.
+- Notes across rooms, such as every open note for one person, indexed in D1.
 - Cairn's commands as MCP tools, so an agent session plans as a participant in the room instead of being run by `cairn plan`.
 - Scoring planners against a reference plan, so a provider is chosen on measured quality and cost.
 - State diagrams drawn from the machines themselves.
