@@ -196,6 +196,36 @@
   background-color: var(--m-haiku);
 }
 
+/* A small square for one task in a card's header; it takes the chip's model colours and border. */
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: var(--line) solid var(--edge);
+  border-radius: var(--r-s);
+  background-color: var(--m-other);
+}
+
+.swatch[data-model="opus"] {
+  background-color: var(--m-opus);
+}
+
+.swatch[data-model="sonnet"] {
+  background-color: var(--m-sonnet);
+}
+
+.swatch[data-model="haiku"] {
+  background-color: var(--m-haiku);
+}
+
+.swatch[data-ran="true"] {
+  border-color: var(--ink);
+}
+
+.swatch[data-ran="false"] {
+  border-style: dashed;
+}
+
 .chip[data-ran="true"] {
   border-color: var(--ink);
 }

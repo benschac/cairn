@@ -111,6 +111,8 @@ export const Model = Schema.Struct({
   drawer: Drawer,
   /** Every curve is drawn, not only the active chain's. Off at first, so the canvas starts clear. */
   isShowingAllCurves: Schema.Boolean,
+  /** The models and reasoning switch: every model chip, mark and square shows. On at first. */
+  isShowingModels: Schema.Boolean,
   /** The section whose ID was just copied; its button reads "copied" until another reader click. */
   maybeCopied: Schema.Option(PrdSectionId),
   maybeHovered: Schema.Option(Node),

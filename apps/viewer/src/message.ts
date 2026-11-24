@@ -22,6 +22,8 @@ export const Message = defineMessageUnion({
   /** A task listed in a section's drawer. */
   ClickedDrawerTask: { id: TaskId },
   ClickedFit: {},
+  /** The top bar's models and reasoning switch: shows or hides them everywhere. */
+  ClickedModelsSwitch: {},
   /** Clears every pin. */
   ClickedClearPins: {},
   /** Anywhere on a node, or its title button: pins or unpins it. */

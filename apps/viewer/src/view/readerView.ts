@@ -6,6 +6,7 @@ import { Message } from "../message.ts";
 import type { Destination, Model } from "../model.ts";
 import { currentOf } from "../reader.ts";
 import { Node } from "../trace.ts";
+import { switchView } from "../ui/controls.ts";
 import { prdPaneView } from "./prdPaneView.ts";
 import { searchView } from "./searchView.ts";
 import { specPaneView } from "./specPaneView.ts";
@@ -62,6 +63,15 @@ const topBarView = (trace: Trace, model: Model, presence: string, h: HtmlBuilder
       h.span([h.DataAttribute("feature", "")], [trace.feature]),
       screenSwitchView("Reader", h),
       searchView(trace, model.search, h),
+      switchView(
+        {
+          id: "models-switch",
+          isChecked: model.isShowingModels,
+          label: "Models and reasoning",
+          onToggle: () => Message.ClickedModelsSwitch(),
+        },
+        h,
+      ),
       h.p([h.Role("status"), h.Style({ margin: "0 0 0 auto" })], [presence]),
     ],
   );
@@ -106,8 +116,15 @@ export const readerView = (
         ],
         [
           prdPaneView(trace, maybeCurrent, model.reader.maybePinned, model.maybeCopied, h),
-          specPaneView(trace, maybeCurrent, model.reader, model.maybeHovered, h),
-          stackChipsView(trace, maybeCurrent, model.maybeHovered, h),
+          specPaneView(
+            trace,
+            maybeCurrent,
+            model.reader,
+            model.isShowingModels,
+            model.maybeHovered,
+            h,
+          ),
+          stackChipsView(trace, maybeCurrent, model.isShowingModels, model.maybeHovered, h),
           wiresView(trace, maybeCurrent, model.maybeMeasuredWires, model.maybeHovered, h),
         ],
       ),

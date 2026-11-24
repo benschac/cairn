@@ -15,6 +15,7 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
     drag: DragState.Idle(),
     drawer: Drawer.Closed(),
     isShowingAllCurves: false,
+    isShowingModels: true,
     maybeCopied: Option.none(),
     maybeHovered: Option.none(),
     maybeMeasuredWires: Option.none(),
