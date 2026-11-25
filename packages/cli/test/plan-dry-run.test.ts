@@ -53,6 +53,7 @@ const scriptedPlanner = (calls: Ref.Ref<number>) =>
       sections: () => Effect.die("a dry run does not write sections"),
       spec: () => Ref.update(calls, (count) => count + 1).pipe(Effect.as(SPEC)),
       splitSection: () => Effect.die("plan does not split a section"),
+      statements: () => Effect.succeed([]),
       splitTask: () => Effect.die("plan does not split a task"),
       tasks: () => Ref.update(calls, (count) => count + 1).pipe(Effect.as(DRAFTS)),
     }),

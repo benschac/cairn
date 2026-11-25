@@ -3,7 +3,7 @@ import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { Array, Effect, FileSystem, Layer, Path, Predicate, Record, Schema } from "effect";
 
-import { IndexProse, Planner, PlannerError, TaskDrafts } from "../src/planner.ts";
+import { IndexProse, Planner, PlannerError, StatementDrafts, TaskDrafts } from "../src/planner.ts";
 import { Script, scripted, unreachable } from "./fixtures/scripted-language-model.ts";
 import type { Reply } from "./fixtures/scripted-language-model.ts";
 
@@ -527,4 +527,105 @@ it.effect.prop(
         }),
       );
     }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+const statementsOf = (prd: string, targets: ReadonlyArray<PrdSectionId>) =>
+  Planner.use((planner) => planner.statements(prd, targets));
+
+const encodeStatements = Schema.encodeSync(Schema.fromJsonString(StatementDrafts));
+
+it.effect.prop(
+  "statements returns the drafts the model sent, and the prompt holds the PRD and every target",
+  [PrdSectionId, Schema.NonEmptyString, Schema.Array(Schema.String)],
+  ([first, prd, drafts]) => {
+    const second = Schema.decodeSync(PrdSectionId)(`${first}-second`);
+    return planning(
+      [
+        encodeStatements({
+          statements: [
+            { drafts, target: first },
+            { drafts: [], target: second },
+          ],
+        }),
+      ],
+      Effect.gen(function* () {
+        const found = yield* statementsOf(prd, [first, second]);
+        const seen = yield* prompts;
+        const [prompt = ""] = seen;
+        expect(found).toEqual([
+          { drafts, target: first },
+          { drafts: [], target: second },
+        ]);
+        expect(seen).toHaveLength(1);
+        expect(prompt).toContain(prd);
+        expect(prompt).toContain(first);
+        expect(prompt).toContain(second);
+      }),
+    );
+  },
+);
+
+it.effect.prop(
+  "a statements reply about a part that was not asked about is retried once, then fails with it named",
+  [PrdSectionId],
+  ([asked]) => {
+    const other = Schema.decodeSync(PrdSectionId)(`${asked}-other`);
+    const foreign = encodeStatements({ statements: [{ drafts: ["A."], target: other }] });
+    return planning(
+      [foreign, foreign],
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(statementsOf("# Notes", [asked]));
+        const seen = yield* prompts;
+        const [first = "", second = ""] = seen;
+        expect(isPlannerError(failure)).toBe(true);
+        expect(failure.call).toBe("statements");
+        expect(failure.reason).toContain(other);
+        expect(seen).toHaveLength(2);
+        expect(second).toContain(first);
+        expect(second).toContain(other);
+      }),
+    );
+  },
+);
+
+it.effect.prop(
+  "a model failure while drafting statements is a PlannerError",
+  [PrdSectionId],
+  ([id]) =>
+    planning(
+      [unreachable],
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(statementsOf("# Notes", [id]));
+        expect(isPlannerError(failure)).toBe(true);
+        expect(failure.call).toBe("statements");
+      }),
+    ),
+);
+
+it.effect.prop(
+  "a statements reply that skips a target or repeats one is retried once, then fails with it named",
+  [PrdSectionId],
+  ([asked]) => {
+    const other = Schema.decodeSync(PrdSectionId)(`${asked}-other`);
+    const skipped = encodeStatements({ statements: [{ drafts: [], target: asked }] });
+    const repeated = encodeStatements({
+      statements: [
+        { drafts: [], target: asked },
+        { drafts: [], target: asked },
+        { drafts: [], target: other },
+      ],
+    });
+    return planning(
+      [skipped, repeated],
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(statementsOf("# Notes", [asked, other]));
+        const seen = yield* prompts;
+        const [, second = ""] = seen;
+        expect(failure.call).toBe("statements");
+        expect(failure.reason).toContain(`more than one item: ${asked}`);
+        expect(seen).toHaveLength(2);
+        expect(second).toContain(`no item: ${other}`);
+      }),
+    );
+  },
 );

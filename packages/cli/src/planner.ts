@@ -1,6 +1,7 @@
-import { IndexedSection, TaskDraft, defaultConfig } from "@cairn/contract";
-import type { Config, ManifestTask, PrdSectionId, Section, SpecSectionId } from "@cairn/contract";
+import { IndexedSection, PrdSectionId, TaskDraft, defaultConfig } from "@cairn/contract";
+import type { Config, ManifestTask, Section, SpecSectionId } from "@cairn/contract";
 import { drawsOf, mermaidBlocksOf, sectionsOf, withoutMermaidBlocks } from "@cairn/core";
+import type { Drafted } from "@cairn/core";
 import {
   Array,
   Console,
@@ -25,7 +26,15 @@ export class PlannerError extends Schema.TaggedError<
   PlannerError,
   { readonly brand: unique symbol }
 >()("PlannerError", {
-  call: Schema.Literals(["spec", "sections", "tasks", "splitSection", "splitTask", "index"]),
+  call: Schema.Literals([
+    "spec",
+    "sections",
+    "tasks",
+    "splitSection",
+    "splitTask",
+    "index",
+    "statements",
+  ]),
   reason: Schema.String,
 }) {}
 
@@ -51,6 +60,43 @@ export type IndexProse = typeof IndexProse.Type;
 
 /** The part of a section `index` reads: its ID, to name the items, and its text. */
 export type IndexTarget = Pick<Section, "body" | "title"> & { readonly id: SpecSectionId };
+
+/** What `statements` asks the model for: one item for each target, with the drafts for it. */
+export const StatementDrafts = Schema.Struct({
+  statements: Schema.Array(
+    Schema.Struct({ drafts: Schema.Array(Schema.String), target: PrdSectionId }),
+  ),
+});
+
+/**
+ * `StatementDrafts` with exactly one item for each of `targets`, so a reply about another part
+ * cannot be written into the PRD and a part the model skipped is asked for again. A part with
+ * nothing to build has an item with no drafts.
+ */
+const statementDraftsOf = (targets: ReadonlyArray<PrdSectionId>) =>
+  StatementDrafts.check(
+    Schema.makeFilter((reply) => {
+      const named = Array.map(reply.statements, (item) => item.target);
+      const foreign = Array.filter(named, (target) => !Array.contains(targets, target));
+      const missing = Array.filter(targets, (target) => !Array.contains(named, target));
+      const repeated = Array.filter(
+        Array.dedupe(named),
+        (target) => Array.length(Array.filter(named, (other) => other === target)) > 1,
+      );
+      const problems = Array.flatten([
+        Array.isReadonlyArrayNonEmpty(foreign)
+          ? [`these targets were not asked about: ${Array.join(foreign, ", ")}`]
+          : [],
+        Array.isReadonlyArrayNonEmpty(missing)
+          ? [`these targets have no item: ${Array.join(missing, ", ")}`]
+          : [],
+        Array.isReadonlyArrayNonEmpty(repeated)
+          ? [`these targets have more than one item: ${Array.join(repeated, ", ")}`]
+          : [],
+      ]);
+      return Array.isReadonlyArrayNonEmpty(problems) ? Array.join(problems, "; ") : undefined;
+    }),
+  );
 
 /**
  * `IndexProse`, and every item's ID starts with the section's ID and `#`, so a reply about
@@ -178,6 +224,10 @@ export interface Prompts {
   ) => Effect.Effect<string, PromptError>;
   readonly splitSection: (section: string, reason: string) => Effect.Effect<string, PromptError>;
   readonly index: (section: IndexTarget) => Effect.Effect<string, PromptError>;
+  readonly statements: (
+    prd: string,
+    targets: ReadonlyArray<PrdSectionId>,
+  ) => Effect.Effect<string, PromptError>;
 }
 
 /** IDs as a list of code spans, or `none` when there are none. */
@@ -219,19 +269,21 @@ const modelTable = (models: Readonly<Record<string, string>>) =>
 export const loadPrompts = Effect.fn("loadPrompts")(function* (
   models: Readonly<Record<string, string>>,
 ) {
-  const [retry, spec, sections, tasks, example, splitSection, splitTask, index] = yield* Effect.all(
-    [
-      readText("retry", promptUrl("retry")),
-      readText("spec", promptUrl("spec")),
-      readText("sections", promptUrl("sections")),
-      readText("tasks", promptUrl("tasks")),
-      readText("spec example", exampleUrl),
-      readText("split-section", promptUrl("split-section")),
-      readText("split-task", promptUrl("split-task")),
-      readText("index", promptUrl("index")),
-    ],
-    { concurrency: "unbounded" },
-  );
+  const [retry, spec, sections, tasks, example, splitSection, splitTask, index, statements] =
+    yield* Effect.all(
+      [
+        readText("retry", promptUrl("retry")),
+        readText("spec", promptUrl("spec")),
+        readText("sections", promptUrl("sections")),
+        readText("tasks", promptUrl("tasks")),
+        readText("spec example", exampleUrl),
+        readText("split-section", promptUrl("split-section")),
+        readText("split-task", promptUrl("split-task")),
+        readText("index", promptUrl("index")),
+        readText("statements", promptUrl("statements")),
+      ],
+      { concurrency: "unbounded" },
+    );
   return {
     retry: (prompt, error) => fillPrompt("retry", retry, { error, prompt }),
     spec: (prd) => fillPrompt("spec", spec, { example, prd }),
@@ -261,6 +313,8 @@ export const loadPrompts = Effect.fn("loadPrompts")(function* (
       fillPrompt("split-section", splitSection, { reason, section }),
     index: (section) =>
       fillPrompt("index", index, { body: section.body, id: section.id, title: section.title }),
+    statements: (prd, targets) =>
+      fillPrompt("statements", statements, { prd, targets: idList(targets) }),
   } satisfies Prompts;
 });
 
@@ -338,7 +392,7 @@ export const drawnOf = <E, R>(
 
 /**
  * Plans with a language model. The calls here are `spec`, `sections`, `tasks`, `splitSection`,
- * `splitTask` and `index`.
+ * `splitTask`, `index` and `statements`.
  */
 export class Planner extends Context.Service<
   Planner,
@@ -377,6 +431,15 @@ export class Planner extends Context.Service<
     ) => Effect.Effect<ReadonlyArray<TaskDraft>, PlannerError>;
     /** The prose fields of the section's entry in `spec.json`. */
     readonly index: (section: IndexTarget) => Effect.Effect<IndexProse, PlannerError>;
+    /**
+     * Drafts of "Done when" statements for `targets`, sections and list items of `prd` that have
+     * none (`spec.planning.done-when.asking-the-person`). A target the model describes with no
+     * drafts has nothing to build; a reply about a part that was not asked about is refused.
+     */
+    readonly statements: (
+      prd: string,
+      targets: ReadonlyArray<PrdSectionId>,
+    ) => Effect.Effect<ReadonlyArray<Drafted>, PlannerError>;
   }
 >()("@cairn/cli/Planner") {
   /**
@@ -509,7 +572,24 @@ export class Planner extends Context.Service<
           Effect.mapError(failed("index")),
         );
 
-        return Planner.of({ index, sections, spec, splitSection, splitTask, tasks });
+        const statements = Effect.fn("Planner.statements")(
+          function* (prd: string, targets: ReadonlyArray<PrdSectionId>) {
+            const prompt = yield* prompts.statements(prd, targets);
+            const draftsOf = (text: string) =>
+              LanguageModel.generateObject({
+                objectName: "StatementDrafts",
+                prompt: text,
+                schema: statementDraftsOf(targets),
+              }).pipe(
+                Effect.provideService(LanguageModel.LanguageModel, model),
+                Effect.map((response) => response.value.statements),
+              );
+            return yield* withRetry(prompt, draftsOf);
+          },
+          Effect.mapError(failed("statements")),
+        );
+
+        return Planner.of({ index, sections, spec, splitSection, splitTask, statements, tasks });
       }),
     );
 

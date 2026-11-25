@@ -31,6 +31,7 @@ const stubPlanner = (calls: Ref.Ref<ReadonlyArray<string>>, round: number) =>
     sections: unused,
     spec: unused,
     splitSection: unused,
+    statements: unused,
     splitTask: unused,
     tasks: unused,
   });
@@ -244,6 +245,7 @@ it.effect("a failed index call fails the whole index with its PlannerError", () 
       sections: unused,
       spec: unused,
       splitSection: unused,
+      statements: unused,
       splitTask: unused,
       tasks: unused,
     });

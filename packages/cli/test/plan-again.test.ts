@@ -141,6 +141,7 @@ const scriptedPlanner = ({ drafts, sections, spec }: Script) =>
             Effect.as(spec),
           ),
         splitSection: () => Effect.die("plan does not split a section"),
+        statements: () => Effect.succeed([]),
         splitTask: () => Effect.die("plan does not split a task"),
         tasks: (_prd, _spec, specSections, existing) =>
           Ref.update(seen.asked, (asked) => ({

@@ -35,6 +35,13 @@ import {
 } from "effect";
 import { Command, Flag } from "effect/cli";
 
+import {
+  askStatements,
+  draftCountOf,
+  draftStatements,
+  draftWarning,
+  targetsOf,
+} from "../ask-statements.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { liveLanguageModel } from "../models.ts";
 import { Planner, PlannerError } from "../planner.ts";
@@ -600,6 +607,8 @@ export const needsPlanner = Effect.fn("plan.needsPlanner")(function* (options: P
         Array.isReadonlyArrayNonEmpty(replan.uncovered) ||
         Array.isReadonlyArrayNonEmpty(replan.rewritable) ||
         Array.some(specIdsOf(drawn), (id) => !HashSet.has(indexed, id)) ||
+        // An answer about a draft edits the PRD, which can make a section need writing again.
+        (draftCountOf(prd) > 0 && !options.yes && options.dryRun !== true) ||
         (!options.spec && Array.isReadonlyArrayNonEmpty(replan.untasked))
       );
     },
@@ -650,9 +659,63 @@ const accept = Effect.fn("plan.accept")(function* (section: string) {
   yield* Console.log(`Accepted ${section}`);
 });
 
+/** Writes `prd.md`. */
+const savePrd = (text: string) => writeCairn("prd.md", text);
+
 /**
- * Runs the two steps of `cairn plan` (`spec.planning.cairn-plan`): the spec, then the tasks, each
- * followed by a question. On a plan that has a spec or tasks already it plans again
+ * Settles the PRD's done-when statements before the spec is written (`spec.planning.done-when.asking-the-person`):
+ * drafts them for the parts that have none, writes them into `prd.md`, then asks about each draft.
+ * A first plan drafts for every section and item; planning again, only for the sections nothing
+ * covers. Returns the PRD as it is after the answers.
+ */
+const statementsStep = Effect.fn("plan.statementsStep")(function* (
+  options: PlanOptions,
+  prd: string,
+  manifest: Option.Option<Manifest>,
+) {
+  const spec = yield* optionally(loadSpec);
+  const only: Option.Option<ReadonlyArray<string>> = options.respec
+    ? Option.none()
+    : yield* Option.match(spec, {
+        onNone: () => Effect.succeedNone,
+        onSome: (text) =>
+          Effect.map(currentIndex(prd, manifest), (index) =>
+            Option.some(replanOf(prd, text, index, manifest).uncovered),
+          ),
+      });
+  const drafted = yield* draftStatements(prd, targetsOf(prd, only), savePrd);
+  return yield* askStatements(drafted, options, savePrd);
+});
+
+/** The spec and the tasks: what `steps` does once the PRD's statements are settled. */
+const planSteps = Effect.fn("plan.planSteps")(function* (
+  inputs: Inputs,
+  manifest: Option.Option<Manifest>,
+) {
+  const { options } = inputs;
+  const { sections, wrote: specWritten } = yield* specStep(inputs, manifest);
+  const toDraft = options.spec ? Option.none() : yield* draftable(inputs, manifest);
+  if (Option.isNone(toDraft)) {
+    // A manifest on disk keeps its diagram true, so a spec that drifted from it is drawn again.
+    if (!specWritten && !(yield* redraw(inputs.prd, manifest))) {
+      yield* Console.log(UP_TO_DATE);
+    }
+    return { ...nothingPlanned, sections };
+  }
+  const proceed = specWritten
+    ? yield* confirm(DRAFT_QUESTION, options.yes || options.dryRun === true)
+    : true;
+  if (proceed) {
+    const planned = yield* tasksStep(inputs, manifest, toDraft.value);
+    return { ...planned, sections };
+  }
+  yield* Console.log(EDIT_SPEC);
+  return { ...nothingPlanned, sections };
+});
+
+/**
+ * Runs the steps of `cairn plan` (`spec.planning.cairn-plan`): the done-when statements, the spec,
+ * then the tasks, each followed by a question. On a plan that has a spec or tasks already it plans again
  * (`spec.planning.again`): spec sections for PRD sections nothing covers, tasks for spec sections
  * nothing builds, and a report of what went stale; no task in the manifest changes. The judging
  * checkpoints and `judgments.json` belong to the tasks that own them.
@@ -673,26 +736,13 @@ const steps = Effect.fn("plan.steps")(function* (options: PlanOptions) {
     yield* writeCairn("prd.md", assigned.markdown);
     yield* Effect.forEach(assigned.added, (id) => Console.log(`Added ${id}`), { discard: true });
   }
-  const inputs: Inputs = { config, options, prd: assigned.markdown, told };
-
-  const { sections, wrote: specWritten } = yield* specStep(inputs, manifest);
-  const toDraft = options.spec ? Option.none() : yield* draftable(inputs, manifest);
-  if (Option.isNone(toDraft)) {
-    // A manifest on disk keeps its diagram true, so a spec that drifted from it is drawn again.
-    if (!specWritten && !(yield* redraw(inputs.prd, manifest))) {
-      yield* Console.log(UP_TO_DATE);
-    }
-    return { ...nothingPlanned, sections };
+  const prd = yield* statementsStep(options, assigned.markdown, manifest);
+  const planned = yield* planSteps({ config, options, prd, told }, manifest);
+  const drafts = draftCountOf(prd);
+  if (drafts > 0) {
+    yield* Console.log(draftWarning(drafts));
   }
-  const proceed = specWritten
-    ? yield* confirm(DRAFT_QUESTION, options.yes || options.dryRun === true)
-    : true;
-  if (proceed) {
-    const planned = yield* tasksStep(inputs, manifest, toDraft.value);
-    return { ...planned, sections };
-  }
-  yield* Console.log(EDIT_SPEC);
-  return { ...nothingPlanned, sections };
+  return planned;
 });
 
 /** A dry run: both steps over an in-memory copy of `.cairn/`, then one line of totals. */
@@ -739,6 +789,10 @@ const unusedPlanner = Layer.succeed(
       Effect.fail(new PlannerError({ call: "splitTask", reason: "No planner call was expected." })),
     index: () =>
       Effect.fail(new PlannerError({ call: "index", reason: "No planner call was expected." })),
+    statements: () =>
+      Effect.fail(
+        new PlannerError({ call: "statements", reason: "No planner call was expected." }),
+      ),
   }),
 );
 
