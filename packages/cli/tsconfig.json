@@ -25,6 +25,7 @@
           "@effect/sql-sqlite-node/SqliteMigrator",
           "effect/FileSystem",
           "effect/cli/Argument",
+          "effect/ConfigProvider#fromDotEnv",
           "effect/cli/Command",
           "effect/cli/Flag",
           "effect/ai/AiError",
