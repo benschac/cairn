@@ -843,7 +843,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -935,7 +935,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -960,7 +960,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -1266,7 +1266,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -1883,7 +1883,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -1908,7 +1908,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -2989,7 +2989,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -4282,6 +4282,79 @@
       "parent": null,
       "dependsOn": ["t121", "t126"],
       "worktree": "wt-37",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t171",
+      "title": "Compute the part of a PRD and narrow a replan to it",
+      "prdSections": ["prd.planning.part"],
+      "specSections": ["spec.planning.planning-a-part"],
+      "files": [
+        "packages/core/src/part.ts",
+        "packages/core/src/replan.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/part.test.ts"
+      ],
+      "branch": "cairn-mvp/171-compute-the-part-of-a-prd-and-narrow-a-replan-to-it",
+      "parent": null,
+      "dependsOn": ["t112", "t130"],
+      "worktree": "wt-33",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t172",
+      "title": "Keep the planner's sections and drafts inside the part",
+      "prdSections": ["prd.planning.part"],
+      "specSections": ["spec.planning.planning-a-part"],
+      "files": [
+        "packages/cli/src/planner.ts",
+        "packages/cli/prompts/",
+        "packages/cli/test/planner-part.test.ts"
+      ],
+      "branch": "cairn-mvp/172-keep-the-planner-s-sections-and-drafts-inside-the-part",
+      "parent": null,
+      "dependsOn": ["t113", "t171"],
+      "worktree": "wt-33",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t173",
+      "title": "Plan a named part with cairn plan <id>",
+      "prdSections": ["prd.planning.part"],
+      "specSections": ["spec.planning.planning-a-part"],
+      "files": [
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/src/ask-statements.ts",
+        "packages/cli/test/plan-part.test.ts"
+      ],
+      "branch": "cairn-mvp/173-plan-a-named-part-with-cairn-plan-id",
+      "parent": null,
+      "dependsOn": ["t64", "t131", "t133", "t171", "t172"],
+      "worktree": "wt-33",
       "model": "sonnet",
       "reasoning": "high",
       "humanGate": {

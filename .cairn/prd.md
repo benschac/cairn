@@ -158,6 +158,17 @@ Planning should cost a person nothing beyond what they already pay for.
 - `cairn plan --dry-run` plans in memory and writes nothing. It prints the spec sections and the stack it would write, then one line of totals: sections, tasks, lint errors, flagged judgments and seconds taken.
 - `--source`, `--provider` and `--model` replace the config's planner for one run, so the same PRD can be planned by two models and the totals compared.
 
+### Planning a part {#prd.planning.part}
+
+A PRD holds more than one feature, and a person usually wants one of them built next. `cairn plan` can plan one part of the PRD and leave the rest for a later run.
+
+- `cairn plan <id>...` plans only the PRD sections named and the sections under them: spec sections for the ones nothing covers, then tasks for the spec sections that implement them. An ID is the one the viewer copies from a heading or a list item, so a person copies it and pastes it: `cairn plan prd.deep-links`. With no ID, `cairn plan` plans the whole PRD, as before.
+- The planner still reads the whole PRD, spec and manifest, so a new task can depend on a task the manifest has and a spec section can name other sections as context. What it writes stays inside the part named.
+- It plans exactly what is named. When the part needs something outside it that is not planned yet, the spec section says what it assumes, and the other part is left for its own run.
+- Sections outside the part stay as they are. `cairn lint` still reports any that nothing covers: nothing is deferred to make a run smaller.
+- Stale sections and tasks are reported across the whole plan, as on any run. The questions about done-when statements, and the spec sections planning again writes again, stay inside the part.
+- An ID that no heading or list item in `prd.md` has is refused before anything is planned, and the refusal names it.
+
 ## Done when {#prd.done-when}
 
 A person and an agent can read the same PRD section and picture different things. A test does not settle that, because the agent writes the test from its own picture. What settles it is a sentence both can read, saying what a person would see when the section works, agreed before anything is built. Cairn calls that a done-when statement. It drafts the ones the PRD lacks, asks the person whether each is what they meant, and carries them to the spec's tests, the tasks and the agents that build them.

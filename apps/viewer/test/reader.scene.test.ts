@@ -136,7 +136,7 @@ it("the status line of a section reads its status, spec sections and done tasks"
     { update, view },
     given(reading),
     scrolledTo("prd.goal"),
-    expect(statusLine("prd.viewer")).toHaveText("in progress · 14 spec · 34/41 tasks"),
+    expect(statusLine("prd.viewer")).toHaveText("in progress · 14 spec · 37/41 tasks"),
     expect(statusLine("prd.viewer.reader")).toHaveText("in progress · 2 spec · 2/3 tasks"),
     expect(statusLine("prd.viewer")).toHaveAttr("aria-pressed", "false"),
   );

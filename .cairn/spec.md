@@ -1468,6 +1468,18 @@ flowchart BT
     direction BT
     t170["t170 · 170-show-notes-where-they-are-anchored<br/>Show notes where they are anchored<br/>wt-37"]
   end
+  subgraph s99["Stack 99 · planning"]
+    direction BT
+    t171["t171 · 171-compute-the-part-of-a-prd-and-narrow-a-replan-to-it<br/>Compute the part of a PRD and narrow a replan to it<br/>wt-33"]
+  end
+  subgraph s100["Stack 100 · planning"]
+    direction BT
+    t172["t172 · 172-keep-the-planner-s-sections-and-drafts-inside-the-part<br/>Keep the planner's sections and drafts inside the part<br/>wt-33"]
+  end
+  subgraph s101["Stack 101 · planning"]
+    direction BT
+    t173["t173 · 173-plan-a-named-part-with-cairn-plan-id<br/>Plan a named part with cairn plan #lt;id#gt;<br/>wt-33"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -1766,8 +1778,17 @@ flowchart BT
   t124 -.-> t169
   t121 -.-> t170
   t126 -.-> t170
-  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122,t138,t139,t140,t142,t144,t145,t148,t149,t150,t152,t154,t155,t158 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170 sonnet
+  t112 -.-> t171
+  t130 -.-> t171
+  t113 -.-> t172
+  t171 -.-> t172
+  t64 -.-> t173
+  t131 -.-> t173
+  t133 -.-> t173
+  t171 -.-> t173
+  t172 -.-> t173
+  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122,t138,t139,t140,t142,t144,t145,t148,t149,t150,t152,t154,t155,t158,t171 opus
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t172,t173 sonnet
   class t11,t24,t27,t44,t56,t66,t102,t107 haiku
   class t1,t2,t3,t81,t97,t126,t144,t147,t153,t155,t162 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
@@ -2123,6 +2144,84 @@ Tests:
 - Properties: `applied` never involves a gated task; every task keeps the same `dependsOn`; no existing task changes; the result passes lint.
 - `undo` restores the stack as it was without the ordering.
 - A lint test finds `bad-ordering` on an ordering after a gated task.
+
+### Planning a part {#spec.planning.planning-a-part}
+
+- Implements: `prd.planning.part`
+- Files: `packages/core/src/part.ts`, `packages/core/src/replan.ts`, `packages/cli/src/commands/plan.ts`, `packages/cli/src/ask-statements.ts`, `packages/cli/src/planner.ts`, `packages/cli/prompts/`, `packages/core/test/part.test.ts`, `packages/cli/test/plan-part.test.ts`
+- Depends on: `spec.planning.cairn-plan`, `spec.planning.again`, `spec.planning.dry-run`, `spec.planning.done-when.asking-the-person`, `spec.sections.list-items`, `spec.sections.item-coverage`, `spec.judging.checkpoints`, `spec.lint`
+
+`cairn plan <id>...` plans one part of the PRD. Each ID is a PRD heading or list item ID, the same text the viewer copies (see `spec.viewer.reader`, `spec.viewer.list-items`). With no ID, `cairn plan` behaves as `spec.planning.cairn-plan` describes. The command takes zero or more positional arguments through `effect/cli`. Repeated IDs are dropped, and the order they are given in does not matter.
+
+The part. `partOf(prd, sections, items, ids)` in `part.ts` is pure. It returns either a `Part` or the IDs it could not find:
+
+```ts
+Part = {
+  named: Array<PrdSectionId> // the IDs given, in document order
+  ids: ReadonlySet<PrdSectionId> // the named IDs plus every heading and list item under them
+}
+UnknownPartIds = { unknown: Array<{ id: string; reason: "no-such-id" | "spec-id" | "statement-id" }> }
+```
+
+"Under" means the same as in `spec.format`: the heading tree, plus item nesting from `itemsOf`. An item sits under its heading and under any item it is nested in. A named item adds itself and the items nested under it, not the section around it. Naming the level 1 heading gives the whole PRD.
+
+Refusal. The IDs are checked against `prd.md` with missing IDs assigned in memory, so an item whose `{#}` is filled in this run can be named. When any ID is unknown, the command writes nothing, not even IDs, exits 1 and prints one line per ID:
+
+- `Unknown PRD ID prd.deep-link: no heading or list item in .cairn/prd.md has it.`
+- `spec.viewer.reader is a spec section. cairn plan <id> takes PRD headings and list items.`
+- `prd.cli.lint#v1 is a done-when statement. Name its section, prd.cli.lint.`
+
+The check runs before `assignSectionIds`, `assignItemIds` and the done-when drafts touch `prd.md`. A test checks that every file in `.cairn/` is left byte for byte as it was. `--respec` with an ID is refused the same way, with `--respec plans the whole spec from nothing and takes no IDs.`
+
+Scope. `replanOf` still computes its fields over the whole plan. `scopeOf(replan, part, index, manifest)` in `replan.ts` is pure and narrows what `cairn plan` acts on:
+
+| Field                         | In a part run                                                                                                                                                                                                                                                          |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `uncovered`                   | Only the uncovered PRD sections and items in `part.ids`. `Planner.sections` writes spec for them                                                                                                                                                                       |
+| `rewritable`                  | Only the sections whose own and inherited `Implements` all lie in `part.ids`. A rewritable section that also implements something outside the part is moved to `staleSections`, so a part run never rewrites spec for another part. I chose this; the PRD does not say |
+| `untasked`                    | Only the spec sections whose `Implements` names an ID in `part.ids`, plus the sections written in this run                                                                                                                                                             |
+| Item mapping                  | The mapping of newly given item IDs (see `spec.planning.again`) is done only for items in `part.ids`                                                                                                                                                                   |
+| `staleSections`, `staleTasks` | Not narrowed. They are reported over the whole plan, as on any run                                                                                                                                                                                                     |
+
+When `spec.md` does not exist, a part run does not call `Planner.spec`, because that would write the whole spec. The run starts the spec with one heading, `# <PRD title> spec {#spec.<prd-title-slug>-spec}`, and `Planner.sections` writes the part's sections into it. The stack diagram section is added on the first manifest write, as `withStackDiagram` already does.
+
+What the planner reads and writes. `Planner.sections` and `Planner.tasks` still get the whole PRD, the whole spec and every existing task. That means a new draft can depend on any task in the manifest and a new section can name any existing spec section in `Depends on`. Both calls also get `part.ids`. Their outputs are checked, and an output that breaks a rule below is sent back once with the error, as a failed decode is. If it breaks the rule again, the run fails with a `PlannerError`:
+
+- A new or rewritten spec section's `Implements`, `Defers` and `Context` may name only IDs in `part.ids`. Putting an outside section in `Context` or `Defers` would cover it, and the PRD forbids deferring work to make a run smaller.
+- A draft's `prdSections` may name only IDs in `part.ids`, and its `specSections` only sections in the scope.
+
+The `sections` prompt gains one rule for part runs. When the part needs something outside it that is not planned yet, the section says so in its prose with a line that starts `Assumes:`, naming the outside PRD section in backticks, for example ``Assumes: `prd.deep-links.targets` gives every target a link; not planned yet.`` It does not plan that section or add it to a key. A later `cairn plan prd.deep-links` plans it on its own run.
+
+Done-when statements. The targets for new drafts are the part's sections and items that have no statement. The questions cover only drafts whose owner is in `part.ids`. A draft outside the part, whether left from an earlier run or written by hand, is not asked about and is not changed. The closing warning counts only the part's drafts: `Warning: planned against <n> draft statement(s) in this part.`
+
+Judging. The sections and task checkpoints already run only on what the run writes. In the stack checkpoint, the `complete` question lists only the part's PRD sections, so it does not flag the parts left for later. `ordered` and `oneFeature` see the whole stack, as before.
+
+Lint and the write. `lint` runs over the whole plan, and `cairn lint` is not changed. It still reports every PRD section and item that nothing covers. Before a part run's manifest write, findings are sorted into two groups:
+
+- Blocking: every error except `unmapped-section` and `unmapped-item` on an ID outside `part.ids`. Any blocking error refuses the write, as step 10 of `spec.planning.cairn-plan` does.
+- Not planned yet: the unmapped findings outside the part. They are printed after the stack under that heading, one `file:line rule message` line each, and the write goes ahead.
+
+Output. Both reviews print `part: prd.deep-links (and 4 sections under it)` above what they list. With `--dry-run`, the totals line ends with `in part <ids>`. A run whose part has nothing to write prints `This part is up to date.` and exits 0, even when other parts are still unplanned.
+
+Tests, in `part.test.ts`:
+
+- Properties over generated heading and item trees:
+  - `partOf` holds every named ID and everything under it, and nothing else.
+  - A named item never brings in its section or that section's other items.
+  - Naming a section and something under it gives the same part as naming the section alone.
+- For `scopeOf`, over generated plans:
+  - Every field but the stale ones is a subset of the same field without a part.
+  - `staleSections` and `staleTasks` equal the whole-plan fields.
+  - A section that implements anything outside the part is never in `rewritable`.
+
+Tests, in `plan-part.test.ts`, with the scripted `Planner` and `Judge` in a temporary repository whose PRD has two features, `prd.a` and `prd.b`:
+
+- `cairn plan prd.b --yes` writes spec sections that implement only `prd.b` and its subsections, and tasks that name only those sections. It writes the manifest. `cairn lint` then reports `prd.a` as `unmapped-section`.
+- A later `cairn plan prd.a --yes` adds tasks after the existing ones. Those tasks may depend on `prd.b`'s tasks, and every task already in the manifest stays equal, field for field.
+- A scripted section with `Context: prd.a` in a `prd.b` run is sent back once, then fails with a `PlannerError` and writes nothing.
+- `cairn plan prd.nope` exits 1 naming `prd.nope`, and leaves `.cairn/` byte for byte unchanged. So does `cairn plan spec.x`.
+- A draft statement under `prd.a` is not asked about in a `prd.b` run.
+- A stale section outside the part is still reported.
 
 ## Lint {#spec.lint}
 
