@@ -1844,26 +1844,6 @@
       "sessions": []
     },
     {
-      "id": "t78",
-      "title": "Serve sessions from cairn.db",
-      "prdSections": ["prd.code-view"],
-      "specSections": ["spec.server"],
-      "files": ["packages/cli/src/api.ts", "packages/cli/test/api.test.ts"],
-      "branch": "cairn-mvp/78-session-route",
-      "parent": null,
-      "dependsOn": ["t2", "t74", "t77"],
-      "worktree": "wt-23",
-      "model": "sonnet",
-      "reasoning": "medium",
-      "humanGate": {
-        "required": false,
-        "reasons": []
-      },
-      "status": "pending",
-      "commits": [],
-      "sessions": []
-    },
-    {
       "id": "t79",
       "title": "Draw the session pane",
       "prdSections": ["prd.code-view"],

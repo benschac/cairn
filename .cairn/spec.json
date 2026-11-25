@@ -6244,7 +6244,7 @@
       ],
       "defers": [],
       "context": [],
-      "tasks": ["t34", "t39", "t40", "t41", "t67", "t78"],
+      "tasks": ["t34", "t39", "t40", "t41", "t67"],
       "summary": "Specifies the cairn serve HTTP and WebSocket routes on port 4310 and how the viewer polls them.",
       "requirements": [
         {
