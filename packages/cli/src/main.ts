@@ -10,6 +10,7 @@ import { linkCommand } from "./commands/link.ts";
 import { lintCommand } from "./commands/lint.ts";
 import { planCommand } from "./commands/plan.ts";
 import { statusCommand } from "./commands/status.ts";
+import { serveCommand } from "./serve.ts";
 import { environmentLayer } from "./environment.ts";
 import { MainCheckout } from "./main-checkout.ts";
 
@@ -22,6 +23,7 @@ const cairn = Command.make("cairn").pipe(
     lintCommand,
     planCommand,
     statusCommand,
+    serveCommand,
     approveCommand,
   ]),
 );
