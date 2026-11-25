@@ -1,5 +1,5 @@
 export { EventOrder, GitCommit, derive, type Derived, type DerivedTask } from "./derive.ts";
-export { drawsOf } from "./diagrams.ts";
+export { drawsOf, mermaidBlocksOf, withoutMermaidBlocks, type MermaidBlock } from "./diagrams.ts";
 export {
   SectionJudgingInput,
   SectionText,

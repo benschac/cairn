@@ -1,6 +1,6 @@
 import { Manifest, Slug } from "@cairn/contract";
 import type { Config as CairnConfig, Section } from "@cairn/contract";
-import { assignSectionIds, gateOf, lint, sectionsOf, stackOf } from "@cairn/core";
+import { assignSectionIds, gateOf, lint, sectionsOf, stackOf, withStackDiagram } from "@cairn/core";
 import {
   Array,
   Config,
@@ -165,6 +165,28 @@ const specStep = Effect.fn("plan.specStep")(function* ({ options, prd, told }: I
   return true;
 });
 
+/**
+ * Writes `drawn`, the spec with the stack diagram drawn from a manifest, when it differs from
+ * `spec`, and says so. Returns whether it wrote.
+ */
+const drawDiagram = Effect.fn("plan.drawDiagram")(function* (spec: string, drawn: string) {
+  if (drawn === spec) {
+    return false;
+  }
+  yield* writeCairn("spec.md", drawn);
+  yield* Console.log(`Drew the stack diagram in ${CAIRN_DIRECTORY}/spec.md`);
+  return true;
+});
+
+/** Draws the stack diagram of a manifest on disk again when `spec.md` has drifted from it. Returns whether it wrote. */
+const redraw = Effect.fn("plan.redraw")(function* (manifest: Option.Option<Manifest>) {
+  if (Option.isNone(manifest)) {
+    return false;
+  }
+  const spec = yield* loadSpec;
+  return yield* drawDiagram(spec, withStackDiagram(spec, manifest.value));
+});
+
 /** Step 2: drafts the tasks from the spec on disk, orders and lints them, and writes `manifest.json` when the person agrees. */
 const tasksStep = Effect.fn("plan.tasksStep")(function* ({ config, options, prd, told }: Inputs) {
   const planner = yield* Planner;
@@ -182,7 +204,9 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* ({ config, options, prd,
     () => new PlannerError({ call: "tasks", reason: "The planner drafted no tasks." }),
   );
   const drafted: Manifest = { baseBranch: BASE_BRANCH, feature, tasks, version: 1 };
-  const findings = lint(prd, spec, Option.some(drafted), config);
+  // Every manifest write draws the stack diagram again, so lint reads the spec as it will be written.
+  const drawn = withStackDiagram(spec, drafted);
+  const findings = lint(prd, drawn, Option.some(drafted), config);
   yield* Effect.forEach(
     Array.appendAll(
       stackLines(drafted.tasks, { isNew: () => true }),
@@ -202,6 +226,7 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* ({ config, options, prd,
     const encoded = yield* Schema.encodeEffect(ManifestJson)(drafted);
     yield* writeCairn("manifest.json", withNewline(encoded));
     yield* Console.log(`Wrote ${CAIRN_DIRECTORY}/manifest.json`);
+    yield* drawDiagram(spec, drawn);
   }
 });
 
@@ -263,7 +288,8 @@ export const plan = Effect.fn("plan")(function* (options: PlanOptions) {
   // Adding to a plan that already has tasks is planning again, which this does not do yet.
   const tasksToDraft = options.respec || Option.isNone(manifest);
   if (options.spec || !(specWritten || tasksToDraft)) {
-    if (!specWritten) {
+    // A manifest on disk keeps its diagram true, so a spec that drifted from it is drawn again.
+    if (!specWritten && !(yield* redraw(manifest))) {
       yield* Console.log(UP_TO_DATE);
     }
   } else if (tasksToDraft) {

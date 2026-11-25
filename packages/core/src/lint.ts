@@ -20,11 +20,14 @@ import {
   String,
 } from "effect";
 
+import { drawsOf, mermaidBlocksOf } from "./diagrams.ts";
 import { gateOf } from "./gates.ts";
 import type { GateConfig } from "./gates.ts";
 import { stalenessOf, uncoveredOf } from "./replan.ts";
+import { linesOf } from "./section-ids.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
 import { parentOf } from "./stack.ts";
+import { withStackDiagram } from "./stack-diagram.ts";
 
 /** The rules `lint` checks (see `spec.lint`). */
 export const LintRule = Schema.Literals([
@@ -38,6 +41,8 @@ export const LintRule = Schema.Literals([
   "worktree-clash",
   "gate-mismatch",
   "no-commits-landed",
+  "bad-diagram",
+  "diagram-drift",
   "stale-section",
   "stale-task",
 ]);
@@ -64,7 +69,9 @@ export const Finding = Schema.Struct({
 export type Finding = typeof Finding.Type;
 
 const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
+  "bad-diagram": "error",
   "bad-parent": "error",
+  "diagram-drift": "error",
   "duplicate-id": "error",
   "gate-mismatch": "error",
   "missing-id": "error",
@@ -123,6 +130,59 @@ const missingIds = (document: Document): ReadonlyArray<Finding> =>
         )
       : Result.failVoid,
   );
+
+/** Mermaid blocks of a file that do not draw, each with the parser's error. */
+const badDiagrams = (file: LintFile, markdown: string): ReadonlyArray<Finding> =>
+  Array.filterMap(mermaidBlocksOf(markdown), (block) =>
+    Option.match(drawsOf(block.source), {
+      onNone: () => Result.failVoid,
+      onSome: (error) =>
+        Result.succeed(
+          findingOf(
+            "bad-diagram",
+            file,
+            Option.some(block.start + 1),
+            `The Mermaid diagram does not draw: ${error}`,
+          ),
+        ),
+    }),
+  );
+
+/**
+ * The stack diagram of `spec.md` when it is not what `stackDiagramOf` draws from the manifest:
+ * what is between the markers differs, or there are no markers to hold it. It points at the first
+ * line that `withStackDiagram` would change. Without a manifest there is nothing to draw.
+ */
+const diagramDrift = (spec: string, manifest: Option.Option<Manifest>): ReadonlyArray<Finding> =>
+  Option.match(manifest, {
+    onNone: () => [],
+    onSome: (plan) => {
+      const drawn = withStackDiagram(spec, plan);
+      const lines = linesOf(spec);
+      return drawn === spec
+        ? []
+        : [
+            findingOf(
+              "diagram-drift",
+              "spec.md",
+              Option.some(
+                Order.min(Order.Number)(
+                  Array.length(lines),
+                  1 +
+                    Option.getOrElse(
+                      Array.findFirstIndex(
+                        Array.zipWith(lines, linesOf(drawn), (line, other) => line === other),
+                        (same) => !same,
+                      ),
+                      () => Array.length(lines),
+                    ),
+                ),
+              ),
+              "The stack diagram does not match manifest.json. Run cairn plan to draw it again.",
+            ),
+          ];
+    },
+  });
 
 /** Every heading after the first with a given ID, in either file, pointing at the first. */
 const duplicateIds = (headings: ReadonlyArray<Identified>): ReadonlyArray<Finding> =>
@@ -453,6 +513,9 @@ export const lint = (
     wrongPrefixes(specDocument),
     unknownInKeys(specDocument, prdIds, specIds),
     unmapped(prdDocument, specDocument),
+    badDiagrams("prd.md", prd),
+    badDiagrams("spec.md", spec),
+    diagramDrift(spec, manifest),
     Option.match(manifest, {
       onNone: () => [],
       onSome: (plan) =>

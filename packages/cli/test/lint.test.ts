@@ -1,3 +1,5 @@
+import { Manifest } from "@cairn/contract";
+import { withStackDiagram } from "@cairn/core";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { Effect, FileSystem, Option, Path, Record, Schema } from "effect";
@@ -20,7 +22,7 @@ const manifestOf = (task: {
 }) =>
   encodeJson({
     baseBranch: "main",
-    feature: "cairn-mvp",
+    feature: "product",
     tasks: [
       {
         branch: "cairn-mvp/01-store",
@@ -42,6 +44,11 @@ const manifestOf = (task: {
     ],
     version: 1,
   });
+
+const decodeManifest = Schema.decodeUnknownSync(Schema.fromJsonString(Manifest));
+
+/** The spec with the stack diagram of `manifest` in it, so it does not drift. */
+const drawn = (manifest: string) => withStackDiagram(SPEC, decodeManifest(manifest));
 
 const PENDING = manifestOf({
   commits: [],
@@ -67,7 +74,11 @@ const lintIn = (files: Record<string, string>) =>
 
 it.effect("a plan with nothing wrong passes with no findings", () =>
   Effect.gen(function* () {
-    const findings = yield* lintIn({ "manifest.json": PENDING, "prd.md": PRD, "spec.md": SPEC });
+    const findings = yield* lintIn({
+      "manifest.json": PENDING,
+      "prd.md": PRD,
+      "spec.md": drawn(PENDING),
+    });
     expect(findings).toEqual([]);
   }),
 );
@@ -94,15 +105,16 @@ it.effect("an error fails with LintErrors, which counts the errors", () =>
 
 it.effect("warnings alone do not fail it", () =>
   Effect.gen(function* () {
+    const landed = manifestOf({
+      commits: [],
+      files: ["src/store.ts"],
+      required: false,
+      status: "landed",
+    });
     const findings = yield* lintIn({
-      "manifest.json": manifestOf({
-        commits: [],
-        files: ["src/store.ts"],
-        required: false,
-        status: "landed",
-      }),
+      "manifest.json": landed,
       "prd.md": PRD,
-      "spec.md": SPEC,
+      "spec.md": drawn(landed),
     });
     expect(findings).toEqual([
       {
@@ -127,7 +139,7 @@ it.effect("reads the high-trust paths from config.json, and uses the defaults wi
     const withDefaults = yield* lintIn({
       "manifest.json": ungated,
       "prd.md": PRD,
-      "spec.md": SPEC,
+      "spec.md": drawn(ungated),
     });
     expect(withDefaults).toEqual([]);
     const error = yield* Effect.flip(
@@ -135,7 +147,7 @@ it.effect("reads the high-trust paths from config.json, and uses the defaults wi
         "config.json": encodeJson({ humanPaths: ["*.sql"] }),
         "manifest.json": ungated,
         "prd.md": PRD,
-        "spec.md": SPEC,
+        "spec.md": drawn(ungated),
       }),
     );
     expect(Schema.is(LintErrors)(error)).toBe(true);

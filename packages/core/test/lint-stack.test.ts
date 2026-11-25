@@ -3,7 +3,15 @@ import type { HumanGate } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
 import { Array, HashSet, Option, Order, Record, Result, Schema, String, Struct } from "effect";
 
-import { gateOf, lint, sectionsOf, stackOf } from "../src/index.ts";
+import {
+  STACKS_CLOSE,
+  STACKS_OPEN,
+  gateOf,
+  lint,
+  sectionsOf,
+  stackOf,
+  withStackDiagram,
+} from "../src/index.ts";
 import type { Finding, LintRule } from "../src/index.ts";
 
 const PRD = Array.join(
@@ -95,7 +103,11 @@ const changed = (
   change: (task: ManifestTask, at: number) => ManifestTask,
 ): Manifest => Struct.evolve(manifest, { tasks: (tasks) => Array.map(tasks, change) });
 
-const lintOf = (manifest: Manifest) => lint(PRD, SPEC, Option.some(manifest), config);
+/** The spec with the stack diagram of `manifest` between markers at its end, so it does not drift. */
+const drawn = (manifest: Manifest) =>
+  withStackDiagram(`${SPEC}\n${STACKS_OPEN}\n${STACKS_CLOSE}\n`, manifest);
+
+const lintOf = (manifest: Manifest) => lint(PRD, drawn(manifest), Option.some(manifest), config);
 
 const only = (findings: ReadonlyArray<Finding>, rule: LintRule) =>
   Array.map(
