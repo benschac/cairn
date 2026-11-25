@@ -1090,6 +1090,7 @@ flowchart BT
     direction BT
     t22["t22 · 22-cli-init<br/>Add the cairn binary and cairn init<br/>wt-12"]
     t23["t23 · 23-workspace-loader<br/>Load the .cairn files through the contract schemas<br/>wt-12"]
+    t183["t183 · 183-choose-the-terminal-library-and-draw-frames-to-an-ansi-screen<br/>Choose the terminal library and draw frames to an ANSI screen<br/>wt-52"]
   end
   subgraph s16["Stack 16 · planning"]
     direction BT
@@ -1480,6 +1481,59 @@ flowchart BT
     direction BT
     t173["t173 · 173-plan-a-named-part-with-cairn-plan-id<br/>Plan a named part with cairn plan #lt;id#gt;<br/>wt-33"]
   end
+  subgraph s102["Stack 102 · cli"]
+    direction BT
+    t174["t174 · 174-declare-agent-operations-and-their-errors-in-the-contract<br/>Declare agent operations and their errors in the contract<br/>wt-50"]
+  end
+  subgraph s103["Stack 103 · cli"]
+    direction BT
+    t175["t175 · 175-run-operations-through-one-entry-point-with-atomic-writes-and-an-operation-log · GATE<br/>Run operations through one entry point with atomic writes and an operation log<br/>wt-50"]
+  end
+  subgraph s104["Stack 104 · cli"]
+    direction BT
+    t176["t176 · 176-return-planning-s-questions-and-reviews-as-resumable-decisions · GATE<br/>Return planning's questions and reviews as resumable decisions<br/>wt-50"]
+  end
+  subgraph s105["Stack 105 · cli"]
+    direction BT
+    t177["t177 · 177-move-init-ids-lint-and-status-onto-the-operation-layer<br/>Move init, ids, lint and status onto the operation layer<br/>wt-51"]
+  end
+  subgraph s106["Stack 106 · cli"]
+    direction BT
+    t178["t178 · 178-drive-cairn-plan-through-the-plan-decisions<br/>Drive cairn plan through the plan decisions<br/>wt-51"]
+    t179["t179 · 179-add-cairn-mcp-with-operation-tools-over-stdio<br/>Add cairn mcp with operation tools over stdio<br/>wt-51"]
+  end
+  subgraph s107["Stack 107 · cli"]
+    direction BT
+    t180["t180 · 180-add-judge-stats-link-and-note-tools<br/>Add judge, stats, link and note tools<br/>wt-51"]
+  end
+  subgraph s108["Stack 108 · cli"]
+    direction BT
+    t181["t181 · 181-start-and-stop-the-viewer-from-mcp<br/>Start and stop the viewer from MCP<br/>wt-4"]
+  end
+  subgraph s109["Stack 109 · cli"]
+    direction BT
+    t182["t182 · 182-write-the-agent-guide-skill-and-mcp-setup-page<br/>Write the agent guide, skill and MCP setup page<br/>wt-4"]
+  end
+  subgraph s110["Stack 110 · cli"]
+    direction BT
+    t184["t184 · 184-move-status-tree-counts-and-ranof-into-core<br/>Move status tree, counts and ranOf into core<br/>wt-53"]
+  end
+  subgraph s111["Stack 111 · cli"]
+    direction BT
+    t185["t185 · 185-follow-the-files-as-a-stream-of-traces<br/>Follow the files as a stream of traces<br/>wt-54"]
+  end
+  subgraph s112["Stack 112 · cli"]
+    direction BT
+    t186["t186 · 186-add-the-terminal-view-s-model-update-and-view<br/>Add the terminal view's model, update and view<br/>wt-53"]
+  end
+  subgraph s113["Stack 113 · cli"]
+    direction BT
+    t187["t187 · 187-handle-the-terminal-view-s-keys<br/>Handle the terminal view's keys<br/>wt-53"]
+  end
+  subgraph s114["Stack 114 · cli"]
+    direction BT
+    t188["t188 · 188-add-cairn-watch-with-a-read-only-terminal-loop<br/>Add cairn watch with a read-only terminal loop<br/>wt-53"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -1787,10 +1841,51 @@ flowchart BT
   t133 -.-> t173
   t171 -.-> t173
   t172 -.-> t173
-  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122,t138,t139,t140,t142,t144,t145,t148,t149,t150,t152,t154,t155,t158,t171 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t172,t173 sonnet
+  t10 -.-> t174
+  t16 -.-> t174
+  t25 -.-> t174
+  t2 -.-> t175
+  t23 -.-> t175
+  t174 -.-> t175
+  t114 -.-> t176
+  t173 -.-> t176
+  t175 -.-> t176
+  t24 -.-> t177
+  t27 -.-> t177
+  t35 -.-> t177
+  t175 -.-> t177
+  t176 -.-> t178
+  t177 -.-> t178
+  t178 --> t179
+  t65 -.-> t180
+  t119 -.-> t180
+  t126 -.-> t180
+  t151 -.-> t180
+  t179 -.-> t180
+  t41 -.-> t181
+  t179 -.-> t181
+  t161 -.-> t182
+  t162 -.-> t182
+  t180 -.-> t182
+  t181 -.-> t182
+  t22 --> t183
+  t35 -.-> t184
+  t91 -.-> t184
+  t109 -.-> t184
+  t35 -.-> t185
+  t39 -.-> t185
+  t119 -.-> t186
+  t156 -.-> t186
+  t183 -.-> t186
+  t184 -.-> t186
+  t118 -.-> t187
+  t186 -.-> t187
+  t185 -.-> t188
+  t187 -.-> t188
+  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122,t138,t139,t140,t142,t144,t145,t148,t149,t150,t152,t154,t155,t158,t171,t175,t176,t179 opus
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t172,t173,t174,t177,t178,t180,t181,t182,t183,t184,t185,t186,t187,t188 sonnet
   class t11,t24,t27,t44,t56,t66,t102,t107 haiku
-  class t1,t2,t3,t81,t97,t126,t144,t147,t153,t155,t162 gate
+  class t1,t2,t3,t81,t97,t126,t144,t147,t153,t155,t162,t175,t176 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
   classDef sonnet fill:#2563eb,color:#ffffff,stroke:#1e3a8a
   classDef haiku fill:#facc15,color:#111111,stroke:#a16207
@@ -3429,6 +3524,547 @@ Tests:
 
 - A `cairn-viewer` block renders an iframe whose `src` is the decoded link on the demo origin.
 - A block whose path does not decode through `LinkFromPath` fails the build, naming the page and the step.
+
+### Agent access {#spec.cli.agent-access}
+
+- Implements: `prd.agent-access`
+
+An agent uses Cairn through the CLI or through `cairn mcp`. Both are thin adapters over one set of operations in `packages/cli/src/operations/`. Each operation's input, output and error schemas are in `@cairn/contract`. A command turns its arguments into an operation's input and prints the result. An MCP tool decodes its JSON arguments with the same schema and returns the encoded result. Neither adapter builds a shell command or parses terminal output. Validation, file writes, redaction and gate rules live in the operation, so the two interfaces cannot drift apart. None of this needs a room or multiplayer.
+
+The work comes in five parts:
+
+1. The operation layer and the commands that exist before it.
+2. Planning's questions and reviews as decisions that can be resumed.
+3. The stdio MCP server.
+4. Tools for the commands that ship later.
+5. The guide and the setup instructions.
+
+#### Operations {#spec.cli.agent-access.operations}
+
+- Files: `packages/contract/src/operations.ts`, `packages/contract/src/index.ts`, `packages/contract/schema/`, `packages/cli/src/operations/`, `packages/cli/src/write-log.ts`, `packages/cli/src/migrations/`, `packages/cli/src/commands/init.ts`, `packages/cli/src/commands/ids.ts`, `packages/cli/src/commands/lint.ts`, `packages/cli/src/commands/status.ts`, `packages/cli/test/operations.test.ts`, `packages/cli/test/equivalence.ts`, `packages/cli/test/fixtures/agent-access/`
+- Depends on: `spec.cli`, `spec.sections.cairn-ids`, `spec.lint`, `spec.status.cairn-status-and-cairn-approve`, `spec.sessions.trace-store`, `spec.contract.javascript-entry`
+
+`operations.ts` declares each operation as data. It imports IDs from `ids.ts`, and `index.ts` re-exports it:
+
+```ts
+OperationEffect = "read" | "local-write" | "model-cost" | "external-write"
+
+Operation<I, O> = {
+  name: Slug // "lint"; the MCP tool name, with "-" written as "_"
+  command: string // "cairn lint": the CLI form of the same operation
+  description: string
+  input: Schema<I>
+  output: Schema<O>
+  effects: NonEmptyArray<OperationEffect>
+  longRunning: boolean
+}
+
+OperationError = {
+  code: string // "invalid-input", "not-initialized", "stale-decision", ...
+  message: string
+  hint: string // the next thing to do: "Call init first." / "Run cairn plan again."
+  field: string | null // the input field path, for invalid-input
+  changed: Array<string> // files the operation had already written, relative to the repo root
+}
+
+Finding = { rule: string; severity: "error" | "warning"; file: string; line: number; message: string } // moved here from core's lint.ts, which now imports it
+```
+
+`humanOnly` in the same file lists commands that are never operations. It holds `approve`. A test fails when an operation's `command` names an entry in it.
+
+This section adds four operations:
+
+| Operation | Input                      | Output                                                                                              | Effects       |
+| --------- | -------------------------- | --------------------------------------------------------------------------------------------------- | ------------- |
+| `init`    | `{}`                       | `{ created: Array<string> }`                                                                        | `local-write` |
+| `ids`     | `{ check: boolean }`       | `{ added: Array<{ file, id, line }>; missing: number }`                                             | `local-write` |
+| `lint`    | `{}`                       | `{ findings: Array<Finding>; errors: number; warnings: number }`                                    | `read`        |
+| `status`  | `{ task: TaskId \| null }` | `{ trace: Trace; needsHuman: Array<{ task: TaskId; reasons: Array<GateReason>; action: string }> }` | `read`        |
+
+- `ids` with `check: true` writes nothing, but it keeps the `local-write` effect, since the effect describes the operation and not one call.
+- Lint findings are a result, not an error. The CLI still exits 1 when `errors > 0`.
+- `status` leaves out the private trace fields, as `cairn status --json` does without `--private`. It never refreshes the manifest snapshot itself. That stays the `cairn status` command's own step.
+- `needsHuman` lists each `blocked_on_human` task. Its `action` says what a person does, such as `A person reviews t12 and runs cairn approve t12.`. No operation appends an event.
+
+`runOperation(op, rawInput)` in `packages/cli/src/operations/run.ts` is the only entry point both adapters call:
+
+1. Decode the input with `op.input`. A failure is `invalid-input`, with the field path.
+2. Unless the operation is `init`, check that `.cairn/` exists. If it does not, fail with `not-initialized` and the hint `Call init first.`.
+3. Run the operation with an `OperationContext` service. Its `progress(message, done?, total?)` reports progress, and its `WriteLog` records what was written.
+4. Map every typed error the commands already raise to an `OperationError` in `errorOf`. Each error gets one code, and the existing message becomes `message`. A defect is `internal`.
+
+Writes. Every file an operation writes goes through `writeFileAtomic(path, bytes)` in `write-log.ts`. It writes a temporary file in the same directory, renames it into place and then records the path in the `WriteLog`. The commands in this section stop writing through `FileSystem` directly. A file is therefore never left half written, and an operation that fails or is interrupted reports exactly the files it replaced in `changed`.
+
+Operation log. A new migration adds `operations(id text primary key, name text, started_at text, ended_at text, outcome text, changed text)`. `runOperation` writes a row when it starts and closes the row with `ok`, `failed` or `interrupted`. When the process dies, the row stays open. On the next `status` call from either interface, every row that is open or `interrupted` and has not been reported yet becomes a warning, `interrupted-operation`, that names its files. The row is then marked as reported. This is how a disconnect that left files written still gets reported. `init` writes its row once `cairn.db` exists.
+
+The commands `cairn init`, `cairn ids`, `cairn lint` and `cairn status` become adapters. Each one parses its options, calls `runOperation` and prints the result as it prints today. An `OperationError` prints to stderr as `error <code>: <message>`, followed by the hint, and exits 1.
+
+Tests:
+
+- `equivalence.ts` runs each case in `fixtures/agent-access/` two ways, each in its own copy of the fixture repository. One way is the CLI in process, with stdout and stderr captured. The other is a JSON leg: the input is encoded to JSON, decoded with the schema and run. The resulting `.cairn/` trees must be equal byte for byte, apart from `cairn.db`. Error `code` and `field` must also be equal. The cases are: init on an empty repository, init when `.cairn/` exists, ids with missing IDs, ids with `check: true`, lint on a clean plan, lint with an unmapped section, status, and status with an unknown task. The MCP server section adds a third leg over stdio. Proves prd.agent-access#v2.
+- An interrupted operation leaves no temporary file. Its result lists the files it renamed, and the next `status` reports it once.
+- No operation's `command` is in `humanOnly`.
+
+#### Review checkpoints {#spec.cli.agent-access.review-checkpoints}
+
+- Files: `packages/contract/src/operations.ts`, `packages/cli/src/operations/plan.ts`, `packages/cli/src/commands/plan.ts`, `packages/cli/src/ask-statements.ts`, `packages/cli/src/migrations/`, `packages/cli/test/plan-decisions.test.ts`
+- Depends on: `spec.cli.agent-access.operations`, `spec.planning.cairn-plan`, `spec.planning.dry-run`, `spec.planning.done-when.asking-the-person`, `spec.planning.planning-a-part`
+
+`cairn plan` asks the person about statements and stops for two reviews. An agent has no terminal prompt to answer, so `plan` becomes an operation that stops at each question and returns it as a decision. A second operation, `plan-continue`, applies the answer. The interactive CLI calls the same two operations and answers in process, so it behaves as it does today.
+
+```ts
+PlanInput = {
+  part: Array<PrdSectionId> // empty plans the whole PRD (see spec.planning.planning-a-part)
+  stopAfter: "spec" | null // --spec
+  dryRun: boolean
+  respec: boolean
+  source: "cli" | "api" | null; provider: string | null; model: string | null // the one-run overrides
+}
+
+PlanResult =
+  | { kind: "needs-decision"; decision: DecisionId; checkpoint: "statements" | "spec" | "tasks"; revision: Sha256Hex; review: Review; continueWith: string }
+  | { kind: "done"; wrote: Array<string>; warnings: Array<string> }
+  | { kind: "stopped"; wrote: Array<string>; message: string }
+  | { kind: "dry-run"; totals: string; sections: Array<SpecSectionId>; tasks: Array<TaskId> }
+
+Review =
+  | { checkpoint: "statements"; drafts: Array<{ id: StatementId; section: string; text: string }> }
+  | { checkpoint: "spec"; sections: Array<{ id: SpecSectionId; line: number; implements: Array<PrdSectionId> }> }
+  | { checkpoint: "tasks"; stack: string; judged: Array<string>; lint: Array<Finding>; new: Array<TaskId> }
+
+ContinueInput = {
+  decision: DecisionId // ^d_[a-z0-9]{6,}$
+  answer: "yes" | "no" | null // spec and tasks
+  answers: Record<StatementId, "accept" | "delete" | "skip" | { rewrite: string }> // statements; a draft left out is skipped
+}
+```
+
+`plan` has no `yes` field. `--yes` stays a CLI flag that a person types, and no tool can set it. `continueWith` tells the agent what to do next, in both forms: `Ask the person, then call plan_continue with decision d_k2m9x1 (CLI: cairn plan --continue d_k2m9x1 --answer yes).`
+
+This diagram shows how a planning run moves through its decisions:
+
+```mermaid
+stateDiagram-v2
+  [*] --> Statements: plan, drafts to ask about
+  [*] --> SpecReview: plan, no drafts
+  Statements --> SpecReview: answers applied, spec written
+  SpecReview --> TaskReview: yes, tasks drafted
+  SpecReview --> Stopped: no
+  TaskReview --> Written: yes, manifest written
+  TaskReview --> Stopped: no
+  Statements --> Refused: stale revision
+  SpecReview --> Refused: stale revision
+  TaskReview --> Refused: stale revision
+  Written --> [*]
+  Stopped --> [*]
+  Refused --> [*]
+```
+
+Decisions. A new migration adds the table `plan_decisions(id text primary key, checkpoint text, revision text, payload text, created_at text, used_at text)`.
+
+- The payload is what continuing needs, so a yes writes exactly what was reviewed and never drafts again:
+  - the run's input;
+  - at the tasks checkpoint, the drafted and judged tasks, the split sections and the judgments.
+- The revision is the SHA-256 of the bytes of `prd.md`, `spec.md`, `spec.json`, `manifest.json` and `judgments.json`, plus the payload's hash, as they stood when the decision was returned. A missing file counts as empty.
+- `plan-continue` recomputes the revision from the files on disk. When it differs, the call fails with `stale-decision`, naming the files that changed, and the hint `Call plan again; it continues from the files as they are.`. This covers a person editing the spec between the review and the answer. A decision that was already used fails with `decision-used`, and an unknown one fails with `unknown-decision`.
+- Each step does what `spec.planning.cairn-plan` does at that point:
+  - Statements: answers go through `settle`, then the spec step runs.
+  - Spec, yes: tasks are drafted, which leads to the tasks decision.
+  - Spec, no: the result is `stopped`, with the message the CLI prints.
+  - Tasks, yes: the manifest, the spec, `spec.json` and `judgments.json` are written in the existing order, and lint errors refuse the write as before.
+  - Tasks, no: the result is `stopped`.
+- `stopAfter: "spec"` returns `stopped` after the spec is written and makes no spec decision. `dryRun` returns `dry-run` and makes no decision.
+- `plan-accept`, with input `{ section: SpecSectionId }`, is `cairn plan --accept` as an operation.
+
+Planning never touches a gate. No step appends to `events.jsonl`, so a decision cannot approve anything.
+
+CLI. `cairn plan --json` runs `plan`, prints the `PlanResult` as JSON and exits 0, whether or not it returned a decision. `cairn plan --continue <decision>` takes `--answer yes|no` or `--answers <file.json>`. The file holds the `answers` object. The interactive `cairn plan` loops: it calls `plan`, asks each question on the terminal, calls `plan-continue`, and repeats until the result is not a decision. Its prompts and output are unchanged. `--yes` makes the loop answer `yes` to the spec and tasks decisions and skip every draft.
+
+Tests, with the scripted `Planner` and `Judge` in a temporary repository:
+
+- `plan` on a PRD with drafts returns a statements decision. Continuing it returns a spec decision, and then a tasks decision. A yes writes a manifest that is field for field the reviewed `review.new`.
+- Editing `spec.md` after the spec decision makes `plan-continue` fail with `stale-decision`, naming `.cairn/spec.md`. Nothing is written.
+- Using a decision twice fails with `decision-used`.
+- After the whole flow, `events.jsonl` is byte for byte unchanged, and a gated task is still `blocked_on_human` or `pending` as before. Proves prd.agent-access#v3.
+- The equivalence harness runs the flow through the CLI (`--json` and `--continue`) and the JSON leg on the same fixture, and gets the same `.cairn/` files and the same `stale-decision` failure. Proves prd.agent-access#v2.
+- The interactive `cairn plan` tests in `spec.planning.cairn-plan` pass unchanged.
+
+#### MCP server {#spec.cli.agent-access.mcp-server}
+
+- Files: `packages/cli/src/mcp/server.ts`, `packages/cli/src/mcp/tools.ts`, `packages/cli/src/commands/mcp.ts`, `packages/cli/src/commands/index.ts`, `packages/cli/src/main.ts`, `packages/cli/package.json`, `packages/cli/test/mcp.test.ts`, `packages/cli/test/fixtures/stub-claude/`
+- Depends on: `spec.cli.agent-access.operations`, `spec.cli.agent-access.review-checkpoints`, `spec.models`
+
+`cairn mcp [--repo <path>]` starts an MCP server over stdio for one repository.
+
+Library. Read the declarations of the installed `effect` for `McpServer` in `effect/unstable/ai` before writing the server. If it has a stdio layer, progress notifications and request cancellation, the server uses it and Cairn adds no dependency. If any of the three is missing, the server uses `@modelcontextprotocol/sdk` (MIT) at the version that is current that day, pinned exactly. Either way, the tests use the SDK's `Client` with `StdioClientTransport` as a dev dependency.
+
+Binding. At startup the command resolves the repository from `--repo`, or else from the working directory. It finds the main checkout the way every command does (see `spec.cli`). A directory outside a git repository exits 1 with a message on stderr before any protocol message is sent. `.cairn/` does not have to exist yet: `init` creates it, and other tools return `not-initialized` until it does. No tool input names a repository or a path to open, so a call cannot point the server anywhere else. File paths inside inputs, such as a link's file, are repo-relative strings that are validated and never opened.
+
+Stdout carries protocol messages only:
+
+- The composition root replaces Effect's logger with one that writes to stderr.
+- `console.log`, `console.info` and `console.debug` are pointed at stderr before anything else runs.
+- The planner's child processes already have their output captured (see `spec.models`).
+
+Tools come from a registry in `tools.ts`, a list of operations. Each tool has:
+
+- the operation's name, with `-` written as `_`;
+- a description that ends with one sentence for each effect: "Reads only.", "Writes files in .cairn/.", "Calls a model, which can cost money or subscription allowance." or "Writes outside this machine.";
+- `inputSchema` and `outputSchema`, generated from the contract schemas with `Schema.toJsonSchemaDocument`;
+- annotations: `readOnlyHint` when the effects are only `read`, `openWorldHint` with `model-cost` or `external-write`, `destructiveHint: false`, and `idempotentHint` for `read` operations and `ids`;
+- `_meta` with `cairn/effects` and `cairn/command`.
+
+The metadata describes the operation. `runOperation` enforces its rules. A command that only starts a transport or a terminal (`mcp`, `watch`, `serve` as a blocking process) is not a tool. Neither is anything in `humanOnly`. The registry holds only operations that exist, so a command still to be built is never advertised.
+
+Calls:
+
+- A tool call runs `runOperation`. A success returns `structuredContent` with the encoded output, and one text block with a short summary for clients that do not read structured content.
+- An `OperationError` returns `isError: true`, with the error as `structuredContent` and the message and hint as text.
+- Operations with `local-write` run one at a time, behind a semaphore. Reads run concurrently.
+
+Progress and cancellation:
+
+- When a request carries a `progressToken`, each `OperationContext.progress` becomes a `notifications/progress` message. In the CLI, progress is a line on stderr.
+- `notifications/cancelled` interrupts the operation's fiber. The fiber's scope ends the planner's child processes. The call returns `cancelled`, with `changed` from the `WriteLog`, and the operation log records it.
+- When stdin closes, or on SIGTERM or SIGINT, the server closes its root scope. That interrupts every running operation, which the operation log records for the next `status`. It also stops anything the server started (see `spec.cli.agent-access.more-tools`) and exits 0.
+
+Tests, in `mcp.test.ts`:
+
+- The equivalence harness gains a third leg. It starts `cairn mcp` as a child process and sends each fixture case as a `tools/call` through the SDK client. The `.cairn/` trees and error codes must equal the CLI leg's. Proves prd.agent-access#v2.
+- An end-to-end run in a fresh git repository, with a stub `claude` on a temporary `PATH` that answers from `fixtures/stub-claude/` (as `spec.models` tests the CLI source). The client only sends MCP requests and never runs a shell:
+  1. `tools/list` returns exactly the registry's tools, with their schemas and effects.
+  2. `init` creates `.cairn/`, and the test writes a PRD into it, as a person would.
+  3. `ids` assigns the PRD's IDs.
+  4. `plan` returns a statements decision, and `plan_continue` returns the spec decision and then the tasks decision.
+  5. `plan_continue` with `yes` writes the manifest.
+  6. `lint` and `status` read the result.
+
+  Proves prd.agent-access#v1.
+
+- `tools/list` holds no `approve`, and no sequence of calls in the run above appends to `events.jsonl`. Proves prd.agent-access#v3.
+- Every line the server writes to stdout during the run decodes as a JSON-RPC message, while operations log at debug level. Proves prd.agent-access#v4.
+- A `plan` call against a stub `claude` that sleeps gets cancelled. The result is `cancelled`, and no process with the stub's marker argument is left running. A second run closes stdin mid-call: the server exits, no stub process remains, and the next `status` reports the interrupted operation with its files. Proves prd.agent-access#v4.
+
+#### More tools {#spec.cli.agent-access.more-tools}
+
+- Files: `packages/contract/src/operations.ts`, `packages/cli/src/operations/`, `packages/cli/src/mcp/tools.ts`, `packages/cli/src/commands/judge.ts`, `packages/cli/src/commands/stats.ts`, `packages/cli/src/commands/link.ts`, `packages/cli/src/commands/note.ts`, `packages/cli/src/commands/serve.ts`, `packages/cli/test/mcp-tools.test.ts`
+- Depends on: `spec.cli.agent-access.mcp-server`, `spec.judging.cairn-judge`, `spec.status.cairn-stats`, `spec.cli.cairn-link`, `spec.sessions.notes`, `spec.server`
+
+As each of these commands ships, it gets its operation and its tool. They are in one section because the operation layer is in place and each one is a small adapter:
+
+| Operation      | Command                  | Input                                                     | Output                                          | Effects                     |
+| -------------- | ------------------------ | --------------------------------------------------------- | ----------------------------------------------- | --------------------------- |
+| `judge`        | `cairn judge`            | `{ fresh: boolean; strict: boolean }`                     | `{ judgments: Array<Judgment>; flags: number }` | `local-write`, `model-cost` |
+| `stats`        | `cairn stats --json`     | `{ category: string \| null; since: string \| null }`     | the `--json` shape of `spec.status.cairn-stats` | `read`                      |
+| `link`         | `cairn link`             | `{ steps: Array<LinkArg>; base: string \| null }`         | `{ path: string; url: string }`                 | `read`                      |
+| `note-add`     | `cairn note add`         | `{ kind; author; session; body; anchor: Array<LinkArg> }` | `{ id: NoteId; link: string }`                  | `local-write`               |
+| `note-resolve` | `cairn note resolve`     | `{ id: NoteId }`                                          | `{ id: NoteId }`                                | `local-write`               |
+| `serve-start`  | `cairn serve`            | `{}`                                                      | `{ url: string; alreadyRunning: boolean }`      | `read`                      |
+| `serve-stop`   | (stopping `cairn serve`) | `{}`                                                      | `{ stopped: boolean }`                          | `read`                      |
+
+- `judge` with `strict: true` and flags present returns `judge-flagged`, the error the CLI's exit 1 stands for.
+- `LinkArg` is the structured form of `cairn link`'s tokens: one of `{ section }`, `{ passage: { section, text } }`, `{ task }`, `{ commit }`, `{ file }`, `{ lines: { start, end, old } }`, `{ stack }`, `{ segment }`, `{ turn }` or `{ note }`. The operation turns the list into tokens and runs `stepsOfArgs`, so both interfaces validate one way and fail with the same messages.
+- `serve-start` runs the server layer of `serve.ts` in a fiber forked into the MCP server's root scope. It returns once the port is listening, without holding the call open. A second call while the server runs returns the same URL with `alreadyRunning: true`. A port that is taken fails with `port-in-use`. `serve-stop` interrupts the fiber. Closing the MCP server stops it as well. The CLI's `cairn serve` still blocks until Ctrl-C, so the CLI does not start these two through `runOperation`. They share the layer.
+
+Left out, by my choice: `cairn judge --compare`, because the spec says a person runs the paid comparison, and the `cairn session` commands, which are the orchestrator's interface. `approve` stays human-only.
+
+Tests:
+
+- Each tool's CLI and MCP legs give the same files and errors on a fixture: an unknown task in `link`, and `judge` without a key, which reports that judging was skipped.
+- `serve_start` returns a URL that answers `/api/trace`. A second call reports `alreadyRunning`. After the MCP process exits, the port is free.
+
+#### Agent guide {#spec.cli.agent-access.agent-guide}
+
+- Files: `packages/cli/skill/cairn/SKILL.md`, `packages/cli/package.json`, `apps/docs/pages/10-agents.md`, `apps/docs/scripts/reference.ts`, `AGENTS.md`, `apps/docs/test/agents.test.ts`
+- Depends on: `spec.cli.agent-access.more-tools`, `spec.cli.documentation.reference-from-code`, `spec.cli.documentation.docs-site`
+
+`SKILL.md` is a short skill with a `name` and a `description` in its frontmatter, shipped in the CLI package's files. It covers:
+
+- The workflow: init, the person edits `prd.md`, ids, plan, then lint and status, in both CLI and MCP form.
+- The checkpoints:
+  - Relay every statement draft and both reviews to the person, with what the result's `review` holds.
+  - Never answer for them.
+  - Never pass `--yes` unless the person says to.
+  - A gate is approved by a person running `cairn approve`, never by the agent.
+- Recovery for each error code an operation returns, such as `not-initialized` (init), `stale-decision` (plan again) and `cancelled` (read `changed`), and for lint findings.
+- The limits: one repository per server, stdio only, and no remote access yet.
+
+`apps/docs/pages/10-agents.md` says the same in the docs and adds setup:
+
+- `claude mcp add cairn -- cairn mcp --repo <path>`;
+- the generic JSON entry for a client's MCP config (`command: "cairn"`, `args: ["mcp", "--repo", "<path>"]`);
+- that people and agents with a shell need no MCP client.
+
+`reference.ts` also writes `agents/tools.md` from the registry. It has one row per tool, with the tool, its CLI command, its effects and its description. The page includes that table, so the operations and their limits are listed once, from code.
+
+Tests:
+
+- The generated table has every registry operation with its command and effects.
+- `SKILL.md` and the page name every tool.
+- The page check from `spec.cli.documentation.reference-from-code` passes on both, so neither names a command that does not exist.
+
+### Terminal view {#spec.cli.terminal-view}
+
+- Implements: `prd.terminal`
+
+`cairn watch` is a second reader of the `Trace`. It follows the files, keeps the current trace in a Schema-defined Model, and draws it with a pure `view` into a frame that a screen writes to the terminal. It reads and never writes, so closing it or crashing it does nothing to the run, and any number of terminals and browsers can watch one repository.
+
+This diagram shows the path from the files to the screen:
+
+```mermaid
+flowchart LR
+  files[".cairn/ and git"] --> triggers["watchers and a 2 s poll"]
+  triggers --> debounce["debounce 100 ms"]
+  debounce --> hash["input hash unchanged? skip"]
+  hash --> build["buildTrace, as cairn status --json"]
+  build --> update["update with ReceivedTrace"]
+  update --> view["view to a Frame"]
+  view --> screen["Screen writes the changed cells"]
+```
+
+Layout, which `view` draws:
+
+- Top line: the feature, then the count of tasks in each status, the cost so far, and the time since the first event.
+  - Cost is the sum of known billed cost, followed by `+N unknown` when attempts have no cost.
+  - The time uses the earliest event's `ts` and the Model's `now`.
+- Left pane:
+  - First a "Waiting on a human" block, listing every `blocked_on_human` task.
+  - Then the stacks as a tree in `cairn status` order. Each row has its status symbol, ID, title and gate marker.
+- Right pane, for the selected task:
+  - its PRD and spec sections, branch and worktree;
+  - what it ran on beside what the plan chose;
+  - its attempts, each with its usage and cost;
+  - its events in order, its gate reasons, and its commits with their session IDs;
+  - its viewer link, as `cairn link <task>` prints it.
+- Bottom line: the keys that apply.
+
+At 100 columns or more, both panes show, and the tree takes `max(36, 45%)` of the width. The 100-column breakpoint is my choice. Below it the tree shows alone.
+
+#### Rendering library {#spec.cli.terminal-view.rendering-library}
+
+- Implements: `prd.terminal.library`
+- Files: `packages/cli/src/watch/SPIKE.md`, `packages/cli/src/watch/frame.ts`, `packages/cli/src/watch/screen.ts`, `packages/cli/src/watch/ansi.ts`, `packages/cli/test/watch/screen.test.ts`
+
+The spike comes first. On the day, it checks OpenTUI's framework-independent core against the four requirements:
+
+1. Every Node version in `packages/cli/package.json`'s `engines`, with no experimental flag.
+2. An npm install with no build step on macOS, Linux and Windows. This is read from its published platform packages and checked with an install on each.
+3. No UI framework.
+4. Rendering to memory.
+
+`SPIKE.md` records each answer with its source and date. If all four pass, `screen.ts` gets an OpenTUI-backed implementation. If any fails, as the PRD expects for the first, the screen is plain ANSI with no dependency. I chose plain ANSI over Terminal Kit: the frame below already renders to memory, and Node's `readline` gives keys on all three systems. Terminal Kit is used only if the spike finds that keys or resize do not work in Windows Terminal without it.
+
+`frame.ts` is pure and independent of the library:
+
+```ts
+Style = { fg: "green" | "yellow" | "red" | "blue" | "magenta" | "grey" | null; bold: boolean; dim: boolean; inverse: boolean }
+Cell = { char: string; style: Style } // one grapheme
+Frame = { columns: number; rows: number; cells: Array<Cell> } // row-major
+
+blank(columns, rows): Frame
+put(frame, x, y, text, style, width): Frame // clips to width, ending in "…" or "..." when cut
+textOf(frame): Array<string> // the frame's text, one string per row, for tests
+```
+
+Text is split into graphemes with `Intl.Segmenter`, and each grapheme takes one column. That is my choice. A wide character in a title can shift the rest of its row, and the clip still keeps the row inside its pane.
+
+`Screen` in `screen.ts` is `{ draw(frame): Effect<void>; leave: Effect<void> }`, with two layers:
+
+- `MemoryScreen` keeps the last frame for tests.
+- `AnsiScreen` in `ansi.ts` writes to a `tty.WriteStream`:
+  - On entering, it switches to the alternate screen (`\x1b[?1049h`) and hides the cursor.
+  - Drawing compares the new frame with the last one and writes cursor moves, SGR codes and characters only for runs of cells that changed. A change of size redraws everything.
+  - With colour off, it writes no foreground codes, and keeps bold, dim and inverse.
+  - `leave` resets SGR, shows the cursor and returns to the main screen (`\x1b[?1049l`).
+
+Tests:
+
+- Drawing the same frame twice writes nothing the second time.
+- Changing one cell writes one cursor move and that cell.
+- With colour off, the output has no `38;` or `3x` codes.
+- `leave` writes the restore sequence.
+
+#### Shared derivations {#spec.cli.terminal-view.shared-derivations}
+
+- Implements: `prd.terminal.shared`
+- Files: `packages/core/src/status-tree.ts`, `packages/core/src/ran.ts`, `packages/core/src/index.ts`, `packages/cli/src/commands/status.ts`, `apps/viewer/src/reader.ts`, `packages/core/test/status-tree.test.ts`
+- Depends on: `spec.status.cairn-status-and-cairn-approve`, `spec.planning.stack-diagram`, `spec.viewer.models`
+
+Counts, tree order and what ran must have one implementation, so three functions move into `core`:
+
+- `statusTreeOf(trace)` returns the rows `cairn status` prints, in its order: `{ task, depth, stack, waitsOn }`. It is built on `stacksOf` in `packages/core/src/stacks.ts`. `cairn status` prints from it and no longer orders rows itself.
+- `statusCountsOf(tasks)` returns a `Record<TaskStatus, number>`. The viewer's `planCountsOf` becomes the `done` and `landed` part of it over the total.
+- `ranOf(task)` moves from `apps/viewer/src/reader.ts` to `packages/core/src/ran.ts` unchanged, and the viewer imports it.
+
+Tests:
+
+- Properties over generated traces:
+  - The counts sum to the number of tasks.
+  - Every task appears in `statusTreeOf` exactly once.
+  - A row's depth is one more than its parent's.
+- `cairn status` output on this repo's manifest is unchanged by the move.
+- The viewer's existing `ranOf` and count tests pass against the moved functions.
+
+#### Trace stream {#spec.cli.terminal-view.trace-stream}
+
+- Implements: `prd.terminal.shared`
+- Files: `packages/cli/src/trace-stream.ts`, `packages/cli/src/api.ts`, `packages/cli/test/trace-stream.test.ts`
+- Depends on: `spec.server`, `spec.cli.terminal-view.shared-derivations`
+
+`traceStream(root)` is a scoped `Stream<Either<Trace, TraceLoadError>>`. It follows the files the way the server builds `/api/trace`:
+
+1. `api.ts` exposes the two pieces the route already has: `traceInputsHash(root)`, the hash behind the `ETag`, and `buildTrace(root)`. `traceStream` uses them, and `cairn status --json` still builds through the same `buildTrace`.
+2. Triggers:
+   - a `FileSystem.watch` on `.cairn/`;
+   - a `FileSystem.watch` on the git common directory's `refs/`, `packed-refs` and `HEAD`;
+   - a poll every two seconds.
+
+   The poll catches what a watcher misses: a file replaced by a rewrite, or a laptop waking from sleep. A watcher that fails is re-armed every second, and the poll goes on meanwhile.
+
+3. Triggers are debounced by 100 ms. The input hash is then read, and the trace is built and emitted only when the hash differs from the last one emitted. A burst of events therefore gives one build. A build that fails emits the error, and the next trigger tries again.
+
+The stream keeps the last hash and nothing else. Every build reads the trace again from the files, and derivation recomputes it from scratch, so after an interruption there is nothing to reconcile. The stream never writes: it does not refresh the manifest snapshot, unlike the `cairn status` command.
+
+Tests, in a temporary repository:
+
+- Appending a line to `events.jsonl` emits a trace in which that task's status changed. Proves prd.terminal.library#v1, on the stream.
+- Appending 3,000 lines within 100 ms gives at most two builds.
+- Replacing `events.jsonl` with a shorter file emits a trace built from the new file.
+- A touch that changes no content emits nothing.
+- Closing the scope leaves no watcher open, counted through a test `FileSystem` layer.
+
+#### Model, update and view {#spec.cli.terminal-view.model-update-and-view}
+
+- Implements: `prd.terminal`, `prd.terminal.shared`
+- Files: `packages/cli/src/watch/model.ts`, `packages/cli/src/watch/message.ts`, `packages/cli/src/watch/update.ts`, `packages/cli/src/watch/view.ts`, `packages/cli/src/watch/symbols.ts`, `packages/cli/test/watch/view.test.ts`, `packages/cli/test/watch/memory.test.ts`, `packages/cli/test/fixtures/watch/`
+- Depends on: `spec.cli.terminal-view.rendering-library`, `spec.cli.terminal-view.shared-derivations`, `spec.contract.trace`, `spec.contract.usage-in-the-trace`, `spec.cli.cairn-link`
+
+The terminal view is built the way the viewer is. A Schema-defined Model, fact-named Messages, one `update` and one `view`. Only `view` knows the terminal exists, and only as far as `Frame` goes.
+
+```ts
+WatchModel = {
+  maybeTrace: Option<Trace>
+  maybeError: Option<string> // shown above the last good trace
+  size: { columns: number; rows: number }
+  screen: "tree" | "task"
+  maybeSelected: Option<RowKey> // "waiting:t12" or "tree:t12"
+  filter: { text: string; isEditing: boolean; maybeStatus: Option<TaskStatus> }
+  detailScroll: number
+  isShowingHelp: boolean
+  maybeNotice: Option<string>
+  now: DateTime.Utc
+  terminal: { color: boolean; unicode: boolean }
+}
+
+Message = ReceivedTrace | FailedTraceLoad | PressedKey | Resized | Ticked | CheckedServe
+Command = Quit | CheckServe(url) | OpenUrl(url)
+update(model, message): [WatchModel, Array<Command>]
+view(model): Frame
+```
+
+- The Model holds the current trace and nothing gathered over the run. The selected task's events are read from that trace when `view` runs, so memory follows the size of the trace and not how many times it changed.
+- `ReceivedTrace` replaces the trace. Selection is held by row key. When that row is gone or filtered out, the selection moves to the row now at its old index, or to the last row.
+- `Ticked` arrives once a second, and only the top line's time changes.
+- Rows come from `statusTreeOf`, the counts from `statusCountsOf`, statuses from the trace's derived status and what ran from `ranOf`. `view` computes none of them itself.
+- `symbols.ts` maps each status to a symbol and a word in two sets: Unicode (`○ ◐ ⚑ ✕ ✓ ⇡`, and `├─ └─` for the tree) and ASCII (`o ~ ! x v ^`, and `|- \-`). The gate marker is `⚑` or `G!`. A status is always drawn as its symbol, and in the detail pane as its word too. Colour is only ever added beside them.
+- Narrow layout: the tree fills the width, and the task screen replaces it (see `spec.cli.terminal-view.keys`).
+
+Tests:
+
+- `view` of this repo's trace, built by `cairn status --json`, into a 160 × 50 frame. The top line's counts equal `statusCountsOf`, and each tree row's symbol matches its task's derived status. The viewer reads the same core functions. Proves prd.terminal.library#v1.
+- The same trace at 160 × 50 shows both panes, and at 80 × 30 shows the tree alone. Proves prd.terminal.library#v3.
+- `textOf` of a frame is the same with colour on and off, so colour never carries information alone.
+- Memory, on a fixture of 500 tasks with 5,000 events:
+  - 5,000 `ReceivedTrace` messages, each a trace with one more event, end with a model holding one trace.
+  - After a forced GC, the heap is within 10% of what it was after the first.
+  - Each `PressedKey` down while traces arrive updates in under 16 ms.
+
+  Proves prd.terminal.library#v4.
+
+#### Keys {#spec.cli.terminal-view.keys}
+
+- Implements: `prd.terminal.keys`
+- Files: `packages/cli/src/watch/keys.ts`, `packages/cli/src/watch/update.ts`, `packages/cli/src/watch/view.ts`, `packages/cli/test/watch/keys.test.ts`
+- Depends on: `spec.cli.terminal-view.model-update-and-view`, `spec.contract.links`
+
+`Key` is `"up" | "down" | "enter" | "escape" | "backspace" | "ctrl-c" | { char: string }`. `keysFor(model)` in `keys.ts` is pure and returns the keys that apply now, each with its label. The bottom line draws that list. `update` handles a key only when it is in the list and returns the model unchanged with no command otherwise, so a key that is not shown does nothing.
+
+| Key                                | Applies when                                     | Does                                                                                |
+| ---------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Up, Down; `j`, `k`                 | There are rows, or the task screen is open       | Moves the selection; in the task screen, scrolls the detail                         |
+| Enter                              | A row is selected, not editing                   | Opens the selected task full width, as the narrow layout does                       |
+| Escape                             | Task screen open, filter text set, or help shown | Back to the tree; otherwise clears the filter; otherwise closes help                |
+| `/`                                | Not editing                                      | Starts editing the filter                                                           |
+| While editing: any char, Backspace | Editing                                          | Edits the filter as it is typed; Enter stops editing and keeps it, Escape clears it |
+| `f`                                | Not editing                                      | Cycles the status filter: all, then each status in contract order, then all         |
+| `o`                                | A task is selected, not editing                  | Sends `CheckServe` for `http://localhost:4310`                                      |
+| `?`                                | Not editing                                      | Toggles the key list                                                                |
+| `q`                                | Not editing                                      | Sends `Quit`                                                                        |
+| Ctrl-C                             | Always                                           | Sends `Quit`                                                                        |
+
+- While editing, `j`, `k`, `q`, `f` and `o` are text. Up and Down still move the selection.
+- The filter keeps a row whose task ID, title or any of its PRD or spec section IDs contains the text, ignoring case. A plain substring is my choice, simpler than the viewer's fuzzy ranking. The status filter is applied on top of it.
+- `CheckServe` gets `/api/trace` with a 300 ms timeout. When the server answers, `CheckedServe` sends `OpenUrl` with `http://localhost:4310` plus `LinkFromPath` of `[{ kind: "task", id }]`. That runs `open`, `xdg-open` or `cmd /c start "" <url>` as an argument list, and the notice reads `Opened t12 in the viewer`. When the server does not answer, the notice shows the link.
+
+Tests, in `keys.test.ts`, run on `update` and `view` into a `MemoryScreen` frame with the demo trace:
+
+- Every key in the table, in a model where it applies, is asserted on the frame that follows:
+  - the selection marker moves;
+  - the task screen opens and closes;
+  - the filter narrows the rows as each character arrives;
+  - the status filter's label changes;
+  - the key list shows;
+  - `o` gives `CheckServe`, and then `OpenUrl` or the link in the notice;
+  - `q` and Ctrl-C give `Quit`.
+- Ignored keys: `o` and Enter with a filter that matches nothing, and Escape in the tree with no filter, each leave the frame and the model unchanged with no command. So does `q` while editing, which instead adds `q` to the filter.
+
+Proves prd.terminal.library#v2.
+
+#### `cairn watch` {#spec.cli.terminal-view.cairn-watch}
+
+- Implements: `prd.terminal.terminals`, `prd.terminal.library`
+- Files: `packages/cli/src/commands/watch.ts`, `packages/cli/src/watch/terminal.ts`, `packages/cli/src/watch/read-only.ts`, `packages/cli/src/commands/index.ts`, `packages/cli/src/main.ts`, `packages/cli/test/watch/terminal.test.ts`, `packages/cli/test/watch/watch.test.ts`
+- Depends on: `spec.cli.terminal-view.trace-stream`, `spec.cli.terminal-view.keys`
+
+The command checks for a terminal, then runs the loop inside one Scope.
+
+Not a terminal. When `process.stdout.isTTY` or `process.stdin.isTTY` is false, the command writes nothing to stdout. It writes `cairn watch needs a terminal. For scripts, run cairn status --json.` to stderr and exits 1. It never prompts. Refusing a non-terminal stdin as well is my choice, since there would be no keys.
+
+The terminal, in `terminal.ts`:
+
+- Colour is on unless `NO_COLOR` is set to a non-empty value, or `stdout.hasColors()` is false.
+- Unicode is on when `LC_ALL`, `LC_CTYPE` or `LANG` (the first that is set) names UTF-8, ignoring case, or when `WT_SESSION` is set on Windows. Otherwise the view uses the ASCII symbols.
+- Each of these is acquired with `Effect.acquireRelease` in the command's Scope:
+  - raw mode, with `readline.emitKeypressEvents`, whose keypress listener sends `PressedKey`;
+  - the `AnsiScreen`, entered and left;
+  - the `resize` listener, which sends `Resized`;
+  - handlers for SIGINT, SIGTERM and SIGHUP, which interrupt the main fiber;
+  - the trace stream's fibers and watchers;
+  - the one-second tick.
+- The loop folds Messages through `update`, runs Commands, and draws `view` after each batch, at most once per animation-length tick of 16 ms.
+
+Leaving:
+
+- `Quit` ends the main fiber. The Scope then closes in reverse order: it leaves the alternate screen, shows the cursor, turns raw mode off, removes the listeners and stops the watchers.
+- A defect closes the same Scope first. Only then does the command print the defect to stderr and exit 1.
+- As a last resort, a `process.once("exit")` handler writes the restore sequence synchronously when the Scope never finished.
+
+Read-only. The command's composition root provides `read-only.ts`, a `FileSystem` that fails with a defect on any write, and no `TraceStore` that writes. A failure in the view can only stop the view. The run is unaffected, because `cairn watch` writes nothing that the orchestrator or derivation reads.
+
+Tests:
+
+- `terminal.test.ts` uses fake TTY streams that record writes, `setRawMode` calls and listener counts. Leaving by `q`, by Ctrl-C and by a defect thrown from `view` each:
+  - write the restore sequence;
+  - end with raw mode off;
+  - leave zero listeners;
+  - leave zero open watchers on the test `FileSystem`.
+
+  Proves prd.terminal.library#v5.
+
+- A whole session through scripted keys and traces runs on the read-only `FileSystem` without a defect.
+- `watch.test.ts` spawns `cairn watch` with stdout piped to a file. It exits non-zero, the file is empty with no `\x1b`, and stderr names `cairn status --json`. Proves prd.terminal.library#v6.
+- With `NO_COLOR=1`, the screen writes no colour codes. With `LANG=C`, the frame uses only ASCII.
+- A `Resized` from the fake stream redraws at the new size.
 
 ## Patch routes {#spec.patch-routes}
 
