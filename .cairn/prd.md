@@ -640,6 +640,7 @@ A runner makes a workspace for a worktree, runs commands in it, streams their ou
 {
   "runners": {
     "local": { "kind": "local" },
+    "actions": { "kind": "github-actions", "workflow": "cairn-run-task.yml", "max": 20 },
     "devbox": { "kind": "ssh", "host": "devbox", "dir": "~/cairn" },
     "swarm": {
       "kind": "cloudflare-sandbox",
@@ -652,10 +653,11 @@ A runner makes a workspace for a worktree, runs commands in it, streams their ou
 ```
 
 - `local` is a git worktree on the person's machine, as today.
+- `github-actions` is one GitHub Actions job for each task, on a GitHub-hosted runner or one the person hosts. It is the first remote runner because a repo on GitHub already has what a run needs: machines, secrets, a repo token and a log for every job (see GitHub Actions).
 - `ssh` is a machine the person already has: a devbox, a cloud VM, a rented VM that stays up. Cairn connects with the person's own SSH configuration and keys, and each worktree gets a directory under `dir`. The machine keeps its state between tasks.
-- `cloudflare-sandbox` is a [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/) in the person's own Cloudflare account, one for each worktree, made when the worktree's first task starts and removed when its last task ends. An Alchemy stack deploys the Worker that owns the sandboxes, and the CLI calls it with a token from the environment. It is the first on-demand runner because the room already lives on Cloudflare (see multiplayer).
+- `cloudflare-sandbox` is a [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/) in the person's own Cloudflare account, one for each worktree, made when the worktree's first task starts and removed when its last task ends. An Alchemy stack deploys the Worker that owns the sandboxes, and the CLI calls it with a token from the environment. It follows `github-actions` for what a job cannot do: events as they happen, a start from a snapshot, and more workspaces at once than GitHub allows.
 - Another provider, such as Fly Machines, Vercel Sandbox or E2B, is another Layer of the same `Runner` service. None is in the first build. Cairn does not run its own virtual machines.
-- One worktree is one workspace. Tasks that share a worktree run in the same workspace one after another, and tasks that run at the same time have different worktrees, so they never share a workspace (see manifest schema). The manifest names no runner: the plan says what is built and in which worktree, and the config says where a worktree lives.
+- One worktree is one workspace. Tasks that share a worktree run in the same workspace one after another, and tasks that run at the same time have different worktrees, so they never share a workspace (see manifest schema). A runner whose workspaces last one task, as a `github-actions` job does, gives each task of a worktree a new workspace started from its pushed parent branch. The manifest names no runner: the plan says what is built and in which worktree, and the config says where a worktree lives.
 - `runner` names the default, and `cairn run-task --runner <name>` replaces it for one run. `max` is the most workspaces a runner has at once; a run that would exceed it waits and says so.
 - A workspace starts as a clone of the repo at the task's parent branch with dependencies installed. A runner that can snapshot keeps one snapshot of a clean install for each lockfile, and starts workspaces from it.
 - Git is the only state that has to survive. A workspace that sleeps, is lost or is removed is rebuilt from the pushed branches, so a task in a new workspace starts only once the branches it builds on are on the remote.
@@ -663,7 +665,24 @@ A runner makes a workspace for a worktree, runs commands in it, streams their ou
 - A `running` event carries the runner's name and the workspace's ID. The viewer shows them with the task's worktree.
 - `cairn runners` checks each runner before a swarm depends on it: the workspace can be made, has git, the package manager and the harness, can read the repo, has a model credential, and can run the repo's check command in its memory and disk.
 
-Done when three ready tasks on three stacks of this repo run at the same time in three Cloudflare sandboxes started from one machine, each pushes a verified branch, and the viewer shows all three running and then done.
+Done when three ready tasks on three stacks of this repo run at the same time in three GitHub Actions jobs started from one machine, each pushes a verified branch, and the viewer shows all three running and then done.
+
+### GitHub Actions {#prd.runners.github-actions}
+
+The quickest way to a swarm is the CI a repo already has. Each task is one run of one workflow, and `cairn run-task` is the only step in it that is Cairn's.
+
+- The workflow is one file, `.github/workflows/cairn-run-task.yml`, which takes a task ID. Cairn ships it as a template and a person commits it: it is on a high-trust path, so Cairn never writes it during a run. It has to be on the repo's default branch before a run can start.
+- Cairn starts the workflow once for each task, with the person's own GitHub sign-in. GitHub answers with the run's ID, which is the workspace's ID, and the viewer links the task to its run.
+- The job checks out the task's parent branch, installs dependencies and runs `cairn run-task`. The workflow's `runs-on` says which machine: a GitHub-hosted runner, or a runner the person hosts on a machine of their own.
+- The model credential and the repo token are repository secrets the person sets. Cairn never reads them, and `cairn runners` checks only that they exist.
+- The branch is pushed with a GitHub App's token made for the job, not the job's built-in token. GitHub does not start the pull request's checks for a push made with the built-in token until a person approves them.
+- Cairn takes `running` from the job starting. The other event lines come from the job's log, when the job ends or sooner where GitHub serves the log of a running job, so the viewer can lag a task until its job finishes.
+- A job's log and artifacts can be read by everyone who can read the repo. The redacted session is uploaded as an artifact, and on a public repo only when the runner's config sets `sessions: true`.
+- `max` should stay under the number of jobs the person's GitHub plan runs at once, which is 20 on the free plan. Jobs beyond GitHub's limit wait in its queue, and Cairn reports them as waiting, not running.
+- A job that GitHub cancels, or that reaches GitHub's time limit for a job, fails the attempt as `infra`.
+- A GitHub-hosted runner cannot limit what a job reaches on the network, and `cairn runners` says so (see Credentials).
+
+Done when starting two tasks of this repo on the `github-actions` runner opens two runs, each task's `running` event carries its run's ID, each run pushes a branch whose pull request's checks start without an approval, and no secret's value appears in either job's log.
 
 ### Credentials {#prd.runners.credentials}
 
@@ -679,7 +698,7 @@ A workspace is given what one run needs and nothing that outlives it.
 - A workspace's repo token can push branches, so `baseBranch` should be protected on the remote. `cairn runners` warns when it is not.
 - A workspace cannot approve a gate. Approval stays with a person, on their own machine or in the room.
 
-Done when a run in a Cloudflare sandbox finishes with no provider key in the workspace's environment, files or session log, and a task routed to a subscription is refused there before a workspace is made.
+Done when a run on a remote runner finishes with no provider key in the workspace's environment, files, job log or session log, and a task routed to a subscription is refused there before a workspace is made.
 
 ### What a run costs {#prd.runners.cost}
 
@@ -688,7 +707,7 @@ Done when a run in a Cloudflare sandbox finishes with no provider key in the wor
 - Each attempt records its runner, the workspace's size, the seconds the workspace ran and what that compute cost. A price the runner does not report is unknown, never zero.
 - Cost per verified task includes compute. `cairn stats` reports the outcome metrics per runner as well, with tokens and compute shown apart.
 
-Ship this in four diffs: `cairn run-task` on the `local` runner; the `ssh` runner; the `cloudflare-sandbox` runner with its Alchemy stack and `cairn runners`; then compute in attempts and `cairn stats`.
+Ship this in five diffs: `cairn run-task` on the `local` runner; the `github-actions` runner with its workflow and `cairn runners`; the `ssh` runner; the `cloudflare-sandbox` runner with its Alchemy stack; then compute in attempts and `cairn stats`.
 
 ## Relations {#prd.relations}
 
@@ -1145,8 +1164,9 @@ The hosted release gates are in Launch acceptance. These criteria describe the e
 - A PRD section's links list the sections it needs and the sections that need it, each with the tasks that make the link, and its unfinished tasks in an order they can be built with the ones that can start now first.
 - `cairn lint`, `cairn status` and the viewer give the same answer to what a task waits on, property tested over generated manifests, and a cycle in what tasks need fails `cairn lint` with its tasks named.
 - `cairn run-task` builds the same task to the same verified, pushed branch on the `local` runner and on an `ssh` runner, and the event lines it prints decode through the contract on both.
-- Three ready tasks on three stacks run at the same time in three sandboxes, and the viewer shows each task's runner and status as it changes.
-- A run in a sandbox finishes with no provider key in the workspace, and a task routed to a subscription is refused there before a workspace is made.
+- Three ready tasks on three stacks run at the same time in three GitHub Actions jobs, and the viewer shows each task's runner, its run and its status.
+- A branch pushed from a GitHub Actions job opens a pull request whose checks start without an approval.
+- A run on a remote runner finishes with no provider key in the workspace or its log, and a task routed to a subscription is refused there before a workspace is made.
 - A workspace killed while its task runs fails the attempt as `infra`, and the retry builds the task in a new workspace from the pushed parent branch.
 - `cairn runners` fails a runner whose workspace cannot run the repo's check command, and names what it lacked.
 
