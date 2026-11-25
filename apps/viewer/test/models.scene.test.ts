@@ -1,6 +1,6 @@
 import { PrdSectionId } from "@cairn/contract";
 import { it } from "@effect/vitest";
-import { Array } from "effect";
+import { Array, Option } from "effect";
 import { Mount, all, click, expect, expectAll, given, role, scene, selector } from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
 
@@ -22,7 +22,10 @@ const opened = [
     TrackPrdScroll,
     Message.ScrolledPrd({ id: PrdSectionId.make("prd.viewer.models") }),
   ),
-  Mount.resolve(ScrollStacksToBottom, Message.CompletedScrollStacks()),
+  Mount.resolve(
+    ScrollStacksToBottom,
+    Message.CompletedScrollStacks({ maybeChartWidth: Option.none() }),
+  ),
   wiresMounted,
 ] as const;
 

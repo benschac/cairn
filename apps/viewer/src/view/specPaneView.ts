@@ -179,6 +179,7 @@ const cardView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const tasks = tasksOf(trace, section);
+  const isCompleted = Array.isReadonlyArrayNonEmpty(tasks) && Array.every(tasks, isDone);
   const maybeChain = hoverChainOf(trace, maybeHovered);
   const search = nodeSearchOf(results, maybeActive, { id: section.id, kind: "section" });
   // A card holding the active result's matched prose is shown open for as long as it is active.
@@ -194,7 +195,11 @@ const cardView = (
       toView: ({ button, panel }) =>
         h.article(
           Array.appendAll(
-            [h.Class("card"), h.DataAttribute("spec", section.id)],
+            [
+              h.Class("card"),
+              h.DataAttribute("spec", section.id),
+              h.DataAttribute("completed", `${isCompleted}`),
+            ],
             Array.appendAll(
               searchedAttributesOf(search, h),
               isSpecDimmed(maybeChain, section.id) ? [h.DataAttribute("dimmed", "")] : [],
@@ -220,6 +225,14 @@ const cardView = (
                       judgmentView(mark, h),
                     ),
                   ),
+                  isCompleted
+                    ? [
+                        h.span(
+                          [h.Class("card-completed")],
+                          [h.span([h.AriaHidden(true)], ["✓"]), "Completed"],
+                        ),
+                      ]
+                    : [],
                   isShowingModels && Array.isReadonlyArrayNonEmpty(tasks)
                     ? [
                         h.span(

@@ -65,7 +65,7 @@ const PINNED = "prd.viewer.reader";
 const mounted = (measured: Measured) =>
   Mount.resolveAll(
     [TrackPrdScroll, Message.ScrolledPrd({ id: prd("prd.goal") })],
-    [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+    [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
     [MeasureWires, Message.MeasuredWires({ measured })],
   );
 

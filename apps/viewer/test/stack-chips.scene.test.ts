@@ -33,7 +33,10 @@ const box = (stack: Stack) => selector(`[data-stack="${stack.number}"]`);
 const chip = (id: string) => selector(`[data-task="${id}"]`);
 const scrolledTo = (id: string) =>
   Mount.resolve(TrackPrdScroll, Message.ScrolledPrd({ id: PrdSectionId.make(id) }));
-const scrolledStacks = Mount.resolve(ScrollStacksToBottom, Message.CompletedScrollStacks());
+const scrolledStacks = Mount.resolve(
+  ScrollStacksToBottom,
+  Message.CompletedScrollStacks({ maybeChartWidth: Option.none() }),
+);
 
 /** The reader, with the pane's mounts answered. */
 const opened = [scrolledTo("prd.goal"), scrolledStacks, wiresMounted] as const;

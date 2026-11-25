@@ -18,15 +18,48 @@ import { hoverAttributesOf } from "./wiresView.ts";
 
 const isDone = (task: TraceTask): boolean => task.status === "done" || task.status === "landed";
 
+/** A computed length in pixels, such as `10px`; zero when it is not one. */
+const pixelsOf = (length: string): number =>
+  Option.getOrElse(Number.parse(String.replace("px", "")(length)), () => 0);
+
 /**
- * Scrolls the pane to the bottom, where the base branch bar is. A Mount runs once, when the pane is
- * inserted, so the pane keeps whatever scroll a person gives it afterwards.
+ * The width that lays every level of the chart out in one row: the widest level's stacks and the
+ * gaps between them, plus the pane's side padding. None when the pane holds no level.
+ */
+const chartWidthOf = (pane: Element): Option.Option<number> => {
+  const paneStyle = getComputedStyle(pane);
+  const sides = pixelsOf(paneStyle.paddingLeft) + pixelsOf(paneStyle.paddingRight);
+  return Option.map(
+    Array.match(Array.fromIterable(pane.querySelectorAll(".stacks-level")), {
+      onEmpty: () => Option.none<number>(),
+      onNonEmpty: (levels) =>
+        Option.some(
+          Math.max(
+            ...Array.map(levels, (level) => {
+              const stacks = Array.fromIterable(level.children);
+              const gap = pixelsOf(getComputedStyle(level).columnGap);
+              return (
+                Number.sumAll(Array.map(stacks, (stack) => stack.getBoundingClientRect().width)) +
+                gap * Math.max(0, stacks.length - 1)
+              );
+            }),
+          ),
+        ),
+    }),
+    // Rounded up, with a pixel to spare, so rounding never wraps the widest level.
+    (widest) => Math.ceil(widest + sides) + 1,
+  );
+};
+
+/**
+ * Scrolls the pane to the bottom, where the base branch bar is, and measures its chart. A Mount runs
+ * once, when the pane is inserted, so the pane keeps whatever scroll a person gives it afterwards.
  */
 export const ScrollStacksToBottom = Mount.define("ScrollStacksToBottom", {
   execute: ({ element }) =>
     Effect.sync(() => {
       element.scrollTop = element.scrollHeight;
-      return Message.CompletedScrollStacks();
+      return Message.CompletedScrollStacks({ maybeChartWidth: chartWidthOf(element) });
     }),
   messages: [Message.CompletedScrollStacks],
 });

@@ -1,8 +1,11 @@
 import { Match, Number, Option, Schema, Struct } from "effect";
 import { defineTaggedUnion } from "foldkit/schema";
 
-/** The panes with a divider: the PRD, the spec and the detail panel. The stacks pane takes what is left. */
-export const Pane = Schema.Literals(["prd", "spec", "detail"]);
+/**
+ * The panes with a divider: the PRD, the spec, the stacks and the detail panel. Each keeps the width
+ * a person chose; when they add up to more than the window, the reader scrolls sideways.
+ */
+export const Pane = Schema.Literals(["prd", "spec", "stacks", "detail"]);
 export type Pane = typeof Pane.Type;
 
 /** What a person chose for each pane, in pixels. Not what the window has room for. */
@@ -10,10 +13,11 @@ export const Widths = Schema.Struct({
   detail: Schema.Finite,
   prd: Schema.Finite,
   spec: Schema.Finite,
+  stacks: Schema.Finite,
 });
 export type Widths = typeof Widths.Type;
 
-export const INITIAL_WIDTHS: Widths = { detail: 600, prd: 520, spec: 440 };
+export const INITIAL_WIDTHS: Widths = { detail: 600, prd: 520, spec: 440, stacks: 480 };
 
 /** A pane's least and greatest width. */
 export interface Limits {
@@ -24,8 +28,9 @@ export interface Limits {
 export const limitsOf = (pane: Pane): Limits =>
   Match.value(pane).pipe(
     Match.withReturnType<Limits>(),
-    Match.when("prd", () => ({ max: 1600, min: 300 })),
-    Match.when("spec", () => ({ max: 1600, min: 260 })),
+    Match.when("prd", () => ({ max: 3200, min: 300 })),
+    Match.when("spec", () => ({ max: 3200, min: 260 })),
+    Match.when("stacks", () => ({ max: 3200, min: 240 })),
     Match.when("detail", () => ({ max: 1800, min: 360 })),
     Match.exhaustive,
   );
@@ -36,9 +41,16 @@ export const withWidth = (widths: Widths, pane: Pane, width: number): Widths =>
     Match.withReturnType<Widths>(),
     Match.when("prd", () => Struct.assign(widths, { prd: width })),
     Match.when("spec", () => Struct.assign(widths, { spec: width })),
+    Match.when("stacks", () => Struct.assign(widths, { stacks: width })),
     Match.when("detail", () => Struct.assign(widths, { detail: width })),
     Match.exhaustive,
   );
+
+/** The widths with one pane at `width`, held between that pane's limits. */
+export const fittedTo = (widths: Widths, pane: Pane, width: number): Widths => {
+  const { max, min } = limitsOf(pane);
+  return withWidth(widths, pane, Number.clamp(width, { maximum: max, minimum: min }));
+};
 
 /** The widths with `delta` added to one pane, held between that pane's limits. */
 export const resized = (widths: Widths, pane: Pane, delta: number): Widths => {

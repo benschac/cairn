@@ -75,8 +75,11 @@ export const Message = defineMessageUnion({
   CompletedScrollSearchResult: {},
   /** The reader's panes were scrolled to what a selected search result points at. */
   CompletedScrollSearchTargets: {},
-  /** The stacks pane was scrolled to the base branch bar at its bottom. */
-  CompletedScrollStacks: {},
+  /**
+   * The stacks pane was scrolled to the base branch bar at its bottom, and the chart measured: the
+   * width that lays every level out in one row. None when it could not be read.
+   */
+  CompletedScrollStacks: { maybeChartWidth: Schema.Option(Schema.Finite) },
   /** The diff mount parsed the patch and drew it, or put the reason it could not in the pane. */
   CompletedRenderDiff: {},
   /** The canvas mount could not start pan and zoom. */

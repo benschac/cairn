@@ -459,7 +459,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "done",
+      "status": "landed",
       "commits": ["441625cdce7b355084dd739d45ffe370f83939e2"],
       "sessions": []
     },
@@ -2756,7 +2756,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "done",
+      "status": "landed",
       "commits": ["b706e7927c0a6f2284d71939655a6670f8fc19ee"],
       "sessions": []
     },

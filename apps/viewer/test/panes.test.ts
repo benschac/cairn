@@ -5,23 +5,25 @@ import { INITIAL_WIDTHS, Pane, deltaOf, draggedTo, limitsOf, resized } from "../
 
 const Delta = Schema.Finite.check(Schema.isBetween({ maximum: 5000, minimum: -5000 }));
 const Width = Schema.Finite.check(Schema.isBetween({ maximum: 3000, minimum: 0 }));
-const AnyWidths = Schema.Struct({ detail: Width, prd: Width, spec: Width });
+const AnyWidths = Schema.Struct({ detail: Width, prd: Width, spec: Width, stacks: Width });
 
 /** Widths with every pane already inside its limits. */
 const InsideWidths = Schema.Struct({
   detail: Schema.Finite.check(Schema.isBetween({ maximum: 1800, minimum: 360 })),
-  prd: Schema.Finite.check(Schema.isBetween({ maximum: 1600, minimum: 300 })),
-  spec: Schema.Finite.check(Schema.isBetween({ maximum: 1600, minimum: 260 })),
+  prd: Schema.Finite.check(Schema.isBetween({ maximum: 3200, minimum: 300 })),
+  spec: Schema.Finite.check(Schema.isBetween({ maximum: 3200, minimum: 260 })),
+  stacks: Schema.Finite.check(Schema.isBetween({ maximum: 3200, minimum: 240 })),
 });
 
-const PANES: ReadonlyArray<Pane> = ["prd", "spec", "detail"];
+const PANES: ReadonlyArray<Pane> = ["prd", "spec", "stacks", "detail"];
 const others = (pane: Pane) => Array.filter(PANES, (other) => other !== pane);
 
 it("the limits are the spec's", () => {
-  expect(limitsOf("prd")).toEqual({ max: 1600, min: 300 });
-  expect(limitsOf("spec")).toEqual({ max: 1600, min: 260 });
+  expect(limitsOf("prd")).toEqual({ max: 3200, min: 300 });
+  expect(limitsOf("spec")).toEqual({ max: 3200, min: 260 });
+  expect(limitsOf("stacks")).toEqual({ max: 3200, min: 240 });
   expect(limitsOf("detail")).toEqual({ max: 1800, min: 360 });
-  expect(INITIAL_WIDTHS).toEqual({ detail: 600, prd: 520, spec: 440 });
+  expect(INITIAL_WIDTHS).toEqual({ detail: 600, prd: 520, spec: 440, stacks: 480 });
 });
 
 it.prop(
@@ -82,4 +84,5 @@ it("a divider moved right narrows the detail panel and widens the others", () =>
   expect(deltaOf("detail", 10)).toBe(-10);
   expect(deltaOf("prd", 10)).toBe(10);
   expect(deltaOf("spec", -10)).toBe(-10);
+  expect(deltaOf("stacks", 10)).toBe(10);
 });

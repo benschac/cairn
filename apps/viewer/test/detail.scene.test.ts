@@ -37,7 +37,7 @@ const opened = (...detail: ReadonlyArray<Node>) => modifyFields(reading, { detai
 
 const scrolledTop = Mount.resolveAll(
   [TrackPrdScroll, Message.ScrolledPrd({ id: PrdSectionId.make("prd.goal") })],
-  [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+  [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
   [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
 );
 const escape = Subscription.emit(Message.PressedEscape());

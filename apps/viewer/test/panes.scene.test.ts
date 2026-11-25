@@ -30,20 +30,24 @@ const mountedReader = Mount.resolveAll(
   // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
   [TrackPrdScroll, Message.ScrolledPrd({ id: PrdSectionId.make("prd.goal") })],
   // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-  [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+  [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
   // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
   [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
 );
 
 const prdDivider = role("separator", { name: "Resize the PRD pane" });
 const specDivider = role("separator", { name: "Resize the spec pane" });
+const stacksDivider = role("separator", { name: "Resize the stacks pane" });
 const grid = selector("[data-reader-grid]");
 
 const pointerId = 4;
 // Scene's pointer steps need a DOM, so a press sends what the divider's handler sends, which is
 // tested on its own below; the page's pointer events reach update through a Subscription.
-const pressed = (pane: "prd" | "spec" | "detail", x: number, maybeWidth = Option.none<number>()) =>
-  Subscription.emit(Message.PressedDivider({ maybeWidth, pane, pointerId, x }));
+const pressed = (
+  pane: "prd" | "spec" | "stacks" | "detail",
+  x: number,
+  maybeWidth = Option.none<number>(),
+) => Subscription.emit(Message.PressedDivider({ maybeWidth, pane, pointerId, x }));
 const movedTo = (x: number, id = pointerId, buttons = 1) =>
   Subscription.emit(Message.MovedResizePointer({ buttons, pointerId: id, x }));
 const released = (id = pointerId) =>
@@ -58,25 +62,95 @@ it("each divider is a focusable vertical separator that reports its pane's width
     expect(prdDivider).toHaveAttr("tabIndex", "0"),
     expect(prdDivider).toHaveAttr("aria-valuenow", "520"),
     expect(prdDivider).toHaveAttr("aria-valuemin", "300"),
-    expect(prdDivider).toHaveAttr("aria-valuemax", "1600"),
+    expect(prdDivider).toHaveAttr("aria-valuemax", "3200"),
     expect(specDivider).toHaveAttr("aria-valuenow", "440"),
     expect(specDivider).toHaveAttr("aria-valuemin", "260"),
-    expect(specDivider).toHaveAttr("aria-valuemax", "1600"),
+    expect(specDivider).toHaveAttr("aria-valuemax", "3200"),
+    expect(stacksDivider).toHaveAttr("aria-valuenow", "480"),
+    expect(stacksDivider).toHaveAttr("aria-valuemin", "240"),
+    expect(stacksDivider).toHaveAttr("aria-valuemax", "3200"),
   );
 });
 
-it("the grid's columns hold the chosen widths and scroll sideways rather than narrow a pane", () => {
+it("the grid's columns hold every pane's chosen width and scroll sideways rather than narrow one", () => {
   scene(
     { update, view },
     given(reading),
     mountedReader,
     expect(grid).toHaveStyle("--prd-width", "520px"),
     expect(grid).toHaveStyle("--spec-width", "440px"),
+    expect(grid).toHaveStyle("--stacks-width", "480px"),
     expect(grid).toHaveStyle(
       "grid-template-columns",
-      "var(--prd-width) 76px var(--spec-width) 76px minmax(240px, 1fr)",
+      "var(--prd-width) 76px var(--spec-width) 76px var(--stacks-width) 16px minmax(320px, 1fr)",
     ),
     expect(grid).toHaveStyle("overflow-x", "auto"),
+  );
+});
+
+const fittedReader = (chartWidth: number) =>
+  Mount.resolveAll(
+    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+    [TrackPrdScroll, Message.ScrolledPrd({ id: PrdSectionId.make("prd.goal") })],
+    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+    [
+      ScrollStacksToBottom,
+      Message.CompletedScrollStacks({ maybeChartWidth: Option.some(chartWidth) }),
+    ],
+    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+    [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
+  );
+
+it("the stacks pane opens as wide as its chart, within its limits", () => {
+  scene(
+    { update, view },
+    given(reading),
+    fittedReader(1234),
+    expect(stacksDivider).toHaveAttr("aria-valuenow", "1234"),
+    expect(grid).toHaveStyle("--stacks-width", "1234px"),
+  );
+  scene(
+    { update, view },
+    given(reading),
+    fittedReader(9000),
+    expect(stacksDivider).toHaveAttr("aria-valuenow", "3200"),
+  );
+});
+
+it("a chart measured after a person moved the stacks divider leaves their width alone", () => {
+  const moved = update(
+    reading,
+    Message.PressedArrowOnDivider({ key: "ArrowRight", pane: "stacks" }),
+  ).model;
+  const measured = update(
+    moved,
+    Message.CompletedScrollStacks({ maybeChartWidth: Option.some(1234) }),
+  ).model;
+  assert(measured.widths.stacks).toBe(504);
+  const other = update(
+    reading,
+    Message.PressedArrowOnDivider({ key: "ArrowRight", pane: "spec" }),
+  ).model;
+  assert(
+    update(other, Message.CompletedScrollStacks({ maybeChartWidth: Option.some(1234) })).model
+      .widths.stacks,
+  ).toBe(1234);
+});
+
+it("the stacks pane's divider widens it with the arrow keys and a drag", () => {
+  scene(
+    { update, view },
+    given(reading),
+    mountedReader,
+    keydown(stacksDivider, "ArrowRight"),
+    expect(stacksDivider).toHaveAttr("aria-valuenow", "504"),
+    expect(grid).toHaveStyle("--stacks-width", "504px"),
+    pressed("stacks", 1000),
+    movedTo(1600),
+    expect(stacksDivider).toHaveAttr("aria-valuenow", "1104"),
+    released(),
+    expect(grid).toHaveStyle("--stacks-width", "1104px"),
+    expect(specDivider).toHaveAttr("aria-valuenow", "440"),
   );
 });
 
@@ -123,7 +197,7 @@ it("a drag stops at the pane's limits", () => {
     mountedReader,
     pressed("prd", 0),
     movedTo(5000),
-    expect(prdDivider).toHaveAttr("aria-valuenow", "1600"),
+    expect(prdDivider).toHaveAttr("aria-valuenow", "3200"),
     movedTo(-5000),
     expect(prdDivider).toHaveAttr("aria-valuenow", "300"),
   );

@@ -8,6 +8,8 @@ dist/
 *.tsbuildinfo
 .DS_Store
 .claude/settings.local.json
+# Other sessions' git worktrees, each a checkout of its own.
+.claude/worktrees/
 # Session logs stay on the machine that made them, even redacted.
 .cairn/cairn.db
 .cairn/cairn.db-*

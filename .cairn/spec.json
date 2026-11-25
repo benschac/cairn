@@ -7227,17 +7227,17 @@
         {
           "id": "spec.viewer.panes#r1",
           "level": "must",
-          "text": "`Widths` is `{ prd, spec, detail }` in pixels, at first 520, 440 and 600: what a person chose, not what the window has room for; the stacks pane takes what the PRD and the spec leave."
+          "text": "`Widths` is `{ prd, spec, stacks, detail }` in pixels, at first 520, 440, 480 and 600: what a person chose, not what the window has room for; until a person moves the stacks divider, the stacks pane takes its measured chart's width."
         },
         {
           "id": "spec.viewer.panes#r2",
           "level": "must",
-          "text": "`resized(widths, pane, delta)` is pure and holds a width between its pane's limits: 300 to 1600 for the PRD, 260 to 1600 for the spec and 360 to 1800 for the detail panel."
+          "text": "`resized(widths, pane, delta)` is pure and holds a width between its pane's limits: 300 to 3200 for the PRD, 260 to 3200 for the spec, 240 to 3200 for the stacks and 360 to 1800 for the detail panel."
         },
         {
           "id": "spec.viewer.panes#r3",
           "level": "must",
-          "text": "The reader's grid, not the model, fits a window: its columns are prd, a divider, spec, a divider and minmax(240px, 1fr), so a window too narrow for the chosen widths scrolls the reader sideways and never narrows a pane, and the detail panel is never wider than the window."
+          "text": "The reader's grid, not the model, fits a window: its columns are prd, a divider, spec, a divider, stacks, its divider and minmax(320px, 1fr), so a window too narrow for the chosen widths scrolls the reader sideways and never narrows a pane, and the detail panel is never wider than the window."
         },
         {
           "id": "spec.viewer.panes#r4",

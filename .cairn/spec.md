@@ -1550,7 +1550,7 @@ Motion:
 - Only `opacity`, `transform` and colours are animated.
 - Under `prefers-reduced-motion: reduce`, `base.css` turns every transition and animation off.
 
-Every button, link and divider shows `:focus-visible` as a 2px `--ink` outline, 2px off the element.
+Every button and link shows `:focus-visible` as a 2px `--ink` outline, 2px off the element. A divider shows it as its hover state, with a 2px `--ink` ring 2px off its grip, since an outline around its strip would draw two more lines the full height of the window.
 
 The pieces. Each is a class in `components.css`. The views named use it and write no rule of their own for it.
 
@@ -1819,17 +1819,17 @@ Tests: properties that `ranOf` returns the manifest's pair and `ran: false` for 
 - Files: `apps/viewer/src/panes.ts`, `apps/viewer/src/subscription/resize.ts`, `apps/viewer/src/view/dividerView.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/update.ts`, `apps/viewer/test/panes.test.ts`, `apps/viewer/test/panes.scene.test.ts`
 - Depends on: `spec.viewer.reader`, `spec.viewer.curves`
 
-`Widths` is `{ prd, spec, detail }` in pixels, at first 520, 440 and 600. They are what a person chose, not what the window has room for. The stacks pane has no width of its own: it takes what the PRD and the spec leave.
+`Widths` is `{ prd, spec, stacks, detail }` in pixels, at first 520, 440, 480 and 600. They are what a person chose, not what the window has room for. Until a person moves the stacks pane's divider (`hasChosenStacksWidth`), the stacks pane takes the width of its chart: the mount that scrolls it to the bottom measures the widest level laid out in one row and sends it with `CompletedScrollStacks`.
 
-`resized(widths, pane, delta)` in `panes.ts` is pure. It adds `delta` to one pane and holds the result between that pane's limits: 300 to 1600 for the PRD, 260 to 1600 for the spec and 360 to 1800 for the detail panel.
+`resized(widths, pane, delta)` in `panes.ts` is pure. It adds `delta` to one pane and holds the result between that pane's limits: 300 to 3200 for the PRD, 260 to 3200 for the spec, 240 to 3200 for the stacks and 360 to 1800 for the detail panel.
 
-Fitting a window is the layout's job, not the model's. The reader's grid gives the PRD and the spec columns at their chosen widths and the stacks pane at least 240px, so a window too narrow for them scrolls the reader sideways instead of making a pane narrower than the person chose. The detail panel is never wider than the window. No width in the model changes when the window does.
+Fitting a window is the layout's job, not the model's. The reader's grid lays the PRD, the spec and the stacks out side by side at their chosen widths, like the columns of a deck, with at least 320px of empty room after the stacks pane's handle. A window too narrow for them scrolls the reader sideways, with a scrollbar that is always drawn, instead of making a pane narrower than the person chose, and the room after the last handle keeps it off the window's edge, so a person can scroll right and drag it further. The detail panel is never wider than the window. No width in the model changes when the window does.
 
-A divider (`dividerView`) is an element with `role="separator"`, `aria-orientation="vertical"`, `aria-valuenow`, `aria-valuemin` and `aria-valuemax` for its pane's width, `tabindex="0"` and a label such as "Resize the PRD pane". The curves pass over the two dividers between the panes, which are 76px wide to give them room.
+A divider (`dividerView`) is an element with `role="separator"`, `aria-orientation="vertical"`, `aria-valuenow`, `aria-valuemin` and `aria-valuemax` for its pane's width, `tabindex="0"` and a label such as "Resize the PRD pane". The curves pass over the two dividers between the panes, which are 76px wide to give them room. The stacks pane's divider, on its right edge, is 16px wide.
 
 - Pointer: a primary press sends `PressedDivider` with the pane, the pointer's ID and its x, and the model's `resize` becomes `Resizing` with those and the pane's width at the press. While it is `Resizing`, a subscription in `subscription/resize.ts` listens to the page's pointer events and sends `MovedResizePointer` and `ReleasedResizePointer`, as the canvas's drag subscription does. A move sets the width to the width at the press plus how far the pointer has moved since, through `resized`. A move or release from another pointer is ignored, and a move with no button held ends a resize whose release was missed. The detail panel's divider is on its left edge, so its `delta` is reversed.
 - Keys: with a divider focused, the left and right arrow keys send `PressedArrowOnDivider` and move it 24px.
-- The view writes the widths as CSS custom properties on the reader's grid, whose columns are `<prd>`, a divider, `<spec>`, a divider and `minmax(240px, 1fr)`. A width change resizes the panes, so the wires are measured again through their `ResizeObserver` (see `spec.viewer.curves`).
+- The view writes the widths as CSS custom properties on the reader's grid, whose columns are `<prd>`, a divider, `<spec>`, a divider, `<stacks>`, its 16px divider and `minmax(320px, 1fr)`. A width change resizes the panes, so the wires are measured again through their `ResizeObserver` (see `spec.viewer.curves`).
 - Widths are model state and are not kept across reloads.
 
 Tests: properties that `resized` never returns a width outside its pane's limits, changes no pane but the one named, and returns widths already inside their limits unchanged for a `delta` of zero. Scene tests focus a divider and press an arrow key and find `aria-valuenow` changed by 24; press, move and release and find the new width; and check that a move from another pointer changes nothing.
@@ -2094,7 +2094,7 @@ The panes model has the states `idle` and `resizing`. Its context is the widths 
 - `movedPointer`, with a pointer, an x and whether a button is held: from the pressed pointer with a button held it sets the width to the width at the press plus the pointer's travel, reversed for the detail panel, within limits. With no button held it ends the resize. Another pointer changes nothing.
 - `releasedPointer`, with a pointer: the pressed pointer ends the resize; another changes nothing.
 
-The limits are written out in the model, 300 to 1600 for the PRD, 260 to 1600 for the spec and 360 to 1800 for the detail panel, and the model does not import `resized`. Pointers come from a pool of two, so another pointer is generated as often as the pressed one.
+The limits are written out in the model, 300 to 3200 for the PRD, 260 to 3200 for the spec, 240 to 3200 for the stacks and 360 to 1800 for the detail panel, and the model does not import `resized`. Pointers come from a pool of two, so another pointer is generated as often as the pressed one.
 
 The tests fail when Escape unpins while the panel is open, or a move from another pointer changes a width.
 

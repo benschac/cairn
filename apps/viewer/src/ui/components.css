@@ -369,6 +369,23 @@ button.chip:active {
   border-bottom: 0;
 }
 
+.card[data-completed="true"] > .card-head {
+  background-color: var(--green);
+}
+
+.card-completed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 2px 6px;
+  border: var(--line) solid var(--ink);
+  border-radius: var(--r-s);
+  background-color: var(--raised);
+  font-size: var(--t-xs);
+  white-space: nowrap;
+}
+
 .card-head:focus-visible {
   outline-offset: -2px;
 }
@@ -595,6 +612,21 @@ button.chip:active {
 .divider:focus-visible::before,
 .divider[data-dragging]::before {
   opacity: 1;
+}
+
+/*
+ * A focused divider rings its grip, not its strip: a ring around the whole strip draws two more
+ * lines beside the divider's own, the full height of the window.
+ */
+.divider:focus-visible {
+  outline: none;
+}
+
+.divider:focus-visible::before {
+  box-shadow:
+    var(--lift),
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--ink);
 }
 
 .divider[data-divider="spec"]::after,
@@ -1039,6 +1071,21 @@ mark[data-search-match] {
   margin: 0;
   color: var(--muted);
   font-size: var(--t-s);
+}
+
+/*
+ * The reader's row of panes scrolls sideways when the panes are wider than the window. Its
+ * scrollbar is always drawn, so a row that runs past the window's edge shows that it does.
+ */
+.reader-row {
+  scrollbar-color: var(--ink) var(--bg);
+  scrollbar-width: thin;
+}
+
+/* Both properties are inherited: the panes keep the platform's own scrollbars. */
+.reader-row > * {
+  scrollbar-color: auto;
+  scrollbar-width: auto;
 }
 
 /* The stacks pane: sticky summary and compact legend over bottom-aligned stack levels. */

@@ -37,7 +37,7 @@ const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 const scrolledTo = (id: string) =>
   Mount.resolveAll(
     [TrackPrdScroll, Message.ScrolledPrd({ id: prd(id) })],
-    [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+    [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
     [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
   );
 const statusLine = (id: string) => selector(`[data-status-line="${id}"]`);
@@ -132,6 +132,55 @@ it("a task row shows its status, ID, title and the commit count or the status wo
   );
   const model = update(reading, Message.ClickedTask({ id: task.id })).model;
   assert(model.detail).toStrictEqual([{ id: task.id, kind: "task" }]);
+});
+
+it.each<{
+  statuses: Array<TraceTask["status"]>;
+  completed: boolean;
+}>([
+  { statuses: ["done"], completed: true },
+  { statuses: ["landed"], completed: true },
+  { statuses: ["done", "landed"], completed: true },
+  { statuses: ["done", "pending"], completed: false },
+  { statuses: ["done", "running"], completed: false },
+  { statuses: ["done", "blocked_on_human"], completed: false },
+  { statuses: ["done", "failed"], completed: false },
+  { statuses: [], completed: false },
+])("marks a spec completed for $statuses: $completed", ({ statuses, completed }) => {
+  const donor = Option.getOrThrow(
+    Array.findFirst(demoTrace.tasks, (task) => Array.some(task.specSections, (id) => id === SPEC)),
+  );
+  const model = modifyFields(reading, {
+    trace: () =>
+      TraceData.Success({
+        data: {
+          ...demoTrace,
+          tasks: Array.appendAll(
+            Array.filter(
+              demoTrace.tasks,
+              (task) => !Array.some(task.specSections, (id) => id === SPEC),
+            ),
+            Array.map(statuses, (status, index) => ({
+              ...donor,
+              id: TaskId.make(`completion-${index}`),
+              status,
+            })),
+          ),
+        },
+      }),
+  });
+  const badge = selector(`[data-spec="${SPEC}"] .card-completed`);
+  scene(
+    { update, view },
+    given(model),
+    ...pinned(SECTION),
+    expect(card(SPEC)).toHaveAttr("data-completed", `${completed}`),
+    completed ? expect(badge).toContainText("Completed") : expect(badge).toBeAbsent(),
+    click(role("button", { name: "Titles" })),
+    completed ? expect(badge).toExist() : expect(badge).toBeAbsent(),
+    click(role("button", { name: "Full spec" })),
+    completed ? expect(badge).toExist() : expect(badge).toBeAbsent(),
+  );
 });
 
 it("the control steps through titles, summaries and full sections while the rows stay", () => {

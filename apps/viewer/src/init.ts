@@ -43,5 +43,6 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
     trace: TraceData.Loading(),
     viewport: ORIGIN_VIEWPORT,
     widths: INITIAL_WIDTHS,
+    hasChosenStacksWidth: false,
   },
 });

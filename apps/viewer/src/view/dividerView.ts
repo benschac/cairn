@@ -16,14 +16,22 @@ export const DIVIDER_WIDTH = 76;
  */
 export const DETAIL_HANDLE_WIDTH = 16;
 
+/** The handle on the stacks pane's right edge: no curve passes over it either. */
+export const STACKS_HANDLE_WIDTH = 16;
+
 /** How wide a pane's divider is. */
 export const handleWidthOf = (pane: Pane): number =>
-  pane === "detail" ? DETAIL_HANDLE_WIDTH : DIVIDER_WIDTH;
+  Match.value(pane).pipe(
+    Match.when("detail", () => DETAIL_HANDLE_WIDTH),
+    Match.when("stacks", () => STACKS_HANDLE_WIDTH),
+    Match.orElse(() => DIVIDER_WIDTH),
+  );
 
 const labelOf = (pane: Pane): string =>
   Match.value(pane).pipe(
     Match.when("prd", () => "Resize the PRD pane"),
     Match.when("spec", () => "Resize the spec pane"),
+    Match.when("stacks", () => "Resize the stacks pane"),
     Match.when("detail", () => "Resize the detail panel"),
     Match.exhaustive,
   );
@@ -49,8 +57,8 @@ const paneOf = (pane: Pane, target: unknown): Option.Option<unknown> =>
     : Option.map(Option.liftPredicate(target, hasPreviousSibling), (t) => t.previousElementSibling);
 
 /**
- * The width a pane is rendered at, read from the divider that was pressed: the PRD's and the spec's
- * dividers follow their pane in the grid, and the detail panel's sits inside it (`[data-detail]`). It differs from the
+ * The width a pane is rendered at, read from the divider that was pressed: the PRD's, the spec's and
+ * the stacks' dividers follow their pane in the grid, and the detail panel's sits inside it (`[data-detail]`). It differs from the
  * chosen width when the grid's `minmax` holds the pane narrower. None when the target is no element
  * with a pane beside it.
  */

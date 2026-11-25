@@ -123,7 +123,7 @@ const roomWith = (...others: ReadonlyArray<ReturnType<typeof participant>>) =>
 
 const mountedReader = Mount.resolveAll(
   [TrackPrdScroll, Message.ScrolledPrd({ id: goal })],
-  [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+  [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
   [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
 );
 

@@ -151,5 +151,10 @@ export const Model = Schema.Struct({
   viewport: Viewport,
   /** What a person chose for each pane, in pixels. Not kept across reloads. */
   widths: Widths,
+  /**
+   * Whether a person has moved the stacks pane's divider. Until they do, the pane takes the width
+   * its chart was measured at.
+   */
+  hasChosenStacksWidth: Schema.Boolean,
 });
 export type Model = typeof Model.Type;

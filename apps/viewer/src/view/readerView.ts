@@ -8,7 +8,7 @@ import { currentOf, searchedSectionOf } from "../reader.ts";
 import { Resize } from "../panes.ts";
 import { switchView } from "../ui/controls.ts";
 import { detailView } from "./detailView.ts";
-import { dividerView, DIVIDER_WIDTH } from "./dividerView.ts";
+import { dividerView, DIVIDER_WIDTH, STACKS_HANDLE_WIDTH } from "./dividerView.ts";
 import { prdPaneView } from "./prdPaneView.ts";
 import { searchView } from "./searchView.ts";
 import { specPaneView } from "./specPaneView.ts";
@@ -109,6 +109,9 @@ const topBarView = (trace: Trace, model: Model, presence: string, h: HtmlBuilder
     ],
   );
 
+/** The least empty room after the stacks pane's handle, in pixels. */
+export const TRAILING_ROOM = 320;
+
 /**
  * The plan screen: a top bar over the panes. The window does not scroll; each pane has its own
  * scroll. The current section is the active search result's first PRD section, else the pinned
@@ -144,17 +147,21 @@ export const readerView = (
           [
             h.Style({
               display: "grid",
-              // The widths are what a person chose, and the columns hold them: a window too
-              // narrow for them scrolls the reader sideways instead of narrowing a pane.
+              // The widths are what a person chose, and the columns hold them, side by side as
+              // columns in a deck: a window too narrow for them scrolls the reader sideways, and
+              // the room after the stacks pane is never less than TRAILING_ROOM, so its handle
+              // never reaches the window's edge: scroll right and it can be dragged further.
               "--prd-width": `${model.widths.prd}px`,
               "--spec-width": `${model.widths.spec}px`,
-              "grid-template-columns": `var(--prd-width) ${DIVIDER_WIDTH}px var(--spec-width) ${DIVIDER_WIDTH}px minmax(240px, 1fr)`,
+              "--stacks-width": `${model.widths.stacks}px`,
+              "grid-template-columns": `var(--prd-width) ${DIVIDER_WIDTH}px var(--spec-width) ${DIVIDER_WIDTH}px var(--stacks-width) ${STACKS_HANDLE_WIDTH}px minmax(${TRAILING_ROOM}px, 1fr)`,
               "grid-template-rows": "minmax(0, 1fr)",
               "min-height": "0",
               "overflow-x": "auto",
               "overflow-y": "hidden",
               "user-select": Resize.guards.Resizing(model.resize) ? "none" : "auto",
             }),
+            h.Class("reader-row"),
             h.DataAttribute("reader-grid", ""),
             h.OnMount(MeasureWires()),
             // What changes the layout without changing a size the mount's observers see: the
@@ -196,6 +203,7 @@ export const readerView = (
               model.search.maybeActive,
               h,
             ),
+            dividerView("stacks", model.widths, h),
             wiresView(trace, maybeCurrent, model.maybeMeasuredWires, maybePreview, h),
           ],
         ),

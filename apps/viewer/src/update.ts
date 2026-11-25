@@ -55,7 +55,7 @@ import {
   resultOf,
   type SearchState,
 } from "./search.ts";
-import { Resize, deltaOf, draggedTo, resized, stepOf } from "./panes.ts";
+import { Resize, deltaOf, draggedTo, fittedTo, resized, stepOf } from "./panes.ts";
 import type { Trail } from "./detail.ts";
 import { ScrollTarget, isCardless, isOpenCard, targetsOf } from "./reader.ts";
 import { Node } from "./trace.ts";
@@ -445,7 +445,17 @@ export const update = (model: Model, message: Message) =>
     CompletedFocusSearchInput: () => ({ model }),
     CompletedScrollSearchResult: () => ({ model }),
     CompletedScrollSearchTargets: () => ({ model }),
-    CompletedScrollStacks: () => ({ model }),
+    // Until a person moves its divider, the stacks pane is as wide as its chart.
+    CompletedScrollStacks: ({ maybeChartWidth }) => ({
+      model: Option.match(
+        Option.filter(maybeChartWidth, () => !model.hasChosenStacksWidth),
+        {
+          onNone: () => model,
+          onSome: (width) =>
+            modifyFields(model, { widths: (widths) => fittedTo(widths, "stacks", width) }),
+        },
+      ),
+    }),
     CompletedRenderDiff: () => ({ model }),
     FailedPanZoomCanvas: ({ reason }) => ({
       model: modifyFields(model, { maybePanZoomFailure: () => Option.some(reason) }),
@@ -497,6 +507,7 @@ export const update = (model: Model, message: Message) =>
     }),
     PressedArrowOnDivider: ({ key, pane }) => ({
       model: modifyFields(model, {
+        hasChosenStacksWidth: (hasChosen) => hasChosen || pane === "stacks",
         widths: (widths) => resized(widths, pane, deltaOf(pane, stepOf(key))),
       }),
     }),
@@ -505,6 +516,7 @@ export const update = (model: Model, message: Message) =>
       model: Resize.guards.Resizing(model.resize)
         ? model
         : modifyFields(model, {
+            hasChosenStacksWidth: (hasChosen) => hasChosen || pane === "stacks",
             resize: () =>
               Resize.Resizing({
                 pane,

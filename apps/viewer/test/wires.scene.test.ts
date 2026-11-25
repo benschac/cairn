@@ -70,7 +70,7 @@ const opened = (id: string, measured: Measured) =>
   [
     Mount.resolveAll(
       [TrackPrdScroll, Message.ScrolledPrd({ id: prd(id) })],
-      [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+      [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
       [MeasureWires, Message.MeasuredWires({ measured })],
     ),
   ] as const;

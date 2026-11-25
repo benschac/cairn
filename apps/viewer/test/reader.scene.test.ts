@@ -38,7 +38,7 @@ const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 const scrolledTo = (id: string) =>
   Mount.resolveAll(
     [TrackPrdScroll, Message.ScrolledPrd({ id: prd(id) })],
-    [ScrollStacksToBottom, Message.CompletedScrollStacks()],
+    [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
     [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
   );
 /** Later scrolls come from the same mount; a Scene has no hooks, so it feeds them in as it would. */
