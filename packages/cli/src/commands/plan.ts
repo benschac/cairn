@@ -1,4 +1,4 @@
-import { Manifest, Slug, SpecSectionId } from "@cairn/contract";
+import { Config as ConfigSchema, Manifest, Slug, SpecSectionId } from "@cairn/contract";
 import type { Config as CairnConfig, ManifestTask, Section, SpecIndex } from "@cairn/contract";
 import {
   assignSectionIds,
@@ -15,13 +15,17 @@ import {
   Array,
   Config,
   Console,
+  Duration,
   Effect,
   FileSystem,
+  HashMap,
   HashSet,
   Layer,
+  Number,
   Option,
   Path,
   Predicate,
+  Record,
   Ref,
   Result,
   Runtime,
@@ -34,7 +38,7 @@ import { Command, Flag } from "effect/cli";
 import { MainCheckout } from "../main-checkout.ts";
 import { liveLanguageModel } from "../models.ts";
 import { Planner, PlannerError } from "../planner.ts";
-import { stackLines } from "../print-stack.ts";
+import { stackLines, totalsLine } from "../print-stack.ts";
 import { editedOf, specIndexOf, specIndexText } from "../spec-index.ts";
 import { mergeSections } from "../spec-merge.ts";
 import {
@@ -69,6 +73,17 @@ export class ManifestRefused extends Schema.TaggedError<
   }
 }
 
+/** `--source`, `--provider` or `--model` gave a planner config that does not decode. */
+export class PlannerRefused extends Schema.TaggedError<
+  PlannerRefused,
+  { readonly brand: unique symbol }
+>()("PlannerRefused", { reason: Schema.String }) {
+  override readonly [Runtime.errorReported] = false;
+  override get message() {
+    return `cairn plan: ${this.reason}`;
+  }
+}
+
 export const JUDGING_SKIPPED = "Judging skipped: TYPESAFE_API_KEY is not set.";
 export const UP_TO_DATE = "The plan is up to date.";
 export const DRAFT_QUESTION = "Draft tasks from this spec? [y/N]";
@@ -83,14 +98,88 @@ const FALLBACK_FEATURE = Schema.decodeSync(Slug)("plan");
 
 const ManifestJson = Schema.fromJsonString(Manifest, { space: 2 });
 
-/** What `cairn plan` was asked: `--spec`, `--yes`, `--respec` and `--accept`. */
+/** The planner fields `--source`, `--provider` and `--model` replace for one run. */
+export interface PlannerChoice {
+  readonly model: string | undefined;
+  readonly provider: CairnConfig["planner"]["provider"] | undefined;
+  readonly source: CairnConfig["planner"]["source"] | undefined;
+}
+
+/** What `cairn plan` was asked: `--spec`, `--yes`, `--respec`, `--accept`, `--dry-run` and the planner flags. */
 export interface PlanOptions {
   /** A spec section whose PRD sections are accepted as they are now (`spec.planning.again`). It plans nothing. */
   readonly accept?: string | undefined;
+  /** Run both steps in memory: ask nothing, write nothing, and print totals (`spec.planning.dry-run`). */
+  readonly dryRun?: boolean;
+  /** Planner fields that replace the config's for this run. */
+  readonly planner?: PlannerChoice;
   readonly respec: boolean;
   readonly spec: boolean;
   readonly yes: boolean;
 }
+
+/** The planner of the config, as it is. */
+const KEEP_PLANNER: PlannerChoice = { model: undefined, provider: undefined, source: undefined };
+
+/**
+ * `config.json` with the planner fields of `choice` laid over it, decoded again so a choice the
+ * config would refuse (`--source api` with no model) is refused here, before any call.
+ */
+export const configOf = Effect.fn("plan.configOf")(function* (
+  choice: PlannerChoice = KEEP_PLANNER,
+) {
+  const config = yield* loadConfig;
+  const chosen = Record.filter(choice, Predicate.isNotUndefined);
+  if (Record.isEmptyRecord(chosen)) {
+    return config;
+  }
+  return yield* Schema.decodeEffect(ConfigSchema)({
+    ...config,
+    planner: { ...config.planner, ...chosen },
+  }).pipe(Effect.mapError((error) => new PlannerRefused({ reason: error.message })));
+});
+
+/**
+ * The file system of a dry run: reads see what the run has written, and a write is kept in memory
+ * and never reaches the disk, so the steps read each other's files as they do in a real run.
+ */
+const inMemory = Layer.effect(
+  FileSystem.FileSystem,
+  Effect.gen(function* () {
+    const disk = yield* FileSystem.FileSystem;
+    const written = yield* Ref.make(HashMap.empty<string, string>());
+    const kept = (path: string) => Effect.map(Ref.get(written), HashMap.get(path));
+    return {
+      ...disk,
+      exists: (path) =>
+        kept(path).pipe(
+          Effect.flatMap(
+            Option.match({ onNone: () => disk.exists(path), onSome: () => Effect.succeed(true) }),
+          ),
+        ),
+      readFileString: (path, encoding) =>
+        kept(path).pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () => disk.readFileString(path, encoding),
+              onSome: Effect.succeed,
+            }),
+          ),
+        ),
+      writeFileString: (path, data) => Ref.update(written, HashMap.set(path, data)),
+    };
+  }),
+);
+
+/** What a run planned, for the totals line of a dry run. */
+interface Planned {
+  readonly errors: number;
+  readonly flags: number;
+  readonly sections: number;
+  readonly tasks: number;
+}
+
+const nothingPlanned: Planned = { errors: 0, flags: 0, sections: 0, tasks: 0 };
 
 /**
  * The feature's name for the manifest: the ID of the first heading of the PRD, without `prd.`,
@@ -246,7 +335,7 @@ const reportStale = Effect.fn("plan.reportStale")(function* (
   });
 });
 
-/** Step 1: writes `spec.md` from the PRD and prints its sections. Returns whether it wrote. */
+/** Step 1: writes `spec.md` from the PRD and prints its sections. Returns whether it wrote and how many sections it printed. */
 const specStep = Effect.fn("plan.specStep")(function* (
   inputs: Inputs,
   manifest: Option.Option<Manifest>,
@@ -259,18 +348,17 @@ const specStep = Effect.fn("plan.specStep")(function* (
     yield* checkpoints(told);
     const spec = withNewline(assignSectionIds(drafted, "spec").markdown);
     yield* writeCairn("spec.md", spec);
-    yield* Effect.forEach(
-      Array.filter(sectionsOf(spec), (section) => Predicate.isNotUndefined(section.id)),
-      (section) => Console.log(sectionLine(section)),
-      { discard: true },
-    );
+    const shown = Array.filter(sectionsOf(spec), (section) => Predicate.isNotUndefined(section.id));
+    yield* Effect.forEach(shown, (section) => Console.log(sectionLine(section)), {
+      discard: true,
+    });
     // A respec replaces the manifest too, so the tasks of the one on disk are not the new spec's.
     yield* writeIndex(prd, options.respec ? Option.none() : manifest, {
       changed: [],
       previous: Option.none(),
       written: specIdsOf(spec),
     });
-    return true;
+    return { sections: Array.length(shown), wrote: true };
   }
   // Planning again (`spec.planning.again`): the spec exists, so it is added to, never written from nothing.
   const spec = existing.value;
@@ -281,7 +369,7 @@ const specStep = Effect.fn("plan.specStep")(function* (
     Array.isReadonlyArrayEmpty(replan.uncovered) &&
     Array.isReadonlyArrayEmpty(replan.rewritable)
   ) {
-    return false;
+    return { sections: 0, wrote: false };
   }
   const rewriting = Array.filter(index.sections, (entry) =>
     Array.contains(replan.rewritable, entry.id),
@@ -304,20 +392,19 @@ const specStep = Effect.fn("plan.specStep")(function* (
     merged.rewritten,
   );
   const added = HashSet.fromIterable<string>(written);
-  yield* Effect.forEach(
-    Array.filter(
-      sectionsOf(next),
-      (section) => Predicate.isNotUndefined(section.id) && HashSet.has(added, section.id),
-    ),
-    (section) => Console.log(sectionLine(section)),
-    { discard: true },
+  const printed = Array.filter(
+    sectionsOf(next),
+    (section) => Predicate.isNotUndefined(section.id) && HashSet.has(added, section.id),
   );
+  yield* Effect.forEach(printed, (section) => Console.log(sectionLine(section)), {
+    discard: true,
+  });
   yield* writeIndex(prd, manifest, {
     changed: editedOf(next, index),
     previous: Option.some(index),
     written,
   });
-  return true;
+  return { sections: Array.length(printed), wrote: true };
 });
 
 /**
@@ -373,7 +460,11 @@ const draftable = Effect.fn("plan.draftable")(function* (
   );
 });
 
-/** Step 2: drafts the tasks of `specSections` from the spec on disk, orders them after the tasks the manifest has, lints them, and writes `manifest.json` when the person agrees. */
+/**
+ * Step 2: drafts the tasks of `specSections` from the spec on disk, orders them after the tasks the
+ * manifest has, lints them, and writes `manifest.json` when the person agrees. A dry run prints the
+ * same and neither asks nor refuses nor writes. Returns what it planned.
+ */
 const tasksStep = Effect.fn("plan.tasksStep")(function* (
   { config, options, prd, told }: Inputs,
   manifest: Option.Option<Manifest>,
@@ -399,6 +490,7 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
     Array.isReadonlyArrayNonEmpty,
     () => new PlannerError({ call: "tasks", reason: "The planner drafted no tasks." }),
   );
+  const added = Array.length(ordered) - Array.length(existing);
   const tasks = yield* Effect.filterOrFail(
     Effect.succeed(ordered),
     Array.isReadonlyArrayNonEmpty,
@@ -426,6 +518,11 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
     { discard: true },
   );
   const errors = Array.length(Array.filter(findings, (finding) => finding.severity === "error"));
+  // The judging checkpoints (`spec.judging.checkpoints`) have nothing to flag yet.
+  const planned: Planned = { errors, flags: 0, sections: 0, tasks: added };
+  if (options.dryRun === true) {
+    return planned;
+  }
   yield* Effect.filterOrFail(
     Effect.succeed(errors),
     (count) => count === 0,
@@ -447,6 +544,7 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
       written: [],
     });
   }
+  return planned;
 });
 
 /** The IDs of the tasks that have left `pending`. */
@@ -559,15 +657,15 @@ const accept = Effect.fn("plan.accept")(function* (section: string) {
  * nothing builds, and a report of what went stale; no task in the manifest changes. The judging
  * checkpoints and `judgments.json` belong to the tasks that own them.
  */
-export const plan = Effect.fn("plan")(function* (options: PlanOptions) {
+const steps = Effect.fn("plan.steps")(function* (options: PlanOptions) {
   if (Predicate.isNotUndefined(options.accept)) {
     yield* accept(options.accept);
-    return;
+    return nothingPlanned;
   }
   const manifest = yield* optionally(loadManifest);
   yield* refuseRestart(options, manifest);
 
-  const config = yield* loadConfig;
+  const config = yield* configOf(options.planner);
   const told = yield* Ref.make(false);
   const prdText = yield* loadPrd;
   const assigned = assignSectionIds(prdText, "prd");
@@ -577,20 +675,49 @@ export const plan = Effect.fn("plan")(function* (options: PlanOptions) {
   }
   const inputs: Inputs = { config, options, prd: assigned.markdown, told };
 
-  const specWritten = yield* specStep(inputs, manifest);
+  const { sections, wrote: specWritten } = yield* specStep(inputs, manifest);
   const toDraft = options.spec ? Option.none() : yield* draftable(inputs, manifest);
   if (Option.isNone(toDraft)) {
     // A manifest on disk keeps its diagram true, so a spec that drifted from it is drawn again.
     if (!specWritten && !(yield* redraw(inputs.prd, manifest))) {
       yield* Console.log(UP_TO_DATE);
     }
+    return { ...nothingPlanned, sections };
+  }
+  const proceed = specWritten
+    ? yield* confirm(DRAFT_QUESTION, options.yes || options.dryRun === true)
+    : true;
+  if (proceed) {
+    const planned = yield* tasksStep(inputs, manifest, toDraft.value);
+    return { ...planned, sections };
+  }
+  yield* Console.log(EDIT_SPEC);
+  return { ...nothingPlanned, sections };
+});
+
+/** A dry run: both steps over an in-memory copy of `.cairn/`, then one line of totals. */
+const dryRun = Effect.fn("plan.dryRun")(function* (options: PlanOptions) {
+  const [elapsed, planned] = yield* Effect.timed(steps(options));
+  if (Predicate.isNotUndefined(options.accept)) {
     return;
   }
-  const proceed = specWritten ? yield* confirm(DRAFT_QUESTION, options.yes) : true;
-  if (proceed) {
-    yield* tasksStep(inputs, manifest, toDraft.value);
+  const { planner } = yield* configOf(options.planner);
+  yield* Console.log(
+    totalsLine({
+      ...planned,
+      agent: planner.source === "api" ? planner.provider : planner.cli,
+      model: Option.getOrElse(Option.fromUndefinedOr(planner.model), () => "default"),
+      seconds: Number.round(Duration.toSeconds(elapsed), 1),
+      source: planner.source,
+    }),
+  );
+});
+
+export const plan = Effect.fn("plan")(function* (options: PlanOptions) {
+  if (options.dryRun === true) {
+    yield* dryRun(options).pipe(Effect.provide(inMemory));
   } else {
-    yield* Console.log(EDIT_SPEC);
+    yield* steps(options);
   }
 });
 
@@ -630,6 +757,26 @@ export const planCommand = Command.make(
       ),
       Flag.withDefault(false),
     ),
+    dryRun: Flag.Boolean("dry-run").pipe(
+      Flag.withDescription(
+        "Plan in memory: ask nothing, write nothing, and print the totals of the run",
+      ),
+      Flag.withDefault(false),
+    ),
+    model: Flag.String("model").pipe(
+      Flag.withDescription("Replace planner.model for this run"),
+      Flag.optional,
+    ),
+    provider: Flag.Literals("provider", [
+      "anthropic",
+      "openai",
+      "openrouter",
+      "openai-compatible",
+    ]).pipe(Flag.withDescription("Replace planner.provider for this run"), Flag.optional),
+    source: Flag.Literals("source", ["cli", "api"]).pipe(
+      Flag.withDescription("Replace planner.source for this run"),
+      Flag.optional,
+    ),
     spec: Flag.Boolean("spec").pipe(
       Flag.withDescription("Stop after the spec, without asking"),
       Flag.withDefault(false),
@@ -639,10 +786,18 @@ export const planCommand = Command.make(
       Flag.withDefault(false),
     ),
   },
-  ({ accept: accepted, ...flags }) => {
-    const options: PlanOptions = { ...flags, accept: Option.getOrUndefined(accepted) };
+  ({ accept: accepted, model, provider, source, ...flags }) => {
+    const options: PlanOptions = {
+      ...flags,
+      accept: Option.getOrUndefined(accepted),
+      planner: {
+        model: Option.getOrUndefined(model),
+        provider: Option.getOrUndefined(provider),
+        source: Option.getOrUndefined(source),
+      },
+    };
     return Effect.gen(function* () {
-      const config = yield* loadConfig;
+      const config = yield* configOf(options.planner);
       // The model is built only for a run that calls it, so an up-to-date plan needs no CLI or key.
       const planner = Layer.unwrap(
         needsPlanner(options).pipe(
@@ -656,8 +811,9 @@ export const planCommand = Command.make(
       yield* plan(options).pipe(Effect.provide(planner));
     }).pipe(
       // The failures log their own message once; the runtime does not print them again.
-      Effect.tapErrorTag(["RespecRefused", "ManifestRefused", "AcceptRefused"], (error) =>
-        Effect.logError(error.message),
+      Effect.tapErrorTag(
+        ["RespecRefused", "ManifestRefused", "AcceptRefused", "PlannerRefused"],
+        (error) => Effect.logError(error.message),
       ),
     );
   },

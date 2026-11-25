@@ -50,6 +50,7 @@ const indexFor = (spec: string): SpecIndex => ({
     }),
   ),
   source: ".cairn/spec.md",
+  tasks: [],
   version: 1,
 });
 
