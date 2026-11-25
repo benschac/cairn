@@ -18,6 +18,10 @@ export const Message = defineMessageUnion({
   ClickedCardHeader: { id: SectionId },
   /** One of the spec cards' density control's three buttons: it sets every card. */
   ClickedDensity: { density: Density },
+  /** The PRD pane's "Collapse all" or "Expand all": hides or shows the prose of every section. */
+  ClickedCondensePrd: {},
+  /** A PRD section's heading: shows or hides that section's prose alone. */
+  ClickedPrdHeading: { id: SectionId },
   /** The drawer's Close button. */
   ClickedCloseDrawer: {},
   /** The detail panel's Close button: empties the trail. */

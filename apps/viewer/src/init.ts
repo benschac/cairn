@@ -33,9 +33,11 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
     presenceConnection: PresenceConnection.Connecting(),
     reader: {
       density: "summary",
+      isPrdCondensed: false,
       maybeAtTop: Option.none(),
       maybePinned: Option.none(),
       opened: {},
+      prdOpened: {},
     },
     resize: Resize.Idle(),
     search: NO_SEARCH,

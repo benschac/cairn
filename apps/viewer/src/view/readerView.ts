@@ -176,6 +176,8 @@ export const readerView = (
               trace,
               maybeCurrent,
               model.reader.maybePinned,
+              model.reader.isPrdCondensed,
+              model.reader.prdOpened,
               model.maybeCopied,
               model.search.results,
               model.search.maybeActive,

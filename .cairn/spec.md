@@ -1612,7 +1612,7 @@ Tests: `design.test.ts` reads the stylesheets and the sources as text. Every col
 ### Reader {#spec.viewer.reader}
 
 - Implements: `prd.viewer.reader`, `prd.viewer`
-- Files: `apps/viewer/src/reader.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/view/view.ts`, `apps/viewer/test/reader.test.ts`, `apps/viewer/test/reader.scene.test.ts`
+- Files: `apps/viewer/src/reader.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/view/view.ts`, `apps/viewer/test/reader.test.ts`, `apps/viewer/test/reader.scene.test.ts`, `apps/viewer/test/prd-fold.scene.test.ts`
 - Depends on: `spec.contract.trace`, `spec.contract.events`, `spec.viewer.model-and-messages`, `spec.viewer.markdown-rendering`, `spec.viewer.design-system`
 
 The reader is the plan screen: a top bar over three panes, the PRD, the spec and the stacks. The window does not scroll; each pane has its own vertical scroll. The Curves variant of the prototype in `.cairn/design/prd-curves.html` is the reference for layout and spacing. Colour, type, borders, shadows and motion come from `spec.viewer.design-system`, and so do the classes and controls a view is built from. Read both before writing a view.
@@ -1627,6 +1627,8 @@ Reader = {
   maybePinned: Option<PrdSectionId>
   density: "titles" | "summary" | "full" // spec.viewer.spec-cards
   opened: Record<SpecSectionId, boolean> // cards opened or closed apart from the density
+  isPrdCondensed: boolean // the PRD shows its headings without their prose
+  prdOpened: Record<PrdSectionId, boolean> // PRD sections opened or closed apart from isPrdCondensed
   isShowingModels: boolean // spec.viewer.models
   widths: Widths // spec.viewer.panes
 }
@@ -1648,6 +1650,7 @@ Reader = {
 - Under each heading, a status line: a native button with `statusWordOf`, the spec count and `done/total tasks`, such as `in progress · 3 spec · 5/12 tasks`. It sends `ClickedStatusLine` with the section's ID, which pins the section, or unpins it when it is the pinned one. The pinned section's button has `aria-pressed="true"`. A section with a coverage note shows the note as text in place of the button.
 - Beside each heading's title, its section ID as a small button. It sends `ClickedSectionId`, which runs a Command that writes the ID to the clipboard and then sends `CompletedCopySectionId`. The button reads "copied" until the next render after that.
 - Over the document, the title and `planCountsOf` as "25 of 97 tasks done" with a meter.
+- Before each heading's title, an arrow is a `disclosureView` button, labelled with the title, that sends `ClickedPrdHeading` and shows or hides that section's prose alone. The header, with its status line and ID, always shows. Beside the meter, "Collapse all" sends `ClickedCondensePrd`, which flips `isPrdCondensed` and empties `prdOpened`; it then reads "Expand all". A section is open when `prdOpened` holds it as open, or holds nothing for it and the PRD is not condensed. A section holding the active search result's matched prose shows open while that result is active.
 - The current section's `section` element has `data-current`.
 
 Tracking the section at the top: a Mount on the PRD pane (`TrackPrdScroll`) listens to the pane's `scroll` event and a `ResizeObserver` on its content. At most once per animation frame it reads the top of every `[data-section]` heading, calls `sectionAtTop` with a line 140px below the pane's top, and sends `ScrolledPrd` with the answer only when the answer changed. It sends once when it mounts. The update stores `maybeAtTop`; nothing else in the model changes on a scroll.
@@ -1656,7 +1659,7 @@ The spec pane's content is keyed by the current section, so a new section starts
 
 Escape: a `keydown` subscription on the document sends `PressedEscape`. It goes back one step in the detail panel when the panel is open (see `spec.viewer.detail-panel`), and otherwise unpins. The search control handles its own Escape first and stops it there.
 
-Tests: properties in `reader.test.ts` that `sectionAtTop` returns the last section at or above the line and never moves backwards as the line moves down; that `cardsOf` and its strays together list every task of the chain, and no stray is in a card; and that a count's done never passes its total. Scene tests on the demo trace open the reader, read the status line of `prd.viewer`, find a coverage note on a deferred section and none on a built one, pin a section by its status line and find it current, and unpin it with the same button and with Escape. A Mount does not run in a Scene, so the scroll is tested through `sectionAtTop` and through `ScrolledPrd`.
+Tests: properties in `reader.test.ts` that `sectionAtTop` returns the last section at or above the line and never moves backwards as the line moves down; that `cardsOf` and its strays together list every task of the chain, and no stray is in a card; and that a count's done never passes its total. Scene tests on the demo trace open the reader, read the status line of `prd.viewer`, find a coverage note on a deferred section and none on a built one, pin a section by its status line and find it current, and unpin it with the same button and with Escape. Fold scene tests collapse every section and find each heading without its prose, open one section alone, and find "Expand all" forgets it. A Mount does not run in a Scene, so the scroll is tested through `sectionAtTop` and through `ScrolledPrd`.
 
 ### Spec cards {#spec.viewer.spec-cards}
 
