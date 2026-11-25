@@ -36,6 +36,13 @@ export { Replan, bodyHashOf, replanOf } from "./replan.ts";
 export { rollupOf, type RolledSection, type RollupTask } from "./rollup.ts";
 export { assignSectionIds, sectionIdsOf } from "./section-ids.ts";
 export { keyEntriesOf, sectionsOf } from "./sections.ts";
+export {
+  derivedOf,
+  identifiedOf,
+  type DerivedInput,
+  type DerivedSection,
+  type IdentifiedSection,
+} from "./spec-index.ts";
 export { sessionOf, type StoredSession } from "./session.ts";
 export { Stack, StackPosition, TaskIdOrder, labelOf, stacksOf } from "./stacks.ts";
 export {
