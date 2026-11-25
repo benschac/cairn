@@ -4364,6 +4364,411 @@
       "status": "pending",
       "commits": [],
       "sessions": []
+    },
+    {
+      "id": "t174",
+      "title": "Declare agent operations and their errors in the contract",
+      "prdSections": ["prd.agent-access"],
+      "specSections": ["spec.cli.agent-access.operations"],
+      "files": [
+        "packages/contract/src/operations.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/schema/",
+        "packages/core/src/lint.ts",
+        "packages/contract/test/operations.test.ts"
+      ],
+      "branch": "cairn-mvp/174-declare-agent-operations-and-their-errors-in-the-contract",
+      "parent": null,
+      "dependsOn": ["t10", "t16", "t25"],
+      "worktree": "wt-50",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t175",
+      "title": "Run operations through one entry point with atomic writes and an operation log",
+      "prdSections": ["prd.agent-access"],
+      "specSections": ["spec.cli.agent-access.operations"],
+      "files": [
+        "packages/cli/src/operations/run.ts",
+        "packages/cli/src/write-log.ts",
+        "packages/cli/src/migrations/",
+        "packages/cli/test/operations.test.ts"
+      ],
+      "branch": "cairn-mvp/175-run-operations-through-one-entry-point-with-atomic-writes-and-an-operation-log",
+      "parent": null,
+      "dependsOn": ["t2", "t23", "t174"],
+      "worktree": "wt-50",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t176",
+      "title": "Return planning's questions and reviews as resumable decisions",
+      "prdSections": ["prd.agent-access", "prd.planning.two-reviews"],
+      "specSections": ["spec.cli.agent-access.review-checkpoints"],
+      "files": [
+        "packages/contract/src/operations.ts",
+        "packages/cli/src/operations/plan.ts",
+        "packages/cli/src/migrations/",
+        "packages/cli/test/plan-decisions.test.ts"
+      ],
+      "branch": "cairn-mvp/176-return-planning-s-questions-and-reviews-as-resumable-decisions",
+      "parent": null,
+      "dependsOn": ["t114", "t173", "t175"],
+      "worktree": "wt-50",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t177",
+      "title": "Move init, ids, lint and status onto the operation layer",
+      "prdSections": ["prd.agent-access"],
+      "specSections": ["spec.cli.agent-access.operations"],
+      "files": [
+        "packages/cli/src/operations/init.ts",
+        "packages/cli/src/operations/ids.ts",
+        "packages/cli/src/operations/lint.ts",
+        "packages/cli/src/operations/status.ts",
+        "packages/cli/src/commands/init.ts",
+        "packages/cli/src/commands/ids.ts",
+        "packages/cli/src/commands/lint.ts",
+        "packages/cli/src/commands/status.ts",
+        "packages/cli/test/equivalence.ts",
+        "packages/cli/test/fixtures/agent-access/",
+        "packages/cli/test/operations.test.ts"
+      ],
+      "branch": "cairn-mvp/177-move-init-ids-lint-and-status-onto-the-operation-layer",
+      "parent": null,
+      "dependsOn": ["t24", "t27", "t35", "t175"],
+      "worktree": "wt-51",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t178",
+      "title": "Drive cairn plan through the plan decisions",
+      "prdSections": ["prd.agent-access", "prd.planning.two-reviews"],
+      "specSections": ["spec.cli.agent-access.review-checkpoints"],
+      "files": [
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/src/ask-statements.ts",
+        "packages/cli/test/plan-continue.test.ts"
+      ],
+      "branch": "cairn-mvp/178-drive-cairn-plan-through-the-plan-decisions",
+      "parent": null,
+      "dependsOn": ["t176", "t177"],
+      "worktree": "wt-51",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t179",
+      "title": "Add cairn mcp with operation tools over stdio",
+      "prdSections": ["prd.agent-access", "prd.cli"],
+      "specSections": ["spec.cli.agent-access.mcp-server"],
+      "files": [
+        "packages/cli/src/mcp/server.ts",
+        "packages/cli/src/mcp/tools.ts",
+        "packages/cli/src/commands/mcp.ts",
+        "packages/cli/src/commands/index.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/package.json",
+        "packages/cli/test/mcp.test.ts",
+        "packages/cli/test/fixtures/stub-claude/"
+      ],
+      "branch": "cairn-mvp/179-add-cairn-mcp-with-operation-tools-over-stdio",
+      "parent": "t178",
+      "dependsOn": ["t178"],
+      "worktree": "wt-51",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t180",
+      "title": "Add judge, stats, link and note tools",
+      "prdSections": ["prd.agent-access"],
+      "specSections": ["spec.cli.agent-access.more-tools"],
+      "files": [
+        "packages/contract/src/operations.ts",
+        "packages/cli/src/operations/judge.ts",
+        "packages/cli/src/operations/stats.ts",
+        "packages/cli/src/operations/link.ts",
+        "packages/cli/src/operations/note.ts",
+        "packages/cli/src/mcp/tools.ts",
+        "packages/cli/src/commands/judge.ts",
+        "packages/cli/src/commands/stats.ts",
+        "packages/cli/src/commands/link.ts",
+        "packages/cli/src/commands/note.ts",
+        "packages/cli/test/mcp-tools.test.ts"
+      ],
+      "branch": "cairn-mvp/180-add-judge-stats-link-and-note-tools",
+      "parent": null,
+      "dependsOn": ["t65", "t119", "t126", "t151", "t179"],
+      "worktree": "wt-51",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t181",
+      "title": "Start and stop the viewer from MCP",
+      "prdSections": ["prd.agent-access"],
+      "specSections": ["spec.cli.agent-access.more-tools"],
+      "files": [
+        "packages/contract/src/operations.ts",
+        "packages/cli/src/operations/serve.ts",
+        "packages/cli/src/mcp/tools.ts",
+        "packages/cli/src/commands/serve.ts",
+        "packages/cli/test/mcp-serve.test.ts"
+      ],
+      "branch": "cairn-mvp/181-start-and-stop-the-viewer-from-mcp",
+      "parent": null,
+      "dependsOn": ["t41", "t179"],
+      "worktree": "wt-4",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t182",
+      "title": "Write the agent guide, skill and MCP setup page",
+      "prdSections": ["prd.agent-access"],
+      "specSections": ["spec.cli.agent-access.agent-guide"],
+      "files": [
+        "packages/cli/skill/cairn/SKILL.md",
+        "packages/cli/package.json",
+        "apps/docs/pages/10-agents.md",
+        "apps/docs/scripts/reference.ts",
+        "AGENTS.md",
+        "apps/docs/test/agents.test.ts"
+      ],
+      "branch": "cairn-mvp/182-write-the-agent-guide-skill-and-mcp-setup-page",
+      "parent": null,
+      "dependsOn": ["t161", "t162", "t180", "t181"],
+      "worktree": "wt-4",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t183",
+      "title": "Choose the terminal library and draw frames to an ANSI screen",
+      "prdSections": ["prd.terminal.library"],
+      "specSections": ["spec.cli.terminal-view.rendering-library"],
+      "files": [
+        "packages/cli/src/watch/SPIKE.md",
+        "packages/cli/src/watch/frame.ts",
+        "packages/cli/src/watch/screen.ts",
+        "packages/cli/src/watch/ansi.ts",
+        "packages/cli/test/watch/screen.test.ts"
+      ],
+      "branch": "cairn-mvp/183-choose-the-terminal-library-and-draw-frames-to-an-ansi-screen",
+      "parent": "t22",
+      "dependsOn": ["t22"],
+      "worktree": "wt-52",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t184",
+      "title": "Move status tree, counts and ranOf into core",
+      "prdSections": ["prd.terminal.shared"],
+      "specSections": ["spec.cli.terminal-view.shared-derivations"],
+      "files": [
+        "packages/core/src/status-tree.ts",
+        "packages/core/src/ran.ts",
+        "packages/core/src/index.ts",
+        "packages/cli/src/commands/status.ts",
+        "apps/viewer/src/reader.ts",
+        "packages/core/test/status-tree.test.ts"
+      ],
+      "branch": "cairn-mvp/184-move-status-tree-counts-and-ranof-into-core",
+      "parent": null,
+      "dependsOn": ["t35", "t91", "t109"],
+      "worktree": "wt-53",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t185",
+      "title": "Follow the files as a stream of traces",
+      "prdSections": ["prd.terminal.shared"],
+      "specSections": ["spec.cli.terminal-view.trace-stream"],
+      "files": [
+        "packages/cli/src/trace-stream.ts",
+        "packages/cli/src/api.ts",
+        "packages/cli/test/trace-stream.test.ts"
+      ],
+      "branch": "cairn-mvp/185-follow-the-files-as-a-stream-of-traces",
+      "parent": null,
+      "dependsOn": ["t35", "t39"],
+      "worktree": "wt-54",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t186",
+      "title": "Add the terminal view's model, update and view",
+      "prdSections": ["prd.terminal", "prd.terminal.shared"],
+      "specSections": ["spec.cli.terminal-view.model-update-and-view"],
+      "files": [
+        "packages/cli/src/watch/model.ts",
+        "packages/cli/src/watch/message.ts",
+        "packages/cli/src/watch/update.ts",
+        "packages/cli/src/watch/view.ts",
+        "packages/cli/src/watch/symbols.ts",
+        "packages/cli/test/watch/view.test.ts",
+        "packages/cli/test/watch/memory.test.ts",
+        "packages/cli/test/fixtures/watch/"
+      ],
+      "branch": "cairn-mvp/186-add-the-terminal-view-s-model-update-and-view",
+      "parent": null,
+      "dependsOn": ["t119", "t156", "t183", "t184"],
+      "worktree": "wt-53",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t187",
+      "title": "Handle the terminal view's keys",
+      "prdSections": ["prd.terminal.keys"],
+      "specSections": ["spec.cli.terminal-view.keys"],
+      "files": [
+        "packages/cli/src/watch/keys.ts",
+        "packages/cli/src/watch/update.ts",
+        "packages/cli/src/watch/view.ts",
+        "packages/cli/test/watch/keys.test.ts"
+      ],
+      "branch": "cairn-mvp/187-handle-the-terminal-view-s-keys",
+      "parent": null,
+      "dependsOn": ["t118", "t186"],
+      "worktree": "wt-53",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t188",
+      "title": "Add cairn watch with a read-only terminal loop",
+      "prdSections": ["prd.terminal.terminals", "prd.terminal.library", "prd.cli"],
+      "specSections": ["spec.cli.terminal-view.cairn-watch"],
+      "files": [
+        "packages/cli/src/commands/watch.ts",
+        "packages/cli/src/watch/terminal.ts",
+        "packages/cli/src/watch/read-only.ts",
+        "packages/cli/src/commands/index.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/watch/terminal.test.ts",
+        "packages/cli/test/watch/watch.test.ts"
+      ],
+      "branch": "cairn-mvp/188-add-cairn-watch-with-a-read-only-terminal-loop",
+      "parent": null,
+      "dependsOn": ["t185", "t187"],
+      "worktree": "wt-53",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
     }
   ]
 }

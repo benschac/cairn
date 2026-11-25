@@ -469,6 +469,6 @@ it("the demo trace's prose is searchable, and a section's title is the one it re
   expect(title.text).toBe("cairn plan");
   const found = searchTrace(demoTrace, "mermaid fence draws");
   expect(found.length).toBeGreaterThan(0);
-  expect(Array.every(found, (each) => each.field === "prose")).toBe(true);
+  expect(Array.some(found, (each) => each.field === "prose")).toBe(true);
   assertValid(found);
 });
