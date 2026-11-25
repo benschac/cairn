@@ -162,7 +162,13 @@ const lifecycle = (
       ? { blocked_on_human: "done", running: finished }
       : { running: finished },
     failed: { running: "failed" },
-    landed: { done: "landed" },
+    landed: {
+      blocked_on_human: "landed",
+      done: "landed",
+      failed: "landed",
+      pending: "landed",
+      running: "landed",
+    },
     pending: {},
     running: { failed: "running", pending: "running" },
   };
@@ -172,6 +178,10 @@ interface Modelled {
   readonly kinds: ReadonlyArray<TraceWarningKind>;
   readonly status: TaskStatus;
 }
+
+/** A gated task that lands from anywhere but `done` landed with no human approval. */
+const unapproved = (gated: boolean, from: TaskStatus, to: TaskStatus) =>
+  gated && to === "landed" && from !== "done";
 
 const model = (gated: boolean, lines: ReadonlyArray<Line>): Modelled =>
   Array.reduce(lines, { kinds: [], status: "pending" }, (state: Modelled, { actor, status }) =>
@@ -185,7 +195,12 @@ const model = (gated: boolean, lines: ReadonlyArray<Line>): Modelled =>
         ),
         status: state.status,
       }),
-      onSome: (next) => ({ kinds: state.kinds, status: next }),
+      onSome: (next) => ({
+        kinds: unapproved(gated, state.status, next)
+          ? Array.append(state.kinds, "landed-without-approval")
+          : state.kinds,
+        status: next,
+      }),
     }),
   );
 
@@ -209,11 +224,14 @@ it.prop(
 );
 
 it.prop(
-  "no orchestrator or agent line takes a gated task past blocked_on_human",
+  "no orchestrator or agent line approves a gated task, and one that lands it is a warning",
   [WrittenLines(Schema.Literals(["orchestrator", AGENT, "agent:claude"]), Schema.Literal(GATED))],
   ([written]) => {
-    expect(["done", "landed"]).not.toContain(
-      taskOf(run(Array.map(shuffled(timed(written)), eventOf)), GATED).status,
+    const derived = run(Array.map(shuffled(timed(written)), eventOf));
+    const status = taskOf(derived, GATED).status;
+    expect(status).not.toBe("done");
+    expect(status === "landed").toBe(
+      Array.contains(kindsOf(derived, GATED), "landed-without-approval"),
     );
   },
 );
@@ -268,7 +286,7 @@ it("an agent's done on a task in blocked_on_human is a warning, not an approval"
 it("a line the lifecycle does not allow, or for an unknown task, is a warning", () => {
   const derived = run([
     line("t4", "pending", 1),
-    line("t4", "landed", 2),
+    line("t4", "done", 2),
     line("t4", "running", 3),
     line(UNKNOWN, "running", 4),
   ]);
@@ -277,6 +295,27 @@ it("a line the lifecycle does not allow, or for an unknown task, is a warning", 
     { kind: "illegal-transition", taskId: "t4" },
     { kind: "illegal-transition", taskId: "t4" },
     { kind: "unknown-task", taskId: UNKNOWN },
+  ]);
+});
+
+it("a landed line lands a task from any status, and a gated one no human approved warns", () => {
+  const derived = run([
+    line("t4", "running", 1),
+    line("t4", "landed", 2),
+    line(GATED, "running", 1),
+    line(GATED, "landed", 2),
+  ]);
+  expect(Array.map(["t4", GATED], (id) => taskOf(derived, id).status)).toStrictEqual([
+    "landed",
+    "landed",
+  ]);
+  expect(derived.warnings).toStrictEqual([
+    {
+      kind: "landed-without-approval",
+      message: `t1: orchestrator reported landed at 1970-01-01T00:00:02.000Z while the task was running, with no human approval; it landed`,
+      sha: null,
+      taskId: "t1",
+    },
   ]);
 });
 

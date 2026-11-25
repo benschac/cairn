@@ -17,12 +17,12 @@ const migration: TaskInput = {
 const lifecycle = (
   gated: boolean,
 ): Record.ReadonlyRecord<TaskStatus, Record.ReadonlyRecord<string, TaskStatus>> => ({
-  blocked_on_human: { approve: "done" },
+  blocked_on_human: { approve: "done", land: "landed" },
   done: { land: "landed" },
-  failed: { start: "running" },
+  failed: { land: "landed", start: "running" },
   landed: {},
-  pending: { start: "running" },
-  running: { fail: "failed", finish: gated ? "blocked_on_human" : "done" },
+  pending: { land: "landed", start: "running" },
+  running: { fail: "failed", finish: gated ? "blocked_on_human" : "done", land: "landed" },
 });
 
 it.prop(
@@ -65,6 +65,15 @@ it.prop(
 );
 
 it.prop(
+  "land takes a task to landed from wherever its events left it",
+  [TaskInput, Schema.Array(TaskEventType)],
+  ([task, events]) => {
+    const reached = Array.reduce(events, initialTransition(taskMachine, task)[0], step);
+    expect(statusOf(step(reached, "land"))).toBe("landed");
+  },
+);
+
+it.prop(
   "the gate is the input's effective gate, whatever the task's own humanGate says",
   [TaskInput],
   ([task]) => {
@@ -101,15 +110,15 @@ it.prop("a failed task starts again and then finishes like any other", [TaskInpu
   expect(statusOf(step(again, "finish"))).toBe(task.gated ? "blocked_on_human" : "done");
 });
 
-it.effect("a running actor holds a migration until it is approved", () =>
+it.effect("a running actor holds a migration until it is approved, then lands it", () =>
   Effect.gen(function* () {
     const actor = yield* createEffectActor(taskMachine, { input: migration });
     yield* sendAndAwait(actor, { type: "start" });
     const finished = yield* sendAndAwait(actor, { type: "finish" });
     expect(statusOf(finished)).toBe("blocked_on_human");
-    const landedEarly = yield* sendAndAwait(actor, { type: "land" });
-    expect(statusOf(landedEarly)).toBe("blocked_on_human");
     const approved = yield* sendAndAwait(actor, { type: "approve" });
     expect(statusOf(approved)).toBe("done");
+    const landed = yield* sendAndAwait(actor, { type: "land" });
+    expect(statusOf(landed)).toBe("landed");
   }),
 );

@@ -70,7 +70,10 @@ const lifecycle = (gated: boolean, from: TaskStatus, report: Report): Option.Opt
     Match.when("failed", () =>
       from === "running" ? Option.some("failed" as const) : Option.none(),
     ),
-    Match.when("landed", () => (from === "done" ? Option.some("landed" as const) : Option.none())),
+    // Git alone finishes a task, so a landing lands it from any status but landed.
+    Match.when("landed", () =>
+      from === "landed" ? Option.none() : Option.some("landed" as const),
+    ),
     Match.exhaustive,
   );
 };
@@ -84,8 +87,17 @@ const warned = (replayed: Replayed): Replayed =>
   Struct.evolve(replayed, { warnings: Number.increment });
 
 /**
+ * A landing, reported or from git, lands the task from any status. Only `done` says a human
+ * approved a gated task, so a gated task that lands from anywhere else warns.
+ */
+const land = (gated: boolean, replayed: Replayed): Replayed => {
+  const landed = Struct.evolve(replayed, { status: () => "landed" as const });
+  return gated && replayed.status !== "done" ? warned(landed) : landed;
+};
+
+/**
  * The status and the number of warnings the facts give. A report the lifecycle does not allow is a
- * warning. A landed task lands from `done`; from anywhere else it keeps its status and warns.
+ * warning, and a task that has landed in git lands after its reports.
  */
 const unreported: Replayed = { status: "pending", warnings: 0 };
 
@@ -93,14 +105,13 @@ const replay = (facts: Facts): Replayed => {
   const reported = Array.reduce(facts.reports, unreported, (replayed, report) =>
     Option.match(lifecycle(facts.gated, replayed.status, report), {
       onNone: () => warned(replayed),
-      onSome: (status) => Struct.evolve(replayed, { status: () => status }),
+      onSome: (status) =>
+        status === "landed"
+          ? land(facts.gated, replayed)
+          : Struct.evolve(replayed, { status: () => status }),
     }),
   );
-  return !facts.landed || reported.status === "landed"
-    ? reported
-    : reported.status === "done"
-      ? Struct.evolve(reported, { status: () => "landed" as const })
-      : warned(reported);
+  return facts.landed && reported.status !== "landed" ? land(facts.gated, reported) : reported;
 };
 
 const after = (facts: Facts) => ({ context: facts, target: replay(facts).status });
@@ -277,9 +288,14 @@ const sutIn = (services: Context.Context<never>) => {
 };
 
 // A landing or a commit acts on the reports before it, so a report is as likely as the other three
-// together; otherwise few runs reach `done` and its transitions go untaken.
+// together; otherwise few runs reach `done` and its transitions go untaken. A landing ends the
+// task from any status, so each is half as likely as a commit, or few runs stay unlanded long
+// enough to take a transition out of `failed` or `blocked_on_human`.
+const landing = { generate: fromEffectSchema(Schema.Struct({})), weight: 0.5 };
 const events = mergeEventGenerators(eventsFromSchemas(derivationModel), {
+  merged: landing,
   reported: { generate: fromEffectSchema(Report), weight: 3 },
+  squashed: landing,
 });
 
 it.effect("derive gives the status and warnings a model of its inputs gives", () =>
