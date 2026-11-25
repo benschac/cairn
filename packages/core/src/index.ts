@@ -34,7 +34,7 @@ export { gateOf, matchesPath, patternsMatching, type GateConfig, type GateTask }
 export { Finding, LintFile, LintRule, Severity, lint } from "./lint.ts";
 export { Replan, bodyHashOf, replanOf } from "./replan.ts";
 export { assignSectionIds, sectionIdsOf } from "./section-ids.ts";
-export { sectionsOf } from "./sections.ts";
+export { keyEntriesOf, sectionsOf } from "./sections.ts";
 export { sessionOf, type StoredSession } from "./session.ts";
 export { Stack, StackPosition, TaskIdOrder, labelOf, stacksOf } from "./stacks.ts";
 export {
