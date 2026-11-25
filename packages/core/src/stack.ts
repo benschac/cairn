@@ -63,7 +63,7 @@ export type StackLink = Pick<ManifestTask, "id" | "parent">;
 export type StackTask = Pick<ManifestTask, "dependsOn" | "id" | "parent">;
 
 /** What `worktreesOf` reads from each task a manifest already has. */
-export type CheckedOut = Pick<ManifestTask, "id" | "worktree">;
+export type CheckedOut = Pick<ManifestTask, "dependsOn" | "id" | "worktree">;
 
 /** A task and every task below it through parent links. It stops at a task it does not know or one it has seen. */
 const lineOf = (
@@ -123,6 +123,8 @@ const slotOf = (worktree: string | null): Option.Option<number> =>
 interface Checkouts {
   /** The latest task in each worktree, by name. */
   readonly latest: HashMap.HashMap<string | null, TaskId>;
+  /** Every task given each worktree so far, by name. */
+  readonly members: HashMap.HashMap<string | null, ReadonlyArray<TaskId>>;
   /** The worktree each task so far was given. */
   readonly worktreeOf: Record.ReadonlyRecord<string, string | null>;
   /** The slot of the next new worktree: one above every slot taken so far. */
@@ -131,6 +133,14 @@ interface Checkouts {
 
 const checkOut = (checkouts: Checkouts, id: TaskId, worktree: string | null): Checkouts => ({
   latest: HashMap.set(checkouts.latest, worktree, id),
+  members: HashMap.set(
+    checkouts.members,
+    worktree,
+    Array.append(
+      Option.getOrElse(HashMap.get(checkouts.members, worktree), Array.empty<TaskId>),
+      id,
+    ),
+  ),
   next: Option.match(slotOf(worktree), {
     onNone: () => checkouts.next,
     onSome: (slot) => Number.max(checkouts.next, slot + 1),
@@ -138,12 +148,32 @@ const checkOut = (checkouts: Checkouts, id: TaskId, worktree: string | null): Ch
   worktreeOf: Record.set(checkouts.worktreeOf, id, worktree),
 });
 
+/** Every task `id` depends on, directly or through the tasks it depends on. */
+const closureOf = (
+  needs: Record.ReadonlyRecord<string, ReadonlyArray<TaskId>>,
+  id: TaskId,
+): HashSet.HashSet<TaskId> => {
+  const direct = (of: TaskId) => Option.getOrElse(Record.get(needs, of), Array.empty<TaskId>);
+  let seen = HashSet.empty<TaskId>();
+  let todo = direct(id);
+  // loop: walks the dependency graph with a work list until no unseen task is left
+  while (Array.isReadonlyArrayNonEmpty(todo)) {
+    const [next, ...rest] = todo;
+    todo = HashSet.has(seen, next) ? rest : Array.appendAll(rest, direct(next));
+    seen = HashSet.add(seen, next);
+  }
+  return seen;
+};
+
 /**
  * A worktree for each task, walking them in the order given after the tasks `existing` already
  * has, which keep theirs. A task takes the worktree of its parent, or else of one of its
- * dependencies, latest first, when that worktree's latest task is one it depends on. Otherwise it
- * gets a new one, above every `wt-` worktree `existing` uses. So tasks that share a worktree run
- * one after another, and tasks that can run at the same time never share one.
+ * dependencies, latest first, when that worktree's latest task is one it depends on and it
+ * depends, directly or not, on every task the worktree has had. A manifest edited by hand can list
+ * a worktree's tasks out of dependency order, so its latest task alone does not say that.
+ * Otherwise a task gets a new worktree, above every `wt-` worktree `existing` uses. So tasks
+ * that share a worktree run one after another, and tasks that can run at the same time never
+ * share one.
  */
 export const worktreesOf = (
   tasks: ReadonlyArray<StackTask>,
@@ -157,7 +187,15 @@ export const worktreesOf = (
       Option.getOrElse(Record.get(positions, id), () => -1),
     ),
   );
-  const none: Checkouts = { latest: HashMap.empty(), next: 0, worktreeOf: {} };
+  const needs = Record.fromEntries(
+    Array.map(Array.appendAll(existing, tasks), (task) => [task.id, task.dependsOn] as const),
+  );
+  const none: Checkouts = {
+    latest: HashMap.empty(),
+    members: HashMap.empty(),
+    next: 0,
+    worktreeOf: {},
+  };
   const start = Array.reduce(existing, none, (checkouts, task) =>
     checkOut(checkouts, task.id, task.worktree),
   );
@@ -166,11 +204,18 @@ export const worktreesOf = (
       Option.toArray(Option.fromNullOr(task.parent)),
       Array.sort(task.dependsOn, latestFirst),
     );
+    const below = closureOf(needs, task.id);
     const reusable = Array.findFirst(candidates, (candidate) =>
-      Option.filter(Record.get(checkouts.worktreeOf, candidate), (worktree) =>
-        Option.exists(HashMap.get(checkouts.latest, worktree), (latest) =>
-          Array.contains(task.dependsOn, latest),
-        ),
+      Option.filter(
+        Record.get(checkouts.worktreeOf, candidate),
+        (worktree) =>
+          Option.exists(HashMap.get(checkouts.latest, worktree), (latest) =>
+            Array.contains(task.dependsOn, latest),
+          ) &&
+          Array.every(
+            Option.getOrElse(HashMap.get(checkouts.members, worktree), Array.empty<TaskId>),
+            (member) => HashSet.has(below, member),
+          ),
       ),
     );
     const worktree = Option.getOrElse(reusable, () => worktreeName(checkouts.next));
