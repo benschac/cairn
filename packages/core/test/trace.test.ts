@@ -3,7 +3,7 @@ import type { Actor } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
 import { Array, DateTime, Option, Schema, String, pipe } from "effect";
 
-import { derive, traceOf } from "../src/index.ts";
+import { derive, rollupOf, traceOf } from "../src/index.ts";
 import type { Rollup, TraceInput } from "../src/index.ts";
 
 const PRD = Array.join(
@@ -198,12 +198,73 @@ it("gives a spec section its summary from the index, and nothing else one", () =
 it("takes the section statuses from the rollup it is given", () => {
   const trace = traceOf(
     inputOf([], {
-      rollup: (prd, spec, tasks) =>
-        Array.map(rollup(prd, spec, tasks), ({ id }) => ({
+      rollup: (prd, spec, tasks, items) =>
+        Array.map(rollup(prd, spec, tasks, items), ({ id }) => ({
           id,
           status: tasks.length === 2 ? ("landed" as const) : ("pending" as const),
         })),
     }),
   );
   expect(Array.map(trace.sections, ({ status }) => status)).toEqual(Array.replicate("landed", 5));
+});
+
+it("lists the items that have an ID under a heading that has one, and rolls each up with the real rollup", () => {
+  const prd = Array.join(
+    [
+      "# Product {#prd.product}",
+      "",
+      "## Viewer {#prd.viewer}",
+      "",
+      "- Show tasks. {#prd.viewer.tasks}",
+      "  - Show gates {#prd.viewer.gates}",
+      "- Prose with no ID.",
+      "",
+      "## No id yet",
+      "",
+      "- Orphan {#prd.orphan}",
+      "",
+    ],
+    "\n",
+  );
+  const spec = Array.join(
+    [
+      "# Spec {#spec.root}",
+      "",
+      "## Server {#spec.server}",
+      "",
+      "- Implements: `prd.viewer.tasks`",
+      "",
+    ],
+    "\n",
+  );
+  const trace = Schema.decodeUnknownSync(Trace)(
+    Schema.encodeSync(Trace)(traceOf(inputOf([], { prd, rollup: rollupOf, spec }))),
+  );
+  expect(trace.prd.items).toEqual([
+    {
+      human: false,
+      id: "prd.viewer.tasks",
+      line: 5,
+      parent: "prd.viewer",
+      section: "prd.viewer",
+      text: "Show tasks.",
+    },
+    {
+      human: false,
+      id: "prd.viewer.gates",
+      line: 6,
+      parent: "prd.viewer.tasks",
+      section: "prd.viewer",
+      text: "Show gates",
+    },
+  ]);
+  expect(Array.map(trace.spec.items, ({ id }) => id)).toEqual([]);
+  expect(trace.sections).toEqual([
+    { id: "prd.product", status: "pending" },
+    { id: "prd.viewer", status: "pending" },
+    { id: "prd.viewer.tasks", status: "pending" },
+    { id: "prd.viewer.gates", status: "unmapped" },
+    { id: "spec.root", status: "pending" },
+    { id: "spec.server", status: "pending" },
+  ]);
 });

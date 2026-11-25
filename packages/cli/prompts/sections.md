@@ -29,6 +29,7 @@ Prose starts here.
 - The heading level is one more than the level of the section it goes under, so `###` under a `##` section. A section of your reply under another section of your reply has a level one more than that one and no `Under`.
 - The ID is the ID of its parent section, then `.`, then the heading text in lowercase kebab-case: letters and digits joined by single hyphens. IDs are unique. A section you write again keeps its ID, as it is, and its heading text.
 - `Implements`: the PRD section IDs it builds, from the list above. `Files`: the paths it touches, tests included; a trailing `/` is a directory. `Depends on`: spec section IDs that must land first. `Defers` and `Context`: PRD section IDs that need no code here. Write IDs in backticks, separated by commas, and use only IDs that exist in the PRD or the spec, or that your reply gives.
+- When a PRD section's list items have IDs, as in `- Share a saved view by link. {#prd.saved-views.share}`, name the items in `Implements`, not the section that holds them: an `Implements` that names the section does not cover its items, while a `Defers` or `Context` that names it does.
 - A PRD section the build does not need goes in `Context` of one of your sections, and one the PRD itself postpones goes in `Defers`. Every PRD section listed above must be covered by a section of your reply.
 - Each section's prose says what it builds, the interfaces and data it defines, the behaviour that matters, what it leaves out and how it is tested. Be concrete: name the files, functions, schemas and commands.
 

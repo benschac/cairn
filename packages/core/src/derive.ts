@@ -29,7 +29,7 @@ import { initialTransition, transition } from "xstate";
 import type { SnapshotFrom } from "xstate";
 
 import { gateOf } from "./gates.ts";
-import type { GateConfig } from "./gates.ts";
+import type { GateConfig, GateItem } from "./gates.ts";
 import { statusOf, taskMachine } from "./task-machine.ts";
 
 /**
@@ -200,12 +200,14 @@ const effectiveGate = (
   sections: ReadonlyArray<Section>,
   config: GateConfig,
   commits: ReadonlyArray<GitCommit>,
+  items: ReadonlyArray<GateItem>,
 ): HumanGate => {
   const detected = gateOf(
     task,
     sections,
     config,
     Array.dedupe(Array.flatMap(commits, ({ files }) => files)),
+    items,
   );
   return {
     reasons: Array.dedupe(Array.appendAll(task.humanGate.reasons, detected.reasons)),
@@ -312,7 +314,7 @@ const below = (
  * `land` is sent when `baseBranch` reaches a commit with its trailer, whatever the status. What the
  * machine ignores, an event or trailer for a task the manifest does not have, a commit on a task
  * branch without trailers and a gated task that landed without approval are warnings, never errors. A `pending` task with a
- * `blocked_on_human` task below it is `waiting`.
+ * `blocked_on_human` task below it is `waiting`. `items` are the list items of the PRD, which gate a task that names or implements a human one.
  */
 export const derive = (
   manifest: Manifest,
@@ -320,6 +322,7 @@ export const derive = (
   config: GateConfig,
   events: ReadonlyArray<Event>,
   commits: ReadonlyArray<GitCommit>,
+  items: ReadonlyArray<GateItem> = [],
 ): Derived => {
   const sorted = Array.sort(events, EventOrder);
   const byTask = Array.groupBy(sorted, (event) => event.taskId);
@@ -335,7 +338,7 @@ export const derive = (
       Record.get(commitsByTask, task.id),
       (): ReadonlyArray<GitCommit> => [],
     );
-    const gate = effectiveGate(task, sections, config, ownCommits);
+    const gate = effectiveGate(task, sections, config, ownCommits, items);
     const result = landOn(
       Array.reduce(
         own,

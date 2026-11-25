@@ -38,6 +38,8 @@ Write IDs in backticks, separated by commas. Use only IDs that exist: PRD IDs co
 
 Coverage matters. A PRD section is covered when it, or a section under it, appears in some `Implements`, `Defers` or `Context` key, and a `Defers` or `Context` key also covers the sections under the one it names. Here "under" means in the heading tree, not by ID prefix. Check each PRD section against this before you finish: a section the build does not need goes in `Context`, and one the PRD itself postpones goes in `Defers`.
 
+A list item in the PRD can carry an ID too, as in `- Share a saved view by link. {#prd.saved-views.share}`, and then it is covered on its own. When a PRD section's items have IDs, name the items in `Implements`, not the section that holds them: an `Implements` that names the section does not cover its items. A `Defers` or `Context` that names the section, or an item, covers the items under it.
+
 `Depends on` must not form a cycle, and a section should depend only on the sections whose code it needs to exist. Fewer dependencies make a stack that is easier to build and to review.
 
 Write `Files` with real paths in the layout you describe, and include the tests that go with the code. Two sections may touch the same file when they must, but each file should have one section that owns it. Prefer a section small enough that its files fit in a single reviewable diff, and split it into sibling sections when they do not.

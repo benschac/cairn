@@ -31,7 +31,14 @@ export {
   type DiagramTask,
 } from "./stack-diagram.ts";
 export { roomMachine } from "./room-machine.ts";
-export { gateOf, matchesPath, patternsMatching, type GateConfig, type GateTask } from "./gates.ts";
+export {
+  gateOf,
+  matchesPath,
+  patternsMatching,
+  type GateConfig,
+  type GateItem,
+  type GateTask,
+} from "./gates.ts";
 export { Finding, LintFile, LintRule, Severity, lint } from "./lint.ts";
 export { Replan, bodyHashOf, replanOf, scopeOf } from "./replan.ts";
 export {
@@ -41,7 +48,7 @@ export {
   type UnknownPartIds,
   type UnknownPartReason,
 } from "./part.ts";
-export { rollupOf, type RolledSection, type RollupTask } from "./rollup.ts";
+export { rollupOf, type RolledSection, type RollupItem, type RollupTask } from "./rollup.ts";
 export { itemsOf, type Item } from "./items.ts";
 export { assignItemIds, assignSectionIds, sectionIdsOf } from "./section-ids.ts";
 export { keyEntriesOf, sectionsOf } from "./sections.ts";

@@ -1,7 +1,9 @@
 import { matchesGlob } from "node:path";
 
 import type { GateReason, HumanGate, ManifestTask, Section } from "@cairn/contract";
-import { Array, Option, String, pipe } from "effect";
+import { Array, HashSet, Option, String, pipe } from "effect";
+
+import type { Item } from "./items.ts";
 
 /** The name a file would have inside a declared directory. */
 const PROBE = "x";
@@ -45,31 +47,58 @@ export type GateTask = Pick<ManifestTask, "files" | "prdSections" | "specSection
 
 const TAG_REASON: GateReason = "tag:human";
 
-/** Whether any section the task links carries the `human` tag; an ancestor's tag is already in `Section.human`. */
-const isTagged = (task: GateTask, sections: readonly Section[]): boolean => {
+/** What `gateOf` reads of a list item: whether it is human, and its ID if it has one. */
+export type GateItem = Pick<Item, "human" | "id">;
+
+/**
+ * Whether any section or item the task links carries the `human` tag, or a spec section it builds
+ * implements a human item (see `spec.sections.item-coverage`). An ancestor's tag is already in
+ * `Section.human` and `Item.human`.
+ */
+const isTagged = (
+  task: GateTask,
+  sections: readonly Pick<Section, "human" | "id" | "keys">[],
+  items: readonly GateItem[],
+): boolean => {
   const linked: readonly string[] = Array.appendAll(task.prdSections, task.specSections);
-  return Array.some(
-    sections,
-    (section) =>
-      section.human &&
-      Option.exists(Option.fromUndefinedOr(section.id), (id) => Array.contains(linked, id)),
+  const built: readonly string[] = task.specSections;
+  const humanItems = HashSet.fromIterable<string>(
+    Array.getSomes(
+      Array.map(items, (item) => (item.human ? Option.fromUndefinedOr(item.id) : Option.none())),
+    ),
+  );
+  return (
+    Array.some(
+      Array.appendAll<GateItem, GateItem>(sections, items),
+      (linkable) =>
+        linkable.human &&
+        Option.exists(Option.fromUndefinedOr(linkable.id), (id) => Array.contains(linked, id)),
+    ) ||
+    Array.some(
+      sections,
+      ({ id, keys }) =>
+        Option.exists(Option.fromUndefinedOr(id), (own) => Array.contains(built, own)) &&
+        Array.some(keys.implements, (named) => HashSet.has(humanItems, named)),
+    )
   );
 };
 
 /**
- * Whether a task needs a human, and why. It is gated by `tag:human` when a PRD or spec section it
- * links has the tag, and by `path:<pattern>` for each `config.humanPaths` pattern that matches a
+ * Whether a task needs a human, and why. It is gated by `tag:human` when a PRD or spec section or
+ * item it links has the tag, or when a spec section it builds implements a human item, and by `path:<pattern>` for each `config.humanPaths` pattern that matches a
  * file in `task.files` (plan time) or in `changedFiles` (after commits). Plan time passes no
- * changed files. A hit after commit adds a reason; it never removes one the plan found.
+ * changed files. A hit after commit adds a reason; it never removes one the plan found. `items`
+ * are the PRD's list items, whose own markers and ancestors set `human`.
  */
 export const gateOf = (
   task: GateTask,
   sections: readonly Section[],
   config: GateConfig,
   changedFiles: readonly string[],
+  items: readonly GateItem[] = [],
 ): HumanGate => {
   const reasons: readonly GateReason[] = Array.appendAll(
-    isTagged(task, sections) ? [TAG_REASON] : [],
+    isTagged(task, sections, items) ? [TAG_REASON] : [],
     Array.map(
       patternsMatching(Array.dedupe(config.humanPaths), Array.appendAll(task.files, changedFiles)),
       (pattern): GateReason => `path:${pattern}`,

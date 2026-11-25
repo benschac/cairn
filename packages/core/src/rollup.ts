@@ -8,8 +8,13 @@ import type {
 } from "@cairn/contract";
 import { Array, HashSet, Option, Record, pipe } from "effect";
 
+import type { Item } from "./items.ts";
+
 /** What the rollup reads of a task: the sections it links to and its derived status. */
 export type RollupTask = Pick<TraceTask, "prdSections" | "specSections" | "status">;
+
+/** What the rollup reads of a PRD list item: its ID, and the item or heading it sits under. */
+export type RollupItem = Pick<Item, "id" | "parent">;
 
 /** One entry of `Trace.sections`. */
 export type RolledSection = Trace["sections"][number];
@@ -40,12 +45,15 @@ const rolledStatus = (statuses: ReadonlyArray<TaskStatus>): SectionStatus =>
   );
 
 /** IDs are plain strings here: a PRD ID, a spec ID and a section ID are different brands. */
-type Parents = Record<string, string>;
+export type Parents = Record<string, string>;
 
-/** Each section's parent, for the sections that have an ID and a parent. */
-const parentsOf = (sections: ReadonlyArray<Section>): Parents =>
+/** Each section's and item's parent, for those that have an ID and a parent. */
+export const parentsOf = (
+  sections: ReadonlyArray<Pick<Section, "id" | "parent">>,
+  items: ReadonlyArray<RollupItem> = [],
+): Parents =>
   pipe(
-    sections,
+    Array.appendAll(sections, items),
     Array.map(({ id, parent }) =>
       Option.all([Option.fromUndefinedOr(id), Option.fromUndefinedOr(parent)]),
     ),
@@ -57,7 +65,7 @@ const parentsOf = (sections: ReadonlyArray<Section>): Parents =>
  * A section and the sections above it, nearest first. Duplicate IDs can make the parents loop
  * (`cairn lint` reports them), so the walk takes at most one step per section.
  */
-const chainOf = (parents: Parents, id: string): ReadonlyArray<string> =>
+export const chainOf = (parents: Parents, id: string): ReadonlyArray<string> =>
   Array.unfold({ at: Option.some(id), left: Record.size(parents) + 1 }, ({ at, left }) =>
     Option.filter(at, () => left > 0).pipe(
       Option.map((here) => [here, { at: Record.get(parents, here), left: left - 1 }]),
@@ -105,23 +113,61 @@ const specSays = ({ keys }: Section): Option.Option<SectionStatus> =>
   );
 
 /**
+ * The IDs of the PRD items that a spec section implements, by the section's ID. A section's keys
+ * hold the ones it inherits, so a section under an `Implements` implements the same items.
+ */
+const implementedItems = (
+  spec: ReadonlyArray<Section>,
+  items: ReadonlyArray<RollupItem>,
+): Record<string, ReadonlyArray<string>> => {
+  const known = HashSet.fromIterable<string>(
+    Array.getSomes(Array.map(items, ({ id }) => Option.fromUndefinedOr(id))),
+  );
+  return pipe(
+    spec,
+    Array.map((section) =>
+      Option.map(
+        Option.fromUndefinedOr(section.id),
+        (id) =>
+          [
+            id,
+            Array.filter(section.keys.implements, (named) => HashSet.has(known, named)),
+          ] as const,
+      ),
+    ),
+    Array.getSomes,
+    Record.fromEntries,
+  );
+};
+
+/**
  * Every section's status, rolled up from its tasks (see `spec.status.section-rollup`): the PRD's
- * sections in document order, then the spec's. A section with no `id` is left out. A task links
- * to the sections in its `prdSections` and `specSections`, and through them to every section above
- * them in the heading tree, so a section is rolled up from its own tasks and its descendants'.
- * The task statuses are the derived ones.
+ * sections in document order, then the PRD's items with an ID in document order, then the spec's
+ * sections. A section with no `id` is left out. A task links to the sections in its `prdSections`
+ * and `specSections`, and through them to every section and item above them in the tree, so a
+ * section is rolled up from its own tasks and its descendants'. A task also links to the PRD items
+ * that its spec sections implement (see `spec.sections.item-coverage`), not to the sections that
+ * hold them. The task statuses are the derived ones. `items` are the PRD's; a spec item is not
+ * rolled up.
  */
 export const rollupOf = (
   prd: ReadonlyArray<Section>,
   spec: ReadonlyArray<Section>,
   tasks: ReadonlyArray<RollupTask>,
+  items: ReadonlyArray<RollupItem> = [],
 ): ReadonlyArray<RolledSection> => {
-  const parents = parentsOf(Array.appendAll(prd, spec));
+  const parents = parentsOf(Array.appendAll(prd, spec), items);
+  const implemented = implementedItems(spec, items);
   const linked = pipe(
     tasks,
     Array.flatMap(({ prdSections, specSections, status }) =>
       pipe(
-        Array.appendAll(prdSections, specSections),
+        Array.appendAll(
+          Array.appendAll<string, string>(prdSections, specSections),
+          Array.flatMap(specSections, (id) =>
+            Option.getOrElse(Record.get(implemented, id), (): ReadonlyArray<string> => []),
+          ),
+        ),
         Array.flatMap((id) => chainOf(parents, id)),
         Array.map((id) => ({ id, status })),
       ),
@@ -145,8 +191,13 @@ export const rollupOf = (
       rolled(id, prdSays(deferred, context, chainOf(parents, id))),
     ),
   );
+  const ofItems = Array.map(items, (item) =>
+    Option.map(Option.fromUndefinedOr(item.id), (id) =>
+      rolled(id, prdSays(deferred, context, chainOf(parents, id))),
+    ),
+  );
   const ofSpec = Array.map(spec, (section) =>
     Option.map(Option.fromUndefinedOr(section.id), (id) => rolled(id, specSays(section))),
   );
-  return Array.getSomes(Array.appendAll(ofPrd, ofSpec));
+  return Array.getSomes(Array.flatten([ofPrd, ofItems, ofSpec]));
 };

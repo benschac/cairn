@@ -23,6 +23,8 @@ import {
 } from "effect";
 
 import type { Part } from "./part.ts";
+import type { Item } from "./items.ts";
+import { chainOf, parentsOf } from "./rollup.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
 
 /**
@@ -62,22 +64,42 @@ const placedOf = (sections: ReadonlyArray<Section>): ReadonlyArray<Placed> =>
  */
 const STACKS_SECTION = "spec.stacks";
 
+/** What the spec's keys name: every ID in any key, and the ones whose coverage spreads to what is under them. */
+const namedBySpec = (
+  allSpec: ReadonlyArray<Section>,
+): { readonly named: HashSet.HashSet<string>; readonly spread: HashSet.HashSet<string> } => {
+  const spec = Array.filter(allSpec, (section) => section.id !== STACKS_SECTION);
+  return {
+    named: HashSet.fromIterable<string>(
+      Array.flatMap(spec, ({ keys }) =>
+        Array.flatten([keys.implements, keys.defers, keys.context]),
+      ),
+    ),
+    spread: HashSet.fromIterable<string>(
+      Array.flatMap(spec, ({ keys }) => Array.appendAll(keys.defers, keys.context)),
+    ),
+  };
+};
+
+/** What coverage reads of a PRD list item: its ID, the heading it is under and the item or heading above it. */
+export type CoverageItem = Pick<Item, "id" | "parent" | "section">;
+
 /**
  * PRD sections no spec section covers (see `spec.format`). A section is covered when it, or a
  * section under it, is named in an `Implements`, `Defers` or `Context` key, or when a section
- * above it is named in a `Defers` or `Context` key. The stack diagram's section covers nothing.
- * A heading with no ID is left out.
+ * above it is named in a `Defers` or `Context` key. An item under it that is named in a key
+ * counts as a section under it. The stack diagram's section covers nothing. A heading with no ID
+ * is left out.
  */
 export const uncoveredOf = (
   prd: ReadonlyArray<Section>,
   allSpec: ReadonlyArray<Section>,
+  items: ReadonlyArray<CoverageItem> = [],
 ): ReadonlyArray<{ readonly id: SectionId; readonly section: Section }> => {
-  const spec = Array.filter(allSpec, (section) => section.id !== STACKS_SECTION);
-  const named = HashSet.fromIterable<string>(
-    Array.flatMap(spec, ({ keys }) => Array.flatten([keys.implements, keys.defers, keys.context])),
-  );
-  const spread = HashSet.fromIterable<string>(
-    Array.flatMap(spec, ({ keys }) => Array.appendAll(keys.defers, keys.context)),
+  const { named, spread } = namedBySpec(allSpec);
+  const parents = parentsOf(prd);
+  const namedItems = Array.filter(items, ({ id }) =>
+    Option.exists(Option.fromUndefinedOr(id), (itemId) => HashSet.has(named, itemId)),
   );
   const placed = placedOf(prd);
   return Array.filterMap(placed, ({ ancestors, section }) => {
@@ -94,8 +116,37 @@ export const uncoveredOf = (
           Predicate.isNotUndefined(below.section.id) &&
           HashSet.has(named, below.section.id),
       ) ||
-      Array.some(ancestors, (above) => HashSet.has(spread, above));
+      Array.some(ancestors, (above) => HashSet.has(spread, above)) ||
+      Array.some(namedItems, ({ section: heading }) =>
+        Option.exists(Option.fromUndefinedOr(heading), (at) =>
+          Array.contains(chainOf(parents, at), id),
+        ),
+      );
     return covered ? Result.failVoid : Result.succeed({ id, section });
+  });
+};
+
+/**
+ * PRD items with an ID that no spec section covers (see `spec.sections.item-coverage`). An item is
+ * covered when an `Implements`, `Defers` or `Context` key names it, or when a `Defers` or
+ * `Context` key names a heading or an item it sits under. An `Implements` that names the section
+ * around it does not cover it. `prd` are the PRD's sections, which give the heading tree above the
+ * items. The stack diagram's section covers nothing.
+ */
+export const uncoveredItemsOf = <I extends CoverageItem>(
+  prd: ReadonlyArray<Section>,
+  allSpec: ReadonlyArray<Section>,
+  items: ReadonlyArray<I>,
+): ReadonlyArray<I & { readonly id: SectionId }> => {
+  const { named, spread } = namedBySpec(allSpec);
+  const parents = parentsOf(prd, items);
+  return Array.filterMap(items, (item) => {
+    const { id } = item;
+    return Predicate.isUndefined(id) ||
+      HashSet.has(named, id) ||
+      Array.some(chainOf(parents, id), (above) => HashSet.has(spread, above))
+      ? Result.failVoid
+      : Result.succeed({ ...item, id });
   });
 };
 
