@@ -4,7 +4,7 @@ You are adding to a technical spec that already exists. The product requirements
 
 Write spec sections for these PRD sections: {{sections}}
 
-Write these spec sections again, because the PRD section they implement changed: {{rewrite}}
+Write these spec sections again, because the PRD section they implement changed: {{rewrite}}{{part}}
 
 Every section you write implements at least one of the PRD sections above. Stay with what the PRD asks for. Where it is silent, choose the simplest option that works and say that you chose it. Do not add features, and do not write a section for a PRD section that is not listed.
 

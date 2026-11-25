@@ -1,5 +1,5 @@
 import { IndexedSection, PrdSectionId, TaskDraft, defaultConfig } from "@cairn/contract";
-import type { Config, ManifestTask, Section, SpecSectionId } from "@cairn/contract";
+import type { Config, ManifestTask, Section, SectionKeys, SpecSectionId } from "@cairn/contract";
 import { drawsOf, mermaidBlocksOf, sectionsOf, withoutMermaidBlocks } from "@cairn/core";
 import type { Drafted } from "@cairn/core";
 import {
@@ -8,9 +8,11 @@ import {
   Context,
   Effect,
   FileSystem,
+  HashSet,
   Layer,
   Number,
   Option,
+  Order,
   Path,
   Predicate,
   Record,
@@ -43,6 +45,79 @@ export class PlannerError extends Schema.TaggedError<
  * key.
  */
 export const TaskDrafts = Schema.Struct({ drafts: Schema.Array(TaskDraft) });
+
+/** The part of the PRD a run plans: its `Part.ids` (see `spec.planning.planning-a-part`). */
+export type PartIds = HashSet.HashSet<PrdSectionId>;
+
+const idsOfPart = (part: PartIds): ReadonlyArray<PrdSectionId> =>
+  Array.sort(Array.fromIterable(part), Order.String);
+
+/** The IDs of `ids` that are not in `part`, each once. */
+const outsideOf = (part: PartIds, ids: ReadonlyArray<PrdSectionId>) =>
+  Array.dedupe(Array.filter(ids, (id) => !HashSet.has(part, id)));
+
+/** The keys of a spec section that may name only the part's IDs. */
+const partKeysOf = (keys: SectionKeys) =>
+  [
+    ["Implements", keys.implements],
+    ["Defers", keys.defers],
+    ["Context", keys.context],
+  ] as const;
+
+/**
+ * `markdown` without its `- Under:` lines. A reply of `Planner.sections` puts `Under` first in a
+ * section's key list, `sectionsOf` does not know it and stops reading keys there, and the merge
+ * takes it out afterwards, so the keys after it count once it is gone.
+ */
+const withoutUnderKeys = (markdown: string) =>
+  Array.join(
+    Array.filter(String.split("\n")(markdown), (line) => !String.startsWith("- Under:")(line)),
+    "\n",
+  );
+
+/**
+ * What is wrong with new or rewritten spec sections for a part run, one line each: a section whose
+ * `Implements`, `Defers` or `Context` names a PRD ID outside the part. Naming an outside section
+ * in `Context` or `Defers` would cover it, so the run would never plan it.
+ */
+export const outsidePartIn = (part: PartIds, markdown: string): ReadonlyArray<string> =>
+  Array.flatMap(sectionsOf(withoutUnderKeys(markdown)), (section) =>
+    Array.filterMap(partKeysOf(section.keys), ([key, ids]) => {
+      const outside = outsideOf(part, ids);
+      return Array.isReadonlyArrayNonEmpty(outside)
+        ? Result.succeed(
+            `The section ${Option.getOrElse(Option.fromUndefinedOr(section.id), () => section.title)} has ${key} naming ${Array.join(outside, ", ")}, which is not in the part. ${key} may name only IDs in the part; if the part needs a section outside it, say so in the prose with a line that starts \`Assumes:\` and leave it out of the keys.`,
+          )
+        : Result.failVoid;
+    }),
+  );
+
+/**
+ * `TaskDrafts`, and every draft's `prdSections` lie in `part` and its `specSections` in
+ * `specSections`, so a reply that reaches past the part fails to decode and is sent back once.
+ */
+const draftsInPart = (part: PartIds, specSections: ReadonlyArray<SpecSectionId>) =>
+  TaskDrafts.check(
+    Schema.makeFilter(({ drafts }) => {
+      const problems = Array.flatMap(drafts, (draft) => {
+        const prd = outsideOf(part, draft.prdSections);
+        const spec = Array.filter(draft.specSections, (id) => !Array.contains(specSections, id));
+        return Array.appendAll(
+          Array.isReadonlyArrayNonEmpty(prd)
+            ? [
+                `The task "${draft.title}" has prdSections naming ${Array.join(prd, ", ")}, which is not in the part.`,
+              ]
+            : [],
+          Array.isReadonlyArrayNonEmpty(spec)
+            ? [
+                `The task "${draft.title}" has specSections naming ${Array.join(spec, ", ")}, which is not a spec section to draft tasks for.`,
+              ]
+            : [],
+        );
+      });
+      return Array.isReadonlyArrayNonEmpty(problems) ? Array.join(problems, "\n") : undefined;
+    }),
+  );
 
 /** What `splitTask` asks the model for: the drafts that replace one, so at least two. */
 export const SplitDrafts = Schema.Struct({
@@ -209,12 +284,14 @@ export interface Prompts {
     spec: string,
     prdSections: ReadonlyArray<PrdSectionId>,
     rewrite: ReadonlyArray<SpecSectionId>,
+    part?: PartIds,
   ) => Effect.Effect<string, PromptError>;
   readonly tasks: (
     prd: string,
     spec: string,
     specSections: ReadonlyArray<SpecSectionId>,
     existing: ReadonlyArray<ManifestTask>,
+    part?: PartIds,
   ) => Effect.Effect<string, PromptError>;
   /** `draft` is the draft as JSON. */
   readonly splitTask: (
@@ -263,44 +340,76 @@ const modelTable = (models: Readonly<Record<string, string>>) =>
   );
 
 /**
+ * The paragraphs a part run adds to the `sections` and `tasks` prompts, after a blank line, or
+ * nothing for a run of the whole PRD.
+ */
+const partRule = (prompt: string, template: string, part: PartIds | undefined) =>
+  Option.match(Option.fromUndefinedOr(part), {
+    onNone: () => Effect.succeed(""),
+    onSome: (ids) =>
+      fillPrompt(prompt, template, { part: idList(idsOfPart(ids)) }).pipe(
+        Effect.map((rule) => `\n\n${String.trim(rule)}`),
+      ),
+  });
+
+/**
  * Reads the prompt files and the worked example once, then makes the prompts. `models` is the
  * config's `judge.models` table, which the `tasks` prompt shows the model.
  */
 export const loadPrompts = Effect.fn("loadPrompts")(function* (
   models: Readonly<Record<string, string>>,
 ) {
-  const [retry, spec, sections, tasks, example, splitSection, splitTask, index, statements] =
-    yield* Effect.all(
-      [
-        readText("retry", promptUrl("retry")),
-        readText("spec", promptUrl("spec")),
-        readText("sections", promptUrl("sections")),
-        readText("tasks", promptUrl("tasks")),
-        readText("spec example", exampleUrl),
-        readText("split-section", promptUrl("split-section")),
-        readText("split-task", promptUrl("split-task")),
-        readText("index", promptUrl("index")),
-        readText("statements", promptUrl("statements")),
-      ],
-      { concurrency: "unbounded" },
-    );
+  const [
+    retry,
+    spec,
+    sections,
+    tasks,
+    partSections,
+    partTasks,
+    example,
+    splitSection,
+    splitTask,
+    index,
+    statements,
+  ] = yield* Effect.all(
+    [
+      readText("retry", promptUrl("retry")),
+      readText("spec", promptUrl("spec")),
+      readText("sections", promptUrl("sections")),
+      readText("tasks", promptUrl("tasks")),
+      readText("part-sections", promptUrl("part-sections")),
+      readText("part-tasks", promptUrl("part-tasks")),
+      readText("spec example", exampleUrl),
+      readText("split-section", promptUrl("split-section")),
+      readText("split-task", promptUrl("split-task")),
+      readText("index", promptUrl("index")),
+      readText("statements", promptUrl("statements")),
+    ],
+    { concurrency: "unbounded" },
+  );
   return {
     retry: (prompt, error) => fillPrompt("retry", retry, { error, prompt }),
     spec: (prd) => fillPrompt("spec", spec, { example, prd }),
-    sections: (prd, specText, prdSections, rewrite) =>
-      fillPrompt("sections", sections, {
-        prd,
-        rewrite: idList(rewrite),
-        sections: idList(prdSections),
-        spec: specText,
+    sections: (prd, specText, prdSections, rewrite, part?: PartIds) =>
+      Effect.gen(function* () {
+        return yield* fillPrompt("sections", sections, {
+          part: yield* partRule("part-sections", partSections, part),
+          prd,
+          rewrite: idList(rewrite),
+          sections: idList(prdSections),
+          spec: specText,
+        });
       }),
-    tasks: (prd, specText, specSections, existing) =>
-      fillPrompt("tasks", tasks, {
-        existing: existingList(existing),
-        models: modelTable(models),
-        prd,
-        sections: idList(specSections),
-        spec: specText,
+    tasks: (prd, specText, specSections, existing, part?: PartIds) =>
+      Effect.gen(function* () {
+        return yield* fillPrompt("tasks", tasks, {
+          existing: existingList(existing),
+          models: modelTable(models),
+          part: yield* partRule("part-tasks", partTasks, part),
+          prd,
+          sections: idList(specSections),
+          spec: specText,
+        });
       }),
     splitTask: (draft, specText, reason) =>
       fillPrompt("split-task", splitTask, {
@@ -326,8 +435,9 @@ const isDecodeFailure = (error: AiError.AiError) =>
   )(error.reason);
 
 const failed =
-  (call: PlannerError["call"]) => (error: AiError.AiError | PromptError | Schema.SchemaError) =>
-    new PlannerError({ call, reason: error.message });
+  (call: PlannerError["call"]) =>
+  (error: AiError.AiError | PlannerError | PromptError | Schema.SchemaError) =>
+    Schema.is(PlannerError)(error) ? error : new PlannerError({ call, reason: error.message });
 
 /** The Mermaid blocks of `markdown` that do not draw, each with its parser error and the section it is in. */
 const undrawnIn = (markdown: string) => {
@@ -403,23 +513,29 @@ export class Planner extends Context.Service<
      * Markdown for new spec sections that implement `prdSections`, written to sit in `spec`, each
      * naming the section it goes under. `rewrite` names sections of `spec` to write again under
      * the same ID. The spec section leaves open how a rewrite is asked for; this is the fourth
-     * argument.
+     * argument. `part` is the part of the PRD a `cairn plan <id>` run plans, and is absent on a run
+     * of the whole PRD. With it, a section whose `Implements`, `Defers` or `Context` names an
+     * ID outside it is sent back once with the error, and then fails with a `PlannerError`.
      */
     readonly sections: (
       prd: string,
       spec: string,
       prdSections: ReadonlyArray<PrdSectionId>,
       rewrite: ReadonlyArray<SpecSectionId>,
+      part?: PartIds,
     ) => Effect.Effect<string, PlannerError>;
     /**
      * The task drafts for `specSections` of the spec. `existing` is the tasks the manifest already
-     * has, which a draft may depend on by ID; it is empty on a first plan.
+     * has, which a draft may depend on by ID; it is empty on a first plan. With `part`, a draft
+     * whose `prdSections` are not all in it, or whose `specSections` are not all in
+     * `specSections`, is sent back once with the error, and then fails with a `PlannerError`.
      */
     readonly tasks: (
       prd: string,
       spec: string,
       specSections: ReadonlyArray<SpecSectionId>,
       existing: ReadonlyArray<ManifestTask>,
+      part?: PartIds,
     ) => Effect.Effect<ReadonlyArray<TaskDraft>, PlannerError>;
     /** Markdown for two or more sections that replace `section`, because of `reason`. */
     readonly splitSection: (section: string, reason: string) => Effect.Effect<string, PlannerError>;
@@ -471,18 +587,40 @@ export class Planner extends Context.Service<
           Effect.mapError(failed("spec")),
         );
 
+        const drawnFor = (prompt: string) =>
+          textFor(prompt).pipe(
+            Effect.flatMap((reply) =>
+              drawnOf(reply, (errors) =>
+                prompts.retry(prompt, errors).pipe(Effect.flatMap(textFor)),
+              ),
+            ),
+          );
+
         const sections = Effect.fn("Planner.sections")(
           function* (
             prd: string,
             specText: string,
             prdSections: ReadonlyArray<PrdSectionId>,
             rewrite: ReadonlyArray<SpecSectionId>,
+            part?: PartIds,
           ) {
-            const prompt = yield* prompts.sections(prd, specText, prdSections, rewrite);
-            const reply = yield* textFor(prompt);
-            return yield* drawnOf(reply, (errors) =>
-              prompts.retry(prompt, errors).pipe(Effect.flatMap(textFor)),
-            );
+            const prompt = yield* prompts.sections(prd, specText, prdSections, rewrite, part);
+            const written = yield* drawnFor(prompt);
+            const outsideIn = (markdown: string) =>
+              Option.match(Option.fromUndefinedOr(part), {
+                onNone: () => Array.empty<string>(),
+                onSome: (ids) => outsidePartIn(ids, markdown),
+              });
+            const outside = outsideIn(written);
+            if (!Array.isReadonlyArrayNonEmpty(outside)) {
+              return written;
+            }
+            const again = yield* prompts.retry(prompt, Array.join(outside, "\n"));
+            const second = yield* drawnFor(again);
+            const left = outsideIn(second);
+            return Array.isReadonlyArrayNonEmpty(left)
+              ? yield* new PlannerError({ call: "sections", reason: Array.join(left, "\n") })
+              : second;
           },
           Effect.mapError(failed("sections")),
         );
@@ -502,11 +640,11 @@ export class Planner extends Context.Service<
             ),
           );
 
-        const draftsFor = (prompt: string) =>
+        const draftsFor = (schema: typeof TaskDrafts) => (prompt: string) =>
           LanguageModel.generateObject({
             objectName: "TaskDrafts",
             prompt,
-            schema: TaskDrafts,
+            schema,
           }).pipe(
             Effect.provideService(LanguageModel.LanguageModel, model),
             Effect.map((response) => response.value.drafts),
@@ -518,9 +656,18 @@ export class Planner extends Context.Service<
             specText: string,
             specSections: ReadonlyArray<SpecSectionId>,
             existing: ReadonlyArray<ManifestTask>,
+            part?: PartIds,
           ) {
-            const prompt = yield* prompts.tasks(prd, specText, specSections, existing);
-            return yield* withRetry(prompt, draftsFor);
+            const prompt = yield* prompts.tasks(prd, specText, specSections, existing, part);
+            return yield* withRetry(
+              prompt,
+              draftsFor(
+                Option.match(Option.fromUndefinedOr(part), {
+                  onNone: () => TaskDrafts,
+                  onSome: (ids) => draftsInPart(ids, specSections),
+                }),
+              ),
+            );
           },
           Effect.mapError(failed("tasks")),
         );
