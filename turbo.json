@@ -38,6 +38,10 @@
       "inputs": ["scripts/gate/**", "package.json"],
       "outputs": []
     },
+    "//#test:demo-trace": {
+      "inputs": ["scripts/demo-trace/**", "package.json"],
+      "outputs": []
+    },
     "//#test:land": {
       "inputs": ["scripts/land/**", "package.json"],
       "outputs": []
