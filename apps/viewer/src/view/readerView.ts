@@ -8,6 +8,7 @@ import { currentOf, searchedSectionOf } from "../reader.ts";
 import { Resize } from "../panes.ts";
 import { switchView } from "../ui/controls.ts";
 import { detailView } from "./detailView.ts";
+import { linkNoticeView } from "./linkNoticeView.ts";
 import { dividerView, DIVIDER_WIDTH, STACKS_HANDLE_WIDTH } from "./dividerView.ts";
 import { prdPaneView } from "./prdPaneView.ts";
 import { searchView } from "./searchView.ts";
@@ -19,7 +20,10 @@ import { MeasureWires, WIRES_ATTRIBUTE, wiresView } from "./wiresView.ts";
  * The "Plan" and "Canvas" pair, until the canvas is removed: it moves between the two screens, so
  * the reader can be tried on the demo as it is built.
  */
-const SCREENS: ReadonlyArray<{ readonly label: string; readonly value: Destination }> = [
+const SCREENS: ReadonlyArray<{
+  readonly label: string;
+  readonly value: Destination;
+}> = [
   { label: "Plan", value: "Reader" },
   { label: "Canvas", value: "Canvas" },
 ];
@@ -142,7 +146,21 @@ export const readerView = (
     ],
     Array.appendAll(
       [
-        topBarView(trace, model, presence, h),
+        // The notice sits under the top bar, in the grid's first row.
+        h.div(
+          [],
+          Array.appendAll(
+            [topBarView(trace, model, presence, h)],
+            Option.match(model.maybeLinkNotice, {
+              onNone: () => [],
+              onSome: (text) => [
+                linkNoticeView(text, h, {
+                  onDismiss: Message.ClickedDismissLinkNotice(),
+                }),
+              ],
+            }),
+          ),
+        ),
         h.div(
           [
             h.Style({

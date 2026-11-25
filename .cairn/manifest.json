@@ -3005,6 +3005,11 @@
         "apps/viewer/src/update.ts",
         "apps/viewer/src/detail.ts",
         "apps/viewer/src/codeView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/view/codeView.ts",
+        "apps/viewer/src/view/view.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/link-notice.scene.test.ts",
         "apps/viewer/test/links-open.test.ts"
       ],
       "branch": "cairn-mvp/121-open-a-link-s-steps-in-the-reader-and-the-code-view",

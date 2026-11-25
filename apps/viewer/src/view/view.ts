@@ -42,6 +42,7 @@ const drawerViews = (model: Model, trace: Trace, h: HtmlBuilder<Message>): Reado
 
 const codeMessages: CodeMessages = {
   onBack: Message.ClickedBackToCanvas(),
+  onDismissNotice: Message.ClickedDismissLinkNotice(),
   onDiffStyle: (style) => Message.ClickedDiffStyle({ style }),
   onClickCommit: (sha) => Message.ClickedTreeCommit({ sha }),
   onClickFile: (path) => Message.ClickedTreeFile({ path }),
@@ -148,7 +149,10 @@ const traceParts = (
     onRefreshing: loaded,
     onStale: ({ data, error }) => {
       const parts = loaded(data);
-      return { screen: parts.screen, toolbar: Array.prepend(parts.toolbar, alertView(error, h)) };
+      return {
+        screen: parts.screen,
+        toolbar: Array.prepend(parts.toolbar, alertView(error, h)),
+      };
     },
     onSuccess: loaded,
   });
@@ -180,7 +184,16 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document =>
         Option.match(AsyncData.getData(model.trace), {
           onNone: () => [loadingView(h)],
           onSome: (trace) => [
-            codeView(trace, code, model.patches, model.diffStyle, model, h, codeMessages),
+            codeView(
+              trace,
+              code,
+              model.patches,
+              model.diffStyle,
+              model,
+              model.maybeLinkNotice,
+              h,
+              codeMessages,
+            ),
           ],
         }),
       ),
