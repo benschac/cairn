@@ -101,8 +101,8 @@ The plan is a set of stacks that can be built at the same time, not one long sta
 
 - `cairn init` creates `.cairn/` and a PRD template. {#prd.cli.init}
 - `cairn ids` assigns missing section IDs in `prd.md` and `spec.md`, and fills in a list item's empty `{#}`. {#prd.cli.ids}
-- `cairn plan` turns `prd.md` into `spec.md` and `spec.json`, then into `manifest.json`: tasks, stack order, parent links, model and reasoning level per task, human gates. It stops for a review after the spec and again after the tasks (see planning from a PRD). A decision model checks the breakdown at each step (see judging the plan). {#prd.cli.plan}
-- `cairn lint` checks that every task references real section IDs, every PRD section and every list item with an ID maps to at least one task, and every task's parent follows from its dependencies, so nothing sits below a gated task except what it depends on. {#prd.cli.lint}
+- `cairn plan` turns `prd.md` into `spec.md` and `spec.json`, then into `manifest.json`: tasks, stack order, parent links, model and reasoning level per task, human gates. It first drafts the done-when statements the PRD lacks and asks about each (see done when), then stops for a review after the spec and again after the tasks (see planning from a PRD). A decision model checks the breakdown at each step (see judging the plan). {#prd.cli.plan}
+- `cairn lint` checks that every task references real section IDs, every PRD section and every list item with an ID maps to at least one task, and every task's parent follows from its dependencies, so nothing sits below a gated task except what it depends on. It warns about done-when statements nobody confirmed or no test proves (see done when). {#prd.cli.lint}
 - `cairn judge` judges the current spec and manifest again and writes `judgments.json`. {#prd.cli.judge}
 - `cairn status` prints the manifest as a tree with status. {#prd.cli.status}
 - `cairn stats` prints cost per verified task and the other outcome metrics per category and model (see cost per verified task). {#prd.cli.stats}
@@ -121,6 +121,7 @@ A person edits `prd.md` and runs `cairn plan`. Everything after that is the tool
 1. Spec. It writes `spec.md`, prints the sections it wrote and asks whether to go on to tasks. Answering no leaves the spec on disk to read and edit.
 2. Tasks. It drafts tasks from the spec as it is on disk, prints the stack with what judging changed and reported, and asks whether to write `manifest.json`.
 
+- Before the first step it asks about done-when statements (see done when). That is a question per statement, not a third review, and skipping it never stops the plan.
 - Running `cairn plan` again after editing the spec continues from the file. It does not write the spec again.
 - `cairn plan --spec` stops after the first step without asking. `--yes` answers yes to both questions.
 
@@ -156,6 +157,55 @@ Planning should cost a person nothing beyond what they already pay for.
 
 - `cairn plan --dry-run` plans in memory and writes nothing. It prints the spec sections and the stack it would write, then one line of totals: sections, tasks, lint errors, flagged judgments and seconds taken.
 - `--source`, `--provider` and `--model` replace the config's planner for one run, so the same PRD can be planned by two models and the totals compared.
+
+## Done when {#prd.done-when}
+
+A person and an agent can read the same PRD section and picture different things. A test does not settle that, because the agent writes the test from its own picture. What settles it is a sentence both can read, saying what a person would see when the section works, agreed before anything is built. Cairn calls that a done-when statement. It drafts the ones the PRD lacks, asks the person whether each is what they meant, and carries them to the spec's tests, the tasks and the agents that build them.
+
+### Statements {#prd.done-when.statements}
+
+A section's statements are the items of a list under a line that reads `Done when:`.
+
+```markdown
+Done when:
+
+- Saving the current filters as "Mine" and reloading the page shows "Mine" with the same filters. {#prd.saved-views#v1}
+- Draft: Opening a shared view's link in another browser shows the same tasks. {#prd.saved-views#v2}
+- The saved views menu reads well at phone width. <!-- human --> {#prd.saved-views#v3}
+```
+
+- A statement says what a person does and what they then see, on a named example where one helps. It does not name a file, a function or a test.
+- A statement's ID is the ID of its section or list item, then `#v` and a number. `cairn ids` gives a statement without one the next free number and never renumbers.
+- A statement belongs to the section its list is in, or to the list item it is nested under.
+- A statement that begins `Draft:` is one Cairn wrote and no person has confirmed. Any other statement is confirmed. Nothing else records the difference: the PRD is the record.
+- A statement only a person can judge carries `<!-- human -->`. It gates the tasks that carry it, as the tag does anywhere in a section (see human gates), and no test is expected for it.
+
+### Asking the person {#prd.done-when.asking}
+
+`cairn plan` settles the statements before it writes the spec, so the spec is written against what the person agreed to.
+
+- For each section, and each list item with an ID, that describes something to build and has no statement, the planner drafts one or more and writes them into `prd.md` as drafts. Drafts are the only text `cairn plan` adds to the PRD, and it changes no other line.
+- It then shows each draft under its section's title and asks whether this is what the person meant. They accept it, which removes `Draft:`; rewrite it, which saves their words as confirmed; delete it; or skip it.
+- Skipping never stops the plan. A skipped statement stays a draft, and `cairn plan` ends with a warning that counts the drafts it planned against.
+- `--yes` skips every draft. It answers the two reviews for the person, but it does not agree to a statement on their behalf.
+- Planning again asks only about drafts: the ones just written for sections that had no statement, and the ones skipped before. A confirmed statement is never asked about or rewritten.
+- A person can confirm a draft without the tool by deleting the word `Draft:`.
+
+### From statement to task {#prd.done-when.tracing}
+
+- Each test a spec section names says which statements it proves, by ID. The planner writes a test for every statement its section implements that is not tagged for a person.
+- A task carries the statements of the PRD sections and items it names. `spec.json` and the trace record them per task, with whether each is a draft and which tests prove it.
+- The orchestrator puts a task's statements at the top of the agent's brief, with drafts marked as drafts, so the agent knows which ones nobody agreed to. `cairn status` and the viewer's task detail show the same list.
+- At a human gate, the reviewer sees the task's statements as a checklist, with the ones tagged for a person first.
+- A task is verified when the tests that prove its statements pass along with the rest of its checks (see cost per verified task). A statement tagged for a person is settled when the person approves the gate.
+- `cairn lint` warns, and does not fail, on a draft, on a statement no test proves that is not tagged for a person, and on a task with no statement.
+- Editing a confirmed statement after its spec section was written marks that section and its tasks out of date, as any change to the section does (see planning again).
+
+Done when:
+
+- Running `cairn plan` on a PRD with a section that has no statement writes drafts under that section and asks about each one before it writes the spec.
+- Accepting one draft and skipping another leaves the first without `Draft:` and the second with it, and the plan finishes with a warning that counts one draft.
+- The brief for the task that builds that section shows both statements, the skipped one marked as a draft, and `cairn lint` warns about it without failing.
 
 ## Orchestrator contract {#prd.orchestrator-contract}
 
