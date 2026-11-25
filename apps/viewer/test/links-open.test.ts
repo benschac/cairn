@@ -11,7 +11,7 @@ import { expect, it } from "@effect/vitest";
 import { Array, Option, Record, Result, Schema, String, pipe } from "effect";
 import { modifyFields } from "foldkit/struct";
 
-import { diffPathOf, filesOf, rangeOf, sessionCommitOf } from "../src/codeView.ts";
+import { commitPathOf, diffPathOf, filesOf, rangeOf, sessionCommitOf } from "../src/codeView.ts";
 import { demoTrace } from "../src/demo.ts";
 import { init } from "../src/init.ts";
 import { linkOf, trunkOf } from "../src/links.ts";
@@ -255,16 +255,18 @@ it("a turn that waited for its session is brought into view once the session arr
   ]);
 });
 
+/** A demo commit with a session, and another session than its. */
+const demoCommits = Array.flatMap(demoTrace.tasks, (candidate) => candidate.commits);
+const first = Option.getOrThrow(
+  Array.findFirst(demoCommits, (commit) => Option.isSome(Option.fromNullishOr(commit.session))),
+);
+const other = Option.getOrThrow(
+  Array.findFirst(demoCommits, (commit) =>
+    Option.filter(Option.fromNullishOr(commit.session), (id) => id !== first.session),
+  ),
+);
+
 it("a turn of another session than the commit before it opens that session's newest commit", () => {
-  const commits = Array.flatMap(demoTrace.tasks, (candidate) => candidate.commits);
-  const first = Option.getOrThrow(
-    Array.findFirst(commits, (commit) => Option.isSome(Option.fromNullishOr(commit.session))),
-  );
-  const other = Option.getOrThrow(
-    Array.findFirst(commits, (commit) =>
-      Option.filter(Option.fromNullishOr(commit.session), (id) => id !== first.session),
-    ),
-  );
   const newest = Option.getOrThrow(sessionCommitOf(demoTrace, other));
   const opened = openLink(loaded, [
     decodeStep({ kind: "commit", sha: first.sha }),
@@ -280,6 +282,27 @@ it("a turn of another session than the commit before it opens that session's new
   );
   expect(Array.last(linkOf(opened))).toEqual(
     Option.some({ kind: "turn", session: other, turn: "c1" }),
+  );
+});
+
+it("a file before a turn of another session is still checked against its commit's patch", () => {
+  const opened = openLink(loaded, [
+    decodeStep({ kind: "commit", sha: first.sha }),
+    decodeStep({ kind: "file", path: "missing/gone.ts" }),
+    decodeStep({ kind: "turn", session: other, turn: "c1" }),
+  ]);
+  // The turn moves the code view to another commit, but the file waits for this commit's patch.
+  const path = commitPathOf(first.sha);
+  expect(argsOf(opened, "FetchPatch")).toContainEqual({ path });
+  const arrived = update(
+    opened.model,
+    Message.ReceivedPatch({ path, result: Result.succeed(commitPatch) }),
+  ).model;
+  expect(arrived.maybePendingLink).toEqual(Option.none());
+  expect(arrived.maybeLinkNotice).toEqual(
+    Option.some(
+      `Opened as far as commit ${String.takeLeft(first.sha, 7)}. \`missing/gone.ts\` is not in that diff.`,
+    ),
   );
 });
 

@@ -53,7 +53,16 @@ import {
 import { DRAWER_WIDTH } from "./drawer.ts";
 import type { Rect } from "./geometry.ts";
 import { isPinned, pin, togglePin } from "./highlight.ts";
-import { linkOf, linkTargetsOf, loadedOf, noticeOf, resolveLink, sharedLengthOf } from "./links.ts";
+import {
+  Needs,
+  linkOf,
+  linkTargetsOf,
+  loadedOf,
+  noticeOf,
+  resolveLink,
+  sharedLengthOf,
+  type Resolution,
+} from "./links.ts";
 import { describeTraceError, isDemoBuild, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
 import { keptReaders, readersOf } from "./readers.ts";
@@ -393,13 +402,20 @@ const requestedAll = (
  * panel's requests when the model has never asked for them. One that failed is not asked for
  * again here: the notice says why, and selecting it again retries.
  */
-const linkRequested = (model: Model, steps: ReadonlyArray<Step>): Fetches => {
+const linkRequested = (
+  model: Model,
+  steps: ReadonlyArray<Step>,
+  waitedPaths: ReadonlyArray<string>,
+): Fetches => {
   const shown = shownIn(model);
   const paths = Array.dedupe(
-    Array.getSomes([
-      Option.flatMap(shown, ({ code, task }) => patchPathOf(task, code.shown)),
-      detailPatchPathOf(model),
-    ]),
+    Array.appendAll(
+      Array.getSomes([
+        Option.flatMap(shown, ({ code, task }) => patchPathOf(task, code.shown)),
+        detailPatchPathOf(model),
+      ]),
+      waitedPaths,
+    ),
   );
   const sessions = Array.dedupe(
     Array.appendAll(
@@ -428,6 +444,30 @@ const linkRequested = (model: Model, steps: ReadonlyArray<Step>): Fetches => {
     ),
   );
 };
+
+/**
+ * The patch a waiting file step reads to be checked: the one its diff or commit opened. A later
+ * step can move the code view off that patch, as a turn of another session does, so it is fetched
+ * whatever the screen ends on, or the link would wait for it forever.
+ */
+const waitedPathsOf = (link: Link, resolution: Resolution): ReadonlyArray<string> =>
+  Option.match(
+    Option.filter(
+      Option.flatMap(resolution.waiting, (index) => Array.get(link, index)),
+      Step.guards.file,
+    ),
+    {
+      onNone: () => [],
+      onSome: () =>
+        Array.fromOption(
+          Array.last(
+            Array.filterMap(resolution.resolved, ({ needs }) =>
+              Needs.guards.Patch(needs) ? Result.succeed(needs.path) : Result.failVoid,
+            ),
+          ),
+        ),
+    },
+  );
 
 /**
  * Opens a link. It is resolved against the trace and the data the model has, what a link holds is
@@ -468,7 +508,7 @@ const openedFrom = (
         maybeLinkNotice: () => noticeOf(Result.succeed(resolution)),
         maybePendingLink: () => Option.as(resolution.waiting, link),
       });
-      const requested = linkRequested(applied, steps);
+      const requested = linkRequested(applied, steps, waitedPathsOf(link, resolution));
       const before = linkOf(model);
       const after = linkOf(requested.model);
       const arrived: ReadonlyArray<Step> = Option.match(maybeArrivedFrom, {
