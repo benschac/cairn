@@ -12,6 +12,7 @@ import {
   DateTime,
   Duration,
   Effect,
+  Equal,
   Fiber,
   Layer,
   Match,
@@ -29,7 +30,7 @@ import { AiError, DecisionModel } from "effect/ai";
 import type { Decision } from "effect/ai";
 import { TestClock } from "effect/testing";
 
-import { Judge, JudgeError } from "../src/judge.ts";
+import { Judge, JudgeError, inputHashesOf } from "../src/judge.ts";
 
 /**
  * Nothing here reads a key or touches the network. The decision model is `DecisionModel.make`
@@ -296,7 +297,11 @@ const rejudged = (before: CairnConfig, after: CairnConfig) =>
 
 const withModels = (models: Record<string, string>) => configOf({ judge: { models } });
 
-it.effect("a task is asked its model question again when judge.models names other models", () =>
+/** The requests `seen` gives, as the decisions each asked for. */
+const askedFor = (seen: ReadonlyArray<DecisionModel.ProviderOptions>) =>
+  Array.map(seen, decisionsOf);
+
+it.effect("a task is asked again when judge.models names other models", () =>
   Effect.gen(function* () {
     const { second, seen } = yield* rejudged(
       withModels({ haiku: "Small", opus: "Large", sonnet: "Most" }),
@@ -314,15 +319,69 @@ it.effect("a task is asked its model question again when judge.models names othe
   }),
 );
 
-it.effect("a model judgment is not kept once judge.models names one model", () =>
+it.effect("a task is asked again when only a model's description in judge.models changes", () =>
+  Effect.gen(function* () {
+    const { seen } = yield* rejudged(
+      withModels({ haiku: "Small", sonnet: "Most" }),
+      withModels({ haiku: "Small, mechanical changes only", sonnet: "Most" }),
+    );
+    expect(Array.map(seen, (options) => options.state)).toEqual([task("t1").input]);
+    expect(Array.map(seen, (options) => Record.get(options.decisions, "model"))).toEqual([
+      Option.some(
+        expect.objectContaining({
+          criteria: { haiku: "Small, mechanical changes only", sonnet: "Most" },
+        }),
+      ),
+    ]);
+  }),
+);
+
+it.effect("nothing is asked again when judge.models is the same, in any order", () =>
+  Effect.gen(function* () {
+    const { first, second, seen } = yield* rejudged(
+      withModels({ haiku: "Small", opus: "Large", sonnet: "Most" }),
+      withModels({ sonnet: "Most", opus: "Large", haiku: "Small" }),
+    );
+    expect(Array.length(seen)).toBe(0);
+    expect(second).toEqual(first);
+  }),
+);
+
+/** The judgments of every target but the tasks. */
+const notTask = (judgments: Judgments) =>
+  Array.filter(judgments.judgments, (j) => j.target.kind !== "task");
+
+it.effect("a task is asked again without its model question once judge.models names one", () =>
   Effect.gen(function* () {
     const { first, second, seen } = yield* rejudged(
       withModels({ haiku: "Small", sonnet: "Most" }),
       withModels({ haiku: "Small" }),
     );
-    expect(Array.length(seen)).toBe(0);
-    expect(second.judgments).toEqual(Array.filter(first.judgments, (j) => j.question !== "model"));
+    expect(Array.map(seen, (options) => options.state)).toEqual([task("t1").input]);
+    expect(askedFor(seen)).toEqual([["matches", "reasoning", "size"]]);
+    expect(notTask(second)).toEqual(notTask(first));
+    expect(
+      Array.map(
+        Array.filter(second.judgments, (j) => j.target.kind === "task"),
+        (j) => j.question,
+      ),
+    ).toEqual(["matches", "reasoning", "size"]);
   }),
+);
+
+/** A catalog as `judge.models` holds it. */
+const Catalog = Schema.Record(Schema.String, Schema.String).check(Schema.isMaxProperties(4));
+
+it.effect.prop(
+  "a change to judge.models asks every task again and no section or the stack",
+  [Catalog, Catalog],
+  ([before, after]) =>
+    Effect.gen(function* () {
+      const { seen } = yield* rejudged(withModels(before), withModels(after));
+      const same = Equal.equals(before, after);
+      expect(Array.map(seen, (options) => options.state)).toEqual(same ? [] : [task("t1").input]);
+    }),
+  { arbitrary: { runs: 20 } },
 );
 
 it.effect("a model judgment is dropped once the question is not asked, whatever its labels", () =>
@@ -377,6 +436,31 @@ it.effect("the input hash is the SHA-256 in hex of the input encoded as JSON", (
     );
     expect(hashes).toEqual([expected]);
   }).pipe(Effect.provide(judging())),
+);
+
+it.effect.prop(
+  "inputHashesOf gives each target the inputHash of every judgment the judge gives it",
+  [Inputs, Catalog],
+  ([generated, models]) =>
+    Effect.gen(function* () {
+      const inputs = unique(generated);
+      const config = withModels(models);
+      const result = yield* Judge.use((judge) => judge.judge(inputs, none)).pipe(
+        Effect.provide(judging({}, config)),
+      );
+      const hashes = yield* inputHashesOf(inputs, config.judge);
+      expect(
+        Array.map(result.judgments, (j) =>
+          Array.findFirst(hashes, ({ target }) => Equal.equals(target, j.target)).pipe(
+            Option.map(({ hash }) => hash),
+          ),
+        ),
+      ).toEqual(Array.map(result.judgments, (j) => Option.some(j.inputHash)));
+      expect(Array.length(hashes)).toBe(
+        Array.length(inputs.sections) + Array.length(inputs.tasks) + 1,
+      );
+    }),
+  { arbitrary: { runs: 20 } },
 );
 
 it.effect.prop(

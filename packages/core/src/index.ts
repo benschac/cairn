@@ -9,6 +9,7 @@ export {
   sectionQuestions,
   stackQuestions,
   taskQuestions,
+  taskQuestionsWithoutModel,
   type JudgingInputs,
 } from "./judging/questions.ts";
 export {
