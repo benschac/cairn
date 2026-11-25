@@ -413,7 +413,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "failed",
+      "status": "done",
       "commits": ["d1897b5baec5d49089d688350748a32390a6b430"],
       "sessions": []
     },
@@ -811,8 +811,8 @@
       ],
       "branch": "cairn-mvp/35-cairn-status",
       "parent": null,
-      "dependsOn": ["t21", "t30", "t32"],
-      "worktree": "wt-8",
+      "dependsOn": ["t21", "t30", "t32", "t116"],
+      "worktree": "wt-31",
       "model": "sonnet",
       "reasoning": "medium",
       "humanGate": {
@@ -1479,7 +1479,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -1519,7 +1519,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -2736,7 +2736,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -2861,6 +2861,59 @@
       },
       "status": "done",
       "commits": ["196504f73b2fbc7e31730c2ff90c3a255ae712d6"],
+      "sessions": []
+    },
+    {
+      "id": "t116",
+      "title": "Land a task from git whatever its status",
+      "prdSections": ["prd.orchestrator-contract", "prd.human-gates"],
+      "specSections": ["spec.status.task-machine", "spec.status.derivation"],
+      "files": [
+        "packages/core/src/task-machine.ts",
+        "packages/core/src/derive.ts",
+        "packages/core/test/task-machine.test.ts",
+        "packages/core/test/derive-commits.test.ts",
+        "packages/core/test/derive.model.test.ts",
+        ".cairn/events.jsonl"
+      ],
+      "branch": "cairn-mvp/116-land-from-git",
+      "parent": null,
+      "dependsOn": ["t32", "t105"],
+      "worktree": "wt-31",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t117",
+      "title": "Refuse a task commit without its trailers",
+      "prdSections": ["prd.orchestrator-contract"],
+      "specSections": ["spec.status.trailer-check"],
+      "files": [
+        "scripts/trailers/commit-msg.ts",
+        "scripts/trailers/commit-msg.test.ts",
+        "lefthook.yml",
+        "package.json",
+        "AGENTS.md"
+      ],
+      "branch": "cairn-mvp/117-trailer-check",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-36",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
       "sessions": []
     }
   ]

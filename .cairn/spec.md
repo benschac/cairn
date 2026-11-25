@@ -712,7 +712,7 @@ flowchart BT
   end
   subgraph s19["Stack 19 · status"]
     direction BT
-    t35["t35 · 35-cairn-status<br/>Add cairn status<br/>wt-8"]
+    t35["t35 · 35-cairn-status<br/>Add cairn status<br/>wt-31"]
     t36["t36 · 36-cairn-approve<br/>Add cairn approve<br/>wt-8"]
   end
   subgraph s20["Stack 20 · sessions"]
@@ -868,6 +868,14 @@ flowchart BT
     direction BT
     t114["t114 · 114-plan-dry-run<br/>Add dry runs and one-run planner choices to cairn plan<br/>wt-34"]
   end
+  subgraph s49["Stack 49 · status"]
+    direction BT
+    t116["t116 · 116-land-from-git<br/>Land a task from git whatever its status<br/>wt-31"]
+  end
+  subgraph s50["Stack 50 · status"]
+    direction BT
+    t117["t117 · 117-trailer-check<br/>Refuse a task commit without its trailers<br/>wt-36"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -919,6 +927,7 @@ flowchart BT
   t21 -.-> t35
   t30 -.-> t35
   t32 -.-> t35
+  t116 -.-> t35
   t35 --> t36
   t2 -.-> t37
   t3 -.-> t37
@@ -1032,8 +1041,11 @@ flowchart BT
   t106 -.-> t114
   t113 -.-> t114
   t106 --> t115
-  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115 sonnet
+  t32 -.-> t116
+  t105 -.-> t116
+  main --> t117
+  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116 opus
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117 sonnet
   class t11,t24,t27,t44,t56,t66,t102,t107 haiku
   class t1,t2,t3,t81,t97 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
@@ -1253,12 +1265,12 @@ Tests use the scripted `Judge` and `Planner` layers: one `too_large` answer caus
 - Files: `packages/core/src/task-machine.ts`
 - Depends on: `spec.contract.manifest`
 
-Add `failed`: `running` goes there on `fail`, and `start` takes it back to `running`. The machine's input is the task plus its effective gate. Everything else stays: a gated task reaches `done` only through `approve`, and `land` is ignored outside `done`.
+Add `failed`: `running` goes there on `fail`, and `start` takes it back to `running`. The machine's input is the task plus its effective gate. Everything else stays: a gated task reaches `done` only through `approve`. `land` takes every status but `landed` to `landed`: a commit on the base branch is the record that the work is finished, whatever events came before it.
 
 ### Derivation {#spec.status.derivation}
 
 - Implements: `prd.orchestrator-contract`, `prd.human-gates`
-- Files: `packages/core/src/derive.ts`
+- Files: `packages/core/src/derive.ts`, `.cairn/events.jsonl`
 - Depends on: `spec.status.task-machine`, `spec.contract.events`, `spec.contract.trailers`, `spec.gates.detection`
 
 `derive(manifest, sections, config, events, commits)` recomputes every task from scratch each time:
@@ -1266,13 +1278,15 @@ Add `failed`: `running` goes there on `fail`, and `start` takes it back to `runn
 1. Group commits by their `Cairn-Task` trailer. The files they change give each task's effective gate.
 2. Sort the task's events by `ts`, then by status and actor, so the order of lines in the file never matters.
 3. Fold them through the task machine. `running` sends `start`; `done` sends `approve` from `blocked_on_human` when the actor is human, and `finish` otherwise; `blocked_on_human` sends `finish`; `failed` sends `fail`; `landed` sends `land`.
-4. Send `land` when the task's commits are reachable from `baseBranch`, or a commit on `baseBranch` carries the task's trailer (a squash merge).
+4. Send `land` when the task's commits are reachable from `baseBranch`, or a commit on `baseBranch` carries the task's trailer (a squash merge), whatever the task's status. Git alone finishes a task, so a repo with no orchestrator writing events still sees its tasks land. A gated task that lands with no human approval still lands, with a `landed-without-approval` warning that names the commit.
 
 An orchestrator that reports `done` for a gated task still leaves it in `blocked_on_human`: the machine enforces the gate, not the orchestrator.
 
 Anything the machine ignores becomes a warning in the result, not an error: an illegal transition, an approval from a non-human actor, an event or trailer for an unknown task, a commit on a task branch without trailers, and a branch that landed without approval.
 
 A `pending` task with a `blocked_on_human` task below it is marked `waiting`, so the viewer can show why it has not started.
+
+This repo built its first tasks before their commits carried trailers. `.cairn/events.jsonl` starts with one `landed` line for each task the manifest records as finished, dated by the commit that brought it to `main`, with a `detail` naming that commit, so derivation agrees with the manifest from the start.
 
 ### Section rollup {#spec.status.section-rollup}
 
@@ -1301,6 +1315,14 @@ A section's status comes from the tasks linked to it or to any section under it.
 `cairn approve <taskId>` appends `{ status: "done", actor: "human:<git user.name>" }` and prints the new status. It refuses a task that is not `blocked_on_human`. The PRD has no way to approve a gate; this is it.
 
 `Git.log` reads each task branch with `git log --format=%H%x1f%P%x1f%(trailers:key=Cairn-Task,key=Cairn-Section,key=Cairn-Session)` and `git show --name-only` for changed files. Its in-memory layer replaces the stand-in `Git` in `packages/core/test/derive.model.test.ts`.
+
+### Trailer check {#spec.status.trailer-check}
+
+- Implements: `prd.orchestrator-contract`
+- Files: `scripts/trailers/commit-msg.ts`, `scripts/trailers/commit-msg.test.ts`, `lefthook.yml`, `package.json`, `AGENTS.md`
+- Depends on: `spec.contract.trailers`
+
+Landing is read from trailers, so a task commit without them never lands. A `commit-msg` hook in `lefthook.yml` runs `scripts/trailers/commit-msg.ts` on the message. On a branch that is a task's `branch` in `.cairn/manifest.json`, it refuses a message without exactly one `Cairn-Task` trailer naming that task and at least one `Cairn-Section` trailer naming a spec section the task lists, and says which trailers to add. `Cairn-Session` is not required, since agents in this repo have no session ID in the form the contract takes. On any other branch, or with no branch checked out, as in a rebase, it passes. `AGENTS.md` says which trailers a task commit carries.
 
 ## Sessions {#spec.sessions}
 
