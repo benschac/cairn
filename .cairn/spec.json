@@ -162,7 +162,25 @@
       "implements": [],
       "files": [],
       "dependsOn": [],
-      "defers": ["prd.v2-diverging-state", "prd.v2-multiplayer-on-cloudflare", "prd.later"],
+      "defers": [
+        "prd.v2-diverging-state",
+        "prd.v2-multiplayer-on-cloudflare",
+        "prd.later",
+        "prd.section-ids.items",
+        "prd.done-when",
+        "prd.judging-the-plan.routing",
+        "prd.judging-the-plan.comparing",
+        "prd.judging-the-plan.gateway",
+        "prd.outcomes",
+        "prd.conflicts",
+        "prd.relations",
+        "prd.viewer.items",
+        "prd.viewer.cost",
+        "prd.viewer.dependencies",
+        "prd.viewer.command-menu",
+        "prd.viewer.notes",
+        "prd.docs"
+      ],
       "context": [],
       "tasks": ["t41"],
       "summary": "Scopes the spec to v1 and keeps the already-built presence piece.",
@@ -550,7 +568,8 @@
         "spec.contract.config",
         "spec.contract.judgments",
         "spec.contract.spec-index",
-        "spec.contract.javascript-entry"
+        "spec.contract.javascript-entry",
+        "spec.contract.links"
       ],
       "human": false,
       "implements": ["prd.contract-package"],
@@ -716,28 +735,28 @@
           "description": "The manifest of a feature.",
           "fields": [
             {
+              "description": "",
               "name": "version",
-              "type": "1",
               "optional": false,
-              "description": ""
+              "type": "1"
             },
             {
+              "description": "",
               "name": "feature",
-              "type": "Slug",
               "optional": false,
-              "description": ""
+              "type": "Slug"
             },
             {
+              "description": "",
               "name": "baseBranch",
-              "type": "string",
               "optional": false,
-              "description": ""
+              "type": "string"
             },
             {
+              "description": "",
               "name": "tasks",
-              "type": "NonEmptyArray<ManifestTask>",
               "optional": false,
-              "description": ""
+              "type": "NonEmptyArray<ManifestTask>"
             }
           ]
         },
@@ -749,82 +768,82 @@
           "description": "A task in the manifest.",
           "fields": [
             {
+              "description": "t1, t2, ... in stack order, bottom first",
               "name": "id",
-              "type": "TaskId",
               "optional": false,
-              "description": "t1, t2, ... in stack order, bottom first"
+              "type": "TaskId"
             },
             {
+              "description": "",
               "name": "title",
-              "type": "NonEmptyString",
               "optional": false,
-              "description": ""
+              "type": "NonEmptyString"
             },
             {
+              "description": "",
               "name": "prdSections",
-              "type": "NonEmptyArray<PrdSectionId>",
               "optional": false,
-              "description": ""
+              "type": "NonEmptyArray<PrdSectionId>"
             },
             {
+              "description": "",
               "name": "specSections",
-              "type": "NonEmptyArray<SpecSectionId>",
               "optional": false,
-              "description": ""
+              "type": "NonEmptyArray<SpecSectionId>"
             },
             {
+              "description": "new: the declared files plan-time detection runs on",
               "name": "files",
-              "type": "Array<string>",
               "optional": false,
-              "description": "new: the declared files plan-time detection runs on"
+              "type": "Array<string>"
             },
             {
+              "description": "<feature>/<NN>-<slug>",
               "name": "branch",
-              "type": "string",
               "optional": false,
-              "description": "<feature>/<NN>-<slug>"
+              "type": "string"
             },
             {
+              "description": "",
               "name": "parent",
-              "type": "TaskId | null",
               "optional": false,
-              "description": ""
+              "type": "TaskId | null"
             },
             {
+              "description": "",
               "name": "model",
-              "type": "NonEmptyString",
               "optional": false,
-              "description": ""
+              "type": "NonEmptyString"
             },
             {
+              "description": "",
               "name": "reasoning",
-              "type": "\"low\" | \"medium\" | \"high\" | \"xhigh\" | \"max\"",
               "optional": false,
-              "description": ""
+              "type": "\"low\" | \"medium\" | \"high\" | \"xhigh\" | \"max\""
             },
             {
+              "description": "",
               "name": "humanGate",
-              "type": "{ required: boolean; reasons: Array<GateReason> }",
               "optional": false,
-              "description": ""
+              "type": "{ required: boolean; reasons: Array<GateReason> }"
             },
             {
+              "description": "snapshot",
               "name": "status",
-              "type": "TaskStatus",
               "optional": false,
-              "description": "snapshot"
+              "type": "TaskStatus"
             },
             {
+              "description": "snapshot",
               "name": "commits",
-              "type": "Array<Sha>",
               "optional": false,
-              "description": "snapshot"
+              "type": "Array<Sha>"
             },
             {
+              "description": "snapshot",
               "name": "sessions",
-              "type": "Array<SessionId>",
               "optional": false,
-              "description": "snapshot"
+              "type": "Array<SessionId>"
             }
           ]
         },
@@ -921,40 +940,40 @@
           "description": "One line of events.jsonl.",
           "fields": [
             {
+              "description": "missing means 1",
               "name": "v",
-              "type": "1",
               "optional": true,
-              "description": "missing means 1"
+              "type": "1"
             },
             {
+              "description": "ISO 8601, decoded to a DateTime.Utc",
               "name": "ts",
-              "type": "string",
               "optional": false,
-              "description": "ISO 8601, decoded to a DateTime.Utc"
+              "type": "string"
             },
             {
+              "description": "",
               "name": "taskId",
-              "type": "TaskId",
               "optional": false,
-              "description": ""
+              "type": "TaskId"
             },
             {
+              "description": "",
               "name": "status",
-              "type": "TaskStatus",
               "optional": false,
-              "description": ""
+              "type": "TaskStatus"
             },
             {
+              "description": "",
               "name": "detail",
-              "type": "string",
               "optional": true,
-              "description": ""
+              "type": "string"
             },
             {
+              "description": "missing means orchestrator; new, since approvals need it",
               "name": "actor",
-              "type": "\"orchestrator\" | `human:${string}` | `agent:${string}`",
               "optional": true,
-              "description": "missing means orchestrator; new, since approvals need it"
+              "type": "\"orchestrator\" | `human:${string}` | `agent:${string}`"
             }
           ]
         }
@@ -1324,28 +1343,28 @@
           "description": "Cairn configuration.",
           "fields": [
             {
+              "description": "",
               "name": "version",
-              "type": "1",
               "optional": false,
-              "description": ""
+              "type": "1"
             },
             {
+              "description": "defaults to the PRD's list",
               "name": "humanPaths",
-              "type": "Array<string>",
               "optional": false,
-              "description": "defaults to the PRD's list"
+              "type": "Array<string>"
             },
             {
+              "description": "defaults to []",
               "name": "redact",
-              "type": "{ deny: Array<string> }",
               "optional": false,
-              "description": "defaults to []"
+              "type": "{ deny: Array<string> }"
             },
             {
+              "description": "defaults to \"claude-opus-5-5\"",
               "name": "planner",
-              "type": "{ model: string }",
               "optional": false,
-              "description": "defaults to \"claude-opus-5-5\""
+              "type": "{ model: string }"
             }
           ]
         },
@@ -1730,16 +1749,16 @@
           "description": "Error thrown on decode failure, with path (the field path) and a message.",
           "fields": [
             {
+              "description": "the field path",
               "name": "path",
-              "type": "string",
               "optional": false,
-              "description": "the field path"
+              "type": "string"
             },
             {
+              "description": "",
               "name": "message",
-              "type": "string",
               "optional": false,
-              "description": ""
+              "type": "string"
             }
           ]
         },
@@ -1789,10 +1808,411 @@
       }
     },
     {
+      "id": "spec.contract.links",
+      "title": "Links",
+      "level": 3,
+      "line": 457,
+      "parent": "spec.contract",
+      "children": [],
+      "human": false,
+      "implements": ["prd.deep-links.targets", "prd.deep-links.composing"],
+      "files": [
+        "packages/contract/src/link.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/link.test.ts",
+        "packages/contract/package.json"
+      ],
+      "dependsOn": ["spec.contract.section-ids", "spec.contract.trailers", "spec.contract.session"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t118"],
+      "summary": "Defines a Cairn deep link in `packages/contract/src/link.ts`. A link is a list of typed steps (section, passage, task, stack, segment, diff, commit, file, lines, turn, note) and its text is a URL path. One Effect Schema, `LinkFromPath`, decodes a path into steps and encodes steps back into a path, enforces the ordering rules and reports `LinkError`s.",
+      "requirements": [
+        {
+          "id": "spec.contract.links#r1",
+          "level": "must",
+          "text": "`link.ts` must define both the Link (a list of steps) and its text form as a URL path. The step schemas and the one Schema that converts between path and steps must be the only definition of a link."
+        },
+        {
+          "id": "spec.contract.links#r2",
+          "level": "must",
+          "text": "The viewer's route must read links through the link Schema, and `cairn link` must write them through it, so that a printed link and a copied link are always the same text."
+        },
+        {
+          "id": "spec.contract.links#r3",
+          "level": "must-not",
+          "text": "`link.ts` must import IDs from `ids.ts` and `trailers.ts` and must never import from `index.ts`."
+        },
+        {
+          "id": "spec.contract.links#r4",
+          "level": "must",
+          "text": "`index.ts` must re-export `link.ts`."
+        },
+        {
+          "id": "spec.contract.links#r5",
+          "level": "must",
+          "text": "A Quote must be 1 to 500 characters long, with runs of whitespace collapsed to one space, and trimmed."
+        },
+        {
+          "id": "spec.contract.links#r6",
+          "level": "must",
+          "text": "A NoteId must match `^n_[a-z0-9]{6,}$`."
+        },
+        {
+          "id": "spec.contract.links#r7",
+          "level": "must",
+          "text": "In a `lines` step, `start` and `end` must be positive integers with start <= end."
+        },
+        {
+          "id": "spec.contract.links#r8",
+          "level": "must",
+          "text": "A `file` step's path must be a non-empty string relative to the repo root."
+        },
+        {
+          "id": "spec.contract.links#r9",
+          "level": "must",
+          "text": "Each step must be written as path segments: `/section/<id>`, `/passage/<id>/<quote>`, `/task/<id>`, `/stack/<root>`, `/segment/<root>`, `/diff/<head>`, `/commit/<sha>`, `/file/<path>`, `/lines/n<start>[-<end>]` or `/lines/o<start>[-<end>]` (`n` for new, `o` for old), `/turn/<session>/<turn>` and `/note/<id>`."
+        },
+        {
+          "id": "spec.contract.links#r10",
+          "level": "must",
+          "text": "Every step argument must be encoded with `encodeURIComponent`, so a `/` in a file path becomes `%2F`."
+        },
+        {
+          "id": "spec.contract.links#r11",
+          "level": "must",
+          "text": "The link with no steps must be written as `/`."
+        },
+        {
+          "id": "spec.contract.links#r12",
+          "level": "must",
+          "text": "A trailing `/` must be accepted when a link is read and must never be written."
+        },
+        {
+          "id": "spec.contract.links#r13",
+          "level": "must",
+          "text": "A single-line range must be written as `n40`, never as `n40-40`."
+        },
+        {
+          "id": "spec.contract.links#r14",
+          "level": "must-not",
+          "text": "No step name may be `api`, `presence` or `assets`."
+        },
+        {
+          "id": "spec.contract.links#r15",
+          "level": "must",
+          "text": "A `diff` step must come directly after a `task` step."
+        },
+        {
+          "id": "spec.contract.links#r16",
+          "level": "must",
+          "text": "A `file` step must come directly after a `diff` or a `commit` step."
+        },
+        {
+          "id": "spec.contract.links#r17",
+          "level": "must",
+          "text": "A `lines` step must come directly after a `file` step."
+        },
+        {
+          "id": "spec.contract.links#r18",
+          "level": "must",
+          "text": "After the first `diff`, `commit` or `turn` step, only `file`, `lines` and `turn` steps may follow."
+        },
+        {
+          "id": "spec.contract.links#r19",
+          "level": "must",
+          "text": "A link must have at most one `diff` or `commit` step and at most one `turn` step, and a `turn` step must be last."
+        },
+        {
+          "id": "spec.contract.links#r20",
+          "level": "must",
+          "text": "A `note` step must be last."
+        },
+        {
+          "id": "spec.contract.links#r21",
+          "level": "must",
+          "text": "Decoding must enforce the well-formedness rules for step order and count."
+        },
+        {
+          "id": "spec.contract.links#r22",
+          "level": "must",
+          "text": "`LinkFromPath` must be an Effect Schema from the path string to `Link`, where decoding reads a link and encoding writes one."
+        },
+        {
+          "id": "spec.contract.links#r23",
+          "level": "must",
+          "text": "Every ID in a link must decode through its own contract schema."
+        },
+        {
+          "id": "spec.contract.links#r24",
+          "level": "must",
+          "text": "A decoding failure must be a `LinkError` giving the step's index, the step's name and the field path, e.g. `step 3 (file): must follow a diff or a commit` or `step 2 (diff).head: expected 40 lowercase hex characters`."
+        },
+        {
+          "id": "spec.contract.links#r25",
+          "level": "must",
+          "text": "The contract package must take `fast-check` as a dev dependency, at the version that `spec.testing.model-based` pins."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.contract.links#type:link",
+          "kind": "type",
+          "name": "Link",
+          "location": "packages/contract/src/link.ts",
+          "description": "A link: an array of Step values that follows the well-formedness rules.",
+          "signature": "Link = Array<Step>"
+        },
+        {
+          "id": "spec.contract.links#type:step",
+          "kind": "type",
+          "name": "Step",
+          "location": "packages/contract/src/link.ts",
+          "description": "A tagged union of the link step kinds. Each kind has its own schema.",
+          "values": [
+            "section",
+            "passage",
+            "task",
+            "stack",
+            "segment",
+            "diff",
+            "commit",
+            "file",
+            "lines",
+            "turn",
+            "note"
+          ],
+          "fields": [
+            {
+              "description": "The step's kind, which sets which other fields it has.",
+              "name": "kind",
+              "optional": false,
+              "type": "\"section\" | \"passage\" | \"task\" | \"stack\" | \"segment\" | \"diff\" | \"commit\" | \"file\" | \"lines\" | \"turn\" | \"note\""
+            },
+            {
+              "description": "For section: a PRD or spec section, or a PRD list item. For task: the task ID. For note: the note ID.",
+              "name": "id",
+              "optional": true,
+              "type": "PrdSectionId | SpecSectionId | TaskId | NoteId"
+            },
+            {
+              "description": "For passage: the section the quote is in.",
+              "name": "section",
+              "optional": true,
+              "type": "PrdSectionId | SpecSectionId"
+            },
+            {
+              "description": "For passage: the quoted text.",
+              "name": "quote",
+              "optional": true,
+              "type": "Quote"
+            },
+            {
+              "description": "For stack: the root task that starts the stack. For segment: the root of the stack whose finished trunk is meant.",
+              "name": "root",
+              "optional": true,
+              "type": "TaskId"
+            },
+            {
+              "description": "For diff: the head at which the preceding task's stacked diff is shown.",
+              "name": "head",
+              "optional": true,
+              "type": "Sha"
+            },
+            {
+              "description": "For commit: the commit SHA.",
+              "name": "sha",
+              "optional": true,
+              "type": "Sha"
+            },
+            {
+              "description": "For file: a file path relative to the repo root.",
+              "name": "path",
+              "optional": true,
+              "type": "NonEmptyString"
+            },
+            {
+              "description": "For lines: which side of the diff the lines are on.",
+              "name": "side",
+              "optional": true,
+              "type": "\"new\" | \"old\""
+            },
+            {
+              "description": "For lines: the first line number.",
+              "name": "start",
+              "optional": true,
+              "type": "PositiveInt"
+            },
+            {
+              "description": "For lines: the last line number, with start <= end.",
+              "name": "end",
+              "optional": true,
+              "type": "PositiveInt"
+            },
+            {
+              "description": "For turn: the session the turn belongs to.",
+              "name": "session",
+              "optional": true,
+              "type": "SessionId"
+            },
+            {
+              "description": "For turn: a Turn's id (see spec.contract.session).",
+              "name": "turn",
+              "optional": true,
+              "type": "NonEmptyString"
+            }
+          ]
+        },
+        {
+          "id": "spec.contract.links#type:quote",
+          "kind": "type",
+          "name": "Quote",
+          "location": "packages/contract/src/link.ts",
+          "description": "A quoted passage: a string of 1 to 500 characters, with whitespace runs collapsed to one space, and trimmed."
+        },
+        {
+          "id": "spec.contract.links#type:note-id",
+          "kind": "type",
+          "name": "NoteId",
+          "location": "packages/contract/src/link.ts",
+          "description": "A note identifier string matching `^n_[a-z0-9]{6,}$`, following the pattern of SessionId."
+        },
+        {
+          "id": "spec.contract.links#schema:link-from-path",
+          "kind": "schema",
+          "name": "LinkFromPath",
+          "location": "packages/contract/src/link.ts",
+          "description": "An Effect Schema from a URL path string to Link. It decodes (reads) and encodes (writes) links and enforces the well-formedness rules.",
+          "signature": "Schema<Link, string>"
+        },
+        {
+          "id": "spec.contract.links#type:link-error",
+          "kind": "type",
+          "name": "LinkError",
+          "location": "packages/contract/src/link.ts",
+          "description": "The failure returned when a link does not decode. It names the step's index, the step's name and the field path, e.g. `step 2 (diff).head: expected 40 lowercase hex characters`."
+        },
+        {
+          "id": "spec.contract.links#file:packages-contract-src-link-ts",
+          "kind": "file",
+          "name": "packages/contract/src/link.ts",
+          "location": "packages/contract/src/link.ts",
+          "description": "Holds the step schemas, Link and LinkFromPath. It imports IDs from ids.ts and trailers.ts, never from index.ts."
+        },
+        {
+          "id": "spec.contract.links#file:packages-contract-src-index-ts",
+          "kind": "file",
+          "name": "packages/contract/src/index.ts",
+          "location": "packages/contract/src/index.ts",
+          "description": "The contract's entry point, which re-exports link.ts."
+        },
+        {
+          "id": "spec.contract.links#file:packages-contract-test-link-test-ts",
+          "kind": "file",
+          "name": "packages/contract/test/link.test.ts",
+          "location": "packages/contract/test/link.test.ts",
+          "description": "Holds the round-trip property, the encoding, example and refusal tests for links."
+        },
+        {
+          "id": "spec.contract.links#library:fast-check",
+          "kind": "library",
+          "name": "fast-check",
+          "location": "packages/contract/package.json",
+          "description": "A dev dependency of the contract package, at the version spec.testing.model-based pins, used to generate well-formed Links."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.contract.links#t1",
+          "kind": "property",
+          "text": "For every well-formed Link, generated from the step schemas with arbitraries that follow the ordering rules, encoding and then decoding gives the same steps, and encoding gives the same path each time."
+        },
+        {
+          "id": "spec.contract.links#t2",
+          "kind": "example",
+          "text": "Quotes and file paths that contain `/`, `%`, spaces, emoji and surrogate pairs come back unchanged after encoding and decoding."
+        },
+        {
+          "id": "spec.contract.links#t3",
+          "kind": "example",
+          "text": "The path for `cairn link prd.code-view t74 --file packages/cli/src/api.ts --line 40` is `/section/prd.code-view/task/t74/diff/<sha>/file/packages%2Fcli%2Fsrc%2Fapi.ts/lines/n40`."
+        },
+        {
+          "id": "spec.contract.links#t4",
+          "kind": "example",
+          "text": "A `file` step with no diff before it is refused, with an error that names the step and the field."
+        },
+        {
+          "id": "spec.contract.links#t5",
+          "kind": "example",
+          "text": "A `lines` step that does not follow a `file` step is refused, with an error that names the step and the field."
+        },
+        {
+          "id": "spec.contract.links#t6",
+          "kind": "example",
+          "text": "A `task` step after a `commit` step is refused, with an error that names the step and the field."
+        },
+        {
+          "id": "spec.contract.links#t7",
+          "kind": "example",
+          "text": "`/lines/n42-40` is refused, with an error that names the step and the field."
+        },
+        {
+          "id": "spec.contract.links#t8",
+          "kind": "example",
+          "text": "A bad SHA is refused, with an error that names the step and the field."
+        },
+        {
+          "id": "spec.contract.links#t9",
+          "kind": "example",
+          "text": "A bad percent-encoding is refused, with an error that names the step and the field."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.contract.links#d1",
+          "text": "One Schema in link.ts is the only definition of a link. Both the viewer's route and `cairn link` go through it.",
+          "why": "So a printed link and a copied link are always the same text."
+        },
+        {
+          "id": "spec.contract.links#d2",
+          "text": "A stack is named by its root task, not by its number.",
+          "why": "Numbers move when the plan changes, and a root's ID does not."
+        },
+        {
+          "id": "spec.contract.links#d3",
+          "text": "A line is addressed by a side (new or old) and a line number.",
+          "why": "So the same link works in both the unified view and the split view."
+        },
+        {
+          "id": "spec.contract.links#d4",
+          "text": "Notes are not stored yet (see spec.sessions.trace-store). Only the note step and NoteId are defined.",
+          "why": null
+        },
+        {
+          "id": "spec.contract.links#d5",
+          "text": "NoteId follows the pattern of SessionId, and the notes work stores notes under it.",
+          "why": null
+        },
+        {
+          "id": "spec.contract.links#d6",
+          "text": "No step name is `api`, `presence` or `assets`.",
+          "why": "So a link never collides with a server route or a built file."
+        }
+      ],
+      "writtenFrom": {
+        "body": "e2b3f647396a4e293726c937319d76d1c2a6c7e2018cdbab610451f48e19fb12",
+        "prd": {
+          "prd.deep-links.targets": "8330a082a2ee90606bd661cdfa4a1e12314e947fe863a702c45f18fb4f23a6a5",
+          "prd.deep-links.composing": "2807222bfc2fa92c4632050728c7037758270f5c1cb9197a8d2cc2b2810d29e8"
+        }
+      }
+    },
+    {
       "id": "spec.sections",
       "title": "Sections",
       "level": 2,
-      "line": 457,
+      "line": 523,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.sections.parsing", "spec.sections.cairn-ids"],
       "human": false,
@@ -1816,7 +2236,7 @@
       "id": "spec.sections.parsing",
       "title": "Parsing",
       "level": 3,
-      "line": 459,
+      "line": 525,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -1867,74 +2287,74 @@
       "artifacts": [
         {
           "id": "spec.sections.parsing#function:sectionsof",
-          "location": "packages/core/src/sections.ts",
           "kind": "function",
           "name": "sectionsOf",
+          "location": "packages/core/src/sections.ts",
           "description": "Returns every heading outside a fence as a Section.",
           "signature": "sectionsOf(markdown)"
         },
         {
           "id": "spec.sections.parsing#type:section",
-          "location": "packages/core/src/sections.ts",
           "kind": "type",
           "name": "Section",
+          "location": "packages/core/src/sections.ts",
           "description": "A parsed heading.",
           "fields": [
             {
+              "description": "Section ID",
               "name": "id",
-              "type": "SectionId | undefined",
               "optional": false,
-              "description": "Section ID"
+              "type": "SectionId | undefined"
             },
             {
+              "description": "Heading level",
               "name": "level",
-              "type": "number",
               "optional": false,
-              "description": "Heading level"
+              "type": "number"
             },
             {
+              "description": "Title without the {#id}",
               "name": "title",
-              "type": "string",
               "optional": false,
-              "description": "Title without the {#id}"
+              "type": "string"
             },
             {
+              "description": "1-based, for lint output",
               "name": "line",
-              "type": "number",
               "optional": false,
-              "description": "1-based, for lint output"
+              "type": "number"
             },
             {
+              "description": "Parent section ID",
               "name": "parent",
-              "type": "SectionId | undefined",
               "optional": false,
-              "description": "Parent section ID"
+              "type": "SectionId | undefined"
             },
             {
+              "description": "Up to the next heading of any level",
               "name": "body",
-              "type": "string",
               "optional": false,
-              "description": "Up to the next heading of any level"
+              "type": "string"
             },
             {
+              "description": "Its body or an ancestor's body has <!-- human -->",
               "name": "human",
-              "type": "boolean",
               "optional": false,
-              "description": "Its body or an ancestor's body has <!-- human -->"
+              "type": "boolean"
             },
             {
+              "description": "Own keys plus inherited ones",
               "name": "keys",
-              "type": "{ implements; files; dependsOn; defers; context }",
               "optional": false,
-              "description": "Own keys plus inherited ones"
+              "type": "{ implements; files; dependsOn; defers; context }"
             }
           ]
         },
         {
           "id": "spec.sections.parsing#function:assignsectionids",
-          "location": "packages/core/src/section-ids.ts",
           "kind": "function",
           "name": "assignSectionIds",
+          "location": "packages/core/src/section-ids.ts",
           "description": "Existing function whose fence and heading rules sectionsOf reuses."
         }
       ],
@@ -1957,7 +2377,7 @@
       "id": "spec.sections.cairn-ids",
       "title": "`cairn ids`",
       "level": 3,
-      "line": 481,
+      "line": 547,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -1993,17 +2413,17 @@
       "artifacts": [
         {
           "id": "spec.sections.cairn-ids#command:cairn-ids",
-          "location": "packages/cli/src/commands/ids.ts",
           "kind": "command",
           "name": "cairn ids",
+          "location": "packages/cli/src/commands/ids.ts",
           "description": "Assigns missing section IDs in prd.md and spec.md.",
           "signature": "cairn ids [--check]"
         },
         {
           "id": "spec.sections.cairn-ids#flag:check",
-          "location": null,
           "kind": "flag",
           "name": "--check",
+          "location": null,
           "description": "Writes nothing and exits 1 if any heading lacks an ID."
         }
       ],
@@ -2021,7 +2441,7 @@
       "id": "spec.gates",
       "title": "Gates",
       "level": 2,
-      "line": 489,
+      "line": 555,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.gates.path-matching", "spec.gates.detection"],
       "human": false,
@@ -2045,7 +2465,7 @@
       "id": "spec.gates.path-matching",
       "title": "Path matching",
       "level": 3,
-      "line": 491,
+      "line": 557,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -2076,9 +2496,9 @@
       "artifacts": [
         {
           "id": "spec.gates.path-matching#function:path-matchesglob",
-          "location": null,
           "kind": "function",
           "name": "path.matchesGlob",
+          "location": null,
           "description": "Node glob matcher used for gate patterns."
         }
       ],
@@ -2101,7 +2521,7 @@
       "id": "spec.gates.detection",
       "title": "Detection",
       "level": 3,
-      "line": 500,
+      "line": 566,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -2142,9 +2562,9 @@
       "artifacts": [
         {
           "id": "spec.gates.detection#function:gateof",
-          "location": "packages/core/src/gates.ts",
           "kind": "function",
           "name": "gateOf",
+          "location": "packages/core/src/gates.ts",
           "description": "Returns the gate decision for a task.",
           "signature": "gateOf(task, sections, config, changedFiles) returns { required, reasons }"
         }
@@ -2162,7 +2582,7 @@
       "id": "spec.models",
       "title": "Models",
       "level": 2,
-      "line": 513,
+      "line": 579,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -2407,7 +2827,7 @@
       "id": "spec.planning",
       "title": "Planning",
       "level": 2,
-      "line": 563,
+      "line": 629,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.planning.planner-service",
@@ -2438,7 +2858,7 @@
       "id": "spec.planning.planner-service",
       "title": "Planner service",
       "level": 3,
-      "line": 565,
+      "line": 631,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2534,77 +2954,77 @@
       "artifacts": [
         {
           "id": "spec.planning.planner-service#service:planner",
-          "location": "packages/cli/src/planner.ts",
           "kind": "service",
           "name": "Planner",
+          "location": "packages/cli/src/planner.ts",
           "description": "Service with a live layer (effect/ai, Anthropic) and a test layer replaying fixtures."
         },
         {
           "id": "spec.planning.planner-service#function:spec",
-          "location": "packages/cli/src/planner.ts",
           "kind": "function",
           "name": "spec",
+          "location": "packages/cli/src/planner.ts",
           "description": "Returns spec markdown from the PRD.",
           "signature": "spec(prd)"
         },
         {
           "id": "spec.planning.planner-service#function:tasks",
-          "location": "packages/cli/src/planner.ts",
           "kind": "function",
           "name": "tasks",
+          "location": "packages/cli/src/planner.ts",
           "description": "Returns TaskDraft[] as structured output.",
           "signature": "tasks(prd, spec)"
         },
         {
           "id": "spec.planning.planner-service#schema:taskdraft",
-          "location": null,
           "kind": "schema",
           "name": "TaskDraft",
+          "location": null,
           "description": "Schema decoding the structured task output.",
           "fields": [
             {
+              "description": "Task title",
               "name": "title",
-              "type": "string",
               "optional": false,
-              "description": "Task title"
+              "type": "string"
             },
             {
+              "description": "Linked sections",
               "name": "PRD and spec sections",
-              "type": "section IDs",
               "optional": false,
-              "description": "Linked sections"
+              "type": "section IDs"
             },
             {
+              "description": "Files",
               "name": "files",
-              "type": "string[]",
               "optional": false,
-              "description": "Files"
+              "type": "string[]"
             },
             {
+              "description": "The drafts it depends on",
               "name": "depends on",
-              "type": "drafts",
               "optional": false,
-              "description": "The drafts it depends on"
+              "type": "drafts"
             },
             {
+              "description": "Model",
               "name": "model",
-              "type": "string",
               "optional": false,
-              "description": "Model"
+              "type": "string"
             },
             {
+              "description": "Reasoning",
               "name": "reasoning",
-              "type": "string",
               "optional": false,
-              "description": "Reasoning"
+              "type": "string"
             }
           ]
         },
         {
           "id": "spec.planning.planner-service#type:plannererror",
-          "location": null,
           "kind": "type",
           "name": "PlannerError",
+          "location": null,
           "description": "Error raised when decode fails twice (and on a stack cycle)."
         },
         {
@@ -2659,7 +3079,7 @@
       "id": "spec.planning.stack-order",
       "title": "Stack order",
       "level": 3,
-      "line": 588,
+      "line": 654,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2787,7 +3207,7 @@
       "id": "spec.planning.cairn-plan",
       "title": "`cairn plan`",
       "level": 3,
-      "line": 1060,
+      "line": 1168,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -2880,31 +3300,31 @@
       "artifacts": [
         {
           "id": "spec.planning.cairn-plan#command:cairn-plan",
-          "location": "packages/cli/src/commands/plan.ts",
           "kind": "command",
           "name": "cairn plan",
+          "location": "packages/cli/src/commands/plan.ts",
           "description": "Plans the task stack and writes manifest.json.",
           "signature": "cairn plan [--spec] [--respec] [--yes] [--dry-run] [--accept <section>]"
         },
         {
           "id": "spec.planning.cairn-plan#flag:respec",
-          "location": null,
           "kind": "flag",
           "name": "--respec",
+          "location": null,
           "description": "Writes the whole spec again and plans from nothing; refused once a task has left pending."
         },
         {
           "id": "spec.planning.cairn-plan#flag:yes",
-          "location": null,
           "kind": "flag",
           "name": "--yes",
+          "location": null,
           "description": "Answers yes to both questions."
         },
         {
           "id": "spec.planning.cairn-plan#flag:spec",
-          "location": null,
           "kind": "flag",
           "name": "--spec",
+          "location": null,
           "description": "Stops after the spec step without asking."
         }
       ],
@@ -2949,7 +3369,7 @@
       "id": "spec.planning.again",
       "title": "Planning again",
       "level": 3,
-      "line": 1091,
+      "line": 1199,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -3026,9 +3446,9 @@
         },
         {
           "id": "spec.planning.again#flag:accept",
-          "location": null,
           "kind": "flag",
           "name": "--accept",
+          "location": null,
           "description": "Records a stale section's current hashes and changes nothing else."
         }
       ],
@@ -3072,7 +3492,7 @@
       "id": "spec.planning.stack-diagram",
       "title": "Stack diagram",
       "level": 3,
-      "line": 1114,
+      "line": 1222,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -3180,7 +3600,7 @@
       "id": "spec.planning.dry-run",
       "title": "Dry runs",
       "level": 3,
-      "line": 1131,
+      "line": 1239,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -3216,30 +3636,30 @@
       "artifacts": [
         {
           "id": "spec.planning.dry-run#flag:dry-run",
-          "location": null,
           "kind": "flag",
           "name": "--dry-run",
+          "location": null,
           "description": "Plans in memory and writes nothing."
         },
         {
           "id": "spec.planning.dry-run#flag:source",
-          "location": null,
           "kind": "flag",
           "name": "--source",
+          "location": null,
           "description": "Replaces planner.source for one run."
         },
         {
           "id": "spec.planning.dry-run#flag:provider",
-          "location": null,
           "kind": "flag",
           "name": "--provider",
+          "location": null,
           "description": "Replaces planner.provider for one run."
         },
         {
           "id": "spec.planning.dry-run#flag:model",
-          "location": null,
           "kind": "flag",
           "name": "--model",
+          "location": null,
           "description": "Replaces planner.model for one run."
         }
       ],
@@ -3272,7 +3692,7 @@
       "id": "spec.lint",
       "title": "Lint",
       "level": 2,
-      "line": 1143,
+      "line": 1251,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -3372,98 +3792,98 @@
       "artifacts": [
         {
           "id": "spec.lint#function:lint",
-          "location": "packages/core/src/lint.ts",
           "kind": "function",
           "name": "lint",
+          "location": "packages/core/src/lint.ts",
           "description": "Pure function returning findings.",
           "signature": "lint(prd, spec, manifest, config)"
         },
         {
           "id": "spec.lint#type:finding",
-          "location": "packages/core/src/lint.ts",
           "kind": "type",
           "name": "Finding",
+          "location": "packages/core/src/lint.ts",
           "description": "One lint finding, `{ rule, severity, file, line, message }`; the command prints it as `file:line rule message`.",
           "fields": [
             {
+              "description": "The lint rule that fired, e.g. unknown-section",
               "name": "rule",
-              "type": "string",
               "optional": false,
-              "description": "The lint rule that fired, e.g. unknown-section"
+              "type": "string"
             },
             {
+              "description": "Any error makes cairn lint exit 1",
               "name": "severity",
-              "type": "\"error\" | \"warning\"",
               "optional": false,
-              "description": "Any error makes cairn lint exit 1"
+              "type": "\"error\" | \"warning\""
             },
             {
+              "description": "The file the problem is in, e.g. .cairn/spec.md",
               "name": "file",
-              "type": "string",
               "optional": false,
-              "description": "The file the problem is in, e.g. .cairn/spec.md"
+              "type": "string"
             },
             {
+              "description": "1-based line of the problem",
               "name": "line",
-              "type": "number",
               "optional": false,
-              "description": "1-based line of the problem"
+              "type": "number"
             },
             {
+              "description": "What is wrong and how to fix it",
               "name": "message",
-              "type": "string",
               "optional": false,
-              "description": "What is wrong and how to fix it"
+              "type": "string"
             }
           ]
         },
         {
           "id": "spec.lint#command:cairn-lint",
-          "location": "packages/cli/src/commands/lint.ts",
           "kind": "command",
           "name": "cairn lint",
+          "location": "packages/cli/src/commands/lint.ts",
           "description": "Prints findings as file:line rule message and exits 1 on any error."
         },
         {
           "id": "spec.lint#lint-rule:unknown-section",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "unknown-section",
+          "location": "packages/core/src/lint.ts",
           "description": "error: fires when A task or spec key names an ID that no heading has, including a deleted heading."
         },
         {
           "id": "spec.lint#lint-rule:unmapped-section",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "unmapped-section",
+          "location": "packages/core/src/lint.ts",
           "description": "error: fires when A PRD section is not covered (see spec.format)."
         },
         {
           "id": "spec.lint#lint-rule:missing-id",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "missing-id",
+          "location": "packages/core/src/lint.ts",
           "description": "error: fires when A heading has no ID. The message says to run cairn ids."
         },
         {
           "id": "spec.lint#lint-rule:duplicate-id",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "duplicate-id",
+          "location": "packages/core/src/lint.ts",
           "description": "error: fires when Two headings share an ID."
         },
         {
           "id": "spec.lint#lint-rule:wrong-prefix",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "wrong-prefix",
+          "location": "packages/core/src/lint.ts",
           "description": "error: fires when A spec. ID in prd.md, or the reverse."
         },
         {
           "id": "spec.lint#lint-rule:bad-parent",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "bad-parent",
+          "location": "packages/core/src/lint.ts",
           "description": "error: fires when a parent or dependency is not in the manifest, or there is a cycle."
         },
         {
@@ -3482,16 +3902,16 @@
         },
         {
           "id": "spec.lint#lint-rule:gate-mismatch",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "gate-mismatch",
+          "location": "packages/core/src/lint.ts",
           "description": "error: fires when humanGate differs from what plan-time detection computes."
         },
         {
           "id": "spec.lint#lint-rule:no-commits-landed",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "no-commits-landed",
+          "location": "packages/core/src/lint.ts",
           "description": "warning: fires when A task is landed with no commits."
         },
         {
@@ -3503,30 +3923,30 @@
         },
         {
           "id": "spec.lint#lint-rule:bad-diagram",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "bad-diagram",
+          "location": "packages/core/src/lint.ts",
           "description": "error: fires when a Mermaid block in prd.md or spec.md does not draw."
         },
         {
           "id": "spec.lint#lint-rule:diagram-drift",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "diagram-drift",
+          "location": "packages/core/src/lint.ts",
           "description": "error: fires when the text between the stack diagram's markers differs from stackDiagramOf(manifest)."
         },
         {
           "id": "spec.lint#lint-rule:stale-section",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "stale-section",
+          "location": "packages/core/src/lint.ts",
           "description": "warning: fires when a spec section implements a PRD section that changed after the spec section was written."
         },
         {
           "id": "spec.lint#lint-rule:stale-task",
-          "location": "packages/core/src/lint.ts",
           "kind": "lint-rule",
           "name": "stale-task",
+          "location": "packages/core/src/lint.ts",
           "description": "warning: fires when a task builds a spec section that is stale or was edited after the task was planned."
         },
         {
@@ -3552,7 +3972,7 @@
       "id": "spec.judging",
       "title": "Judging",
       "level": 2,
-      "line": 1171,
+      "line": 1279,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.judging.questions",
@@ -3601,7 +4021,7 @@
       "id": "spec.judging.questions",
       "title": "Questions",
       "level": 3,
-      "line": 1177,
+      "line": 1285,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3708,7 +4128,7 @@
       "id": "spec.judging.verdicts",
       "title": "Verdicts",
       "level": 3,
-      "line": 1201,
+      "line": 1309,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3822,7 +4242,7 @@
       "id": "spec.judging.judge-service",
       "title": "Judge service",
       "level": 3,
-      "line": 1216,
+      "line": 1324,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -3916,7 +4336,7 @@
       "id": "spec.judging.checkpoints",
       "title": "Checkpoints",
       "level": 3,
-      "line": 1227,
+      "line": 1335,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -4022,7 +4442,7 @@
       "id": "spec.judging.cairn-judge",
       "title": "`cairn judge`",
       "level": 3,
-      "line": 1249,
+      "line": 1357,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -4099,7 +4519,7 @@
       "id": "spec.status",
       "title": "Status",
       "level": 2,
-      "line": 1260,
+      "line": 1368,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.status.task-machine",
@@ -4129,7 +4549,7 @@
       "id": "spec.status.task-machine",
       "title": "Task machine",
       "level": 3,
-      "line": 1262,
+      "line": 1370,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -4165,37 +4585,37 @@
       "artifacts": [
         {
           "id": "spec.status.task-machine#machine-state:failed",
-          "location": "packages/core/src/task-machine.ts",
           "kind": "machine-state",
           "name": "failed",
+          "location": "packages/core/src/task-machine.ts",
           "description": "Entered from running on fail; start returns to running."
         },
         {
           "id": "spec.status.task-machine#machine-event:fail",
-          "location": null,
           "kind": "machine-event",
           "name": "fail",
+          "location": null,
           "description": "Moves running to failed."
         },
         {
           "id": "spec.status.task-machine#machine-event:start",
-          "location": null,
           "kind": "machine-event",
           "name": "start",
+          "location": null,
           "description": "Takes failed back to running."
         },
         {
           "id": "spec.status.task-machine#machine-event:approve",
-          "location": null,
           "kind": "machine-event",
           "name": "approve",
+          "location": null,
           "description": "The only way a gated task reaches done."
         },
         {
           "id": "spec.status.task-machine#machine-event:land",
-          "location": null,
           "kind": "machine-event",
           "name": "land",
+          "location": null,
           "description": "Ignored outside done."
         }
       ],
@@ -4218,7 +4638,7 @@
       "id": "spec.status.derivation",
       "title": "Derivation",
       "level": 3,
-      "line": 1270,
+      "line": 1378,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -4284,25 +4704,25 @@
       "artifacts": [
         {
           "id": "spec.status.derivation#function:derive",
-          "location": "packages/core/src/derive.ts",
           "kind": "function",
           "name": "derive",
+          "location": "packages/core/src/derive.ts",
           "description": "Recomputes every task's status from scratch.",
           "signature": "derive(manifest, sections, config, events, commits)"
         },
         {
           "id": "spec.status.derivation#status:waiting",
-          "location": null,
           "kind": "status",
           "name": "waiting",
+          "location": null,
           "description": "A pending task with a blocked_on_human task below it.",
           "values": ["waiting"]
         },
         {
           "id": "spec.status.derivation#machine-event:finish",
-          "location": null,
           "kind": "machine-event",
           "name": "finish",
+          "location": null,
           "description": "Sent for a blocked_on_human event, and for a done event unless the task is in blocked_on_human and the actor is human."
         }
       ],
@@ -4331,7 +4751,7 @@
       "id": "spec.status.section-rollup",
       "title": "Section rollup",
       "level": 3,
-      "line": 1291,
+      "line": 1399,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -4387,9 +4807,9 @@
       "artifacts": [
         {
           "id": "spec.status.section-rollup#type:sectionstatus",
-          "location": "packages/contract",
           "kind": "type",
           "name": "SectionStatus",
+          "location": "packages/contract",
           "description": "Section status, in the contract next to TaskStatus.",
           "values": [
             "deferred",
@@ -4418,7 +4838,7 @@
       "id": "spec.status.cairn-status-and-cairn-approve",
       "title": "`cairn status` and `cairn approve`",
       "level": 3,
-      "line": 1307,
+      "line": 1415,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -4473,32 +4893,32 @@
       "artifacts": [
         {
           "id": "spec.status.cairn-status-and-cairn-approve#command:cairn-status",
-          "location": "packages/cli/src/commands/status.ts",
           "kind": "command",
           "name": "cairn status",
+          "location": "packages/cli/src/commands/status.ts",
           "description": "Prints the stack top to bottom with warnings.",
           "signature": "cairn status [--json]"
         },
         {
           "id": "spec.status.cairn-status-and-cairn-approve#flag:json",
-          "location": null,
           "kind": "flag",
           "name": "--json",
+          "location": null,
           "description": "Prints the Trace the server serves."
         },
         {
           "id": "spec.status.cairn-status-and-cairn-approve#command:cairn-approve",
-          "location": "packages/cli/src/commands/approve.ts",
           "kind": "command",
           "name": "cairn approve",
+          "location": "packages/cli/src/commands/approve.ts",
           "description": "Approves a gated task; the only way to approve a gate.",
           "signature": "cairn approve <taskId>"
         },
         {
           "id": "spec.status.cairn-status-and-cairn-approve#function:git-log",
-          "location": "packages/cli/src/git.ts",
           "kind": "function",
           "name": "Git.log",
+          "location": "packages/cli/src/git.ts",
           "description": "Reads each task branch with git log and trailers, and git show --name-only for changed files."
         }
       ],
@@ -4522,7 +4942,7 @@
       "id": "spec.status.trailer-check",
       "title": "Trailer check",
       "level": 3,
-      "line": 1319,
+      "line": 1427,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -4569,9 +4989,9 @@
       "artifacts": [
         {
           "id": "spec.status.trailer-check#file:commit-msg",
-          "location": "scripts/trailers/commit-msg.ts",
           "kind": "file",
           "name": "commit-msg.ts",
+          "location": "scripts/trailers/commit-msg.ts",
           "description": "The commit-msg check for task trailers."
         }
       ],
@@ -4594,7 +5014,7 @@
       "id": "spec.sessions",
       "title": "Sessions",
       "level": 2,
-      "line": 1327,
+      "line": 1435,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.sessions.trace-store",
@@ -4623,7 +5043,7 @@
       "id": "spec.sessions.trace-store",
       "title": "Trace store",
       "level": 3,
-      "line": 1329,
+      "line": 1437,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -4687,58 +5107,58 @@
           "description": "Stored redacted agent sessions.",
           "fields": [
             {
+              "description": "Session ID, s_...",
               "name": "id",
-              "type": "text primary key",
               "optional": false,
-              "description": "Session ID, s_..."
+              "type": "text primary key"
             },
             {
+              "description": "Task the session belongs to",
               "name": "task_id",
-              "type": "text not null",
               "optional": false,
-              "description": "Task the session belongs to"
+              "type": "text not null"
             },
             {
+              "description": "Agent name",
               "name": "agent",
-              "type": "text",
               "optional": true,
-              "description": "Agent name"
+              "type": "text"
             },
             {
+              "description": "Model name",
               "name": "model",
-              "type": "text",
               "optional": true,
-              "description": "Model name"
+              "type": "text"
             },
             {
+              "description": "Start time",
               "name": "started_at",
-              "type": "text",
               "optional": true,
-              "description": "Start time"
+              "type": "text"
             },
             {
+              "description": "End time",
               "name": "ended_at",
-              "type": "text",
               "optional": true,
-              "description": "End time"
+              "type": "text"
             },
             {
+              "description": "Redacted JSONL",
               "name": "log",
-              "type": "text not null",
               "optional": false,
-              "description": "Redacted JSONL"
+              "type": "text not null"
             },
             {
+              "description": "JSON: count per kind",
               "name": "redactions",
-              "type": "text not null",
               "optional": false,
-              "description": "JSON: count per kind"
+              "type": "text not null"
             },
             {
+              "description": "Storage time",
               "name": "stored_at",
-              "type": "text not null",
               "optional": false,
-              "description": "Storage time"
+              "type": "text not null"
             }
           ]
         },
@@ -4787,7 +5207,7 @@
       "id": "spec.sessions.redaction",
       "title": "Redaction",
       "level": 3,
-      "line": 1360,
+      "line": 1468,
       "parent": "spec.sessions",
       "children": [],
       "human": true,
@@ -4911,7 +5331,7 @@
       "id": "spec.sessions.cairn-session",
       "title": "`cairn session`",
       "level": 3,
-      "line": 1379,
+      "line": 1487,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -4977,7 +5397,7 @@
       "id": "spec.sessions.reading",
       "title": "Reading a session",
       "level": 3,
-      "line": 1389,
+      "line": 1497,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -5049,7 +5469,7 @@
       "id": "spec.orchestrator-adapter",
       "title": "Orchestrator adapter",
       "level": 2,
-      "line": 1414,
+      "line": 1522,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -5276,9 +5696,9 @@
       "id": "spec.cli",
       "title": "CLI",
       "level": 2,
-      "line": 1432,
+      "line": 1540,
       "parent": "spec.cairn-mvp-spec",
-      "children": [],
+      "children": ["spec.cli.cairn-link"],
       "human": false,
       "implements": ["prd.cli", "prd.repo-layout"],
       "files": [
@@ -5367,10 +5787,357 @@
       }
     },
     {
+      "id": "spec.cli.cairn-link",
+      "title": "`cairn link`",
+      "level": 3,
+      "line": 1549,
+      "parent": "spec.cli",
+      "children": [],
+      "human": false,
+      "implements": ["prd.deep-links.agents"],
+      "files": [
+        "packages/cli/src/commands/link.ts",
+        "packages/cli/src/link-args.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/link.test.ts",
+        "AGENTS.md"
+      ],
+      "dependsOn": [
+        "spec.contract.links",
+        "spec.sections.parsing",
+        "spec.status.cairn-status-and-cairn-approve"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t119"],
+      "summary": "Builds the `cairn link` CLI command. It turns its arguments, in the order given, into viewer link steps and prints the encoded path, by default with the `cairn serve` origin. It checks sections, tasks, commits and roots before printing. The section also sets the rule that agents and the orchestrator name places with `cairn link`.",
+      "requirements": [
+        {
+          "id": "spec.cli.cairn-link#r1",
+          "level": "must",
+          "text": "`cairn link` prints a link into the viewer. It builds the steps from its arguments in the order they are given and writes the path with `LinkFromPath`, so its output is the path the viewer copies."
+        },
+        {
+          "id": "spec.cli.cairn-link#r2",
+          "level": "must",
+          "text": "`stepsOfArgs(tokens, plan)` in `link-args.ts` reads the arguments left to right and is pure."
+        },
+        {
+          "id": "spec.cli.cairn-link#r3",
+          "level": "must",
+          "text": "A token starting with `prd.` or `spec.` becomes a `section` step."
+        },
+        {
+          "id": "spec.cli.cairn-link#r4",
+          "level": "must",
+          "text": "`--passage <text>` right after a section token turns that step into a `passage` step, with the text collapsed the way a quote is."
+        },
+        {
+          "id": "spec.cli.cairn-link#r5",
+          "level": "must",
+          "text": "A token that is a task ID in the manifest becomes a `task` step."
+        },
+        {
+          "id": "spec.cli.cairn-link#r6",
+          "level": "must",
+          "text": "`--commit <sha>` becomes a `commit` step."
+        },
+        {
+          "id": "spec.cli.cairn-link#r7",
+          "level": "must",
+          "text": "`--file <path>` becomes a `file` step. When it follows a `task`, it first adds a `diff` step at the task's newest commit, read with `Git.log`."
+        },
+        {
+          "id": "spec.cli.cairn-link#r8",
+          "level": "must",
+          "text": "`--line <n>` or `--line <n>-<m>` becomes a `lines` step on the new side. `--old` before it puts the step on the old side."
+        },
+        {
+          "id": "spec.cli.cairn-link#r9",
+          "level": "must",
+          "text": "`--stack <root>`, `--segment <root>`, `--turn <session>/<turn>` and `--note <id>` each become their own step."
+        },
+        {
+          "id": "spec.cli.cairn-link#r10",
+          "level": "must",
+          "text": "The command declares every option to `effect/cli`, so `--help` lists each option and `effect/cli` validates its value."
+        },
+        {
+          "id": "spec.cli.cairn-link#r11",
+          "level": "must",
+          "text": "The command takes the order of its steps from the raw tokens after `link`, not from `effect/cli`'s parsed result."
+        },
+        {
+          "id": "spec.cli.cairn-link#r12",
+          "level": "must",
+          "text": "Before printing, the command checks that each section ID is a heading in `prd.md` or `spec.md`."
+        },
+        {
+          "id": "spec.cli.cairn-link#r13",
+          "level": "must",
+          "text": "Before printing, the command checks that each task is in the manifest."
+        },
+        {
+          "id": "spec.cli.cairn-link#r14",
+          "level": "must",
+          "text": "Before printing, the command checks that a commit is known to git and, when it follows a task, carries that task's `Cairn-Task` trailer."
+        },
+        {
+          "id": "spec.cli.cairn-link#r15",
+          "level": "must",
+          "text": "Before printing, the command checks that a stack or segment root has `parent: null`."
+        },
+        {
+          "id": "spec.cli.cairn-link#r16",
+          "level": "must",
+          "text": "Before printing, the command checks that a task followed by `--file` has commits."
+        },
+        {
+          "id": "spec.cli.cairn-link#r17",
+          "level": "must",
+          "text": "Before printing, the command checks that the steps are well formed."
+        },
+        {
+          "id": "spec.cli.cairn-link#r18",
+          "level": "must",
+          "text": "A failed check exits with code 1 and a message naming the token, such as `unknown section prd.code-veiw`, `t74 has no commits, so it has no diff yet` or `--line must follow --file`."
+        },
+        {
+          "id": "spec.cli.cairn-link#r19",
+          "level": "must-not",
+          "text": "The command does not check that a passage, a file or a line is still there. The viewer reports any that are missing."
+        },
+        {
+          "id": "spec.cli.cairn-link#r20",
+          "level": "must",
+          "text": "The printed link is `http://localhost:4310` (the port `cairn serve` uses) followed by the path."
+        },
+        {
+          "id": "spec.cli.cairn-link#r21",
+          "level": "must",
+          "text": "`--base <url>` sets another origin for the printed link. `--base \"\"` prints the path alone."
+        },
+        {
+          "id": "spec.cli.cairn-link#r22",
+          "level": "must-not",
+          "text": "The command reads files and git and never writes."
+        },
+        {
+          "id": "spec.cli.cairn-link#r23",
+          "level": "must",
+          "text": "`AGENTS.md` says that a pull request description, a gate notice and a board post name the place they are about with `cairn link`, and gives the `cairn link prd.code-view t74 --file packages/cli/src/api.ts --line 40` example."
+        },
+        {
+          "id": "spec.cli.cairn-link#r24",
+          "level": "must",
+          "text": "The `detail` of a `blocked_on_human` event emitted by the orchestrator ends with `cairn link <task>`."
+        },
+        {
+          "id": "spec.cli.cairn-link#r25",
+          "level": "must",
+          "text": "A pull request opened by `gt submit` links its task and the task's first PRD section."
+        },
+        {
+          "id": "spec.cli.cairn-link#r26",
+          "level": "must",
+          "text": "Once there is a message board adapter, board posts name the place they are about with `cairn link`."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.cli.cairn-link#command:cairn-link",
+          "kind": "command",
+          "name": "cairn link",
+          "location": "packages/cli/src/commands/link.ts",
+          "description": "CLI command that builds viewer link steps from its arguments, checks them, and prints the link.",
+          "signature": "cairn link <tokens...> [--base <url>]"
+        },
+        {
+          "id": "spec.cli.cairn-link#function:steps-of-args",
+          "kind": "function",
+          "name": "stepsOfArgs",
+          "location": "packages/cli/src/link-args.ts",
+          "description": "Pure function that reads the raw tokens after `link` left to right and turns them into link steps.",
+          "signature": "stepsOfArgs(tokens, plan)"
+        },
+        {
+          "id": "spec.cli.cairn-link#schema:link-from-path",
+          "kind": "schema",
+          "name": "LinkFromPath",
+          "location": null,
+          "description": "Codec between viewer link steps and a path. The command uses it to write the printed path, and tests use it to decode the path back to steps."
+        },
+        {
+          "id": "spec.cli.cairn-link#function:git-log",
+          "kind": "function",
+          "name": "Git.log",
+          "location": null,
+          "description": "Git operation used to read a task's newest commit, which becomes the head of the `diff` step added before `--file`."
+        },
+        {
+          "id": "spec.cli.cairn-link#flag:passage",
+          "kind": "flag",
+          "name": "--passage",
+          "location": "packages/cli/src/commands/link.ts",
+          "description": "Given right after a section token, turns that section step into a `passage` step with the given text, collapsed the way a quote is.",
+          "signature": "--passage <text>"
+        },
+        {
+          "id": "spec.cli.cairn-link#flag:commit",
+          "kind": "flag",
+          "name": "--commit",
+          "location": "packages/cli/src/commands/link.ts",
+          "description": "Adds a `commit` step for the given sha.",
+          "signature": "--commit <sha>"
+        },
+        {
+          "id": "spec.cli.cairn-link#flag:file",
+          "kind": "flag",
+          "name": "--file",
+          "location": "packages/cli/src/commands/link.ts",
+          "description": "Adds a `file` step. After a task, it first adds a `diff` step at the task's newest commit.",
+          "signature": "--file <path>"
+        },
+        {
+          "id": "spec.cli.cairn-link#flag:line",
+          "kind": "flag",
+          "name": "--line",
+          "location": "packages/cli/src/commands/link.ts",
+          "description": "Adds a `lines` step for one line or a range, on the new side unless `--old` comes before it. Must follow `--file`.",
+          "signature": "--line <n> | --line <n>-<m>"
+        },
+        {
+          "id": "spec.cli.cairn-link#flag:old",
+          "kind": "flag",
+          "name": "--old",
+          "location": "packages/cli/src/commands/link.ts",
+          "description": "Placed before `--line`, puts the lines step on the old side.",
+          "signature": "--old"
+        },
+        {
+          "id": "spec.cli.cairn-link#flag:stack",
+          "kind": "flag",
+          "name": "--stack",
+          "location": "packages/cli/src/commands/link.ts",
+          "description": "Adds a `stack` step for the given root. The root must have `parent: null`.",
+          "signature": "--stack <root>"
+        },
+        {
+          "id": "spec.cli.cairn-link#flag:segment",
+          "kind": "flag",
+          "name": "--segment",
+          "location": "packages/cli/src/commands/link.ts",
+          "description": "Adds a `segment` step for the given root. The root must have `parent: null`.",
+          "signature": "--segment <root>"
+        },
+        {
+          "id": "spec.cli.cairn-link#flag:turn",
+          "kind": "flag",
+          "name": "--turn",
+          "location": "packages/cli/src/commands/link.ts",
+          "description": "Adds a `turn` step for the given session and turn.",
+          "signature": "--turn <session>/<turn>"
+        },
+        {
+          "id": "spec.cli.cairn-link#flag:note",
+          "kind": "flag",
+          "name": "--note",
+          "location": "packages/cli/src/commands/link.ts",
+          "description": "Adds a `note` step for the given note ID.",
+          "signature": "--note <id>"
+        },
+        {
+          "id": "spec.cli.cairn-link#flag:base",
+          "kind": "flag",
+          "name": "--base",
+          "location": "packages/cli/src/commands/link.ts",
+          "description": "Sets the origin of the printed link (default `http://localhost:4310`). An empty value prints the path alone.",
+          "signature": "--base <url>"
+        },
+        {
+          "id": "spec.cli.cairn-link#file:agents-md",
+          "kind": "file",
+          "name": "AGENTS.md",
+          "location": "AGENTS.md",
+          "description": "Agent guidance saying that pull request descriptions, gate notices and board posts name the place they are about with `cairn link`, with an example."
+        },
+        {
+          "id": "spec.cli.cairn-link#machine-event:blocked-on-human",
+          "kind": "machine-event",
+          "name": "blocked_on_human",
+          "location": null,
+          "description": "Orchestrator event whose `detail` ends with `cairn link <task>`.",
+          "fields": [
+            {
+              "description": "Human-readable detail. It ends with `cairn link <task>`.",
+              "name": "detail",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.cli.cairn-link#t1",
+          "kind": "example",
+          "text": "With the in-memory `Git` layer and a temporary `.cairn/`, the PRD's example `cairn link prd.code-view t74 --file packages/cli/src/api.ts --line 40` prints the expected path, with the task's newest commit as the head. That path decodes through `LinkFromPath` to the same steps."
+        },
+        {
+          "id": "spec.cli.cairn-link#t2",
+          "kind": "example",
+          "text": "`t74 prd.code-view` and `prd.code-view t74` each print their steps in the order given."
+        },
+        {
+          "id": "spec.cli.cairn-link#t3",
+          "kind": "example",
+          "text": "`--passage` after a section token turns that section step into a passage step."
+        },
+        {
+          "id": "spec.cli.cairn-link#t4",
+          "kind": "example",
+          "text": "An unknown section, an unknown task, `--line` with no `--file`, and `--file` after a task with no commits each exit 1 with a message naming the token."
+        },
+        {
+          "id": "spec.cli.cairn-link#t5",
+          "kind": "example",
+          "text": "`--base \"\"` prints the path alone, with no origin."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.cli.cairn-link#d1",
+          "text": "The command declares every option to `effect/cli`, so it can list them in `--help` and validate their values. It takes the order of the steps from the raw tokens after `link`, not from `effect/cli`'s parsed result.",
+          "why": "`effect/cli` parses options apart from positional arguments and loses their order."
+        },
+        {
+          "id": "spec.cli.cairn-link#d2",
+          "text": "The command does not check that a passage, a file or a line is still there. That check is left to the viewer.",
+          "why": "The viewer reports any that are missing (see `spec.viewer.deep-links.resolving-a-link`)."
+        },
+        {
+          "id": "spec.cli.cairn-link#d3",
+          "text": "The default origin of the printed link is `http://localhost:4310`, and `--base` can override it.",
+          "why": "4310 is the port `cairn serve` uses."
+        },
+        {
+          "id": "spec.cli.cairn-link#d4",
+          "text": "Board posts follow the `cairn link` rule only once there is a message board adapter.",
+          "why": null
+        }
+      ],
+      "writtenFrom": {
+        "body": "df2bc5cd050577a42512e506b954b4239efbba8845145ee3bc5537acc0e2ae73",
+        "prd": {
+          "prd.deep-links.agents": "bc3731405b3b80e4cd6f957fa1c25dc78f19141782d109e3df0b9b9e01ed26bf"
+        }
+      }
+    },
+    {
       "id": "spec.patch-routes",
       "title": "Patch routes",
       "level": 2,
-      "line": 1441,
+      "line": 1601,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -5464,7 +6231,7 @@
       "id": "spec.server",
       "title": "Server",
       "level": 2,
-      "line": 1462,
+      "line": 1622,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -5628,7 +6395,7 @@
       "id": "spec.viewer",
       "title": "Viewer",
       "level": 2,
-      "line": 1485,
+      "line": 1645,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.viewer.model-and-messages",
@@ -5651,7 +6418,8 @@
         "spec.viewer.attribution",
         "spec.viewer.detail-code",
         "spec.viewer.canvas-removal",
-        "spec.viewer.demo-data"
+        "spec.viewer.demo-data",
+        "spec.viewer.deep-links"
       ],
       "human": false,
       "implements": [],
@@ -5674,7 +6442,7 @@
       "id": "spec.viewer.model-and-messages",
       "title": "Model and messages",
       "level": 3,
-      "line": 1487,
+      "line": 1647,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5817,7 +6585,7 @@
       "id": "spec.viewer.markdown-rendering",
       "title": "Markdown rendering",
       "level": 3,
-      "line": 1503,
+      "line": 1663,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -5901,7 +6669,7 @@
       "id": "spec.viewer.design-system",
       "title": "Design system",
       "level": 3,
-      "line": 1512,
+      "line": 1672,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6162,7 +6930,7 @@
       "id": "spec.viewer.reader",
       "title": "Reader",
       "level": 3,
-      "line": 1612,
+      "line": 1772,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6176,7 +6944,8 @@
         "apps/viewer/src/update.ts",
         "apps/viewer/src/view/view.ts",
         "apps/viewer/test/reader.test.ts",
-        "apps/viewer/test/reader.scene.test.ts"
+        "apps/viewer/test/reader.scene.test.ts",
+        "apps/viewer/test/prd-fold.scene.test.ts"
       ],
       "dependsOn": [
         "spec.contract.trace",
@@ -6326,40 +7095,40 @@
           "description": "The reader's own state.",
           "fields": [
             {
+              "description": "The section at the top of the PRD pane, once it is measured.",
               "name": "maybeAtTop",
-              "type": "Option<PrdSectionId>",
               "optional": false,
-              "description": "The section at the top of the PRD pane, once it is measured."
+              "type": "Option<PrdSectionId>"
             },
             {
+              "description": "The section a person pinned.",
               "name": "maybePinned",
-              "type": "Option<PrdSectionId>",
               "optional": false,
-              "description": "The section a person pinned."
+              "type": "Option<PrdSectionId>"
             },
             {
+              "description": "How much of every card shows; see spec.viewer.spec-cards.",
               "name": "density",
-              "type": "\"titles\" | \"summary\" | \"full\"",
               "optional": false,
-              "description": "How much of every card shows; see spec.viewer.spec-cards."
+              "type": "\"titles\" | \"summary\" | \"full\""
             },
             {
+              "description": "Cards opened or closed apart from the density.",
               "name": "opened",
-              "type": "Record<SpecSectionId, boolean>",
               "optional": false,
-              "description": "Cards opened or closed apart from the density."
+              "type": "Record<SpecSectionId, boolean>"
             },
             {
+              "description": "See spec.viewer.models.",
               "name": "isShowingModels",
-              "type": "boolean",
               "optional": false,
-              "description": "See spec.viewer.models."
+              "type": "boolean"
             },
             {
+              "description": "See spec.viewer.panes.",
               "name": "widths",
-              "type": "Widths",
               "optional": false,
-              "description": "See spec.viewer.panes."
+              "type": "Widths"
             }
           ]
         },
@@ -6445,7 +7214,7 @@
       "id": "spec.viewer.spec-cards",
       "title": "Spec cards",
       "level": 3,
-      "line": 1661,
+      "line": 1824,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6616,7 +7385,7 @@
       "id": "spec.viewer.fuzzy-matching",
       "title": "Fuzzy matching",
       "level": 3,
-      "line": 1688,
+      "line": 1851,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6674,7 +7443,7 @@
       "id": "spec.viewer.search-interaction",
       "title": "Search controls and chain highlighting",
       "level": 3,
-      "line": 1707,
+      "line": 1870,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6762,7 +7531,7 @@
       "id": "spec.viewer.prose-search",
       "title": "Prose search and inline highlights",
       "level": 3,
-      "line": 1729,
+      "line": 1892,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6832,7 +7601,7 @@
       "id": "spec.viewer.curves",
       "title": "Curves",
       "level": 3,
-      "line": 1751,
+      "line": 1914,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -6934,28 +7703,28 @@
           "description": "A curve between two measured elements.",
           "fields": [
             {
+              "description": "The key of the element the curve leaves.",
               "name": "from",
-              "type": "string",
               "optional": false,
-              "description": "The key of the element the curve leaves."
+              "type": "string"
             },
             {
+              "description": "The key of the element the curve arrives at.",
               "name": "to",
-              "type": "string",
               "optional": false,
-              "description": "The key of the element the curve arrives at."
+              "type": "string"
             },
             {
+              "description": "The cubic bezier, as SVG path data.",
               "name": "path",
-              "type": "string",
               "optional": false,
-              "description": "The cubic bezier, as SVG path data."
+              "type": "string"
             },
             {
+              "description": "Whether an end was scrolled out of view and had to be moved.",
               "name": "isOffPane",
-              "type": "boolean",
               "optional": false,
-              "description": "Whether an end was scrolled out of view and had to be moved."
+              "type": "boolean"
             }
           ]
         },
@@ -7019,7 +7788,7 @@
       "id": "spec.viewer.stacks",
       "title": "Stacks",
       "level": 3,
-      "line": 1778,
+      "line": 1941,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7169,7 +7938,7 @@
       "id": "spec.viewer.models",
       "title": "Models and reasoning",
       "level": 3,
-      "line": 1818,
+      "line": 1981,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7292,7 +8061,7 @@
       "id": "spec.viewer.panes",
       "title": "Panes",
       "level": 3,
-      "line": 1838,
+      "line": 2001,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7387,22 +8156,22 @@
           "description": "The widths a person can change.",
           "fields": [
             {
+              "description": "The PRD pane's width.",
               "name": "prd",
-              "type": "number",
               "optional": false,
-              "description": "The PRD pane's width."
+              "type": "number"
             },
             {
+              "description": "The spec pane's width.",
               "name": "spec",
-              "type": "number",
               "optional": false,
-              "description": "The spec pane's width."
+              "type": "number"
             },
             {
+              "description": "The detail panel's width.",
               "name": "detail",
-              "type": "number",
               "optional": false,
-              "description": "The detail panel's width."
+              "type": "number"
             }
           ]
         },
@@ -7479,7 +8248,7 @@
       "id": "spec.viewer.presence",
       "title": "Presence in the reader",
       "level": 3,
-      "line": 1859,
+      "line": 2022,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7541,10 +8310,10 @@
           "description": "A participant with the PRD section they are reading.",
           "fields": [
             {
+              "description": "The PRD section current in their window; null before the first is known.",
               "name": "reading",
-              "type": "PrdSectionId | null",
               "optional": false,
-              "description": "The PRD section current in their window; null before the first is known."
+              "type": "PrdSectionId | null"
             }
           ]
         },
@@ -7587,7 +8356,7 @@
       "id": "spec.viewer.detail-panel",
       "title": "Detail panel",
       "level": 3,
-      "line": 1874,
+      "line": 2037,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7732,7 +8501,7 @@
       "id": "spec.viewer.code-view",
       "title": "Code view",
       "level": 3,
-      "line": 1908,
+      "line": 2071,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -7837,7 +8606,7 @@
       "id": "spec.viewer.diff-view",
       "title": "Diff view",
       "level": 3,
-      "line": 1935,
+      "line": 2098,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -8027,7 +8796,7 @@
       "id": "spec.viewer.session-view",
       "title": "Session pane",
       "level": 3,
-      "line": 1961,
+      "line": 2124,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -8093,7 +8862,7 @@
       "id": "spec.viewer.attribution",
       "title": "Hunks and turns",
       "level": 3,
-      "line": 1977,
+      "line": 2140,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -8183,7 +8952,7 @@
       "id": "spec.viewer.detail-code",
       "title": "Code in the detail panel",
       "level": 3,
-      "line": 1997,
+      "line": 2160,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -8317,7 +9086,7 @@
       "id": "spec.viewer.canvas-removal",
       "title": "Replacing the canvas",
       "level": 3,
-      "line": 2011,
+      "line": 2174,
       "parent": "spec.viewer",
       "children": [],
       "human": true,
@@ -8475,7 +9244,7 @@
       "id": "spec.viewer.demo-data",
       "title": "Demo data",
       "level": 3,
-      "line": 2032,
+      "line": 2195,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -8586,10 +9355,1392 @@
       }
     },
     {
+      "id": "spec.viewer.deep-links",
+      "title": "Deep links",
+      "level": 3,
+      "line": 2216,
+      "parent": "spec.viewer",
+      "children": [
+        "spec.viewer.deep-links.resolving-a-link",
+        "spec.viewer.deep-links.opening-a-link",
+        "spec.viewer.deep-links.copying-a-link"
+      ],
+      "human": false,
+      "implements": ["prd.deep-links"],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Every place the reader and the code view can open gets a deep link written with `LinkFromPath`. The section covers resolving a link against the trace and loaded data, opening it with the address bar and history kept in sync, and a \"Copy link\" action on every step. The canvas screen has no links.",
+      "requirements": [
+        {
+          "id": "spec.viewer.deep-links#r1",
+          "level": "must",
+          "text": "Every place the reader and the code view can open must have a link, written with `LinkFromPath`."
+        },
+        {
+          "id": "spec.viewer.deep-links#r2",
+          "level": "must",
+          "text": "Resolving a link must check its steps against the trace and the loaded data, and must say which step is missing when one is."
+        },
+        {
+          "id": "spec.viewer.deep-links#r3",
+          "level": "must",
+          "text": "Opening a link must apply its steps the same way clicks would."
+        },
+        {
+          "id": "spec.viewer.deep-links#r4",
+          "level": "must",
+          "text": "Opening a link must keep the address bar and the browser history in step with the screen."
+        },
+        {
+          "id": "spec.viewer.deep-links#r5",
+          "level": "must",
+          "text": "Every step must offer a \"Copy link\" action that copies that step's link."
+        },
+        {
+          "id": "spec.viewer.deep-links#r6",
+          "level": "must-not",
+          "text": "While the canvas screen is open, the viewer must not write a link and must leave the address as it is."
+        },
+        {
+          "id": "spec.viewer.deep-links#r7",
+          "level": "must",
+          "text": "A link must always open on the reader or the code view, never on the canvas screen."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.deep-links#function:linkfrompath",
+          "kind": "function",
+          "name": "LinkFromPath",
+          "location": null,
+          "description": "Writes the link for a place the reader or the code view can open; defined in `spec.contract.links`."
+        }
+      ],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.viewer.deep-links#d1",
+          "text": "The canvas screen has no links: while it is open the viewer writes no link and leaves the address unchanged, and links only open on the reader or the code view.",
+          "why": null
+        }
+      ],
+      "writtenFrom": {
+        "body": "f973434e16b427765ebea7e048db2fd22b47a8dfd2c7dcdf71cd08615dd1405b",
+        "prd": {
+          "prd.deep-links": "346855978726dc30884e3f710a3306d4cd5c07cf19c8fd2b8a60467035decad1"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.deep-links.resolving-a-link",
+      "title": "Resolving a link",
+      "level": 4,
+      "line": 2228,
+      "parent": "spec.viewer.deep-links",
+      "children": [],
+      "human": false,
+      "implements": ["prd.deep-links.missing"],
+      "files": [
+        "apps/viewer/src/links.ts",
+        "apps/viewer/src/view/linkNoticeView.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/links.test.ts",
+        "apps/viewer/test/link-notice.scene.test.ts"
+      ],
+      "dependsOn": [
+        "spec.contract.links",
+        "spec.contract.trace",
+        "spec.viewer.prose-search",
+        "spec.viewer.stacks",
+        "spec.viewer.diff-view",
+        "spec.viewer.design-system"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t120"],
+      "summary": "Builds the pure `resolveLink` function that walks a deep link's steps against the trace and loaded data. It returns the steps that open, the first step still waiting for data, and what is missing. The section also builds `passageOf` for finding passages and `trunkOf` for finished trunks, plus the `linkNoticeView` status notice that tells the reader how far a link opened.",
+      "requirements": [
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r1",
+          "level": "must",
+          "text": "`resolveLink(trace, link, loaded)` in `links.ts` is pure."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r2",
+          "level": "must",
+          "text": "The `loaded` argument of `resolveLink` holds the patches and sessions the model has received."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r3",
+          "level": "must",
+          "text": "`resolveLink` checks the link's steps in order and returns `resolved`, `waiting` and `missing`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r4",
+          "level": "must",
+          "text": "`resolved` lists the steps that open, each with what it needs to open. A passage step comes with its mark ranges and a diff step comes with its route path."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r5",
+          "level": "must",
+          "text": "`waiting` is the index of the first step whose data is not loaded yet, or none."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r6",
+          "level": "must",
+          "text": "`missing` lists what did not resolve. At most one miss stops resolution, and passage misses do not stop it."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r7",
+          "level": "must",
+          "text": "A miss has the shape `{ index, step, reason, message }`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r8",
+          "level": "must",
+          "text": "A section step resolves when a section in `trace.prd` or `trace.spec` has its ID. Otherwise it misses with `section-missing`, meaning the section was deleted."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r9",
+          "level": "must",
+          "text": "A passage step resolves when its section resolves and the quote is found in that section. Otherwise it misses with `passage-changed`, which does not stop resolution, and the step opens as its section."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r10",
+          "level": "must",
+          "text": "A task step resolves when `trace.tasks` has the task. Otherwise it misses with `task-missing`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r11",
+          "level": "must",
+          "text": "A stack step resolves when `stacksOf(trace.tasks)` has a stack with that root. Otherwise it misses with `stack-missing`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r12",
+          "level": "must",
+          "text": "A segment step resolves when that stack's finished trunk holds two or more tasks. Otherwise it misses with `segment-missing`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r13",
+          "level": "must",
+          "text": "A diff step resolves when its `head` is one of the preceding task's commits. Otherwise it misses with `commit-not-on-task`, meaning the branch was restacked or rewritten after the link was copied."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r14",
+          "level": "must",
+          "text": "A commit step resolves when a task in the trace has the commit and, when a task precedes the step, that task is the preceding one. Otherwise it misses with `commit-missing` or `commit-not-on-task`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r15",
+          "level": "must",
+          "text": "A file step resolves when the patch of the diff or commit before it is loaded and has the path. Otherwise it misses with `patch-unavailable`, carrying the fetch error or the demo's missing patch, or with `file-not-in-diff`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r16",
+          "level": "must",
+          "text": "A lines step resolves when the file's hunks show every line from `start` to `end` on that side. Otherwise it misses with `lines-not-in-diff`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r17",
+          "level": "must",
+          "text": "A turn step resolves when a commit in the trace has the session, the session is loaded, and the session has a turn with that ID. Otherwise it misses with `session-missing`, with `sessions-unavailable` in the demo, or with `turn-missing`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r18",
+          "level": "must",
+          "text": "A note step never resolves yet. It misses with `notes-unavailable` because notes are not stored yet."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r19",
+          "level": "must",
+          "text": "When a step's patch or session is not in `loaded`, `waiting` becomes that step's index and resolution stops there until the data arrives."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r20",
+          "level": "must",
+          "text": "`trunkOf(stack, tasks)` in `links.ts` defines the finished trunk. It starts at the root and takes the run of `done` or `landed` tasks up to the first fork or the first unfinished task."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r21",
+          "level": "must",
+          "text": "Resolution turns a patch into file names and hunk line ranges with the same patch-to-files step the diff view uses."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r22",
+          "level": "must-not",
+          "text": "Resolution must not parse a patch any other way than the diff view's patch-to-files step."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r23",
+          "level": "must",
+          "text": "`passageOf(index, section, quote)` finds a passage in the prose blocks its section owns. It takes the blocks and their visible-text offset maps from the prose index, where nested sections own their own text."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r24",
+          "level": "must",
+          "text": "When finding a passage, the blocks' visible texts are joined with one space and each run of whitespace is collapsed to one space."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r25",
+          "level": "must",
+          "text": "The first exact, case-sensitive match of the quote counts as the passage."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r26",
+          "level": "must",
+          "text": "The passage match is mapped back to a range in each block it covers."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r27",
+          "level": "must",
+          "text": "An edit anywhere else in the document leaves a passage's ranges pointing at the same text. An edit inside the passage removes the match."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r28",
+          "level": "must",
+          "text": "`linkNoticeView` sits under the top bar of the reader and of the code view, with `role=\"status\"`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r29",
+          "level": "must",
+          "text": "The link notice says how far the link opened and what is missing, for example: \"Opened as far as task t74. `packages/cli/src/api.ts` is not in that diff.\""
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r30",
+          "level": "must",
+          "text": "A passage miss in the notice reads: \"The passage changed: \"…first 80 characters…\" is no longer in Viewer.\""
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r31",
+          "level": "must",
+          "text": "A link that does not decode opens nothing and the notice shows its `LinkError`, for example: \"This address is not a Cairn link: step 3 (file) must follow a diff or a commit.\""
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r32",
+          "level": "must",
+          "text": "The notice has a \"Dismiss\" button that sends `ClickedDismissLinkNotice`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r33",
+          "level": "must",
+          "text": "The next link that opens replaces the current notice."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#r34",
+          "level": "must-not",
+          "text": "The window must never be blank. At worst it shows the reader with no steps, under the notice."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#function:resolve-link",
+          "kind": "function",
+          "name": "resolveLink",
+          "location": "apps/viewer/src/links.ts",
+          "description": "Pure function that checks a link's steps in order against the trace and the loaded patches and sessions. It returns the resolved steps, the waiting step index and the misses.",
+          "signature": "resolveLink(trace, link, loaded)"
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#type:miss",
+          "kind": "type",
+          "name": "miss",
+          "location": null,
+          "description": "One step of a link that did not resolve.",
+          "fields": [
+            {
+              "description": "Index of the step in the link.",
+              "name": "index",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "description": "The step that did not resolve.",
+              "name": "step",
+              "optional": false,
+              "type": "step"
+            },
+            {
+              "description": "Why the step did not resolve.",
+              "name": "reason",
+              "optional": false,
+              "type": "reason"
+            },
+            {
+              "description": "Readable explanation of the miss.",
+              "name": "message",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#status:reason",
+          "kind": "status",
+          "name": "reason",
+          "location": null,
+          "description": "Why a link step did not resolve.",
+          "values": [
+            "section-missing",
+            "passage-changed",
+            "task-missing",
+            "stack-missing",
+            "segment-missing",
+            "commit-not-on-task",
+            "commit-missing",
+            "patch-unavailable",
+            "file-not-in-diff",
+            "lines-not-in-diff",
+            "session-missing",
+            "sessions-unavailable",
+            "turn-missing",
+            "notes-unavailable"
+          ]
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#function:trunk-of",
+          "kind": "function",
+          "name": "trunkOf",
+          "location": "apps/viewer/src/links.ts",
+          "description": "Returns a stack's finished trunk: the run of `done` or `landed` tasks from the root up to the first fork or the first unfinished task.",
+          "signature": "trunkOf(stack, tasks)"
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#function:passage-of",
+          "kind": "function",
+          "name": "passageOf",
+          "location": null,
+          "description": "Finds the first exact, case-sensitive match of a quote in the prose blocks a section owns and maps it back to a range in each block it covers.",
+          "signature": "passageOf(index, section, quote)"
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#function:link-notice-view",
+          "kind": "function",
+          "name": "linkNoticeView",
+          "location": "apps/viewer/src/view/linkNoticeView.ts",
+          "description": "View for the status notice under the top bar of the reader and the code view. It says how far a link opened and what is missing."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#message:clicked-dismiss-link-notice",
+          "kind": "message",
+          "name": "ClickedDismissLinkNotice",
+          "location": null,
+          "description": "Message the link notice's \"Dismiss\" button sends to remove the notice."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t1",
+          "kind": "property",
+          "text": "In `links.test.ts`, over the demo trace with generated links: the resolved steps are the link's steps up to the first stopping miss, with a passage miss counted as its section."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t2",
+          "kind": "property",
+          "text": "In `links.test.ts`, over the demo trace with generated links: no step after a stopping miss resolves."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t3",
+          "kind": "property",
+          "text": "In `links.test.ts`, over the demo trace with generated links: `waiting` comes before any data-dependent miss."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t4",
+          "kind": "example",
+          "text": "After a paragraph is added to another section of the PRD, a passage is still found on the same text."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t5",
+          "kind": "example",
+          "text": "After a word inside a passage changes, the passage gives `passage-changed` and the next steps still resolve. This is the acceptance criterion about passages."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t6",
+          "kind": "example",
+          "text": "A trace with a section removed gives `section-missing` at that step."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t7",
+          "kind": "example",
+          "text": "A diff head that is not on the task gives `commit-not-on-task`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t8",
+          "kind": "example",
+          "text": "A loaded patch without the file gives `file-not-in-diff`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t9",
+          "kind": "example",
+          "text": "Lines outside every hunk give `lines-not-in-diff`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t10",
+          "kind": "example",
+          "text": "A turn in the demo gives `sessions-unavailable`."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t11",
+          "kind": "scene",
+          "text": "A scene test finds the notice's text for a link with a missing task."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t12",
+          "kind": "scene",
+          "text": "A scene test finds the notice's text for a malformed link path."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#t13",
+          "kind": "scene",
+          "text": "A scene test finds that clicking \"Dismiss\" removes the notice."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#d1",
+          "text": "A passage miss does not stop resolution. The step opens as its section and later steps keep resolving.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#d2",
+          "text": "Resolution reuses the diff view's patch-to-files step and does not parse a patch a second way.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#d3",
+          "text": "Note steps never resolve yet and always miss with `notes-unavailable`.",
+          "why": "Notes are not stored yet."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#d4",
+          "text": "The finished trunk is the run of `done` or `landed` tasks from the root up to the first fork or the first unfinished task.",
+          "why": "It is the PRD's rule for a folded segment."
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#d5",
+          "text": "Passages are matched on whitespace-collapsed, space-joined visible text, and the first exact, case-sensitive match counts.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.deep-links.resolving-a-link#d6",
+          "text": "A link that does not decode opens nothing and shows its error, but the window is never blank: it falls back to the reader with no steps, under the notice.",
+          "why": null
+        }
+      ],
+      "writtenFrom": {
+        "body": "6a726be6021cdae1a3369f3c27148b8e2038bd13e333691e1089aca01f862fe7",
+        "prd": {
+          "prd.deep-links.missing": "d6b3eeb7b90fe91476b0f902428a3791a65307d1aaecf24e26f175c75ab9f178"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.deep-links.opening-a-link",
+      "title": "Opening a link",
+      "level": 4,
+      "line": 2287,
+      "parent": "spec.viewer.deep-links",
+      "children": [],
+      "human": false,
+      "implements": ["prd.deep-links.composing"],
+      "files": [
+        "apps/viewer/src/route.ts",
+        "apps/viewer/src/links.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/src/init.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/detail.ts",
+        "apps/viewer/src/codeView.ts",
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/test/links-open.test.ts",
+        "apps/viewer/test/links-open.scene.test.ts"
+      ],
+      "dependsOn": [
+        "spec.viewer.deep-links.resolving-a-link",
+        "spec.viewer.reader",
+        "spec.viewer.spec-cards",
+        "spec.viewer.detail-panel",
+        "spec.viewer.code-view",
+        "spec.viewer.session-view",
+        "spec.viewer.attribution"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t121", "t122", "t123"],
+      "summary": "Makes the viewer a Foldkit application that owns the URL: it defines the viewer's only route, `linkRoute`, and `linkOf(model)`, which gives the canonical link of what is on screen. It also defines `openLink`, which applies a link step by step and fetches missing patches and sessions, and `withAddress`, which writes one browser history entry per step so Back walks the trail.",
+      "requirements": [
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r1",
+          "level": "must",
+          "text": "The viewer must become a Foldkit application that owns the URL."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r2",
+          "level": "must",
+          "text": "`route.ts` must define `linkRoute` over `LinkFromPath` as the viewer's only route."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r3",
+          "level": "must",
+          "text": "The implementer must read Foldkit's route and navigation declarations before writing `linkRoute`."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r4",
+          "level": "must",
+          "text": "If Foldkit's route combinators can express a list of steps that print and parse from one definition, `linkRoute` must be built from them, with each argument's schema taken from the contract. Otherwise `linkRoute` must be one wildcard path run through `LinkFromPath`, and that Schema stays the single definition."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r5",
+          "level": "must",
+          "text": "URL changes must arrive in the viewer as the `ChangedUrl` message."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r6",
+          "level": "must",
+          "text": "`pushUrl` and `replaceUrl` must be commands."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r7",
+          "level": "must-not",
+          "text": "A link must not carry a host, so that it opens the same way under `pnpm dev`, under `cairn serve` and on the demo site."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r8",
+          "level": "must",
+          "text": "`pnpm dev` (Vite), `cairn serve` (through its `GET /*`) and the demo site must each answer any path that is not a file with the viewer's page."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r9",
+          "level": "must",
+          "text": "The model must gain `reader.maybePassage` (the open passage's section and quote), `reader.maybeFocus` (a `stack` or `segment` and its root), `maybeLines` on the `Code` screen, `maybeHead` on `WholeTask`, `maybeLinkNotice`, and `maybePendingLink` (a link waiting for the first trace or for its data)."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r10",
+          "level": "must",
+          "text": "When `maybeHead` on `WholeTask` is None, the code view must show the task's newest commit, as before."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r11",
+          "level": "must",
+          "text": "`linkOf(model)` in `links.ts` must be pure and must give the canonical link of what was opened, in this order: the pinned PRD section or a PRD passage in its place; a spec passage; the focused stack or segment; the detail trail's steps, each a `section` for a spec section or a `task`; a `task` step for the code view's task when that task is not the trail's last step; a `diff` with the head it shows, or a `commit`; the selected file, then `lines`; the highlighted turn."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r12",
+          "level": "must-not",
+          "text": "A link must not hold the section at the top of the PRD pane, pane widths, the models switch, card density, cards opened by their header, or the search. Each viewer keeps those."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r13",
+          "level": "must",
+          "text": "`openLink(model, link)` must resolve the link and clear what a link holds: the pin, the passage, the focus, the trail and the code view selection."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r14",
+          "level": "must",
+          "text": "`openLink` must then apply each resolved step the way the click it stands for does."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r15",
+          "level": "must",
+          "text": "A PRD section step must pin that section."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r16",
+          "level": "must",
+          "text": "A spec section step must start the detail trail on the section, or add it to the trail when the panel is open."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r17",
+          "level": "must",
+          "text": "A PRD passage step must pin the passage's section and mark the passage."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r18",
+          "level": "must",
+          "text": "A spec passage step must pin the first PRD section the spec section implements when the pinned section is not one it implements. It must then open the spec section's card in `opened` and mark the passage."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r19",
+          "level": "must",
+          "text": "A spec passage in a spec section that implements no PRD section must open in the detail panel, as search does."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r20",
+          "level": "must",
+          "text": "A task step must start or extend the detail trail."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r21",
+          "level": "must",
+          "text": "A stack or segment step must set the focus. The focused box gets `data-linked` and an ink outline, and for a segment its trunk's chips get them too."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r22",
+          "level": "must",
+          "text": "A diff step must open the code view on the trail's last task at `head`."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r23",
+          "level": "must",
+          "text": "A commit step must open the code view on that commit. When the trail's last task is a different one, the commit's task is first added to the trail."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r24",
+          "level": "must",
+          "text": "A file step must select the file in the code view."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r25",
+          "level": "must",
+          "text": "A lines step must set `maybeLines`."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r26",
+          "level": "must",
+          "text": "A turn step must open the code view on the session's newest commit when no code step came before it, then highlight the turn as `ClickedTurn` does."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r27",
+          "level": "must",
+          "text": "Passage marks must be `mark[data-link-passage]` nodes, placed by the same range splitting that search marks use."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r28",
+          "level": "must",
+          "text": "Passage marks must have an ink underline and no fill, so a search mark inside one still shows."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r29",
+          "level": "must",
+          "text": "The diff mount must gain a `data-lines` attribute, such as `n40-42`. Its `MutationObserver` reads the attribute to scroll to those lines and select them."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r30",
+          "level": "must",
+          "text": "Line selection must use `@pierre/diffs`' line selection if `CodeView`'s declarations have one. Otherwise it must draw a line annotation, as the turn marks do."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r31",
+          "level": "must",
+          "text": "For each step past the longest prefix the old link and the new link share, `openLink` must return a scroll command that brings the step into view, whether it is a heading, a passage's first mark, a card, a chip or a box."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r32",
+          "level": "must",
+          "text": "For each patch or session the steps need that is not loaded, `openLink` must return a fetch command through the requests the code view already makes, so a link opened in a new window loads its diff and its turn."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r33",
+          "level": "must",
+          "text": "When `ReceivedPatch` or `ReceivedSession` arrives for `maybePendingLink`, the link must be resolved again. A step that is now missing is taken out of the state, its notice is shown, and the address is replaced with `replaceUrl(linkOf(model))`."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r34",
+          "level": "must",
+          "text": "A path that fails `LinkFromPath` decoding with a `LinkError`, or a step that `resolveLink` cannot find in the trace, must show the link notice."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r35",
+          "level": "must",
+          "text": "`withAddress(update)` must wrap the viewer's update."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r36",
+          "level": "must",
+          "text": "On first load, `init` must decode the URL into `maybePendingLink`, and the first trace must open it. History is then rewritten with one entry per step: `replaceUrl` with the first step, then `pushUrl` for each longer prefix."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r37",
+          "level": "must",
+          "text": "A `ChangedUrl` from Back, Forward or a typed address must open that link without writing history."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r38",
+          "level": "must",
+          "text": "A `ChangedUrl` whose link equals `linkOf(model)` must do nothing, which also absorbs the echo of the viewer's own `pushUrl`."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r39",
+          "level": "must",
+          "text": "After any other message, if `linkOf` changed, the new link must be pushed. Each of these becomes one history entry, so Back undoes them one step at a time: pinning, opening a task or a spec section, cutting or shortening the trail, Escape, opening the code view, selecting in its tree, selecting lines, highlighting a turn, and \"Back to the plan\"."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#r40",
+          "level": "must",
+          "text": "Escape with the detail panel closed must also clear the focus, as it unpins."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#route:link-route",
+          "kind": "route",
+          "name": "linkRoute",
+          "location": "apps/viewer/src/route.ts",
+          "description": "The viewer's only route, defined over `LinkFromPath`, either from Foldkit route combinators or as one wildcard path."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#schema:link-from-path",
+          "kind": "schema",
+          "name": "LinkFromPath",
+          "location": null,
+          "description": "The Schema that decodes an address bar path into a link and prints a link back to a path."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#type:link-error",
+          "kind": "type",
+          "name": "LinkError",
+          "location": null,
+          "description": "The error from decoding a path with `LinkFromPath`; it leads to the link notice."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#message:changed-url",
+          "kind": "message",
+          "name": "ChangedUrl",
+          "location": null,
+          "description": "The message that brings URL changes from Back, Forward, a typed address or the viewer's own pushes."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#command:push-url",
+          "kind": "command",
+          "name": "pushUrl",
+          "location": null,
+          "description": "A command that pushes a new browser history entry with a link's path."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#command:replace-url",
+          "kind": "command",
+          "name": "replaceUrl",
+          "location": null,
+          "description": "A command that replaces the current browser history entry with a link's path."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#type:model",
+          "kind": "type",
+          "name": "Model",
+          "location": null,
+          "description": "The viewer model's new state for deep links.",
+          "fields": [
+            {
+              "description": "The open passage's section and quote.",
+              "name": "reader.maybePassage",
+              "optional": true,
+              "type": "Option<{ section, quote }>"
+            },
+            {
+              "description": "The focused `stack` or `segment` and its root.",
+              "name": "reader.maybeFocus",
+              "optional": true,
+              "type": "Option<stack | segment with root>"
+            },
+            {
+              "description": "The notice shown when a link or one of its steps cannot be opened.",
+              "name": "maybeLinkNotice",
+              "optional": true,
+              "type": "Option"
+            },
+            {
+              "description": "A link waiting for the first trace or for its data.",
+              "name": "maybePendingLink",
+              "optional": true,
+              "type": "Option<Link>"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#type:code",
+          "kind": "type",
+          "name": "Code",
+          "location": null,
+          "description": "The code view screen, which gains the selected line range.",
+          "fields": [
+            {
+              "description": "The lines a link selects in the diff.",
+              "name": "maybeLines",
+              "optional": true,
+              "type": "Option"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#type:whole-task",
+          "kind": "type",
+          "name": "WholeTask",
+          "location": null,
+          "description": "The code view's whole-task state, which gains the head it shows.",
+          "fields": [
+            {
+              "description": "The head commit shown; None means the task's newest commit.",
+              "name": "maybeHead",
+              "optional": true,
+              "type": "Option"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#function:link-of",
+          "kind": "function",
+          "name": "linkOf",
+          "location": "apps/viewer/src/links.ts",
+          "description": "A pure function that gives the canonical link of what is opened on screen, in a fixed order of steps.",
+          "signature": "linkOf(model): Link"
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#function:open-link",
+          "kind": "function",
+          "name": "openLink",
+          "location": null,
+          "description": "Resolves a link, clears what a link holds, applies each step the way its click does, and returns scroll and fetch commands.",
+          "signature": "openLink(model, link): [Model, Commands]"
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#function:resolve-link",
+          "kind": "function",
+          "name": "resolveLink",
+          "location": null,
+          "description": "Resolves a decoded link's steps against the trace and reports any missing step."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#function:with-address",
+          "kind": "function",
+          "name": "withAddress",
+          "location": null,
+          "description": "Wraps the viewer's update to open links on first load and on `ChangedUrl`, and to push or replace history when `linkOf` changes.",
+          "signature": "withAddress(update): update"
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#function:init",
+          "kind": "function",
+          "name": "init",
+          "location": null,
+          "description": "The viewer's init, which decodes the URL into `maybePendingLink`."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#message:received-patch",
+          "kind": "message",
+          "name": "ReceivedPatch",
+          "location": null,
+          "description": "The message for an arriving patch; for `maybePendingLink` it causes the link to be resolved again."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#message:received-session",
+          "kind": "message",
+          "name": "ReceivedSession",
+          "location": null,
+          "description": "The message for an arriving session; for `maybePendingLink` it causes the link to be resolved again."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#message:settled-load-trace",
+          "kind": "message",
+          "name": "SettledLoadTrace",
+          "location": null,
+          "description": "The message for the loaded trace; the first trace opens the pending link."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#message:clicked-turn",
+          "kind": "message",
+          "name": "ClickedTurn",
+          "location": null,
+          "description": "The existing message for highlighting a turn, whose behaviour a turn step reproduces."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#library:pierre-diffs",
+          "kind": "library",
+          "name": "@pierre/diffs",
+          "location": null,
+          "description": "The diff library whose line selection is used for `lines` when `CodeView`'s declarations have one."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#file:links-open-test-ts",
+          "kind": "file",
+          "name": "links-open.test.ts",
+          "location": "apps/viewer/test/links-open.test.ts",
+          "description": "Tests of opening links and of history, run on `update` with no render loop."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#t1",
+          "kind": "example",
+          "text": "`init` with the path of a PRD passage, a spec section, a task, its diff, a file and lines, then `SettledLoadTrace` with the demo trace, gives: the pinned section with the passage set; a trail of the spec section and the task; and the code view at that head with the file and the lines. The commands are one `replaceUrl`, five `pushUrl` and one request for `/api/diffs/<base>/<head>`."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#t2",
+          "kind": "example",
+          "text": "Sending `ChangedUrl` with each shorter prefix in turn removes the lines, then the file, then closes the code view to the panel on the task, then removes the task, the spec section and the pin. This is the acceptance criterion that Back walks the trail."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#t3",
+          "kind": "example",
+          "text": "`ReceivedPatch` without the linked file shows the notice, drops the file and replaces the address."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#t4",
+          "kind": "example",
+          "text": "After that, clicking a task row pushes `/task/<id>`."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#t5",
+          "kind": "property",
+          "text": "For canonical links generated from the demo trace's sections, tasks and stacks, `linkOf(openLink(model, link))` equals the link."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#t6",
+          "kind": "scene",
+          "text": "A Scene test finds `data-link-passage` marks in the PRD pane, `data-linked` on a focused box, and `data-lines` on the diff mount."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#d1",
+          "text": "`linkRoute` is built from Foldkit's route combinators if they can express a list of steps that print and parse from one definition. Otherwise it is one wildcard path run through `LinkFromPath`.",
+          "why": "So that printing and parsing come from one definition, with `LinkFromPath` as the single definition in the fallback."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#d2",
+          "text": "A link carries no host.",
+          "why": "So it opens the same way under `pnpm dev`, under `cairn serve` and on the demo site."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#d3",
+          "text": "The section at the top of the PRD pane, pane widths, the models switch, card density, cards opened by their header, and the search are left out of links. Each viewer keeps those.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#d4",
+          "text": "Passage marks have an ink underline and no fill.",
+          "why": "So a search mark inside one still shows."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#d5",
+          "text": "Linked lines use `@pierre/diffs`' line selection if `CodeView`'s declarations have one. Otherwise a line annotation is drawn, as the turn marks do.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#d6",
+          "text": "Missing patches and sessions are fetched through the requests the code view already makes, not new ones.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#d7",
+          "text": "On first load, history is rewritten with one entry per step: `replaceUrl` with the first step, then `pushUrl` for each longer prefix.",
+          "why": "So Back walks a link opened in a new window one step at a time."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#d8",
+          "text": "Each change of `linkOf` after a message is pushed as its own history entry.",
+          "why": "So Back undoes them one step at a time, as Escape does in the panel."
+        },
+        {
+          "id": "spec.viewer.deep-links.opening-a-link#d9",
+          "text": "Tests in `links-open.test.ts` run on `update` with no render loop.",
+          "why": null
+        }
+      ],
+      "writtenFrom": {
+        "body": "db1a06d0c23cfbb8b9a82959c247477677b8f96be9079253f2a1abfcf292435c",
+        "prd": {
+          "prd.deep-links.composing": "2807222bfc2fa92c4632050728c7037758270f5c1cb9197a8d2cc2b2810d29e8"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.deep-links.copying-a-link",
+      "title": "Copying a link",
+      "level": 4,
+      "line": 2373,
+      "parent": "spec.viewer.deep-links",
+      "children": [],
+      "human": false,
+      "implements": ["prd.deep-links.composing", "prd.deep-links.targets"],
+      "files": [
+        "apps/viewer/src/links.ts",
+        "apps/viewer/src/view/copyLinkView.ts",
+        "apps/viewer/src/subscription/selection.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/codeView.ts",
+        "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/src/view/sessionView.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/links.test.ts",
+        "apps/viewer/test/copy-link.scene.test.ts"
+      ],
+      "dependsOn": ["spec.viewer.deep-links.opening-a-link", "spec.viewer.design-system"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t124", "t125"],
+      "summary": "Adds copy-link buttons across the viewer (PRD headings, spec cards, passages, the detail trail, stack boxes, the code view, diff lines and session turns). The buttons copy the same deep link the address bar holds, or a shorter link that opens one step on its own. The section also defines the pure `aloneOf` function in `links.ts`, which builds that shortest link.",
+      "requirements": [
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r1",
+          "level": "must",
+          "text": "Copying the address bar must copy the deep link. The copy-link buttons must give the same link text without navigating to it."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r2",
+          "level": "must",
+          "text": "`aloneOf(link, index)` in `links.ts` must be pure. It must return the shortest link that opens the given step by itself."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r3",
+          "level": "must",
+          "text": "For `aloneOf`, a section, passage, task, stack, segment, commit, turn or note step must be its own step, so the link holds only that step."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r4",
+          "level": "must",
+          "text": "For `aloneOf`, a diff step alone must be its task plus the diff."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r5",
+          "level": "must",
+          "text": "For `aloneOf`, a file step alone must be the diff or commit before it plus the file. For a diff, the diff's task comes first."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r6",
+          "level": "must",
+          "text": "For `aloneOf`, a lines step alone must be the steps that the file needs, then the file, then the lines."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r7",
+          "level": "must",
+          "text": "`copyLinkView({ path, label }, h)` must render a small `btn`. Clicking it must send `ClickedCopyLink` with the path."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r8",
+          "level": "must",
+          "text": "On `ClickedCopyLink`, the update must run a Command that writes `location.origin` plus the path to the clipboard and then sends `CompletedCopyLink`."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r9",
+          "level": "must",
+          "text": "After `CompletedCopyLink`, the copy-link button must read \"copied\" until the next render, as the section ID button does."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r10",
+          "level": "must",
+          "text": "A PRD heading must have a \"Copy link\" button beside its section ID button that copies `/section/<id>` alone."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r11",
+          "level": "must",
+          "text": "The pinned PRD section's status line row must copy the link up to that section's step."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r12",
+          "level": "must",
+          "text": "A spec card header must have a \"Copy link\" button that copies the section alone."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r13",
+          "level": "must",
+          "text": "The `TrackSelection` subscription in `subscription/selection.ts` must listen to `selectionchange` and handle it at most once per animation frame."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r14",
+          "level": "must",
+          "text": "When both ends of the selection lie in one `[data-passage]` element, `TrackSelection` must send `SelectedPassage` with the section and the quote."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r15",
+          "level": "must",
+          "text": "A PRD section's prose wrapper must carry its section ID in `data-passage`. A spec card's full section body must too."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r16",
+          "level": "must",
+          "text": "The passage quote must be the selection's text, trimmed, with whitespace collapsed."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r17",
+          "level": "must",
+          "text": "When the selection leaves a `[data-passage]` element, `TrackSelection` must send `ClearedPassageSelection`."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r18",
+          "level": "must",
+          "text": "While a passage is selected, the section's status line row (in the PRD) or the card header (in the spec) must show \"Copy link to passage\". Clicking it opens the passage as a step, which pins the section and marks the passage, and copies the link up to that step."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r19",
+          "level": "must",
+          "text": "When the selected passage is over 500 characters, the \"Copy link to passage\" button must be disabled, with the title \"Select at most 500 characters to link to them.\""
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r20",
+          "level": "must",
+          "text": "In the detail panel, each step of the trail must have a \"Copy link\" button that copies the path up to that step."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r21",
+          "level": "must",
+          "text": "The detail panel's heading must copy its task or spec section alone."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r22",
+          "level": "must",
+          "text": "In the stacks pane, each box must have a \"Copy link\" button in its corner that copies `/stack/<root>`."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r23",
+          "level": "must",
+          "text": "A stack box whose finished trunk holds two or more tasks must also have \"Copy link to finished trunk\", which copies `/segment/<root>`."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r24",
+          "level": "must",
+          "text": "The code view top bar must have \"Copy link\", which copies the whole path."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r25",
+          "level": "must",
+          "text": "The code view top bar must have \"Copy alone\", which copies `aloneOf` its last step. That step is the lines when lines are selected, and otherwise the file, the diff or the commit."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r26",
+          "level": "must",
+          "text": "The diff mount must turn a line selection into `SelectedDiffLines` with the side, start and end. It uses the line selection callback of `@pierre/diffs`, or a click listener on the line-number gutter if the library has no such callback."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r27",
+          "level": "must",
+          "text": "A line selection must join the current link."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r28",
+          "level": "must",
+          "text": "In the session pane, an opened turn must have \"Copy link\", which copies the path up to that turn."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#r29",
+          "level": "must",
+          "text": "A link to lines copied from a task's diff must carry the `diff` step's head: the commit the code view showed when the link was copied. The link then opens on the same code after more commits land."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#function:alone-of",
+          "kind": "function",
+          "name": "aloneOf",
+          "location": "apps/viewer/src/links.ts",
+          "description": "Pure function that returns the shortest link that opens the given step of a link by itself.",
+          "signature": "aloneOf(link, index)"
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#function:copy-link-view",
+          "kind": "function",
+          "name": "copyLinkView",
+          "location": "apps/viewer/src/view/copyLinkView.ts",
+          "description": "Small `btn` view that sends `ClickedCopyLink` with its path and reads \"copied\" after the copy completes.",
+          "signature": "copyLinkView({ path, label }, h)"
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#message:clicked-copy-link",
+          "kind": "message",
+          "name": "ClickedCopyLink",
+          "location": null,
+          "description": "Sent when a copy-link button is clicked. Carries the path to copy.",
+          "fields": [
+            {
+              "description": "The link path to write to the clipboard after `location.origin`.",
+              "name": "path",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#message:completed-copy-link",
+          "kind": "message",
+          "name": "CompletedCopyLink",
+          "location": null,
+          "description": "Sent by the clipboard Command once the link has been written to the clipboard."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#service:track-selection",
+          "kind": "service",
+          "name": "TrackSelection",
+          "location": "apps/viewer/src/subscription/selection.ts",
+          "description": "Subscription that listens to `selectionchange` at most once per animation frame and reports passage selections inside `[data-passage]` elements."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#message:selected-passage",
+          "kind": "message",
+          "name": "SelectedPassage",
+          "location": null,
+          "description": "Sent when both ends of the selection lie in one `[data-passage]` element.",
+          "fields": [
+            {
+              "description": "The section ID taken from the element's `data-passage`.",
+              "name": "section",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "description": "The selection's text, trimmed, with whitespace collapsed.",
+              "name": "quote",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#message:cleared-passage-selection",
+          "kind": "message",
+          "name": "ClearedPassageSelection",
+          "location": null,
+          "description": "Sent when the selection leaves a `[data-passage]` element."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#message:selected-diff-lines",
+          "kind": "message",
+          "name": "SelectedDiffLines",
+          "location": null,
+          "description": "Sent by the diff mount when lines are selected in a diff. The selection then joins the link.",
+          "fields": [
+            {
+              "description": "The diff side the selected lines are on.",
+              "name": "side",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "description": "The first selected line.",
+              "name": "start",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "description": "The last selected line.",
+              "name": "end",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#route:section",
+          "kind": "route",
+          "name": "/section/<id>",
+          "location": null,
+          "description": "Link that opens a section alone. PRD heading and spec card buttons copy it."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#route:passage",
+          "kind": "route",
+          "name": "/passage/<section>/<quote>",
+          "location": null,
+          "description": "Link to a quoted passage of a section. \"Copy link to passage\" copies it."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#route:stack",
+          "kind": "route",
+          "name": "/stack/<root>",
+          "location": null,
+          "description": "Link to a stack. The corner button of a stack box copies it."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#route:segment",
+          "kind": "route",
+          "name": "/segment/<root>",
+          "location": null,
+          "description": "Link to a stack's finished trunk. \"Copy link to finished trunk\" copies it."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#t1",
+          "kind": "property",
+          "text": "In `links.test.ts`, `aloneOf` always gives a well-formed link that ends with the step it was asked for."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#t2",
+          "kind": "property",
+          "text": "In `links.test.ts`, on the demo trace, the link `aloneOf` gives resolves the step it was asked for."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#t3",
+          "kind": "scene",
+          "text": "Pin `prd.viewer` and click its \"Copy link\". The clipboard command carries `/section/prd.viewer`."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#t4",
+          "kind": "scene",
+          "text": "Send `SelectedPassage` directly and click \"Copy link to passage\". The section is pinned, the passage is marked, and `/passage/prd.viewer/<quote>` is copied."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#t5",
+          "kind": "scene",
+          "text": "Copy from the second step of a two-step trail. The copied link is the two-step path."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#t6",
+          "kind": "scene",
+          "text": "Click \"Copy alone\" with lines selected. The copied link is the task, diff, file and lines."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#t7",
+          "kind": "scene",
+          "text": "Click a stack box's corner button. It copies `/stack/<root>`."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#t8",
+          "kind": "scene",
+          "text": "A passage selection over 500 characters disables the \"Copy link to passage\" button."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#d1",
+          "text": "The copy button reads \"copied\" until the next render after `CompletedCopyLink`, the same feedback the section ID button gives.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#d2",
+          "text": "Diff line selection uses the line selection callback of `@pierre/diffs`. If the library has none, it falls back to a click listener on the line-number gutter.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#d3",
+          "text": "A link to lines copied from a task's diff carries the `diff` step's head: the commit the code view showed when the link was copied.",
+          "why": "So the link still opens on the same code after more commits land."
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#d4",
+          "text": "Passage links are limited to 500 characters. Over that, the passage button is disabled.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.deep-links.copying-a-link#d5",
+          "text": "The passage scene test sends `SelectedPassage` directly instead of making a real selection.",
+          "why": "A subscription does not run in a Scene."
+        }
+      ],
+      "writtenFrom": {
+        "body": "b8e1a5d90246f5dc6c219039168307f3b7687e028e6748e7c8fc951b0388dd77",
+        "prd": {
+          "prd.deep-links.composing": "2807222bfc2fa92c4632050728c7037758270f5c1cb9197a8d2cc2b2810d29e8",
+          "prd.deep-links.targets": "8330a082a2ee90606bd661cdfa4a1e12314e947fe863a702c45f18fb4f23a6a5"
+        }
+      }
+    },
+    {
       "id": "spec.testing",
       "title": "Testing",
       "level": 2,
-      "line": 2053,
+      "line": 2414,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.testing.model-based",
@@ -8618,7 +10769,7 @@
       "id": "spec.testing.model-based",
       "title": "Model-based tests",
       "level": 3,
-      "line": 2057,
+      "line": 2418,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -8714,7 +10865,7 @@
       "id": "spec.testing.presence-model",
       "title": "Presence against the room machine",
       "level": 3,
-      "line": 2077,
+      "line": 2438,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -8784,7 +10935,7 @@
       "id": "spec.testing.viewer-models",
       "title": "Reader interactions against models",
       "level": 3,
-      "line": 2093,
+      "line": 2454,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -8891,7 +11042,7 @@
       "id": "spec.testing.derivation-model",
       "title": "Derivation against a model of its inputs",
       "level": 3,
-      "line": 2123,
+      "line": 2484,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -8966,7 +11117,7 @@
       "id": "spec.acceptance",
       "title": "Acceptance",
       "level": 2,
-      "line": 2141,
+      "line": 2502,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,

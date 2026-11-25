@@ -24,9 +24,9 @@ A PRD section is covered when it, or a section under it, appears in some `Implem
 
 ## Scope {#spec.scope}
 
-- Defers: `prd.v2-diverging-state`, `prd.v2-multiplayer-on-cloudflare`, `prd.later`
+- Defers: `prd.v2-diverging-state`, `prd.v2-multiplayer-on-cloudflare`, `prd.later`, `prd.section-ids.items`, `prd.done-when`, `prd.judging-the-plan.routing`, `prd.judging-the-plan.comparing`, `prd.judging-the-plan.gateway`, `prd.outcomes`, `prd.conflicts`, `prd.relations`, `prd.viewer.items`, `prd.viewer.cost`, `prd.viewer.dependencies`, `prd.viewer.command-menu`, `prd.viewer.notes`, `prd.docs`
 
-This spec covers v1. Presence is the one v2 piece already built, and it stays: `cairn serve` keeps serving `/presence` next to the trace API.
+This spec covers v1. The v1 sections deferred after `prd.later` are not planned yet, so that `cairn plan` plans deep links on their own; taking a section off this list lets the next `cairn plan` plan it. Presence is the one v2 piece already built, and it stays: `cairn serve` keeps serving `/presence` next to the trace API.
 
 ## Package layout {#spec.package-layout}
 
@@ -454,6 +454,72 @@ Until the CLI exists, `spec.json` is written by hand in this format, and the lin
 
 The package ships `.d.ts` files and `schema/{manifest,event,config}.schema.json`, generated with `Schema.toJsonSchemaDocument`. A test regenerates them and fails if the committed files differ, so `pnpm check` catches drift.
 
+### Links {#spec.contract.links}
+
+- Implements: `prd.deep-links.targets`, `prd.deep-links.composing`
+- Files: `packages/contract/src/link.ts`, `packages/contract/src/index.ts`, `packages/contract/test/link.test.ts`, `packages/contract/package.json`
+- Depends on: `spec.contract.section-ids`, `spec.contract.trailers`, `spec.contract.session`
+
+A link is a list of steps, and its text is a URL path. `link.ts` defines both. The step schemas and one Schema that turns a path into steps and steps back into a path are the only definition of a link. The viewer's route reads links through it (see `spec.viewer.deep-links.opening-a-link`) and `cairn link` writes them through it (see `spec.cli.cairn-link`), so a printed link and a copied link are always the same text. `link.ts` imports IDs from `ids.ts` and `trailers.ts`, never from `index.ts`, and `index.ts` re-exports it.
+
+```ts
+Link = Array<Step> // well formed: see the rules below
+
+Step =
+  | { kind: "section"; id: PrdSectionId | SpecSectionId } // a PRD or spec section, or a PRD list item, by its ID
+  | { kind: "passage"; section: PrdSectionId | SpecSectionId; quote: Quote }
+  | { kind: "task"; id: TaskId }
+  | { kind: "stack"; root: TaskId } // the stack that root starts
+  | { kind: "segment"; root: TaskId } // that stack's finished trunk
+  | { kind: "diff"; head: Sha } // the task before it, as its stacked diff stood at head
+  | { kind: "commit"; sha: Sha }
+  | { kind: "file"; path: NonEmptyString } // relative to the repo root
+  | { kind: "lines"; side: "new" | "old"; start: PositiveInt; end: PositiveInt } // start <= end
+  | { kind: "turn"; session: SessionId; turn: NonEmptyString } // a Turn's id (see spec.contract.session)
+  | { kind: "note"; id: NoteId }
+
+Quote = string // 1 to 500 characters, whitespace runs collapsed to one space, trimmed
+NoteId = string // ^n_[a-z0-9]{6,}$
+```
+
+The steps cover every target the PRD lists. A stack is named by its root task, not its number, because numbers move when the plan changes and a root's ID does not. A line is a side and a line number, so the same link works in the unified view and in the split view. Notes are not stored yet (see `spec.sessions.trace-store`). I chose `NoteId` to follow the pattern of `SessionId`, and the notes work stores notes under it.
+
+Each step is written as path segments. Every argument is encoded with `encodeURIComponent`, so a file path's `/` becomes `%2F`:
+
+| Step    | Path                                                           |
+| ------- | -------------------------------------------------------------- |
+| section | `/section/<id>`                                                |
+| passage | `/passage/<id>/<quote>`                                        |
+| task    | `/task/<id>`                                                   |
+| stack   | `/stack/<root>`                                                |
+| segment | `/segment/<root>`                                              |
+| diff    | `/diff/<head>`                                                 |
+| commit  | `/commit/<sha>`                                                |
+| file    | `/file/<path>`                                                 |
+| lines   | `/lines/n40`, `/lines/n40-42`, `/lines/o12` (`n` new, `o` old) |
+| turn    | `/turn/<session>/<turn>`                                       |
+| note    | `/note/<id>`                                                   |
+
+The link with no steps is `/`. A trailing `/` is accepted when a link is read and never written. A single range is written as `n40`, not `n40-40`. None of the step names is `api`, `presence` or `assets`, so a link never collides with a server route or a built file.
+
+A well-formed link follows these rules, and decoding enforces them:
+
+- `diff` comes directly after a `task`.
+- `file` comes directly after a `diff` or a `commit`. `lines` comes directly after a `file`.
+- After the first `diff`, `commit` or `turn`, only `file`, `lines` and `turn` may follow. A link has at most one `diff` or `commit` and at most one `turn`, and a `turn` is last.
+- A `note` is last.
+
+`LinkFromPath` is an Effect Schema from the path string to `Link`. Decoding reads a link and encoding writes one. Every ID decodes through its own contract schema. A failure is a `LinkError` that gives the step's index, the step's name and the field path, for example `step 3 (file): must follow a diff or a commit` or `step 2 (diff).head: expected 40 lowercase hex characters`.
+
+The contract takes `fast-check` as a dev dependency, at the version `spec.testing.model-based` pins.
+
+Tests, in `link.test.ts`:
+
+- A property: for every well-formed `Link`, generated from the step schemas with arbitraries that follow the rules above, encoding and then decoding gives the same steps, and encoding gives the same path each time. This is the acceptance criterion that writing a link and reading it back gives the same steps.
+- Quotes and file paths with `/`, `%`, spaces, emoji and surrogate pairs come back unchanged.
+- Examples: the path for the PRD's `cairn link prd.code-view t74 --file packages/cli/src/api.ts --line 40` is `/section/prd.code-view/task/t74/diff/<sha>/file/packages%2Fcli%2Fsrc%2Fapi.ts/lines/n40`.
+- Refusals: a `file` with no diff before it, a `lines` that does not follow a `file`, a `task` after a `commit`, `/lines/n42-40`, a bad SHA and a bad percent-encoding are each refused, and each error names the step and the field.
+
 ## Sections {#spec.sections}
 
 ### Parsing {#spec.sections.parsing}
@@ -876,6 +942,29 @@ flowchart BT
     direction BT
     t117["t117 · 117-trailer-check<br/>Refuse a task commit without its trailers<br/>wt-36"]
   end
+  subgraph s51["Stack 51 · contract"]
+    direction BT
+    t118["t118 · 118-add-the-link-schema-that-reads-and-writes-link-paths<br/>Add the Link schema that reads and writes link paths<br/>wt-37"]
+  end
+  subgraph s52["Stack 52 · cli"]
+    direction BT
+    t119["t119 · 119-add-cairn-link<br/>Add cairn link<br/>wt-37"]
+  end
+  subgraph s53["Stack 53 · viewer"]
+    direction BT
+    t120["t120 · 120-resolve-a-link-against-the-trace-and-show-what-is-missing<br/>Resolve a link against the trace and show what is missing<br/>wt-20"]
+  end
+  subgraph s54["Stack 54 · viewer"]
+    direction BT
+    t121["t121 · 121-open-a-link-s-steps-in-the-reader-and-the-code-view<br/>Open a link's steps in the reader and the code view<br/>wt-20"]
+    t122["t122 · 122-keep-the-address-bar-and-browser-history-in-step-with-the-open-link<br/>Keep the address bar and browser history in step with the open link<br/>wt-20"]
+    t123["t123 · 123-mark-linked-passages-stacks-and-lines-in-the-panes<br/>Mark linked passages, stacks and lines in the panes<br/>wt-38"]
+    t124["t124 · 124-add-copy-link-buttons-to-every-step<br/>Add Copy link buttons to every step<br/>wt-20"]
+  end
+  subgraph s55["Stack 55 · viewer"]
+    direction BT
+    t125["t125 · 125-copy-links-to-selected-passages-and-diff-lines<br/>Copy links to selected passages and diff lines<br/>wt-20"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -1044,8 +1133,27 @@ flowchart BT
   t32 -.-> t116
   t105 -.-> t116
   main --> t117
-  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117 sonnet
+  t76 -.-> t118
+  t102 -.-> t118
+  t17 -.-> t119
+  t21 -.-> t119
+  t23 -.-> t119
+  t118 -.-> t119
+  t53 -.-> t120
+  t69 -.-> t120
+  t73 -.-> t120
+  t100 -.-> t120
+  t118 -.-> t120
+  t80 -.-> t121
+  t93 -.-> t121
+  t120 -.-> t121
+  t121 --> t122
+  t121 --> t123
+  t122 --> t124
+  t123 -.-> t125
+  t124 -.-> t125
+  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122 opus
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125 sonnet
   class t11,t24,t27,t44,t56,t66,t102,t107 haiku
   class t1,t2,t3,t81,t97 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
@@ -1437,6 +1545,58 @@ The `adapters` package from the vision comes later. For dogfooding, this list is
 One `cairn` binary built with `effect/cli`. Each command finds `.cairn/` in the repo's main checkout, from `git rev-parse --path-format=absolute --git-common-dir`, not from the current worktree. Commands run inside a worktree read and write the same `events.jsonl` and `cairn.db` as everyone else.
 
 `cairn init` creates `.cairn/` with a PRD template, an empty `events.jsonl` and a `config.json` that lists the default `humanPaths` for the project to edit, and adds `.cairn/cairn.db` to `.gitignore`. It refuses to overwrite an existing `.cairn/`.
+
+### `cairn link` {#spec.cli.cairn-link}
+
+- Implements: `prd.deep-links.agents`
+- Files: `packages/cli/src/commands/link.ts`, `packages/cli/src/link-args.ts`, `packages/cli/src/main.ts`, `packages/cli/test/link.test.ts`, `AGENTS.md`
+- Depends on: `spec.contract.links`, `spec.sections.parsing`, `spec.status.cairn-status-and-cairn-approve`
+
+`cairn link` prints a link into the viewer. It builds the steps from its arguments, in the order they are given, and writes the path with `LinkFromPath`, so its output is the path the viewer copies.
+
+```text
+cairn link prd.code-view t74 --file packages/cli/src/api.ts --line 40
+http://localhost:4310/section/prd.code-view/task/t74/diff/<head>/file/packages%2Fcli%2Fsrc%2Fapi.ts/lines/n40
+```
+
+Arguments, read left to right by `stepsOfArgs(tokens, plan)` in `link-args.ts`, which is pure:
+
+- A token starting with `prd.` or `spec.` is a `section` step. `--passage <text>` right after it turns that step into a `passage`, with the text collapsed as a quote is.
+- A token that is a task ID in the manifest is a `task` step.
+- `--commit <sha>` is a `commit` step.
+- `--file <path>` is a `file` step. After a `task`, it first adds a `diff` at the task's newest commit, read with `Git.log`.
+- `--line <n>` or `--line <n>-<m>` is a `lines` step on the new side. `--old` before it puts it on the old side.
+- `--stack <root>`, `--segment <root>`, `--turn <session>/<turn>` and `--note <id>` are their steps.
+
+`effect/cli` parses options apart from positional arguments and loses their order. The command declares every option to `effect/cli`, so `--help` lists it and values are validated there, and takes the order from the raw tokens after `link`.
+
+The command checks what it can before it prints:
+
+- Each section ID is a heading in `prd.md` or `spec.md`.
+- Each task is in the manifest.
+- A commit is known to git and, after a task, carries that task's `Cairn-Task` trailer.
+- A stack or segment root has `parent: null`.
+- A task followed by `--file` has commits.
+- The steps are well formed.
+
+A failure exits 1 with a message naming the token: `unknown section prd.code-veiw`, `t74 has no commits, so it has no diff yet`, `--line must follow --file`. The command does not check that a passage, a file or a line is still there. The viewer reports any that are missing (see `spec.viewer.deep-links.resolving-a-link`).
+
+The printed link is `http://localhost:4310`, the port `cairn serve` uses, followed by the path. `--base <url>` sets another origin, and `--base ""` prints the path alone. The command reads files and git and never writes.
+
+Agents. `AGENTS.md` says that a pull request description, a gate notice and a board post name the place they are about with `cairn link`, and gives the example above. The orchestrator follows the same rule:
+
+- The `detail` of a `blocked_on_human` event ends with `cairn link <task>`.
+- A pull request opened by `gt submit` links its task and the task's first PRD section.
+
+Board posts follow the same rule once there is a message board adapter.
+
+Tests, in `link.test.ts`, with the in-memory `Git` layer and a temporary `.cairn/`:
+
+- The PRD's example prints the path above, with the task's newest commit as the head, and that path decodes through `LinkFromPath` to the same steps.
+- `t74 prd.code-view` and `prd.code-view t74` print their steps in the order given.
+- `--passage` turns its section into a passage.
+- An unknown section, an unknown task, `--line` with no `--file`, and `--file` after a task with no commits each exit 1, with the token named.
+- `--base ""` prints the path alone.
 
 ## Patch routes {#spec.patch-routes}
 
@@ -2052,6 +2212,204 @@ Code in the demo. The deployed demo has no server, so its build writes the patch
 - No session is shipped. Session logs are not in the repository, and they are not redacted yet (see `spec.sessions.redaction`).
 
 Tests: the script against a temporary repository with two commits writes one file per commit and one per range, and skips a SHA git does not have without failing. A Scene test in the demo build finds the diff mount requesting a commit's path, and a `text/html` reply shown as a missing patch.
+
+### Deep links {#spec.viewer.deep-links}
+
+- Implements: `prd.deep-links`
+
+Every place the reader and the code view can open has a link, written with `LinkFromPath` (see `spec.contract.links`). There are three parts:
+
+- Resolving checks a link's steps against the trace and the loaded data, and says which step is missing.
+- Opening applies the steps the way clicks would, and keeps the address bar and the browser history in step with the screen.
+- Copying puts "Copy link" on every step.
+
+The canvas screen has no links. While it is open the viewer writes no link and leaves the address as it is. A link always opens on the reader or the code view.
+
+#### Resolving a link {#spec.viewer.deep-links.resolving-a-link}
+
+- Implements: `prd.deep-links.missing`
+- Files: `apps/viewer/src/links.ts`, `apps/viewer/src/view/linkNoticeView.ts`, `apps/viewer/src/ui/components.css`, `apps/viewer/test/links.test.ts`, `apps/viewer/test/link-notice.scene.test.ts`
+- Depends on: `spec.contract.links`, `spec.contract.trace`, `spec.viewer.prose-search`, `spec.viewer.stacks`, `spec.viewer.diff-view`, `spec.viewer.design-system`
+
+`resolveLink(trace, link, loaded)` in `links.ts` is pure. `loaded` holds the patches and sessions the model has received. It checks each step in order and returns:
+
+- `resolved`: the steps that open, each with what it needs. A passage step comes with its mark ranges. A diff step comes with its route path.
+- `waiting`: the index of the first step whose data is not loaded yet, or none.
+- `missing`: what did not resolve. At most one miss stops resolution. Passage misses do not stop it.
+
+A miss is `{ index, step, reason, message }`:
+
+| Step    | Resolves when                                                                                | Reason otherwise                                                                             |
+| ------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| section | A section in `trace.prd` or `trace.spec` has the ID                                          | `section-missing`: no section has this ID, so it was deleted                                 |
+| passage | Its section resolves and the quote is found in it                                            | `passage-changed`, which does not stop resolution: the step opens as its section             |
+| task    | `trace.tasks` has it                                                                         | `task-missing`                                                                               |
+| stack   | `stacksOf(trace.tasks)` has a stack with that root                                           | `stack-missing`                                                                              |
+| segment | That stack's finished trunk holds two or more tasks                                          | `segment-missing`                                                                            |
+| diff    | `head` is one of the preceding task's commits                                                | `commit-not-on-task`: the branch was restacked or rewritten after the link was copied        |
+| commit  | A task in the trace has the commit, and it is the preceding task when one precedes it        | `commit-missing` or `commit-not-on-task`                                                     |
+| file    | The patch of the diff or commit before it is loaded and has the path                         | `patch-unavailable`, with the fetch error or the demo's missing patch, or `file-not-in-diff` |
+| lines   | The file's hunks show every line from `start` to `end` on that side                          | `lines-not-in-diff`                                                                          |
+| turn    | A commit in the trace has the session, the session is loaded, and it has a turn with that ID | `session-missing`, `sessions-unavailable` in the demo, or `turn-missing`                     |
+| note    | Never yet                                                                                    | `notes-unavailable`: notes are not stored yet                                                |
+
+A step whose patch or session is not in `loaded` makes `waiting` that step's index, and resolution stops there until the data arrives.
+
+The finished trunk is defined by `trunkOf(stack, tasks)` in `links.ts`. It starts at the root and takes the run of `done` or `landed` tasks up to the first fork or the first unfinished task, which is the PRD's rule for a folded segment.
+
+A patch is turned into file names and hunk line ranges by the same patch-to-files step the diff view uses (see `spec.viewer.diff-view`). Resolution does not parse a patch a second way.
+
+Passages. `passageOf(index, section, quote)` finds a passage in the prose blocks its section owns. The blocks and their visible-text offset maps come from the prose index in `spec.viewer.prose-search`, and nested sections own their own text there.
+
+- The blocks' visible texts are joined with one space and whitespace runs are collapsed to one space.
+- The first exact, case-sensitive match of the quote counts.
+- The match is mapped back to a range in each block it covers.
+
+An edit anywhere else in the document leaves the passage's ranges pointing at the same text. An edit inside the passage removes the match.
+
+The notice. `linkNoticeView` sits under the top bar of the reader and of the code view, with `role="status"`. It says how far the link opened and what is missing, for example: "Opened as far as task t74. `packages/cli/src/api.ts` is not in that diff." A passage miss reads: "The passage changed: "…first 80 characters…" is no longer in Viewer." A link that does not decode opens nothing and shows its `LinkError`: "This address is not a Cairn link: step 3 (file) must follow a diff or a commit." The notice has a "Dismiss" button that sends `ClickedDismissLinkNotice`, and the next link that opens replaces it. The window is never blank: at worst it is the reader with no steps, under the notice.
+
+Tests:
+
+- Properties in `links.test.ts` over the demo trace with generated links:
+  - The resolved steps are the link's steps up to the first stopping miss, with a passage miss counted as its section.
+  - No step after a stopping miss resolves.
+  - `waiting` comes before any data-dependent miss.
+- A passage is still found, on the same text, after a paragraph is added to another section of the PRD. After a word inside it changes, it gives `passage-changed` and the next steps still resolve. This is the acceptance criterion about passages.
+- Other examples:
+  - A trace with a section removed gives `section-missing` at that step.
+  - A diff head that is not on the task gives `commit-not-on-task`.
+  - A loaded patch without the file gives `file-not-in-diff`.
+  - Lines outside every hunk give `lines-not-in-diff`.
+  - A turn in the demo gives `sessions-unavailable`.
+- Scene tests find the notice's text for a missing task and for a malformed path, and find that "Dismiss" removes it.
+
+#### Opening a link {#spec.viewer.deep-links.opening-a-link}
+
+- Implements: `prd.deep-links.composing`
+- Files: `apps/viewer/src/route.ts`, `apps/viewer/src/links.ts`, `apps/viewer/src/main.ts`, `apps/viewer/src/init.ts`, `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/detail.ts`, `apps/viewer/src/codeView.ts`, `apps/viewer/src/markdown.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/view/specPaneView.ts`, `apps/viewer/src/view/stackChipsView.ts`, `apps/viewer/src/view/diffView.ts`, `apps/viewer/test/links-open.test.ts`, `apps/viewer/test/links-open.scene.test.ts`
+- Depends on: `spec.viewer.deep-links.resolving-a-link`, `spec.viewer.reader`, `spec.viewer.spec-cards`, `spec.viewer.detail-panel`, `spec.viewer.code-view`, `spec.viewer.session-view`, `spec.viewer.attribution`
+
+Routes. The viewer becomes a Foldkit application that owns the URL. `route.ts` defines `linkRoute`, the viewer's only route, over `LinkFromPath`. Read Foldkit's route and navigation declarations before writing it. If Foldkit's route combinators can express a list of steps that print and parse from one definition, `linkRoute` is built from them, with each argument's schema taken from the contract. If they cannot, `linkRoute` is one wildcard path run through `LinkFromPath`, and that Schema stays the single definition. URL changes arrive as `ChangedUrl`. `pushUrl` and `replaceUrl` are commands.
+
+A link carries no host, so it opens the same way under `pnpm dev`, under `cairn serve` and on the demo site. All three answer any path that is not a file with the viewer's page: Vite by default, the server through its `GET /*` (see `spec.server`), and the demo site as `spec.viewer.demo-data` describes.
+
+New model state:
+
+- `reader.maybePassage`: the open passage's section and quote.
+- `reader.maybeFocus`: a `stack` or `segment` and its root.
+- `maybeLines` on the `Code` screen.
+- `maybeHead` on `WholeTask`. None means the task's newest commit, as before.
+- `maybeLinkNotice`.
+- `maybePendingLink`: a link waiting for the first trace or for its data.
+
+What is on screen as a link. `linkOf(model)` in `links.ts` is pure and gives the canonical link of what was opened, in this order:
+
+1. The pinned PRD section, or a PRD passage in its place.
+2. A spec passage.
+3. The focused stack or segment.
+4. The detail trail's steps, each a `section` for a spec section or a `task`.
+5. A `task` step for the code view's task, when that task is not the trail's last step.
+6. A `diff` with the head it shows, or a `commit`.
+7. The selected file, then `lines`.
+8. The highlighted turn.
+
+Some things are not in a link: the section at the top of the PRD pane, pane widths, the models switch, card density and cards opened by their header, and the search. Each viewer keeps those.
+
+Opening. `openLink(model, link)` resolves the link and clears what a link holds: the pin, the passage, the focus, the trail and the code view selection. It then applies each resolved step the way the click it stands for does:
+
+- PRD section: pins it.
+- Spec section: starts the detail trail on it, or adds it when the panel is open.
+- PRD passage: pins its section and marks the passage.
+- Spec passage: if the pinned section is not one it implements, it pins the first PRD section it implements. It then opens its card in `opened` and marks the passage. A spec section that implements no PRD section opens in the detail panel, as search does.
+- Task: starts or extends the trail.
+- Stack or segment: sets the focus. The box gets `data-linked` and an ink outline, and for a segment so do its trunk's chips.
+- Diff: opens the code view on the trail's last task at `head`.
+- Commit: opens the code view on that commit, after adding its task to the trail when the trail's last task is a different one.
+- File: selects the file.
+- Lines: sets `maybeLines`.
+- Turn: opens the code view on the session's newest commit if no code step came before it, then highlights the turn as `ClickedTurn` does.
+
+Passage marks are `mark[data-link-passage]` nodes, placed by the same range splitting that search marks use (see `spec.viewer.prose-search`). They have an ink underline and no fill, so a search mark inside one still shows. The diff mount gains a `data-lines` attribute, such as `n40-42`, which its `MutationObserver` reads to scroll to the lines and select them. Use `@pierre/diffs`' line selection if `CodeView`'s declarations have one; otherwise draw a line annotation, as the turn marks do.
+
+`openLink` returns commands:
+
+- For each step past the longest prefix the old link and the new link share: a scroll that brings it into view, whether a heading, a passage's first mark, a card, a chip or a box.
+- A fetch for each patch or session the steps need that is not loaded, through the requests the code view already makes. This is how a link opened in a new window loads its diff and its turn.
+
+When `ReceivedPatch` or `ReceivedSession` arrives for `maybePendingLink`, the link is resolved again. A step that is now missing is taken out of the state, its notice is shown, and the address is replaced with `replaceUrl(linkOf(model))`.
+
+History. `withAddress(update)` wraps the viewer's update:
+
+- First load. `init` decodes the URL into `maybePendingLink`. The first trace opens it, and the history is rewritten with one entry per step: `replaceUrl` with the first step, then `pushUrl` for each longer prefix. Back then walks a link opened in a new window one step at a time.
+- `ChangedUrl` from Back, Forward or a typed address opens that link without writing history. A `ChangedUrl` whose link equals `linkOf(model)` does nothing, which also absorbs the echo of the viewer's own `pushUrl`.
+- After any other message, if `linkOf` changed, the new link is pushed. Pinning, opening a task or a spec section, cutting or shortening the trail, Escape, opening the code view, selecting in its tree, selecting lines, highlighting a turn and "Back to the plan" all become one history entry each, so Back undoes them one step at a time, as Escape does in the panel.
+- Escape with the panel closed also clears the focus, as it unpins.
+
+The flow of a link from the address bar to the screen:
+
+```mermaid
+flowchart LR
+  url["address bar path"] --> decode["LinkFromPath decode"]
+  decode -->|LinkError| notice["link notice"]
+  decode --> resolve["resolveLink against the trace"]
+  resolve -->|missing step| notice
+  resolve --> apply["apply each resolved step"]
+  apply --> fetch["fetch patches and sessions"]
+  fetch --> verify["resolve again: file, lines, turn"]
+  verify -->|missing step| notice
+  verify --> address["replaceUrl with linkOf"]
+```
+
+Tests, in `links-open.test.ts`, run on `update` with no render loop:
+
+- `init` with the path of a PRD passage, a spec section, a task, its diff, a file and lines, then `SettledLoadTrace` with the demo trace. The result is the pinned section with the passage set, a trail of the spec section and the task, and the code view at that head with the file and the lines. The commands are one `replaceUrl`, five `pushUrl` and one request for `/api/diffs/<base>/<head>`.
+- Sending `ChangedUrl` with each shorter prefix in turn removes the lines, then the file, closes the code view to the panel on the task, then the task, the spec section and the pin. This is the acceptance criterion that Back walks the trail.
+- `ReceivedPatch` without the file shows the notice, drops the file and replaces the address.
+- Clicking a task row after that pushes `/task/<id>`.
+- A property: for canonical links generated from the demo trace's sections, tasks and stacks, `linkOf(openLink(model, link))` equals the link.
+- A Scene test finds `data-link-passage` marks in the PRD pane, `data-linked` on a focused box, and `data-lines` on the diff mount.
+
+#### Copying a link {#spec.viewer.deep-links.copying-a-link}
+
+- Implements: `prd.deep-links.composing`, `prd.deep-links.targets`
+- Files: `apps/viewer/src/links.ts`, `apps/viewer/src/view/copyLinkView.ts`, `apps/viewer/src/subscription/selection.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/view/specPaneView.ts`, `apps/viewer/src/view/detailView.ts`, `apps/viewer/src/view/stackChipsView.ts`, `apps/viewer/src/view/codeView.ts`, `apps/viewer/src/view/diffView.ts`, `apps/viewer/src/view/sessionView.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/ui/components.css`, `apps/viewer/test/links.test.ts`, `apps/viewer/test/copy-link.scene.test.ts`
+- Depends on: `spec.viewer.deep-links.opening-a-link`, `spec.viewer.design-system`
+
+Copying the address bar copies the link. The buttons below give the same text without going there.
+
+`aloneOf(link, index)` in `links.ts` is pure. It gives the shortest link that opens that step by itself:
+
+- A section, passage, task, stack, segment, commit, turn or note is its own step.
+- A diff is its task and itself.
+- A file is the diff or commit before it, plus the task for a diff.
+- Lines are those steps and the file.
+
+`copyLinkView({ path, label }, h)` is a small `btn`. It sends `ClickedCopyLink` with the path. The update runs a Command that writes `location.origin` plus the path to the clipboard and then sends `CompletedCopyLink`. The button reads "copied" until the next render after that, as the section ID button does.
+
+Where the buttons are:
+
+- PRD headings. Beside the section ID button, "Copy link" copies `/section/<id>` alone. The pinned section's status line row also copies the link up to its step.
+- Spec card headers. "Copy link" copies the section alone.
+- Passages. The `TrackSelection` subscription in `subscription/selection.ts` listens to `selectionchange`, at most once per animation frame. When both ends of the selection lie in one `[data-passage]` element, it sends `SelectedPassage` with the section and the quote. A PRD section's prose wrapper carries its section ID in `data-passage`, and so does a card's full section body. The quote is the selection's text, trimmed, with whitespace collapsed. When the selection leaves such an element, it sends `ClearedPassageSelection`. With a selection, the section's status line row (in the PRD) or the card header (in the spec) shows "Copy link to passage". It opens the passage as a step, pinning and marking it, and copies the link up to that step. Over 500 characters the button is disabled, with the title "Select at most 500 characters to link to them."
+- The detail panel. Each step of the trail has "Copy link" for the path up to that step. The panel's heading copies its task or spec section alone.
+- The stacks pane. Each box has "Copy link" in its corner for `/stack/<root>`. A box whose finished trunk holds two or more tasks also has "Copy link to finished trunk" for `/segment/<root>`.
+- The code view top bar. "Copy link" copies the whole path, and "Copy alone" copies `aloneOf` its last step: the lines when lines are selected, otherwise the file, the diff or the commit.
+- Lines. The diff mount turns a line selection into `SelectedDiffLines` with the side, start and end, through `@pierre/diffs`' line selection callback, or through a click listener on the line-number gutter if it has none. The selection then joins the link.
+- The session pane. An opened turn has "Copy link" for the path up to its turn.
+
+A link to a line copied from a task's diff carries the `diff` step's head, which is the commit the code view showed when it was copied. The link then opens on the same code after more commits land.
+
+Tests:
+
+- Properties in `links.test.ts`: `aloneOf` always gives a well-formed link that ends with the step it was asked for, and on the demo trace that link resolves the step.
+- Scene tests:
+  - Pin `prd.viewer` and click its "Copy link"; the clipboard command carries `/section/prd.viewer`.
+  - Send `SelectedPassage` (a subscription does not run in a Scene) and click "Copy link to passage". The section is pinned, the passage marked, and `/passage/prd.viewer/<quote>` copied.
+  - Copy from the second step of a two-step trail and get the two-step path.
+  - "Copy alone" with lines selected gives the task, diff, file and lines.
+  - A stack box's corner copies `/stack/<root>`.
+  - A selection over 500 characters disables the passage button.
 
 ## Testing {#spec.testing}
 

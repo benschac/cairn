@@ -2810,7 +2810,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -2913,6 +2913,226 @@
         "reasons": []
       },
       "status": "done",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t118",
+      "title": "Add the Link schema that reads and writes link paths",
+      "prdSections": ["prd.deep-links.targets", "prd.deep-links.composing"],
+      "specSections": ["spec.contract.links"],
+      "files": [
+        "packages/contract/src/link.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/test/link.test.ts",
+        "packages/contract/package.json"
+      ],
+      "branch": "cairn-mvp/118-add-the-link-schema-that-reads-and-writes-link-paths",
+      "parent": null,
+      "dependsOn": ["t76", "t102"],
+      "worktree": "wt-37",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t119",
+      "title": "Add cairn link",
+      "prdSections": ["prd.deep-links.agents"],
+      "specSections": ["spec.cli.cairn-link"],
+      "files": [
+        "packages/cli/src/commands/link.ts",
+        "packages/cli/src/link-args.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/link.test.ts",
+        "AGENTS.md"
+      ],
+      "branch": "cairn-mvp/119-add-cairn-link",
+      "parent": null,
+      "dependsOn": ["t17", "t21", "t23", "t118"],
+      "worktree": "wt-37",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t120",
+      "title": "Resolve a link against the trace and show what is missing",
+      "prdSections": ["prd.deep-links.missing"],
+      "specSections": ["spec.viewer.deep-links.resolving-a-link"],
+      "files": [
+        "apps/viewer/src/links.ts",
+        "apps/viewer/src/view/linkNoticeView.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/links.test.ts",
+        "apps/viewer/test/link-notice.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/120-resolve-a-link-against-the-trace-and-show-what-is-missing",
+      "parent": null,
+      "dependsOn": ["t53", "t69", "t73", "t100", "t118"],
+      "worktree": "wt-20",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t121",
+      "title": "Open a link's steps in the reader and the code view",
+      "prdSections": ["prd.deep-links.composing"],
+      "specSections": ["spec.viewer.deep-links.opening-a-link"],
+      "files": [
+        "apps/viewer/src/links.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/detail.ts",
+        "apps/viewer/src/codeView.ts",
+        "apps/viewer/test/links-open.test.ts"
+      ],
+      "branch": "cairn-mvp/121-open-a-link-s-steps-in-the-reader-and-the-code-view",
+      "parent": null,
+      "dependsOn": ["t80", "t93", "t120"],
+      "worktree": "wt-20",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t122",
+      "title": "Keep the address bar and browser history in step with the open link",
+      "prdSections": ["prd.deep-links.composing"],
+      "specSections": ["spec.viewer.deep-links.opening-a-link"],
+      "files": [
+        "apps/viewer/src/route.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/src/init.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/links-open.test.ts"
+      ],
+      "branch": "cairn-mvp/122-keep-the-address-bar-and-browser-history-in-step-with-the-open-link",
+      "parent": "t121",
+      "dependsOn": ["t121"],
+      "worktree": "wt-20",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t123",
+      "title": "Mark linked passages, stacks and lines in the panes",
+      "prdSections": ["prd.deep-links.composing"],
+      "specSections": ["spec.viewer.deep-links.opening-a-link"],
+      "files": [
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/test/links-open.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/123-mark-linked-passages-stacks-and-lines-in-the-panes",
+      "parent": "t121",
+      "dependsOn": ["t121"],
+      "worktree": "wt-38",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t124",
+      "title": "Add Copy link buttons to every step",
+      "prdSections": ["prd.deep-links.composing", "prd.deep-links.targets"],
+      "specSections": ["spec.viewer.deep-links.copying-a-link"],
+      "files": [
+        "apps/viewer/src/links.ts",
+        "apps/viewer/src/view/copyLinkView.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/codeView.ts",
+        "apps/viewer/src/view/sessionView.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/links.test.ts",
+        "apps/viewer/test/copy-link.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/124-add-copy-link-buttons-to-every-step",
+      "parent": "t122",
+      "dependsOn": ["t122"],
+      "worktree": "wt-20",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t125",
+      "title": "Copy links to selected passages and diff lines",
+      "prdSections": ["prd.deep-links.composing", "prd.deep-links.targets"],
+      "specSections": ["spec.viewer.deep-links.copying-a-link"],
+      "files": [
+        "apps/viewer/src/subscription/selection.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/copy-link.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/125-copy-links-to-selected-passages-and-diff-lines",
+      "parent": null,
+      "dependsOn": ["t123", "t124"],
+      "worktree": "wt-20",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
       "commits": [],
       "sessions": []
     }
