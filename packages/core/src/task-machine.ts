@@ -27,17 +27,17 @@ export const taskMachine = setupEffect({
   initial: "pending",
   states: {
     blocked_on_human: {
-      on: { approve: { target: "done" } },
+      on: { approve: { target: "done" }, land: { target: "landed" } },
     },
     done: {
       on: { land: { target: "landed" } },
     },
     failed: {
-      on: { start: { target: "running" } },
+      on: { land: { target: "landed" }, start: { target: "running" } },
     },
     landed: { type: "final" },
     pending: {
-      on: { start: { target: "running" } },
+      on: { land: { target: "landed" }, start: { target: "running" } },
     },
     running: {
       on: {
@@ -45,6 +45,7 @@ export const taskMachine = setupEffect({
         finish: ({ context }) => ({
           target: context.gated ? "blocked_on_human" : "done",
         }),
+        land: { target: "landed" },
       },
     },
   },

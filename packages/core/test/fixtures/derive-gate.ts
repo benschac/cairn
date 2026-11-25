@@ -40,7 +40,7 @@ export const agentApproves = {
 /**
  * The shrunk failure `propertyTest` printed when `derive` read the gate only from commits the base
  * branch did not reach: a merge took the migration out of the gate, and the task landed without a
- * human.
+ * human and without a warning.
  */
 export const landingSkipsGate = {
   failedAt: 5,

@@ -184,29 +184,38 @@ it.prop(
 );
 
 it.prop(
-  "a landing moves only a done task to landed; from anywhere else it is a warning",
-  [Lines(Schema.Literals(["orchestrator", HUMAN, AGENT])), Schema.Literals(["merged", "squashed"])],
-  ([lines, landing]) => {
+  "a landing lands a task whatever its status, and warns only for a gated task no human approved",
+  [
+    Lines(Schema.Literals(["orchestrator", HUMAN, AGENT])),
+    Schema.Literals(["merged", "squashed"]),
+    Schema.Boolean,
+  ],
+  ([lines, landing, gated]) => {
+    const plan = manifestWith(gated ? "t4" : null);
     const events = linesFor("t4", lines);
-    const before = taskOf(run(events, landedAs("t4", "none", PLAIN)), "t4").status;
-    const after = run(events, landedAs("t4", landing, PLAIN));
-    expect(taskOf(after, "t4").status).toBe(before === "done" ? "landed" : before);
+    const unlanded = run(events, landedAs("t4", "none", PLAIN), plan);
+    const before = taskOf(unlanded, "t4").status;
+    const after = run(events, landedAs("t4", landing, PLAIN), plan);
+    expect(taskOf(after, "t4").status).toBe("landed");
     expect(kindsOf(after, "t4")).toStrictEqual(
       Array.appendAll(
-        kindsOf(run(events, landedAs("t4", "none", PLAIN)), "t4"),
-        before === "done" || before === "landed" ? [] : ["landed-without-approval"],
+        kindsOf(unlanded, "t4"),
+        gated && before !== "done" && before !== "landed" ? ["landed-without-approval"] : [],
       ),
     );
   },
 );
 
 it.prop(
-  "a task that touched a migration never lands without a human, and the tasks above it wait",
+  "a task that touched a migration is never done without a human, lands only with a warning, and the tasks above it wait",
   [Lines(Schema.Literals(["orchestrator", AGENT, "agent:claude"])), Landing],
   ([lines, landing]) => {
     const derived = run(linesFor("t1", lines), landedAs("t1", landing, MIGRATION));
     const status = taskOf(derived, "t1").status;
-    expect(["done", "landed"]).not.toContain(status);
+    expect(status).not.toBe("done");
+    expect(status === "landed").toBe(
+      Array.contains(kindsOf(derived, "t1"), "landed-without-approval"),
+    );
     expect(Array.map(["t2", "t3"], (id) => taskOf(derived, id).waiting)).toStrictEqual([
       status === "blocked_on_human",
       status === "blocked_on_human",
@@ -291,17 +300,20 @@ it("a task whose own commits the base branch reaches lands", () => {
   expect(taskOf(run(finished, [committed("t4", 0)]), "t4").status).toBe("done");
 });
 
-it("a migration committed after done holds the task in blocked_on_human, landed or not", () => {
-  const derived = run(finished, [committed("t4", 0, MIGRATION, true)]);
-  expect(taskOf(derived, "t4").status).toBe("blocked_on_human");
-  expect(taskOf(derived, "t4").gate).toStrictEqual({
+it("a migration committed after done holds the task for a human, and landing first is a warning", () => {
+  const held = run(finished, [committed("t4", 0, MIGRATION)]);
+  expect(taskOf(held, "t4").status).toBe("blocked_on_human");
+  expect(taskOf(held, "t4").gate).toStrictEqual({
     reasons: ["path:**/migrations/**"],
     required: true,
   });
+  expect(held.warnings).toStrictEqual([]);
+  const derived = run(finished, [committed("t4", 0, MIGRATION, true)]);
+  expect(taskOf(derived, "t4").status).toBe("landed");
   expect(derived.warnings).toStrictEqual([
     {
       kind: "landed-without-approval",
-      message: `t4: ${String.slice(0, 7)(shaOf(0))} reached the base branch while the task was blocked_on_human; it stays blocked_on_human`,
+      message: `t4: ${String.slice(0, 7)(shaOf(0))} reached the base branch while the task was blocked_on_human, with no human approval; it landed`,
       sha: shaOf(0),
       taskId: "t4",
     },

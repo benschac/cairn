@@ -138,7 +138,34 @@ interface Folded {
   readonly warnings: ReadonlyArray<TraceWarning>;
 }
 
-/** One event through the machine. An event that leaves the status where it was is a warning. */
+/**
+ * A gated task lands from any status, but only `done` says a human approved it: a gated task
+ * reaches `done` only through `approve`. A gated task that lands from anywhere else still lands,
+ * with a warning that says how it landed and names the commit, or `null` for a `landed` line.
+ */
+const unapproved = (
+  before: Snapshot,
+  landing: string,
+  sha: Sha | null,
+): ReadonlyArray<TraceWarning> => {
+  const current = statusOf(before);
+  const { gated, task } = before.context;
+  return gated && current !== "done"
+    ? [
+        warning(
+          "landed-without-approval",
+          task.id,
+          `${task.id}: ${landing} while the task was ${current}, with no human approval; it landed`,
+          sha,
+        ),
+      ]
+    : [];
+};
+
+/**
+ * One event through the machine. An event that leaves the status where it was is a warning, and so
+ * is a `landed` line that lands a gated task no human approved.
+ */
 const step = (folded: Folded, event: Event): Folded => {
   const current = statusOf(folded.snapshot);
   const next = pipe(
@@ -151,7 +178,16 @@ const step = (folded: Folded, event: Event): Folded => {
       snapshot: folded.snapshot,
       warnings: Array.append(folded.warnings, ignored(event, current)),
     }),
-    onSome: (snapshot) => ({ snapshot, warnings: folded.warnings }),
+    onSome: (snapshot) => ({
+      snapshot,
+      warnings:
+        statusOf(snapshot) === "landed"
+          ? Array.appendAll(
+              folded.warnings,
+              unapproved(folded.snapshot, `${event.actor} reported landed at ${at(event)}`, null),
+            )
+          : folded.warnings,
+    }),
   });
 };
 
@@ -184,37 +220,24 @@ interface Walk {
 
 /**
  * Sends `land` when `baseBranch` reaches a commit that carries the task's trailer: its own commits
- * after a merge, or the commit a squash merge made. Only `done` lands; a task that landed from
- * anywhere else keeps its status, and the landing is a warning.
+ * after a merge, or the commit a squash merge made. Git alone finishes a task, so it lands whatever
+ * its status; a gated task no human approved lands with a warning that names the commit.
  */
-const landOn = (folded: Folded, task: ManifestTask, commits: ReadonlyArray<GitCommit>): Folded => {
-  const current = statusOf(folded.snapshot);
-  return pipe(
+const landOn = (folded: Folded, commits: ReadonlyArray<GitCommit>): Folded =>
+  pipe(
     Array.findFirst(commits, ({ onBase }) => onBase),
-    Option.filter(() => current !== "landed"),
+    Option.filter(() => statusOf(folded.snapshot) !== "landed"),
     Option.match({
       onNone: () => folded,
-      onSome: ({ sha }) =>
-        current === "done"
-          ? {
-              snapshot: transition(taskMachine, folded.snapshot, { type: "land" })[0],
-              warnings: folded.warnings,
-            }
-          : {
-              snapshot: folded.snapshot,
-              warnings: Array.append(
-                folded.warnings,
-                warning(
-                  "landed-without-approval",
-                  task.id,
-                  `${task.id}: ${short(sha)} reached the base branch while the task was ${current}; it stays ${current}`,
-                  sha,
-                ),
-              ),
-            },
+      onSome: ({ sha }) => ({
+        snapshot: transition(taskMachine, folded.snapshot, { type: "land" })[0],
+        warnings: Array.appendAll(
+          folded.warnings,
+          unapproved(folded.snapshot, `${short(sha)} reached the base branch`, sha),
+        ),
+      }),
     }),
   );
-};
 
 /** The trailers `spec.contract.trailers` requires: a task, a session and at least one section. */
 const hasTrailers = (commit: GitCommit): boolean =>
@@ -286,9 +309,9 @@ const below = (
  * Recomputes every task from scratch (see `spec.status.derivation`). Commits are grouped by their
  * `Cairn-Task` trailer, and the files they change join the task's effective gate. Each task's
  * events are sorted with `EventOrder` and folded through the task machine under that gate, then
- * `land` is sent when `baseBranch` reaches a commit with its trailer. What the machine ignores, an
- * event or trailer for a task the manifest does not have, a commit on a task branch without
- * trailers and a landing without approval are warnings, never errors. A `pending` task with a
+ * `land` is sent when `baseBranch` reaches a commit with its trailer, whatever the status. What the
+ * machine ignores, an event or trailer for a task the manifest does not have, a commit on a task
+ * branch without trailers and a gated task that landed without approval are warnings, never errors. A `pending` task with a
  * `blocked_on_human` task below it is `waiting`.
  */
 export const derive = (
@@ -322,7 +345,6 @@ export const derive = (
         },
         step,
       ),
-      task,
       ownCommits,
     );
     return { commits: ownCommits, events: own, gate, task, result };
