@@ -5,6 +5,10 @@ build. Each PRD section traces to its commits and the agent session that wrote
 them. [VISION.md](VISION.md) says what Cairn is for, and
 [AGENTS.md](AGENTS.md) says how work on it is done and checked.
 
+Cairn is the working name. The product will be released as **prdddd**, at
+[prdddd.com](https://prdddd.com). The demo runs at
+[prdtrace.com](https://prdtrace.com) for now.
+
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md). Contributors sign the

@@ -35,9 +35,10 @@ securities or otherwise directing its management.
 
 ## 2. Definitions
 
-- **"Project"** means Cairn, at <https://github.com/benschac/cairn>, and any
-  software, documentation or service the Maintainer or the Maintainer's
-  successors and assigns build from it.
+- **"Project"** means Cairn, at <https://github.com/benschac/cairn>,
+  including the product released as prdddd (<https://prdddd.com>) or under
+  any other name, and any software, documentation or service the Maintainer
+  or the Maintainer's successors and assigns build from it.
 - **"Contribution"** means any original work of authorship, including any
   modification of or addition to existing work, that You intentionally Submit
   to the Project for inclusion. A Contribution includes AI-Assisted Material

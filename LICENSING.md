@@ -21,6 +21,12 @@ their version under the AGPL. A proprietary fork or a closed hosted service
 built on Cairn's code is therefore not possible without a separate license.
 No restriction beyond the AGPL is added anywhere in the repository.
 
+**Names.** Cairn is the working name of the code in this repository. The
+product will be released as prdddd, at prdddd.com. prdtrace.com hosts the
+demo today and may later redirect to prdddd.com. The license and the CLA cover
+the code under any of these names. The AGPL licenses copyright and patents,
+not names, so "prdddd" and the domains stay the maintainer's.
+
 **Cairn and what it produces.** The license covers Cairn's code. PRDs, specs,
 manifests, branches and code that users write or generate with Cairn are
 theirs, and the [README](README.md#license) says so. Two things would blur
@@ -318,6 +324,9 @@ No pricing, payment or license-enforcement code is added.
 8. Is CLA Assistant's storage of names and emails with SAP on Azure in Europe
    acceptable, and does the repository need a privacy notice for it (CLA
    Assistant can link one)?
+9. Should "prdddd" be cleared and registered as a trademark before launch,
+   and should the README state a name policy (AGPL section 7(e) allows
+   declining trademark rights in the license)?
 
 ## Follow-up work
 
