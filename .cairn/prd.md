@@ -750,12 +750,12 @@ When the PRD head moves past `manifest.prdVersion`:
 
 ## v2: multiplayer on Cloudflare {#prd.v2-multiplayer-on-cloudflare}
 
-A feature's PRD, spec, and stack live in a shared room. Humans and agents see each other's cursors and every change as it happens. Git and code stay on each machine; the room holds the document, statuses, and presence.
+A feature's PRD, spec, and stack live in a shared room. Humans and agents see each other's cursors and every change as it happens. Code and sessions stay in the team's git remote; the room holds the document, statuses, and presence, and fetches a diff or a session only to show it (see code and sessions in the room).
 
 ### Architecture {#prd.v2-multiplayer-on-cloudflare.architecture}
 
 - One [Durable Object](https://developers.cloudflare.com/durable-objects/) per room (one feature). It holds the [Loro](https://loro.dev/) document and the room's event log, applies updates, and fans them out over [hibernatable WebSockets](https://developers.cloudflare.com/durable-objects/best-practices/websockets/).
-- Storage: Durable Object SQLite for Loro updates and snapshots and for the event log's entries. [R2](https://developers.cloudflare.com/r2/) for version snapshots, opt-in redacted sessions and files attached to notes. [D1](https://developers.cloudflare.com/d1/) for accounts (see accounts).
+- Storage: Durable Object SQLite for Loro updates and snapshots and for the event log's entries. [R2](https://developers.cloudflare.com/r2/) for version snapshots and files attached to notes. [D1](https://developers.cloudflare.com/d1/) for accounts (see accounts). None of them holds code or a session log (see code and sessions in the room).
 - Statuses and leases are events written through the room's Durable Object, and its sequence orders them (see the event log).
 - Local bridge: `cairn connect` links a repo's `.cairn/` to a room. It pushes events, commit SHAs, and session IDs, and pulls PRD and spec edits back to markdown on disk.
 - Offline: the viewer still works on local files. Loro merges edits made while disconnected.
@@ -809,7 +809,7 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 
 A person signs in to a room, so the room knows who wrote what. Accounts exist only in the hosted room: `cairn serve` on a person's own machine has none, as in v1.
 
-- Sign-in is [Better Auth](https://www.better-auth.com/), run in the room's Worker through [Alchemy's Better Auth integration](https://alchemy.run/better-auth/what-is-better-auth/). Its users, linked accounts, sessions and one-time tokens live in [D1](https://alchemy.run/better-auth/databases/cloudflare-d1/), so a deploy needs nothing outside Cloudflare but the two OAuth apps.
+- Sign-in is [Better Auth](https://www.better-auth.com/), run in the room's Worker through [Alchemy's Better Auth integration](https://alchemy.run/better-auth/what-is-better-auth/). Its users, linked accounts, sessions and one-time tokens live in [D1](https://alchemy.run/better-auth/databases/cloudflare-d1/), so a deploy needs nothing outside Cloudflare but the two OAuth apps, and the GitHub App when the room shows code (see code and sessions in the room).
 - Three ways in, none with a password: [GitHub](https://www.better-auth.com/docs/authentication/github), [Google](https://www.better-auth.com/docs/authentication/google), and a [magic link](https://www.better-auth.com/docs/plugins/magic-link) sent by email. A link works once and expires after five minutes.
 - Magic links are sent with [Cloudflare Email Service](https://developers.cloudflare.com/email-service/), from a sending subdomain of the site's domain, through Alchemy's `Cloudflare.Email.Send` binding. Email Service is in beta; if it cannot send to any address, a transactional email provider takes its place behind the same service.
 - One person is one user. A sign-in joins the user that already has its email when the provider has confirmed that email ([account linking](https://www.better-auth.com/docs/concepts/users-accounts)), so GitHub, Google and a magic link to the same address reach the same user. No provider is trusted to link an email it has not confirmed.
@@ -824,6 +824,48 @@ A person signs in to a room, so the room knows who wrote what. Accounts exist on
 - Gate approvals are only accepted from a human identity and record the user who approved; the event log's server enforces it against the writer's identity.
 - An agent on a person's machine could still use that person's CLI session. Cairn does not guard against that in v2. Signed, scoped tokens and per-room members come later.
 
+### Code and sessions in the room {#prd.v2-multiplayer-on-cloudflare.code-and-sessions}
+
+A team wants to see what each person's agents did: the diff of a task and the session that wrote it. Some of the people looking have no checkout, no git and no GitHub seat, only a browser. The room shows them both and keeps a copy of neither. Code and sessions live in the team's own git remote, and the room holds the pointers to them.
+
+Where they live:
+
+- A diff is never stored. It is computed from the task's commits, as in v1.
+- Once a repo is connected to a room, `cairn session put` also pushes the redacted session to the git remote, under a ref of its own: `refs/cairn/sessions/<session ID>`. A clone or a fetch does not bring these refs down unless asked, so no checkout grows. `cairn.db` stays each machine's own store.
+- A session that fails redaction is neither stored nor pushed, as in v1. `sessions.share: false` in `.cairn/config.json` keeps every log on the machine that made it; the room then shows that the session exists and that it was not shared.
+- `cairn connect` records the repo's remote in the room. The room holds each session's ID, task, commit and redaction counts, and never its log.
+
+How the viewer gets them depends on where it runs:
+
+- The local viewer, from `cairn serve`, reads the checkout and `cairn.db` as in v1. It fetches a teammate's session from the remote with the machine's own git credentials.
+- The hosted viewer has no checkout to read. The room's Worker fetches the diff or the session from GitHub through a GitHub App the team installs on its organisation or on the one repo, with read access to contents and nothing else. The Worker passes what it fetched to the browser and writes it to no storage and no log.
+- When a person opens a diff or a session in the hosted viewer and the App is not installed on that repo, the pane says why it is empty: this browser is not reading from a checkout, so the room needs the App to show code. It offers to install the App. A person who cannot install it on the organisation is sent to GitHub's request to an owner, and the pane says the request is waiting.
+- The PRD, the spec, statuses, notes and presence need no App.
+- A commit that has not been pushed shows as not pushed, with no diff.
+
+Who sees them:
+
+- By default, code and sessions are shown only to members whose GitHub account can read the repo, checked with GitHub when they open one. The room's token is a plain string, and a leaked token should not show anyone the code.
+- The person who connected the repo can open code and sessions to every member of the room. That is how a person with no GitHub seat sees them.
+- A member who may not see them still sees every status, and the pane says why the code is hidden.
+
+What Cairn can read:
+
+- Code and sessions pass through the room's Worker on the way to the browser, so the hosted room could read them in passing. It keeps neither. Uninstalling the App ends the room's access and leaves nothing of the repo behind.
+- A team that does not accept that runs the room in its own Cloudflare account with `alchemy deploy`, with a GitHub App it registered itself. Cairn's hosted service then never sees the repo.
+- The App's ID and private key are Alchemy config bindings, like the OAuth client secrets. None is in the repo.
+- GitHub is the only git host the hosted viewer reads at first.
+
+A spike proves the fit before this is built: from a Worker, the App reads a commit's patch and a 20 MB session under `refs/cairn/sessions/` through GitHub's API. If GitHub will not serve those refs, sessions go on one branch, `cairn/sessions`, that no stack is built on, and the rest stands.
+
+Done when:
+
+- A person who signs in to a room in a browser, on a machine with no checkout, opens a task and sees its diff and its agent session, once the App is installed on the repo.
+- Before the App is installed, the same person reads the PRD and the spec and sees every status, and the diff pane says the App is not installed and offers to install it or to ask an owner.
+- A session written on one person's machine opens in a teammate's local viewer.
+- A member whose GitHub account cannot read the repo sees statuses and is told why the code is hidden, until the person who connected the repo opens code to every member.
+- After the App is uninstalled, opening a diff in the hosted viewer shows the install prompt again.
+
 ### Multiplayer acceptance criteria {#prd.v2-multiplayer-on-cloudflare.multiplayer-acceptance-criteria}
 
 - Two humans and one agent see each other's cursors and edits in under 250 ms p95 within one region.
@@ -837,6 +879,7 @@ A person signs in to a room, so the room knows who wrote what. Accounts exist on
 - The event-log spike: a Durable Object running the event-log server on its own SQLite syncs a browser client and a CLI client within the latency target, and an Object that hibernated wakes with no lost events.
 - Two people editing one note at once each keep the fields they changed, and a note on a passage follows its text through concurrent edits.
 - A client that writes events offline sends them on reconnect, and every client then derives the same task statuses.
+- After a room has shown a diff and a session, its Durable Object, its R2 bucket and its D1 database hold no line of either.
 
 ## Later {#prd.later}
 
@@ -851,6 +894,7 @@ A person signs in to a room, so the room knows who wrote what. Accounts exist on
 - Judging during a run: before a task starts, and on its diff after it is done.
 - Adapters for Vercel Board and other agent message boards.
 - Notes across rooms, such as every open note for one person, indexed in D1.
+- Code and sessions read from GitLab and other git hosts, and sessions encrypted on the machine that made them, for a team that wants a hosted room unable to read them even in passing.
 - [Effect Cluster](https://alchemy.run/cluster/what-is-effect-cluster/) for durable work that waits, such as room invitations by email and scheduled cleanup. On Cloudflare its [Durable Object pool](https://alchemy.run/cluster/cloudflare) makes each entity a Durable Object reached over RPC, with its state in memory, so the room itself stays a plain Durable Object with hibernatable WebSockets.
 - Cairn's commands as MCP tools, so an agent session plans as a participant in the room instead of being run by `cairn plan`.
 - Scoring planners against a reference plan, so a provider is chosen on measured quality and cost.
