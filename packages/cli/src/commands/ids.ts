@@ -2,19 +2,26 @@ import { Array, Console, Effect, FileSystem, Path, Runtime, Schema } from "effec
 import { Command, Flag } from "effect/cli";
 
 import type { SectionPrefix } from "@cairn/contract";
-import { assignSectionIds } from "@cairn/core";
+import { assignItemIds, assignSectionIds } from "@cairn/core";
 
 import { MainCheckout } from "../main-checkout.ts";
 import { CAIRN_DIRECTORY, loadPrd, loadSpec } from "../workspace.ts";
 
-/** `cairn ids --check` found headings without an ID. `added` lists the IDs `cairn ids` would assign. */
+/**
+ * `cairn ids --check` found headings without an ID or items asking for one. `added` lists the IDs
+ * `cairn ids` would assign; `unplaced` names the items that ask for one and have no heading with an
+ * ID above them to take it from.
+ */
 export class MissingSectionIds extends Schema.TaggedError<
   MissingSectionIds,
   { readonly brand: unique symbol }
->()("MissingSectionIds", { added: Schema.Array(Schema.String) }) {
+>()("MissingSectionIds", {
+  added: Schema.Array(Schema.String),
+  unplaced: Schema.Array(Schema.String),
+}) {
   override readonly [Runtime.errorReported] = false;
   override get message() {
-    return `${Array.length(this.added)} headings lack an ID; run cairn ids`;
+    return `${Array.length(this.added) + Array.length(this.unplaced)} headings or items lack an ID; run cairn ids`;
   }
 }
 
@@ -29,23 +36,40 @@ const documents = [
 
 /**
  * Assigns the missing section IDs in `.cairn/prd.md` (prefix `prd`) and `.cairn/spec.md` (prefix
- * `spec`). A file is written only when IDs were added, and each added ID is printed. With `check`
- * nothing is written and the effect fails with `MissingSectionIds` when any heading lacks an ID.
+ * `spec`), then fills each list item's empty `{#}`. A file is written only when IDs were added, and
+ * each added ID is printed. With `check` nothing is written and the effect fails with
+ * `MissingSectionIds` when any heading lacks an ID or any item asks for one.
  */
 export const ids = Effect.fn("ids")(function* (options: { readonly check: boolean }) {
   const results = yield* Effect.forEach(documents, ({ load, name, prefix }) =>
     load.pipe(
-      Effect.map((markdown) => assignSectionIds(markdown, prefix)),
-      Effect.map(({ added, markdown }) => ({ added, markdown, name })),
+      Effect.map((markdown) => {
+        const headings = assignSectionIds(markdown, prefix);
+        const items = assignItemIds(headings.markdown);
+        return {
+          added: Array.appendAll(headings.added, items.added),
+          markdown: items.markdown,
+          name,
+          unplaced: Array.map(
+            items.unplaced,
+            (line) => `the item at ${name}:${line}: no heading with an ID is above it`,
+          ),
+        };
+      }),
     ),
   );
   const added = Array.flatMap(results, (result) => result.added);
+  const unplaced = Array.flatMap(results, (result) => result.unplaced);
+  yield* Effect.forEach(unplaced, (place) => Console.log(`Cannot fill ${place}`), {
+    discard: true,
+  });
   if (options.check) {
     yield* Effect.forEach(added, (id) => Console.log(`Missing ${id}`), { discard: true });
     yield* Effect.filterOrFail(
-      Effect.succeed(added),
-      Array.isReadonlyArrayEmpty,
-      (missing) => new MissingSectionIds({ added: missing }),
+      Effect.succeed({ added, unplaced }),
+      ({ added: missing, unplaced: stuck }) =>
+        Array.isReadonlyArrayEmpty(missing) && Array.isReadonlyArrayEmpty(stuck),
+      (missing) => new MissingSectionIds(missing),
     );
   } else {
     yield* write(results);
@@ -57,6 +81,7 @@ const write = Effect.fn("ids.write")(function* (
     readonly added: ReadonlyArray<string>;
     readonly markdown: string;
     readonly name: string;
+    readonly unplaced: ReadonlyArray<string>;
   }>,
 ) {
   const fs = yield* FileSystem.FileSystem;
@@ -80,7 +105,9 @@ export const idsCommand = Command.make(
   "ids",
   {
     check: Flag.Boolean("check").pipe(
-      Flag.withDescription("Write nothing and exit 1 when a heading lacks an ID"),
+      Flag.withDescription(
+        "Write nothing and exit 1 when a heading lacks an ID or an item asks for one",
+      ),
       Flag.withDefault(false),
     ),
   },
@@ -89,4 +116,6 @@ export const idsCommand = Command.make(
       // The failure logs its own message once; the runtime does not print it again.
       Effect.tapErrorTag("MissingSectionIds", (error) => Effect.logError(error.message)),
     ),
-).pipe(Command.withDescription("Assign missing section IDs in prd.md and spec.md"));
+).pipe(
+  Command.withDescription("Assign missing section IDs in prd.md and spec.md and fill empty {#}"),
+);

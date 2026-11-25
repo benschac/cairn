@@ -103,7 +103,7 @@ const markersInHtml = (html: string, start: number): readonly number[] =>
  * reads it as HTML, so one quoted in a code span of any length, in a fence or in indented code is
  * not a tag.
  */
-const markerLinesOf = (markdown: string): readonly number[] => {
+export const markerLinesOf = (markdown: string): readonly number[] => {
   const walk = (node: Nodes): readonly number[] =>
     Array.appendAll(
       node.type === "html"

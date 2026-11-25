@@ -109,6 +109,60 @@ it.effect("--check passes and prints nothing when every heading has an ID", () =
   ).pipe(Effect.provide(NodeServices.layer)),
 );
 
+const withItems =
+  "# Title\n\n## CLI\n\n- `cairn lint` checks tasks. {#}\n- Plain item\n- Named {#prd.cli.named}\n";
+
+it.effect("fills a list item's {#} after the headings and prints its ID", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const { readBoth, run } = yield* setup(withItems, bare);
+      yield* run(false);
+      const [prd] = yield* readBoth;
+      const lines = yield* printed;
+      expect(prd).toBe(
+        "# Title {#prd.title}\n\n## CLI {#prd.cli}\n\n- `cairn lint` checks tasks. {#prd.cli.cairn-lint}\n- Plain item\n- Named {#prd.cli.named}\n",
+      );
+      expect(lines).toContain("Added prd.cli.cairn-lint");
+      expect(lines).not.toContain("Added prd.cli.plain-item");
+    }),
+  ).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("--check writes nothing and fails while an item still asks for an ID", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const identified = fullySet(withItems, "prd");
+      const { readBoth, run } = yield* setup(identified, fullySet(bare, "spec"));
+      const error = yield* Effect.flip(run(true));
+      const files = yield* readBoth;
+      const lines = yield* printed;
+      expect(Schema.is(MissingSectionIds)(error)).toBe(true);
+      expect(files).toEqual([identified, fullySet(bare, "spec")]);
+      expect(lines).toEqual(["Missing prd.cli.cairn-lint"]);
+    }),
+  ).pipe(Effect.provide(NodeServices.layer)),
+);
+
+const orphan = "- Before any heading {#}\n\n# Title {#prd.title}\n";
+
+it.effect("an item with no heading above it is reported, left as written, and fails --check", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const { readBoth, run } = yield* setup(orphan, fullySet(bare, "spec"));
+      yield* run(false);
+      const [prd] = yield* readBoth;
+      const written = yield* printed;
+      expect(prd).toBe(orphan);
+      expect(written).toEqual([
+        "Cannot fill the item at prd.md:1: no heading with an ID is above it",
+      ]);
+      const error = yield* Effect.flip(run(true));
+      expect(Schema.is(MissingSectionIds)(error)).toBe(true);
+      expect(error.message).toBe("1 headings or items lack an ID; run cairn ids");
+    }),
+  ).pipe(Effect.provide(NodeServices.layer)),
+);
+
 it.effect("a missing file fails with MissingFile", () =>
   Effect.scoped(
     Effect.gen(function* () {

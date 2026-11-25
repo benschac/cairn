@@ -34,7 +34,8 @@ export { gateOf, matchesPath, patternsMatching, type GateConfig, type GateTask }
 export { Finding, LintFile, LintRule, Severity, lint } from "./lint.ts";
 export { Replan, bodyHashOf, replanOf } from "./replan.ts";
 export { rollupOf, type RolledSection, type RollupTask } from "./rollup.ts";
-export { assignSectionIds, sectionIdsOf } from "./section-ids.ts";
+export { itemsOf, type Item } from "./items.ts";
+export { assignItemIds, assignSectionIds, sectionIdsOf } from "./section-ids.ts";
 export { keyEntriesOf, sectionsOf } from "./sections.ts";
 export {
   derivedOf,
