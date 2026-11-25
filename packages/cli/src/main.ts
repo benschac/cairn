@@ -5,6 +5,7 @@ import { Command } from "effect/cli";
 
 import { idsCommand } from "./commands/ids.ts";
 import { initCommand } from "./commands/init.ts";
+import { linkCommand } from "./commands/link.ts";
 import { lintCommand } from "./commands/lint.ts";
 import { planCommand } from "./commands/plan.ts";
 import { statusCommand } from "./commands/status.ts";
@@ -12,7 +13,14 @@ import { MainCheckout } from "./main-checkout.ts";
 
 const cairn = Command.make("cairn").pipe(
   Command.withDescription("Turn a markdown PRD into a spec and a stack of branches"),
-  Command.withSubcommands([initCommand, idsCommand, lintCommand, planCommand, statusCommand]),
+  Command.withSubcommands([
+    initCommand,
+    idsCommand,
+    linkCommand,
+    lintCommand,
+    planCommand,
+    statusCommand,
+  ]),
 );
 
 // Logs go to stderr so stdout holds only what a command prints.
