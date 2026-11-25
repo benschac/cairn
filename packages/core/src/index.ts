@@ -47,3 +47,4 @@ export {
   type StackTask,
 } from "./stack.ts";
 export { TaskInput, statusOf, taskMachine } from "./task-machine.ts";
+export { PRD_PATH, SPEC_PATH, traceOf, type Rollup, type TraceInput } from "./trace.ts";
