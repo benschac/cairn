@@ -1,0 +1,30 @@
+{
+  "name": {
+    "title": "Full name",
+    "type": "string",
+    "githubKey": "name",
+    "required": true
+  },
+  "email": {
+    "title": "Email address for notices about this agreement (not published)",
+    "type": "string",
+    "githubKey": "email",
+    "required": true
+  },
+  "capacity": {
+    "title": "I am contributing",
+    "type": {
+      "enum": ["On my own behalf.", "On behalf of an entity that has signed Part B of the CLA."]
+    },
+    "required": true
+  },
+  "entity": {
+    "title": "The entity's name, if you contribute on its behalf",
+    "type": "string"
+  },
+  "agreement": {
+    "title": "I have read and accept the Cairn Contributor License Agreement, version 0.1.0-draft.",
+    "type": "boolean",
+    "required": true
+  }
+}
