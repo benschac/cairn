@@ -833,6 +833,8 @@ Where they live:
 - A diff is never stored. It is computed from the task's commits, as in v1.
 - Once a repo is connected to a room, `cairn session put` also pushes the redacted session to the git remote, under a ref of its own: `refs/cairn/sessions/<session ID>`. A clone or a fetch does not bring these refs down unless asked, so no checkout grows. `cairn.db` stays each machine's own store.
 - A session that fails redaction is neither stored nor pushed, as in v1. `sessions.share: false` in `.cairn/config.json` keeps every log on the machine that made it; the room then shows that the session exists and that it was not shared.
+- Redaction is best effort, and a pushed session can be read by everyone who can read the repo. A secret it missed is then shared with all of them. `cairn session put` prints the redaction counts before it pushes, as it does before it stores.
+- `cairn session unshare <session ID>` deletes the session's ref from the remote, and the room then shows the session as not shared. It cannot take the log back from a clone that already fetched it, so it says that the secret still has to be rotated.
 - `cairn connect` records the repo's remote in the room. The room holds each session's ID, task, commit and redaction counts, and never its log.
 
 How the viewer gets them depends on where it runs:
@@ -851,8 +853,9 @@ Who sees them:
 
 What Cairn can read:
 
+- The PRD, the spec, notes, statuses and events are stored in the room, so the hosted service can read them at rest. They are the only content of a team's that it holds. Cloudflare encrypts them at rest, and a team on the hosted service is offered a data processing agreement.
 - Code and sessions pass through the room's Worker on the way to the browser, so the hosted room could read them in passing. It keeps neither. Uninstalling the App ends the room's access and leaves nothing of the repo behind.
-- A team that does not accept that runs the room in its own Cloudflare account with `alchemy deploy`, with a GitHub App it registered itself. Cairn's hosted service then never sees the repo.
+- A team that accepts neither runs the room in its own Cloudflare account with `alchemy deploy`, with a GitHub App it registered itself. Cairn's hosted service then never sees the repo.
 - The App's ID and private key are Alchemy config bindings, like the OAuth client secrets. None is in the repo.
 - GitHub is the only git host the hosted viewer reads at first.
 
@@ -865,6 +868,7 @@ Done when:
 - A session written on one person's machine opens in a teammate's local viewer.
 - A member whose GitHub account cannot read the repo sees statuses and is told why the code is hidden, until the person who connected the repo opens code to every member.
 - After the App is uninstalled, opening a diff in the hosted viewer shows the install prompt again.
+- After `cairn session unshare` on a shared session, a teammate's viewer and the room both show it as not shared, and the command says to rotate any secret the log held.
 
 ### Multiplayer acceptance criteria {#prd.v2-multiplayer-on-cloudflare.multiplayer-acceptance-criteria}
 
@@ -895,6 +899,7 @@ Done when:
 - Adapters for Vercel Board and other agent message boards.
 - Notes across rooms, such as every open note for one person, indexed in D1.
 - Code and sessions read from GitLab and other git hosts, and sessions encrypted on the machine that made them, for a team that wants a hosted room unable to read them even in passing.
+- A SOC 2 report for the hosted service.
 - [Effect Cluster](https://alchemy.run/cluster/what-is-effect-cluster/) for durable work that waits, such as room invitations by email and scheduled cleanup. On Cloudflare its [Durable Object pool](https://alchemy.run/cluster/cloudflare) makes each entity a Durable Object reached over RPC, with its state in memory, so the room itself stays a plain Durable Object with hibernatable WebSockets.
 - Cairn's commands as MCP tools, so an agent session plans as a participant in the room instead of being run by `cairn plan`.
 - Scoring planners against a reference plan, so a provider is chosen on measured quality and cost.
