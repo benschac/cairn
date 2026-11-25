@@ -851,6 +851,7 @@ it.effect.prop(
         prd: ".cairn/prd.md",
         sections: Array.map(sections, entry),
         source: ".cairn/spec.md",
+        tasks: [],
         version: 1,
       };
       const edited = Array.map(levels, (_level, at) => edits[at] === true);

@@ -267,6 +267,7 @@ it("keeps key order and prints arrays that fit on one line, wrapping the ones th
       commits: [{ files: [], parents: [], sections: [], session: null, sha, subject: "s" }],
       events: [],
       gate: { reasons: [], required: false },
+      statements: [],
       status: "done",
       waiting: false,
     },
