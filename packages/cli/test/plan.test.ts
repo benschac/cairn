@@ -1,4 +1,5 @@
-import { Manifest, TaskDraft } from "@cairn/contract";
+import { JudgmentsJson, Manifest, TaskDraft } from "@cairn/contract";
+import type { Judgment } from "@cairn/contract";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import {
@@ -9,6 +10,7 @@ import {
   FileSystem,
   Layer,
   Option,
+  Order,
   Path,
   Predicate,
   Record,
@@ -17,6 +19,7 @@ import {
   Schema,
   Scope,
   String,
+  Struct,
   Terminal,
 } from "effect";
 import { TestConsole } from "effect/testing";
@@ -29,11 +32,16 @@ import {
   needsPlanner,
   plan,
   RespecRefused,
+  unusedJudge,
   UP_TO_DATE,
   WRITE_QUESTION,
 } from "../src/commands/plan.ts";
+import { Judge, JudgeError } from "../src/judge.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
+import { targetName } from "../src/print-judgments.ts";
+import { scriptedJudge } from "./scripted-judge.ts";
+import type { Script } from "./scripted-judge.ts";
 
 const PRD = "# Notes\n\n## Capture\n\nKeep a note.\n";
 
@@ -64,7 +72,11 @@ class Seen extends Context.Service<
 >()("@cairn/cli/test/Seen") {}
 
 /** A planner that answers `spec` with `markdown` and `tasks` with `drafts`, and remembers each call. */
-const scriptedPlanner = (markdown: string, drafts: ReadonlyArray<TaskDraft>) =>
+const scriptedPlanner = (
+  markdown: string,
+  drafts: ReadonlyArray<TaskDraft>,
+  split: (draft: TaskDraft) => ReadonlyArray<TaskDraft>,
+) =>
   Layer.effectContext(
     Effect.gen(function* () {
       const seen = Seen.of({
@@ -78,7 +90,7 @@ const scriptedPlanner = (markdown: string, drafts: ReadonlyArray<TaskDraft>) =>
           Ref.update(seen.tasks, Array.append({ prd, spec })).pipe(Effect.as(drafts)),
         splitSection: () => Effect.die("plan does not split a section"),
         statements: () => Effect.succeed([]),
-        splitTask: () => Effect.die("plan does not split a task"),
+        splitTask: (whole) => Effect.succeed(split(whole)),
         sections: () => Effect.die("plan does not write sections"),
         index: () =>
           Effect.succeed({
@@ -127,11 +139,20 @@ interface Plan {
   readonly answers?: ReadonlyArray<string>;
   readonly drafts?: ReadonlyArray<TaskDraft>;
   readonly env?: Readonly<Record<string, string>>;
-  readonly options?: { readonly respec?: boolean; readonly spec?: boolean; readonly yes?: boolean };
+  /** The judge of the run: none is `unusedJudge`, which a run without a key never calls. */
+  readonly judge?: Layer.Layer<Judge>;
+  readonly options?: {
+    readonly dryRun?: boolean;
+    readonly respec?: boolean;
+    readonly spec?: boolean;
+    readonly yes?: boolean;
+  };
   readonly spec?: string;
+  /** What `Planner.splitTask` answers. */
+  readonly split?: (draft: TaskDraft) => ReadonlyArray<TaskDraft>;
 }
 
-const NAMES = ["prd.md", "spec.md", "manifest.json"] as const;
+const NAMES = ["prd.md", "spec.md", "manifest.json", "judgments.json"] as const;
 
 /** A repository root whose `.cairn/` holds the given files, and a way to run `cairn plan` in it. */
 const setup = (files: Readonly<Record<string, string>>) =>
@@ -159,17 +180,20 @@ const setup = (files: Readonly<Record<string, string>>) =>
       answers = [],
       drafts = DRAFTS,
       env = {},
-      options: { respec = false, spec: stopAfterSpec = false, yes = false } = {},
+      judge = unusedJudge,
+      options: { dryRun = false, respec = false, spec: stopAfterSpec = false, yes = false } = {},
       spec = SPEC,
+      split = () => [],
     }: Plan = {}) => {
       const services = Layer.mergeAll(
-        scriptedTerminal(answers).pipe(Layer.provideMerge(scriptedPlanner(spec, drafts))),
+        scriptedTerminal(answers).pipe(Layer.provideMerge(scriptedPlanner(spec, drafts, split))),
         MainCheckout.fixed(root),
         ConfigProvider.layer(ConfigProvider.fromEnvRecord(env)),
+        judge,
       );
       return Effect.gen(function* () {
         const before = yield* TestConsole.logLines;
-        const result = yield* Effect.result(plan({ respec, spec: stopAfterSpec, yes }));
+        const result = yield* Effect.result(plan({ dryRun, respec, spec: stopAfterSpec, yes }));
         const seen = yield* Seen;
         const specs = yield* Ref.get(seen.specs);
         const tasks = yield* Ref.get(seen.tasks);
@@ -422,6 +446,247 @@ it.effect("the model is needed only by a run that calls the planner", () =>
         true,
       ]);
       expect(refused).toEqual(Result.fail(new RespecRefused({ tasks: ["t1"] })));
+    }),
+  ),
+);
+
+const KEYED = { TYPESAFE_API_KEY: "key" };
+
+const decodeJudgments = Schema.decodeUnknownEffect(JudgmentsJson);
+
+/** `judgments.json` as decoded, from a way to read a file of `.cairn/` as text. */
+const judgmentsIn = (text: (name: string) => Effect.Effect<string, unknown>) =>
+  text("judgments.json").pipe(Effect.flatMap(decodeJudgments));
+
+const manifestIn = (text: (name: string) => Effect.Effect<string, unknown>) =>
+  text("manifest.json").pipe(Effect.flatMap(decodeManifest));
+
+/** Each judgment as `target question`, in a fixed order. */
+const askedOf = (judgments: ReadonlyArray<Judgment>) =>
+  Array.sort(
+    Array.map(judgments, ({ question, target }) => `${targetName(target)} ${question}`),
+    Order.String,
+  );
+
+/** Two drafts that keep every spec section and file of `whole`, the second after the first. */
+const halves = (whole: TaskDraft): ReadonlyArray<TaskDraft> => [
+  Struct.evolve(whole, { title: (title) => `${title} a` }),
+  Struct.evolve(whole, {
+    dependsOn: () => [`${whole.title} a`],
+    title: (title) => `${title} b`,
+  }),
+];
+
+const tooLarge = (title: string): Script => ({
+  answer: (asked, question) =>
+    asked === title && question === "size"
+      ? Option.some({ confidence: 0.9, label: "too_large" })
+      : Option.none(),
+});
+
+it.effect("with the key set, every section, task and the stack is judged and recorded", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run, text } = yield* setup({ "prd.md": PRD });
+      const { lines, result } = yield* run({
+        env: KEYED,
+        judge: scriptedJudge(),
+        options: { yes: true },
+      });
+      const recorded = yield* judgmentsIn(text);
+      expect(Result.isSuccess(result)).toBe(true);
+      expect(Array.contains(lines, JUDGING_SKIPPED)).toBe(false);
+      expect(recorded.model).toBe("jev-1.14.0");
+      expect(askedOf(recorded.judgments)).toEqual(
+        Array.sort(
+          [
+            "spec.spec size",
+            "spec.spec faithful",
+            "spec.spec buildable",
+            "spec.capture size",
+            "spec.capture faithful",
+            "spec.capture buildable",
+            "t1 size",
+            "t1 matches",
+            "t1 model",
+            "t1 reasoning",
+            "stack complete",
+            "stack ordered",
+            "stack oneFeature",
+          ],
+          Order.String,
+        ),
+      );
+      expect(Array.some(lines, String.includes("judge:"))).toBe(false);
+    }),
+  ),
+);
+
+it.effect(
+  "a too_large draft is split before the stack is ordered, and the plan says so first",
+  () =>
+    inRepository(
+      Effect.gen(function* () {
+        const { run, text } = yield* setup({ "prd.md": PRD });
+        const { lines, result } = yield* run({
+          env: KEYED,
+          judge: scriptedJudge(tooLarge("Add capture")),
+          options: { yes: true },
+          split: halves,
+        });
+        const manifest = yield* manifestIn(text);
+        const recorded = yield* judgmentsIn(text);
+        expect(Result.isSuccess(result)).toBe(true);
+        expect(Array.map(manifest.tasks, (task) => [task.id, task.title])).toEqual([
+          ["t1", "Add capture a"],
+          ["t2", "Add capture b"],
+        ]);
+        const split = Array.filter(lines, String.startsWith("split"));
+        expect(split).toEqual([
+          'split  draft "Add capture": size is too_large, confidence 0.9; split into 2 drafts: "Add capture a", "Add capture b"',
+        ]);
+        expect(Array.findFirstIndex(lines, String.startsWith("split"))).toEqual(
+          Option.some(
+            Option.getOrThrow(Array.findFirstIndex(lines, (line) => line === "Stack 1")) - 1,
+          ),
+        );
+        // The split draft never got an ID; the drafts that replaced it did, and were judged again.
+        expect(
+          Array.map(
+            Array.filter(recorded.judgments, (judgment) => judgment.question === "size"),
+            ({ round, target }) => `${targetName(target)} ${round}`,
+          ),
+        ).toEqual(expect.arrayContaining(['draft "Add capture" 1', "t1 2", "t2 2"]));
+        expect(Array.some(recorded.judgments, (judgment) => judgment.target.kind === "draft")).toBe(
+          true,
+        );
+        expect(
+          Array.some(
+            recorded.judgments,
+            (judgment) => judgment.target.kind === "task" && judgment.target.id === "t3",
+          ),
+        ).toBe(false);
+      }),
+    ),
+);
+
+it.effect("a confident model answer routes the task, and the plan names the task", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run, text } = yield* setup({ "prd.md": PRD });
+      const { lines } = yield* run({
+        env: KEYED,
+        judge: scriptedJudge({
+          answer: (_, question) =>
+            question === "model" ? Option.some({ confidence: 0.9, label: "haiku" }) : Option.none(),
+        }),
+        options: { yes: true },
+      });
+      const manifest = yield* manifestIn(text);
+      const recorded = yield* judgmentsIn(text);
+      expect(Array.map(manifest.tasks, (task) => [task.id, task.model])).toEqual([["t1", "haiku"]]);
+      expect(Array.filter(lines, String.startsWith("routed"))).toEqual([
+        "routed  t1: model haiku, confidence 0.9; routed sonnet to haiku",
+      ]);
+      expect(
+        Array.map(
+          Array.filter(recorded.judgments, (judgment) => judgment.action === "routed"),
+          ({ question, target }) => [target, question],
+        ),
+      ).toEqual([[{ id: "t1", kind: "task" }, "model"]]);
+    }),
+  ),
+);
+
+it.effect(
+  "a flag on the stack is printed after the stack, counted, and never blocks the write",
+  () =>
+    inRepository(
+      Effect.gen(function* () {
+        const { read, run } = yield* setup({ "prd.md": PRD });
+        const { lines, result } = yield* run({
+          env: KEYED,
+          judge: scriptedJudge({
+            probability: (title, question) =>
+              title === "" && question === "complete" ? Option.some(0.1) : Option.none(),
+          }),
+          options: { yes: true },
+        });
+        const manifest = yield* read("manifest.json");
+        expect(Result.isSuccess(result)).toBe(true);
+        expect(Option.isSome(manifest)).toBe(true);
+        const flagged = Array.findFirstIndex(lines, String.startsWith("stack judge:complete flag"));
+        const stack = Array.findFirstIndex(lines, (line) => line === "Stack 1");
+        expect(Option.isSome(flagged)).toBe(true);
+        expect(Option.getOrThrow(flagged)).toBeGreaterThan(Option.getOrThrow(stack));
+      }),
+    ),
+);
+
+it.effect("a dry run counts the flags in its totals and writes nothing", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run, snapshot } = yield* setup({ "prd.md": PRD });
+      const before = yield* snapshot;
+      const { lines, result } = yield* run({
+        env: KEYED,
+        judge: scriptedJudge({
+          probability: (title, question) =>
+            title === "" && question === "complete" ? Option.some(0.1) : Option.none(),
+        }),
+        options: { dryRun: true },
+      });
+      const after = yield* snapshot;
+      expect(Result.isSuccess(result)).toBe(true);
+      expect(after).toEqual(before);
+      expect(Array.some(lines, String.includes(" 1 flags in "))).toBe(true);
+    }),
+  ),
+);
+
+it.effect("a judge that fails leaves the planner's work as it was, says so, and plans on", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { read, run } = yield* setup({ "prd.md": PRD });
+      const { lines, result } = yield* run({
+        env: KEYED,
+        judge: Layer.succeed(
+          Judge,
+          Judge.of({ judge: () => Effect.fail(new JudgeError({ reason: "the model is down" })) }),
+        ),
+        options: { yes: true },
+      });
+      const manifest = yield* read("manifest.json");
+      const judgments = yield* read("judgments.json");
+      expect(Result.isSuccess(result)).toBe(true);
+      expect(Option.isSome(manifest)).toBe(true);
+      expect(judgments).toEqual(Option.none());
+      expect(Array.filter(lines, String.startsWith("Judging failed"))).toEqual(
+        Array.replicate("Judging failed: the model is down", 3),
+      );
+    }),
+  ),
+);
+
+it.effect("the judgments of the spec step survive the tasks step in judgments.json", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run, text } = yield* setup({ "prd.md": PRD });
+      yield* run({ env: KEYED, judge: scriptedJudge(), options: { spec: true } });
+      const first = yield* judgmentsIn(text);
+      expect(Array.dedupe(Array.map(first.judgments, ({ target }) => target.kind))).toEqual([
+        "section",
+      ]);
+      yield* run({ answers: ["y"], env: KEYED, judge: scriptedJudge() });
+      const second = yield* judgmentsIn(text);
+      expect(
+        Array.sort(
+          Array.dedupe(Array.map(second.judgments, ({ target }) => target.kind)),
+          Order.String,
+        ),
+      ).toEqual(["section", "stack", "task"]);
+      // A section judged in the first run is kept once, not once per run.
+      expect(askedOf(second.judgments)).toEqual(Array.dedupe(askedOf(second.judgments)));
     }),
   ),
 );

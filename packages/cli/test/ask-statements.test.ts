@@ -26,7 +26,7 @@ import {
   draftWarning,
   targetsOf,
 } from "../src/ask-statements.ts";
-import { needsPlanner, plan } from "../src/commands/plan.ts";
+import { needsPlanner, plan, unusedJudge } from "../src/commands/plan.ts";
 import type { PlanOptions } from "../src/commands/plan.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
@@ -149,6 +149,7 @@ const setup = (prd: string) =>
         scriptedTerminal(answers).pipe(Layer.provideMerge(scriptedPlanner(drafts))),
         MainCheckout.fixed(root),
         ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
+        unusedJudge,
       );
       return Effect.gen(function* () {
         const before = yield* TestConsole.logLines;
