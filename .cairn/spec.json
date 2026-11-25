@@ -25189,6 +25189,11 @@
         "apps/viewer/src/view/specPaneView.ts",
         "apps/viewer/src/view/stackChipsView.ts",
         "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/view/codeView.ts",
+        "apps/viewer/src/view/view.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/link-notice.scene.test.ts",
         "apps/viewer/test/links-open.test.ts",
         "apps/viewer/test/links-open.scene.test.ts"
       ],

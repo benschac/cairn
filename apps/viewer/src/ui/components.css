@@ -746,7 +746,8 @@ button.chip:active {
   color: var(--ink);
 }
 
-.code-screen > .topbar {
+.code-screen > .topbar,
+.code-screen > .link-notice {
   flex: none;
 }
 

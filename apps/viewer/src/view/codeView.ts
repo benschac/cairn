@@ -2,9 +2,17 @@ import type { Trace, TraceTask } from "@cairn/contract";
 import { Array, Option, Record } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
-import { patchPathOf, rangeOf, shortSha, shownCommitOf, taskOf } from "../codeView.ts";
+import {
+  commitsTo,
+  patchPathOf,
+  rangeOfCommits,
+  shortSha,
+  shownCommitOf,
+  taskOf,
+} from "../codeView.ts";
 import type { Message } from "../message.ts";
 import { Shown, type CodeScreen, type DiffStyle, type PatchData } from "../model.ts";
+import { linkNoticeView } from "./linkNoticeView.ts";
 import { diffStyleToggleView, patchView, type DiffMarks } from "./diffView.ts";
 import {
   loadedSessionOf,
@@ -19,6 +27,7 @@ import { treeView, type TreeMessages } from "./treeView.ts";
  * mounts a Mount that sends the app's own Message, so unlike the tree the code view is not generic.
  */
 export interface CodeMessages extends TreeMessages<Message>, SessionMessages {
+  readonly onDismissNotice: Message;
   readonly onBack: Message;
   readonly onDiffStyle: (style: DiffStyle) => Message;
 }
@@ -40,7 +49,10 @@ const diffPaneStyle = {
 
 const plural = (count: number): string => (count === 1 ? "1 commit" : `${count} commits`);
 
-/** What the bar says is shown: a whole task's commit count and range, or one commit. */
+/**
+ * What the bar says is shown: a whole task's commit count and range, or one commit. A whole task
+ * shown at an older head counts and ranges the commits up to that head, as its diff does.
+ */
 const shownText = (task: TraceTask, shown: Shown): string =>
   Shown.match(shown, {
     OneCommit: ({ sha }) =>
@@ -51,12 +63,14 @@ const shownText = (task: TraceTask, shown: Shown): string =>
           onSome: (commit) => `${commit.subject} ${shortSha(commit.sha)}`,
         },
       ),
-    WholeTask: () =>
-      Option.match(rangeOf(task), {
-        onNone: () => plural(Array.length(task.commits)),
+    WholeTask: ({ maybeHead }) => {
+      const commits = commitsTo(task, maybeHead);
+      return Option.match(rangeOfCommits(commits), {
+        onNone: () => plural(Array.length(commits)),
         onSome: ({ base, head }) =>
-          `${plural(Array.length(task.commits))} ${shortSha(base)}..${shortSha(head)}`,
-      }),
+          `${plural(Array.length(commits))} ${shortSha(base)}..${shortSha(head)}`,
+      });
+    },
   });
 
 const barView = (
@@ -172,22 +186,31 @@ export const codeView = (
   patches: Record<string, PatchData>,
   diffStyle: DiffStyle,
   state: SessionState,
+  maybeNotice: Option.Option<string>,
   h: HtmlBuilder<Message>,
   messages: CodeMessages,
 ): Html => {
   const task = taskOf(trace, code.taskId);
   return h.div(
     [h.Class("code-screen"), h.DataAttribute("code-view", code.taskId)],
-    [
-      barView(task, code, diffStyle, h, messages),
-      h.div(
-        [h.Class("code-body")],
-        [
-          treeView(trace, code, h, messages),
-          diffPane(task, code, patches, diffStyle, marksOf(task, code, state), h),
-          sessionPane(task, code, state, h, messages),
-        ],
+    Array.appendAll(
+      Array.prepend(
+        Option.match(maybeNotice, {
+          onNone: () => [],
+          onSome: (text) => [linkNoticeView(text, h, { onDismiss: messages.onDismissNotice })],
+        }),
+        barView(task, code, diffStyle, h, messages),
       ),
-    ],
+      [
+        h.div(
+          [h.Class("code-body")],
+          [
+            treeView(trace, code, h, messages),
+            diffPane(task, code, patches, diffStyle, marksOf(task, code, state), h),
+            sessionPane(task, code, state, h, messages),
+          ],
+        ),
+      ],
+    ),
   );
 };

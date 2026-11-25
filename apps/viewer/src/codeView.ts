@@ -78,7 +78,7 @@ export const codeScreenOf = (
   );
 
 /** The range of a run of commits: from the first parent of the oldest to the newest. */
-const rangeOfCommits = (
+export const rangeOfCommits = (
   commits: ReadonlyArray<TraceCommit>,
 ): Option.Option<{ readonly base: Sha; readonly head: Sha }> =>
   Option.all({
@@ -95,7 +95,10 @@ export const rangeOf = (
  * The commits a whole diff covers: the task's, oldest first, up to and including `maybeHead`. None
  * is the newest, so every commit; a head the task does not hold covers nothing.
  */
-const commitsTo = (task: TraceTask, maybeHead: Option.Option<Sha>): ReadonlyArray<TraceCommit> =>
+export const commitsTo = (
+  task: TraceTask,
+  maybeHead: Option.Option<Sha>,
+): ReadonlyArray<TraceCommit> =>
   Option.match(maybeHead, {
     onNone: () => task.commits,
     onSome: (head) =>
