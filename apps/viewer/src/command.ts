@@ -5,6 +5,7 @@ import { DRAWER_HEADING_ID } from "./drawer.ts";
 import { Message } from "./message.ts";
 import { fetchPatch, fetchSession } from "./load.ts";
 import { Node, nodeKeyOf } from "./trace.ts";
+import { turnElementIdOf } from "./view/sessionView.ts";
 
 /** A node's button on the canvas, which focus returns to when its drawer closes. */
 export const nodeButtonSelector = (node: Node): string => `[data-node-button="${nodeKeyOf(node)}"]`;
@@ -64,6 +65,17 @@ export const FetchPatch = Command.define("FetchPatch", {
     fetchPatch(path).pipe(
       Effect.result,
       Effect.map((result) => Message.ReceivedPatch({ path, result })),
+    ),
+});
+
+/** Scrolls the session pane so a turn's element shows; a turn that is not in the page is left alone. */
+export const ScrollTurn = Command.define("ScrollTurn", {
+  args: { id: Schema.String },
+  messages: [Message.CompletedScrollTurn],
+  execute: ({ id }) =>
+    Dom.scrollIntoView(`[id="${turnElementIdOf(id)}"]`, { block: "nearest" }).pipe(
+      Effect.ignore,
+      Effect.as(Message.CompletedScrollTurn()),
     ),
 });
 

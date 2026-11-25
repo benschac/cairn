@@ -5,7 +5,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import { isDemoBuild } from "../load.ts";
 import { renderMarkdown, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
-import { SessionData } from "../model.ts";
+import { SessionData, type HighlightedTurn } from "../model.ts";
 
 /** The message constructors the session pane needs. */
 export interface SessionMessages {
@@ -20,7 +20,19 @@ export interface SessionState {
   readonly sessions: Record.ReadonlyRecord<string, SessionData>;
   readonly openedTurns: Record.ReadonlyRecord<string, boolean>;
   readonly fullTurns: Record.ReadonlyRecord<string, boolean>;
+  /** The turn whose hunks the diff marks; its line in the pane is marked active too. */
+  readonly maybeHighlightedTurn: Option.Option<HighlightedTurn>;
 }
+
+/** The session with this ID, once it has loaded. */
+export const loadedSessionOf = (state: SessionState, id: string): Option.Option<Session> =>
+  Option.flatMap(Record.get(state.sessions, id), (data) =>
+    SessionData.match(data, {
+      Failed: () => Option.none(),
+      Loaded: ({ session }) => Option.some(session),
+      Loading: () => Option.none(),
+    }),
+  );
 
 /** An opened tool turn shows this many lines of its input and of its output until asked for more. */
 export const TURN_LINE_LIMIT = 200;
@@ -159,12 +171,16 @@ const toolView = (
 ): Html => {
   const isOpen = Option.getOrElse(Record.get(state.openedTurns, turn.id), () => false);
   const isFull = Option.getOrElse(Record.get(state.fullTurns, turn.id), () => false);
+  const isActive = Option.exists(state.maybeHighlightedTurn, ({ id }) => id === turn.id);
   return h.li(
-    [
-      h.Id(turnElementIdOf(turn.id)),
-      h.DataAttribute("turn", turn.id),
-      h.DataAttribute("kind", "tool"),
-    ],
+    Array.appendAll(
+      [
+        h.Id(turnElementIdOf(turn.id)),
+        h.DataAttribute("turn", turn.id),
+        h.DataAttribute("kind", "tool"),
+      ],
+      showIf(isActive, () => h.DataAttribute("active", "")),
+    ),
     Array.prepend(
       isOpen ? openedToolView(turn, isFull, h, messages) : [],
       h.button(
