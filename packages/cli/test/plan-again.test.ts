@@ -1,4 +1,4 @@
-import { Manifest, SpecIndexJson, SpecSectionId, TaskDraft } from "@cairn/contract";
+import { JudgmentsJson, Manifest, SpecIndexJson, SpecSectionId, TaskDraft } from "@cairn/contract";
 import type { IndexedSection, PrdSectionId, SpecIndex } from "@cairn/contract";
 import { bodyHashOf, sectionsOf } from "@cairn/core";
 import { NodeServices } from "@effect/platform-node";
@@ -11,6 +11,7 @@ import {
   FileSystem,
   Layer,
   Option,
+  Order,
   Path,
   Predicate,
   Record,
@@ -29,6 +30,7 @@ import {
   ManifestRefused,
   needsPlanner,
   plan,
+  unusedJudge,
   UP_TO_DATE,
   WRITE_QUESTION,
 } from "../src/commands/plan.ts";
@@ -36,7 +38,10 @@ import type { PlanOptions } from "../src/commands/plan.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { editedOf } from "../src/spec-index.ts";
+import type { Judge } from "../src/judge.ts";
+import { targetName } from "../src/print-judgments.ts";
 import { mergeSections } from "../src/spec-merge.ts";
+import { scriptedJudge } from "./scripted-judge.ts";
 
 const PRD = `# Notes {#prd.notes}
 
@@ -188,6 +193,9 @@ const scriptedTerminal = (answers: ReadonlyArray<string>) =>
 interface Run {
   readonly answers?: ReadonlyArray<string>;
   readonly drafts?: ReadonlyArray<TaskDraft>;
+  readonly env?: Readonly<Record<string, string>>;
+  /** The judge of the run: none is `unusedJudge`, which a run without a key never calls. */
+  readonly judge?: Layer.Layer<Judge>;
   readonly options?: Partial<PlanOptions>;
   readonly sections?: string;
 }
@@ -228,6 +236,8 @@ const setup = (files: Readonly<Record<string, string>>) =>
     const run = ({
       answers = [],
       drafts = FIRST,
+      env = {},
+      judge = unusedJudge,
       options: given = {},
       sections = SHARING,
     }: Run = {}) =>
@@ -251,7 +261,8 @@ const setup = (files: Readonly<Record<string, string>>) =>
               Layer.provideMerge(scriptedPlanner({ drafts, sections, spec: SPEC })),
             ),
             MainCheckout.fixed(root),
-            ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
+            ConfigProvider.layer(ConfigProvider.fromEnvRecord(env)),
+            judge,
           ),
         ),
       );
@@ -866,4 +877,33 @@ it.effect.prop(
       );
       expect(editedOf(spec, index)).toEqual([]);
     }),
+);
+
+it.effect("planning again judges the sections it wrote and no other", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run, text } = yield* planned;
+      yield* run({
+        env: { TYPESAFE_API_KEY: "key" },
+        judge: scriptedJudge(),
+        options: { spec: true },
+      });
+      const recorded = yield* text("judgments.json").pipe(
+        Effect.flatMap(Schema.decodeUnknownEffect(JudgmentsJson)),
+      );
+      expect(
+        Array.sort(
+          Array.map(
+            recorded.judgments,
+            ({ question, target }) => `${targetName(target)} ${question}`,
+          ),
+          Order.String,
+        ),
+      ).toEqual([
+        "spec.capture.sharing buildable",
+        "spec.capture.sharing faithful",
+        "spec.capture.sharing size",
+      ]);
+    }),
+  ),
 );

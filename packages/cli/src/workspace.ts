@@ -3,11 +3,12 @@ import {
   defaultConfig,
   Event,
   EventJson,
+  JudgmentsJson,
   Manifest,
   SpecIndex,
   SpecIndexJson,
 } from "@cairn/contract";
-import type { Config } from "@cairn/contract";
+import type { Config, Judgments } from "@cairn/contract";
 import {
   Array,
   Effect,
@@ -180,6 +181,12 @@ export const loadConfig: Loaded<Config> = optional("config.json", decodeDocument
 export const loadSpecIndex: Loaded<Option.Option<SpecIndex>> = optional(
   "spec.json",
   decodeDocument(SpecIndexJson),
+);
+
+/** `.cairn/judgments.json`. Absent is none: it is derived and `cairn plan` writes it. */
+export const loadJudgments: Loaded<Option.Option<Judgments>> = optional(
+  "judgments.json",
+  decodeDocument(JudgmentsJson),
 );
 
 /**

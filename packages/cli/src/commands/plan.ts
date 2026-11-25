@@ -1,9 +1,16 @@
-import { Config as ConfigSchema, Manifest, Slug, SpecSectionId } from "@cairn/contract";
-import type { Config as CairnConfig, ManifestTask, Section, SpecIndex } from "@cairn/contract";
+import { Config as ConfigSchema, Judgments, Manifest, Slug, SpecSectionId } from "@cairn/contract";
+import type {
+  Config as CairnConfig,
+  Judgment,
+  ManifestTask,
+  Section,
+  SpecIndex,
+} from "@cairn/contract";
 import {
   assignSectionIds,
   derivedOf,
   gateOf,
+  inputsOf,
   itemsOf,
   lint,
   replanOf,
@@ -32,6 +39,7 @@ import {
   Runtime,
   Schema,
   String,
+  Struct,
   Terminal,
 } from "effect";
 import { Command, Flag } from "effect/cli";
@@ -43,15 +51,20 @@ import {
   draftWarning,
   targetsOf,
 } from "../ask-statements.ts";
+import { Judge, JudgeError } from "../judge.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { liveLanguageModel } from "../models.ts";
 import { Planner, PlannerError } from "../planner.ts";
+import { changeLines, flagsOf, reportLines, targetName } from "../print-judgments.ts";
 import { stackLines, totalsLine } from "../print-stack.ts";
+import { refineWith } from "../refine.ts";
+import type { RefineInput, Refined } from "../refine.ts";
 import { editedOf, specIndexOf, specIndexText } from "../spec-index.ts";
 import { mergeSections } from "../spec-merge.ts";
 import {
   CAIRN_DIRECTORY,
   loadConfig,
+  loadJudgments,
   loadManifest,
   loadPrd,
   loadSpec,
@@ -105,6 +118,7 @@ const BASE_BRANCH = "main";
 const FALLBACK_FEATURE = Schema.decodeSync(Slug)("plan");
 
 const ManifestJson = Schema.fromJsonString(Manifest, { space: 2 });
+const JudgmentsText = Schema.fromJsonString(Judgments, { space: 2 });
 
 /** The planner fields `--source`, `--provider` and `--model` replace for one run. */
 export interface PlannerChoice {
@@ -216,17 +230,23 @@ const confirm = Effect.fn("plan.confirm")(function* (question: string, yes: bool
 });
 
 /**
- * The seam for the judging checkpoints (`spec.judging.checkpoints`), reached before the sections
- * and the tasks are written. Without `TYPESAFE_API_KEY` it prints once that judging was skipped.
- * With the key set it has nothing to run yet: the checkpoints plug in here.
+ * Whether the judging checkpoints (`spec.judging.checkpoints`) run: they do when
+ * `TYPESAFE_API_KEY` is set. Without it, the first call prints once that judging was skipped.
  */
-const checkpoints = Effect.fn("plan.checkpoints")(function* (told: Ref.Ref<boolean>) {
+const judging = Effect.fn("plan.judging")(function* (told: Ref.Ref<boolean>) {
   const key = yield* Config.String("TYPESAFE_API_KEY").pipe(Config.option);
   const already = yield* Ref.getAndSet(told, true);
   if (Option.isNone(key) && !already) {
     yield* Console.log(JUDGING_SKIPPED);
   }
+  return Option.isSome(key);
 });
+
+/** A judge that failed does not stop the plan: it says so, and the planner's work stands as it was. */
+const failedAs =
+  <A>(unjudged: A) =>
+  (error: JudgeError) =>
+    Console.log(`Judging failed: ${error.message}`).pipe(Effect.as(unjudged));
 
 const optionally = <A, E, R>(load: Effect.Effect<A, E | { readonly _tag: "MissingFile" }, R>) =>
   load.pipe(
@@ -240,6 +260,8 @@ const withNewline = (text: string) => (String.endsWith("\n")(text) ? text : `${t
 /** What a step reads: the options, the PRD with its IDs, and the config. */
 interface Inputs {
   readonly config: CairnConfig;
+  /** What judging has said in this run, in the order it said it. `judgments.json` keeps them. */
+  readonly judged: Ref.Ref<ReadonlyArray<Judgment>>;
   readonly options: PlanOptions;
   readonly prd: string;
   readonly told: Ref.Ref<boolean>;
@@ -261,6 +283,84 @@ const writeCairn = Effect.fn("plan.write")(function* (name: string, content: str
   const path = yield* Path.Path;
   const root = yield* (yield* MainCheckout).root;
   yield* fs.writeFileString(path.join(root, CAIRN_DIRECTORY, name), content);
+});
+
+/**
+ * The sections and task checkpoints (`spec.judging.checkpoints`) over `input`, or `input` as it
+ * is when there is no key or the judge fails. It records nothing: the caller names the draft
+ * judgments by task once the stack has IDs, and then records them with `record`.
+ */
+const refined = Effect.fn("plan.refined")(function* ({ config, told }: Inputs, input: RefineInput) {
+  const unjudged: Refined = { drafts: input.drafts, judgments: [], spec: input.spec };
+  if (!(yield* judging(told))) {
+    return unjudged;
+  }
+  return yield* refineWith(input, config).pipe(Effect.catchTag("JudgeError", failedAs(unjudged)));
+});
+
+/**
+ * The fourth checkpoint, the stack questions (`spec.judging.checkpoints`): asked of the manifest
+ * the plan would write. It only reports.
+ */
+const stackJudged = Effect.fn("plan.stackJudged")(function* (
+  { config, told }: Inputs,
+  prd: string,
+  spec: string,
+  manifest: Manifest,
+) {
+  if (!(yield* judging(told))) {
+    return [];
+  }
+  const judge = yield* Judge;
+  const { stack } = inputsOf(prd, spec, manifest);
+  const none: ReadonlyArray<Judgment> = [];
+  return yield* judge
+    .judge(
+      { sections: [], stack, tasks: [] },
+      { judgments: [], model: config.judge.model, version: 1 },
+    )
+    .pipe(
+      Effect.map(({ judgments }) =>
+        Array.filter(judgments, (judgment) => judgment.target.kind === "stack"),
+      ),
+      Effect.catchTag("JudgeError", failedAs(none)),
+    );
+});
+
+/** Adds `judgments` to what this run has judged. */
+const record = ({ judged }: Inputs, judgments: ReadonlyArray<Judgment>) =>
+  Ref.update(judged, Array.appendAll(judgments));
+
+/**
+ * Writes `judgments.json`: what this run judged, and what the file already holds about anything
+ * else, when the same model gave it. A judgment of this run replaces the file's for the same target
+ * and question. A run that judged nothing leaves the file alone.
+ */
+const writeJudgments = Effect.fn("plan.writeJudgments")(function* ({ config, judged }: Inputs) {
+  const current = yield* Ref.get(judged);
+  if (Array.isReadonlyArrayEmpty(current)) {
+    return;
+  }
+  const previous = yield* loadJudgments;
+  const asked = HashSet.fromIterable(
+    Array.map(current, ({ question, target }) => `${targetName(target)} ${question}`),
+  );
+  const kept = Option.match(previous, {
+    onNone: () => [],
+    onSome: ({ judgments, model }) =>
+      model === config.judge.model
+        ? Array.filter(
+            judgments,
+            ({ question, target }) => !HashSet.has(asked, `${targetName(target)} ${question}`),
+          )
+        : [],
+  });
+  const text = yield* Schema.encodeEffect(JudgmentsText)({
+    judgments: Array.appendAll(kept, current),
+    model: config.judge.model,
+    version: 1,
+  });
+  yield* writeCairn("judgments.json", withNewline(text));
 });
 
 /** Each section of the spec as it was written: its ID, its line and the PRD sections it implements. */
@@ -348,24 +448,39 @@ const specStep = Effect.fn("plan.specStep")(function* (
   inputs: Inputs,
   manifest: Option.Option<Manifest>,
 ) {
-  const { options, prd, told } = inputs;
+  const { options, prd } = inputs;
   const existing = yield* optionally(loadSpec);
   if (options.respec || Option.isNone(existing)) {
     const planner = yield* Planner;
     const drafted = yield* planner.spec(prd);
-    yield* checkpoints(told);
-    const spec = withNewline(assignSectionIds(drafted, "spec").markdown);
+    // Every section has an ID before judging, since a section without one is not judged.
+    const generated = withNewline(assignSectionIds(drafted, "spec").markdown);
+    const checked = yield* refined(inputs, {
+      drafts: [],
+      prd,
+      spec: generated,
+      specGenerated: true,
+      written: specIdsOf(generated),
+    });
+    const spec = withNewline(checked.spec);
     yield* writeCairn("spec.md", spec);
     const shown = Array.filter(sectionsOf(spec), (section) => Predicate.isNotUndefined(section.id));
-    yield* Effect.forEach(shown, (section) => Console.log(sectionLine(section)), {
-      discard: true,
-    });
+    yield* Effect.forEach(
+      Array.appendAll(
+        Array.map(shown, sectionLine),
+        Array.appendAll(changeLines(checked.judgments), reportLines(checked.judgments)),
+      ),
+      (line) => Console.log(line),
+      { discard: true },
+    );
+    yield* record(inputs, checked.judgments);
     // A respec replaces the manifest too, so the tasks of the one on disk are not the new spec's.
     yield* writeIndex(prd, options.respec ? Option.none() : manifest, {
       changed: [],
       previous: Option.none(),
       written: specIdsOf(spec),
     });
+    yield* writeJudgments(inputs);
     return { sections: Array.length(shown), wrote: true };
   }
   // Planning again (`spec.planning.again`): the spec exists, so it is added to, never written from nothing.
@@ -390,28 +505,51 @@ const specStep = Effect.fn("plan.specStep")(function* (
   );
   const planner = yield* Planner;
   const fragment = yield* planner.sections(prd, spec, prdSections, replan.rewritable);
-  yield* checkpoints(told);
   const merged = mergeSections(spec, fragment, replan.rewritable);
-  const next = withNewline(assignSectionIds(merged.markdown, "spec").markdown);
-  yield* writeCairn("spec.md", next);
   const before = HashSet.fromIterable<string>(sectionIdsOf(spec));
-  const written = Array.appendAll(
-    Array.filter(specIdsOf(next), (id) => !HashSet.has(before, id)),
-    merged.rewritten,
-  );
+  /** The sections this run wrote or rewrote that `text` still has: judging may split one away. */
+  const writtenIn = (text: string) => {
+    const ids = specIdsOf(text);
+    const present = HashSet.fromIterable<string>(ids);
+    return Array.filter(
+      Array.appendAll(
+        Array.filter(ids, (id) => !HashSet.has(before, id)),
+        merged.rewritten,
+      ),
+      (id) => HashSet.has(present, id),
+    );
+  };
+  const assigned = withNewline(assignSectionIds(merged.markdown, "spec").markdown);
+  const checked = yield* refined(inputs, {
+    drafts: [],
+    prd,
+    spec: assigned,
+    specGenerated: false,
+    written: writtenIn(assigned),
+  });
+  const next = withNewline(checked.spec);
+  yield* writeCairn("spec.md", next);
+  const written = writtenIn(next);
   const added = HashSet.fromIterable<string>(written);
   const printed = Array.filter(
     sectionsOf(next),
     (section) => Predicate.isNotUndefined(section.id) && HashSet.has(added, section.id),
   );
-  yield* Effect.forEach(printed, (section) => Console.log(sectionLine(section)), {
-    discard: true,
-  });
+  yield* Effect.forEach(
+    Array.appendAll(
+      Array.map(printed, sectionLine),
+      Array.appendAll(changeLines(checked.judgments), reportLines(checked.judgments)),
+    ),
+    (line) => Console.log(line),
+    { discard: true },
+  );
+  yield* record(inputs, checked.judgments);
   yield* writeIndex(prd, manifest, {
     changed: editedOf(next, index),
     previous: Option.some(index),
     written,
   });
+  yield* writeJudgments(inputs);
   return { sections: Array.length(printed), wrote: true };
 });
 
@@ -474,17 +612,27 @@ const draftable = Effect.fn("plan.draftable")(function* (
  * same and neither asks nor refuses nor writes. Returns what it planned.
  */
 const tasksStep = Effect.fn("plan.tasksStep")(function* (
-  { config, options, prd, told }: Inputs,
+  inputs: Inputs,
   manifest: Option.Option<Manifest>,
   specSections: ReadonlyArray<SpecSectionId>,
 ) {
+  const { config, judged, options, prd } = inputs;
   const planner = yield* Planner;
   const spec = yield* loadSpec;
-  yield* checkpoints(told);
   // `--respec` plans from nothing; otherwise the tasks in the manifest stay as they are.
   const kept = options.respec ? Option.none<Manifest>() : manifest;
   const existing = tasksOf(kept);
-  const drafts = yield* planner.tasks(prd, spec, specSections, existing);
+  const proposed = yield* planner.tasks(prd, spec, specSections, existing);
+  // The task size and routing checkpoints shape the drafts before the stack orders them. The spec
+  // on disk has its IDs, which step 1 gave it, so each draft's sections are found.
+  const checked = yield* refined(inputs, {
+    drafts: proposed,
+    prd,
+    spec,
+    specGenerated: false,
+    written: [],
+  });
+  const drafts = checked.drafts;
   const prdSections = sectionsOf(prd);
   const specSectionsOf = sectionsOf(spec);
   const sections = Array.appendAll(prdSections, specSectionsOf);
@@ -519,18 +667,47 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
   // Every manifest write draws the stack diagram again, so lint reads the spec as it will be written.
   const drawn = withStackDiagram(spec, drafted);
   const findings = lint(prd, drawn, Option.some(drafted), config);
+  // A judgment of a draft that became a task is named by the task's ID; one of a draft a split
+  // replaced stays named by its title.
+  const ids = HashMap.fromIterable(
+    Array.map(
+      Array.drop(ordered, Array.length(existing)),
+      (task) => [task.title, task.id] as const,
+    ),
+  );
+  const stack = yield* stackJudged(inputs, prd, drawn, drafted);
+  const judgments = Array.appendAll(
+    Array.map(checked.judgments, (judgment) =>
+      judgment.target.kind === "draft"
+        ? Option.match(HashMap.get(ids, judgment.target.title), {
+            onNone: () => judgment,
+            onSome: (id) =>
+              Struct.evolve(judgment, { target: () => ({ id, kind: "task" as const }) }),
+          })
+        : judgment,
+    ),
+    stack,
+  );
+  yield* record(inputs, judgments);
   const old = HashSet.fromIterable(Array.map(existing, (task) => task.id));
   yield* Effect.forEach(
-    Array.appendAll(
+    Array.flatten([
+      changeLines(judgments),
       stackLines(drafted.tasks, { isNew: (task) => !HashSet.has(old, task.id) }),
       Array.map(findings, formatFinding),
-    ),
+      reportLines(judgments),
+    ]),
     (line) => Console.log(line),
     { discard: true },
   );
   const errors = Array.length(Array.filter(findings, (finding) => finding.severity === "error"));
-  // The judging checkpoints (`spec.judging.checkpoints`) have nothing to flag yet.
-  const planned: Planned = { errors, flags: 0, sections: 0, tasks: added };
+  const everything = yield* Ref.get(judged);
+  const planned: Planned = {
+    errors,
+    flags: flagsOf(everything),
+    sections: 0,
+    tasks: added,
+  };
   if (options.dryRun === true) {
     return planned;
   }
@@ -554,6 +731,7 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
       previous,
       written: [],
     });
+    yield* writeJudgments(inputs);
   }
   return planned;
 });
@@ -704,7 +882,8 @@ const planSteps = Effect.fn("plan.planSteps")(function* (
     if (!specWritten && !(yield* redraw(inputs.prd, manifest))) {
       yield* Console.log(UP_TO_DATE);
     }
-    return { ...nothingPlanned, sections };
+    const everything = yield* Ref.get(inputs.judged);
+    return { ...nothingPlanned, flags: flagsOf(everything), sections };
   }
   const proceed = specWritten
     ? yield* confirm(DRAFT_QUESTION, options.yes || options.dryRun === true)
@@ -714,7 +893,8 @@ const planSteps = Effect.fn("plan.planSteps")(function* (
     return { ...planned, sections };
   }
   yield* Console.log(EDIT_SPEC);
-  return { ...nothingPlanned, sections };
+  const everything = yield* Ref.get(inputs.judged);
+  return { ...nothingPlanned, flags: flagsOf(everything), sections };
 });
 
 /**
@@ -722,7 +902,7 @@ const planSteps = Effect.fn("plan.planSteps")(function* (
  * then the tasks, each followed by a question. On a plan that has a spec or tasks already it plans again
  * (`spec.planning.again`): spec sections for PRD sections nothing covers, tasks for spec sections
  * nothing builds, and a report of what went stale; no task in the manifest changes. The judging
- * checkpoints and `judgments.json` belong to the tasks that own them.
+ * checkpoints (`spec.judging.checkpoints`) run inside the spec and tasks steps.
  */
 const steps = Effect.fn("plan.steps")(function* (options: PlanOptions) {
   if (Predicate.isNotUndefined(options.accept)) {
@@ -740,8 +920,9 @@ const steps = Effect.fn("plan.steps")(function* (options: PlanOptions) {
     yield* writeCairn("prd.md", assigned.markdown);
     yield* Effect.forEach(assigned.added, (id) => Console.log(`Added ${id}`), { discard: true });
   }
+  const judged = yield* Ref.make<ReadonlyArray<Judgment>>([]);
   const prd = yield* statementsStep(options, assigned.markdown, manifest);
-  const planned = yield* planSteps({ config, options, prd, told }, manifest);
+  const planned = yield* planSteps({ config, judged, options, prd, told }, manifest);
   const drafts = draftCountOf(prd);
   if (drafts > 0) {
     yield* Console.log(draftWarning(drafts));
@@ -797,6 +978,14 @@ const unusedPlanner = Layer.succeed(
       Effect.fail(
         new PlannerError({ call: "statements", reason: "No planner call was expected." }),
       ),
+  }),
+);
+
+/** The judge of a run with no `TYPESAFE_API_KEY`, which never asks for one: any call fails. */
+export const unusedJudge = Layer.succeed(
+  Judge,
+  Judge.of({
+    judge: () => Effect.fail(new JudgeError({ reason: "No judge call was expected." })),
   }),
 );
 
@@ -866,7 +1055,14 @@ export const planCommand = Command.make(
           ),
         ),
       );
-      yield* plan(options).pipe(Effect.provide(planner));
+      // The judge is built only when the key is set; without it the checkpoints are skipped.
+      const judge = Layer.unwrap(
+        Config.String("TYPESAFE_API_KEY").pipe(
+          Config.option,
+          Effect.map(Option.match({ onNone: () => unusedJudge, onSome: () => Judge.live(config) })),
+        ),
+      );
+      yield* plan(options).pipe(Effect.provide(Layer.mergeAll(planner, judge)));
     }).pipe(
       // The failures log their own message once; the runtime does not print them again.
       Effect.tapErrorTag(

@@ -19,7 +19,7 @@ import {
 } from "effect";
 import { TestConsole } from "effect/testing";
 
-import { plan } from "../src/commands/plan.ts";
+import { plan, unusedJudge } from "../src/commands/plan.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { totalsLine } from "../src/print-stack.ts";
@@ -108,6 +108,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
                 scriptedPlanner(calls),
                 MainCheckout.fixed(root),
                 ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
+                unusedJudge,
               ),
             ),
           ),
