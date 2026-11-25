@@ -3,6 +3,7 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Effect, Layer, Logger } from "effect";
 import { Command } from "effect/cli";
 
+import { approveCommand } from "./commands/approve.ts";
 import { idsCommand } from "./commands/ids.ts";
 import { initCommand } from "./commands/init.ts";
 import { linkCommand } from "./commands/link.ts";
@@ -21,6 +22,7 @@ const cairn = Command.make("cairn").pipe(
     lintCommand,
     planCommand,
     statusCommand,
+    approveCommand,
   ]),
 );
 

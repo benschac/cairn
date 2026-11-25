@@ -106,14 +106,19 @@ export const assemble = (
  */
 export class Git extends Context.Service<
   Git,
-  { readonly log: (manifest: Manifest) => Effect.Effect<ReadonlyArray<GitCommit>, GitError> }
+  {
+    readonly log: (manifest: Manifest) => Effect.Effect<ReadonlyArray<GitCommit>, GitError>;
+    /** `git config user.name`: none when it is unset or empty. */
+    readonly userName: Effect.Effect<Option.Option<string>, GitError>;
+  }
 >()("@cairn/cli/Git") {
   /**
    * An in-memory repository with one empty commit on `baseBranch`. It provides `Git` and
    * `GitHistory`, which writes to the same repository, so a test builds a history and reads it back
-   * as the live layer reads the same history from git.
+   * as the live layer reads the same history from git. `userName` is what `git config user.name`
+   * answers; it defaults to unset.
    */
-  static readonly memory = (baseBranch = "main") =>
+  static readonly memory = (baseBranch = "main", userName: Option.Option<string> = Option.none()) =>
     Layer.effectContext(
       Effect.gen(function* () {
         const ref = yield* SynchronizedRef.make(initial(baseBranch));
@@ -185,6 +190,7 @@ export class Git extends Context.Service<
             ),
         });
         const git = Git.of({
+          userName: Effect.succeed(userName),
           log: (manifest) =>
             Effect.flatMap(SynchronizedRef.get(ref), (repo) => {
               const reach = (name: string) =>
