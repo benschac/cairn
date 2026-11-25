@@ -329,6 +329,25 @@ History stays in the repo's `cairn.db`. Nothing is sent to a Cairn service, and 
 - Each task can set a limit on attempts and on cost in config, with defaults for the repo. A task that reaches its limit without verifying is `failed` for good and is counted as a terminal failure.
 - Attempts are stored in `cairn.db` under their session IDs, beside the session log.
 
+### Session cost estimates {#prd.outcomes.session-cost}
+
+A person can see what a session would have cost at API prices and how much subscription allowance it used. These are separate estimates, not billed cost. A subscription attempt keeps cost `null` for the existing cost metrics.
+
+- Start with Codex usage records explicitly linked to Cairn session IDs and tasks. Record actual model IDs and reasoning settings per call, including changes within a session. The planned model is not evidence of what ran; missing usage remains unknown.
+- Calculate `API-equivalent cost` from each call's uncached input, cached input and output using dated model rates, with applicable cache-write, service-tier and context-length pricing. Reasoning tokens already included in output are not charged again; reasoning level is not another price multiplier. Keep the rate source, effective date, assumptions and usage coverage. Missing prices produce a partial estimate or an unknown value, never a guessed price. Identify excluded tool charges.
+- Normalise cumulative snapshots before summing usage. Reimporting or resuming a session, or linking several commits to it, must not count usage again. Include linked subagent, retry, review and repair sessions once. Shared sessions need an explicit allocation before assigning their costs to individual tasks; unassigned usage remains unassigned.
+- Store subscription allowance snapshots with their observation time, usage percentage, window, reset time and allowance identity. Show the provider-reported account allowance used and remaining. Do not assume a fixed weekly token cap or derive one from API prices. Keep separate allowance windows separate.
+- Estimate a session's allowance consumption only when snapshots cover the same allowance and reset window and the change can be attributed to that session. Concurrent sessions, other devices and other products may share the account allowance. When they cannot be separated, show the account change as context and the session share as unknown. Explain rounding and missing snapshots; a reset must not produce negative consumption.
+- Optionally show `Allocated subscription cost` when the person supplies their fee, currency, billing period and the share to allocate to Cairn. Distribute that budget among included sessions in proportion to their API-equivalent estimates for the period. State the method and coverage; an open period is provisional. Missing estimates or a zero denominator leave allocation unknown. This accounting allocation is neither a provider charge nor a measurement of allowance consumed, and does not enforce a spending cap.
+- Keep usage and estimate provenance beside the session in `cairn.db`, subject to redaction. Account allowance and subscription fee details stay local and are excluded from public demos and shared exports by default.
+
+Done when:
+
+- Cached input and reasoning output yield a reproducible estimate with no double counting, even when the model changes mid-session. Missing rates leave a visible gap in coverage.
+- Importing a session twice or linking two commits to it leaves the task total unchanged. A linked subagent contributes once.
+- A subscription session displays an API-equivalent estimate while billed cost stays unknown. Concurrent activity that prevents attribution leaves its allowance share unknown, and a reset cannot create negative usage.
+- A complete billing period's configured budget is allocated reproducibly; incomplete data or a zero denominator cannot produce a misleading dollar allocation.
+
 ### Metrics {#prd.outcomes.metrics}
 
 Each is reported per task and summed per model, reasoning level, harness and task category:
@@ -405,6 +424,51 @@ The orchestrator keeps the scores current from events, commits and presence, and
 
 - Every conflict a restack actually hits is recorded with its files and the score the pair had.
 - `cairn status` reports how often a high score conflicted and how often a low one did, so the weights can be checked against the repo.
+
+## Relations {#prd.relations}
+
+A plan is a graph, not a list. A task needs other tasks, builds spec sections and names PRD sections. A spec section implements PRD sections and list items. A test proves a statement. A person reading one PRD section wants to know what has to be built before it, what waits on it and what can start now, and an agent picking up a task wants the same. Cairn answers these questions from one index, so the viewer, the CLI and the orchestrator cannot give different answers to the same question.
+
+### Kinds {#prd.relations.kinds}
+
+A relation has a kind and two ends. An end is a task, a spec section, a PRD section, a list item, a statement or a test, named by its ID.
+
+| Kind          | From         | To                  | Recorded in                                                    |
+| ------------- | ------------ | ------------------- | -------------------------------------------------------------- |
+| needs         | task         | task                | `dependsOn` in the manifest                                    |
+| built on      | task         | task                | `parent` in the manifest                                       |
+| ordered after | task         | task                | the manifest's conflict ordering (see conflict-aware ordering) |
+| builds        | task         | spec section        | `specSections` in the manifest                                 |
+| names         | task         | PRD section or item | `prdSections` in the manifest                                  |
+| implements    | spec section | PRD section or item | `Implements` in the spec                                       |
+| depends on    | spec section | spec section        | `Depends on` in the spec                                       |
+| proves        | test         | statement           | the spec section's tests (see done when)                       |
+
+- The kinds are declared once, in the contract. More will come, between tasks first. Adding one changes that declaration and the file that records it, not each place that reads relations.
+- The files in `.cairn/` stay as they are: flat lists whose entries name each other by ID. No file stores the graph.
+
+### Between sections {#prd.relations.sections}
+
+Nobody writes down that one PRD section needs another. It follows from the tasks.
+
+- A PRD section or list item needs another when one of its tasks needs a task of the other, and that task is not also one of its own.
+- The link carries the pairs of tasks that make it, so a person can check why it is there.
+- A section's links include its list items' links, as its status does.
+- The answer is the direct links unless a person asks for more. Everything before a section, or everything after it, is given on request, in build order.
+
+### The index {#prd.relations.index}
+
+- `@cairn/core` builds the index from the manifest and `spec.json`, or from a trace, with one function that reads nothing else. It is built again when either changes and is never saved.
+- For any ID and any kind it answers both ways: what this points at, and what points at it.
+- For the kinds between tasks it also answers everything a task needs, directly or through other tasks, everything that needs it, and an order in which the tasks can be built.
+- A pending task can start when every task it needs is `done` or `landed`. For any other pending task the index names the unfinished tasks it waits on, and for any task the unfinished tasks that wait on it.
+- A relation whose other end does not exist is left out and reported by `cairn lint`. A cycle in what tasks need is a lint error that names the tasks in it.
+- Every part of Cairn that asks one of these questions asks the index: `cairn lint`, `cairn status`, the stack layout, the orchestrator's choice of what to start, and the viewer. None of them works an answer out again from the files.
+
+Done when:
+
+- Making t71 depend on t73 in this repo's manifest fails `cairn lint` with an error that names t71, t72 and t73 as a cycle.
+- A task whose only unfinished dependency is marked done shows as able to start in `cairn status` and in the viewer at the next read, with no other file changed.
 
 ## Redaction {#prd.redaction}
 
@@ -513,6 +577,37 @@ Clicking a task, in a spec card or in the stacks, opens its detail in a panel ov
 - Opening a spec section or another task from the panel adds a step to a trail at its top, and each step goes back to what it names. Escape goes back one step, and closes the panel at the first.
 
 The demo site has no server, so it ships the patches of the commits in its trace and shows code the same way. It ships no sessions.
+
+### Cost on the graph {#prd.viewer.cost}
+
+- In the task detail panel, below model and reasoning and before commits and code, show `Usage and cost` for the linked sessions (see session cost estimates): API-equivalent cost and attributable subscription allowance consumed. Expanding it lists sessions, actual models and reasoning, token categories, billed cost when known, optional allocated subscription cost, pricing sources and estimate coverage. Account-wide allowance is labelled separately. A task with no usage says `Usage unavailable`, not `$0`.
+- A task row in a spec card shows a compact estimate beside its model and reasoning, such as `API est. $0.42`. Clicking it opens the task detail's cost breakdown. Selecting the task's chip in the stacks reaches the same details.
+- A spec card's header shows the API-equivalent total for its distinct linked tasks, with partial coverage stated when usage or prices are missing. Its breakdown identifies contributing tasks and sessions. Shared sessions contribute only their assigned share; repeated references do not add cost. Cards can overlap, so adding their totals is not a feature total.
+- Subscription percentages retain their labels. Only attributable usage contributes to a task or card's percentage, and only within the same allowance and reset window. Never repeat an account-wide percentage as though each task consumed it.
+- At narrow widths, move cost to a second line before hiding the task title, model or status. Labels and details work by keyboard and pointer without relying on hover.
+
+Done when:
+
+- A person sees an estimate beside a task's model on a spec card, opens its breakdown in the right-hand panel, and reconciles it with the card header's total.
+- A card with one priced task and one task lacking usage shows a partial total and coverage. Multiple references to the same session do not inflate the total.
+- Keyboard navigation exposes the same cost details, and narrow panes keep cost labels and task titles readable.
+
+### What depends on what {#prd.viewer.dependencies}
+
+A person reading a section can check, without leaving the PRD, what it waits on and what waits on it. That tells them what has to be done, in what order, and what can be started today. Every answer comes from the index (see relations), the same one that draws the arrows in the stacks, so the two never disagree.
+
+- A section's status line and a list item's annotation end with its links: how many sections it needs and how many need it, such as `needs 3 · needed by 1`. A section with unfinished tasks also says how many of them can start now, such as `2 ready`, or `waiting` when none can.
+- Clicking the links opens a list under the heading. It does not pin the section. Clicking again, or Escape, closes it.
+- `Needs` lists the sections and items this one needs, each with its status and the pairs of tasks that make the link, such as `t95 needs t94`. `Needed by` lists the ones that need it, the same way.
+- `Next` lists this section's unfinished tasks in the order they can be built. The ones that can start now come first. Each of the others names the unfinished tasks it waits on.
+- Clicking a section or an item in the list scrolls the PRD to it and marks it. Clicking a task opens the task detail. Hovering an entry lights its tasks in the stacks.
+- The list shows direct links. A switch in it shows everything before the section and everything after it instead, in build order.
+- The task detail lists the tasks that depend on the task beside the ones it depends on. For a pending task it says whether it can start and, when it cannot, which unfinished tasks it waits on.
+
+Done when:
+
+- On this repo, opening the links of the Fuzzy search section lists Task detail under `Needs` with `t95 needs t94`, and opening the links of Task detail lists Fuzzy search under `Needed by`.
+- A section whose unfinished tasks all wait on another section's tasks says `waiting`, its `Next` list names those tasks, and it says `1 ready` once they are done.
 
 ### Fuzzy search {#prd.viewer.fuzzy-search}
 
@@ -700,6 +795,8 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - With `routing.adaptive` off, a recommendation from history is recorded and shown but changes no task's model.
 - An attempt that failed for `infra` adds its cost to the task and does not lower its model's first-pass rate.
 - An attempt run on a subscription appears in `cairn stats` with its tokens, is left out of cost, and the report says how many attempts it left out.
+- A PRD section's links list the sections it needs and the sections that need it, each with the tasks that make the link, and its unfinished tasks in an order they can be built with the ones that can start now first.
+- `cairn lint`, `cairn status` and the viewer give the same answer to what a task waits on, property tested over generated manifests, and a cycle in what tasks need fails `cairn lint` with its tasks named.
 
 ## One-day build order {#prd.one-day-build-order}
 
