@@ -1,8 +1,10 @@
+import { Session } from "@cairn/contract";
 import {
   CodeView,
   parsePatchFiles,
   type CodeViewItem,
   type CodeViewOptions,
+  type DiffLineAnnotation,
   type FileDiffMetadata,
 } from "@pierre/diffs";
 import {
@@ -13,14 +15,23 @@ import {
   MutableRef,
   Option,
   Predicate,
+  Queue,
+  Record,
   Result,
   Schema,
+  Stream,
   String,
 } from "effect";
 import { Mount } from "foldkit";
 
+import {
+  attributionOf,
+  markLineOf,
+  type Attribution,
+  type HunkAttribution,
+} from "./attribution.ts";
 import { Message } from "./message.ts";
-import { DiffStyle } from "./model.ts";
+import { DiffStyle, HighlightedTurn } from "./model.ts";
 
 /** The patch text could not be read by `@pierre/diffs`. */
 export class PatchNotParsed extends Schema.TaggedError<PatchNotParsed>()("PatchNotParsed", {
@@ -63,6 +74,23 @@ export const DIFF_STYLE_ATTRIBUTE = "data-diff-style";
 /** The file the tree selected reaches the mount through this attribute on its element. */
 export const FILE_ATTRIBUTE = "data-file";
 
+/** The highlighted turn reaches the mount through this attribute on its element. */
+export const TURN_ATTRIBUTE = "data-turn";
+
+/** Which pane chose the highlighted turn reaches the mount through this attribute. */
+export const TURN_FROM_ATTRIBUTE = "data-turn-from";
+
+/** A hunk's mark as the list draws it: the turns that wrote the hunk, and whether one is highlighted. */
+export interface HunkMark {
+  readonly attribution: HunkAttribution;
+  readonly isActive: boolean;
+}
+
+/** Draws a hunk's mark into the list; none draws nothing. */
+export type RenderMark = (annotation: { readonly metadata: HunkMark }) => HTMLElement | undefined;
+
+const NO_MARK: RenderMark = () => undefined;
+
 /** The diff style a list starts in, and the one an attribute that is missing or unknown means. */
 const DEFAULT_DIFF_STYLE: DiffStyle = "unified";
 
@@ -73,11 +101,15 @@ const DEFAULT_DIFF_STYLE: DiffStyle = "unified";
  * removed lines still marked. `setOptions` replaces the options whole, so every change to the style
  * goes through this and not through a partial.
  */
-export const diffOptionsOf = (style: DiffStyle): CodeViewOptions<undefined, undefined> => ({
+export const diffOptionsOf = (
+  style: DiffStyle,
+  renderMark: RenderMark = NO_MARK,
+): CodeViewOptions<HunkMark, undefined> => ({
   diffStyle: style,
   hunkSeparators: "line-info",
   lineDiffType: "word-alt",
   preferredHighlighter: "highlights",
+  renderAnnotation: renderMark,
   stickyHeaders: true,
   theme: { dark: "pierre-dark", light: "pierre-light" },
   themeType: "system",
@@ -86,15 +118,58 @@ export const diffOptionsOf = (style: DiffStyle): CodeViewOptions<undefined, unde
 /** The ID of a file's item in the list, which a scroll names. */
 export const itemIdOf = (path: string): string => `diff:${path}`;
 
-/** One `diff` item per file, in the order the patch has them. */
+const isWrittenBy = (hunk: HunkAttribution, id: string): boolean =>
+  Array.some(hunk.turns, (turn) => turn.id === id);
+
+/**
+ * A file's marks: one line annotation per hunk, on its first changed line, active when the
+ * highlighted turn wrote that hunk.
+ */
+export const annotationsOf = (
+  file: FileDiffMetadata,
+  attribution: Attribution,
+  maybeTurnId: Option.Option<string>,
+): ReadonlyArray<DiffLineAnnotation<HunkMark>> => {
+  const hunks = Array.filter(attribution.hunks, (hunk) => hunk.path === file.name);
+  return Array.getSomes(
+    Array.map(file.hunks, (hunk, index) =>
+      Option.map(
+        Option.all({
+          line: markLineOf(hunk),
+          marked: Array.findFirst(hunks, (each) => each.index === index),
+        }),
+        ({ line, marked }) => ({
+          lineNumber: line.lineNumber,
+          metadata: {
+            attribution: marked,
+            isActive: Option.exists(maybeTurnId, (id) => isWrittenBy(marked, id)),
+          },
+          side: line.side,
+        }),
+      ),
+    ),
+  );
+};
+
+/**
+ * One `diff` item per file, in the order the patch has them, with its hunks' marks when the
+ * commit's session has been read. A changed mark needs a new version for the list to draw it.
+ */
 export const itemsOf = (
   files: ReadonlyArray<FileDiffMetadata>,
-): ReadonlyArray<CodeViewItem<undefined>> =>
+  maybeAttribution: Option.Option<Attribution> = Option.none(),
+  maybeTurnId: Option.Option<string> = Option.none(),
+  version = 0,
+): ReadonlyArray<CodeViewItem<HunkMark>> =>
   Array.map(files, (file) => ({
+    annotations: Option.match(maybeAttribution, {
+      onNone: () => [],
+      onSome: (attribution) => Array.copy(annotationsOf(file, attribution, maybeTurnId)),
+    }),
     fileDiff: file,
     id: itemIdOf(file.name),
     type: "diff" as const,
-    version: 0,
+    version,
   }));
 
 const decodeDiffStyle = Schema.decodeUnknownOption(DiffStyle);
@@ -110,16 +185,104 @@ export const diffStyleOf = (element: Element): DiffStyle =>
 export const fileOf = (element: Element): Option.Option<string> =>
   Option.fromNullOr(element.getAttribute(FILE_ATTRIBUTE));
 
+const decodeHighlightedTurn = Schema.decodeUnknownOption(HighlightedTurn);
+
+const sameTurn = Option.makeEquivalence(Schema.toEquivalence(HighlightedTurn));
+
+/** The highlighted turn in the element's attributes, and the pane that chose it. */
+export const turnOf = (element: Element): Option.Option<HighlightedTurn> =>
+  Option.flatMap(Option.fromNullOr(element.getAttribute(TURN_ATTRIBUTE)), (id) =>
+    decodeHighlightedTurn({ from: element.getAttribute(TURN_FROM_ATTRIBUTE), id }),
+  );
+
 /** The sentence for whatever the library threw. */
 const reasonOf = (cause: unknown): string =>
   Predicate.isError(cause) ? cause.message : globalThis.String(cause);
 
 /** Scrolls the file's item to the top of the list. A file the patch does not hold scrolls nothing. */
-const scrollToFile = (list: CodeView, path: string): void => {
+const scrollToFile = (list: CodeView<HunkMark>, path: string): void => {
   const id = itemIdOf(path);
   if (Predicate.isNotUndefined(list.getItem(id))) {
     list.scrollTo({ align: "start", id, type: "item" });
   }
+};
+
+/** Scrolls the list to the first hunk the turn wrote. A turn that wrote none scrolls nothing. */
+const scrollToTurn = (
+  list: CodeView<HunkMark>,
+  files: ReadonlyArray<FileDiffMetadata>,
+  attribution: Attribution,
+  id: string,
+): void =>
+  Option.match(
+    Option.flatMap(
+      Option.flatMap(Record.get(attribution.turns, id), Array.head),
+      ({ index, path }) =>
+        Option.map(
+          Option.flatMap(
+            Option.flatMap(
+              Array.findFirst(files, (file) => file.name === path),
+              (file) => Array.get(file.hunks, index),
+            ),
+            markLineOf,
+          ),
+          (line) => ({ line, path }),
+        ),
+    ),
+    {
+      onNone: Function.constVoid,
+      onSome: ({ line, path }) =>
+        list.scrollTo({
+          align: "center",
+          id: itemIdOf(path),
+          lineNumber: line.lineNumber,
+          side: line.side,
+          type: "line",
+        }),
+    },
+  );
+
+/**
+ * A hunk's mark: a button per turn that wrote it, which sends `ClickedHunkMark`, then "Partly
+ * traced" or "Not traced to a turn" where that applies. The library owns this DOM, so the mark is
+ * built here and not by the view; its text goes in as text, not as markup.
+ */
+const markElement = (
+  document: Document,
+  { attribution, isActive }: HunkMark,
+  onTurn: (id: string) => void,
+): HTMLElement => {
+  const mark = document.createElement("div");
+  mark.setAttribute("data-hunk-mark", attribution.traced);
+  mark.toggleAttribute("data-active", isActive);
+  const buttons = Array.map(attribution.turns, (turn) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn";
+    button.setAttribute("data-mark-turn", turn.id);
+    button.textContent = `Turn ${turn.number} · ${turn.name}`;
+    button.addEventListener("click", () => onTurn(turn.id));
+    return button;
+  });
+  const notes = Array.map(
+    Array.filter(
+      [
+        { isShown: attribution.traced === "partly", text: "Partly traced" },
+        { isShown: attribution.traced === "untraced", text: "Not traced to a turn" },
+      ],
+      ({ isShown }) => isShown,
+    ),
+    ({ text }) => {
+      const note = document.createElement("span");
+      note.setAttribute("data-trace-note", "");
+      note.textContent = text;
+      return note;
+    },
+  );
+  Array.forEach(Array.appendAll<HTMLElement, HTMLElement>(buttons, notes), (child) => {
+    mark.append(child);
+  });
+  return mark;
 };
 
 /** Puts a sentence where the list would be. The text goes in as text, not as markup. */
@@ -130,22 +293,52 @@ const showNote = (element: Element, note: string, isAlert: boolean): void => {
   element.replaceChildren(paragraph);
 };
 
+/** What the list was drawn from: the patch's files and, once its session is read, their marks. */
+interface Drawn {
+  readonly files: ReadonlyArray<FileDiffMetadata>;
+  readonly maybeAttribution: Option.Option<Attribution>;
+  readonly renderMark: RenderMark;
+}
+
+/**
+ * Scrolls the list to the first hunk of a turn the session pane chose. A turn chosen from the
+ * diff's own mark leaves the list where it is, as does a list with no session.
+ */
+const followTurn = (
+  list: CodeView<HunkMark>,
+  drawn: Drawn,
+  maybeTurn: Option.Option<HighlightedTurn>,
+): void =>
+  Option.match(
+    Option.all({
+      attribution: drawn.maybeAttribution,
+      turn: Option.filter(maybeTurn, ({ from }) => from === "session"),
+    }),
+    {
+      onNone: Function.constVoid,
+      onSome: ({ attribution, turn }) => scrollToTurn(list, drawn.files, attribution, turn.id),
+    },
+  );
+
 /**
  * Applies each change the model makes to the element's attributes: a new style goes to the list as
- * options, and a new file is scrolled to. The element's attributes at mount are what the list
- * started with, so only a difference from them is applied. The observer disconnects when the scope
- * closes.
+ * options, a new file is scrolled to, and a new highlighted turn redraws the marks with its hunks
+ * active and, when the session pane chose it, scrolls to its first hunk. The element's attributes
+ * at mount are what the list started with, so only a difference from them is applied. The observer
+ * disconnects when the scope closes.
  */
-const watchAttributes = (element: Element, list: CodeView) =>
+const watchAttributes = (element: Element, list: CodeView<HunkMark>, drawn: Drawn) =>
   Effect.acquireRelease(
     Effect.sync(() => {
       const shownStyle = MutableRef.make(diffStyleOf(element));
       const shownFile = MutableRef.make(fileOf(element));
+      const shownTurn = MutableRef.make(turnOf(element));
+      const version = MutableRef.make(0);
       const watcher = new MutationObserver(() => {
         const style = diffStyleOf(element);
         if (style !== MutableRef.get(shownStyle)) {
           MutableRef.set(shownStyle, style);
-          list.setOptions(diffOptionsOf(style));
+          list.setOptions(diffOptionsOf(style, drawn.renderMark));
         }
         const maybeFile = fileOf(element);
         if (!Equal.equals(maybeFile, MutableRef.get(shownFile))) {
@@ -155,9 +348,29 @@ const watchAttributes = (element: Element, list: CodeView) =>
             onSome: (path) => scrollToFile(list, path),
           });
         }
+        const maybeTurn = turnOf(element);
+        if (!sameTurn(maybeTurn, MutableRef.get(shownTurn))) {
+          MutableRef.set(shownTurn, maybeTurn);
+          Option.match(drawn.maybeAttribution, {
+            onNone: Function.constVoid,
+            onSome: () => {
+              const next = MutableRef.incrementAndGet(version);
+              const turnId = Option.map(maybeTurn, ({ id }) => id);
+              Array.forEach(itemsOf(drawn.files, drawn.maybeAttribution, turnId, next), (item) => {
+                list.updateItem(item);
+              });
+              followTurn(list, drawn, maybeTurn);
+            },
+          });
+        }
       });
       watcher.observe(element, {
-        attributeFilter: [DIFF_STYLE_ATTRIBUTE, FILE_ATTRIBUTE],
+        attributeFilter: [
+          DIFF_STYLE_ATTRIBUTE,
+          FILE_ATTRIBUTE,
+          TURN_ATTRIBUTE,
+          TURN_FROM_ATTRIBUTE,
+        ],
         attributes: true,
       });
       return watcher;
@@ -166,60 +379,92 @@ const watchAttributes = (element: Element, list: CodeView) =>
   );
 
 /**
- * A list of the files in the element, starting in the style and at the file its attributes name.
- * The list is cleaned up when the scope closes. Anything the library throws while starting is
- * shown in the element as a sentence instead.
+ * A list of the files in the element, starting in the style and at the file its attributes name,
+ * with each hunk marked by the turns of the session that wrote it when there is a session. The
+ * list is cleaned up when the scope closes. Anything the library throws while starting is shown in
+ * the element as a sentence instead.
  */
-const drawFiles = (element: HTMLElement, files: ReadonlyArray<FileDiffMetadata>) =>
+const drawFiles = (
+  element: HTMLElement,
+  files: ReadonlyArray<FileDiffMetadata>,
+  maybeSession: Option.Option<Session>,
+  onTurn: (id: string) => void,
+) =>
   Effect.gen(function* () {
+    const drawn: Drawn = {
+      files,
+      maybeAttribution: Option.map(maybeSession, (session) => attributionOf(files, session)),
+      renderMark: ({ metadata }) => markElement(element.ownerDocument, metadata, onTurn),
+    };
     const list = yield* Effect.acquireRelease(
-      Effect.sync(() => new CodeView(diffOptionsOf(diffStyleOf(element)))),
+      Effect.sync(
+        () => new CodeView<HunkMark>(diffOptionsOf(diffStyleOf(element), drawn.renderMark)),
+      ),
       (started) => Effect.sync(() => started.cleanUp()),
     );
     yield* Effect.try({
       catch: reasonOf,
       try: () => {
         list.setup(element);
-        list.setItems(itemsOf(files));
+        list.setItems(
+          itemsOf(
+            files,
+            drawn.maybeAttribution,
+            Option.map(turnOf(element), ({ id }) => id),
+          ),
+        );
         Option.match(fileOf(element), {
           onNone: Function.constVoid,
           onSome: (path) => scrollToFile(list, path),
         });
+        // A turn opened in the session pane while the diff was loading is scrolled to as well.
+        followTurn(list, drawn, turnOf(element));
       },
     });
-    yield* watchAttributes(element, list);
+    yield* watchAttributes(element, list, drawn);
   }).pipe(
     Effect.catch((reason) =>
       Effect.sync(() => showNote(element, `The diff could not be drawn: ${reason}`, true)),
     ),
   );
 
+/** What the diff mount sends: that it has drawn, then each click on a hunk's turn. */
+type DiffMessage = typeof Message.CompletedRenderDiff.Type | typeof Message.ClickedHunkMark.Type;
+
 /**
  * Parses the patch and draws its files into the element with the library's `CodeView`, a
  * virtualized list that owns the DOM inside the element, then watches the element's attributes
- * (see `watchAttributes`). Cleanup calls `cleanUp()` when the element goes. Mount arguments are
- * fixed when the element appears, so the view keys the element by the patch's route path: another
- * patch is another element, and its own list. A patch that does not parse, or has no files, says so
- * in the element.
+ * (see `watchAttributes`). With the commit's session, each hunk carries a mark naming the turns
+ * that wrote it (see `attributionOf`), and a click on one of them is sent as `ClickedHunkMark`.
+ * Cleanup calls `cleanUp()` when the element goes. Mount arguments are fixed when the element
+ * appears, so the view keys the element by the patch's route path and the session: another patch,
+ * or the session arriving, is another element and its own list. A patch that does not parse, or
+ * has no files, says so in the element.
  */
-export const RenderDiff = Mount.define("RenderDiff", {
-  args: { text: Schema.String },
-  execute: ({ element, text }) =>
-    Effect.gen(function* () {
-      yield* Result.match(parsePatch(text), {
-        onFailure: (error) =>
-          Effect.sync(() => showNote(element, describePatchNotParsed(error), true)),
-        onSuccess: ({ files }) =>
-          Array.match(files, {
-            onEmpty: () =>
-              Effect.sync(() => showNote(element, "This patch changes no files.", false)),
-            onNonEmpty: (changed) =>
-              element instanceof HTMLElement
-                ? drawFiles(element, changed)
-                : Effect.sync(() => showNote(element, "The diff has no element to draw in.", true)),
-          }),
-      });
-      return Message.CompletedRenderDiff();
-    }),
-  messages: [Message.CompletedRenderDiff],
+export const RenderDiff = Mount.defineStream("RenderDiff", {
+  args: { session: Schema.Option(Schema.toType(Session)), text: Schema.String },
+  execute: ({ element, session, text }) =>
+    Stream.callback<DiffMessage>((queue) =>
+      Effect.gen(function* () {
+        yield* Result.match(parsePatch(text), {
+          onFailure: (error) =>
+            Effect.sync(() => showNote(element, describePatchNotParsed(error), true)),
+          onSuccess: ({ files }) =>
+            Array.match(files, {
+              onEmpty: () =>
+                Effect.sync(() => showNote(element, "This patch changes no files.", false)),
+              onNonEmpty: (changed) =>
+                element instanceof HTMLElement
+                  ? drawFiles(element, changed, session, (id) => {
+                      Queue.offerUnsafe(queue, Message.ClickedHunkMark({ id }));
+                    })
+                  : Effect.sync(() =>
+                      showNote(element, "The diff has no element to draw in.", true),
+                    ),
+            }),
+        });
+        Queue.offerUnsafe(queue, Message.CompletedRenderDiff());
+      }),
+    ),
+  messages: [Message.CompletedRenderDiff, Message.ClickedHunkMark],
 });

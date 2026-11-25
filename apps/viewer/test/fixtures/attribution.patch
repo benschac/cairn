@@ -1,0 +1,141 @@
+commit 55a91a289f46d24351506e5e0a856ed8ddfa2652
+Author: benjamin <benschac@gmail.com>
+Date:   Wed Nov 25 12:36:55 2026 -0500
+
+    Count the demo's diagrams and tasks in the viewer scenes
+    
+    The scene fixtures answered one DrawDiagram mount, and a reader scene
+    expected "87 of 116 tasks done". Both assumed this repo's plan: a plan
+    that adds a Mermaid diagram to any spec section, or adds tasks, failed
+    some 30 scenes. The fixtures now answer and end one DrawDiagram per
+    mermaid fence in the demo's documents, and the reader scene counts the
+    done tasks from the demo trace's statuses.
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+diff --git a/apps/viewer/test/fixtures.ts b/apps/viewer/test/fixtures.ts
+index f7a3cca..19b50f0 100644
+--- a/apps/viewer/test/fixtures.ts
++++ b/apps/viewer/test/fixtures.ts
+@@ -1,5 +1,5 @@
+ import type { SectionId, TaskId } from "@cairn/contract";
+-import { Array, Option } from "effect";
++import { Array, Option, String } from "effect";
+ import { Command, Mount, role, within } from "foldkit/scene";
+ import type { Document, HtmlBuilder } from "foldkit/html";
+ import { modifyFields } from "foldkit/struct";
+@@ -33,17 +33,35 @@ export const loaded = modifyFields(init().model, {
+ /** The size a scene gives the canvas pane. */
+ export const paneSize = { height: 600, width: 1200 };
+ 
++/**
++ * How many Mermaid diagrams the demo's documents hold. The canvas mounts a `DrawDiagram` for each,
++ * and a plan can add one to any spec section, so the scenes count them instead of assuming one.
++ */
++export const diagramCount = Array.length(
++  Array.filter(
++    Array.flatMap([demoTrace.prd.markdown, demoTrace.spec.markdown], String.split("\n")),
++    (line) => String.trim(line) === "```mermaid",
++  ),
++);
++
++/** Each diagram's mount answering, once it has drawn, with the layer measured at `positions`. */
++const diagramsDrawnWith = (positions: Positions) =>
++  Array.makeBy(
++    diagramCount,
++    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
++    () => [DrawDiagram, Message.MeasuredLayout({ positions })] as const,
++  );
++
+ /**
+  * Scene tests run no hooks, so the layer's mount stays pending until the test answers for it with
+- * the message the mount would send first: the positions it measured. The spec's Mermaid diagram
+- * has a mount too, which measures the layer once it has drawn, so it answers with the same.
++ * the message the mount would send first: the positions it measured. Each Mermaid diagram in the
++ * spec has a mount too, which measures the layer once it has drawn, so it answers with the same.
+  */
+ export const layerMountedWith = (positions: Positions) =>
+   Mount.resolveAll(
+     // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+     [MeasureLayout, Message.MeasuredLayout({ positions })],
+-    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+-    [DrawDiagram, Message.MeasuredLayout({ positions })],
++    ...diagramsDrawnWith(positions),
+   );
+ 
+ /** The layer's mount answering that no node is measured yet. */
+@@ -59,16 +77,15 @@ export const mountedWith = (positions: Positions) =>
+     [PanZoomCanvas, Message.MeasuredPane({ size: paneSize })],
+     // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+     [MeasureLayout, Message.MeasuredLayout({ positions })],
+-    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+-    [DrawDiagram, Message.MeasuredLayout({ positions })],
++    ...diagramsDrawnWith(positions),
+   );
+ 
+ /** Leaving the canvas ends its mounts; a scene has to acknowledge each. */
+-export const canvasEnded = () => [
+-  Mount.expectEnded(PanZoomCanvas),
+-  Mount.expectEnded(MeasureLayout),
+-  Mount.expectEnded(DrawDiagram),
+-];
++export const canvasEnded = () =>
++  Array.appendAll(
++    [Mount.expectEnded(PanZoomCanvas), Mount.expectEnded(MeasureLayout)],
++    Array.makeBy(diagramCount, () => Mount.expectEnded(DrawDiagram)),
++  );
+ 
+ /** The pane sized and nothing measured. */
+ export const mounted = mountedWith({});
+diff --git a/apps/viewer/test/reader.scene.test.ts b/apps/viewer/test/reader.scene.test.ts
+index 470e9d8..78caf2a 100644
+--- a/apps/viewer/test/reader.scene.test.ts
++++ b/apps/viewer/test/reader.scene.test.ts
+@@ -89,14 +89,19 @@ it("the top bar names Cairn and the feature, and shows the search and who is her
+ });
+ 
+ it("over the document sit its title and how many of the plan's tasks are done, with a meter", () => {
++  // Counted from the demo's task statuses, so a plan that adds tasks does not change this test.
++  const done = Array.length(
++    Array.filter(demoTrace.tasks, ({ status }) => status === "done" || status === "landed"),
++  );
++  const total = Array.length(demoTrace.tasks);
+   scene(
+     { update, view },
+     given(reading),
+     scrolledTo("prd.goal"),
+     expect(selector("[data-prd-title]")).toHaveText("Cairn MVP"),
+-    expect(selector("[data-plan-count]")).toHaveText("87 of 116 tasks done"),
+-    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuenow", "87"),
+-    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuemax", "116"),
++    expect(selector("[data-plan-count]")).toHaveText(`${done} of ${total} tasks done`),
++    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuenow", `${done}`),
++    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuemax", `${total}`),
+   );
+ });
+ 
+diff --git a/apps/viewer/test/viewer.scene.test.ts b/apps/viewer/test/viewer.scene.test.ts
+index c20cdb3..f56c541 100644
+--- a/apps/viewer/test/viewer.scene.test.ts
++++ b/apps/viewer/test/viewer.scene.test.ts
+@@ -46,6 +46,7 @@ import { chainOf, isInChain, sectionStatusOf, type Chain, type Node } from "../s
+ import { update } from "../src/update.ts";
+ import { view } from "../src/view/view.ts";
+ import {
++  diagramCount,
+   focusedDrawerHeading,
+   layerMounted,
+   layerMountedWith,
+@@ -547,7 +548,11 @@ it("the pane is mounted on and the layer starts at the origin viewport", () => {
+   scene(
+     { update, view },
+     given(loaded),
+-    Mount.expectExact(PanZoomCanvas, MeasureLayout, DrawDiagram),
++    Mount.expectExact(
++      PanZoomCanvas,
++      MeasureLayout,
++      ...Array.makeBy(diagramCount, () => DrawDiagram),
++    ),
+     mounted,
+     expect(pane).toHaveStyle("overflow", "hidden"),
+     expect(pane).toHaveAttr("data-viewport", viewportAttribute(ORIGIN_VIEWPORT)),

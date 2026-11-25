@@ -5,8 +5,13 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import { patchPathOf, rangeOf, shortSha, shownCommitOf, taskOf } from "../codeView.ts";
 import type { Message } from "../message.ts";
 import { Shown, type CodeScreen, type DiffStyle, type PatchData } from "../model.ts";
-import { diffStyleToggleView, patchView } from "./diffView.ts";
-import { sessionView, type SessionMessages, type SessionState } from "./sessionView.ts";
+import { diffStyleToggleView, patchView, type DiffMarks } from "./diffView.ts";
+import {
+  loadedSessionOf,
+  sessionView,
+  type SessionMessages,
+  type SessionState,
+} from "./sessionView.ts";
 import { treeView, type TreeMessages } from "./treeView.ts";
 
 /**
@@ -78,12 +83,29 @@ const barView = (
     ),
   );
 
+/** The session the right pane shows, once it is read, and the turn highlighted in it. */
+const marksOf = (
+  task: Option.Option<TraceTask>,
+  code: CodeScreen,
+  state: SessionState,
+): DiffMarks => ({
+  maybeSession: Option.flatMap(
+    Option.flatMapNullishOr(
+      Option.flatMap(task, (found) => shownCommitOf(found, code.shown)),
+      (commit) => commit.session,
+    ),
+    (id) => loadedSessionOf(state, id),
+  ),
+  maybeTurn: state.maybeHighlightedTurn,
+});
+
 /** The middle pane: where the diff for what is shown will be drawn, or why there is none. */
 const diffPane = (
   task: Option.Option<TraceTask>,
   code: CodeScreen,
   patches: Record<string, PatchData>,
   diffStyle: DiffStyle,
+  marks: DiffMarks,
   h: HtmlBuilder<Message>,
 ): Html =>
   h.section(
@@ -107,7 +129,7 @@ const diffPane = (
                     : "This task has no diff to show.",
                 ],
               ),
-            onSome: (path) => patchView(patches, path, diffStyle, code.maybeFile, h),
+            onSome: (path) => patchView(patches, path, diffStyle, code.maybeFile, h, marks),
           }),
       }),
     ],
@@ -162,7 +184,7 @@ export const codeView = (
         [h.Class("code-body")],
         [
           treeView(trace, code, h, messages),
-          diffPane(task, code, patches, diffStyle, h),
+          diffPane(task, code, patches, diffStyle, marksOf(task, code, state), h),
           sessionPane(task, code, state, h, messages),
         ],
       ),

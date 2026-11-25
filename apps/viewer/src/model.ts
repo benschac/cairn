@@ -62,6 +62,17 @@ export const SessionData = defineTaggedUnion({
 export type SessionData = typeof SessionData.Type;
 
 /**
+ * The tool turn whose hunks the diff marks as active, and the pane it was chosen from: a hunk's
+ * mark in the diff, or the turn's line in the session pane. Only a choice from the session pane
+ * scrolls the diff.
+ */
+export const HighlightedTurn = Schema.Struct({
+  from: Schema.Literals(["diff", "session"]),
+  id: Schema.String,
+});
+export type HighlightedTurn = typeof HighlightedTurn.Type;
+
+/**
  * The screen: the canvas, the reader (the plan screen), or the code view on a task with what is
  * shown of it and the file selected in it. Everything the canvas needs stays in the model while
  * the code view is open.
@@ -151,6 +162,8 @@ export const Model = Schema.Struct({
   openedTurns: Schema.Record(Schema.String, Schema.Boolean),
   /** The tool turns whose input and output a person asked to see whole, by turn ID. */
   fullTurns: Schema.Record(Schema.String, Schema.Boolean),
+  /** The turn whose hunks the diff marks, if a person chose one from either side. */
+  maybeHighlightedTurn: Schema.Option(HighlightedTurn),
   /** The pinned nodes, in the order they were pinned; each chain stays lit in its pin's colour. */
   pins: Schema.Array(Pin),
   positions: Positions,

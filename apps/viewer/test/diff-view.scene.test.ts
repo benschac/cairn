@@ -61,7 +61,7 @@ it("a loaded patch is an element with the diff mount, in the unified style, and 
   scene(
     app,
     given(withPatch),
-    Mount.expectExact(RenderDiff({ text: rangePatch })),
+    Mount.expectExact(RenderDiff({ session: Option.none(), text: rangePatch })),
     expect(list).toHaveAttr("data-patch-path", wholePath),
     expect(list).toHaveAttr("data-diff-style", "unified"),
     expect(list).toBeEmpty(),

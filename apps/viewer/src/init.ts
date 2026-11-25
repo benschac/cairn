@@ -31,6 +31,7 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
     sessions: {},
     openedTurns: {},
     fullTurns: {},
+    maybeHighlightedTurn: Option.none(),
     pins: [],
     positions: {},
     presenceConnection: PresenceConnection.Connecting(),

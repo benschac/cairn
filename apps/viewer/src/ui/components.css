@@ -790,6 +790,34 @@ button.chip:active {
   color: var(--muted);
 }
 
+/* The turn the diff marks: a heavier rule and a tint, so colour is not the only sign. */
+.code-pane[data-code-pane="session"] li[data-active] {
+  border-inline-start-width: calc(var(--line) * 3);
+  border-inline-start-color: var(--ink);
+  background: var(--tint);
+}
+
+/* A hunk's mark, drawn by the diff mount: a button per turn that wrote it, and what it did not. */
+[data-hunk-mark] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: var(--t-s);
+  border-inline-start: var(--line) solid var(--hair);
+}
+
+[data-hunk-mark][data-active] {
+  border-inline-start-width: calc(var(--line) * 3);
+  border-inline-start-color: var(--ink);
+  background: var(--tint);
+}
+
+[data-hunk-mark] [data-trace-note] {
+  color: var(--muted);
+}
+
 .code-pane[data-code-pane="session"] pre {
   margin: 2px 0 8px;
   overflow-x: auto;

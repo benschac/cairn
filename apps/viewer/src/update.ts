@@ -20,6 +20,7 @@ import {
   FocusNode,
   FocusSearchInput,
   ScrollSearchResult,
+  ScrollTurn,
 } from "./command.ts";
 import { DragState, canvasDeltaOf, moveBy, nudgeOf } from "./drag.ts";
 import {
@@ -38,6 +39,7 @@ import { Message } from "./message.ts";
 import { keptReaders, readersOf } from "./readers.ts";
 import {
   Drawer,
+  HighlightedTurn,
   PatchData,
   PresenceConnection,
   Screen,
@@ -473,13 +475,28 @@ export const update = (model: Model, message: Message) =>
         model: selected.model,
       };
     },
-    // A turn opens and closes; a turn that was never opened counts as closed.
-    ClickedTurn: ({ id }) => ({
+    // A turn opens and closes; a turn that was never opened counts as closed. Opening it marks
+    // its hunks in the diff, which scrolls to the first; closing the marked turn clears the marks.
+    ClickedTurn: ({ id }) => {
+      const isOpening = Boolean.not(
+        Option.getOrElse(Record.get(model.openedTurns, id), () => false),
+      );
+      return {
+        model: modifyFields(model, {
+          maybeHighlightedTurn: (current) =>
+            isOpening
+              ? Option.some(HighlightedTurn.make({ from: "session", id }))
+              : Option.filter(current, (turn) => turn.id !== id),
+          openedTurns: Record.set(id, isOpening),
+        }),
+      };
+    },
+    // A hunk's mark opens its turn in the session pane, scrolls to it and marks the turn's hunks.
+    ClickedHunkMark: ({ id }) => ({
+      commands: [ScrollTurn({ id })],
       model: modifyFields(model, {
-        openedTurns: Record.set(
-          id,
-          Boolean.not(Option.getOrElse(Record.get(model.openedTurns, id), () => false)),
-        ),
+        maybeHighlightedTurn: () => Option.some(HighlightedTurn.make({ from: "diff", id })),
+        openedTurns: Record.set(id, true),
       }),
     }),
     ClickedMoreOfTurn: ({ id }) => ({
@@ -531,6 +548,7 @@ export const update = (model: Model, message: Message) =>
       ),
     }),
     CompletedRenderDiff: () => ({ model }),
+    CompletedScrollTurn: () => ({ model }),
     FailedPanZoomCanvas: ({ reason }) => ({
       model: modifyFields(model, { maybePanZoomFailure: () => Option.some(reason) }),
     }),

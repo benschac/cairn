@@ -18,6 +18,8 @@ export const Message = defineMessageUnion({
   ClickedTurn: { id: Schema.String },
   /** An opened tool turn's "Show the rest" button: its input and output are shown whole. */
   ClickedMoreOfTurn: { id: Schema.String },
+  /** A turn's button on a hunk's mark in the diff, which the diff mount draws and sends. */
+  ClickedHunkMark: { id: Schema.String },
   /** A spec card's header: opens or closes that card alone. */
   ClickedCardHeader: { id: SectionId },
   /** One of the spec cards' density control's three buttons: it sets every card. */
@@ -90,6 +92,7 @@ export const Message = defineMessageUnion({
   CompletedScrollStacks: { maybeChartWidth: Schema.Option(Schema.Finite) },
   /** The diff mount parsed the patch and drew it, or put the reason it could not in the pane. */
   CompletedRenderDiff: {},
+  CompletedScrollTurn: {},
   /** The canvas mount could not start pan and zoom. */
   FailedPanZoomCanvas: { reason: Schema.String },
   HoveredNode: { node: Node },
