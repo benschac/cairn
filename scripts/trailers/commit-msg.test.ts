@@ -39,14 +39,17 @@ const rawManifest = {
 const manifest = Schema.decodeSync(Manifest)(rawManifest);
 const task: ManifestTask = manifest.tasks[0];
 
-const message = (...trailers: Array<string>) =>
-  Array.join(Array.prepend(trailers, "Add the first thing\n\nt7. Body.\n"), "\n");
+// A trailer block as `git interpret-trailers --parse` prints it.
+const trailers = (...lines: Array<string>) => Array.join(lines, "\n");
+// A whole commit message ending in a paragraph of these lines.
+const message = (...lines: Array<string>) =>
+  Array.join(Array.prepend(lines, "Add the first thing\n\nt7. Body.\n"), "\n");
 
-await test("a message with the task and one of its sections passes, with or without a session", () => {
-  const ok = message("Cairn-Task: t7", "Cairn-Section: spec.one.b");
+await test("the task and one of its sections pass, with or without a session", () => {
+  const ok = trailers("Cairn-Task: t7", "Cairn-Section: spec.one.b");
   assert.deepEqual(trailerProblems(task, ok), []);
   assert.ok(Option.isNone(refusal(task, ok)));
-  const withSession = message(
+  const withSession = trailers(
     "Cairn-Task: t7",
     "Cairn-Section: spec.one.a",
     "Cairn-Section: spec.one.b",
@@ -57,52 +60,20 @@ await test("a message with the task and one of its sections passes, with or with
 
 const problemsOf = (text: string) => trailerProblems(task, text);
 
-await test("each way a message can lack its trailers is named", () => {
-  assert.deepEqual(problemsOf(message()), ["no Cairn-Task trailer", "no Cairn-Section trailer"]);
-  assert.deepEqual(problemsOf(message("Cairn-Section: spec.one.a")), ["no Cairn-Task trailer"]);
-  assert.deepEqual(problemsOf(message("Cairn-Task: t7")), ["no Cairn-Section trailer"]);
-  assert.deepEqual(problemsOf(message("Cairn-Task: t8", "Cairn-Section: spec.one.a")), [
+await test("each way the trailers can fall short is named", () => {
+  assert.deepEqual(problemsOf(trailers()), ["no Cairn-Task trailer", "no Cairn-Section trailer"]);
+  assert.deepEqual(problemsOf(trailers("Cairn-Section: spec.one.a")), ["no Cairn-Task trailer"]);
+  assert.deepEqual(problemsOf(trailers("Cairn-Task: t7")), ["no Cairn-Section trailer"]);
+  assert.deepEqual(problemsOf(trailers("Cairn-Task: t8", "Cairn-Section: spec.one.a")), [
     "Cairn-Task names t8, not t7",
   ]);
   assert.deepEqual(
-    problemsOf(message("Cairn-Task: t7", "Cairn-Task: t7", "Cairn-Section: spec.one.a")),
+    problemsOf(trailers("Cairn-Task: t7", "Cairn-Task: t7", "Cairn-Section: spec.one.a")),
     ["more than one Cairn-Task trailer"],
   );
-  assert.deepEqual(problemsOf(message("Cairn-Task: t7", "Cairn-Section: spec.two.z")), [
+  assert.deepEqual(problemsOf(trailers("Cairn-Task: t7", "Cairn-Section: spec.two.z")), [
     "no Cairn-Section names a section of t7",
   ]);
-});
-
-await test("Cairn lines outside the last paragraph are not trailers, as git reads them", () => {
-  const early = Array.join(
-    [
-      "Add it",
-      "",
-      "Cairn-Task: t7",
-      "Cairn-Section: spec.one.a",
-      "",
-      "Co-authored-by: Someone <someone@example.com>",
-    ],
-    "\n",
-  );
-  assert.equal(problemsOf(early).length, 2);
-  assert.equal(problemsOf("Cairn-Task: t7\nCairn-Section: spec.one.a").length, 2);
-  const last = Array.join(
-    [
-      "Add it",
-      "",
-      "Cairn-Task: t7",
-      "Cairn-Section: spec.one.a",
-      "Co-authored-by: Someone <someone@example.com>",
-    ],
-    "\n",
-  );
-  assert.deepEqual(problemsOf(last), []);
-});
-
-await test("a comment line is not a trailer", () => {
-  const commented = message("# Cairn-Task: t7", "# Cairn-Section: spec.one.a");
-  assert.equal(trailerProblems(task, commented).length, 2);
 });
 
 await test("the refusal prints the exact trailer lines to add", () => {
@@ -110,7 +81,7 @@ await test("the refusal prints the exact trailer lines to add", () => {
     trailersToAdd(task),
     "Cairn-Task: t7\nCairn-Section: spec.one.a\nCairn-Section: spec.one.b",
   );
-  const text = Option.getOrThrow(refusal(task, message()));
+  const text = Option.getOrThrow(refusal(task, trailers()));
   assert.ok(String.includes(trailersToAdd(task))(text));
 });
 
@@ -146,6 +117,39 @@ await test("on a task's branch the hook refuses a message without its trailers a
   assert.match(refused.stderr, /Cairn-Task: t7/);
   assert.match(refused.stderr, /Cairn-Section: spec\.one\.a/);
   const accepted = hook(message("Cairn-Task: t7", "Cairn-Section: spec.one.a"));
+  assert.equal(accepted.status, 0, accepted.stderr);
+});
+
+await test("the hook counts only what git reads as trailers", () => {
+  const refused = (text: string) => assert.notEqual(hook(text).status, 0, text);
+  // Cairn lines in a paragraph above the trailer block.
+  refused(
+    "Add it\n\nCairn-Task: t7\nCairn-Section: spec.one.a\n\nCo-authored-by: Someone <someone@example.com>\n",
+  );
+  // Cairn lines straight under prose, with no blank line between.
+  refused("Add it\n\nt7. Body.\nCairn-Task: t7\nCairn-Section: spec.one.a\n");
+  // A message of one paragraph is all subject.
+  refused("Cairn-Task: t7\nCairn-Section: spec.one.a\n");
+  // Comment lines are dropped before git reads the message.
+  refused(message("# Cairn-Task: t7", "# Cairn-Section: spec.one.a"));
+  const trailerBlock =
+    "Cairn-Task: t7\nCairn-Section: spec.one.a\nCo-authored-by: Someone <someone@example.com>\n";
+  assert.equal(hook(`Add it\n\nt7. Body.\n\n${trailerBlock}`).status, 0);
+  // `git commit -v` puts the staged diff under a scissors line; git reads trailers above it.
+  const verbose = Array.join(
+    [
+      `Add it\n\nt7. Body.\n\n${trailerBlock}`,
+      "# ------------------------ >8 ------------------------",
+      "# Do not modify or remove the line above.",
+      "diff --git a/x b/x",
+      "+x",
+      "",
+      "Unrelated: line",
+      "",
+    ],
+    "\n",
+  );
+  const accepted = hook(verbose);
   assert.equal(accepted.status, 0, accepted.stderr);
 });
 

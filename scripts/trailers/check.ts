@@ -5,24 +5,10 @@ import { Array, Option, pipe, String } from "effect";
 
 const TRAILER_LINE = /^Cairn-(Task|Section):[ \t]*(.*?)[ \t]*$/u;
 
-// The last paragraph of the message, where git reads trailers, once comment lines are dropped. A message of one
-// paragraph has none: git takes that paragraph for the subject.
-const trailerBlock = (message: string): string =>
+// The value of every `Cairn-<key>:` line among the trailers, in order.
+const valuesOf = (trailers: string, key: "Task" | "Section"): Array<string> =>
   pipe(
-    String.split(message, /\r?\n/u),
-    Array.filter((line) => !String.startsWith("#")(line)),
-    Array.join("\n"),
-    String.trim,
-    String.split(/\n[ \t]*\n/u),
-    Array.drop(1),
-    Array.last,
-    Option.getOrElse(() => ""),
-  );
-
-// The value of every `Cairn-<key>:` line in the message's trailer block, in order.
-const valuesOf = (message: string, key: "Task" | "Section"): Array<string> =>
-  pipe(
-    String.split(trailerBlock(message), /\n/u),
+    String.split(trailers, /\r?\n/u),
     Array.map((line) =>
       pipe(
         String.match(TRAILER_LINE)(line),
@@ -33,10 +19,11 @@ const valuesOf = (message: string, key: "Task" | "Section"): Array<string> =>
     Array.getSomes,
   );
 
-// What is wrong with the message's trailers for this task; empty when it carries them.
-export const trailerProblems = (task: ManifestTask, message: string): Array<string> => {
-  const tasks = valuesOf(message, "Task");
-  const sections = valuesOf(message, "Section");
+// What is wrong with a commit's trailers for this task; empty when it carries them. `trailers` is the trailer block
+// as `git interpret-trailers --parse` prints it, so what counts as a trailer is what git, and so landing, reads.
+export const trailerProblems = (task: ManifestTask, trailers: string): Array<string> => {
+  const tasks = valuesOf(trailers, "Task");
+  const sections = valuesOf(trailers, "Section");
   return Array.appendAll(
     Array.match(tasks, {
       onEmpty: () => [`no Cairn-Task trailer`],
@@ -67,10 +54,10 @@ export const trailersToAdd = (task: ManifestTask): string =>
     "\n",
   );
 
-// The refusal to print for a commit on this task's branch, or none when the message carries its trailers.
-export const refusal = (task: ManifestTask, message: string): Option.Option<string> =>
+// The refusal to print for a commit on this task's branch, or none when its trailers are there.
+export const refusal = (task: ManifestTask, trailers: string): Option.Option<string> =>
   Option.map(
-    Option.liftPredicate(trailerProblems(task, message), Array.isReadonlyArrayNonEmpty),
+    Option.liftPredicate(trailerProblems(task, trailers), Array.isReadonlyArrayNonEmpty),
     (problems) =>
       Array.join(
         [

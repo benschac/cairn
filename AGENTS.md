@@ -92,7 +92,8 @@ refuses a pull request whose CI `check` job has not passed on its own head.
 ## Commit trailers
 
 Landing is read from trailers, so a commit on a task's branch ends with them
-in its last paragraph:
+in its last paragraph, after a blank line, where git reads trailers
+(`git interpret-trailers --parse` shows what it finds):
 
 ```
 Cairn-Task: t117
