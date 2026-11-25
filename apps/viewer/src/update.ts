@@ -1,4 +1,14 @@
-import { PrdSectionId, type Sha, type TaskId, type Trace } from "@cairn/contract";
+import {
+  PrdSectionId,
+  SectionId,
+  Link,
+  Step,
+  type PassageStep,
+  type Sha,
+  type TaskId,
+  type Trace,
+  type TraceTask,
+} from "@cairn/contract";
 import { Array, Boolean, Effect, Match, Option, Record, Result, Schema } from "effect";
 import { AsyncData, Command, Dom } from "foldkit";
 import type { Update } from "foldkit";
@@ -12,7 +22,15 @@ import {
   fitViewport,
   type Insets,
 } from "./canvas.ts";
-import { codeScreenOf, filesOf, ownerOf, patchPathOf, shownCommitOf, taskOf } from "./codeView.ts";
+import {
+  codeScreenOf,
+  filesOf,
+  ownerOf,
+  patchPathOf,
+  sessionCommitOf,
+  shownCommitOf,
+  taskOf,
+} from "./codeView.ts";
 import {
   FetchPatch,
   FetchSession,
@@ -26,6 +44,7 @@ import { DragState, canvasDeltaOf, moveBy, nudgeOf } from "./drag.ts";
 import {
   DETAIL_HEADING_ID,
   cutBackTo,
+  endingOn,
   extendedBy,
   nodeShownBy,
   openedOn,
@@ -34,6 +53,7 @@ import {
 import { DRAWER_WIDTH } from "./drawer.ts";
 import type { Rect } from "./geometry.ts";
 import { isPinned, pin, togglePin } from "./highlight.ts";
+import { linkOf, linkTargetsOf, loadedOf, noticeOf, resolveLink, sharedLengthOf } from "./links.ts";
 import { describeTraceError, isDemoBuild, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
 import { keptReaders, readersOf } from "./readers.ts";
@@ -45,7 +65,9 @@ import {
   Screen,
   SessionData,
   Shown,
+  WHOLE_TASK,
   selectedNodeOf,
+  type CodeScreen,
   type Destination,
   type Model,
 } from "./model.ts";
@@ -153,7 +175,7 @@ const detailPatchPathOf = (model: Model): Option.Option<string> =>
       task: ({ id }) =>
         Option.flatMap(
           Option.flatMap(traceOf(model), (trace) => taskOf(trace, id)),
-          (task) => patchPathOf(task, Shown.WholeTask()),
+          (task) => patchPathOf(task, WHOLE_TASK),
         ),
     }),
   );
@@ -198,6 +220,324 @@ const detailTrailed = (model: Model, trail: Trail): Update.Return<Model, Message
     model: requested.model,
   };
 };
+
+// OPENING A LINK
+
+const isPrdSection = Schema.is(PrdSectionId);
+
+/**
+ * What a link holds is cleared before its steps apply: the pin, the passage, the focus, the trail,
+ * the code view and its highlighted turn. A link opens on the reader unless a step opens code.
+ */
+const clearedForLink = (model: Model): Model =>
+  modifyFields(model, {
+    detail: () => [],
+    maybeHighlightedTurn: () => Option.none(),
+    reader: (reader) =>
+      modifyFields(reader, {
+        maybeFocus: () => Option.none(),
+        maybePassage: () => Option.none(),
+        maybePinned: () => Option.none(),
+      }),
+    screen: () => Screen.Reader(),
+  });
+
+const pinnedOn = (model: Model, id: PrdSectionId): Model =>
+  modifyFields(model, {
+    reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(id) }),
+  });
+
+const marked = (model: Model, passage: typeof PassageStep.Type): Model =>
+  modifyFields(model, {
+    reader: (reader) => modifyFields(reader, { maybePassage: () => Option.some(passage) }),
+  });
+
+const trailedOn = (model: Model, node: Node): Model =>
+  modifyFields(model, { detail: (trail) => extendedBy(trail, node) });
+
+/** The code view on one commit of a task, with the task at the end of the trail. */
+const onCommit = (model: Model, task: TraceTask, sha: Sha): Model =>
+  modifyFields(model, {
+    detail: (trail) => endingOn(trail, { id: task.id, kind: "task" }),
+    screen: () =>
+      Screen.Code({
+        maybeFile: Option.none(),
+        maybeLines: Option.none(),
+        shown: Shown.OneCommit({ sha }),
+        taskId: task.id,
+      }),
+  });
+
+/** The code view's screen changed; with no code view open there is nothing to change. */
+const inCode = (model: Model, change: (code: CodeScreen) => CodeScreen): Model =>
+  Option.match(Option.liftPredicate(model.screen, Screen.guards.Code), {
+    onNone: () => model,
+    onSome: (code) => modifyFields(model, { screen: () => change(code) }),
+  });
+
+/**
+ * A spec passage: unless the pinned section is one its section implements, the first PRD section
+ * it implements is pinned; then its card opens and the passage is marked. A spec section that
+ * implements no PRD section has no card, so it opens in the detail panel, as search does.
+ */
+const specPassageOpened = (trace: Trace, model: Model, passage: typeof PassageStep.Type): Model => {
+  const id = SectionId.make(passage.section);
+  const implemented = Option.match(
+    Array.findFirst(trace.spec.sections, (section) => section.id === id),
+    { onNone: () => [], onSome: (section) => section.keys.implements },
+  );
+  return Array.match(implemented, {
+    onEmpty: () => trailedOn(marked(model, passage), { id, kind: "section" }),
+    onNonEmpty: (prds) =>
+      modifyFields(marked(model, passage), {
+        reader: (reader) =>
+          modifyFields(reader, {
+            maybePinned: (maybePinned) =>
+              Option.exists(maybePinned, (pinned) => Array.contains(prds, pinned))
+                ? maybePinned
+                : Option.some(Array.headNonEmpty(prds)),
+            opened: Record.set(id, true),
+          }),
+      }),
+  });
+};
+
+/** A turn is highlighted as `ClickedTurn` opening it does. */
+const turnHighlighted = (model: Model, id: string): Model =>
+  modifyFields(model, {
+    maybeHighlightedTurn: () => Option.some(HighlightedTurn.make({ from: "session", id })),
+    openedTurns: Record.set(id, true),
+  });
+
+/** Applies one step of a link the way the click it stands for does. */
+const appliedStep = (trace: Trace, model: Model, step: Step): Model =>
+  Step.match(step, {
+    commit: ({ sha }) =>
+      Option.match(ownerOf(trace, sha), {
+        onNone: () => model,
+        onSome: (task) => onCommit(model, task, sha),
+      }),
+    // A diff follows its task's step, so the trail ends on that task.
+    diff: ({ head }) =>
+      Option.match(Option.filter(nodeShownBy(model.detail), Node.guards.task), {
+        onNone: () => model,
+        onSome: ({ id }) =>
+          modifyFields(model, {
+            screen: () =>
+              Screen.Code({
+                maybeFile: Option.none(),
+                maybeLines: Option.none(),
+                shown: Shown.WholeTask({ maybeHead: Option.some(head) }),
+                taskId: id,
+              }),
+          }),
+      }),
+    file: ({ path }) =>
+      inCode(model, (code) =>
+        modifyFields(code, {
+          maybeFile: () => Option.some(path),
+          maybeLines: () => Option.none(),
+        }),
+      ),
+    lines: (lines) =>
+      inCode(model, (code) => modifyFields(code, { maybeLines: () => Option.some(lines) })),
+    note: () => model,
+    passage: (passage) =>
+      isPrdSection(passage.section)
+        ? marked(pinnedOn(model, passage.section), passage)
+        : specPassageOpened(trace, model, passage),
+    section: ({ id }) =>
+      isPrdSection(id)
+        ? pinnedOn(model, id)
+        : trailedOn(model, { id: SectionId.make(id), kind: "section" }),
+    segment: (focus) =>
+      modifyFields(model, {
+        reader: (reader) => modifyFields(reader, { maybeFocus: () => Option.some(focus) }),
+      }),
+    stack: (focus) =>
+      modifyFields(model, {
+        reader: (reader) => modifyFields(reader, { maybeFocus: () => Option.some(focus) }),
+      }),
+    task: ({ id }) => trailedOn(model, { id, kind: "task" }),
+    // With no code step before it, a turn opens the code view on its session's newest commit.
+    turn: ({ session, turn }) =>
+      turnHighlighted(
+        Screen.guards.Code(model.screen)
+          ? model
+          : Option.match(sessionCommitOf(trace, session), {
+              onNone: () => model,
+              onSome: ({ commit, task }) => onCommit(model, task, commit.sha),
+            }),
+        turn,
+      ),
+  });
+
+/** The fetches started one after another, each on the model the one before it left. */
+const requestedAll = (
+  model: Model,
+  requests: ReadonlyArray<(current: Model) => Fetches>,
+): Fetches =>
+  Array.reduce(requests, { commands: Array.empty(), model }, (fetched, request) => {
+    const next = request(fetched.model);
+    return { commands: Array.appendAll(fetched.commands, next.commands), model: next.model };
+  });
+
+/**
+ * The patches and sessions an opened link shows, fetched through the code view's and the detail
+ * panel's requests when the model has never asked for them. One that failed is not asked for
+ * again here: the notice says why, and selecting it again retries.
+ */
+const linkRequested = (model: Model, steps: ReadonlyArray<Step>): Fetches => {
+  const shown = shownIn(model);
+  const paths = Array.dedupe(
+    Array.getSomes([
+      Option.flatMap(shown, ({ code, task }) => patchPathOf(task, code.shown)),
+      detailPatchPathOf(model),
+    ]),
+  );
+  const sessions = Array.dedupe(
+    Array.appendAll(
+      Array.fromOption(
+        Option.flatMapNullishOr(
+          Option.flatMap(shown, ({ code, task }) => shownCommitOf(task, code.shown)),
+          (commit) => commit.session,
+        ),
+      ),
+      Array.filterMap(steps, (step) =>
+        Step.guards.turn(step) ? Result.succeed(step.session) : Result.failVoid,
+      ),
+    ),
+  );
+  return requestedAll(
+    model,
+    Array.appendAll(
+      Array.map(
+        Array.filter(paths, (path) => !Record.has(model.patches, path)),
+        (path) => (current: Model) => patchRequested(current, path),
+      ),
+      Array.map(
+        Array.filter(sessions, (id) => !Record.has(model.sessions, id)),
+        (id) => (current: Model) => sessionRequested(current, id),
+      ),
+    ),
+  );
+};
+
+/**
+ * Opens a link. It is resolved against the trace and the data the model has, what a link holds is
+ * cleared, and each step that resolves is applied the way its click is. A step still waiting for
+ * its patch or session is applied too, with the steps after it, and the link stays pending until
+ * the data arrives and it is resolved again; a step that is missing then is left out. The notice
+ * says what did not open. The commands fetch what the steps show and bring into view each step
+ * past the ones the old link and the new one share. Before the first trace the link only waits.
+ */
+export const openLink = (model: Model, link: Link): Update.Return<Model, Message> =>
+  openedFrom(model, link, Option.none());
+
+/**
+ * Opens a link, and also brings into view its steps from index `maybeArrivedFrom` on that now
+ * resolve: the ones that were waiting for data that has arrived. They were counted as open before
+ * their elements were in the page, so the old link and the new one share them.
+ */
+const openedFrom = (
+  model: Model,
+  link: Link,
+  maybeArrivedFrom: Option.Option<number>,
+): Update.Return<Model, Message> =>
+  Option.match(traceOf(model), {
+    onNone: () => ({ model: modifyFields(model, { maybePendingLink: () => Option.some(link) }) }),
+    onSome: (trace) => {
+      const resolution = resolveLink(trace, link, loadedOf(model));
+      const steps: ReadonlyArray<Step> = Array.appendAll(
+        Array.map(resolution.resolved, ({ step }) => step),
+        Option.match(resolution.waiting, {
+          onNone: () => [],
+          onSome: (index) => Array.drop(link, index),
+        }),
+      );
+      const walked: Model = Array.reduce(steps, clearedForLink(model), (current: Model, step) =>
+        appliedStep(trace, current, step),
+      );
+      const applied = modifyFields(walked, {
+        maybeLinkNotice: () => noticeOf(Result.succeed(resolution)),
+        maybePendingLink: () => Option.as(resolution.waiting, link),
+      });
+      const requested = linkRequested(applied, steps);
+      const before = linkOf(model);
+      const after = linkOf(requested.model);
+      const arrived: ReadonlyArray<Step> = Option.match(maybeArrivedFrom, {
+        onNone: () => [],
+        onSome: (from) =>
+          Array.filterMap(resolution.resolved, ({ index, step }) =>
+            index >= from ? Result.succeed(step) : Result.failVoid,
+          ),
+      });
+      const opened: ReadonlyArray<Step> = Array.appendAll(
+        Array.drop(after, sharedLengthOf(before, after)),
+        arrived,
+      );
+      const targets = Array.flatMap(opened, (step) => linkTargetsOf(trace, step));
+      return {
+        commands: Array.appendAll(
+          requested.commands,
+          Array.isReadonlyArrayNonEmpty(targets) ? [ScrollLinkTargets({ targets })] : [],
+        ),
+        model: requested.model,
+      };
+    },
+  });
+
+/**
+ * A link waiting for its data is resolved again when a patch or a session arrives: `received` is
+ * the model with it, and `model` the one before. The steps that were waiting are brought into view.
+ */
+const reopened = (model: Model, received: Model): Update.Return<Model, Message> =>
+  Option.match(received.maybePendingLink, {
+    onNone: () => ({ model: received }),
+    onSome: (link) =>
+      openedFrom(
+        received,
+        link,
+        Option.flatMap(
+          traceOf(model),
+          (trace) => resolveLink(trace, link, loadedOf(model)).waiting,
+        ),
+      ),
+  });
+
+/** The messages that bring a pending link its data, which reopen it rather than cancel it. */
+const isLinkData = Schema.is(
+  Schema.Union([Message.ReceivedPatch, Message.ReceivedSession, Message.SettledLoadTrace]),
+);
+
+/** Whether two screens are the same one of the canvas, the reader and the code view. */
+const isSameScreen = (self: Screen, that: Screen): boolean =>
+  Screen.guards.Canvas(self) === Screen.guards.Canvas(that) &&
+  Screen.guards.Code(self) === Screen.guards.Code(that);
+
+const pendingEquivalence = Option.makeEquivalence(Schema.toEquivalence(Link));
+
+const linkEquivalence = Schema.toEquivalence(Link);
+
+/**
+ * A person who moves on while a link waits for its data cancels it: once the screen, the trail, the
+ * pin, the passage, the focus, the file, the lines or the turn changed, a late patch or session only
+ * fills its cache and never reapplies the link over the newer choice.
+ */
+const pendingCancelled = (
+  model: Model,
+  message: Message,
+  result: Update.Return<Model, Message>,
+): Update.Return<Model, Message> =>
+  Option.isSome(result.model.maybePendingLink) &&
+  !isLinkData(message) &&
+  pendingEquivalence(model.maybePendingLink, result.model.maybePendingLink) &&
+  (!isSameScreen(model.screen, result.model.screen) ||
+    !linkEquivalence(linkOf(model), linkOf(result.model)))
+    ? modifyFields(result, {
+        model: (current) => modifyFields(current, { maybePendingLink: () => Option.none() }),
+      })
+    : result;
 
 /** The drag this pointer is making; none while nothing is dragged or another pointer drags. */
 const dragByPointer = (drag: DragState, pointerId: number) =>
@@ -329,7 +669,10 @@ const pinToggled = (maybePinned: Option.Option<PrdSectionId>, id: PrdSectionId) 
 /** No buttons held: the pointer is up, whether or not its release was heard. */
 const NO_BUTTONS = 0;
 
-export const update = (model: Model, message: Message) =>
+export const update = (model: Model, message: Message): Update.Return<Model, Message> =>
+  pendingCancelled(model, message, updated(model, message));
+
+const updated = (model: Model, message: Message) =>
   Message.match<Update.Return<Model, Message>>(message, {
     // Closing the drawer returns focus to the button of the node it was open on.
     ClickedCloseDrawer: () =>
@@ -374,6 +717,9 @@ export const update = (model: Model, message: Message) =>
     ClickedDetailNode: ({ node }) => detailTrailed(model, extendedBy(model.detail, node)),
     ClickedTrailStep: ({ index }) => detailTrailed(model, cutBackTo(model.detail, index)),
     ClickedCloseDetail: () => ({ model: modifyFields(model, { detail: () => [] }) }),
+    ClickedDismissLinkNotice: () => ({
+      model: modifyFields(model, { maybeLinkNotice: () => Option.none() }),
+    }),
     ClickedTraceSection: ({ id }) => ({ commands: [ScrollPrdSection({ id })], model }),
     // "Open code" and a drawer commit open the code view; a task or commit the trace lacks opens nothing.
     ClickedOpenCode: ({ id, maybeSha }) => codeOn(model, id, maybeSha),
@@ -399,7 +745,11 @@ export const update = (model: Model, message: Message) =>
           onNone: () => model,
           onSome: ({ code }) =>
             modifyFields(model, {
-              screen: () => Screen.Code({ ...code, maybeFile: Option.some(path) }),
+              screen: () =>
+                modifyFields(code, {
+                  maybeFile: () => Option.some(path),
+                  maybeLines: () => Option.none(),
+                }),
             }),
         },
       ),
@@ -456,11 +806,15 @@ export const update = (model: Model, message: Message) =>
     }),
     ClickedSectionId: ({ id }) => ({ commands: [CopySectionId({ id })], model }),
     // Pinning keeps the pane where it is; the pinned section stays current while the PRD scrolls.
+    // A PRD passage a link opened belongs to the pin it replaces, so it goes with it.
     ClickedStatusLine: ({ id }) => ({
       model: modifyFields(model, {
         maybeCopied: () => Option.none(),
         reader: (reader) =>
-          modifyFields(reader, { maybePinned: (maybePinned) => pinToggled(maybePinned, id) }),
+          modifyFields(reader, {
+            maybePassage: Option.filter((passage) => !isPrdSection(passage.section)),
+            maybePinned: (maybePinned) => pinToggled(maybePinned, id),
+          }),
       }),
     }),
     ClickedResetLayout: () => ({ model: modifyFields(model, { offsets: () => ({}) }) }),
@@ -536,6 +890,7 @@ export const update = (model: Model, message: Message) =>
     CompletedFocusSearchInput: () => ({ model }),
     CompletedScrollSearchResult: () => ({ model }),
     CompletedScrollSearchTargets: () => ({ model }),
+    CompletedScrollLinkTargets: () => ({ model }),
     // Until a person moves its divider, the stacks pane is as wide as its chart.
     CompletedScrollStacks: ({ maybeChartWidth }) => ({
       model: Option.match(
@@ -648,14 +1003,20 @@ export const update = (model: Model, message: Message) =>
           }),
     }),
     // It is the reader's key: on any other screen it does nothing. With the detail panel open it
-    // goes back one step, which closes the panel at the first; otherwise it unpins.
+    // goes back one step, which closes the panel at the first; otherwise it unpins, which takes a
+    // linked PRD passage with the pin, and clears a linked stack's focus.
     PressedEscape: () =>
       Screen.guards.Reader(model.screen)
         ? Array.match(model.detail, {
             onEmpty: () => ({
               model: modifyFields(model, {
                 maybeCopied: () => Option.none(),
-                reader: (reader) => modifyFields(reader, { maybePinned: () => Option.none() }),
+                reader: (reader) =>
+                  modifyFields(reader, {
+                    maybeFocus: () => Option.none(),
+                    maybePassage: Option.filter((passage) => !isPrdSection(passage.section)),
+                    maybePinned: () => Option.none(),
+                  }),
               }),
             }),
             onNonEmpty: (trail) => detailTrailed(model, wentBack(trail)),
@@ -674,29 +1035,33 @@ export const update = (model: Model, message: Message) =>
       model: modifyFields(model, { viewport: () => viewport }),
     }),
     // A patch that arrived stays in the model, loaded or failed, so selecting it again draws it
-    // without a fetch, or fetches it again after a failure.
-    ReceivedPatch: ({ path, result }) => ({
-      model: modifyFields(model, {
-        patches: Record.set(
-          path,
-          Result.match(result, {
-            onFailure: (reason) => PatchData.Failed({ message: reason }),
-            onSuccess: (text) => PatchData.Loaded({ text }),
-          }),
-        ),
-      }),
-    }),
-    ReceivedSession: ({ id, result }) => ({
-      model: modifyFields(model, {
-        sessions: Record.set(
-          id,
-          Result.match(result, {
-            onFailure: (reason) => SessionData.Failed({ message: reason }),
-            onSuccess: (session) => SessionData.Loaded({ session }),
-          }),
-        ),
-      }),
-    }),
+    // without a fetch, or fetches it again after a failure. A link waiting for data is resolved again.
+    ReceivedPatch: ({ path, result }) =>
+      reopened(
+        model,
+        modifyFields(model, {
+          patches: Record.set(
+            path,
+            Result.match(result, {
+              onFailure: (reason) => PatchData.Failed({ message: reason }),
+              onSuccess: (text) => PatchData.Loaded({ text }),
+            }),
+          ),
+        }),
+      ),
+    ReceivedSession: ({ id, result }) =>
+      reopened(
+        model,
+        modifyFields(model, {
+          sessions: Record.set(
+            id,
+            Result.match(result, {
+              onFailure: (reason) => SessionData.Failed({ message: reason }),
+              onSuccess: (session) => SessionData.Loaded({ session }),
+            }),
+          ),
+        }),
+      ),
     ReceivedPresence: ({ presence }) => ({
       model: modifyFields(model, {
         participants: () => presence.participants,
@@ -719,13 +1084,16 @@ export const update = (model: Model, message: Message) =>
     }),
     SuppressedClickAfterDrag: () => ({ model: idleAfterRelease(model) }),
     // A refreshed trace is searched again: a result that is gone loses its marks and its chain.
+    // The first trace opens the link that was waiting for it.
     SettledLoadTrace: ({ result }) => {
       const settled = modifyFields(model, { trace: AsyncData.settle(result) });
-      return {
-        model: modifyFields(settled, {
-          search: (search) => refreshed(search, AsyncData.getData(settled.trace)),
-        }),
-      };
+      const searched = modifyFields(settled, {
+        search: (search) => refreshed(search, AsyncData.getData(settled.trace)),
+      });
+      return Option.match(
+        Option.filter(model.maybePendingLink, () => Option.isNone(traceOf(model))),
+        { onNone: () => ({ model: searched }), onSome: (link) => openLink(searched, link) },
+      );
     },
   });
 
@@ -754,6 +1122,17 @@ export const ScrollPrdSection = Command.define("ScrollPrdSection", {
     ),
 });
 
+/** Scrolls to each target in turn: the first of its selectors that matches, or none. */
+const scrolledTo = (targets: ReadonlyArray<ScrollTarget>) =>
+  Effect.forEach(
+    targets,
+    ({ block, selectors }) =>
+      Effect.firstSuccessOf(
+        Array.map(selectors, (selector) => Dom.scrollIntoViewAfterPaint(selector, { block })),
+      ).pipe(Effect.ignore),
+    { discard: true },
+  );
+
 /**
  * Brings what a selected result points at into view, each target in its own pane. A target whose
  * element is not in the page, such as a prose block still to be rendered, falls back to the next
@@ -763,14 +1142,18 @@ export const ScrollSearchTargets = Command.define("ScrollSearchTargets", {
   args: { targets: Schema.Array(ScrollTarget) },
   messages: [Message.CompletedScrollSearchTargets],
   execute: ({ targets }) =>
-    Effect.forEach(
-      targets,
-      ({ block, selectors }) =>
-        Effect.firstSuccessOf(
-          Array.map(selectors, (selector) => Dom.scrollIntoViewAfterPaint(selector, { block })),
-        ).pipe(Effect.ignore),
-      { discard: true },
-    ).pipe(Effect.as(Message.CompletedScrollSearchTargets())),
+    scrolledTo(targets).pipe(Effect.as(Message.CompletedScrollSearchTargets())),
+});
+
+/**
+ * Brings each step a link opened into view, in the link's order, so a pane that holds several ends
+ * on the deepest. A step whose element is not in the page falls back as a search target does.
+ */
+export const ScrollLinkTargets = Command.define("ScrollLinkTargets", {
+  args: { targets: Schema.Array(ScrollTarget) },
+  messages: [Message.CompletedScrollLinkTargets],
+  execute: ({ targets }) =>
+    scrolledTo(targets).pipe(Effect.as(Message.CompletedScrollLinkTargets())),
 });
 
 /** Writes a section's ID to the clipboard, and says whether the browser took it. */

@@ -1,8 +1,8 @@
 import type { Sha, TaskId, Trace, TraceCommit, TraceTask } from "@cairn/contract";
-import { Array, Number, Option, Order, Record, Schema, String, pipe } from "effect";
+import { Array, Number, Option, Order, Record, Result, Schema, String, pipe } from "effect";
 import { defineRouteUnion, literal, mapTo, slash, string } from "foldkit/route";
 
-import { Screen, Shown } from "./model.ts";
+import { Screen, Shown, WHOLE_TASK } from "./model.ts";
 import { columnOf, stackLayoutOf } from "./stacks.ts";
 
 /** The server's patch routes the code view reads. */
@@ -58,12 +58,18 @@ export const codeScreenOf = (
     Option.match(maybeSha, {
       onNone: () =>
         Option.some(
-          Screen.Code({ maybeFile: Option.none(), shown: Shown.WholeTask(), taskId: id }),
+          Screen.Code({
+            maybeFile: Option.none(),
+            maybeLines: Option.none(),
+            shown: WHOLE_TASK,
+            taskId: id,
+          }),
         ),
       onSome: (sha) =>
         Option.map(commitOf(task, sha), (commit) =>
           Screen.Code({
             maybeFile: Option.none(),
+            maybeLines: Option.none(),
             shown: Shown.OneCommit({ sha: commit.sha }),
             taskId: id,
           }),
@@ -71,13 +77,32 @@ export const codeScreenOf = (
     }),
   );
 
+/** The range of a run of commits: from the first parent of the oldest to the newest. */
+const rangeOfCommits = (
+  commits: ReadonlyArray<TraceCommit>,
+): Option.Option<{ readonly base: Sha; readonly head: Sha }> =>
+  Option.all({
+    base: Option.flatMap(Array.head(commits), (oldest) => Array.head(oldest.parents)),
+    head: Option.map(Array.last(commits), (newest) => newest.sha),
+  });
+
 /** A whole task's diff runs from the first parent of its oldest commit to its newest commit. */
 export const rangeOf = (
   task: TraceTask,
-): Option.Option<{ readonly base: Sha; readonly head: Sha }> =>
-  Option.all({
-    base: Option.flatMap(Array.head(task.commits), (oldest) => Array.head(oldest.parents)),
-    head: Option.map(Array.last(task.commits), (newest) => newest.sha),
+): Option.Option<{ readonly base: Sha; readonly head: Sha }> => rangeOfCommits(task.commits);
+
+/**
+ * The commits a whole diff covers: the task's, oldest first, up to and including `maybeHead`. None
+ * is the newest, so every commit; a head the task does not hold covers nothing.
+ */
+const commitsTo = (task: TraceTask, maybeHead: Option.Option<Sha>): ReadonlyArray<TraceCommit> =>
+  Option.match(maybeHead, {
+    onNone: () => task.commits,
+    onSome: (head) =>
+      Option.match(
+        Array.findFirstIndex(task.commits, (commit) => commit.sha === head),
+        { onNone: () => [], onSome: (index) => Array.take(task.commits, index + 1) },
+      ),
   });
 
 /**
@@ -88,17 +113,33 @@ export const rangeOf = (
 export const patchPathOf = (task: TraceTask, shown: Shown): Option.Option<string> =>
   Shown.match(shown, {
     OneCommit: ({ sha }) => Option.map(commitOf(task, sha), (commit) => commitPathOf(commit.sha)),
-    WholeTask: () => Option.map(rangeOf(task), ({ base, head }) => diffPathOf(base, head)),
+    WholeTask: ({ maybeHead }) =>
+      Option.map(rangeOfCommits(commitsTo(task, maybeHead)), ({ base, head }) =>
+        diffPathOf(base, head),
+      ),
   });
 
-/** The commit whose session is shown: the selected one, or a whole task's newest. */
+/** The commit whose session is shown: the selected one, or a whole diff's head. */
 export const shownCommitOf = (task: TraceTask, shown: Shown): Option.Option<TraceCommit> =>
   Shown.match(shown, {
     OneCommit: ({ sha }) => commitOf(task, sha),
-    WholeTask: () => Array.last(task.commits),
+    WholeTask: ({ maybeHead }) => Array.last(commitsTo(task, maybeHead)),
   });
 
-/** The files of what is shown: one commit's, or the union of a whole task's commits', in order. */
+/** The newest commit in the trace whose `Cairn-Session` is this session, and its task. */
+export const sessionCommitOf = (
+  trace: Trace,
+  session: string,
+): Option.Option<{ readonly commit: TraceCommit; readonly task: TraceTask }> =>
+  Array.last(
+    Array.flatMap(trace.tasks, (task) =>
+      Array.filterMap(task.commits, (commit) =>
+        commit.session === session ? Result.succeed({ commit, task }) : Result.failVoid,
+      ),
+    ),
+  );
+
+/** The files of what is shown: one commit's, or the union of a whole diff's commits', in order. */
 export const filesOf = (task: TraceTask, shown: Shown): ReadonlyArray<string> =>
   Shown.match(shown, {
     OneCommit: ({ sha }) =>
@@ -106,7 +147,8 @@ export const filesOf = (task: TraceTask, shown: Shown): ReadonlyArray<string> =>
         onNone: () => [],
         onSome: (commit) => commit.files,
       }),
-    WholeTask: () => Array.dedupe(Array.flatMap(task.commits, (commit) => commit.files)),
+    WholeTask: ({ maybeHead }) =>
+      Array.dedupe(Array.flatMap(commitsTo(task, maybeHead), (commit) => commit.files)),
   });
 
 // DIRECTORY TREE

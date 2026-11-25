@@ -1,10 +1,15 @@
 import {
+  LinesStep,
+  Link,
   Participant,
   ParticipantId,
+  PassageStep,
   PrdSectionId,
   SectionId,
+  SegmentStep,
   Session,
   Sha,
+  StackStep,
   TaskId,
   Trace,
 } from "@cairn/contract";
@@ -34,12 +39,18 @@ export const Drawer = defineTaggedUnion({
 });
 export type Drawer = typeof Drawer.Type;
 
-/** What the code view shows of its task: the whole stacked diff, or one of its commits. */
+/**
+ * What the code view shows of its task: the whole stacked diff, or one of its commits. The whole
+ * diff runs to `maybeHead`, one of the task's commits, which a link can name; none is its newest.
+ */
 export const Shown = defineTaggedUnion({
   OneCommit: { sha: Sha },
-  WholeTask: {},
+  WholeTask: { maybeHead: Schema.Option(Sha) },
 });
 export type Shown = typeof Shown.Type;
+
+/** A task's whole diff, to its newest commit: what a click on a task opens. */
+export const WHOLE_TASK: Shown = Shown.WholeTask({ maybeHead: Option.none() });
 
 /** How the code view lays a diff out: one column, or the old and new side by side. */
 export const DiffStyle = Schema.Literals(["unified", "split"]);
@@ -74,13 +85,18 @@ export type HighlightedTurn = typeof HighlightedTurn.Type;
 
 /**
  * The screen: the canvas, the reader (the plan screen), or the code view on a task with what is
- * shown of it and the file selected in it. Everything the canvas needs stays in the model while
- * the code view is open.
+ * shown of it, the file selected in it and the lines a link selected in that file. Everything the
+ * canvas needs stays in the model while the code view is open.
  */
 export const Screen = defineTaggedUnion({
   Canvas: {},
   Reader: {},
-  Code: { maybeFile: Schema.Option(Schema.String), shown: Shown, taskId: TaskId },
+  Code: {
+    maybeFile: Schema.Option(Schema.String),
+    maybeLines: Schema.Option(LinesStep),
+    shown: Shown,
+    taskId: TaskId,
+  },
 });
 export type Screen = typeof Screen.Type;
 export type CodeScreen = Extract<Screen, { readonly _tag: "Code" }>;
@@ -88,6 +104,10 @@ export type CodeScreen = Extract<Screen, { readonly _tag: "Code" }>;
 /** The two screens the top bar's "Plan" and "Canvas" buttons move between. */
 export const Destination = Schema.Literals(["Canvas", "Reader"]);
 export type Destination = typeof Destination.Type;
+
+/** What a link focuses in the stacks pane: the stack a task starts, or its finished trunk. */
+export const Focus = Schema.Union([StackStep, SegmentStep]);
+export type Focus = typeof Focus.Type;
 
 /** How much of every spec card shows: the titles, the summaries, or the full sections. */
 export const Density = Schema.Literals(["titles", "summary", "full"]);
@@ -103,6 +123,10 @@ export const Reader = Schema.Struct({
   maybeAtTop: Schema.Option(PrdSectionId),
   /** The section whose status line was clicked; it stays current while the PRD scrolls. */
   maybePinned: Schema.Option(PrdSectionId),
+  /** The passage a link opened, in a PRD or a spec section; the panes mark it. */
+  maybePassage: Schema.Option(PassageStep),
+  /** The stack or finished trunk a link opened; the stacks pane outlines it. */
+  maybeFocus: Schema.Option(Focus),
   /** How much of every spec card shows. */
   density: Density,
   /** The cards opened or closed on their own, apart from the density. */
@@ -143,6 +167,10 @@ export const Model = Schema.Struct({
   isShowingModels: Schema.Boolean,
   /** The section whose ID was just copied; its button reads "copied" until another reader click. */
   maybeCopied: Schema.Option(PrdSectionId),
+  /** What the last link that opened left out, or why the address was not a link, until dismissed. */
+  maybeLinkNotice: Schema.Option(Schema.String),
+  /** A link waiting for the first trace, or for a patch or a session its steps read. */
+  maybePendingLink: Schema.Option(Link),
   maybeHovered: Schema.Option(Node),
   /** What the reader's mount last measured for its curves; none until the three panes are in the page. */
   maybeMeasuredWires: Schema.Option(Measured),
