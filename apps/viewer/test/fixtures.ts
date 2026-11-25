@@ -1,5 +1,5 @@
 import type { SectionId, TaskId } from "@cairn/contract";
-import { Array, Option } from "effect";
+import { Array, Option, String } from "effect";
 import { Command, Mount, role, within } from "foldkit/scene";
 import type { Document, HtmlBuilder } from "foldkit/html";
 import { modifyFields } from "foldkit/struct";
@@ -34,16 +34,34 @@ export const loaded = modifyFields(init().model, {
 export const paneSize = { height: 600, width: 1200 };
 
 /**
+ * How many Mermaid diagrams the demo's documents hold. The canvas mounts a `DrawDiagram` for each,
+ * and a plan can add one to any spec section, so the scenes count them instead of assuming one.
+ */
+export const diagramCount = Array.length(
+  Array.filter(
+    Array.flatMap([demoTrace.prd.markdown, demoTrace.spec.markdown], String.split("\n")),
+    (line) => String.trim(line) === "```mermaid",
+  ),
+);
+
+/** Each diagram's mount answering, once it has drawn, with the layer measured at `positions`. */
+const diagramsDrawnWith = (positions: Positions) =>
+  Array.makeBy(
+    diagramCount,
+    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+    () => [DrawDiagram, Message.MeasuredLayout({ positions })] as const,
+  );
+
+/**
  * Scene tests run no hooks, so the layer's mount stays pending until the test answers for it with
- * the message the mount would send first: the positions it measured. The spec's Mermaid diagram
- * has a mount too, which measures the layer once it has drawn, so it answers with the same.
+ * the message the mount would send first: the positions it measured. Each Mermaid diagram in the
+ * spec has a mount too, which measures the layer once it has drawn, so it answers with the same.
  */
 export const layerMountedWith = (positions: Positions) =>
   Mount.resolveAll(
     // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
     [MeasureLayout, Message.MeasuredLayout({ positions })],
-    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-    [DrawDiagram, Message.MeasuredLayout({ positions })],
+    ...diagramsDrawnWith(positions),
   );
 
 /** The layer's mount answering that no node is measured yet. */
@@ -59,16 +77,15 @@ export const mountedWith = (positions: Positions) =>
     [PanZoomCanvas, Message.MeasuredPane({ size: paneSize })],
     // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
     [MeasureLayout, Message.MeasuredLayout({ positions })],
-    // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-    [DrawDiagram, Message.MeasuredLayout({ positions })],
+    ...diagramsDrawnWith(positions),
   );
 
 /** Leaving the canvas ends its mounts; a scene has to acknowledge each. */
-export const canvasEnded = () => [
-  Mount.expectEnded(PanZoomCanvas),
-  Mount.expectEnded(MeasureLayout),
-  Mount.expectEnded(DrawDiagram),
-];
+export const canvasEnded = () =>
+  Array.appendAll(
+    [Mount.expectEnded(PanZoomCanvas), Mount.expectEnded(MeasureLayout)],
+    Array.makeBy(diagramCount, () => Mount.expectEnded(DrawDiagram)),
+  );
 
 /** The pane sized and nothing measured. */
 export const mounted = mountedWith({});

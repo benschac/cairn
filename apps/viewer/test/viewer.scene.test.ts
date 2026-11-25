@@ -46,6 +46,7 @@ import { chainOf, isInChain, sectionStatusOf, type Chain, type Node } from "../s
 import { update } from "../src/update.ts";
 import { view } from "../src/view/view.ts";
 import {
+  diagramCount,
   focusedDrawerHeading,
   layerMounted,
   layerMountedWith,
@@ -547,7 +548,11 @@ it("the pane is mounted on and the layer starts at the origin viewport", () => {
   scene(
     { update, view },
     given(loaded),
-    Mount.expectExact(PanZoomCanvas, MeasureLayout, DrawDiagram),
+    Mount.expectExact(
+      PanZoomCanvas,
+      MeasureLayout,
+      ...Array.makeBy(diagramCount, () => DrawDiagram),
+    ),
     mounted,
     expect(pane).toHaveStyle("overflow", "hidden"),
     expect(pane).toHaveAttr("data-viewport", viewportAttribute(ORIGIN_VIEWPORT)),

@@ -89,14 +89,19 @@ it("the top bar names Cairn and the feature, and shows the search and who is her
 });
 
 it("over the document sit its title and how many of the plan's tasks are done, with a meter", () => {
+  // Counted from the demo's task statuses, so a plan that adds tasks does not change this test.
+  const done = Array.length(
+    Array.filter(demoTrace.tasks, ({ status }) => status === "done" || status === "landed"),
+  );
+  const total = Array.length(demoTrace.tasks);
   scene(
     { update, view },
     given(reading),
     scrolledTo("prd.goal"),
     expect(selector("[data-prd-title]")).toHaveText("Cairn MVP"),
-    expect(selector("[data-plan-count]")).toHaveText("87 of 116 tasks done"),
-    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuenow", "87"),
-    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuemax", "116"),
+    expect(selector("[data-plan-count]")).toHaveText(`${done} of ${total} tasks done`),
+    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuenow", `${done}`),
+    expect(role("meter", { name: "Tasks done" })).toHaveAttr("aria-valuemax", `${total}`),
   );
 });
 
