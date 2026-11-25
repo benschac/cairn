@@ -15,7 +15,7 @@ import {
 } from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
 
-import { FetchPatch } from "../src/command.ts";
+import { FetchPatch, FetchSession } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
 import { RenderDiff } from "../src/diff.ts";
 import { Message } from "../src/message.ts";
@@ -28,7 +28,7 @@ import { MeasureWires } from "../src/view/wiresView.ts";
 import { view } from "../src/view/view.ts";
 import { DETAIL_PADDING } from "../src/view/detailView.ts";
 import { DETAIL_HANDLE_WIDTH } from "../src/view/dividerView.ts";
-import { focusedDetailHeading, loaded, unmeasuredWires } from "./fixtures.ts";
+import { focusedDetailHeading, loaded, sessionWith, unmeasuredWires } from "./fixtures.ts";
 
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 const task = (id: string): Node => ({ id: Schema.decodeSync(TaskId)(id), kind: "task" });
@@ -234,6 +234,13 @@ it("a row, then a commit: the code view on that commit, two clicks from the sect
     Command.resolve(
       FetchPatch({ path: `/api/commits/${commit.sha}` }),
       Message.ReceivedPatch({ path: `/api/commits/${commit.sha}`, result: Result.succeed("") }),
+    ),
+    Command.resolve(
+      FetchSession({ id: `${commit.session}` }),
+      Message.ReceivedSession({
+        id: `${commit.session}`,
+        result: Result.succeed(sessionWith(`${commit.session}`)),
+      }),
     ),
     Mount.resolve(RenderDiff, Message.CompletedRenderDiff()),
     expect(selector(`[data-tree-commit="${commit.sha}"]`)).toHaveAttr("aria-current", "true"),

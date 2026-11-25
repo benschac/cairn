@@ -84,15 +84,21 @@ const tokensView = <Message>(
 /**
  * A fenced code block. A language the highlighter knows gets a span per token and the language in
  * `data-language`; any other, or none, renders as plain text. The text only ever reaches the page
- * as text nodes, so the code cannot inject markup.
+ * as text nodes, so the code cannot inject markup. `textView` is what plain text renders as; when
+ * it changes the code, such as a redaction marker becoming a chip, the block is plain text.
  */
 export const codeBlockView = <Message>(
   h: HtmlBuilder<Message>,
   code: string,
   lang: string | null | undefined,
+  textView: (text: string) => ReadonlyArray<Html | string> = (text) => [text],
 ): Html => {
+  const plain = textView(code);
+  const isChanged = !(Array.length(plain) === 1 && Option.contains(Array.head(plain), code));
   const maybeLanguage = languageOf(lang);
-  const maybeLines = Option.flatMap(maybeLanguage, (language) => highlight(code, language));
+  const maybeLines = isChanged
+    ? Option.none()
+    : Option.flatMap(maybeLanguage, (language) => highlight(code, language));
   return h.pre(
     Array.prepend(
       Array.fromOption(
@@ -104,7 +110,7 @@ export const codeBlockView = <Message>(
       h.code(
         Array.fromOption(Option.map(maybeLanguage, (language) => h.Class(`language-${language}`))),
         Option.match(maybeLines, {
-          onNone: () => [code],
+          onNone: () => plain,
           onSome: (lines) => tokensView(h, lines),
         }),
       ),

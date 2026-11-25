@@ -1,4 +1,4 @@
-import { Presence, PrdSectionId, SectionId, Sha, TaskId, Trace } from "@cairn/contract";
+import { Presence, PrdSectionId, SectionId, Session, Sha, TaskId, Trace } from "@cairn/contract";
 import { Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 
@@ -14,6 +14,10 @@ export const Message = defineMessageUnion({
   ClickedBackToCanvas: {},
   /** One of the diff style toggle's two buttons. */
   ClickedDiffStyle: { style: DiffStyle },
+  /** A tool turn's line in the session pane: opens it, or closes it again. */
+  ClickedTurn: { id: Schema.String },
+  /** An opened tool turn's "Show the rest" button: its input and output are shown whole. */
+  ClickedMoreOfTurn: { id: Schema.String },
   /** A spec card's header: opens or closes that card alone. */
   ClickedCardHeader: { id: SectionId },
   /** One of the spec cards' density control's three buttons: it sets every card. */
@@ -135,6 +139,11 @@ export const Message = defineMessageUnion({
   PannedOrZoomed: { viewport: Viewport },
   /** A patch route's text, or why it could not be fetched. */
   ReceivedPatch: { path: Schema.String, result: Schema.Result(Schema.String, Schema.String) },
+  /** A session route's `Session`, or why it could not be fetched. */
+  ReceivedSession: {
+    id: Schema.String,
+    result: Schema.Result(Schema.toType(Session), Schema.String),
+  },
   ReceivedPresence: { presence: Presence },
   /** A pointer went up or was cancelled anywhere on the page while a drag was in progress. */
   ReleasedDragPointer: { pointerId: PointerId },

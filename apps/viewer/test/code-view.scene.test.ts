@@ -17,7 +17,7 @@ import {
 import { modifyFields } from "foldkit/struct";
 import { vi } from "vitest";
 
-import { FetchPatch } from "../src/command.ts";
+import { FetchPatch, FetchSession } from "../src/command.ts";
 import { RenderDiff } from "../src/diff.ts";
 import { demoTrace } from "../src/demo.ts";
 import { init } from "../src/init.ts";
@@ -27,7 +27,14 @@ import { update as appUpdate } from "../src/update.ts";
 import { view as appView } from "../src/view/view.ts";
 import commitPatch from "./fixtures/commit.patch?raw";
 import rangePatch from "./fixtures/range.patch?raw";
-import { canvasEnded, focusedDrawerHeading, loaded, mounted, taskButton } from "./fixtures.ts";
+import {
+  canvasEnded,
+  focusedDrawerHeading,
+  loaded,
+  mounted,
+  sessionWith,
+  taskButton,
+} from "./fixtures.ts";
 
 const sha = (character: string) => Sha.make(String.repeat(40)(character));
 
@@ -84,6 +91,14 @@ const fetched = (path: string, result: Result.Result<string, string>) =>
   // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
   Command.resolve(FetchPatch({ path }), Message.ReceivedPatch({ path, result }));
 
+/** The fetch of a session is answered with it, or with a failure. */
+const fetchedSession = (id: string) =>
+  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
+  Command.resolve(
+    FetchSession({ id }),
+    Message.ReceivedSession({ id, result: Result.succeed(sessionWith(id)) }),
+  );
+
 /** The model after these messages, from the loaded trace. */
 const after = (...messages: ReadonlyArray<Message>) =>
   Array.reduce(messages, model, (current, message) => appUpdate(current, message).model);
@@ -119,6 +134,7 @@ it("a drawer commit opens that commit, and the session pane shows its session", 
     click(within(drawer, role("button", { name: `First ${String.takeLeft(sha("a"), 7)}` }))),
     ...canvasEnded(),
     fetched(commitPath("a"), Result.succeed(commitPatch)),
+    fetchedSession(`${template.session}`),
     drawn,
     expect(treeCommit(sha("a"))).toHaveAttr("aria-current", "true"),
     expectAll(all.selector("[aria-current]")).toHaveCount(1),
@@ -209,7 +225,7 @@ it("opening the code view and going back changes only the screen", () => {
     }),
   );
   assert(appUpdate(there, Message.ClickedBackToCanvas()).model).toEqual(
-    modifyFields(pinned, { patches: () => there.patches }),
+    modifyFields(pinned, { patches: () => there.patches, sessions: () => there.sessions }),
   );
 });
 
@@ -263,6 +279,7 @@ it("a failed fetch shows its error, and selecting the path again fetches it agai
     expect(patch).toContainText("unknown revision"),
     click(treeCommit(sha("a"))),
     fetched(commitPath("a"), Result.succeed(commitPatch)),
+    fetchedSession(`${template.session}`),
     expect(patch).toHaveAttr("data-patch-path", commitPath("a")),
     drawn,
     click(treeTask(stacked.id)),
@@ -285,6 +302,7 @@ it("a loaded path is not fetched again, and a loading one is not fetched twice",
     click(treeCommit(sha("a"))),
     Mount.expectEnded(RenderDiff),
     fetched(commitPath("a"), Result.succeed(commitPatch)),
+    fetchedSession(`${template.session}`),
     drawn,
     // A scene tells mounts apart by name and position, so a loaded patch swapped for another
     // loaded patch is the same mount to it; the keyed element is checked in diff-view.scene.test.ts.

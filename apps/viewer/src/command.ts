@@ -3,7 +3,7 @@ import { Command, Dom } from "foldkit";
 
 import { DRAWER_HEADING_ID } from "./drawer.ts";
 import { Message } from "./message.ts";
-import { fetchPatch } from "./load.ts";
+import { fetchPatch, fetchSession } from "./load.ts";
 import { Node, nodeKeyOf } from "./trace.ts";
 
 /** A node's button on the canvas, which focus returns to when its drawer closes. */
@@ -64,5 +64,16 @@ export const FetchPatch = Command.define("FetchPatch", {
     fetchPatch(path).pipe(
       Effect.result,
       Effect.map((result) => Message.ReceivedPatch({ path, result })),
+    ),
+});
+
+/** Fetches a session by ID and reports it, or why it could not be had. */
+export const FetchSession = Command.define("FetchSession", {
+  args: { id: Schema.String },
+  messages: [Message.ReceivedSession],
+  execute: ({ id }) =>
+    fetchSession(id).pipe(
+      Effect.result,
+      Effect.map((result) => Message.ReceivedSession({ id, result })),
     ),
 });

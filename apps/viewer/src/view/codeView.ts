@@ -6,13 +6,14 @@ import { patchPathOf, rangeOf, shortSha, shownCommitOf, taskOf } from "../codeVi
 import type { Message } from "../message.ts";
 import { Shown, type CodeScreen, type DiffStyle, type PatchData } from "../model.ts";
 import { diffStyleToggleView, patchView } from "./diffView.ts";
+import { sessionView, type SessionMessages, type SessionState } from "./sessionView.ts";
 import { treeView, type TreeMessages } from "./treeView.ts";
 
 /**
  * The message constructors the code view's view needs; the app supplies its own. The diff view
  * mounts a Mount that sends the app's own Message, so unlike the tree the code view is not generic.
  */
-export interface CodeMessages extends TreeMessages<Message> {
+export interface CodeMessages extends TreeMessages<Message>, SessionMessages {
   readonly onBack: Message;
   readonly onDiffStyle: (style: DiffStyle) => Message;
 }
@@ -116,7 +117,9 @@ const diffPane = (
 const sessionPane = (
   task: Option.Option<TraceTask>,
   code: CodeScreen,
+  state: SessionState,
   h: HtmlBuilder<Message>,
+  messages: SessionMessages,
 ): Html =>
   h.aside(
     [
@@ -131,11 +134,7 @@ const sessionPane = (
         Option.flatMap(task, (found) => shownCommitOf(found, code.shown)),
         {
           onNone: () => h.p([], ["No session: there is no commit."]),
-          onSome: (commit) =>
-            Option.match(Option.fromNullOr(commit.session), {
-              onNone: () => h.p([], ["No session was recorded for this commit."]),
-              onSome: (id) => h.p([h.DataAttribute("session-id", id)], [`Session ${id}`]),
-            }),
+          onSome: (commit) => sessionView(Option.fromNullOr(commit.session), state, h, messages),
         },
       ),
     ],
@@ -150,6 +149,7 @@ export const codeView = (
   code: CodeScreen,
   patches: Record<string, PatchData>,
   diffStyle: DiffStyle,
+  state: SessionState,
   h: HtmlBuilder<Message>,
   messages: CodeMessages,
 ): Html => {
@@ -163,7 +163,7 @@ export const codeView = (
         [
           treeView(trace, code, h, messages),
           diffPane(task, code, patches, diffStyle, h),
-          sessionPane(task, code, h),
+          sessionPane(task, code, state, h, messages),
         ],
       ),
     ],

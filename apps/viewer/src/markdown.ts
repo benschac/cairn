@@ -187,6 +187,8 @@ export interface SectionHooks<Message> {
    * Without it a diagram is a code block of its source.
    */
   readonly diagramView?: (source: string, key: string) => Html;
+  /** What a stretch of plain text renders as, when no search marks it; the session pane turns redactions into chips. */
+  readonly textView?: (text: string) => Rendered;
   /** Matched stretches to wrap, split across the inline elements they cross. */
   readonly marks?: Marks;
   /** What a matched stretch of text renders as. */
@@ -204,6 +206,7 @@ interface RenderContext<Message> {
   readonly headingOffset: number;
   readonly diagramView: (source: string, key: string) => Html;
   readonly marks: Marks;
+  readonly textView: (text: string) => Rendered;
   readonly markView: (text: string) => Html;
   readonly blockAttributesOf: (offset: number) => ReadonlyArray<Attribute<Message>>;
 }
@@ -402,7 +405,7 @@ const render = <Message>(
       code: (node) => [
         node.lang === DIAGRAM_LANGUAGE
           ? context.diagramView(node.value, diagramKeyOf(node))
-          : codeBlockView(h, node.value, node.lang),
+          : codeBlockView(h, node.value, node.lang, context.textView),
       ],
       delete: (node) => [h.del([], renderInline(context, node.children, at))],
       emphasis: (node) => [h.em([], renderInline(context, node.children, at))],
@@ -414,7 +417,12 @@ const render = <Message>(
           at,
         ),
       inlineCode: (node) => [
-        h.code(isSectionId(node.value) ? [h.Class("ref")] : [], leafView(context, node.value, at)),
+        h.code(
+          isSectionId(node.value) ? [h.Class("ref")] : [],
+          Array.isReadonlyArrayEmpty(at.ranges)
+            ? context.textView(node.value)
+            : leafView(context, node.value, at),
+        ),
       ],
       link: (node) => [
         h.a(
@@ -435,7 +443,10 @@ const render = <Message>(
       root: (node) => renderBlocks(context, node.children),
       strong: (node) => [h.strong([], renderInline(context, node.children, at))],
       table: (node) => [tableView(context, node)],
-      text: (node) => leafView(context, node.value, at),
+      text: (node) =>
+        Array.isReadonlyArrayEmpty(at.ranges)
+          ? context.textView(node.value)
+          : leafView(context, node.value, at),
       thematicBreak: () => [h.hr([])],
     }),
     // Raw HTML, including comments, never reaches the page: those nodes render nothing.
@@ -595,6 +606,7 @@ const contextOf = <Message>(
     blockAttributesOf = () => [],
     headingOffset = 0,
     marks = NO_MARKS,
+    textView = (text) => [text],
     markView = (text) => h.mark([], [text]),
     wrapTitle = (_sectionId, title) => title,
   }: SectionHooks<Message>,
@@ -607,6 +619,7 @@ const contextOf = <Message>(
   headingOffset,
   marks,
   markView,
+  textView,
   wrapTitle,
 });
 

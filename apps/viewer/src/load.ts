@@ -1,4 +1,4 @@
-import { Trace } from "@cairn/contract";
+import { Session, Trace } from "@cairn/contract";
 import { Effect, Match, Number, Schema, String } from "effect";
 import { FetchHttpClient, HttpClient } from "effect/http";
 
@@ -62,4 +62,17 @@ export const fetchPatch = (path: string): Effect.Effect<string, string> =>
         : Effect.succeed(text),
     ),
     Effect.provide(FetchHttpClient.layer),
+  );
+
+/**
+ * Fetch a session by ID from the sessions route and decode it. A failed fetch fails as
+ * `fetchPatch` does; a body that is not a `Session` fails with what did not decode.
+ */
+export const fetchSession = (id: string): Effect.Effect<Session, string> =>
+  fetchPatch(`/api/sessions/${id}`).pipe(
+    Effect.flatMap((text) =>
+      Schema.decodeUnknownEffect(Schema.fromJsonString(Session))(text).pipe(
+        Effect.mapError((error) => `The session did not decode: ${error.message}`),
+      ),
+    ),
   );

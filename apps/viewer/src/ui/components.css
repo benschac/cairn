@@ -763,6 +763,40 @@ button.chip:active {
   border-inline-start: var(--line) solid var(--hair);
 }
 
+.code-pane[data-code-pane="session"] h3 {
+  margin: 0 0 4px;
+  font-size: var(--t-s);
+}
+
+.code-pane[data-code-pane="session"] ol {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A label and a rule tell prompts from replies, so colour is not the only sign. */
+.code-pane[data-code-pane="session"] li[data-turn] {
+  margin: 0 0 8px;
+  padding-inline-start: 8px;
+  border-inline-start: var(--line) solid var(--hair);
+}
+
+.code-pane[data-code-pane="session"] li[data-kind="prompt"] {
+  border-inline-start-color: var(--ink);
+}
+
+.code-pane[data-code-pane="session"] [data-turn-label] {
+  font-size: var(--t-s);
+  color: var(--muted);
+}
+
+.code-pane[data-code-pane="session"] pre {
+  margin: 2px 0 8px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  font-size: var(--t-s);
+}
+
 .code-pane[data-code-pane="diff"] p {
   margin: 0;
   padding: 8px 12px;
