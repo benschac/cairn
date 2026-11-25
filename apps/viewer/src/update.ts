@@ -12,9 +12,10 @@ import {
   fitViewport,
   type Insets,
 } from "./canvas.ts";
-import { codeScreenOf, filesOf, ownerOf, patchPathOf, taskOf } from "./codeView.ts";
+import { codeScreenOf, filesOf, ownerOf, patchPathOf, shownCommitOf, taskOf } from "./codeView.ts";
 import {
   FetchPatch,
+  FetchSession,
   FocusDrawerHeading,
   FocusNode,
   FocusSearchInput,
@@ -40,6 +41,7 @@ import {
   PatchData,
   PresenceConnection,
   Screen,
+  SessionData,
   Shown,
   selectedNodeOf,
   type Destination,
@@ -80,25 +82,66 @@ const shownIn = (model: Model) =>
     ),
   );
 
+/** The model with the fetches its code view needs started. */
+interface Fetches {
+  readonly commands: ReadonlyArray<ReturnType<typeof FetchPatch> | ReturnType<typeof FetchSession>>;
+  readonly model: Model;
+}
+
 /**
  * The patch the code view is on must be in the model. A path that is loading or loaded is left
  * alone; one that is new, or failed before, is marked loading and fetched. The demo build has no
  * server, so it fetches nothing.
  */
-const patchRequested = (model: Model, path: string): Update.Return<Model, Message> =>
+const patchRequested = (model: Model, path: string): Fetches =>
   isDemoBuild() ||
   Option.exists(Record.get(model.patches, path), (data) => !PatchData.guards.Failed(data))
-    ? { model }
+    ? { commands: Array.empty(), model }
     : {
         commands: [FetchPatch({ path })],
         model: modifyFields(model, { patches: Record.set(path, PatchData.Loading()) }),
       };
 
-const withPatchRequested = (model: Model): Update.Return<Model, Message> =>
+const withPatchRequested = (model: Model): Fetches =>
   Option.match(
     Option.flatMap(shownIn(model), ({ code, task }) => patchPathOf(task, code.shown)),
-    { onNone: () => ({ model }), onSome: (path) => patchRequested(model, path) },
+    {
+      onNone: () => ({ commands: Array.empty(), model }),
+      onSome: (path) => patchRequested(model, path),
+    },
   );
+
+/**
+ * The session of the commit the code view shows must be in the model, as its patch must: one that
+ * is loading or loaded is left alone, and one that is new, or failed before, is fetched.
+ */
+const sessionRequested = (model: Model, id: string): Fetches =>
+  isDemoBuild() ||
+  Option.exists(Record.get(model.sessions, id), (data) => !SessionData.guards.Failed(data))
+    ? { commands: Array.empty(), model }
+    : {
+        commands: [FetchSession({ id })],
+        model: modifyFields(model, { sessions: Record.set(id, SessionData.Loading()) }),
+      };
+
+/** The patch and the session of what the code view shows, each fetched when the model lacks it. */
+const withCodeRequested = (model: Model): Fetches => {
+  const patched = withPatchRequested(model);
+  const sessioned = Option.match(
+    Option.flatMapNullishOr(
+      Option.flatMap(shownIn(patched.model), ({ code, task }) => shownCommitOf(task, code.shown)),
+      (commit) => commit.session,
+    ),
+    {
+      onNone: () => ({ commands: Array.empty(), model: patched.model }),
+      onSome: (id) => sessionRequested(patched.model, id),
+    },
+  );
+  return {
+    commands: Array.appendAll(patched.commands, sessioned.commands),
+    model: sessioned.model,
+  };
+};
 
 /** The route of the whole diff of the task the detail panel is on; none for a section or a task without one. */
 const detailPatchPathOf = (model: Model): Option.Option<string> =>
@@ -123,7 +166,12 @@ const codeOn = (
     Option.flatMap(traceOf(model), (trace) => codeScreenOf(trace, id, maybeSha)),
     {
       onNone: () => ({ model }),
-      onSome: (screen) => withPatchRequested(modifyFields(model, { screen: () => screen })),
+      onSome: (screen) => {
+        const requested = withCodeRequested(modifyFields(model, { screen: () => screen }));
+        return Array.isReadonlyArrayEmpty(requested.commands)
+          ? { model: requested.model }
+          : requested;
+      },
     },
   );
 
@@ -425,6 +473,18 @@ export const update = (model: Model, message: Message) =>
         model: selected.model,
       };
     },
+    // A turn opens and closes; a turn that was never opened counts as closed.
+    ClickedTurn: ({ id }) => ({
+      model: modifyFields(model, {
+        openedTurns: Record.set(
+          id,
+          Boolean.not(Option.getOrElse(Record.get(model.openedTurns, id), () => false)),
+        ),
+      }),
+    }),
+    ClickedMoreOfTurn: ({ id }) => ({
+      model: modifyFields(model, { fullTurns: Record.set(id, true) }),
+    }),
     ClickedDiffStyle: ({ style }) => ({
       model: modifyFields(model, { diffStyle: () => style }),
     }),
@@ -604,6 +664,17 @@ export const update = (model: Model, message: Message) =>
           Result.match(result, {
             onFailure: (reason) => PatchData.Failed({ message: reason }),
             onSuccess: (text) => PatchData.Loaded({ text }),
+          }),
+        ),
+      }),
+    }),
+    ReceivedSession: ({ id, result }) => ({
+      model: modifyFields(model, {
+        sessions: Record.set(
+          id,
+          Result.match(result, {
+            onFailure: (reason) => SessionData.Failed({ message: reason }),
+            onSuccess: (session) => SessionData.Loaded({ session }),
           }),
         ),
       }),

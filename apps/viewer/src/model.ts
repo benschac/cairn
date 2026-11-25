@@ -3,6 +3,7 @@ import {
   ParticipantId,
   PrdSectionId,
   SectionId,
+  Session,
   Sha,
   TaskId,
   Trace,
@@ -51,6 +52,14 @@ export const PatchData = defineTaggedUnion({
   Loading: {},
 });
 export type PatchData = typeof PatchData.Type;
+
+/** A session route's `Session` as it loads: on its way, refused or unreachable with why, or here. */
+export const SessionData = defineTaggedUnion({
+  Failed: { message: Schema.String },
+  Loaded: { session: Schema.toType(Session) },
+  Loading: {},
+});
+export type SessionData = typeof SessionData.Type;
 
 /**
  * The screen: the canvas, the reader (the plan screen), or the code view on a task with what is
@@ -136,6 +145,12 @@ export const Model = Schema.Struct({
   readers: Schema.Array(SectionReader),
   /** The patches the code view has asked for, by route path. A loaded one is never fetched again. */
   patches: Schema.Record(Schema.String, PatchData),
+  /** The sessions the code view has asked for, by session ID. A loaded one is never fetched again. */
+  sessions: Schema.Record(Schema.String, SessionData),
+  /** The tool turns a person opened, by turn ID. */
+  openedTurns: Schema.Record(Schema.String, Schema.Boolean),
+  /** The tool turns whose input and output a person asked to see whole, by turn ID. */
+  fullTurns: Schema.Record(Schema.String, Schema.Boolean),
   /** The pinned nodes, in the order they were pinned; each chain stays lit in its pin's colour. */
   pins: Schema.Array(Pin),
   positions: Positions,

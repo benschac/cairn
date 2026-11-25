@@ -1,5 +1,5 @@
-import type { SectionId, TaskId } from "@cairn/contract";
-import { Array, Option, String } from "effect";
+import { Session, type SectionId, type TaskId } from "@cairn/contract";
+import { Array, Option, Schema, String } from "effect";
 import { Command, Mount, role, within } from "foldkit/scene";
 import type { Document, HtmlBuilder } from "foldkit/html";
 import { modifyFields } from "foldkit/struct";
@@ -167,3 +167,30 @@ export const taskButton = (id: TaskId) => {
     role("button", { name: `${taskHeadingOf(demoTrace, task)} ${task.title}` }),
   );
 };
+
+/** A session with one prompt, a reply and a tool turn, for the commit whose `Cairn-Session` is `id`. */
+export const sessionWith = (id: string): Session =>
+  Schema.decodeUnknownSync(Session)({
+    format: "claude-code",
+    id,
+    notes: [],
+    redactions: {},
+    skipped: 0,
+    taskId: "t1",
+    turns: [
+      { at: "2026-11-25T10:00:00.000Z", id: "p1", kind: "prompt", text: "Add the pane." },
+      { at: "2026-11-25T10:00:01.000Z", id: "r1", kind: "reply", text: "Done." },
+      {
+        at: "2026-11-25T10:00:02.000Z",
+        edits: [],
+        failed: false,
+        id: "c1",
+        input: "ls",
+        kind: "tool",
+        name: "Bash",
+        output: "a.ts",
+        target: null,
+      },
+    ],
+    version: 1,
+  });
