@@ -8,7 +8,7 @@
     "check": "node scripts/gate/gate.ts check",
     "check:commit": "turbo run typecheck typecheck:root lint format:check",
     "check:effect-api": "node scripts/effect-api/refresh-effect-api.ts --check && node scripts/effect-api/index-effect-core.ts --check",
-    "check:tasks": "turbo run typecheck typecheck:root test test:guard test:gate test:land test:tasks test:lint check:effect-api check:xstate-docs lint format:check build",
+    "check:tasks": "turbo run typecheck typecheck:root test test:guard test:gate test:land test:tasks test:trailers test:lint check:effect-api check:xstate-docs lint format:check build",
     "check:xstate-docs": "node scripts/agent-sources/index-xstate-docs.ts --check",
     "dev": "turbo run dev",
     "fix": "oxlint --fix && oxfmt",
@@ -22,6 +22,7 @@
     "test:land": "node --test scripts/land/plan.test.ts",
     "test:lint": "node --test lint/effect-core-plugin.test.mjs",
     "test:tasks": "node --test scripts/tasks/report.test.ts",
+    "test:trailers": "node --test scripts/trailers/commit-msg.test.ts",
     "typecheck:root": "effect-tsgo tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {

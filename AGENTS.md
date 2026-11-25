@@ -76,6 +76,8 @@ enforce that; `pnpm install` installs them.
 
 - `pre-commit` runs `pnpm check:commit` on every commit: types, lint and
   format. A commit that fails them is refused.
+- `commit-msg` refuses a commit on a task's branch without its trailers; see
+  "Commit trailers" below.
 - `pre-push` refuses a push that sends a commit `pnpm check` has not covered.
   When `pnpm check` passes on a clean tree, `scripts/gate/gate.ts` records
   HEAD as checked, and that covers HEAD and every commit below it. So before
@@ -86,6 +88,23 @@ enforce that; `pnpm install` installs them.
 The check at the top does not show that each branch below it passes on its
 own. CI does: it runs `pnpm check` on every pull request, and `pnpm land`
 refuses a pull request whose CI `check` job has not passed on its own head.
+
+## Commit trailers
+
+Landing is read from trailers, so a commit on a task's branch ends with them
+in its last paragraph:
+
+```
+Cairn-Task: t117
+Cairn-Section: spec.status.trailer-check
+```
+
+Exactly one `Cairn-Task` naming the task whose `branch` in
+`.cairn/manifest.json` is the current one, and one `Cairn-Section` line for
+each spec section the task builds (at least one, each from its `specSections`).
+`Cairn-Session` is not needed. The `commit-msg` hook refuses a message without
+them and prints the lines to add. Other branches, and a rebase with no branch
+checked out, pass.
 
 ## Do not skip the hooks
 
