@@ -1,5 +1,5 @@
-import { TaskDraft, defaultConfig } from "@cairn/contract";
-import type { Config } from "@cairn/contract";
+import { IndexedSection, TaskDraft, defaultConfig } from "@cairn/contract";
+import type { Config, Section, SpecSectionId } from "@cairn/contract";
 import {
   Array,
   Context,
@@ -14,6 +14,7 @@ import {
   Result,
   Schema,
   String,
+  Struct,
 } from "effect";
 import { AiError, LanguageModel } from "effect/ai";
 
@@ -22,7 +23,7 @@ export class PlannerError extends Schema.TaggedError<
   PlannerError,
   { readonly brand: unique symbol }
 >()("PlannerError", {
-  call: Schema.Literals(["spec", "tasks"]),
+  call: Schema.Literals(["spec", "tasks", "splitSection", "splitTask", "index"]),
   reason: Schema.String,
 }) {}
 
@@ -31,6 +32,45 @@ export class PlannerError extends Schema.TaggedError<
  * key.
  */
 export const TaskDrafts = Schema.Struct({ drafts: Schema.Array(TaskDraft) });
+
+/** What `splitTask` asks the model for: the drafts that replace one, so at least two. */
+export const SplitDrafts = Schema.Struct({
+  drafts: Schema.Array(TaskDraft).check(Schema.isMinLength(2)),
+});
+
+/** A draft as JSON text, for the `splitTask` prompt. */
+const DraftJson = Schema.fromJsonString(TaskDraft, { space: 2 });
+
+/** The prose fields of an `IndexedSection`, which `index` asks the model for (`spec.contract.spec-index`). */
+export const IndexProse = IndexedSection.mapFields(
+  Struct.pick(["artifacts", "decisions", "requirements", "summary", "tests"]),
+);
+export type IndexProse = typeof IndexProse.Type;
+
+/** The part of a section `index` reads: its ID, to name the items, and its text. */
+export type IndexTarget = Pick<Section, "body" | "title"> & { readonly id: SpecSectionId };
+
+/**
+ * `IndexProse`, and every item's ID starts with the section's ID and `#`, so a reply about
+ * another section cannot be written into this one's entry.
+ */
+const indexProseOf = (id: SpecSectionId) =>
+  IndexProse.check(
+    Schema.makeFilter((prose) => {
+      const foreign = Array.filter(
+        Array.flatten([
+          Array.map(prose.artifacts, (item) => item.id),
+          Array.map(prose.decisions, (item) => item.id),
+          Array.map(prose.requirements, (item) => item.id),
+          Array.map(prose.tests, (item) => item.id),
+        ]),
+        (item) => !String.startsWith(`${id}#`)(item),
+      );
+      return Array.isReadonlyArrayNonEmpty(foreign)
+        ? `Every item ID must start with ${id}#, but these do not: ${Array.join(foreign, ", ")}`
+        : undefined;
+    }),
+  );
 
 /** Why a prompt could not be made: its file could not be read, or its placeholders do not match. */
 export class PromptError extends Schema.TaggedError<
@@ -117,6 +157,14 @@ export interface Prompts {
   readonly retry: (prompt: string, error: string) => Effect.Effect<string, PromptError>;
   readonly spec: (prd: string) => Effect.Effect<string, PromptError>;
   readonly tasks: (prd: string, spec: string) => Effect.Effect<string, PromptError>;
+  /** `draft` is the draft as JSON. */
+  readonly splitTask: (
+    draft: string,
+    spec: string,
+    reason: string,
+  ) => Effect.Effect<string, PromptError>;
+  readonly splitSection: (section: string, reason: string) => Effect.Effect<string, PromptError>;
+  readonly index: (section: IndexTarget) => Effect.Effect<string, PromptError>;
 }
 
 /** The models of the config's table, one bullet each, for the `tasks` prompt. */
@@ -133,12 +181,15 @@ const modelTable = (models: Readonly<Record<string, string>>) =>
 export const loadPrompts = Effect.fn("loadPrompts")(function* (
   models: Readonly<Record<string, string>>,
 ) {
-  const [retry, spec, tasks, example] = yield* Effect.all(
+  const [retry, spec, tasks, example, splitSection, splitTask, index] = yield* Effect.all(
     [
       readText("retry", promptUrl("retry")),
       readText("spec", promptUrl("spec")),
       readText("tasks", promptUrl("tasks")),
       readText("spec example", exampleUrl),
+      readText("split-section", promptUrl("split-section")),
+      readText("split-task", promptUrl("split-task")),
+      readText("index", promptUrl("index")),
     ],
     { concurrency: "unbounded" },
   );
@@ -147,6 +198,17 @@ export const loadPrompts = Effect.fn("loadPrompts")(function* (
     spec: (prd) => fillPrompt("spec", spec, { example, prd }),
     tasks: (prd, specText) =>
       fillPrompt("tasks", tasks, { models: modelTable(models), prd, spec: specText }),
+    splitTask: (draft, specText, reason) =>
+      fillPrompt("split-task", splitTask, {
+        draft,
+        models: modelTable(models),
+        reason,
+        spec: specText,
+      }),
+    splitSection: (section, reason) =>
+      fillPrompt("split-section", splitSection, { reason, section }),
+    index: (section) =>
+      fillPrompt("index", index, { body: section.body, id: section.id, title: section.title }),
   } satisfies Prompts;
 });
 
@@ -157,12 +219,13 @@ const isDecodeFailure = (error: AiError.AiError) =>
     Predicate.isTagged("InvalidOutputError"),
   )(error.reason);
 
-const failed = (call: PlannerError["call"]) => (error: AiError.AiError | PromptError) =>
-  new PlannerError({ call, reason: error.message });
+const failed =
+  (call: PlannerError["call"]) => (error: AiError.AiError | PromptError | Schema.SchemaError) =>
+    new PlannerError({ call, reason: error.message });
 
 /**
- * Plans with a language model. The calls here are `spec` and `tasks`; `splitSection`,
- * `splitTask` and `index` join them as further members of the same service.
+ * Plans with a language model. The calls here are `spec`, `tasks`, `splitSection`, `splitTask`
+ * and `index`.
  */
 export class Planner extends Context.Service<
   Planner,
@@ -174,6 +237,16 @@ export class Planner extends Context.Service<
       prd: string,
       spec: string,
     ) => Effect.Effect<ReadonlyArray<TaskDraft>, PlannerError>;
+    /** Markdown for two or more sections that replace `section`, because of `reason`. */
+    readonly splitSection: (section: string, reason: string) => Effect.Effect<string, PlannerError>;
+    /** Two or more drafts that together cover `draft`, because of `reason`. */
+    readonly splitTask: (
+      draft: TaskDraft,
+      spec: string,
+      reason: string,
+    ) => Effect.Effect<ReadonlyArray<TaskDraft>, PlannerError>;
+    /** The prose fields of the section's entry in `spec.json`. */
+    readonly index: (section: IndexTarget) => Effect.Effect<IndexProse, PlannerError>;
   }
 >()("@cairn/cli/Planner") {
   /**
@@ -200,8 +273,20 @@ export class Planner extends Context.Service<
         );
 
         // `generateObject` decodes the reply through its schema, so a reply that does not decode
-        // fails with a decode failure we can tell from a transport one. That lets this call alone
+        // fails with a decode failure we can tell from a transport one. That lets each call
         // decide to retry once, with the decode error in the prompt.
+        const withRetry = <A>(
+          prompt: string,
+          ask: (prompt: string) => Effect.Effect<A, AiError.AiError>,
+        ) =>
+          ask(prompt).pipe(
+            Effect.catchIf(isDecodeFailure, (error) =>
+              prompts
+                .retry(prompt, error.message)
+                .pipe(Effect.flatMap((retryPrompt) => ask(retryPrompt))),
+            ),
+          );
+
         const draftsFor = (prompt: string) =>
           LanguageModel.generateObject({
             objectName: "TaskDrafts",
@@ -215,18 +300,59 @@ export class Planner extends Context.Service<
         const tasks = Effect.fn("Planner.tasks")(
           function* (prd: string, specText: string) {
             const prompt = yield* prompts.tasks(prd, specText);
-            return yield* draftsFor(prompt).pipe(
-              Effect.catchIf(isDecodeFailure, (error) =>
-                prompts
-                  .retry(prompt, error.message)
-                  .pipe(Effect.flatMap((retryPrompt) => draftsFor(retryPrompt))),
-              ),
-            );
+            return yield* withRetry(prompt, draftsFor);
           },
           Effect.mapError(failed("tasks")),
         );
 
-        return Planner.of({ spec, tasks });
+        const splitSection = Effect.fn("Planner.splitSection")(
+          function* (section: string, reason: string) {
+            const prompt = yield* prompts.splitSection(section, reason);
+            const response = yield* LanguageModel.generateText({ prompt }).pipe(
+              Effect.provideService(LanguageModel.LanguageModel, model),
+            );
+            return response.text;
+          },
+          Effect.mapError(failed("splitSection")),
+        );
+
+        const splitDraftsFor = (prompt: string) =>
+          LanguageModel.generateObject({
+            objectName: "SplitDrafts",
+            prompt,
+            schema: SplitDrafts,
+          }).pipe(
+            Effect.provideService(LanguageModel.LanguageModel, model),
+            Effect.map((response) => response.value.drafts),
+          );
+
+        const splitTask = Effect.fn("Planner.splitTask")(
+          function* (draft: TaskDraft, specText: string, reason: string) {
+            const draftJson = yield* Schema.encodeEffect(DraftJson)(draft);
+            const prompt = yield* prompts.splitTask(draftJson, specText, reason);
+            return yield* withRetry(prompt, splitDraftsFor);
+          },
+          Effect.mapError(failed("splitTask")),
+        );
+
+        const index = Effect.fn("Planner.index")(
+          function* (section: IndexTarget) {
+            const prompt = yield* prompts.index(section);
+            const proseFor = (text: string) =>
+              LanguageModel.generateObject({
+                objectName: "IndexProse",
+                prompt: text,
+                schema: indexProseOf(section.id),
+              }).pipe(
+                Effect.provideService(LanguageModel.LanguageModel, model),
+                Effect.map((response) => response.value),
+              );
+            return yield* withRetry(prompt, proseFor);
+          },
+          Effect.mapError(failed("index")),
+        );
+
+        return Planner.of({ index, spec, splitSection, splitTask, tasks });
       }),
     );
 

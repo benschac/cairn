@@ -1,9 +1,9 @@
-import { Manifest, TaskDraft } from "@cairn/contract";
+import { Manifest, SpecSectionId, TaskDraft } from "@cairn/contract";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { Array, Effect, FileSystem, Layer, Path, Predicate, Record, Schema } from "effect";
 
-import { Planner, PlannerError, TaskDrafts } from "../src/planner.ts";
+import { IndexProse, Planner, PlannerError, TaskDrafts } from "../src/planner.ts";
 import { Script, scripted, unreachable } from "./fixtures/scripted-language-model.ts";
 import type { Reply } from "./fixtures/scripted-language-model.ts";
 
@@ -213,6 +213,209 @@ it.effect("a failure on the retry is a PlannerError too", () =>
       const seen = yield* prompts;
       expect(isPlannerError(failure)).toBe(true);
       expect(seen).toHaveLength(2);
+    }),
+  ),
+);
+
+const splitSection = (section: string, reason: string) =>
+  Planner.use((planner) => planner.splitSection(section, reason));
+const splitTask = (draft: TaskDraft, specText: string, reason: string) =>
+  Planner.use((planner) => planner.splitTask(draft, specText, reason));
+const indexOf = (id: SpecSectionId, title: string, body: string) =>
+  Planner.use((planner) => planner.index({ body, id, title }));
+
+it.effect.prop(
+  "splitSection returns the model's markdown, and the prompt holds the section and the reason",
+  [Schema.NonEmptyString, Schema.NonEmptyString, Schema.String],
+  ([section, reason, markdown]) =>
+    planning(
+      [markdown],
+      Effect.gen(function* () {
+        const written = yield* splitSection(section, reason);
+        const seen = yield* prompts;
+        const [first = ""] = seen;
+        expect(written).toBe(markdown);
+        expect(seen).toHaveLength(1);
+        expect(first).toContain(section);
+        expect(first).toContain(reason);
+      }),
+    ),
+);
+
+it.effect("a model failure while splitting a section is a PlannerError", () =>
+  planning(
+    [unreachable],
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(splitSection("## A {#spec.a}", "too big"));
+      expect(isPlannerError(failure)).toBe(true);
+      expect(failure.call).toBe("splitSection");
+    }),
+  ),
+);
+
+/** The drafts a split returns: two, then any more. */
+const splitOf = (one: TaskDraft, two: TaskDraft, rest: ReadonlyArray<TaskDraft>) =>
+  Array.appendAll([one, two], rest);
+
+/** A string as it is written in JSON, with its quotes. */
+const jsonString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
+
+it.effect.prop(
+  "splitTask returns the two or more drafts the model sent, and the prompt holds the draft, the spec and the reason",
+  [
+    TaskDraft,
+    Schema.NonEmptyString,
+    Schema.NonEmptyString,
+    TaskDraft,
+    TaskDraft,
+    Schema.Array(TaskDraft),
+  ],
+  ([draft, specText, reason, one, two, rest]) => {
+    const drafts = splitOf(one, two, rest);
+    return planning(
+      [encodeReply({ drafts })],
+      Effect.gen(function* () {
+        const split = yield* splitTask(draft, specText, reason);
+        const seen = yield* prompts;
+        const [first = ""] = seen;
+        expect(split).toEqual(drafts);
+        expect(seen).toHaveLength(1);
+        expect(first).toContain(jsonString(draft.title));
+        expect(first).toContain(specText);
+        expect(first).toContain(reason);
+      }),
+    );
+  },
+);
+
+it.effect.prop(
+  "a split into fewer than two drafts is retried once with the reason in the prompt, then fails",
+  [TaskDraft, Schema.NonEmptyString, Schema.Array(TaskDraft).check(Schema.isMaxLength(1))],
+  ([draft, reason, drafts]) =>
+    planning(
+      [encodeReply({ drafts }), encodeReply({ drafts }), encodeReply({ drafts: [draft, draft] })],
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(splitTask(draft, "spec", reason));
+        const seen = yield* prompts;
+        const [first = "", second = ""] = seen;
+        expect(isPlannerError(failure)).toBe(true);
+        expect(failure.call).toBe("splitTask");
+        expect(seen).toHaveLength(2);
+        expect(second).toContain(first);
+        expect(second).toContain("Expected a value with a length of at least 2");
+      }),
+    ),
+);
+
+it.effect.prop(
+  "splitTask recovers when the retry decodes",
+  [TaskDraft, TaskDraft, TaskDraft, Schema.Array(TaskDraft)],
+  ([draft, one, two, rest]) =>
+    planning(
+      ["not json", encodeReply({ drafts: splitOf(one, two, rest) })],
+      Effect.gen(function* () {
+        const split = yield* splitTask(draft, "spec", "reason");
+        const seen = yield* prompts;
+        expect(split).toEqual(splitOf(one, two, rest));
+        expect(seen).toHaveLength(2);
+      }),
+    ),
+);
+
+it.effect.prop(
+  "a model failure while splitting a task is a PlannerError, with no second try",
+  [TaskDraft],
+  ([draft]) =>
+    planning(
+      [unreachable, encodeReply({ drafts: [draft, draft] })],
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(splitTask(draft, "spec", "reason"));
+        expect(isPlannerError(failure)).toBe(true);
+        const seen = yield* prompts;
+        expect(failure.call).toBe("splitTask");
+        expect(seen).toHaveLength(1);
+      }),
+    ),
+);
+
+/**
+ * An `IndexProse` whose item IDs belong to section `id`. The generator makes IDs for any
+ * section, so they are numbered over again under `id`.
+ */
+const proseOf = (id: SpecSectionId, prose: IndexProse): IndexProse => ({
+  artifacts: Array.map(prose.artifacts, (item, index) => ({
+    ...item,
+    id: `${id}#${item.kind}:item-${index}`,
+  })),
+  decisions: Array.map(prose.decisions, (item, index) => ({ ...item, id: `${id}#d${index + 1}` })),
+  requirements: Array.map(prose.requirements, (item, index) => ({
+    ...item,
+    id: `${id}#r${index + 1}`,
+  })),
+  summary: prose.summary,
+  tests: Array.map(prose.tests, (item, index) => ({ ...item, id: `${id}#t${index + 1}` })),
+});
+
+const encodeProse = Schema.encodeSync(Schema.fromJsonString(IndexProse));
+
+it.effect.prop(
+  "index returns the prose fields the model sent, and the prompt holds the section's ID, title and body",
+  [SpecSectionId, Schema.NonEmptyString, Schema.NonEmptyString, IndexProse],
+  ([id, title, body, generated]) => {
+    const prose = proseOf(id, generated);
+    return planning(
+      [encodeProse(prose)],
+      Effect.gen(function* () {
+        const indexed = yield* indexOf(id, title, body);
+        const seen = yield* prompts;
+        const [first = ""] = seen;
+        expect(indexed).toEqual(prose);
+        expect(seen).toHaveLength(1);
+        expect(first).toContain(id);
+        expect(first).toContain(title);
+        expect(first).toContain(body);
+      }),
+    );
+  },
+);
+
+it.effect.prop(
+  "an index reply with an item ID from another section is retried once, then fails with the IDs named",
+  [SpecSectionId, IndexProse],
+  ([id, generated]) => {
+    const prose = proseOf(id, generated);
+    const foreign = {
+      ...prose,
+      decisions: Array.prepend(prose.decisions, {
+        id: `${id}-other#d1`,
+        text: "a choice",
+        why: null,
+      }),
+    } satisfies IndexProse;
+    return planning(
+      [encodeProse(foreign), encodeProse(foreign), encodeProse(prose)],
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(indexOf(id, "Title", "Body"));
+        const seen = yield* prompts;
+        const [first = "", second = ""] = seen;
+        expect(isPlannerError(failure)).toBe(true);
+        expect(failure.call).toBe("index");
+        expect(failure.reason).toContain(`${id}-other#d1`);
+        expect(seen).toHaveLength(2);
+        expect(second).toContain(first);
+        expect(second).toContain(`${id}-other#d1`);
+      }),
+    );
+  },
+);
+
+it.effect.prop("a model failure while indexing is a PlannerError", [SpecSectionId], ([id]) =>
+  planning(
+    [unreachable],
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(indexOf(id, "A", "Body"));
+      expect(isPlannerError(failure)).toBe(true);
+      expect(failure.call).toBe("index");
     }),
   ),
 );
