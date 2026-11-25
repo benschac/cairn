@@ -5,12 +5,15 @@ import { ORIGIN_VIEWPORT } from "./canvas.ts";
 import { DragState } from "./drag.ts";
 import type { Message } from "./message.ts";
 import { Drawer, PresenceConnection, Screen, TraceData, type Model } from "./model.ts";
+import { isDemoBuild } from "./load.ts";
 import { INITIAL_WIDTHS, Resize } from "./panes.ts";
 import { NO_SEARCH } from "./search.ts";
 import { LoadTrace } from "./update.ts";
 
 export const init: Runtime.ApplicationInit<Model, Message> = () => ({
-  commands: [LoadTrace()],
+  // Only the demo loads its bundled trace. Under cairn serve the first poll is the first load, so the
+  // bundled trace can never arrive after, and replace, a live one.
+  commands: isDemoBuild() ? [LoadTrace()] : [],
   model: {
     diffStyle: "unified",
     detail: [],

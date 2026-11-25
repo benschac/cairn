@@ -1,6 +1,7 @@
 import { ParticipantId, SectionId, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option, Record, Result, Schema } from "effect";
+import { vi } from "vitest";
 import { Command, given, message, model, story } from "foldkit/story";
 import { modifyFields } from "foldkit/struct";
 
@@ -36,6 +37,16 @@ const started = (simulation: Parameters<ReturnType<typeof given>>[0]) => {
   return { ...simulation, commands: initial.commands ?? [], model: initial.model };
 };
 
+/** Runs a story in the demo build, the only one whose init loads the bundled trace. */
+const inDemoBuild = (run: () => void) => {
+  vi.stubEnv("PROD", true);
+  try {
+    run();
+  } finally {
+    vi.unstubAllEnvs();
+  }
+};
+
 const task = Option.getOrThrow(Array.head(demoTrace.tasks));
 const taskNode: Node = { id: task.id, kind: "task" };
 const sectionNode: Node = {
@@ -47,40 +58,54 @@ const opened = (node: Node) => modifyFields(ordinary, { drawer: () => Drawer.Ope
 
 // LOADING
 
-it("init issues LoadTrace, and a failed first load is a Failure", () => {
-  story(
-    update,
-    started,
-    Command.expectExact(LoadTrace),
-    Command.resolve(LoadTrace, settled(Result.fail("boom"))),
-    model((next) => assert(next.trace).toEqual(TraceData.Failure({ error: "boom" }))),
-  );
-});
+it("in the demo build init issues LoadTrace, and a failed first load is a Failure", () =>
+  inDemoBuild(() => {
+    story(
+      update,
+      started,
+      Command.expectExact(LoadTrace),
+      Command.resolve(LoadTrace, settled(Result.fail("boom"))),
+      model((next) => assert(next.trace).toEqual(TraceData.Failure({ error: "boom" }))),
+    );
+  }));
 
-it("a successful first load is a Success", () => {
-  story(
-    update,
-    started,
-    Command.resolve(LoadTrace, settled(Result.succeed(demoTrace))),
-    model((next) => assert(next.trace).toEqual(TraceData.Success({ data: demoTrace }))),
-  );
-});
-
-it.prop(
-  "a failed reload keeps the last good trace, and a later load clears the error",
-  [Schema.String],
-  ([error]) => {
+it("a successful first load is a Success", () =>
+  inDemoBuild(() => {
     story(
       update,
       started,
       Command.resolve(LoadTrace, settled(Result.succeed(demoTrace))),
-      message(settled(Result.fail(error))),
-      model((next) => assert(next.trace).toEqual(TraceData.Stale({ data: demoTrace, error }))),
-      message(settled(Result.succeed(demoTrace))),
       model((next) => assert(next.trace).toEqual(TraceData.Success({ data: demoTrace }))),
     );
-  },
+  }));
+
+it.prop(
+  "a failed reload keeps the last good trace, and a later load clears the error",
+  [Schema.String],
+  ([error]) =>
+    inDemoBuild(() => {
+      story(
+        update,
+        started,
+        Command.resolve(LoadTrace, settled(Result.succeed(demoTrace))),
+        message(settled(Result.fail(error))),
+        model((next) => assert(next.trace).toEqual(TraceData.Stale({ data: demoTrace, error }))),
+        message(settled(Result.succeed(demoTrace))),
+        model((next) => assert(next.trace).toEqual(TraceData.Success({ data: demoTrace }))),
+      );
+    }),
 );
+
+it("outside the demo build init loads nothing, so the first poll is the first load and the bundled trace cannot replace a live one", () => {
+  story(
+    update,
+    started,
+    Command.expectNone(),
+    model((next) => assert(next.trace).toEqual(TraceData.Loading())),
+    message(settled(Result.succeed(demoTrace))),
+    model((next) => assert(next.trace).toEqual(TraceData.Success({ data: demoTrace }))),
+  );
+});
 
 it.effect("the integration of loadDemoTrace decodes the bundled demo file", () =>
   Effect.map(loadDemoTrace, (trace) => assert(trace).toEqual(demoTrace)),
