@@ -9,18 +9,18 @@ const AnyWidths = Schema.Struct({ detail: Width, prd: Width, spec: Width });
 
 /** Widths with every pane already inside its limits. */
 const InsideWidths = Schema.Struct({
-  detail: Schema.Finite.check(Schema.isBetween({ maximum: 1400, minimum: 360 })),
-  prd: Schema.Finite.check(Schema.isBetween({ maximum: 1000, minimum: 300 })),
-  spec: Schema.Finite.check(Schema.isBetween({ maximum: 1100, minimum: 260 })),
+  detail: Schema.Finite.check(Schema.isBetween({ maximum: 1800, minimum: 360 })),
+  prd: Schema.Finite.check(Schema.isBetween({ maximum: 1600, minimum: 300 })),
+  spec: Schema.Finite.check(Schema.isBetween({ maximum: 1600, minimum: 260 })),
 });
 
 const PANES: ReadonlyArray<Pane> = ["prd", "spec", "detail"];
 const others = (pane: Pane) => Array.filter(PANES, (other) => other !== pane);
 
 it("the limits are the spec's", () => {
-  expect(limitsOf("prd")).toEqual({ max: 1000, min: 300 });
-  expect(limitsOf("spec")).toEqual({ max: 1100, min: 260 });
-  expect(limitsOf("detail")).toEqual({ max: 1400, min: 360 });
+  expect(limitsOf("prd")).toEqual({ max: 1600, min: 300 });
+  expect(limitsOf("spec")).toEqual({ max: 1600, min: 260 });
+  expect(limitsOf("detail")).toEqual({ max: 1800, min: 360 });
   expect(INITIAL_WIDTHS).toEqual({ detail: 600, prd: 520, spec: 440 });
 });
 

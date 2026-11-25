@@ -24,9 +24,9 @@ export interface Limits {
 export const limitsOf = (pane: Pane): Limits =>
   Match.value(pane).pipe(
     Match.withReturnType<Limits>(),
-    Match.when("prd", () => ({ max: 1000, min: 300 })),
-    Match.when("spec", () => ({ max: 1100, min: 260 })),
-    Match.when("detail", () => ({ max: 1400, min: 360 })),
+    Match.when("prd", () => ({ max: 1600, min: 300 })),
+    Match.when("spec", () => ({ max: 1600, min: 260 })),
+    Match.when("detail", () => ({ max: 1800, min: 360 })),
     Match.exhaustive,
   );
 
