@@ -14,10 +14,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        id: node
         with:
           node-version: 24
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
+      # Turbo still validates each task's inputs; restore results from earlier commits.
+      - uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-${{ runner.arch }}-turbo-${{ steps.node.outputs.node-version }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-turbo-${{ steps.node.outputs.node-version }}-${{ hashFiles('pnpm-lock.yaml') }}-
       - run: pnpm check
 
   # Every push to main that passes the checks deploys the viewer to prdtrace.com.

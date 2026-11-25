@@ -1,6 +1,13 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "globalDependencies": ["tsconfig.base.json"],
+  "globalDependencies": [
+    "tsconfig.base.json",
+    ".cairn/prd.md",
+    ".cairn/spec.md",
+    ".cairn/manifest.json",
+    ".cairn/spec.json",
+    "packages/cli/src/git.ts"
+  ],
   "tasks": {
     "dev": { "cache": false, "persistent": true },
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
