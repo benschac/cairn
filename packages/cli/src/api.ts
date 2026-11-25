@@ -1,11 +1,12 @@
-import { Sha, Trace } from "@cairn/contract";
-import { traceOf } from "@cairn/core";
+import { Session, SessionId, Sha, Trace } from "@cairn/contract";
+import { sessionOf, traceOf } from "@cairn/core";
 import { Array, Context, Effect, Layer, Option, Schema, Stream, String } from "effect";
 import { HttpRouter, HttpServerResponse } from "effect/http";
 import type { PlatformError } from "effect/PlatformError";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { inputsHashOf, loadTraceInput } from "./load-trace.ts";
+import { TraceStore } from "./trace-store.ts";
 
 /** The repository the patch routes read. A directory other than the server's own lets a test use a temporary repository. */
 export class Repository extends Context.Service<Repository, { readonly directory: string }>()(
@@ -129,4 +130,35 @@ export const TraceRoute = HttpRouter.add("GET", "/api/trace", (request) =>
   }).pipe(Effect.catch((failure) => Effect.succeed(plain(500, failure.message)))),
 );
 
-export const ApiRoutes = Layer.mergeAll(CommitRoute, DiffRoute, TraceRoute);
+const SessionParams = Schema.Struct({ id: SessionId });
+
+const encodeSession = HttpServerResponse.schemaJson(Session);
+
+/** The stored session read by `sessionOf`. Notes are not stored yet (see `spec.sessions.trace-store`), so they are empty. */
+const sessionResponse = Effect.fn("sessionResponse")(function* (id: SessionId) {
+  const store = yield* TraceStore;
+  const { log, redactions, taskId } = yield* store.get(id);
+  return yield* encodeSession(sessionOf(log, { id, notes: [], redactions, taskId }));
+});
+
+/**
+ * `GET /api/sessions/:id` (see `spec.server`): the `Session` as JSON. An id that is not a
+ * `SessionId` is `400` and never reaches the store, one the store does not hold is `404`, and a
+ * store that cannot answer is `500`.
+ */
+export const SessionRoute = HttpRouter.add("GET", "/api/sessions/:id", () =>
+  HttpRouter.schemaParams(SessionParams).pipe(
+    Effect.matchEffect({
+      onFailure: (failure) => Effect.succeed(plain(400, failure.message)),
+      onSuccess: ({ id }) =>
+        sessionResponse(id).pipe(
+          Effect.catchTag("SessionNotFound", (failure) =>
+            Effect.succeed(plain(404, failure.message)),
+          ),
+          Effect.catch((failure) => Effect.succeed(plain(500, failure.message))),
+        ),
+    }),
+  ),
+);
+
+export const ApiRoutes = Layer.mergeAll(CommitRoute, DiffRoute, TraceRoute, SessionRoute);
