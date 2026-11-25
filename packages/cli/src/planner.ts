@@ -1,7 +1,9 @@
 import { IndexedSection, TaskDraft, defaultConfig } from "@cairn/contract";
 import type { Config, Section, SpecSectionId } from "@cairn/contract";
+import { drawsOf, mermaidBlocksOf, sectionsOf, withoutMermaidBlocks } from "@cairn/core";
 import {
   Array,
+  Console,
   Context,
   Effect,
   FileSystem,
@@ -223,6 +225,67 @@ const failed =
   (call: PlannerError["call"]) => (error: AiError.AiError | PromptError | Schema.SchemaError) =>
     new PlannerError({ call, reason: error.message });
 
+/** The Mermaid blocks of `markdown` that do not draw, each with its parser error and the section it is in. */
+const undrawnIn = (markdown: string) => {
+  const sections = sectionsOf(markdown);
+  return Array.filterMap(mermaidBlocksOf(markdown), (block) =>
+    Option.match(drawsOf(block.source), {
+      onNone: () => Result.failVoid,
+      onSome: (error) =>
+        Result.succeed({
+          block,
+          error,
+          section: Array.findLast(sections, (section) => section.line <= block.start + 1).pipe(
+            Option.match({
+              onNone: () => "the spec",
+              onSome: (found) =>
+                Option.getOrElse(Option.fromUndefinedOr(found.id), () => `"${found.title}"`),
+            }),
+          ),
+        }),
+    }),
+  );
+};
+
+/**
+ * Checks that every Mermaid block of `markdown` draws. A block that does not is sent back once:
+ * `again` is given the errors and returns the document written again. A block that still does not
+ * draw is removed, and a line says which section it was in.
+ */
+export const drawnOf = <E, R>(
+  markdown: string,
+  again: (errors: string) => Effect.Effect<string, E, R>,
+) =>
+  Effect.gen(function* () {
+    const undrawn = undrawnIn(markdown);
+    if (!Array.isReadonlyArrayNonEmpty(undrawn)) {
+      return markdown;
+    }
+    const second = yield* again(
+      Array.join(
+        Array.map(
+          undrawn,
+          ({ block, error, section }) =>
+            `The Mermaid diagram in ${section} does not draw: ${error}\n\n\`\`\`mermaid\n${block.source}\n\`\`\``,
+        ),
+        "\n\n",
+      ),
+    );
+    const left = undrawnIn(second);
+    yield* Effect.forEach(
+      left,
+      ({ error, section }) =>
+        Console.log(
+          `Warning: left out a Mermaid diagram in ${section}, which does not draw: ${error}`,
+        ),
+      { discard: true },
+    );
+    return withoutMermaidBlocks(
+      second,
+      Array.map(left, ({ block }) => block),
+    );
+  });
+
 /**
  * Plans with a language model. The calls here are `spec`, `tasks`, `splitSection`, `splitTask`
  * and `index`.
@@ -261,13 +324,19 @@ export class Planner extends Context.Service<
         const model = yield* LanguageModel.LanguageModel;
         const prompts = yield* loadPrompts(config.judge.models);
 
+        const textFor = (prompt: string) =>
+          LanguageModel.generateText({ prompt }).pipe(
+            Effect.provideService(LanguageModel.LanguageModel, model),
+            Effect.map((response) => response.text),
+          );
+
         const spec = Effect.fn("Planner.spec")(
           function* (prd: string) {
             const prompt = yield* prompts.spec(prd);
-            const response = yield* LanguageModel.generateText({ prompt }).pipe(
-              Effect.provideService(LanguageModel.LanguageModel, model),
+            const reply = yield* textFor(prompt);
+            return yield* drawnOf(reply, (errors) =>
+              prompts.retry(prompt, errors).pipe(Effect.flatMap(textFor)),
             );
-            return response.text;
           },
           Effect.mapError(failed("spec")),
         );

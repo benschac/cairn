@@ -2,7 +2,7 @@ import { Manifest } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
 import { Array, Option, Order, Result, Schema, String } from "effect";
 
-import { lint } from "../src/index.ts";
+import { STACKS_CLOSE, STACKS_OPEN, lint, withStackDiagram } from "../src/index.ts";
 import type { Finding, LintRule } from "../src/index.ts";
 
 /**
@@ -71,6 +71,10 @@ const decodeManifest = Schema.decodeUnknownSync(Manifest);
 
 /** No high-trust paths: these tests are about sections, and no task here touches a gated file. */
 const NO_GATES = { humanPaths: [] };
+
+/** `spec` with the stack diagram of `manifest` between markers at its end, so it does not drift. */
+const drawn = (spec: string, manifest: Manifest) =>
+  withStackDiagram(`${spec}\n${STACKS_OPEN}\n${STACKS_CLOSE}\n`, manifest);
 
 const manifestOf = (tasks: ReadonlyArray<{ readonly prd: string; readonly spec: string }>) =>
   decodeManifest({
@@ -144,7 +148,12 @@ it.prop(
     const ids = Array.map(levels, (_, index) => prdId(index));
     const manifest = manifestOf(Array.map(ids, (prd) => ({ prd, spec: "spec.plan" })));
     expect(
-      lint(prdOf(levels), specWith("Implements", ids), Option.some(manifest), NO_GATES),
+      lint(
+        prdOf(levels),
+        drawn(specWith("Implements", ids), manifest),
+        Option.some(manifest),
+        NO_GATES,
+      ),
     ).toEqual([]);
   },
 );
@@ -347,7 +356,7 @@ it("orders findings by file, then by line, with manifest findings last", () => {
   const spec = "# Spec {#spec.spec}\n\n## Plan\n\n- Implements: `prd.gone`\n";
   const manifest = manifestOf([{ prd: "prd.gone", spec: "spec.plan" }]);
   expect(
-    Array.map(lint(prd, spec, Option.some(manifest), NO_GATES), (finding) => [
+    Array.map(lint(prd, drawn(spec, manifest), Option.some(manifest), NO_GATES), (finding) => [
       finding.file,
       finding.line,
       finding.rule,

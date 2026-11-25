@@ -238,9 +238,11 @@ it.effect("a second run does not call Planner.spec and plans from the edited fil
         "Stack 1",
         "  t1  pending  Add capture  sonnet/high  new",
         "Wrote .cairn/manifest.json",
+        "Drew the stack diagram in .cairn/spec.md",
       ]);
       const after = yield* text("spec.md");
-      expect(after).toBe(edited);
+      expect(String.startsWith(edited)(after)).toBe(true);
+      expect(after).toContain("cairn:stacks");
     }),
   ),
 );
