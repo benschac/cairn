@@ -332,7 +332,7 @@ it.effect(
         Layer.provide(modelIn(dir, "claude")),
         Layer.provide(NodeServices.layer),
       );
-      const drafts = yield* Planner.use((p) => p.tasks("prd", "spec")).pipe(
+      const drafts = yield* Planner.use((p) => p.tasks("prd", "spec", [], [])).pipe(
         Effect.provide(planner),
       );
       expect(Array.map(drafts, (d) => d.title)).toEqual(["Add a"]);
@@ -376,7 +376,7 @@ const planning = (dir: string, cli: CliName) =>
     Layer.provide(NodeServices.layer),
   );
 
-const tasks = Planner.use((p) => p.tasks("prd", "spec"));
+const tasks = Planner.use((p) => p.tasks("prd", "spec", [], []));
 
 /** A claude result with no `structured_output`: the answer is in the `result` text. */
 const claudeSaying = (text: string) =>

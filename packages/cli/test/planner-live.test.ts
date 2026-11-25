@@ -626,7 +626,7 @@ const rendered = Effect.gen(function* () {
   return {
     retry: yield* prompts.retry("the first prompt", "the decode error"),
     spec: yield* prompts.spec("the prd"),
-    tasks: yield* prompts.tasks("the prd", "the spec"),
+    tasks: yield* prompts.tasks("the prd", "the spec", [], []),
   };
 }).pipe(Effect.provide(NodeServices.layer));
 
@@ -662,7 +662,7 @@ it.effect("the tasks prompt shows the model table of the config it was made for"
       judge: { models: { tiny: "Changes that need no thought" } },
     });
     const prompts = yield* loadPrompts(config.judge.models);
-    const prompt = yield* prompts.tasks("prd", "spec");
+    const prompt = yield* prompts.tasks("prd", "spec", [], []);
     expect(prompt).toContain("tiny");
     expect(prompt).toContain("Changes that need no thought");
     expect(prompt).not.toContain("haiku");
@@ -694,7 +694,7 @@ it.effect.prop(
   ([prd, specText]) =>
     Effect.gen(function* () {
       const prompts = yield* loadPrompts(defaultConfig.judge.models);
-      const prompt = yield* prompts.tasks(prd, specText);
+      const prompt = yield* prompts.tasks(prd, specText, [], []);
       expect(prompt).toContain(prd);
       expect(prompt).toContain(specText);
     }).pipe(Effect.provide(NodeServices.layer)),

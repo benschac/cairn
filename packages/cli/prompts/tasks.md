@@ -8,7 +8,7 @@ A task is a draft with these fields:
 - `prdSections`: the IDs of the PRD sections the task helps to build. At least one. Each ID must appear in the PRD below, written the same way, for example `prd.cli`.
 - `specSections`: the IDs of the spec sections the task builds. At least one. Each ID must be the ID of a heading in the spec below, for example `spec.models`. The task builds what those sections describe, so the agent will be given their text.
 - `files`: the files the task creates or changes, including its tests. Take them from the `Files` keys of the spec sections the task builds and add what the work obviously needs, such as an index that re-exports a new module. Do not list files that belong to another task.
-- `dependsOn`: the exact titles of the other tasks in your reply that must land before this one, copied character for character. Use it when this task needs code that another task writes. Leave it empty when the task can be built from what already exists. A task never depends on itself, and the dependencies never form a cycle. Prefer the fewest dependencies that are true: each one narrows the order in which the tasks can be built.
+- `dependsOn`: the exact titles of the other tasks in your reply that must land before this one, copied character for character, or the ID of a task that is already planned (see below), such as `t12`. Use it when this task needs code that another task writes. Leave it empty when the task can be built from what already exists. A task never depends on itself, and the dependencies never form a cycle. Prefer the fewest dependencies that are true: each one narrows the order in which the tasks can be built.
 - `model`: which model should build the task, named as in the table below.
 - `reasoning`: how hard that model should think about it: `low`, `medium`, `high`, `xhigh` or `max`.
 
@@ -24,7 +24,17 @@ For reasoning, `low` suits a mechanical change that follows an example already i
 
 Every task is one reviewable diff: something a person can read in one sitting and say yes or no to. A good task builds one spec section, or a few small related ones, and touches a handful of files. A task that touches many unrelated files, or that mixes a schema, a service and a command, is too large: split it along those lines, and let the later parts depend on the earlier ones. A task that only renames something in one file is too small: fold it into the task it belongs to. Put a task's tests in the same task as the code they test, never in a separate task after it.
 
-Cover the whole spec. Every spec section that builds something has to be built by some task, and every PRD section that the spec says it implements has to appear in the `prdSections` of some task. A spec section that only gives context needs no task.
+Cover the spec sections you were given, and only those. Every one of them that builds something has to be built by some task, and every PRD section that those spec sections implement has to appear in the `prdSections` of some task. A spec section that only gives context needs no task. Do not draft a task for a spec section that is not in the list: it is built already, or a person is dealing with it.
+
+## What to draft
+
+Draft tasks for these spec sections: {{sections}}
+
+## Tasks already planned
+
+These tasks are already in the plan and cannot change. A new task may depend on one by its ID in `dependsOn`, when it needs the code that task writes. Do not draft a task that repeats one of them.
+
+{{existing}}
 
 ## What you do not decide
 

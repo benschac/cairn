@@ -448,3 +448,34 @@ it("a body hash is the SHA-256 in hex of the body without trailing whitespace on
   expect(bodyHashOf("a \nb")).toBe(bodyHashOf("a\nb"));
   expect(bodyHashOf("a\n\nb")).not.toBe(bodyHashOf("a\nb"));
 });
+
+it("the stack diagram's section covers nothing, though its Context names the PRD's top section", () => {
+  const prd =
+    "# Notes {#prd.notes}\n\n## Capture {#prd.capture}\n\nKeep.\n\n## Share {#prd.share}\n\nShare.\n";
+  const spec = Array.join(
+    [
+      "# Spec {#spec.spec}",
+      "",
+      "## Capture {#spec.capture}",
+      "",
+      "- Implements: `prd.capture`",
+      "- Files: `src/capture.ts`",
+      "",
+      "## Stacks {#spec.stacks}",
+      "",
+      "- Context: `prd.notes`",
+      "",
+    ],
+    "\n",
+  );
+  const index: SpecIndex = {
+    manifest: ".cairn/manifest.json",
+    prd: ".cairn/prd.md",
+    sections: [],
+    source: ".cairn/spec.md",
+    version: 1,
+  };
+  expect(replanOf(prd, spec, index, Option.none()).uncovered).toEqual(["prd.share"]);
+  const findings = lint(prd, spec, Option.none(), { humanPaths: [] });
+  expect(Array.map(findings, (finding) => finding.rule)).toContain("unmapped-section");
+});
