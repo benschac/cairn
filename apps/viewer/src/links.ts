@@ -689,14 +689,32 @@ export const linkOf = (model: Model): Link => {
   const prdPassage = Option.filter(maybePassage, (passage) =>
     Option.exists(maybePinned, (id) => id === passage.section),
   );
+  const specPassage = Option.filter(maybePassage, (passage) => isSpecSection(passage.section));
+  // A spec passage whose section implements no PRD section has no card, so opening it starts the
+  // trail on its section. The passage step implies that first trail step, so it is not written.
+  const isImpliedSection = (node: Node): boolean =>
+    Option.exists(specPassage, (passage) => {
+      const id: string = passage.section;
+      return node.kind === "section" && id === node.id;
+    }) &&
+    Option.exists(
+      Option.flatMap(AsyncData.getData(model.trace), (trace) =>
+        Array.findFirst(trace.spec.sections, (section) => section.id === node.id),
+      ),
+      (section) => Array.isReadonlyArrayEmpty(section.keys.implements),
+    );
+  const trail = Option.match(Array.head(model.detail), {
+    onNone: () => model.detail,
+    onSome: (first) => (isImpliedSection(first) ? Array.drop(model.detail, 1) : model.detail),
+  });
   return Array.flatten<ReadonlyArray<ReadonlyArray<Step>>>([
     Option.match(prdPassage, {
       onNone: () => Array.map(Array.fromOption(maybePinned), sectionStep),
       onSome: (passage) => [passage],
     }),
-    Array.fromOption(Option.filter(maybePassage, (passage) => isSpecSection(passage.section))),
+    Array.fromOption(specPassage),
     Array.fromOption(model.reader.maybeFocus),
-    Array.filterMap(model.detail, trailStepOf),
+    Array.filterMap(trail, trailStepOf),
     Option.match(
       Option.all({
         code: Option.liftPredicate(model.screen, Screen.guards.Code),

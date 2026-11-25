@@ -255,6 +255,77 @@ it("a turn that waited for its session is brought into view once the session arr
   ]);
 });
 
+it("a turn of another session than the commit before it opens that session's newest commit", () => {
+  const commits = Array.flatMap(demoTrace.tasks, (candidate) => candidate.commits);
+  const first = Option.getOrThrow(
+    Array.findFirst(commits, (commit) => Option.isSome(Option.fromNullishOr(commit.session))),
+  );
+  const other = Option.getOrThrow(
+    Array.findFirst(commits, (commit) =>
+      Option.filter(Option.fromNullishOr(commit.session), (id) => id !== first.session),
+    ),
+  );
+  const newest = Option.getOrThrow(sessionCommitOf(demoTrace, other));
+  const opened = openLink(loaded, [
+    decodeStep({ kind: "commit", sha: first.sha }),
+    decodeStep({ kind: "turn", session: other, turn: "c1" }),
+  ]).model;
+  expect(opened.screen).toEqual(
+    Screen.Code({
+      maybeFile: Option.none(),
+      maybeLines: Option.none(),
+      shown: Shown.OneCommit({ sha: newest.commit.sha }),
+      taskId: newest.task.id,
+    }),
+  );
+  expect(Array.last(linkOf(opened))).toEqual(
+    Option.some({ kind: "turn", session: other, turn: "c1" }),
+  );
+});
+
+/** A spec section that implements no PRD section, or one that does, and its first four words. */
+const specPassageOf = (isCardless: boolean) =>
+  Option.getOrThrow(
+    Array.findFirst(demoTrace.spec.sections, (candidate) =>
+      pipe(
+        Option.liftPredicate(
+          candidate,
+          (found) => Array.isReadonlyArrayEmpty(found.keys.implements) === isCardless,
+        ),
+        Option.flatMap((found) =>
+          Array.findFirst(indexOf(demoTrace).content, (entry) =>
+            entry.node.id === found.id
+              ? Array.findFirst(entry.fields, (field) => field.kind === "prose")
+              : Option.none(),
+          ),
+        ),
+        Option.map((field) =>
+          Array.join(Array.take(String.split(String.trim(field.text), /\s+/u), 4), " "),
+        ),
+        Option.filter(String.isNonEmpty),
+        Option.map((words) => ({ section: candidate.id, words })),
+      ),
+    ),
+  );
+
+it("a passage of a spec section with no card opens to itself, and its trail does not grow", () => {
+  const { section, words } = specPassageOf(true);
+  const link = [decodeStep({ kind: "passage", quote: words, section })];
+  const once = openLink(loaded, link).model;
+  expect(once.detail).toEqual([{ id: section, kind: "section" }]);
+  expect(linkOf(once)).toEqual(link);
+  const twice = openLink(loaded, linkOf(once)).model;
+  expect(twice.detail).toEqual(once.detail);
+  expect(linkOf(twice)).toEqual(link);
+  // A passage with a card implies no trail step, so its section opened in the panel is written.
+  const carded = specPassageOf(false);
+  const withCard = [
+    decodeStep({ kind: "passage", quote: carded.words, section: carded.section }),
+    decodeStep({ id: carded.section, kind: "section" }),
+  ];
+  expect(Array.drop(linkOf(openLink(loaded, withCard).model), 1)).toEqual(withCard);
+});
+
 it("a link to a task the trace lacks opens nothing and says so", () => {
   const opened = openLink(loaded, [decodeStep({ id: "zz404", kind: "task" })]).model;
   expect(opened.screen).toEqual(Screen.Reader());

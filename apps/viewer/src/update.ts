@@ -359,10 +359,16 @@ const appliedStep = (trace: Trace, model: Model, step: Step): Model =>
         reader: (reader) => modifyFields(reader, { maybeFocus: () => Option.some(focus) }),
       }),
     task: ({ id }) => trailedOn(model, { id, kind: "task" }),
-    // With no code step before it, a turn opens the code view on its session's newest commit.
+    // With no code step before it, a turn opens the code view on its session's newest commit. A
+    // code step whose commit is another session's counts as none: its session pane cannot show it.
     turn: ({ session, turn }) =>
       turnHighlighted(
-        Screen.guards.Code(model.screen)
+        Option.exists(
+          Option.flatMap(Option.liftPredicate(model.screen, Screen.guards.Code), (code) =>
+            Option.flatMap(taskOf(trace, code.taskId), (task) => shownCommitOf(task, code.shown)),
+          ),
+          (commit) => commit.session === session,
+        )
           ? model
           : Option.match(sessionCommitOf(trace, session), {
               onNone: () => model,
