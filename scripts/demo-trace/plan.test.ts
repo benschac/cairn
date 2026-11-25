@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { SessionId, TaskId } from "@cairn/contract";
+import { readFileSync } from "node:fs";
+
+import { Event, Manifest, SessionId, TaskId, defaultConfig } from "@cairn/contract";
+import type { TaskStatus } from "@cairn/contract";
+import { GitCommit, derive } from "@cairn/core";
 import { Array, DateTime, Option, Schema, String } from "effect";
 
 import { eventsOf, firstDifference, latest, parseShown, SHOW_FORMAT } from "./plan.ts";
@@ -88,24 +92,23 @@ await test("eventsOf leaves the model off the running event of a task with no se
   assert.equal(running?.reasoning, undefined);
 });
 
-await test("eventsOf gives a task that is not done no events", () => {
+await test("eventsOf gives a pending task no events, and a running one only running", () => {
+  const task = { id, model: "sonnet", reasoning: "low", sessions: [session] } as const;
+  assert.deepEqual(eventsOf({ ...task, status: "pending" }, false, "human:ann", at), []);
   assert.deepEqual(
-    eventsOf(
-      { id, model: "sonnet", reasoning: "low", sessions: [session], status: "pending" },
-      false,
-      "human:ann",
-      at,
-    ),
-    [],
+    Array.map(eventsOf({ ...task, status: "running" }, true, "human:ann", at), (e) => e.status),
+    ["running"],
   );
   assert.deepEqual(
-    eventsOf(
-      { id, model: "sonnet", reasoning: "low", sessions: [session], status: "running" },
-      true,
-      "human:ann",
-      at,
+    Array.map(eventsOf({ ...task, status: "failed" }, false, "human:ann", at), (e) => e.status),
+    ["running", "failed"],
+  );
+  assert.deepEqual(
+    Array.map(
+      eventsOf({ ...task, status: "blocked_on_human" }, true, "human:ann", at),
+      (e) => e.status,
     ),
-    [],
+    ["running", "blocked_on_human"],
   );
 });
 
@@ -124,5 +127,55 @@ await test("firstDifference names the first line that differs, or none for equal
   assert.deepEqual(
     firstDifference("a", "a\nb"),
     Option.some('line 2: committed "(end of file)", generated "b"'),
+  );
+});
+
+const manifest = Schema.decodeSync(Schema.fromJsonString(Manifest))(
+  readFileSync(new URL("../../.cairn/manifest.json", import.meta.url), "utf8"),
+);
+const decodeEvents = Schema.decodeUnknownSync(Schema.Array(Event));
+const statuses: ReadonlyArray<TaskStatus> = [
+  "pending",
+  "running",
+  "blocked_on_human",
+  "failed",
+  "done",
+  "landed",
+];
+
+await test("every status the manifest records survives eventsOf and derive, gated or not", () => {
+  const template = Array.headNonEmpty(manifest.tasks);
+  Array.forEach([false, true], (gated) =>
+    Array.forEach(statuses, (status) => {
+      // Only a gated task can wait on a human; the derivation reads an ungated one as done.
+      if (status === "blocked_on_human" && !gated) return;
+      const task = { ...template, files: [], humanGate: { required: gated, reasons: [] }, status };
+      const events = eventsOf(task, gated, "human:ann", at);
+      // A landed task is one the base branch reaches: the derivation lands it from a commit.
+      const commit = {
+        branch: null,
+        files: [],
+        onBase: true,
+        parents: [],
+        sections: [],
+        session: null,
+        sha: String.repeat(40)("a"),
+        subject: "build it",
+        taskId: task.id,
+      };
+      const derived = derive(
+        { ...manifest, tasks: [task] },
+        [],
+        defaultConfig,
+        decodeEvents(events),
+        status === "landed" ? [Schema.decodeSync(GitCommit)(commit)] : [],
+      );
+      assert.deepEqual(
+        Array.map(derived.tasks, (each) => each.status),
+        [status],
+        `${status}, gated ${gated}`,
+      );
+      assert.deepEqual(derived.warnings, [], `${status}, gated ${gated}`);
+    }),
   );
 });
