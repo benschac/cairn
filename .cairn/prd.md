@@ -109,6 +109,31 @@ The plan is a set of stacks that can be built at the same time, not one long sta
 - `cairn serve` starts the local viewer. {#prd.cli.serve}
 - `cairn link` prints a link into the viewer (see deep links). {#prd.cli.link}
 - `cairn note` adds a note or a review to `cairn.db`, anchored by a link (see notes). {#prd.cli.note}
+- `cairn watch` shows the run live in the terminal (see terminal view). {#prd.cli.watch}
+- `cairn mcp` starts a local MCP server for the current repo over stdio (see agent access). {#prd.cli.mcp}
+
+## Agent access {#prd.agent-access}
+
+An agent can use Cairn through the CLI or through MCP. The CLI remains a complete interface for people and agents with shell access. A short Markdown guide or skill explains the workflow, the review checkpoints and how to recover from errors. MCP adds discoverable tools with structured inputs and results for clients that support it; neither interface requires the other.
+
+The first step is a local adapter over Cairn's commands, independent of hosted rooms or multiplayer. CLI commands and MCP tools call the same operations and use the schemas in `contract`, so validation, file writes, redaction and gate rules stay the same. The adapter does not construct shell commands or parse terminal output.
+
+- Expose each available agent-usable command operation as a named tool with a description, input and output schemas, structured results and actionable errors. Add tool coverage as commands ship; do not advertise unimplemented commands. Commands that only launch the CLI or MCP transport are not tools themselves.
+- Bind the server to one repo at startup. Tool calls cannot switch it to an arbitrary repo. Start with stdio, with protocol messages on stdout and logs on stderr; remote HTTP access and authentication are later work.
+- Distinguish reads, local writes, model calls that incur cost and external writes in tool descriptions and metadata. Metadata describes the operation; the shared operation enforces its rules.
+- Preserve planning's questions and two review checkpoints. A call that needs a decision returns what needs review and how to continue, rather than waiting on a terminal prompt. Continuation applies to the reviewed revision and refuses a stale decision. Do not silently enable `--yes` or treat calling a tool as approval.
+- Human-only operations such as gate approval remain human-only and are not exposed as agent tools. The agent receives the blocked state and the human action needed to continue.
+- Long-running work reports progress and supports cancellation. Starting the viewer returns its address without holding the tool call open; stopping the MCP server cleans up processes it owns. A cancelled or failed operation reports any changes already made.
+- Include setup instructions for a local MCP client and the CLI workflow guide. Both explain the same operations and limits; users do not need an MCP client to use Cairn.
+
+Done when:
+
+- A local MCP client discovers the implemented tools, initializes a scratch repo, assigns IDs, plans through the review checkpoints, lints and reads status without invoking a shell itself.
+- Equivalent CLI and MCP operations produce the same project state and validation failures on the same fixtures.
+- A planning call pauses for review, resumes only against the reviewed revision and cannot approve a human gate.
+- Logs do not corrupt the stdio protocol, and cancelling work or disconnecting leaves no owned process running or unreported partial write.
+
+An agent planning as a participant in a shared room is a later extension of this interface, not a prerequisite for local MCP access.
 
 ## Planning from a PRD {#prd.planning}
 
@@ -683,6 +708,61 @@ Code and conversation link both ways:
 
 Cairn reads Claude Code session logs first. Other agents' logs come with their adapters.
 
+## Terminal view {#prd.terminal}
+
+`cairn watch` shows where the run stands without leaving the terminal. It is a second reader of the Trace the viewer reads, the one `cairn status --json` prints, and holds no state of its own. It is read-only, like the viewer: it starts, stops and retries nothing, because the orchestrator runs the tasks and Cairn does not. Closing it changes nothing about the run, and any number of terminals and browsers can watch the same repo at once.
+
+It is for hierarchy and status, not for the viewer's curves or its code view. For those it prints the link `cairn link` would.
+
+Layout:
+
+- Top line: the feature's name, then counts of tasks by status (pending, running, blocked on a human, failed, done, landed), the cost so far where the events carry it, and the time since the first event.
+- Left: the stacks as a tree, each task with its status and gate marker, in the order `cairn status` prints them. Tasks waiting on a human are also listed first, above the tree.
+- Right: the selected task: its PRD and spec sections, branch and worktree, the model and reasoning level it ran with beside what the plan chose, its attempts with their usage and cost, its events in order, its gate reasons and its commits with their session IDs.
+- Bottom line: the keys that apply to the selection.
+
+A terminal too narrow for both panes shows the tree alone, and Enter opens the task in place of it.
+
+### Keys {#prd.terminal.keys}
+
+- Up and down, or `j` and `k`, move the selection. Enter opens the selected task and Escape returns to the tree.
+- `/` filters the tree by task ID, title or section ID as it is typed. `f` cycles a status filter.
+- `o` opens the selected task in the viewer, at its deep link, when `cairn serve` is running; otherwise it shows the link.
+- `?` lists the keys. `q` leaves.
+
+A key that does not apply to the selection is not shown and does nothing.
+
+### One model, two views {#prd.terminal.shared}
+
+- The terminal view is built the way the viewer is: a Schema-defined Model, fact-named Messages, one `update` and one `view`. Only `view` knows about the terminal.
+- Counts, rollups, tree order and status derivation come from `core`, the same functions the viewer and `cairn status` use. Neither interface computes its own.
+- It follows `.cairn/` and git the way the viewer's server does, as a Stream of Traces. A change redraws only what changed, and a burst of events is drawn once, not once per event.
+- Memory does not grow with the length of the run: it holds the current Trace and the selected task's events, not a log of everything seen.
+- After an interruption, such as a sleeping laptop or a rewritten `events.jsonl`, it reads the Trace again from the files. There is nothing to reconcile, because it kept nothing.
+
+### Terminals {#prd.terminal.terminals}
+
+- When stdout is not a terminal, `cairn watch` draws nothing, exits with an error and names `cairn status --json`. It never prompts.
+- It honours `NO_COLOR`, uses colour only beside a symbol or a word that says the same thing, and falls back to ASCII symbols where the terminal does not report UTF-8.
+- It redraws on resize.
+- On `q`, on Ctrl-C and on a failure it restores the terminal: the main screen, the cursor and the input mode. Its fibers and file watchers live in one Scope that closes on every exit.
+- A failure in the terminal view cannot touch the run, since it only reads.
+
+### Rendering library {#prd.terminal.library}
+
+A spike chooses the library before the view is built. The library must run on every Node version Cairn supports with no experimental flag, install from npm with no build step on macOS, Linux and Windows, need no UI framework, and render to memory so a test can assert on a frame.
+
+[OpenTUI](https://opentui.com/docs/) is the first candidate, through its framework-independent core. As of November 2026 its documentation asks for Node 26.4 with `--experimental-ffi`, which fails the first requirement. If that still holds at the spike, the view is drawn with [Terminal Kit](https://github.com/cronvel/terminal-kit) or plain ANSI output behind the same `view`, and OpenTUI can replace it later without touching the Model or `update`.
+
+Done when:
+
+- `cairn watch` on this repo shows the same statuses and counts as `cairn status` and the viewer, and a line appended to `events.jsonl` changes the tree without a key press.
+- Every key above is exercised by a test that sends the key to `update` and asserts on the rendered frame, including a key that must be ignored.
+- A test renders the same Trace at a wide and a narrow size and gets the two layouts.
+- A fixture of several hundred tasks and a burst of several thousand events keeps the selection moving and does not grow memory with the number of events.
+- Leaving by `q`, by Ctrl-C and by a thrown defect each restores the terminal and leaves no watcher open.
+- `cairn watch` piped to a file writes no escape sequence and exits non-zero.
+
 ## Deep links {#prd.deep-links}
 
 Everything the viewer shows has a link, and links compose, so a person can send someone to an exact point: this passage of the PRD, then the spec section that implements it, then the line of the stacked diff that builds it.
@@ -917,7 +997,7 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 
 A person signs in to a room, so the room knows who wrote what. Accounts exist only in the hosted room: `cairn serve` on a person's own machine has none, as in v1.
 
-- Sign-in is [Better Auth](https://www.better-auth.com/), run in the room's Worker through [Alchemy's Better Auth integration](https://alchemy.run/better-auth/what-is-better-auth/). Its users, linked accounts, sessions and one-time tokens live in [D1](https://alchemy.run/better-auth/databases/cloudflare-d1/), so a deploy needs nothing outside Cloudflare but the two OAuth apps, and the GitHub App when the room shows code (see code and sessions in the room).
+- Sign-in is [Better Auth](https://www.better-auth.com/), run in the room's Worker through [Alchemy's Better Auth integration](https://alchemy.run/better-auth/what-is-better-auth/). Its users, linked accounts, sessions and one-time tokens live in [D1](https://alchemy.run/better-auth/databases/cloudflare-d1/), so a deploy needs nothing outside Cloudflare but the two OAuth apps, and the optional GitHub App when the room shows private repository code (see code and sessions in the room).
 - Three ways in, none with a password: [GitHub](https://www.better-auth.com/docs/authentication/github), [Google](https://www.better-auth.com/docs/authentication/google), and a [magic link](https://www.better-auth.com/docs/plugins/magic-link) sent by email. A link works once and expires after five minutes.
 - Magic links are sent with [Cloudflare Email Service](https://developers.cloudflare.com/email-service/), from a sending subdomain of the site's domain, through Alchemy's `Cloudflare.Email.Send` binding. Email Service is in beta; if it cannot send to any address, a transactional email provider takes its place behind the same service.
 - One person is one user. A sign-in joins the user that already has its email when the provider has confirmed that email ([account linking](https://www.better-auth.com/docs/concepts/users-accounts)), so GitHub, Google and a magic link to the same address reach the same user. No provider is trusted to link an email it has not confirmed.
@@ -948,21 +1028,27 @@ Where they live:
 How the viewer gets them depends on where it runs:
 
 - The local viewer, from `cairn serve`, reads the checkout and `cairn.db` as in v1. It fetches a teammate's session from the remote with the machine's own git credentials.
-- The hosted viewer has no checkout to read. The room's Worker fetches the diff or the session from GitHub through a GitHub App the team installs on its organisation or on the one repo, with read access to contents and nothing else. The Worker passes what it fetched to the browser and writes it to no storage and no log.
-- When a person opens a diff or a session in the hosted viewer and the App is not installed on that repo, the pane says why it is empty: this browser is not reading from a checkout, so the room needs the App to show code. It offers to install the App. A person who cannot install it on the organisation is sent to GitHub's request to an owner, and the pane says the request is waiting.
+- The hosted viewer has no checkout to read. For a public GitHub repository, the room's Worker fetches diffs directly from GitHub's REST API without requiring an App installation, a GitHub sign-in or a personal access token. Room sign-in still applies. Publicly available shared sessions use the same path.
+- Public API requests are authenticated server-side by default. When a person has signed in with GitHub and Cairn has a valid OAuth access token, the Worker uses that token: the normal REST allowance is 5,000 requests per hour per user, shared with other requests made on that user's behalf. Signing in alone does not raise the limit; the API request must carry the token.
+- For people signed in through Google or email, or without a usable GitHub user token, the Worker fetches public data using Cairn's OAuth app client ID and client secret. The normal allowance is 5,000 requests per hour per OAuth app, shared across these users. This requires no GitHub App installation and grants no private repository access. OAuth app secrets and user access tokens stay server-side and never appear in browser responses or logs.
+- For a private repository, showing code is optional. The team installs a GitHub App on its personal account or organisation and grants access to selected repositories, with read-only Contents permission and GitHub's required Metadata permission. Connecting one of those repositories to a room explicitly enables its code access; signing in with GitHub alone does not grant it.
+- The Worker uses short-lived installation access tokens scoped to the connected repository. The App's private key and tokens never reach the browser. It passes fetched code and sessions to the browser and writes them to no storage and no log.
+- When a person opens a private diff or session without the required installation or repository access, the pane explains what is missing and offers to install the App or update its repository selection. A person who cannot install it on the organisation is sent to GitHub's request to an owner; Cairn shows access as pending until GitHub grants it.
+- Both paths respect GitHub's rate limits and retry guidance. An exhausted limit shows a temporary unavailable state and when to retry, rather than an empty diff or an installation requirement. Unauthenticated REST requests, if used as a fallback for public data, have only 60 requests per hour per originating IP; the hosted service does not depend on that allowance for normal use. These are GitHub's normal primary limits, not fixed guarantees: Enterprise allowances can differ, secondary limits still apply, and the Worker follows the response rate-limit and retry headers. See [GitHub's REST API rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
+- Diffs use the recorded base and head commit IDs, with the same task and commit boundaries as the local code view. A missing commit or a truncated, oversized or unavailable patch is labelled explicitly; a partial diff is never presented as complete.
 - The PRD, the spec, statuses, notes and presence need no App.
 - A commit that has not been pushed shows as not pushed, with no diff.
 
 Who sees them:
 
-- By default, code and sessions are shown only to members whose GitHub account can read the repo, checked with GitHub when they open one. The room's token is a plain string, and a leaked token should not show anyone the code.
-- The person who connected the repo can open code and sessions to every member of the room. That is how a person with no GitHub seat sees them.
+- Public repository code needs no per-member GitHub authorization. For private repositories, code and sessions are shown by default only to members whose GitHub account can read the repo, checked with GitHub when they open one. The room's token is a plain string, and a leaked token should not show anyone the code.
+- The person who connected the private repo can explicitly open code and sessions to every member of the room, after being told that this grants access even to members without repository access. That is how a person with no GitHub seat sees them.
 - A member who may not see them still sees every status, and the pane says why the code is hidden.
 
 What Cairn can read:
 
 - The PRD, the spec, notes, statuses and events are stored in the room, so the hosted service can read them at rest. They are the only content of a team's that it holds. Cloudflare encrypts them at rest, and a team on the hosted service is offered a data processing agreement.
-- Code and sessions pass through the room's Worker on the way to the browser, so the hosted room could read them in passing. It keeps neither. Uninstalling the App ends the room's access and leaves nothing of the repo behind.
+- Code and sessions pass through the room's Worker on the way to the browser, so the hosted room could read them in passing. It keeps neither. Disconnecting a private repository, removing it from the installation, or uninstalling or suspending the App stops subsequent private code and session reads. Content already delivered to a browser cannot be taken back. Public repositories remain readable through the public API.
 - A team that accepts neither runs the room in its own Cloudflare account with `alchemy deploy`, with a GitHub App it registered itself. Cairn's hosted service then never sees the repo.
 - The App's ID and private key are Alchemy config bindings, like the OAuth client secrets. None is in the repo.
 - GitHub is the only git host the hosted viewer reads at first.
@@ -971,11 +1057,15 @@ A spike proves the fit before this is built: from a Worker, the App reads a comm
 
 Done when:
 
-- A person who signs in to a room in a browser, on a machine with no checkout, opens a task and sees its diff and its agent session, once the App is installed on the repo.
-- Before the App is installed, the same person reads the PRD and the spec and sees every status, and the diff pane says the App is not installed and offers to install it or to ask an owner.
+- A signed-in room member with no checkout or GitHub account opens a task from a public repository and sees its diff without installing an App.
+- Public diff requests use a valid GitHub user OAuth token when available, and otherwise the server's OAuth app credentials, including for Google and email sign-ins. Neither credential reaches the browser or logs; exhausted budgets show when to retry.
+- A person who signs in to a room in a browser, on a machine with no checkout, opens a private task and sees its diff and shared agent session once the team enables access through the App and the person meets the room's code permissions.
+- Before the App is installed for a private repository, the same person reads the PRD and the spec and sees every status, and the diff pane says the App is not installed and offers to install it or to ask an owner.
 - A session written on one person's machine opens in a teammate's local viewer.
-- A member whose GitHub account cannot read the repo sees statuses and is told why the code is hidden, until the person who connected the repo opens code to every member.
-- After the App is uninstalled, opening a diff in the hosted viewer shows the install prompt again.
+- A member whose GitHub account cannot read the private repo sees statuses and is told why the code is hidden, until the person who connected the repo opens code to every member.
+- After the App is uninstalled or its repository access is removed, new private diff requests are denied with an explanation and a way to reconnect; public diffs still work without the App.
+- A public repository becoming private stops unauthenticated code access and offers the private-repository connection flow without exposing previously fetched code to new readers.
+- A rate-limited request or an incomplete GitHub patch shows its specific limitation and never appears as a complete, empty diff.
 - After `cairn session unshare` on a shared session, a teammate's viewer and the room both show it as not shared, and the command says to rotate any secret the log held.
 
 ### Multiplayer acceptance criteria {#prd.v2-multiplayer-on-cloudflare.multiplayer-acceptance-criteria}
@@ -998,6 +1088,7 @@ Done when:
 - Rich editing beyond markdown: embeds, comments, and inline diffs.
 - A map of the whole plan on one screen: every PRD section, spec section and stack at once, with every curve drawn. The prototype has it as its Map variant.
 - An inbox view of agent activity across rooms.
+- More in the terminal view: approving a gate, reading the plan and its two reviews, and following an agent's output while it runs. The last needs the orchestrator to publish output as it is written, which the orchestrator contract does not ask for. Starting, detaching from and cancelling a run stay with the orchestrator unless Cairn becomes one.
 - Drift detection that flags or proposes spec updates when code diverges.
 - Cost per PRD section, and the outcome metrics drawn in the viewer as well as printed by `cairn stats`: cost by model and category, trends over time and retry chains.
 - Choosing a recovery during a run: after a failed attempt, pick a retry, a stronger model, another harness, more context or a smaller task from the failure reason and the attempts so far.
@@ -1009,7 +1100,7 @@ Done when:
 - Code and sessions read from GitLab and other git hosts, and sessions encrypted on the machine that made them, for a team that wants a hosted room unable to read them even in passing.
 - A SOC 2 report for the hosted service.
 - [Effect Cluster](https://alchemy.run/cluster/what-is-effect-cluster/) for durable work that waits, such as room invitations by email and scheduled cleanup. On Cloudflare its [Durable Object pool](https://alchemy.run/cluster/cloudflare) makes each entity a Durable Object reached over RPC, with its state in memory, so the room itself stays a plain Durable Object with hibernatable WebSockets.
-- Cairn's commands as MCP tools, so an agent session plans as a participant in the room instead of being run by `cairn plan`.
+- An agent session planning as a participant in a shared room through MCP, building on local agent access.
 - Scoring planners against a reference plan, so a provider is chosen on measured quality and cost.
 - State diagrams drawn from the machines themselves.
 - A plan split across several PRD files, with one set of section IDs and one manifest.
