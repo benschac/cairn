@@ -8762,7 +8762,12 @@
       "children": [],
       "human": false,
       "implements": [],
-      "files": ["packages/cli/src/judge.ts"],
+      "files": [
+        "packages/cli/src/judge.ts",
+        "packages/core/src/judging/questions.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/questions.test.ts"
+      ],
       "dependsOn": ["spec.models", "spec.judging.verdicts"],
       "defers": [],
       "context": [],

@@ -1444,7 +1444,13 @@
       "title": "Add the Judge service with a scripted layer",
       "prdSections": ["prd.judging-the-plan", "prd.implementation-in-effect"],
       "specSections": ["spec.judging.judge-service"],
-      "files": ["packages/cli/src/judge.ts", "packages/cli/test/judge.test.ts"],
+      "files": [
+        "packages/cli/src/judge.ts",
+        "packages/cli/test/judge.test.ts",
+        "packages/core/src/judging/questions.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/questions.test.ts"
+      ],
       "branch": "cairn-mvp/60-judge-service",
       "parent": null,
       "dependsOn": ["t57", "t59"],

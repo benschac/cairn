@@ -127,53 +127,65 @@ const REASONING = [
 ] as const satisfies ReadonlyArray<{ readonly description: string; readonly label: Reasoning }>;
 
 /**
- * The questions for a task. `model` classifies the task into one of `models`, the names in
- * `judge.models` with when to use each, so the definition is built from config.
- * `Decision.classify` throws when `models` names fewer than two models, which `Config` still
- * accepts: a caller with fewer than two has no model to choose and must not build this.
+ * The task questions without `model`: `matches`, `reasoning` and `size`, which do not depend on
+ * config. The judge asks these alone when `judge.models` names fewer than two models, since there
+ * is nothing to choose between; `taskQuestions` adds `model` to them.
+ */
+export const taskQuestionsWithoutModel = Decision.make({
+  decisions: {
+    matches: Decision.probability({
+      criteria: {
+        false:
+          "Its title or files leave out what its spec sections ask, or reach past them. Example: a task for spec.lint whose files leave out packages/cli/src/commands/lint.ts, or add a viewer file the section never names.",
+        true: "Its title and files carry out its spec sections and nothing else. Example: t59, Turn answers into verdicts and routes, touches verdicts.ts and its test, as spec.judging.verdicts asks.",
+      },
+      instructions:
+        "The task's title and files carry out its spec sections, and nothing they do not ask.",
+    }),
+    reasoning: Decision.rate({
+      criteria: REASONING,
+      instructions: "How much reasoning does this task's work need?",
+    }),
+    size: Decision.rate({
+      criteria: [
+        {
+          description:
+            "Less than a diff worth reviewing alone. Example: exporting inputsOf from core's index, a line that belongs with the task that writes inputsOf.",
+          label: "too_small",
+        },
+        {
+          description:
+            "One reviewable diff from one agent session. Example: t58, Define the judging questions and their inputs: one file, its export and its tests.",
+          label: "right",
+        },
+        {
+          description:
+            "More than one agent session or one review. Example: one task that adds the Judge service, the checkpoints in cairn plan and cairn judge.",
+          label: "too_large",
+        },
+      ],
+      instructions: "Is this task one reviewable diff that one agent session can build?",
+    }),
+  },
+  input: TaskJudgingInput,
+});
+
+/**
+ * The questions for a task: `taskQuestionsWithoutModel` and `model`, which classifies the task
+ * into one of `models`, the names in `judge.models` with when to use each, so the definition is
+ * built from config. `Decision.classify` throws when `models` names fewer than two models, which
+ * `Config` still accepts: a caller with fewer than two has no model to choose and must not build
+ * this.
  */
 export const taskQuestions = (models: { readonly [name: string]: string }) =>
   Decision.make({
-    decisions: {
-      matches: Decision.probability({
-        criteria: {
-          false:
-            "Its title or files leave out what its spec sections ask, or reach past them. Example: a task for spec.lint whose files leave out packages/cli/src/commands/lint.ts, or add a viewer file the section never names.",
-          true: "Its title and files carry out its spec sections and nothing else. Example: t59, Turn answers into verdicts and routes, touches verdicts.ts and its test, as spec.judging.verdicts asks.",
-        },
-        instructions:
-          "The task's title and files carry out its spec sections, and nothing they do not ask.",
-      }),
+    decisions: Struct.assign(taskQuestionsWithoutModel.decisions, {
       model: Decision.classify({
         criteria: models,
         instructions:
           "Which model does this task need? Choose from each model's description of when to use it.",
       }),
-      reasoning: Decision.rate({
-        criteria: REASONING,
-        instructions: "How much reasoning does this task's work need?",
-      }),
-      size: Decision.rate({
-        criteria: [
-          {
-            description:
-              "Less than a diff worth reviewing alone. Example: exporting inputsOf from core's index, a line that belongs with the task that writes inputsOf.",
-            label: "too_small",
-          },
-          {
-            description:
-              "One reviewable diff from one agent session. Example: t58, Define the judging questions and their inputs: one file, its export and its tests.",
-            label: "right",
-          },
-          {
-            description:
-              "More than one agent session or one review. Example: one task that adds the Judge service, the checkpoints in cairn plan and cairn judge.",
-            label: "too_large",
-          },
-        ],
-        instructions: "Is this task one reviewable diff that one agent session can build?",
-      }),
-    },
+    }),
     input: TaskJudgingInput,
   });
 

@@ -11,6 +11,7 @@ import {
   sectionQuestions,
   stackQuestions,
   taskQuestions,
+  taskQuestionsWithoutModel,
 } from "../src/index.ts";
 
 const PRD = Array.join(
@@ -350,6 +351,21 @@ describe("the questions", () => {
       );
       const question = taskQuestions(named).decisions.model;
       expect(question.criteria).toEqual(named);
+    },
+  );
+
+  it.prop(
+    "the questions without model are the task questions minus model, on the same input",
+    [Schema.Array(Schema.String).check(Schema.isMinLength(2), Schema.isMaxLength(6))],
+    ([descriptions]) => {
+      const named = Record.fromEntries(
+        Array.map(descriptions, (description, index) => [`model-${index}`, description] as const),
+      );
+      const withModel = taskQuestions(named);
+      expect(taskQuestionsWithoutModel.decisions).toEqual(
+        Struct.omit(withModel.decisions, ["model"]),
+      );
+      expect(taskQuestionsWithoutModel.input).toBe(withModel.input);
     },
   );
 

@@ -2393,13 +2393,13 @@ Properties: raising a probability never turns `pass` into `flag`; lowering confi
 
 ### Judge service {#spec.judging.judge-service}
 
-- Files: `packages/cli/src/judge.ts`
+- Files: `packages/cli/src/judge.ts`, `packages/core/src/judging/questions.ts`, `packages/core/src/index.ts`, `packages/core/test/questions.test.ts`
 - Depends on: `spec.models`, `spec.judging.verdicts`
 
-`Judge.judge(inputs, previous)` returns `Judgments`. For each target it hashes the encoded input with SHA-256. A previous judgment with the same hash and model is kept without a call. The rest go to `DecisionModel.decideSettled`, one request per target with all its questions, four requests at a time. A task's `model` question is left out of the request when `judge.models` names fewer than two models, since there is nothing to choose between.
+`Judge.judge(inputs, previous)` returns `Judgments`. For each target it hashes the encoded input with SHA-256. A task's hash also covers `judge.models`, its names and descriptions sorted by name, because the descriptions are the `model` question's criteria: any change to the catalog, a description alone included, asks every task again. `inputHashesOf(inputs, judge)` gives every target's hash, so the server's stale check computes the same value. A previous judgment with the same hash and model is kept without a call, for the questions the target still asks. The rest go to `DecisionModel.decideSettled`, one request per target with all its questions, four requests at a time. A task's `model` question is left out of the request when `judge.models` names fewer than two models, since there is nothing to choose between; core's `taskQuestionsWithoutModel` is the task definition without it.
 
 - The TypeSafe client does not retry. `Judge` retries a rate-limit error up to three times, waiting the delay the provider gives.
-- Any other `AiError` fails with a `JudgeError` that names the target. A missing key fails with a `JudgeError` that names `TYPESAFE_API_KEY`.
+- Any other `AiError` fails with a `JudgeError` that names the target. A missing key fails with a `JudgeError` that names `TYPESAFE_API_KEY`, when `Judge.live` is built rather than on the first call, so a caller that goes on without a key catches it where it provides the layer.
 - The test layer builds a `DecisionModel` with `DecisionModel.make` and a scripted `decide`. Tests count its calls to show that an unchanged target is not asked again.
 
 ### Checkpoints {#spec.judging.checkpoints}
@@ -4108,7 +4108,7 @@ The viewer polls `/api/trace` every two seconds with `If-None-Match` (the viewer
 
 `Trace` is a contract schema (see `spec.contract.trace`), so the server encodes and the viewer decodes the same type.
 
-Each judgment in the `Trace` carries `stale: boolean`. The server recomputes `inputsOf` and marks a judgment stale when its `inputHash` no longer matches.
+Each judgment in the `Trace` carries `stale: boolean`. The server recomputes `inputsOf` and marks a judgment stale when its `inputHash` no longer matches the hash `inputHashesOf` gives its target (see `spec.judging.judge-service`).
 
 ## Viewer {#spec.viewer}
 
