@@ -9,8 +9,20 @@ import type {
   SectionId,
   SpecIndex,
 } from "@cairn/contract";
-import { Array, HashSet, Option, Predicate, Record, Result, Schema, String, pipe } from "effect";
+import {
+  Array,
+  HashSet,
+  Option,
+  Order,
+  Predicate,
+  Record,
+  Result,
+  Schema,
+  String,
+  pipe,
+} from "effect";
 
+import type { Part } from "./part.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
 
 /**
@@ -271,5 +283,71 @@ export const replanOf = (
       Schema.is(PrdSectionId),
     ),
     untasked: untaskedOf(specSections, tasks),
+  };
+};
+
+/**
+ * The PRD sections each section of `spec.json` implements: its own `Implements` and those of the
+ * sections above it. The index records only a section's own key, in document order, so a parent's
+ * entry is made before its children's.
+ */
+const implementedOf = (
+  index: SpecIndex,
+): Record.ReadonlyRecord<string, ReadonlyArray<PrdSectionId>> =>
+  Array.reduce(index.sections, Record.empty<string, ReadonlyArray<PrdSectionId>>(), (done, entry) =>
+    Record.set(
+      done,
+      entry.id,
+      Array.dedupe(
+        Array.appendAll(
+          Option.getOrElse(
+            Option.flatMap(Option.fromNullOr(entry.parent), (parent) => Record.get(done, parent)),
+            () => [],
+          ),
+          entry.implements,
+        ),
+      ),
+    ),
+  );
+
+/**
+ * What a part run of `cairn plan` acts on (see `spec.planning.planning-a-part`): `replan`, the
+ * whole-plan `replanOf`, narrowed to `part`. `index` is `spec.json`, which gives each spec
+ * section's own and inherited `Implements`.
+ *
+ * - `uncovered` keeps the PRD sections and items in the part.
+ * - `rewritable` keeps the sections that implement something in the part and nothing outside it.
+ *   One that implements both is moved to `staleSections`, so a part run never rewrites spec for
+ *   another part; one wholly outside is left for its own part's run.
+ * - `untasked` keeps the sections that implement something in the part. The sections the run
+ *   writes are added by the command; a section `spec.json` does not have implements nothing here.
+ * - `staleSections` and `staleTasks` are reported over the whole plan, as on any run.
+ */
+export const scopeOf = (replan: Replan, part: Part, index: SpecIndex): Replan => {
+  const implemented = implementedOf(index);
+  const implementsOf = (id: SpecSectionId) =>
+    Option.getOrElse(Record.get(implemented, id), (): ReadonlyArray<PrdSectionId> => []);
+  const inPart = (id: PrdSectionId) => HashSet.has(part.ids, id);
+  const touches = (id: SpecSectionId) => Array.some(implementsOf(id), inPart);
+  const within = (id: SpecSectionId) => touches(id) && Array.every(implementsOf(id), inPart);
+  const order = Array.map(index.sections, ({ id }): SpecSectionId => id);
+  const placeOf = (id: SpecSectionId) =>
+    Option.getOrElse(
+      Array.findFirstIndex(order, (other) => other === id),
+      () => Array.length(order),
+    );
+  return {
+    rewritable: Array.filter(replan.rewritable, within),
+    staleSections: Array.sortWith(
+      Array.appendAll(
+        replan.staleSections,
+        Array.filter(replan.rewritable, (id) => touches(id) && !within(id)),
+      ),
+      placeOf,
+      Order.Number,
+    ),
+    staleTasks: replan.staleTasks,
+    uncovered: Array.filter(replan.uncovered, inPart),
+    untasked: Array.filter(replan.untasked, touches),
   };
 };
