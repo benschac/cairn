@@ -1,5 +1,5 @@
 import type { Actor, ManifestTask } from "@cairn/contract";
-import { Array, DateTime, Option, pipe, String } from "effect";
+import { Array, DateTime, Match, Option, pipe, String } from "effect";
 
 /** A commit as `git show` prints it for the demo: its sha, parents, subject, commit time and changed files. */
 export interface Shown {
@@ -35,15 +35,15 @@ export interface DemoEvent {
   readonly actor: Actor;
   readonly model?: string;
   readonly reasoning?: string;
-  readonly status: "running" | "blocked_on_human" | "done";
+  readonly status: "running" | "blocked_on_human" | "failed" | "done";
   readonly taskId: string;
   readonly ts: string;
 }
 
 /**
  * The events that reach the task's recorded status: `running`, then `blocked_on_human` and a human's
- * `done` when the task is gated, else the orchestrator's `done`. A task that is not done or landed has
- * none. The `running` event names the model and reasoning only for a task with a recorded session, the one
+ * `done` when the task is gated, else the orchestrator's `done`. A running task has `running` alone, a
+ * failed one `running` then `failed`, a blocked one `running` then `blocked_on_human`, and a pending one none. The `running` event names the model and reasoning only for a task with a recorded session, the one
  * sign that an agent ran it; any other task shows as planned. `landed` is not an event here: the task's commits are on the base, and the derivation lands it.
  */
 export const eventsOf = (
@@ -62,15 +62,24 @@ export const eventsOf = (
     taskId: task.id,
     ts: at,
   });
-  return task.status === "done" || task.status === "landed"
-    ? gated
-      ? [
-          event("orchestrator", "running"),
-          event("orchestrator", "blocked_on_human"),
-          event(approver, "done"),
-        ]
-      : [event("orchestrator", "running"), event("orchestrator", "done")]
-    : [];
+  return Match.value(task.status).pipe(
+    Match.when("pending", (): ReadonlyArray<DemoEvent> => []),
+    Match.when("running", () => [event("orchestrator", "running")]),
+    Match.when("failed", () => [event("orchestrator", "running"), event("orchestrator", "failed")]),
+    Match.when("blocked_on_human", () => [
+      event("orchestrator", "running"),
+      event("orchestrator", "blocked_on_human"),
+    ]),
+    Match.orElse(() =>
+      gated
+        ? [
+            event("orchestrator", "running"),
+            event("orchestrator", "blocked_on_human"),
+            event(approver, "done"),
+          ]
+        : [event("orchestrator", "running"), event("orchestrator", "done")],
+    ),
+  );
 };
 
 /** The latest time, or `fallback` when there is none. */
