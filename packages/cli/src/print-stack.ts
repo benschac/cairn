@@ -88,3 +88,20 @@ export const stackLines = (
     ),
   );
 };
+
+/** What a dry run reports: what the plan holds and the planner that wrote it. */
+export interface PlanTotals {
+  /** The CLI when the source is `cli`, the provider when it is `api`. */
+  readonly agent: string;
+  readonly errors: number;
+  readonly flags: number;
+  readonly model: string;
+  readonly sections: number;
+  readonly seconds: number;
+  readonly source: string;
+  readonly tasks: number;
+}
+
+/** The last line of `cairn plan --dry-run` (`spec.planning.dry-run`). */
+export const totalsLine = (totals: PlanTotals) =>
+  `planned ${totals.sections} sections, ${totals.tasks} tasks, ${totals.errors} lint errors, ${totals.flags} flags in ${totals.seconds}s with ${totals.source} ${totals.agent} ${totals.model}`;
