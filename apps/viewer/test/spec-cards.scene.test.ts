@@ -21,7 +21,7 @@ import { FetchPatch } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
 import { RenderDiff } from "../src/diff.ts";
 import { Message } from "../src/message.ts";
-import { Screen, Shown, TraceData } from "../src/model.ts";
+import { Screen, TraceData, WHOLE_TASK } from "../src/model.ts";
 import { cardsOf, statusWordOf } from "../src/reader.ts";
 import { update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
@@ -117,7 +117,7 @@ it("a task row shows its status, ID, title and the commit count or the status wo
     ),
     click(row),
     focusedDetailHeading,
-    ...Array.flatMap(Option.toArray(patchPathOf(task, Shown.WholeTask())), (path) => [
+    ...Array.flatMap(Option.toArray(patchPathOf(task, WHOLE_TASK)), (path) => [
       Command.resolve(
         FetchPatch({ path }),
         // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module

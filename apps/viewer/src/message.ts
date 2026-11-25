@@ -30,6 +30,8 @@ export const Message = defineMessageUnion({
   ClickedPrdHeading: { id: SectionId },
   /** The drawer's Close button. */
   ClickedCloseDrawer: {},
+  /** The link notice's "Dismiss" button. */
+  ClickedDismissLinkNotice: {},
   /** The detail panel's Close button: empties the trail. */
   ClickedCloseDetail: {},
   /** A task or spec section opened from inside the detail panel: added to the end of the trail. */
@@ -85,6 +87,8 @@ export const Message = defineMessageUnion({
   CompletedScrollSearchResult: {},
   /** The reader's panes were scrolled to what a selected search result points at. */
   CompletedScrollSearchTargets: {},
+  /** The panes were scrolled to the steps a link opened. */
+  CompletedScrollLinkTargets: {},
   /**
    * The stacks pane was scrolled to the base branch bar at its bottom, and the chart measured: the
    * width that lays every level out in one row. None when it could not be read.

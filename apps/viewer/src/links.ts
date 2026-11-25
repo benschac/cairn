@@ -1,4 +1,6 @@
 import {
+  PrdSectionId,
+  SpecSectionId,
   Step,
   type PassageStep,
   type Link,
@@ -24,6 +26,7 @@ import {
   String,
   pipe,
 } from "effect";
+import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
 
 import {
@@ -33,12 +36,24 @@ import {
   ownerOf,
   rangeOf,
   shortSha,
+  shownCommitOf,
   taskOf,
 } from "./codeView.ts";
 import { describePatchNotParsed, parsePatch } from "./diff.ts";
-import type { PatchData } from "./model.ts";
+import { isDemoBuild } from "./load.ts";
+import {
+  Screen,
+  SessionData,
+  Shown,
+  type CodeScreen,
+  type Model,
+  type PatchData,
+} from "./model.ts";
 import { Range } from "./range.ts";
+import type { ScrollTarget } from "./reader.ts";
 import { indexOf, type SearchIndex } from "./search.ts";
+import { Node } from "./trace.ts";
+import { turnElementIdOf } from "./view/sessionView.ts";
 
 // RESOLUTION
 
@@ -585,4 +600,174 @@ export const noticeOf = (outcome: Result.Result<Resolution, LinkError>): Option.
           " ",
         ),
       ),
+  });
+
+// WHAT IS ON SCREEN
+
+const isPrdSection = Schema.is(PrdSectionId);
+const isSpecSection = Schema.is(SpecSectionId);
+
+const sectionStep = (id: PrdSectionId | SpecSectionId): Step => ({ id, kind: "section" });
+
+/** The data a link's steps read, as the model holds it: a session still loading is not there yet. */
+export const loadedOf = (model: Model): Loaded => ({
+  isDemo: isDemoBuild(),
+  patches: model.patches,
+  sessions: Record.filterMap(
+    model.sessions,
+    (data): Result.Result<Result.Result<Session, string>, void> =>
+      SessionData.match(data, {
+        Failed: ({ message }) => Result.succeed(Result.fail(message)),
+        Loaded: ({ session }) => Result.succeed(Result.succeed(session)),
+        Loading: () => Result.failVoid,
+      }),
+  ),
+});
+
+/** A trail node as a step: a spec section or a task. A PRD section is the pin's, not the trail's. */
+const trailStepOf = (node: Node): Result.Result<Step, void> =>
+  Node.match(node, {
+    section: ({ id }) => (isSpecSection(id) ? Result.succeed(sectionStep(id)) : Result.failVoid),
+    task: ({ id }) => Result.succeed<Step>({ id, kind: "task" }),
+  });
+
+/**
+ * The code view's steps: its task unless the trail already ends on it, then the diff at the head
+ * it shows or the commit, the file, the lines and the highlighted turn. A task with no commits
+ * shows no code, so only its task step is written.
+ */
+const codeStepsOf = (model: Model, trace: Trace, code: CodeScreen): ReadonlyArray<Step> => {
+  const taskSteps: ReadonlyArray<Step> = Option.exists(
+    Array.last(model.detail),
+    (node) => node.kind === "task" && node.id === code.taskId,
+  )
+    ? []
+    : [{ id: code.taskId, kind: "task" }];
+  return Option.match(taskOf(trace, code.taskId), {
+    onNone: () => [],
+    onSome: (task) => {
+      const shownCommit = shownCommitOf(task, code.shown);
+      return Option.match(
+        Shown.match(code.shown, {
+          OneCommit: ({ sha }) => Option.some<Step>({ kind: "commit", sha }),
+          WholeTask: () =>
+            Option.map(shownCommit, (commit): Step => ({ head: commit.sha, kind: "diff" })),
+        }),
+        {
+          onNone: () => taskSteps,
+          onSome: (opened) =>
+            Array.flatten<ReadonlyArray<ReadonlyArray<Step>>>([
+              taskSteps,
+              [opened],
+              Array.map(Array.fromOption(code.maybeFile), (path): Step => ({ kind: "file", path })),
+              Option.isSome(code.maybeFile) ? Array.fromOption(code.maybeLines) : [],
+              Array.fromOption(
+                Option.map(
+                  Option.all({
+                    session: Option.flatMapNullishOr(shownCommit, (commit) => commit.session),
+                    turn: model.maybeHighlightedTurn,
+                  }),
+                  ({ session, turn }): Step => ({ kind: "turn", session, turn: turn.id }),
+                ),
+              ),
+            ]),
+        },
+      );
+    },
+  });
+};
+
+/**
+ * The canonical link of what was opened, in this order: the pinned PRD section or a PRD passage in
+ * its place, a spec passage, the focused stack or segment, the detail trail, the code view's task
+ * when the trail does not end on it, the diff or commit, the file, the lines and the highlighted
+ * turn. The section at the top of the PRD pane, the widths, the switches, the cards and the search
+ * are each viewer's own and are not in it. Pure.
+ */
+export const linkOf = (model: Model): Link => {
+  const { maybePassage, maybePinned } = model.reader;
+  const prdPassage = Option.filter(maybePassage, (passage) =>
+    Option.exists(maybePinned, (id) => id === passage.section),
+  );
+  return Array.flatten<ReadonlyArray<ReadonlyArray<Step>>>([
+    Option.match(prdPassage, {
+      onNone: () => Array.map(Array.fromOption(maybePinned), sectionStep),
+      onSome: (passage) => [passage],
+    }),
+    Array.fromOption(Option.filter(maybePassage, (passage) => isSpecSection(passage.section))),
+    Array.fromOption(model.reader.maybeFocus),
+    Array.filterMap(model.detail, trailStepOf),
+    Option.match(
+      Option.all({
+        code: Option.liftPredicate(model.screen, Screen.guards.Code),
+        trace: AsyncData.getData(model.trace),
+      }),
+      { onNone: () => [], onSome: ({ code, trace }) => codeStepsOf(model, trace, code) },
+    ),
+  ]);
+};
+
+const stepEquivalence = Schema.toEquivalence(Step);
+
+/** How many steps two links share from their start. */
+export const sharedLengthOf = (self: Link, that: Link): number =>
+  Option.getOrElse(
+    Array.findFirstIndex(Array.zip(self, that), ([one, other]) => !stepEquivalence(one, other)),
+    () => Number.min(Array.length(self), Array.length(that)),
+  );
+
+// BRINGING A STEP INTO VIEW
+
+/** The marks a link's passage is drawn with, in the PRD or the spec pane. */
+export const LINK_PASSAGE_SELECTOR = "mark[data-link-passage]";
+
+const STACKS_PANE = "[data-stacks-pane]";
+
+const prdHeadingSelector = (id: string): string =>
+  `[data-prd-pane] [data-section="${id}"]:not([data-title])`;
+
+const cardSelector = (id: string): string => `[data-spec="${id}"]`;
+
+const chipSelector = (id: string): string => `${STACKS_PANE} [data-task="${id}"]`;
+
+const sectionSelector = (id: string): string =>
+  isPrdSection(id) ? prdHeadingSelector(id) : cardSelector(id);
+
+/** The stack box a root starts, then its root's chip until the box is in the page. */
+const boxSelectorsOf = (trace: Trace, root: string): ReadonlyArray<string> =>
+  Array.append(
+    Array.map(
+      Array.fromOption(Array.findFirst(stacksOf(trace.tasks), (stack) => stack.root === root)),
+      (stack) => `${STACKS_PANE} [data-stack="${stack.number}"]`,
+    ),
+    chipSelector(root),
+  );
+
+const targetOf = (
+  block: ScrollTarget["block"],
+  selectors: ReadonlyArray<string>,
+): ReadonlyArray<ScrollTarget> => [{ block, selectors }];
+
+const nearest = (selectors: ReadonlyArray<string>): ReadonlyArray<ScrollTarget> =>
+  targetOf("nearest", selectors);
+
+/**
+ * Where a step that opened is brought into view: a PRD section's heading, a passage's first mark,
+ * a spec section's card, a task's chip, a stack's box or a turn in the session pane. The code view
+ * shows a diff, a commit and a file when it opens on them, so they scroll nothing.
+ */
+export const linkTargetsOf = (trace: Trace, step: Step): ReadonlyArray<ScrollTarget> =>
+  Step.match(step, {
+    commit: () => [],
+    diff: () => [],
+    file: () => [],
+    lines: () => [],
+    note: () => [],
+    passage: ({ section }) => nearest([LINK_PASSAGE_SELECTOR, sectionSelector(section)]),
+    section: ({ id }) =>
+      isPrdSection(id) ? targetOf("start", [prdHeadingSelector(id)]) : nearest([cardSelector(id)]),
+    segment: ({ root }) => nearest(boxSelectorsOf(trace, root)),
+    stack: ({ root }) => nearest(boxSelectorsOf(trace, root)),
+    task: ({ id }) => nearest([chipSelector(id)]),
+    turn: ({ turn }) => nearest([`[id="${turnElementIdOf(turn)}"]`]),
   });

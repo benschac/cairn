@@ -7,7 +7,7 @@ import { DETAIL_HEADING_ID, type Trail } from "../detail.ts";
 import { eventsView, gateView, judgmentsView } from "../drawer.ts";
 import { filesOf, patchPathOf, shortSha } from "../codeView.ts";
 import { Message } from "../message.ts";
-import { Shown, type DiffStyle, type PatchData } from "../model.ts";
+import { WHOLE_TASK, type DiffStyle, type PatchData } from "../model.ts";
 import { ranOf, statusWordOf } from "../reader.ts";
 import { Node, nodeKeyOf, sectionTitleOf } from "../trace.ts";
 import { dotView, labelView, tagView } from "../ui/marks.ts";
@@ -169,10 +169,10 @@ const codePartView = (
         h.p(
           [h.DataAttribute("detail-code-summary", "")],
           [
-            `${countText(Array.length(commits), "commit")} · ${countText(Array.length(filesOf(task, Shown.WholeTask())), "file")} changed`,
+            `${countText(Array.length(commits), "commit")} · ${countText(Array.length(filesOf(task, WHOLE_TASK)), "file")} changed`,
           ],
         ),
-        Option.match(patchPathOf(task, Shown.WholeTask()), {
+        Option.match(patchPathOf(task, WHOLE_TASK), {
           onNone: () => h.p([], ["This task has no diff to show."]),
           onSome: (path) =>
             h.div(

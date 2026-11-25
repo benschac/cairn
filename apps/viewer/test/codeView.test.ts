@@ -11,7 +11,7 @@ import {
   type TreeNode,
 } from "../src/codeView.ts";
 import { demoTrace } from "../src/demo.ts";
-import { Shown } from "../src/model.ts";
+import { Shown, WHOLE_TASK } from "../src/model.ts";
 
 const sha = (character: string) => Sha.make(String.repeat(40)(character));
 
@@ -33,7 +33,7 @@ const stacked = Struct.evolve(base, { commits: () => [first, second] });
 const empty = Struct.evolve(base, { commits: () => [] });
 
 it("a whole task's patch runs from its oldest commit's first parent to its newest commit", () => {
-  assert(patchPathOf(stacked, Shown.WholeTask())).toEqual(
+  assert(patchPathOf(stacked, WHOLE_TASK)).toEqual(
     Option.some(`/api/diffs/${sha("0")}/${sha("b")}`),
   );
 });
@@ -46,12 +46,12 @@ it("one commit's patch is its own route, and a commit the task does not hold has
 });
 
 it("a task with no commits has no patch, whole or by commit", () => {
-  assert(patchPathOf(empty, Shown.WholeTask())).toEqual(Option.none());
+  assert(patchPathOf(empty, WHOLE_TASK)).toEqual(Option.none());
   assert(patchPathOf(empty, Shown.OneCommit({ sha: sha("a") }))).toEqual(Option.none());
 });
 
 it("a whole task's files are the union of its commits' files, and a commit's are its own", () => {
-  assert(filesOf(stacked, Shown.WholeTask())).toEqual(["src/a.ts", "src/view/b.ts", "docs/c.md"]);
+  assert(filesOf(stacked, WHOLE_TASK)).toEqual(["src/a.ts", "src/view/b.ts", "docs/c.md"]);
   assert(filesOf(stacked, Shown.OneCommit({ sha: sha("b") }))).toEqual([
     "src/view/b.ts",
     "docs/c.md",

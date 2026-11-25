@@ -220,6 +220,7 @@ it("opening the code view and going back changes only the screen", () => {
   assert(there.screen).toEqual(
     Screen.Code({
       maybeFile: Option.none(),
+      maybeLines: Option.none(),
       shown: Shown.OneCommit({ sha: sha("a") }),
       taskId: stacked.id,
     }),
