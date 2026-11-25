@@ -246,3 +246,65 @@ it("a section inherits the tag from the heading above it, as sectionsOf reads it
     ["tag:human"],
   );
 });
+
+const Human = Schema.Struct({
+  human: Schema.Boolean,
+  id: Schema.Literals(["prd.a.one", "prd.a.two", "prd.a.three"]),
+});
+
+it.prop(
+  "a task is tagged when it names a human item or builds a spec section that implements one, and not for an unrelated human item",
+  {
+    implemented: Schema.Literals(["prd.a.one", "prd.a.two", "prd.a.three"]),
+    items: Schema.Array(Human),
+    named: Schema.NullOr(Schema.Literals(["prd.a.one", "prd.a.two", "prd.a.three"])),
+  },
+  ({ implemented, items, named }) => {
+    const unique = Array.dedupeWith(items, (one, other) => one.id === other.id);
+    const gateItems = Array.map(unique, ({ human, id }) => ({ human, id: decodeId(id) }));
+    const specSection: Section = {
+      ...sectionOf("spec.format", false),
+      keys: {
+        context: [],
+        defers: [],
+        dependsOn: [],
+        files: [],
+        implements: [decodePrd(implemented)],
+      },
+    };
+    const task = {
+      ...taskOf([], "prd.goal", "spec.format"),
+      prdSections: [decodePrd(named ?? "prd.a.one")] as const,
+    };
+    const isHuman = (id: string) => Array.some(unique, (item) => item.id === id && item.human);
+    const noNames = { ...task, prdSections: [decodePrd("prd.goal")] as const };
+    const sections = [specSection, sectionOf("prd.goal", false)];
+    expect(gateOf(noNames, sections, { humanPaths: [] }, [], gateItems)).toStrictEqual(
+      isHuman(implemented)
+        ? { reasons: ["tag:human"], required: true }
+        : { reasons: [], required: false },
+    );
+    expect(gateOf(task, sections, { humanPaths: [] }, [], gateItems).required).toBe(
+      isHuman(implemented) || isHuman(named ?? "prd.a.one"),
+    );
+    // a task that builds another spec section is not gated by the one that implements the item
+    expect(
+      gateOf(
+        { ...noNames, specSections: [decodeSpec("spec.other")] },
+        sections,
+        { humanPaths: [] },
+        [],
+        gateItems,
+      ),
+    ).toStrictEqual({ reasons: [], required: false });
+  },
+);
+
+it("an item's human tag gates a task only through the IDs it links", () => {
+  const items = [{ human: true, id: decodeId("prd.a.one") }];
+  const plain = taskOf([], "prd.goal", "spec.format");
+  expect(gateOf(plain, [], { humanPaths: [] }, [], items).required).toBe(false);
+  expect(
+    gateOf({ ...plain, prdSections: [decodePrd("prd.a.one")] }, [], { humanPaths: [] }, [], items),
+  ).toStrictEqual({ reasons: ["tag:human"], required: true });
+});

@@ -254,3 +254,132 @@ it("headings that name each other as parents and headings without an ID do not h
     { id: "spec.top", status: "failed" },
   ]);
 });
+
+/** One PRD heading, `prd.h`, with items under it or under each other, and spec sections that name them. */
+const ItemPlan = Schema.Struct({
+  items: Tree,
+  spec: Schema.Array(
+    Schema.Struct({
+      context: Schema.Array(Index).check(Schema.isMaxLength(1)),
+      defers: Schema.Array(Index).check(Schema.isMaxLength(1)),
+      implements: Schema.Array(Index).check(Schema.isMaxLength(2)),
+    }),
+  ).check(Schema.isMinLength(1), Schema.isMaxLength(4)),
+  tasks: Schema.Array(Task).check(Schema.isMaxLength(8)),
+});
+
+const HEADING = "prd.h";
+const itemIdAt = (at: number) => `${HEADING}.i${at}`;
+
+it.prop(
+  "an item's status follows the rules for the tasks that name it or build a section implementing it, and its heading's tasks include each item's",
+  [ItemPlan],
+  ([plan]) => {
+    const count = Array.length(plan.items);
+    const specCount = Array.length(plan.spec);
+    const items = Array.map(plan.items, (node, at) => ({
+      id: sectionId(itemIdAt(at)),
+      parent: sectionId(
+        Option.match(parentAt(node, at), { onNone: () => HEADING, onSome: itemIdAt }),
+      ),
+    }));
+    const spec = Array.map(plan.spec, (node, at) =>
+      sectionOf(specIdAt(at), Option.none(), {
+        context: Array.map(node.context, (to) => prdId(itemIdAt(wrap(count, to)))),
+        defers: Array.map(node.defers, (to) => prdId(itemIdAt(wrap(count, to)))),
+        implements: Array.map(node.implements, (to) => prdId(itemIdAt(wrap(count, to)))),
+      }),
+    );
+    // `prd` after wrapping is an item, or `count` for the heading, or `count + 1` for another heading
+    const named = (entry: typeof Task.Type) => wrap(count + 2, entry.prd);
+    const targetOf = (entry: typeof Task.Type) =>
+      named(entry) < count
+        ? itemIdAt(named(entry))
+        : named(entry) === count
+          ? HEADING
+          : "prd.other";
+    const tasks = Array.map(plan.tasks, (entry): RollupTask => ({
+      prdSections: [prdId(targetOf(entry))],
+      specSections: [specIdAt(wrap(specCount, entry.spec))],
+      status: entry.status,
+    }));
+    const rolledItems = rollupOf(
+      [sectionOf(HEADING, Option.none()), sectionOf("prd.other", Option.none())],
+      spec,
+      tasks,
+      items,
+    );
+    const statusOfId = (id: string) =>
+      pipe(
+        Array.findFirst(rolledItems, (section) => section.id === id),
+        Option.map(({ status }) => status),
+        Option.getOrThrow,
+      );
+    const implementedBy = (entry: typeof Task.Type): ReadonlyArray<number> =>
+      Option.match(Array.get(plan.spec, wrap(specCount, entry.spec)), {
+        onNone: () => [],
+        onSome: ({ implements: to }) => Array.map(to, (at) => wrap(count, at)),
+      });
+    const underItem = (above: number, tree: number) => isUnder(plan.items, tree, above);
+    Array.forEach(plan.items, (_, at) => {
+      const linked = pipe(
+        plan.tasks,
+        Array.filter(
+          (entry) =>
+            (named(entry) < count && underItem(at, named(entry))) ||
+            Array.some(implementedBy(entry), (to) => underItem(at, to)),
+        ),
+        Array.map((entry) => entry.status),
+      );
+      const namedByKey = (key: "context" | "defers") =>
+        Array.some(plan.spec, (node) =>
+          Array.some(node[key], (to) => underItem(wrap(count, to), at)),
+        );
+      expect(statusOfId(itemIdAt(at))).toBe(
+        expectedFor(saysOf(namedByKey("defers"), namedByKey("context")), linked),
+      );
+    });
+    const ofHeading = pipe(
+      plan.tasks,
+      Array.filter(
+        (entry) => named(entry) <= count || Array.isReadonlyArrayNonEmpty(implementedBy(entry)),
+      ),
+      Array.map((entry) => entry.status),
+    );
+    expect(statusOfId(HEADING)).toBe(expectedFor(Option.none(), ofHeading));
+  },
+);
+
+it("an item with no task is unmapped, and one a Defers names is deferred whatever its tasks do", () => {
+  const prd = [sectionOf("prd.top", Option.none())];
+  const items = [
+    { id: sectionId("prd.top.one"), parent: sectionId("prd.top") },
+    { id: sectionId("prd.top.two"), parent: sectionId("prd.top.one") },
+  ];
+  const spec = [
+    sectionOf("spec.top", Option.none(), { implements: [prdId("prd.top.one")] }),
+    sectionOf("spec.later", Option.none(), { defers: [prdId("prd.top.two")] }),
+  ];
+  expect(rollupOf(prd, spec, [], items)).toEqual([
+    { id: "prd.top", status: "unmapped" },
+    { id: "prd.top.one", status: "unmapped" },
+    { id: "prd.top.two", status: "deferred" },
+    { id: "spec.top", status: "unmapped" },
+    { id: "spec.later", status: "deferred" },
+  ]);
+  // the task names no PRD section here, so the items are linked only through `Implements`
+  const built: ReadonlyArray<RollupTask> = [
+    {
+      prdSections: [prdId("prd.elsewhere")],
+      specSections: [specId("spec.top")],
+      status: "running",
+    },
+  ];
+  expect(rollupOf(prd, spec, built, items)).toEqual([
+    { id: "prd.top", status: "running" },
+    { id: "prd.top.one", status: "running" },
+    { id: "prd.top.two", status: "deferred" },
+    { id: "spec.top", status: "running" },
+    { id: "spec.later", status: "deferred" },
+  ]);
+});

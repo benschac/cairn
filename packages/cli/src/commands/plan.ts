@@ -4,6 +4,7 @@ import {
   assignSectionIds,
   derivedOf,
   gateOf,
+  itemsOf,
   lint,
   replanOf,
   sectionIdsOf,
@@ -484,13 +485,16 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
   const kept = options.respec ? Option.none<Manifest>() : manifest;
   const existing = tasksOf(kept);
   const drafts = yield* planner.tasks(prd, spec, specSections, existing);
-  const sections = Array.appendAll(sectionsOf(prd), sectionsOf(spec));
+  const prdSections = sectionsOf(prd);
+  const specSectionsOf = sectionsOf(spec);
+  const sections = Array.appendAll(prdSections, specSectionsOf);
+  const items = itemsOf(prd, prdSections);
   const feature = Option.match(kept, {
     onNone: () => featureOf(prd),
     onSome: (plan) => plan.feature,
   });
   const ordered = yield* Effect.fromResult(
-    stackOf(feature, drafts, (draft) => gateOf(draft, sections, config, []), existing),
+    stackOf(feature, drafts, (draft) => gateOf(draft, sections, config, [], items), existing),
   );
   yield* Effect.filterOrFail(
     Effect.succeed(Array.drop(ordered, Array.length(existing))),

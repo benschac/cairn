@@ -25,7 +25,8 @@ import { drawsOf, mermaidBlocksOf } from "./diagrams.ts";
 import { gateOf } from "./gates.ts";
 import type { GateConfig } from "./gates.ts";
 import { itemsOf } from "./items.ts";
-import { stalenessOf, uncoveredOf } from "./replan.ts";
+import type { Item } from "./items.ts";
+import { stalenessOf, uncoveredItemsOf, uncoveredOf } from "./replan.ts";
 import { linesOf } from "./section-ids.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
 import { statementsOf } from "./statements.ts";
@@ -38,6 +39,7 @@ import { withStackDiagram } from "./stack-diagram.ts";
 export const LintRule = Schema.Literals([
   "unknown-section",
   "unmapped-section",
+  "unmapped-item",
   "missing-id",
   "duplicate-id",
   "wrong-prefix",
@@ -89,6 +91,7 @@ const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
   "stale-task": "warning",
   "statement-owner": "error",
   "unknown-section": "error",
+  "unmapped-item": "error",
   "unmapped-section": "error",
   "worktree-clash": "error",
   "wrong-prefix": "error",
@@ -104,25 +107,36 @@ const findingOf = (
 /** A markdown file of the plan, parsed. */
 interface Document {
   readonly file: LintFile;
+  readonly items: ReadonlyArray<Item>;
   readonly prefix: SectionPrefix;
   readonly sections: ReadonlyArray<Section>;
 }
 
-/** A heading that has an ID, with where it is. */
+/** A heading or a list item that has an ID, with where it is. */
 interface Identified {
   readonly file: LintFile;
   readonly id: string;
   readonly line: number;
 }
 
+/** The headings and the list items of a document that have an ID, headings first. */
 const identifiedOf = (document: Document): ReadonlyArray<Identified> =>
   Array.getSomes(
-    Array.map(document.sections, (section) =>
-      Option.map(Option.fromUndefinedOr(section.id), (id) => ({
-        file: document.file,
-        id,
-        line: section.line,
-      })),
+    Array.appendAll(
+      Array.map(document.sections, (section) =>
+        Option.map(Option.fromUndefinedOr(section.id), (id) => ({
+          file: document.file,
+          id,
+          line: section.line,
+        })),
+      ),
+      Array.map(document.items, (item) =>
+        Option.map(Option.fromUndefinedOr(item.id), (id) => ({
+          file: document.file,
+          id,
+          line: item.line,
+        })),
+      ),
     ),
   );
 
@@ -287,12 +301,23 @@ const unknownInTasks = (
 
 /** PRD sections no spec section covers (see `spec.format`). */
 const unmapped = (prd: Document, spec: Document): ReadonlyArray<Finding> =>
-  Array.map(uncoveredOf(prd.sections, spec.sections), ({ id, section }) =>
+  Array.map(uncoveredOf(prd.sections, spec.sections, prd.items), ({ id, section }) =>
     findingOf(
       "unmapped-section",
       prd.file,
       Option.some(section.line),
       `${id} is not implemented, deferred or given as context by any spec section.`,
+    ),
+  );
+
+/** PRD items with an ID that no spec section covers (see `spec.sections.item-coverage`). */
+const unmappedItems = (prd: Document, spec: Document): ReadonlyArray<Finding> =>
+  Array.map(uncoveredItemsOf(prd.sections, spec.sections, prd.items), ({ id, line }) =>
+    findingOf(
+      "unmapped-item",
+      prd.file,
+      Option.some(line),
+      `${id} is not implemented, deferred or given as context by any spec section. An Implements that names the section around it does not cover it.`,
     ),
   );
 
@@ -467,6 +492,7 @@ const unrecorded = (task: ManifestTask): ReadonlyArray<Finding> =>
 const stackFindings = (
   manifest: Manifest,
   sections: ReadonlyArray<Section>,
+  items: ReadonlyArray<Item>,
   config: GateConfig,
 ): ReadonlyArray<Finding> => {
   const tasks: ReadonlyArray<ManifestTask> = manifest.tasks;
@@ -556,7 +582,7 @@ const stackFindings = (
     );
 
   const gateMismatch = (task: ManifestTask): ReadonlyArray<Finding> => {
-    const detected = gateOf(task, sections, config, []);
+    const detected = gateOf(task, sections, config, [], items);
     return sameGate(task.humanGate, detected)
       ? []
       : [
@@ -621,8 +647,20 @@ export const lint = (
   config: GateConfig,
   index: Option.Option<SpecIndex> = Option.none(),
 ): ReadonlyArray<Finding> => {
-  const prdDocument: Document = { file: "prd.md", prefix: "prd", sections: sectionsOf(prd) };
-  const specDocument: Document = { file: "spec.md", prefix: "spec", sections: sectionsOf(spec) };
+  const prdSections = sectionsOf(prd);
+  const specSections = sectionsOf(spec);
+  const prdDocument: Document = {
+    file: "prd.md",
+    items: itemsOf(prd, prdSections),
+    prefix: "prd",
+    sections: prdSections,
+  };
+  const specDocument: Document = {
+    file: "spec.md",
+    items: itemsOf(spec, specSections),
+    prefix: "spec",
+    sections: specSections,
+  };
   const prdIds = HashSet.fromIterable(Array.map(identifiedOf(prdDocument), ({ id }) => id));
   const specIds = HashSet.fromIterable(Array.map(identifiedOf(specDocument), ({ id }) => id));
   const tasks = Option.match(manifest, { onNone: () => [], onSome: (plan) => plan.tasks });
@@ -635,6 +673,7 @@ export const lint = (
     unknownInKeys(specDocument, prdIds, specIds),
     unmapped(prdDocument, specDocument),
     statementOwners(prd, prdDocument.sections),
+    unmappedItems(prdDocument, specDocument),
     badDiagrams("prd.md", prd),
     badDiagrams("spec.md", spec),
     diagramDrift(spec, manifest),
@@ -643,7 +682,12 @@ export const lint = (
       onSome: (plan) =>
         Array.appendAll(
           unknownInTasks(plan, prdIds, specIds),
-          stackFindings(plan, Array.appendAll(prdDocument.sections, specDocument.sections), config),
+          stackFindings(
+            plan,
+            Array.appendAll(prdDocument.sections, specDocument.sections),
+            prdDocument.items, // the spec's items gate nothing and are read for their IDs only
+            config,
+          ),
         ),
     }),
     Option.match(index, {
