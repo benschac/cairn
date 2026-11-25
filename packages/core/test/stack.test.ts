@@ -120,12 +120,22 @@ const ancestorsOf = (index: ById, id: TaskId): ReadonlyArray<TaskId> =>
     }),
   );
 
-/** Everything a task depends on, directly or through other tasks. */
-const closureOf = (index: ById, id: TaskId): HashSet.HashSet<TaskId> =>
+/**
+ * Everything a task depends on, directly or through other tasks. `seen` stops it at a task it has
+ * reached already, so a generated manifest whose tasks depend on each other in a cycle ends.
+ */
+const closureOf = (
+  index: ById,
+  id: TaskId,
+  seen: HashSet.HashSet<TaskId> = HashSet.empty(),
+): HashSet.HashSet<TaskId> =>
   Array.reduce(
     Option.match(Record.get(index, id), { onNone: () => [], onSome: ({ task }) => task.dependsOn }),
-    HashSet.empty<TaskId>(),
-    (all, dependency) => HashSet.union(HashSet.add(all, dependency), closureOf(index, dependency)),
+    seen,
+    (all, dependency) =>
+      HashSet.has(all, dependency)
+        ? all
+        : closureOf(index, dependency, HashSet.add(all, dependency)),
   );
 
 /** The last task before position `at` that was built in `worktree`. */
@@ -526,19 +536,25 @@ it.prop(
       const before = Array.take(all, Array.length(existing) + at);
       const latestIn = (worktree: string | null) =>
         Array.findLast(before, (earlier) => earlier.worktree === worktree);
+      const below = closureOf(byId(all), task.id);
+      // A worktree can be continued when its latest task is a dependency and every task it has had
+      // is below this one, directly or not.
+      const continuable = (worktree: string | null) =>
+        Option.exists(latestIn(worktree), (latest) => Array.contains(task.dependsOn, latest.id)) &&
+        Array.every(
+          Array.filter(before, (earlier) => earlier.worktree === worktree),
+          (earlier) => HashSet.has(below, earlier.id),
+        );
       Option.match(latestIn(task.worktree), {
         onNone: () =>
           expect(
-            Array.some(before, (earlier) =>
-              Option.exists(
-                Option.filter(latestIn(earlier.worktree), () =>
-                  Array.contains(task.dependsOn, earlier.id),
-                ),
-                (latest) => Array.contains(task.dependsOn, latest.id),
-              ),
+            Array.some(
+              before,
+              (earlier) =>
+                Array.contains(task.dependsOn, earlier.id) && continuable(earlier.worktree),
             ),
           ).toBe(false),
-        onSome: (latest) => expect(task.dependsOn).toContain(latest.id),
+        onSome: () => expect(continuable(task.worktree)).toBe(true),
       });
     });
   },
@@ -592,6 +608,20 @@ it("orders new drafts after a manifest's tasks and continues its IDs, stacks and
     "cairn-mvp/06-add-the-command",
     "cairn-mvp/07-wire-the-page",
     "cairn-mvp/08-add-the-docs",
+  ]);
+});
+
+it("opens a new worktree when a manifest lists a worktree's tasks out of dependency order", () => {
+  // t3 was built after t2 in wt-1 but is listed first, so t2 looks like wt-1's latest task.
+  const existing = [
+    existingOf("t3", "Add the status", "t2", "wt-1", "landed"),
+    existingOf("t2", "Land from git", null, "wt-1", "landed"),
+  ];
+  const tasks = Result.getOrThrow(
+    stackOf(feature, [draftOf("Read the trailers", ["t2"])], () => gate(false), existing),
+  );
+  expect(shapeOf(Array.drop(tasks, 2))).toEqual([
+    ["t4", "Read the trailers", "t2", ["t2"], "wt-2"],
   ]);
 });
 
