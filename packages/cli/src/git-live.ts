@@ -137,6 +137,15 @@ export const layer = (directory = ".") =>
         );
       });
 
-      return Git.of({ log });
+      const userName = run(["config", "user.name"]).pipe(
+        Effect.map((stdout) => Option.liftPredicate(String.trim(stdout), String.isNonEmpty)),
+        // git exits 1 for a key that is not set.
+        Effect.catchIf(
+          (error) => error.exitCode === 1,
+          () => Effect.succeedNone,
+        ),
+      );
+
+      return Git.of({ log, userName });
     }),
   );
