@@ -9,6 +9,7 @@ import { linkCommand } from "./commands/link.ts";
 import { lintCommand } from "./commands/lint.ts";
 import { planCommand } from "./commands/plan.ts";
 import { statusCommand } from "./commands/status.ts";
+import { environmentLayer } from "./environment.ts";
 import { MainCheckout } from "./main-checkout.ts";
 
 const cairn = Command.make("cairn").pipe(
@@ -28,7 +29,10 @@ const logger = Logger.layer([Logger.withConsoleError(Logger.formatLogFmt)]);
 
 Command.run(cairn, { version: "0.0.0" }).pipe(
   Effect.provide(
-    Layer.mergeAll(logger, MainCheckout.layer().pipe(Layer.provideMerge(NodeServices.layer))),
+    Layer.mergeAll(logger, MainCheckout.layer()).pipe(
+      Layer.provideMerge(environmentLayer),
+      Layer.provideMerge(NodeServices.layer),
+    ),
   ),
   NodeRuntime.runMain,
 );
