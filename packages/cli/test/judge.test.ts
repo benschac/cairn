@@ -1,0 +1,519 @@
+import { createHash } from "node:crypto";
+
+import { Config as CairnConfig, Judgments, SpecSectionId, TaskId } from "@cairn/contract";
+import type { JudgmentTarget } from "@cairn/contract";
+import { SectionJudgingInput, StackJudgingInput, TaskJudgingInput, verdictOf } from "@cairn/core";
+import type { JudgingInputs } from "@cairn/core";
+import { expect, it } from "@effect/vitest";
+import {
+  Array,
+  ConfigProvider,
+  Context,
+  DateTime,
+  Duration,
+  Effect,
+  Fiber,
+  Layer,
+  Match,
+  Number,
+  Option,
+  Order,
+  Predicate,
+  Record,
+  Ref,
+  Result,
+  Schema,
+  Struct,
+} from "effect";
+import { AiError, DecisionModel } from "effect/ai";
+import type { Decision } from "effect/ai";
+import { TestClock } from "effect/testing";
+
+import { Judge, JudgeError } from "../src/judge.ts";
+
+/**
+ * Nothing here reads a key or touches the network. The decision model is `DecisionModel.make`
+ * over a scripted `decide`, which answers every decision it is sent and records each request.
+ */
+class Calls extends Context.Service<
+  Calls,
+  {
+    /** The requests the model was sent, in order. */
+    readonly seen: Effect.Effect<ReadonlyArray<DecisionModel.ProviderOptions>>;
+    /** The most requests that were in flight at once. */
+    readonly most: Effect.Effect<number>;
+  }
+>()("@cairn/cli/test/judge/Calls") {}
+
+interface Script {
+  /** What the first calls fail with, in order; later calls answer. */
+  readonly failures?: ReadonlyArray<AiError.AiError>;
+  /** Decisions the model refuses. */
+  readonly refuse?: ReadonlyArray<string>;
+  /** How long each call takes, on the test clock. */
+  readonly takes?: Duration.Duration;
+}
+
+/** One label gets all the probability: the first, so answers are the same on every run. */
+const oneHot = (labels: ReadonlyArray<string>) =>
+  Record.fromEntries(Array.map(labels, (label, index) => [label, index === 0 ? 1 : 0] as const));
+
+const answerFor = (
+  name: string,
+  decision: Exclude<Decision.Any, Decision.Locate>,
+  refuse: ReadonlyArray<string>,
+): DecisionModel.ProviderAnswer =>
+  Array.contains(refuse, name)
+    ? { _tag: "Refusal" }
+    : Match.value(decision).pipe(
+        Match.tag("Probability", (): DecisionModel.ProviderAnswer => ({
+          _tag: "Probability",
+          probability: 0.9,
+        })),
+        Match.tag("Rate", ({ criteria }): DecisionModel.ProviderAnswer => ({
+          _tag: "Rate",
+          confidence: 0.9,
+          probabilities: oneHot(Array.map(criteria, Struct.get("label"))),
+          rating: 0,
+        })),
+        Match.tag("Classify", ({ criteria }): DecisionModel.ProviderAnswer => {
+          const labels = Record.keys(criteria);
+          return {
+            _tag: "Classify",
+            confidence: 0.9,
+            label: Option.getOrElse(Array.head(labels), () => ""),
+            probabilities: oneHot(labels),
+          };
+        }),
+        Match.exhaustive,
+      );
+
+const scripted = ({ failures = [], refuse = [], takes = Duration.zero }: Script = {}) =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const seen = yield* Ref.make<ReadonlyArray<DecisionModel.ProviderOptions>>([]);
+      const inFlight = yield* Ref.make(0);
+      const most = yield* Ref.make(0);
+      const model = yield* DecisionModel.make({
+        decide: (options) =>
+          Effect.gen(function* () {
+            const call = yield* Ref.modify(seen, (calls) => [
+              Array.length(calls),
+              Array.append(calls, options),
+            ]);
+            const now = yield* Ref.updateAndGet(inFlight, Number.increment);
+            yield* Ref.update(most, (before) => Number.max(before, now));
+            yield* Effect.sleep(takes);
+            yield* Ref.update(inFlight, Number.decrement);
+            const failure = Array.get(failures, call);
+            if (Option.isSome(failure)) {
+              return yield* failure.value;
+            }
+            return {
+              answers: Record.map(options.decisions, (decision, name) =>
+                answerFor(name, decision, refuse),
+              ),
+              usage: { inputTokens: 1, outputTokens: 1 },
+            };
+          }),
+      });
+      return Layer.mergeAll(
+        Layer.succeed(DecisionModel.DecisionModel, model),
+        Layer.succeed(Calls, Calls.of({ most: Ref.get(most), seen: Ref.get(seen) })),
+      );
+    }),
+  );
+
+const configOf = Schema.decodeSync(CairnConfig);
+const defaults = configOf({});
+
+/** A judge over the scripted model, with `Calls` to read what it was asked. */
+const judging = (script: Script = {}, config: CairnConfig = defaults) =>
+  Judge.layerWith(config).pipe(Layer.provideMerge(scripted(script)));
+
+const none: Judgments = { judgments: [], model: defaults.judge.model, version: 1 };
+
+const seenOf = Calls.use((calls) => calls.seen);
+const seenCount = Effect.map(seenOf, Array.length);
+const mostOf = Calls.use((calls) => calls.most);
+
+/** Generated inputs, with each section and task ID once, as `inputsOf` gives them. */
+const Inputs = Schema.Struct({
+  sections: Schema.Array(Schema.Struct({ id: SpecSectionId, input: SectionJudgingInput })).check(
+    Schema.isMaxLength(3),
+  ),
+  stack: StackJudgingInput,
+  tasks: Schema.Array(Schema.Struct({ id: TaskId, input: TaskJudgingInput })).check(
+    Schema.isMaxLength(3),
+  ),
+});
+
+const unique = (inputs: typeof Inputs.Type): JudgingInputs =>
+  Struct.evolve(inputs, {
+    sections: (sections) => Array.dedupeWith(sections, (a, b) => a.id === b.id),
+    tasks: (tasks) => Array.dedupeWith(tasks, (a, b) => a.id === b.id),
+  });
+
+const section = (id: string, body: string) => ({
+  id: SpecSectionId.make(id),
+  input: { body, files: ["packages/cli/src/judge.ts"], implements: [], title: id },
+});
+
+const stack: StackJudgingInput = {
+  feature: StackJudgingInput.fields.feature.make("cairn-mvp"),
+  goal: "Judge the plan",
+  prdSections: [],
+  tasks: [],
+};
+
+const task = (id: string) => ({
+  id: TaskId.make(id),
+  input: { dependsOn: [], files: [], prdSections: [], specSections: [], title: `Task ${id}` },
+});
+
+const fixed: JudgingInputs = {
+  sections: [section("spec.a", "First"), section("spec.b", "Second")],
+  stack,
+  tasks: [task("t1")],
+};
+
+const decisionsOf = (options: DecisionModel.ProviderOptions) =>
+  Array.sort(Record.keys(options.decisions), Order.String);
+
+it.effect.prop(
+  "every target is asked once with all its questions, and each answer is a judgment with its verdict",
+  [Inputs],
+  ([generated]) =>
+    Effect.gen(function* () {
+      const inputs = unique(generated);
+      const judge = yield* Judge;
+      const result = yield* judge.judge(inputs, none);
+      const seen = yield* seenOf;
+
+      expect(Array.map(seen, decisionsOf)).toEqual(
+        Array.flatten([
+          Array.map(inputs.sections, () => ["buildable", "faithful", "size"]),
+          Array.map(inputs.tasks, () => ["matches", "model", "reasoning", "size"]),
+          [["complete", "oneFeature", "ordered"]],
+        ]),
+      );
+      expect(Schema.is(Judgments)(result)).toBe(true);
+      expect(result.model).toBe("jev-1.14.0");
+      expect(
+        Array.every(
+          result.judgments,
+          (judgment) => judgment.round === 1 && judgment.action === "none",
+        ),
+      ).toBe(true);
+      expect(Array.length(result.judgments)).toBe(
+        3 * Array.length(inputs.sections) + 4 * Array.length(inputs.tasks) + 3,
+      );
+      expect(
+        Array.map(result.judgments, (judgment) => Struct.pick(judgment, ["message", "verdict"])),
+      ).toEqual(
+        Array.map(result.judgments, (judgment) =>
+          verdictOf(judgment.question, judgment.answer, defaults.judge),
+        ),
+      );
+    }).pipe(Effect.provide(judging())),
+  { arbitrary: { runs: 20 } },
+);
+
+it.effect.prop(
+  "judging again with the last judgments as previous asks nothing and keeps every judgment",
+  [Inputs],
+  ([generated]) =>
+    Effect.gen(function* () {
+      const inputs = unique(generated);
+      const judge = yield* Judge;
+      const first = yield* judge.judge(inputs, none);
+      const asked = yield* seenCount;
+      const second = yield* judge.judge(inputs, first);
+      const askedAgain = yield* seenCount;
+      expect(askedAgain).toBe(asked);
+      expect(second).toEqual(first);
+    }).pipe(Effect.provide(judging())),
+  { arbitrary: { runs: 20 } },
+);
+
+/** The judgments of one section. */
+const judgmentsOf = (judgments: Judgments, id: string) =>
+  Array.filter(judgments.judgments, (j) => j.target.kind === "section" && j.target.id === id);
+
+it.effect("a changed target is asked again and the unchanged ones are kept", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const first = yield* judge.judge(fixed, none);
+    const changed = Struct.evolve(fixed, {
+      sections: (sections) =>
+        Array.map(sections, (entry) =>
+          entry.id === "spec.b" ? section("spec.b", "Second, rewritten") : entry,
+        ),
+    });
+    const second = yield* judge.judge(changed, first);
+    const seen = yield* seenOf;
+
+    expect(Array.length(seen)).toBe(4 + 1);
+    expect(Option.map(Array.last(seen), (options) => options.state)).toEqual(
+      Option.some(section("spec.b", "Second, rewritten").input),
+    );
+    expect(judgmentsOf(second, "spec.a")).toEqual(judgmentsOf(first, "spec.a"));
+    expect(Array.map(judgmentsOf(second, "spec.b"), (j) => j.inputHash)).not.toEqual(
+      Array.map(judgmentsOf(first, "spec.b"), (j) => j.inputHash),
+    );
+    expect(Array.length(second.judgments)).toBe(Array.length(first.judgments));
+  }).pipe(Effect.provide(judging())),
+);
+
+it.effect("a target is asked again when a question it asks now has no previous judgment", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const first = yield* judge.judge(fixed, none);
+    const withoutModel = Struct.evolve(first, {
+      judgments: (judgments) => Array.filter(judgments, (j) => j.question !== "model"),
+    });
+    yield* judge.judge(fixed, withoutModel);
+    const seen = yield* seenOf;
+    expect(Array.length(seen)).toBe(4 + 1);
+    expect(Option.map(Array.last(seen), (options) => options.state)).toEqual(
+      Option.some(task("t1").input),
+    );
+  }).pipe(Effect.provide(judging())),
+);
+
+/** Judges `fixed` under `before`, then again under `after` with the first judgments as previous. */
+const rejudged = (before: CairnConfig, after: CairnConfig) =>
+  Effect.gen(function* () {
+    const first = yield* Judge.use((judge) => judge.judge(fixed, none)).pipe(
+      Effect.provide(judging({}, before)),
+    );
+    return yield* Effect.gen(function* () {
+      const second = yield* Judge.use((judge) => judge.judge(fixed, first));
+      const seen = yield* seenOf;
+      return { first, second, seen };
+    }).pipe(Effect.provide(judging({}, after)));
+  });
+
+const withModels = (models: Record<string, string>) => configOf({ judge: { models } });
+
+it.effect("a task is asked its model question again when judge.models names other models", () =>
+  Effect.gen(function* () {
+    const { second, seen } = yield* rejudged(
+      withModels({ haiku: "Small", opus: "Large", sonnet: "Most" }),
+      withModels({ fable: "New", haiku: "Small", sonnet: "Most" }),
+    );
+    expect(Array.map(seen, (options) => options.state)).toEqual([task("t1").input]);
+    const labels = Array.map(
+      Array.filter(second.judgments, (j) => j.question === "model"),
+      (j) =>
+        Predicate.hasProperty(j.answer, "probabilities")
+          ? Array.sort(Record.keys(j.answer.probabilities), Order.String)
+          : [],
+    );
+    expect(labels).toEqual([["fable", "haiku", "sonnet"]]);
+  }),
+);
+
+it.effect("a model judgment is not kept once judge.models names one model", () =>
+  Effect.gen(function* () {
+    const { first, second, seen } = yield* rejudged(
+      withModels({ haiku: "Small", sonnet: "Most" }),
+      withModels({ haiku: "Small" }),
+    );
+    expect(Array.length(seen)).toBe(0);
+    expect(second.judgments).toEqual(Array.filter(first.judgments, (j) => j.question !== "model"));
+  }),
+);
+
+it.effect("a model judgment is dropped once the question is not asked, whatever its labels", () =>
+  Effect.gen(function* () {
+    const kept = yield* Judge.use((judge) => judge.judge(fixed, none));
+    const previous = Struct.evolve(kept, {
+      judgments: (judgments) =>
+        Array.append(judgments, {
+          action: "none" as const,
+          answer: { confidence: 0.9, label: "haiku", probabilities: { haiku: 1 } },
+          at: DateTime.makeUnsafe(0),
+          inputHash: Option.getOrThrow(Array.findFirst(judgments, (j) => j.target.kind === "task"))
+            .inputHash,
+          message: "model haiku",
+          question: "model" as const,
+          round: 1,
+          target: { id: TaskId.make("t1"), kind: "task" as const },
+          verdict: "pass" as const,
+        }),
+    });
+    const second = yield* Judge.use((judge) => judge.judge(fixed, previous));
+    const asked = yield* seenCount;
+    expect(asked).toBe(4);
+    expect(second).toEqual(kept);
+  }).pipe(Effect.provide(judging({}, withModels({ haiku: "Small" })))),
+);
+
+it.effect("judgments a different model gave are not kept", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const first = yield* judge.judge(fixed, none);
+    yield* judge.judge(fixed, Struct.evolve(first, { model: () => "jev-1.13.0" }));
+    const asked = yield* seenCount;
+    expect(asked).toBe(2 * 4);
+  }).pipe(Effect.provide(judging())),
+);
+
+it.effect("the input hash is the SHA-256 in hex of the input encoded as JSON", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const result = yield* judge.judge(fixed, none);
+    const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(SectionJudgingInput))(
+      section("spec.a", "First").input,
+    );
+    const expected = createHash("sha256").update(encoded).digest("hex");
+    const hashes = Array.dedupe(
+      Array.filterMap(result.judgments, (j) =>
+        j.target.kind === "section" && j.target.id === "spec.a"
+          ? Result.succeed(j.inputHash)
+          : Result.failVoid,
+      ),
+    );
+    expect(hashes).toEqual([expected]);
+  }).pipe(Effect.provide(judging())),
+);
+
+it.effect.prop(
+  "a task's model question is asked only when judge.models names two models or more",
+  [Schema.Literals([0, 1, 2, 3])],
+  ([count]) => {
+    const models = Record.fromIterableWith(Array.range(1, count), (n) => [`m${n}`, `Model ${n}`]);
+    const config = configOf({ judge: { models: count === 0 ? {} : models } });
+    return Effect.gen(function* () {
+      const judge = yield* Judge;
+      const result = yield* judge.judge(fixed, none);
+      const seen = yield* seenOf;
+      const asksModel = Array.some(seen, (options) => Record.has(options.decisions, "model"));
+      const judgedModel = Array.some(result.judgments, (j) => j.question === "model");
+      expect([asksModel, judgedModel]).toEqual([count >= 2, count >= 2]);
+      expect(Array.length(seen)).toBe(4);
+    }).pipe(Effect.provide(judging({}, config)));
+  },
+);
+
+it.effect("no more than four requests are in flight at once", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const inputs: JudgingInputs = {
+      sections: Array.map(Array.range(1, 10), (n) => section(`spec.s${n}`, `Body ${n}`)),
+      stack,
+      tasks: [],
+    };
+    const fiber = yield* Effect.forkChild(judge.judge(inputs, none));
+    yield* TestClock.adjust(Duration.seconds(10));
+    yield* Fiber.join(fiber);
+    const most = yield* mostOf;
+    const asked = yield* seenCount;
+    expect([most, asked]).toEqual([4, 11]);
+  }).pipe(Effect.provide(judging({ takes: Duration.seconds(1) }))),
+);
+
+const rateLimited = (retryAfter?: Duration.Duration) =>
+  AiError.make({
+    method: "decide",
+    module: "ScriptedDecisionModel",
+    reason: new AiError.RateLimitError(
+      Option.match(Option.fromUndefinedOr(retryAfter), {
+        onNone: () => ({}),
+        onSome: (delay) => ({ retryAfter: delay }),
+      }),
+    ),
+  });
+
+/** Moves the test clock on and reads how many calls the model has had. */
+const after = (seconds: number) =>
+  Effect.andThen(TestClock.adjust(Duration.seconds(seconds)), seenCount);
+
+const stackOnly: JudgingInputs = { sections: [], stack, tasks: [] };
+
+it.effect("a rate limit is retried three times, each after the delay the provider gives", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const fiber = yield* Effect.forkChild(judge.judge(stackOnly, none));
+    const counts = yield* Effect.forEach([0, 29, 1, 30, 30], after);
+    expect(counts).toEqual([1, 1, 2, 3, 4]);
+    const result = yield* Fiber.join(fiber);
+    expect(Array.length(result.judgments)).toBe(3);
+  }).pipe(
+    Effect.provide(judging({ failures: Array.replicate(rateLimited(Duration.seconds(30)), 3) })),
+  ),
+);
+
+it.effect("a rate limit with no delay is retried after a second", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const fiber = yield* Effect.forkChild(judge.judge(stackOnly, none));
+    yield* TestClock.adjust(Duration.millis(999));
+    const before = yield* seenCount;
+    yield* TestClock.adjust(Duration.millis(1));
+    yield* Fiber.join(fiber);
+    const retried = yield* seenCount;
+    expect([before, retried]).toEqual([1, 2]);
+  }).pipe(Effect.provide(judging({ failures: [rateLimited()] }))),
+);
+
+it.effect("a fourth rate limit fails with a JudgeError that names the target", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const fiber = yield* Effect.forkChild(judge.judge(stackOnly, none));
+    yield* TestClock.adjust(Duration.seconds(120));
+    const error = yield* Effect.flip(Fiber.join(fiber));
+    const asked = yield* seenCount;
+    expect(asked).toBe(4);
+    expect(error.target).toEqual({ kind: "stack" } satisfies JudgmentTarget);
+    expect(error.message).toContain("the stack");
+  }).pipe(
+    Effect.provide(judging({ failures: Array.replicate(rateLimited(Duration.seconds(30)), 4) })),
+  ),
+);
+
+it.effect("any other AiError fails at once with a JudgeError that names the target", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const error = yield* Effect.flip(
+      judge.judge({ sections: [section("spec.a", "First")], stack, tasks: [] }, none),
+    );
+    expect(Schema.is(JudgeError)(error)).toBe(true);
+    expect(error.target).toEqual({ id: "spec.a", kind: "section" });
+    expect(error.message).toContain("section spec.a");
+    const asked = yield* seenCount;
+    expect(asked).toBe(1);
+  }).pipe(
+    Effect.provide(
+      judging({
+        failures: [
+          AiError.make({
+            method: "decide",
+            module: "ScriptedDecisionModel",
+            reason: new AiError.InvalidRequestError({ description: "Bad request" }),
+          }),
+        ],
+      }),
+    ),
+  ),
+);
+
+it.effect("a refused question is an unanswered judgment, unsure", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const result = yield* judge.judge(stackOnly, none);
+    const ordered = Array.findFirst(result.judgments, (j) => j.question === "ordered");
+    expect(Option.map(ordered, (j) => [j.answer, j.verdict])).toEqual(
+      Option.some([{ description: expect.any(String), unanswered: "Refused" }, "unsure"]),
+    );
+  }).pipe(Effect.provide(judging({ refuse: ["ordered"] }))),
+);
+
+it.effect("the live judge without TYPESAFE_API_KEY fails with a JudgeError that names it", () =>
+  Effect.gen(function* () {
+    const error = yield* Effect.flip(Layer.build(Judge.live(defaults)).pipe(Effect.scoped));
+    expect(Schema.is(JudgeError)(error)).toBe(true);
+    expect(error.message).toContain("TYPESAFE_API_KEY");
+  }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnvRecord({})))),
+);
