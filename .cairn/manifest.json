@@ -819,7 +819,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -911,7 +911,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -1841,6 +1841,26 @@
       },
       "status": "done",
       "commits": ["0d34de08c74f6ee0668934e7ceb6eb7088f8700c"],
+      "sessions": []
+    },
+    {
+      "id": "t78",
+      "title": "Serve sessions from cairn.db",
+      "prdSections": ["prd.code-view"],
+      "specSections": ["spec.server"],
+      "files": ["packages/cli/src/api.ts", "packages/cli/test/api.test.ts"],
+      "branch": "cairn-mvp/78-session-route",
+      "parent": null,
+      "dependsOn": ["t2", "t74", "t77"],
+      "worktree": "wt-23",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
       "sessions": []
     },
     {
@@ -2917,7 +2937,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -2943,7 +2963,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -3106,6 +3126,1162 @@
       "parent": null,
       "dependsOn": ["t123", "t124"],
       "worktree": "wt-20",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t126",
+      "title": "Store notes and add cairn note",
+      "prdSections": ["prd.viewer.notes", "prd.cli"],
+      "specSections": ["spec.sessions.notes"],
+      "files": [
+        "packages/contract/src/note.ts",
+        "packages/contract/src/trace.ts",
+        "packages/contract/src/index.ts",
+        "packages/cli/src/migrations/",
+        "packages/cli/src/trace-store.ts",
+        "packages/cli/src/commands/note.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/src/api.ts",
+        "packages/cli/test/note.test.ts"
+      ],
+      "branch": "cairn-mvp/126-store-notes-and-add-cairn-note",
+      "parent": null,
+      "dependsOn": ["t39", "t119"],
+      "worktree": "wt-37",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t127",
+      "title": "Add item and statement IDs to the contract",
+      "prdSections": ["prd.section-ids.items", "prd.done-when.statements"],
+      "specSections": ["spec.contract.items-and-statements"],
+      "files": [
+        "packages/contract/src/ids.ts",
+        "packages/contract/src/trailers.ts",
+        "packages/contract/src/trace.ts",
+        "packages/contract/src/spec-index.ts",
+        "packages/contract/schema/",
+        "packages/contract/test/items.test.ts"
+      ],
+      "branch": "cairn-mvp/127-add-item-and-statement-ids-to-the-contract",
+      "parent": null,
+      "dependsOn": ["t10", "t56", "t83", "t107"],
+      "worktree": "wt-39",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t128",
+      "title": "Declare the relation kinds and the orderedAfter field",
+      "prdSections": ["prd.relations.kinds"],
+      "specSections": ["spec.contract.relation-kinds"],
+      "files": [
+        "packages/contract/src/relations.ts",
+        "packages/contract/src/manifest.ts",
+        "packages/contract/src/index.ts",
+        "packages/contract/schema/",
+        "packages/contract/test/relations.test.ts"
+      ],
+      "branch": "cairn-mvp/128-declare-the-relation-kinds-and-the-orderedafter-field",
+      "parent": null,
+      "dependsOn": ["t6", "t127"],
+      "worktree": "wt-39",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t129",
+      "title": "Report attempts, usage and cost on events",
+      "prdSections": ["prd.outcomes.attempts"],
+      "specSections": ["spec.contract.attempts"],
+      "files": [
+        "packages/contract/src/events.ts",
+        "packages/contract/src/attempts.ts",
+        "packages/contract/src/js.ts",
+        "packages/contract/schema/",
+        "packages/contract/test/attempts.test.ts"
+      ],
+      "branch": "cairn-mvp/129-report-attempts-usage-and-cost-on-events",
+      "parent": null,
+      "dependsOn": ["t16", "t82"],
+      "worktree": "wt-9",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t130",
+      "title": "Parse list items and fill their IDs in cairn ids",
+      "prdSections": ["prd.section-ids.items", "prd.cli"],
+      "specSections": ["spec.sections.list-items"],
+      "files": [
+        "packages/core/src/items.ts",
+        "packages/core/src/section-ids.ts",
+        "packages/cli/src/commands/ids.ts",
+        "packages/core/test/items.test.ts"
+      ],
+      "branch": "cairn-mvp/130-parse-list-items-and-fill-their-ids-in-cairn-ids",
+      "parent": null,
+      "dependsOn": ["t24", "t127"],
+      "worktree": "wt-10",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t131",
+      "title": "Cover, roll up and gate list items",
+      "prdSections": ["prd.section-ids.items", "prd.cli"],
+      "specSections": ["spec.sections.item-coverage"],
+      "files": [
+        "packages/core/src/lint.ts",
+        "packages/core/src/rollup.ts",
+        "packages/core/src/gates.ts",
+        "packages/cli/prompts/",
+        "packages/cli/src/api.ts",
+        "packages/core/test/lint.test.ts",
+        "packages/core/test/rollup.test.ts"
+      ],
+      "branch": "cairn-mvp/131-cover-roll-up-and-gate-list-items",
+      "parent": null,
+      "dependsOn": ["t29", "t33", "t34", "t66", "t130"],
+      "worktree": "wt-10",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t132",
+      "title": "Parse done-when statements and number them",
+      "prdSections": ["prd.done-when.statements", "prd.done-when"],
+      "specSections": ["spec.planning.done-when.statements"],
+      "files": [
+        "packages/core/src/statements.ts",
+        "packages/core/src/section-ids.ts",
+        "packages/core/src/lint.ts",
+        "packages/cli/src/commands/ids.ts",
+        "packages/core/test/statements.test.ts"
+      ],
+      "branch": "cairn-mvp/132-parse-done-when-statements-and-number-them",
+      "parent": null,
+      "dependsOn": ["t66", "t130"],
+      "worktree": "wt-11",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t133",
+      "title": "Draft done-when statements and ask the person about them",
+      "prdSections": ["prd.done-when.asking", "prd.cli"],
+      "specSections": ["spec.planning.done-when.asking-the-person"],
+      "files": [
+        "packages/cli/src/planner.ts",
+        "packages/cli/prompts/statements.md",
+        "packages/core/src/statements.ts",
+        "packages/cli/src/ask-statements.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/test/ask-statements.test.ts"
+      ],
+      "branch": "cairn-mvp/133-draft-done-when-statements-and-ask-the-person-about-them",
+      "parent": null,
+      "dependsOn": ["t114", "t132"],
+      "worktree": "wt-11",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t134",
+      "title": "Trace statements to tests and tasks",
+      "prdSections": ["prd.done-when.tracing"],
+      "specSections": ["spec.planning.done-when.tracing-statements"],
+      "files": [
+        "packages/cli/prompts/",
+        "packages/cli/src/planner.ts",
+        "packages/cli/src/spec-index.ts",
+        "packages/core/src/statements.ts",
+        "packages/core/src/lint.ts",
+        "packages/cli/src/api.ts",
+        "packages/core/test/statements.test.ts",
+        "packages/core/test/lint.test.ts"
+      ],
+      "branch": "cairn-mvp/134-trace-statements-to-tests-and-tasks",
+      "parent": null,
+      "dependsOn": ["t34", "t63", "t132"],
+      "worktree": "wt-40",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t135",
+      "title": "Show a task's statements in its brief, cairn status and cairn approve",
+      "prdSections": ["prd.done-when.tracing"],
+      "specSections": ["spec.planning.done-when.statements-in-briefs-and-reviews"],
+      "files": [
+        "packages/contract/src/js.ts",
+        "packages/cli/src/commands/status.ts",
+        "packages/cli/src/commands/approve.ts",
+        "packages/contract/test/js.test.ts"
+      ],
+      "branch": "cairn-mvp/135-show-a-task-s-statements-in-its-brief-cairn-status-and-cairn-approve",
+      "parent": null,
+      "dependsOn": ["t16", "t36", "t134"],
+      "worktree": "wt-40",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t136",
+      "title": "Show done-when statements in the task detail",
+      "prdSections": ["prd.done-when.tracing"],
+      "specSections": ["spec.planning.done-when.statements-in-briefs-and-reviews"],
+      "files": ["apps/viewer/src/view/detailView.ts", "apps/viewer/test/statements.scene.test.ts"],
+      "branch": "cairn-mvp/136-show-done-when-statements-in-the-task-detail",
+      "parent": null,
+      "dependsOn": ["t93", "t134"],
+      "worktree": "wt-41",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t137",
+      "title": "Add task categories to the plan",
+      "prdSections": ["prd.outcomes.categories"],
+      "specSections": ["spec.planning.task-categories"],
+      "files": [
+        "packages/contract/src/manifest.ts",
+        "packages/contract/src/config.ts",
+        "packages/core/src/lint.ts",
+        "packages/cli/src/planner.ts",
+        "packages/cli/prompts/",
+        "packages/core/src/stack.ts",
+        "packages/core/test/lint.test.ts"
+      ],
+      "branch": "cairn-mvp/137-add-task-categories-to-the-plan",
+      "parent": null,
+      "dependsOn": ["t66", "t106", "t111"],
+      "worktree": "wt-35",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t138",
+      "title": "Build the relation index",
+      "prdSections": ["prd.relations", "prd.relations.index"],
+      "specSections": ["spec.status.relation-index"],
+      "files": ["packages/core/src/relation-index.ts", "packages/core/test/relation-index.test.ts"],
+      "branch": "cairn-mvp/138-build-the-relation-index",
+      "parent": null,
+      "dependsOn": ["t128", "t130"],
+      "worktree": "wt-39",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t139",
+      "title": "Link PRD sections through their tasks",
+      "prdSections": ["prd.relations.sections"],
+      "specSections": ["spec.status.section-links"],
+      "files": ["packages/core/src/section-links.ts", "packages/core/test/section-links.test.ts"],
+      "branch": "cairn-mvp/139-link-prd-sections-through-their-tasks",
+      "parent": null,
+      "dependsOn": ["t131", "t138"],
+      "worktree": "wt-39",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t140",
+      "title": "Answer needs and waits from the relation index everywhere",
+      "prdSections": ["prd.relations.index", "prd.cli"],
+      "specSections": ["spec.status.answers-from-the-index"],
+      "files": [
+        "packages/core/src/lint.ts",
+        "packages/core/src/derive.ts",
+        "packages/core/src/stacks.ts",
+        "packages/contract/src/trace.ts",
+        "packages/cli/src/api.ts",
+        "packages/cli/src/commands/status.ts",
+        "apps/viewer/src/reader.ts",
+        "packages/core/test/index-answers.test.ts"
+      ],
+      "branch": "cairn-mvp/140-answer-needs-and-waits-from-the-relation-index-everywhere",
+      "parent": null,
+      "dependsOn": ["t35", "t39", "t109", "t116", "t138"],
+      "worktree": "wt-31",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t141",
+      "title": "Score conflicts between parallel tasks",
+      "prdSections": ["prd.conflicts", "prd.conflicts.predicting"],
+      "specSections": ["spec.planning.conflict-scores"],
+      "files": [
+        "packages/core/src/conflicts.ts",
+        "packages/cli/src/git.ts",
+        "packages/contract/src/config.ts",
+        "packages/core/test/conflicts.test.ts"
+      ],
+      "branch": "cairn-mvp/141-score-conflicts-between-parallel-tasks",
+      "parent": null,
+      "dependsOn": ["t21", "t138"],
+      "worktree": "wt-42",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t142",
+      "title": "Order high-scoring pairs at plan time",
+      "prdSections": ["prd.conflicts.planning"],
+      "specSections": ["spec.planning.conflict-ordering"],
+      "files": [
+        "packages/core/src/conflicts.ts",
+        "packages/core/src/stack.ts",
+        "packages/core/src/lint.ts",
+        "packages/core/src/judging/questions.ts",
+        "packages/contract/src/judgments.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/core/test/conflicts.test.ts",
+        "packages/cli/test/plan.test.ts"
+      ],
+      "branch": "cairn-mvp/142-order-high-scoring-pairs-at-plan-time",
+      "parent": null,
+      "dependsOn": ["t58", "t113", "t141"],
+      "worktree": "wt-42",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t143",
+      "title": "Add the model catalog and eligibility",
+      "prdSections": ["prd.judging-the-plan.routing"],
+      "specSections": ["spec.judging.model-catalog"],
+      "files": [
+        "packages/contract/src/config.ts",
+        "packages/core/src/catalog.ts",
+        "packages/core/test/catalog.test.ts"
+      ],
+      "branch": "cairn-mvp/143-add-the-model-catalog-and-eligibility",
+      "parent": null,
+      "dependsOn": ["t55", "t129"],
+      "worktree": "wt-9",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t144",
+      "title": "Derive attempts and attempt limits from events",
+      "prdSections": ["prd.outcomes.attempts"],
+      "specSections": ["spec.status.attempts"],
+      "files": [
+        "packages/core/src/attempts.ts",
+        "packages/core/src/derive.ts",
+        "packages/contract/src/config.ts",
+        "packages/cli/src/commands/session.ts",
+        "packages/cli/src/migrations/",
+        "packages/core/test/attempts.test.ts"
+      ],
+      "branch": "cairn-mvp/144-derive-attempts-and-attempt-limits-from-events",
+      "parent": null,
+      "dependsOn": ["t37", "t116", "t129", "t143"],
+      "worktree": "wt-9",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t145",
+      "title": "Route tasks from the catalog with recommendations and overrides",
+      "prdSections": ["prd.judging-the-plan.routing"],
+      "specSections": ["spec.judging.model-catalog"],
+      "files": [
+        "packages/contract/src/judgments.ts",
+        "packages/core/src/judging/questions.ts",
+        "packages/core/src/judging/verdicts.ts",
+        "packages/cli/src/refine.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/core/test/verdicts.test.ts"
+      ],
+      "branch": "cairn-mvp/145-route-tasks-from-the-catalog-with-recommendations-and-overrides",
+      "parent": null,
+      "dependsOn": ["t64", "t134", "t143"],
+      "worktree": "wt-16",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t146",
+      "title": "Add the OpenAI Decisions layer",
+      "prdSections": ["prd.judging-the-plan.comparing"],
+      "specSections": ["spec.judging.openai-decisions"],
+      "files": [
+        "packages/cli/src/decision-openai.ts",
+        "packages/cli/src/models.ts",
+        "packages/contract/src/config.ts",
+        "packages/contract/src/judgments.ts",
+        "packages/core/src/judging/verdicts.ts",
+        "packages/cli/test/decision-openai.test.ts",
+        "packages/cli/test/fixtures/openai-decisions/"
+      ],
+      "branch": "cairn-mvp/146-add-the-openai-decisions-layer",
+      "parent": null,
+      "dependsOn": ["t60", "t145"],
+      "worktree": "wt-16",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t147",
+      "title": "Compare decision providers within a budget",
+      "prdSections": ["prd.judging-the-plan.comparing", "prd.cli"],
+      "specSections": ["spec.judging.comparing-decision-providers"],
+      "files": [
+        "packages/cli/src/evaluate.ts",
+        "packages/cli/src/commands/judge.ts",
+        "packages/cli/src/migrations/",
+        "packages/contract/src/config.ts",
+        "packages/cli/test/evaluate.test.ts"
+      ],
+      "branch": "cairn-mvp/147-compare-decision-providers-within-a-budget",
+      "parent": null,
+      "dependsOn": ["t2", "t65", "t146"],
+      "worktree": "wt-16",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t148",
+      "title": "Route API calls through Cloudflare AI Gateway",
+      "prdSections": ["prd.judging-the-plan.gateway"],
+      "specSections": ["spec.judging.cloudflare-ai-gateway"],
+      "files": [
+        "packages/contract/src/config.ts",
+        "packages/cli/src/models.ts",
+        "packages/cli/src/decision-openai.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/test/gateway.test.ts"
+      ],
+      "branch": "cairn-mvp/148-route-api-calls-through-cloudflare-ai-gateway",
+      "parent": null,
+      "dependsOn": ["t115", "t146"],
+      "worktree": "wt-32",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t149",
+      "title": "Compute the outcome metrics",
+      "prdSections": ["prd.outcomes", "prd.outcomes.metrics"],
+      "specSections": ["spec.status.outcome-metrics"],
+      "files": ["packages/core/src/metrics.ts", "packages/core/test/metrics.test.ts"],
+      "branch": "cairn-mvp/149-compute-the-outcome-metrics",
+      "parent": null,
+      "dependsOn": ["t137", "t144"],
+      "worktree": "wt-9",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t150",
+      "title": "Rank models from history at the routing checkpoint",
+      "prdSections": ["prd.outcomes.routing"],
+      "specSections": ["spec.judging.routing-from-history"],
+      "files": [
+        "packages/core/src/history.ts",
+        "packages/cli/src/refine.ts",
+        "packages/contract/src/config.ts",
+        "packages/contract/src/judgments.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/core/test/history.test.ts",
+        "packages/cli/test/refine.test.ts"
+      ],
+      "branch": "cairn-mvp/150-rank-models-from-history-at-the-routing-checkpoint",
+      "parent": null,
+      "dependsOn": ["t145", "t149"],
+      "worktree": "wt-9",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t151",
+      "title": "Add cairn stats",
+      "prdSections": ["prd.outcomes.reporting", "prd.cli"],
+      "specSections": ["spec.status.cairn-stats"],
+      "files": [
+        "packages/cli/src/commands/stats.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/stats.test.ts"
+      ],
+      "branch": "cairn-mvp/151-add-cairn-stats",
+      "parent": null,
+      "dependsOn": ["t35", "t150"],
+      "worktree": "wt-9",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t152",
+      "title": "Read per-call usage from Codex rollouts",
+      "prdSections": ["prd.outcomes.session-cost"],
+      "specSections": ["spec.sessions.usage-records"],
+      "files": [
+        "packages/core/src/codex-usage.ts",
+        "packages/core/test/codex-usage.test.ts",
+        "packages/core/test/fixtures/codex/"
+      ],
+      "branch": "cairn-mvp/152-read-per-call-usage-from-codex-rollouts",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-43",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t153",
+      "title": "Store usage calls, subagents and allocations",
+      "prdSections": ["prd.outcomes.session-cost"],
+      "specSections": ["spec.sessions.usage-records"],
+      "files": [
+        "packages/core/src/usage.ts",
+        "packages/cli/src/commands/session.ts",
+        "packages/cli/src/trace-store.ts",
+        "packages/cli/src/migrations/",
+        "packages/core/test/usage.test.ts"
+      ],
+      "branch": "cairn-mvp/153-store-usage-calls-subagents-and-allocations",
+      "parent": null,
+      "dependsOn": ["t37", "t152"],
+      "worktree": "wt-43",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t154",
+      "title": "Estimate the API-equivalent cost of a session",
+      "prdSections": ["prd.outcomes.session-cost"],
+      "specSections": ["spec.sessions.api-equivalent-cost"],
+      "files": ["packages/core/src/estimate.ts", "packages/core/test/estimate.test.ts"],
+      "branch": "cairn-mvp/154-estimate-the-api-equivalent-cost-of-a-session",
+      "parent": null,
+      "dependsOn": ["t143", "t152"],
+      "worktree": "wt-44",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t155",
+      "title": "Track subscription allowance and allocate its fee",
+      "prdSections": ["prd.outcomes.session-cost"],
+      "specSections": ["spec.sessions.subscription-allowance"],
+      "files": [
+        "packages/core/src/allowance.ts",
+        "packages/core/src/codex-usage.ts",
+        "packages/contract/src/config.ts",
+        "packages/cli/src/migrations/",
+        "packages/core/test/allowance.test.ts"
+      ],
+      "branch": "cairn-mvp/155-track-subscription-allowance-and-allocate-its-fee",
+      "parent": null,
+      "dependsOn": ["t153", "t154"],
+      "worktree": "wt-44",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t156",
+      "title": "Carry attempts and usage in the trace",
+      "prdSections": ["prd.outcomes.session-cost", "prd.outcomes.reporting"],
+      "specSections": ["spec.contract.usage-in-the-trace"],
+      "files": [
+        "packages/contract/src/trace.ts",
+        "packages/cli/src/api.ts",
+        "packages/cli/src/commands/status.ts",
+        "packages/cli/test/trace-usage.test.ts"
+      ],
+      "branch": "cairn-mvp/156-carry-attempts-and-usage-in-the-trace",
+      "parent": null,
+      "dependsOn": ["t35", "t39", "t144", "t155"],
+      "worktree": "wt-44",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t157",
+      "title": "Verify each attempt and report its usage in the orchestrator contract",
+      "prdSections": ["prd.outcomes.attempts"],
+      "specSections": ["spec.orchestrator-adapter.attempts-and-verification"],
+      "files": [
+        "packages/contract/src/config.ts",
+        "AGENTS.md",
+        "packages/cli/test/orchestrator-contract.test.ts"
+      ],
+      "branch": "cairn-mvp/157-verify-each-attempt-and-report-its-usage-in-the-orchestrator-contract",
+      "parent": null,
+      "dependsOn": ["t151", "t153"],
+      "worktree": "wt-43",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t158",
+      "title": "Add conflict events and the run schedule",
+      "prdSections": ["prd.conflicts.running", "prd.conflicts.landing"],
+      "specSections": ["spec.orchestrator-adapter.conflict-aware-running"],
+      "files": [
+        "packages/core/src/schedule.ts",
+        "packages/contract/src/events.ts",
+        "packages/contract/src/trace.ts",
+        "packages/contract/src/js.ts",
+        "packages/cli/src/git.ts",
+        "packages/cli/src/api.ts",
+        "packages/cli/src/commands/status.ts",
+        "packages/core/test/schedule.test.ts"
+      ],
+      "branch": "cairn-mvp/158-add-conflict-events-and-the-run-schedule",
+      "parent": null,
+      "dependsOn": ["t129", "t140", "t141"],
+      "worktree": "wt-31",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t159",
+      "title": "Show conflict events in the task timeline",
+      "prdSections": ["prd.conflicts.running"],
+      "specSections": ["spec.orchestrator-adapter.conflict-aware-running"],
+      "files": ["apps/viewer/src/view/detailView.ts", "apps/viewer/test/conflicts.scene.test.ts"],
+      "branch": "cairn-mvp/159-show-conflict-events-in-the-task-timeline",
+      "parent": null,
+      "dependsOn": ["t93", "t158"],
+      "worktree": "wt-31",
+      "model": "sonnet",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t160",
+      "title": "Record restacks and report conflict calibration",
+      "prdSections": ["prd.conflicts.learning"],
+      "specSections": ["spec.status.conflict-record"],
+      "files": [
+        "packages/core/src/conflicts.ts",
+        "packages/cli/src/commands/status.ts",
+        "packages/core/test/conflicts.test.ts"
+      ],
+      "branch": "cairn-mvp/160-record-restacks-and-report-conflict-calibration",
+      "parent": "t158",
+      "dependsOn": ["t158"],
+      "worktree": "wt-45",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t161",
+      "title": "Generate the docs reference from the CLI and schemas",
+      "prdSections": ["prd.docs"],
+      "specSections": ["spec.cli.documentation.reference-from-code"],
+      "files": [
+        "packages/cli/src/commands/index.ts",
+        "apps/docs/scripts/reference.ts",
+        "apps/docs/scripts/check-pages.ts",
+        "packages/contract/schema/",
+        "packages/contract/src/",
+        "apps/docs/test/reference.test.ts"
+      ],
+      "branch": "cairn-mvp/161-generate-the-docs-reference-from-the-cli-and-schemas",
+      "parent": null,
+      "dependsOn": ["t16", "t119"],
+      "worktree": "wt-46",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t162",
+      "title": "Build the docs site with prerendered pages and search",
+      "prdSections": ["prd.docs"],
+      "specSections": ["spec.cli.documentation.docs-site"],
+      "files": [
+        "apps/docs/",
+        "apps/viewer/package.json",
+        "apps/site/",
+        ".github/workflows/ci.yml",
+        "pnpm-workspace.yaml"
+      ],
+      "branch": "cairn-mvp/162-build-the-docs-site-with-prerendered-pages-and-search",
+      "parent": null,
+      "dependsOn": ["t42", "t71", "t101", "t161"],
+      "worktree": "wt-46",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:.github/workflows/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t163",
+      "title": "Write the docs pages",
+      "prdSections": ["prd.docs"],
+      "specSections": ["spec.cli.documentation.pages"],
+      "files": ["apps/docs/pages/"],
+      "branch": "cairn-mvp/163-write-the-docs-pages",
+      "parent": "t162",
+      "dependsOn": ["t162"],
+      "worktree": "wt-46",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t164",
+      "title": "Embed the viewer in docs pages",
+      "prdSections": ["prd.docs"],
+      "specSections": ["spec.cli.documentation.the-viewer-on-a-page"],
+      "files": ["apps/docs/src/viewerEmbed.ts", "apps/docs/test/viewer-embed.test.ts"],
+      "branch": "cairn-mvp/164-embed-the-viewer-in-docs-pages",
+      "parent": null,
+      "dependsOn": ["t44", "t121", "t162"],
+      "worktree": "wt-47",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t165",
+      "title": "Show list items in the reader",
+      "prdSections": ["prd.viewer.items"],
+      "specSections": ["spec.viewer.list-items"],
+      "files": [
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/src/reader.ts",
+        "apps/viewer/src/wires.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/items.scene.test.ts",
+        "apps/viewer/test/reader.test.ts"
+      ],
+      "branch": "cairn-mvp/165-show-list-items-in-the-reader",
+      "parent": null,
+      "dependsOn": ["t93", "t131"],
+      "worktree": "wt-10",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t166",
+      "title": "Show usage and cost in spec cards and the task detail",
+      "prdSections": ["prd.viewer.cost"],
+      "specSections": ["spec.viewer.cost-on-the-graph"],
+      "files": [
+        "apps/viewer/src/cost.ts",
+        "apps/viewer/src/view/costView.ts",
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/detail.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/cost.test.ts",
+        "apps/viewer/test/cost.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/166-show-usage-and-cost-in-spec-cards-and-the-task-detail",
+      "parent": null,
+      "dependsOn": ["t93", "t156"],
+      "worktree": "wt-44",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t167",
+      "title": "List attempts and the routing decision in the task detail",
+      "prdSections": ["prd.outcomes.reporting"],
+      "specSections": ["spec.viewer.attempts-in-the-detail-panel"],
+      "files": ["apps/viewer/src/view/detailView.ts", "apps/viewer/test/attempts.scene.test.ts"],
+      "branch": "cairn-mvp/167-list-attempts-and-the-routing-decision-in-the-task-detail",
+      "parent": null,
+      "dependsOn": ["t93", "t150", "t156"],
+      "worktree": "wt-48",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t168",
+      "title": "Show what each section needs and what needs it",
+      "prdSections": ["prd.viewer.dependencies"],
+      "specSections": ["spec.viewer.what-depends-on-what"],
+      "files": [
+        "apps/viewer/src/reader.ts",
+        "apps/viewer/src/view/linksView.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/dependencies.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/168-show-what-each-section-needs-and-what-needs-it",
+      "parent": null,
+      "dependsOn": ["t139", "t140", "t165"],
+      "worktree": "wt-10",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t169",
+      "title": "Add the command menu",
+      "prdSections": ["prd.viewer.command-menu"],
+      "specSections": ["spec.viewer.command-menu"],
+      "files": [
+        "apps/viewer/src/menu.ts",
+        "apps/viewer/src/view/menuView.ts",
+        "apps/viewer/src/subscription/menuKeys.ts",
+        "apps/viewer/src/view/searchView.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/menu.test.ts",
+        "apps/viewer/test/menu.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/169-add-the-command-menu",
+      "parent": null,
+      "dependsOn": ["t95", "t124"],
+      "worktree": "wt-49",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t170",
+      "title": "Show notes where they are anchored",
+      "prdSections": ["prd.viewer.notes"],
+      "specSections": ["spec.viewer.notes"],
+      "files": [
+        "apps/viewer/src/notes.ts",
+        "apps/viewer/src/view/noteView.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/test/notes.test.ts",
+        "apps/viewer/test/notes.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/170-show-notes-where-they-are-anchored",
+      "parent": null,
+      "dependsOn": ["t121", "t126"],
+      "worktree": "wt-37",
       "model": "sonnet",
       "reasoning": "high",
       "humanGate": {

@@ -24,9 +24,9 @@ A PRD section is covered when it, or a section under it, appears in some `Implem
 
 ## Scope {#spec.scope}
 
-- Defers: `prd.v2-diverging-state`, `prd.v2-multiplayer-on-cloudflare`, `prd.later`, `prd.section-ids.items`, `prd.done-when`, `prd.judging-the-plan.routing`, `prd.judging-the-plan.comparing`, `prd.judging-the-plan.gateway`, `prd.outcomes`, `prd.conflicts`, `prd.relations`, `prd.viewer.items`, `prd.viewer.cost`, `prd.viewer.dependencies`, `prd.viewer.command-menu`, `prd.viewer.notes`, `prd.docs`
+- Defers: `prd.v2-diverging-state`, `prd.v2-multiplayer-on-cloudflare`, `prd.later`
 
-This spec covers v1. The v1 sections deferred after `prd.later` are not planned yet, so that `cairn plan` plans deep links on their own; taking a section off this list lets the next `cairn plan` plan it. Presence is the one v2 piece already built, and it stays: `cairn serve` keeps serving `/presence` next to the trace API.
+This spec covers v1. Presence is the one v2 piece already built, and it stays: `cairn serve` keeps serving `/presence` next to the trace API.
 
 ## Package layout {#spec.package-layout}
 
@@ -520,6 +520,261 @@ Tests, in `link.test.ts`:
 - Examples: the path for the PRD's `cairn link prd.code-view t74 --file packages/cli/src/api.ts --line 40` is `/section/prd.code-view/task/t74/diff/<sha>/file/packages%2Fcli%2Fsrc%2Fapi.ts/lines/n40`.
 - Refusals: a `file` with no diff before it, a `lines` that does not follow a `file`, a `task` after a `commit`, `/lines/n42-40`, a bad SHA and a bad percent-encoding are each refused, and each error names the step and the field.
 
+### Items and statements {#spec.contract.items-and-statements}
+
+- Implements: `prd.section-ids.items`, `prd.done-when.statements`
+- Files: `packages/contract/src/ids.ts`, `packages/contract/src/trailers.ts`, `packages/contract/src/trace.ts`, `packages/contract/src/spec-index.ts`, `packages/contract/schema/`, `packages/contract/test/items.test.ts`
+- Depends on: `spec.contract.section-ids`, `spec.contract.trace`, `spec.contract.spec-index`
+
+A list item's ID follows the same rules as a section ID, so it decodes through `PrdSectionId` or `SpecSectionId`. Every field that holds a section ID can therefore hold an item ID with no schema change: `Implements`, `Defers` and `Context`, `prdSections`, a link's `section` step. Items are planned against only in the PRD, because the PRD only speaks of PRD items. A spec's list items can still carry IDs, and they parse the same way.
+
+`ids.ts` adds `StatementId`:
+
+```ts
+StatementId = string // ^prd\.[a-z0-9]+(?:[.-][a-z0-9]+)*#v[1-9][0-9]*$
+ownerOf(id: StatementId): PrdSectionId // the part before "#v": a section or a list item
+TestId = `${SpecSectionId}#t${number}` // moved here from spec-index.ts, so trace.ts can import it
+```
+
+`trailers.ts`: a `Cairn-Section` trailer decodes `PrdSectionId | SpecSectionId`, so a commit can name the item it builds.
+
+`trace.ts` adds:
+
+```ts
+TraceDocument += {
+  items: Array<TraceItem> // document order
+  statements: Array<TraceStatement> // document order; always empty for the spec
+}
+
+TraceItem = {
+  id: SectionId
+  text: string // the item's own text, without its {#id}
+  line: number
+  section: SectionId // the heading it sits under
+  parent: SectionId // the item it is nested in, or else that heading
+  human: boolean // its own text or an ancestor has <!-- human -->
+}
+
+TraceStatement = {
+  id: StatementId
+  owner: PrdSectionId
+  text: string // without "Draft:", the human tag or the {#id}
+  line: number
+  draft: boolean
+  human: boolean
+  provedBy: Array<TestId>
+}
+
+TraceTask += { statements: Array<StatementId> } // see spec.planning.done-when.tracing-statements
+```
+
+`Trace.sections`, the list of statuses, also holds every item that has an ID.
+
+`spec-index.ts`: each entry in `tests` gains `proves: Array<StatementId>`. The index gains a top-level `tasks: Array<{ id: TaskId; statements: Array<{ id: StatementId; draft: boolean; provedBy: Array<TestId> }> }>`.
+
+A trace or a `spec.json` written before these fields existed still decodes, with empty arrays. The JSON Schema files are generated again.
+
+Tests: `StatementId` accepts `prd.saved-views#v1` and `prd.cli.lint#v12`, and refuses `spec.x#v1`, `prd.x#v0` and `prd.x#t1`. `ownerOf` returns what comes before `#v`. A trace without the new fields decodes, and so does the demo trace. A `Cairn-Section: prd.cli.lint` trailer round-trips.
+
+### Relation kinds {#spec.contract.relation-kinds}
+
+- Implements: `prd.relations.kinds`
+- Files: `packages/contract/src/relations.ts`, `packages/contract/src/manifest.ts`, `packages/contract/src/index.ts`, `packages/contract/schema/`, `packages/contract/test/relations.test.ts`
+- Depends on: `spec.contract.manifest`, `spec.contract.items-and-statements`
+
+`relations.ts` declares the relation kinds in one place. It imports IDs from `ids.ts`, and `index.ts` re-exports it.
+
+```ts
+EndKind = "task" | "spec" | "prd" | "item" | "statement" | "test"
+End = { kind: EndKind; id: string }
+
+RelationKind = "needs" | "builtOn" | "orderedAfter" | "builds" | "names" | "implements" | "dependsOn" | "proves"
+
+relationKinds: { readonly [K in RelationKind]: {
+  label: string // "needs", "built on", "ordered after", ...
+  from: ReadonlyArray<EndKind>
+  to: ReadonlyArray<EndKind>
+  recordedIn: string // "manifest.json dependsOn", "spec.md Implements", ...
+} }
+
+Relation = { kind: RelationKind; from: End; to: End }
+```
+
+The table holds the eight rows of the PRD. `names` and `implements` end on `prd` or `item`. `proves` runs from `test` to `statement`.
+
+The relation index reads each kind through one extractor (see `spec.status.relation-index`). The extractors are typed as `Record<RelationKind, Extractor>`, so a kind added here fails to compile until its extractor exists. Nothing else has to change when a kind is added.
+
+`manifest.ts` adds the field that records `ordered after`:
+
+```ts
+ManifestTask += {
+  orderedAfter: Array<{ task: TaskId; reason: string }>, // defaults to []; a conflict ordering, not a dependency
+};
+```
+
+A manifest without the field decodes with `[]`. The JSON Schema files are generated again.
+
+Tests:
+
+- Every kind has a non-empty `from` and `to`.
+- `Relation` refuses an end kind that its kind's declaration does not allow.
+- An old manifest decodes with an empty `orderedAfter`.
+
+### Attempts {#spec.contract.attempts}
+
+- Implements: `prd.outcomes.attempts`
+- Files: `packages/contract/src/events.ts`, `packages/contract/src/attempts.ts`, `packages/contract/src/js.ts`, `packages/contract/schema/`, `packages/contract/test/attempts.test.ts`
+- Depends on: `spec.contract.events`, `spec.contract.trailers`
+
+The orchestrator reports what each attempt cost and how it ended on the events it already writes. `Event` becomes a union discriminated by `kind`. A line with no `kind` is a status event, so every existing line still decodes.
+
+```ts
+Event = StatusEvent | UsageEvent | ConflictEvent // ConflictEvent: see spec.orchestrator-adapter.conflict-aware-running
+
+StatusEvent = {
+  kind?: "status"
+  // ...every field Event has today
+  session?: SessionId // the attempt's session, on running, done and failed
+  harness?: Harness // on running
+  attempt?: AttemptKind // on running; derived when missing (see spec.status.attempts)
+  usage?: Usage // on done and failed
+  cost?: number | null // US dollars; null when it is not known
+  route?: Route // on done and failed
+  failure?: FailureReason // on failed
+}
+
+UsageEvent = { // a session on the task that is not an attempt
+  kind: "usage"
+  v?: 1
+  ts: string
+  taskId: TaskId
+  session: SessionId
+  purpose: "review" | "conflict"
+  model: string
+  reasoning: Reasoning
+  harness: Harness
+  usage: Usage
+  cost: number | null
+  route: Route
+}
+
+Harness = { name: NonEmptyString; version: string } // "claude-code", "codex", "pi"
+Usage = {
+  input: number | null // every input token, cached ones included
+  cachedInput: number | null // the part of input read from cache
+  cacheWrite: number | null
+  output: number | null // reasoning tokens included
+  reasoning: number | null
+}
+Route = "subscription" | "api" | "gateway" | "unified"
+AttemptKind = "first" | "retry" | "escalation" | "repair"
+FailureReason = "checks" | "agent" | "infra" | "upstream"
+```
+
+What each route means:
+
+- `subscription`: a CLI's own plan. `cost` is `null`.
+- `api`: straight to the provider's account.
+- `gateway`: through Cloudflare AI Gateway, billed to the provider's account.
+- `unified`: Cloudflare's Unified Billing balance.
+
+Token counts are non-negative integers. A count the provider did not give is `null`, never `0`. Derivation folds only status events through the task machine. Usage and conflict events never change a status.
+
+`attempts.ts` holds the derived `Attempt`. It lives in the contract because the trace carries it:
+
+```ts
+Attempt = {
+  task: TaskId
+  n: number // 1 for the first
+  session: SessionId | null
+  kind: AttemptKind
+  model: string
+  reasoning: Reasoning
+  harness: Harness | null
+  startedAt: DateTime.Utc
+  endedAt: DateTime.Utc | null
+  usage: Usage
+  cost: number | null
+  costSource: "reported" | "priced" | "unknown"
+  route: Route | null
+  outcome: "verified" | "failed" | "open"
+  failure: FailureReason | null
+}
+```
+
+`parseEvent` in the JS entry decodes the union, and `appendEvent` accepts every member. The JSON Schema files are generated again.
+
+Tests:
+
+- A line written before this change decodes as a status event.
+- A `failed` event with each failure reason round-trips.
+- A usage count of `-1` is refused.
+- `cost: null` decodes as unknown, not as zero.
+
+### Usage in the trace {#spec.contract.usage-in-the-trace}
+
+- Implements: `prd.outcomes.session-cost`, `prd.outcomes.reporting`
+- Files: `packages/contract/src/trace.ts`, `packages/cli/src/api.ts`, `packages/cli/src/commands/status.ts`, `packages/cli/test/trace-usage.test.ts`
+- Depends on: `spec.contract.attempts`, `spec.status.attempts`, `spec.sessions.api-equivalent-cost`, `spec.sessions.subscription-allowance`, `spec.server`
+
+The viewer reads cost and attempts from the `Trace`, like everything else it reads.
+
+```ts
+TraceTask += {
+  attempts: Array<Attempt>
+  terminal: boolean // reached its attempt or cost limit without verifying
+  usage: TaskUsage
+}
+
+TaskUsage = {
+  sessions: Array<SessionUsage>
+  apiEstimate: Estimate // the sum over sessions of share × estimate
+  billed: { usd: number | null; unknownAttempts: number }
+  allowance: Array<AllowanceShare> // attributable consumption only
+  allocated: Allocation | null // private
+}
+
+SessionUsage = {
+  session: SessionId
+  share: number // 1 for the task's own session; an explicit allocation otherwise
+  purpose: "attempt" | "review" | "conflict" | "subagent"
+  byModel: Array<{
+    model: string
+    reasoning: Reasoning | null
+    input: number
+    cachedInput: number
+    cacheWrite: number | null
+    output: number
+    reasoningTokens: number | null
+  }>
+  estimate: Estimate
+  billed: number | null
+}
+
+Estimate = {
+  usd: number | null
+  coverage: { calls: number; priced: number }
+  sources: Array<{ model: string; source: string; effective: string }>
+  assumptions: Array<string>
+  excluded: Array<string>
+}
+
+AllowanceShare = { allowance: string; label: string; percent: number | null; resetsAt: DateTime.Utc; note: string }
+Allocation = { usd: number | null; currency: string; provisional: boolean; method: string }
+
+Trace += { account: Array<AccountAllowance> } // private: account-wide use and remaining, per allowance
+```
+
+The trace builder fills these fields from the attempts (see `spec.status.attempts`), the usage records and their estimates (see `spec.sessions.api-equivalent-cost`) and the allowance snapshots (see `spec.sessions.subscription-allowance`).
+
+Some fields are private: `account`, `allocated` and the fee behind it, and each `AllowanceShare`. `GET /api/trace` serves them, because it only answers on the person's own machine. `cairn status --json` leaves them out unless `--private` is passed. The demo trace is built by `cairn status --json`, so the demo and any shared export carry none of them.
+
+Tests:
+
+- A trace written before this change decodes with no attempts and an unknown estimate.
+- `cairn status --json` has no `account` and no allowance shares, and with `--private` it has both.
+- A session referenced by two commits of one task appears once in `sessions`.
+
 ## Sections {#spec.sections}
 
 ### Parsing {#spec.sections.parsing}
@@ -551,6 +806,80 @@ It reuses the fence and heading rules `assignSectionIds` already has, so both ag
 - Depends on: `spec.sections.parsing`
 
 Runs `assignSectionIds` on `prd.md` with `prd` and on `spec.md` with `spec`. Writes a file only when IDs were added, and prints each added ID. `--check` writes nothing and exits 1 if any heading lacks an ID.
+
+### List items {#spec.sections.list-items}
+
+- Implements: `prd.section-ids.items`
+- Files: `packages/core/src/items.ts`, `packages/core/src/section-ids.ts`, `packages/cli/src/commands/ids.ts`, `packages/core/test/items.test.ts`
+- Depends on: `spec.sections.parsing`, `spec.sections.cairn-ids`, `spec.contract.items-and-statements`
+
+`itemsOf(markdown, sections)` in `items.ts` is pure. It returns every list item outside a fence, using the fence rules `assignSectionIds` already has:
+
+```ts
+Item = {
+  id: SectionId | undefined
+  asks: boolean // it ends in {#}
+  text: string // its own text, without the attribute
+  line: number
+  section: SectionId | undefined // the heading it is under
+  parent: SectionId | undefined // the item it is nested in, or else that heading
+  human: boolean
+}
+```
+
+- An item starts at a line that matches `^( *)([-*+]|\d+[.)]) +`. Its own text runs until its first nested list, the next item at the same indent or less, a heading, or a blank line followed by a line that is not indented.
+- An ID is a trailing ` {#<id>}` at the end of the item's own text. A trailing ` {#}` asks for one.
+- The items of a `Done when:` list are statements, not items, and `itemsOf` leaves them out (see `spec.planning.done-when.statements`).
+- An item is `human` when its own text has `<!-- human -->`, or when its section or any item it is nested in is human.
+
+`assignItemIds(markdown, taken)` in `section-ids.ts` fills each `{#}`, and `cairn ids` runs it after the headings. The ID is the ID of the heading the item sits under, then `.`, then the first two words of the item's visible text, lowercased and joined by `-`. Markdown, backticks and punctuation are stripped first. On a clash it adds `-2`, `-3` and so on. The PRD only says "first words", so I chose two: ``- `cairn lint` checks … {#}`` under `prd.cli` becomes `{#prd.cli.cairn-lint}`.
+
+- An item that already has an ID is never changed.
+- An item with no attribute is never given one.
+- Only lines that end in `{#}` change.
+- `cairn ids --check` exits 1 when any `{#}` is left, as it does for a heading with no ID.
+
+Tests:
+
+- Properties: `assignItemIds` applied twice gives what applying it once gives, and it changes no line that lacks `{#}`.
+- Every item's `parent` is a heading or an item that comes earlier in the document.
+- Items inside fences are ignored.
+- Examples: an item nested two deep gets the right parent; an item whose text wraps onto three lines has its attribute read from the last line; two items with the same first words under one heading get `-2`.
+
+### Item coverage {#spec.sections.item-coverage}
+
+- Implements: `prd.section-ids.items`
+- Files: `packages/core/src/lint.ts`, `packages/core/src/rollup.ts`, `packages/core/src/gates.ts`, `packages/cli/prompts/`, `packages/cli/src/api.ts`, `packages/core/test/lint.test.ts`, `packages/core/test/rollup.test.ts`
+- Depends on: `spec.sections.list-items`, `spec.lint`, `spec.status.section-rollup`, `spec.gates.detection`, `spec.planning.planner-service`
+
+Once an item has an ID, it is planned, counted and linted on its own.
+
+Coverage. An item is covered when an `Implements`, `Defers` or `Context` key names it, or when a `Defers` or `Context` key names a heading or item it sits under. An `Implements` that names the section around an item does not cover the item. That is the one place where an item's coverage differs from a section's (see `spec.format`).
+
+Lint:
+
+| Rule              | Severity | Fires when                                                                                                      |
+| ----------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| `unmapped-item`   | error    | A PRD item with an ID is not covered                                                                            |
+| `unknown-section` | error    | As now. Item and statement IDs count as known IDs, so deleting an item that a task or a key names is this error |
+| `duplicate-id`    | error    | As now, across headings, items and statements                                                                   |
+| `wrong-prefix`    | error    | As now, for items too                                                                                           |
+
+Rollup. An item's tasks are the tasks whose `specSections` hold a spec section that implements the item, plus the tasks whose `prdSections` name it. An item's status follows the rules in `spec.status.section-rollup`. A heading's tasks include those of every item under it.
+
+Gates. `gateOf` treats a task that names a human item, or builds a spec section implementing one, as tagged, with the reason `tag:human`.
+
+Planner. The `spec`, `sections` and `tasks` prompts gain one rule: when a section's items have IDs, name the items in `Implements` and `prdSections`, not the section that holds them.
+
+Trace. The trace builder fills `items`, and the status of each item, from `itemsOf` and the rollup.
+
+`replanOf` is not changed here. Mapping items that are given IDs after their section was planned belongs to `spec.planning.again`. Until then, `cairn lint` reports each such item as unmapped.
+
+Tests:
+
+- A PRD with `prd.cli` implemented and an item `prd.cli.lint` that nothing names gives `unmapped-item`. A `Context: prd.cli` key silences it, and so does `Implements: prd.cli.lint`.
+- A task naming a deleted item gives `unknown-section`.
+- Rollup properties: a heading's task set holds each of its items' task sets, and an item with no task is `unmapped`.
 
 ## Gates {#spec.gates}
 
@@ -857,12 +1186,16 @@ flowchart BT
     direction BT
     t74["t74 · 74-patch-routes<br/>Serve commit and task patches from git<br/>wt-25"]
   end
-  subgraph s34["Stack 34 · viewer"]
+  subgraph s34["Stack 34 · server"]
+    direction BT
+    t78["t78 · 78-session-route<br/>Serve sessions from cairn.db<br/>wt-23"]
+  end
+  subgraph s35["Stack 35 · viewer"]
     direction BT
     t79["t79 · 79-session-pane<br/>Draw the session pane<br/>wt-24"]
     t80["t80 · 80-attribution<br/>Mark each hunk with the turn that wrote it<br/>wt-24"]
   end
-  subgraph s35["Stack 35 · viewer"]
+  subgraph s36["Stack 36 · viewer"]
     direction BT
     t84["t84 · 84-reader-derive<br/>Derive what the reader shows for a PRD section<br/>wt-27"]
     t85["t85 · 85-reader-screen<br/>Add the reader screen with the PRD pane and its current section<br/>wt-27"]
@@ -879,87 +1212,261 @@ flowchart BT
     t96["t96 · 96-reading-presence<br/>Show who is reading which PRD section<br/>wt-27"]
     t97["t97 · 97-remove-canvas · GATE<br/>Make the reader the viewer and remove the canvas<br/>wt-27"]
   end
-  subgraph s36["Stack 36 · viewer"]
+  subgraph s37["Stack 37 · viewer"]
     direction BT
     t98["t98 · 98-detail-session<br/>Show the agent session in a task's detail<br/>wt-27"]
   end
-  subgraph s37["Stack 37 · viewer"]
+  subgraph s38["Stack 38 · viewer"]
     direction BT
     t99["t99 · 99-design-tokens<br/>Add the design tokens and the base stylesheet<br/>wt-28"]
     t100["t100 · 100-ui-pieces<br/>Build the shared marks and controls on the tokens<br/>wt-28"]
     t101["t101 · 101-restyle-code-view<br/>Move the code view, search and code blocks to the design system<br/>wt-28"]
   end
-  subgraph s38["Stack 38 · testing"]
+  subgraph s39["Stack 39 · testing"]
     direction BT
     t102["t102 · 102-xstate-test<br/>Add @xstate/test and move xstate to 6.0.0-beta.5<br/>wt-29"]
     t103["t103 · 103-presence-model<br/>Test the presence server against the room machine<br/>wt-29"]
   end
-  subgraph s39["Stack 39 · testing"]
+  subgraph s40["Stack 40 · testing"]
     direction BT
     t104["t104 · 104-reader-models<br/>Test the reader's trail, pin and dividers against models<br/>wt-30"]
   end
-  subgraph s40["Stack 40 · testing"]
+  subgraph s41["Stack 41 · testing"]
     direction BT
     t105["t105 · 105-derive-model<br/>Test derivation against a model of its inputs<br/>wt-31"]
   end
-  subgraph s41["Stack 41 · contract"]
+  subgraph s42["Stack 42 · contract"]
     direction BT
     t107["t107 · 107-written-from<br/>Record what each spec section was written from<br/>wt-33"]
   end
-  subgraph s42["Stack 42 · lint"]
+  subgraph s43["Stack 43 · lint"]
     direction BT
     t108["t108 · 108-diagram-draws<br/>Check that a Mermaid block draws<br/>wt-34"]
   end
-  subgraph s43["Stack 43 · planning"]
+  subgraph s44["Stack 44 · planning"]
     direction BT
     t109["t109 · 109-stack-diagram<br/>Draw the stack diagram from the manifest<br/>wt-34"]
   end
-  subgraph s44["Stack 44 · lint"]
+  subgraph s45["Stack 45 · lint"]
     direction BT
     t110["t110 · 110-diagram-checks<br/>Keep diagrams true in cairn lint and cairn plan<br/>wt-34"]
   end
-  subgraph s45["Stack 45 · planning"]
+  subgraph s46["Stack 46 · planning"]
     direction BT
     t112["t112 · 112-replan<br/>Find what planning again has to add<br/>wt-33"]
   end
-  subgraph s46["Stack 46 · planning"]
+  subgraph s47["Stack 47 · planning"]
     direction BT
     t113["t113 · 113-plan-again<br/>Plan again after the PRD changes<br/>wt-34"]
   end
-  subgraph s47["Stack 47 · planning"]
+  subgraph s48["Stack 48 · planning"]
     direction BT
     t114["t114 · 114-plan-dry-run<br/>Add dry runs and one-run planner choices to cairn plan<br/>wt-34"]
   end
-  subgraph s48["Stack 48 · status"]
+  subgraph s49["Stack 49 · status"]
     direction BT
     t116["t116 · 116-land-from-git<br/>Land a task from git whatever its status<br/>wt-31"]
   end
-  subgraph s49["Stack 49 · status"]
+  subgraph s50["Stack 50 · status"]
     direction BT
     t117["t117 · 117-trailer-check<br/>Refuse a task commit without its trailers<br/>wt-36"]
   end
-  subgraph s50["Stack 50 · contract"]
+  subgraph s51["Stack 51 · contract"]
     direction BT
     t118["t118 · 118-add-the-link-schema-that-reads-and-writes-link-paths<br/>Add the Link schema that reads and writes link paths<br/>wt-37"]
   end
-  subgraph s51["Stack 51 · cli"]
+  subgraph s52["Stack 52 · cli"]
     direction BT
     t119["t119 · 119-add-cairn-link<br/>Add cairn link<br/>wt-37"]
   end
-  subgraph s52["Stack 52 · viewer"]
+  subgraph s53["Stack 53 · viewer"]
     direction BT
     t120["t120 · 120-resolve-a-link-against-the-trace-and-show-what-is-missing<br/>Resolve a link against the trace and show what is missing<br/>wt-20"]
   end
-  subgraph s53["Stack 53 · viewer"]
+  subgraph s54["Stack 54 · viewer"]
     direction BT
     t121["t121 · 121-open-a-link-s-steps-in-the-reader-and-the-code-view<br/>Open a link's steps in the reader and the code view<br/>wt-20"]
     t122["t122 · 122-keep-the-address-bar-and-browser-history-in-step-with-the-open-link<br/>Keep the address bar and browser history in step with the open link<br/>wt-20"]
     t123["t123 · 123-mark-linked-passages-stacks-and-lines-in-the-panes<br/>Mark linked passages, stacks and lines in the panes<br/>wt-38"]
     t124["t124 · 124-add-copy-link-buttons-to-every-step<br/>Add Copy link buttons to every step<br/>wt-20"]
   end
-  subgraph s54["Stack 54 · viewer"]
+  subgraph s55["Stack 55 · viewer"]
     direction BT
     t125["t125 · 125-copy-links-to-selected-passages-and-diff-lines<br/>Copy links to selected passages and diff lines<br/>wt-20"]
+  end
+  subgraph s56["Stack 56 · sessions"]
+    direction BT
+    t126["t126 · 126-store-notes-and-add-cairn-note · GATE<br/>Store notes and add cairn note<br/>wt-37"]
+  end
+  subgraph s57["Stack 57 · contract"]
+    direction BT
+    t127["t127 · 127-add-item-and-statement-ids-to-the-contract<br/>Add item and statement IDs to the contract<br/>wt-39"]
+  end
+  subgraph s58["Stack 58 · contract"]
+    direction BT
+    t128["t128 · 128-declare-the-relation-kinds-and-the-orderedafter-field<br/>Declare the relation kinds and the orderedAfter field<br/>wt-39"]
+  end
+  subgraph s59["Stack 59 · contract"]
+    direction BT
+    t129["t129 · 129-report-attempts-usage-and-cost-on-events<br/>Report attempts, usage and cost on events<br/>wt-9"]
+  end
+  subgraph s60["Stack 60 · sections"]
+    direction BT
+    t130["t130 · 130-parse-list-items-and-fill-their-ids-in-cairn-ids<br/>Parse list items and fill their IDs in cairn ids<br/>wt-10"]
+  end
+  subgraph s61["Stack 61 · sections"]
+    direction BT
+    t131["t131 · 131-cover-roll-up-and-gate-list-items<br/>Cover, roll up and gate list items<br/>wt-10"]
+  end
+  subgraph s62["Stack 62 · planning"]
+    direction BT
+    t132["t132 · 132-parse-done-when-statements-and-number-them<br/>Parse done-when statements and number them<br/>wt-11"]
+  end
+  subgraph s63["Stack 63 · planning"]
+    direction BT
+    t133["t133 · 133-draft-done-when-statements-and-ask-the-person-about-them<br/>Draft done-when statements and ask the person about them<br/>wt-11"]
+  end
+  subgraph s64["Stack 64 · planning"]
+    direction BT
+    t134["t134 · 134-trace-statements-to-tests-and-tasks<br/>Trace statements to tests and tasks<br/>wt-40"]
+  end
+  subgraph s65["Stack 65 · planning"]
+    direction BT
+    t135["t135 · 135-show-a-task-s-statements-in-its-brief-cairn-status-and-cairn-approve<br/>Show a task's statements in its brief, cairn status and cairn approve<br/>wt-40"]
+  end
+  subgraph s66["Stack 66 · planning"]
+    direction BT
+    t136["t136 · 136-show-done-when-statements-in-the-task-detail<br/>Show done-when statements in the task detail<br/>wt-41"]
+  end
+  subgraph s67["Stack 67 · planning"]
+    direction BT
+    t137["t137 · 137-add-task-categories-to-the-plan<br/>Add task categories to the plan<br/>wt-35"]
+  end
+  subgraph s68["Stack 68 · status"]
+    direction BT
+    t138["t138 · 138-build-the-relation-index<br/>Build the relation index<br/>wt-39"]
+  end
+  subgraph s69["Stack 69 · status"]
+    direction BT
+    t139["t139 · 139-link-prd-sections-through-their-tasks<br/>Link PRD sections through their tasks<br/>wt-39"]
+  end
+  subgraph s70["Stack 70 · status"]
+    direction BT
+    t140["t140 · 140-answer-needs-and-waits-from-the-relation-index-everywhere<br/>Answer needs and waits from the relation index everywhere<br/>wt-31"]
+  end
+  subgraph s71["Stack 71 · planning"]
+    direction BT
+    t141["t141 · 141-score-conflicts-between-parallel-tasks<br/>Score conflicts between parallel tasks<br/>wt-42"]
+  end
+  subgraph s72["Stack 72 · planning"]
+    direction BT
+    t142["t142 · 142-order-high-scoring-pairs-at-plan-time<br/>Order high-scoring pairs at plan time<br/>wt-42"]
+  end
+  subgraph s73["Stack 73 · judging"]
+    direction BT
+    t143["t143 · 143-add-the-model-catalog-and-eligibility<br/>Add the model catalog and eligibility<br/>wt-9"]
+  end
+  subgraph s74["Stack 74 · status"]
+    direction BT
+    t144["t144 · 144-derive-attempts-and-attempt-limits-from-events · GATE<br/>Derive attempts and attempt limits from events<br/>wt-9"]
+  end
+  subgraph s75["Stack 75 · judging"]
+    direction BT
+    t145["t145 · 145-route-tasks-from-the-catalog-with-recommendations-and-overrides<br/>Route tasks from the catalog with recommendations and overrides<br/>wt-16"]
+  end
+  subgraph s76["Stack 76 · judging"]
+    direction BT
+    t146["t146 · 146-add-the-openai-decisions-layer<br/>Add the OpenAI Decisions layer<br/>wt-16"]
+  end
+  subgraph s77["Stack 77 · judging"]
+    direction BT
+    t147["t147 · 147-compare-decision-providers-within-a-budget · GATE<br/>Compare decision providers within a budget<br/>wt-16"]
+  end
+  subgraph s78["Stack 78 · judging"]
+    direction BT
+    t148["t148 · 148-route-api-calls-through-cloudflare-ai-gateway<br/>Route API calls through Cloudflare AI Gateway<br/>wt-32"]
+  end
+  subgraph s79["Stack 79 · status"]
+    direction BT
+    t149["t149 · 149-compute-the-outcome-metrics<br/>Compute the outcome metrics<br/>wt-9"]
+  end
+  subgraph s80["Stack 80 · judging"]
+    direction BT
+    t150["t150 · 150-rank-models-from-history-at-the-routing-checkpoint<br/>Rank models from history at the routing checkpoint<br/>wt-9"]
+  end
+  subgraph s81["Stack 81 · status"]
+    direction BT
+    t151["t151 · 151-add-cairn-stats<br/>Add cairn stats<br/>wt-9"]
+  end
+  subgraph s82["Stack 82 · sessions"]
+    direction BT
+    t152["t152 · 152-read-per-call-usage-from-codex-rollouts<br/>Read per-call usage from Codex rollouts<br/>wt-43"]
+  end
+  subgraph s83["Stack 83 · sessions"]
+    direction BT
+    t153["t153 · 153-store-usage-calls-subagents-and-allocations · GATE<br/>Store usage calls, subagents and allocations<br/>wt-43"]
+  end
+  subgraph s84["Stack 84 · sessions"]
+    direction BT
+    t154["t154 · 154-estimate-the-api-equivalent-cost-of-a-session<br/>Estimate the API-equivalent cost of a session<br/>wt-44"]
+  end
+  subgraph s85["Stack 85 · sessions"]
+    direction BT
+    t155["t155 · 155-track-subscription-allowance-and-allocate-its-fee · GATE<br/>Track subscription allowance and allocate its fee<br/>wt-44"]
+  end
+  subgraph s86["Stack 86 · contract"]
+    direction BT
+    t156["t156 · 156-carry-attempts-and-usage-in-the-trace<br/>Carry attempts and usage in the trace<br/>wt-44"]
+  end
+  subgraph s87["Stack 87 · orchestrator-adapter"]
+    direction BT
+    t157["t157 · 157-verify-each-attempt-and-report-its-usage-in-the-orchestrator-contract<br/>Verify each attempt and report its usage in the orchestrator contract<br/>wt-43"]
+  end
+  subgraph s88["Stack 88 · orchestrator-adapter"]
+    direction BT
+    t158["t158 · 158-add-conflict-events-and-the-run-schedule<br/>Add conflict events and the run schedule<br/>wt-31"]
+    t160["t160 · 160-record-restacks-and-report-conflict-calibration<br/>Record restacks and report conflict calibration<br/>wt-45"]
+  end
+  subgraph s89["Stack 89 · orchestrator-adapter"]
+    direction BT
+    t159["t159 · 159-show-conflict-events-in-the-task-timeline<br/>Show conflict events in the task timeline<br/>wt-31"]
+  end
+  subgraph s90["Stack 90 · cli"]
+    direction BT
+    t161["t161 · 161-generate-the-docs-reference-from-the-cli-and-schemas<br/>Generate the docs reference from the CLI and schemas<br/>wt-46"]
+  end
+  subgraph s91["Stack 91 · cli"]
+    direction BT
+    t162["t162 · 162-build-the-docs-site-with-prerendered-pages-and-search · GATE<br/>Build the docs site with prerendered pages and search<br/>wt-46"]
+    t163["t163 · 163-write-the-docs-pages<br/>Write the docs pages<br/>wt-46"]
+  end
+  subgraph s92["Stack 92 · cli"]
+    direction BT
+    t164["t164 · 164-embed-the-viewer-in-docs-pages<br/>Embed the viewer in docs pages<br/>wt-47"]
+  end
+  subgraph s93["Stack 93 · viewer"]
+    direction BT
+    t165["t165 · 165-show-list-items-in-the-reader<br/>Show list items in the reader<br/>wt-10"]
+  end
+  subgraph s94["Stack 94 · viewer"]
+    direction BT
+    t166["t166 · 166-show-usage-and-cost-in-spec-cards-and-the-task-detail<br/>Show usage and cost in spec cards and the task detail<br/>wt-44"]
+  end
+  subgraph s95["Stack 95 · viewer"]
+    direction BT
+    t167["t167 · 167-list-attempts-and-the-routing-decision-in-the-task-detail<br/>List attempts and the routing decision in the task detail<br/>wt-48"]
+  end
+  subgraph s96["Stack 96 · viewer"]
+    direction BT
+    t168["t168 · 168-show-what-each-section-needs-and-what-needs-it<br/>Show what each section needs and what needs it<br/>wt-10"]
+  end
+  subgraph s97["Stack 97 · viewer"]
+    direction BT
+    t169["t169 · 169-add-the-command-menu<br/>Add the command menu<br/>wt-49"]
+  end
+  subgraph s98["Stack 98 · viewer"]
+    direction BT
+    t170["t170 · 170-show-notes-where-they-are-anchored<br/>Show notes where they are anchored<br/>wt-37"]
   end
   main --> t1
   main --> t2
@@ -1070,6 +1577,9 @@ flowchart BT
   t52 --> t75
   t9 --> t76
   t76 --> t77
+  t2 -.-> t78
+  t74 -.-> t78
+  t77 -.-> t78
   t54 -.-> t79
   t76 -.-> t79
   t79 --> t80
@@ -1145,10 +1655,121 @@ flowchart BT
   t122 --> t124
   t123 -.-> t125
   t124 -.-> t125
-  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125 sonnet
+  t39 -.-> t126
+  t119 -.-> t126
+  t10 -.-> t127
+  t56 -.-> t127
+  t83 -.-> t127
+  t107 -.-> t127
+  t6 -.-> t128
+  t127 -.-> t128
+  t16 -.-> t129
+  t82 -.-> t129
+  t24 -.-> t130
+  t127 -.-> t130
+  t29 -.-> t131
+  t33 -.-> t131
+  t34 -.-> t131
+  t66 -.-> t131
+  t130 -.-> t131
+  t66 -.-> t132
+  t130 -.-> t132
+  t114 -.-> t133
+  t132 -.-> t133
+  t34 -.-> t134
+  t63 -.-> t134
+  t132 -.-> t134
+  t16 -.-> t135
+  t36 -.-> t135
+  t134 -.-> t135
+  t93 -.-> t136
+  t134 -.-> t136
+  t66 -.-> t137
+  t106 -.-> t137
+  t111 -.-> t137
+  t128 -.-> t138
+  t130 -.-> t138
+  t131 -.-> t139
+  t138 -.-> t139
+  t35 -.-> t140
+  t39 -.-> t140
+  t109 -.-> t140
+  t116 -.-> t140
+  t138 -.-> t140
+  t21 -.-> t141
+  t138 -.-> t141
+  t58 -.-> t142
+  t113 -.-> t142
+  t141 -.-> t142
+  t55 -.-> t143
+  t129 -.-> t143
+  t37 -.-> t144
+  t116 -.-> t144
+  t129 -.-> t144
+  t143 -.-> t144
+  t64 -.-> t145
+  t134 -.-> t145
+  t143 -.-> t145
+  t60 -.-> t146
+  t145 -.-> t146
+  t2 -.-> t147
+  t65 -.-> t147
+  t146 -.-> t147
+  t115 -.-> t148
+  t146 -.-> t148
+  t137 -.-> t149
+  t144 -.-> t149
+  t145 -.-> t150
+  t149 -.-> t150
+  t35 -.-> t151
+  t150 -.-> t151
+  main --> t152
+  t37 -.-> t153
+  t152 -.-> t153
+  t143 -.-> t154
+  t152 -.-> t154
+  t153 -.-> t155
+  t154 -.-> t155
+  t35 -.-> t156
+  t39 -.-> t156
+  t144 -.-> t156
+  t155 -.-> t156
+  t151 -.-> t157
+  t153 -.-> t157
+  t129 -.-> t158
+  t140 -.-> t158
+  t141 -.-> t158
+  t93 -.-> t159
+  t158 -.-> t159
+  t158 --> t160
+  t16 -.-> t161
+  t119 -.-> t161
+  t42 -.-> t162
+  t71 -.-> t162
+  t101 -.-> t162
+  t161 -.-> t162
+  t162 --> t163
+  t44 -.-> t164
+  t121 -.-> t164
+  t162 -.-> t164
+  t93 -.-> t165
+  t131 -.-> t165
+  t93 -.-> t166
+  t156 -.-> t166
+  t93 -.-> t167
+  t150 -.-> t167
+  t156 -.-> t167
+  t139 -.-> t168
+  t140 -.-> t168
+  t165 -.-> t168
+  t95 -.-> t169
+  t124 -.-> t169
+  t121 -.-> t170
+  t126 -.-> t170
+  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122,t138,t139,t140,t142,t144,t145,t148,t149,t150,t152,t154,t155,t158 opus
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170 sonnet
   class t11,t24,t27,t44,t56,t66,t102,t107 haiku
-  class t1,t2,t3,t81,t97 gate
+  class t1,t2,t3,t81,t97,t126,t144,t147,t153,t155,t162 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
   classDef sonnet fill:#2563eb,color:#ffffff,stroke:#1e3a8a
   classDef haiku fill:#facc15,color:#111111,stroke:#a16207
@@ -1240,6 +1861,268 @@ Tests: properties that every task is a node in exactly one subgraph, every `pare
 - A dry run plans from the files on disk, so it also shows what planning again would add.
 
 Tests, with the scripted layers: a dry run leaves every file in `.cairn/` byte for byte as it was; the totals line counts what the scripted plan holds; `--source api` without a model fails before any call.
+
+### Done when {#spec.planning.done-when}
+
+- Implements: `prd.done-when`
+
+A done-when statement is a sentence in the PRD, agreed before the build, that says what a person would see when a section works. The pieces below carry each statement from the PRD to the agent and back:
+
+1. Parse statements and give them IDs.
+2. Ask the person about the drafts before the spec is written.
+3. Have the planner write a test that proves each statement.
+4. Attach the statements to tasks in `spec.json` and the trace.
+5. Show them in the agent's brief, in `cairn status`, at a gate and in the viewer.
+
+The PRD is the only record of whether a statement is a draft. Nothing in `.cairn/` stores that separately.
+
+#### Statements {#spec.planning.done-when.statements}
+
+- Implements: `prd.done-when.statements`
+- Files: `packages/core/src/statements.ts`, `packages/core/src/section-ids.ts`, `packages/core/src/lint.ts`, `packages/cli/src/commands/ids.ts`, `packages/core/test/statements.test.ts`
+- Depends on: `spec.sections.list-items`, `spec.contract.items-and-statements`
+
+`statementsOf(markdown, sections, items)` is pure:
+
+```ts
+Statement = {
+  id: StatementId | undefined
+  owner: PrdSectionId
+  text: string
+  line: number
+  draft: boolean // its text begins "Draft:"
+  human: boolean // it carries <!-- human -->
+}
+```
+
+- A statement list is the list that follows a line reading exactly `Done when:` outside a fence. Blank lines may sit between the line and the list.
+- A paragraph that only starts with "Done when" is prose, not a statement list. This PRD has several such paragraphs.
+- The owner is the item the `Done when:` line is nested under, when it is indented under an item with an ID. Otherwise it is the heading the line is in.
+- `Draft:` is matched at the start of the item's text, case-sensitive and followed by a space.
+
+`assignStatementIds(markdown, statements)` gives a statement with no ID `{#<owner>#v<n>}`, where `n` is one more than the highest number its owner already uses. It never renumbers. `cairn ids` runs it after items, and `cairn ids --check` fails on a statement with no ID.
+
+A statement tagged `<!-- human -->` sits in its section's body, or under its item. `sectionsOf` and `itemsOf` already mark that section or item as human, so the gate follows with no new rule.
+
+Lint adds `statement-owner`, an error: a statement whose ID's owner is not the section or item it sits under. For example, a statement copied from another section with its ID still on it.
+
+Tests:
+
+- Properties: numbering never changes an existing ID, and a new ID's number is above every number its owner had.
+- Examples: drafts and confirmed statements are told apart; a human tag is read; a prose "Done when …" paragraph gives no statement; a statement list under a nested item belongs to that item; a list inside a fence is ignored.
+
+#### Asking the person {#spec.planning.done-when.asking-the-person}
+
+- Implements: `prd.done-when.asking`
+- Files: `packages/cli/src/planner.ts`, `packages/cli/prompts/statements.md`, `packages/core/src/statements.ts`, `packages/cli/src/ask-statements.ts`, `packages/cli/src/commands/plan.ts`, `packages/cli/test/ask-statements.test.ts`
+- Depends on: `spec.planning.done-when.statements`, `spec.planning.cairn-plan`, `spec.planning.planner-service`, `spec.planning.again`
+
+`Planner` gains a seventh call, `statements(prd, targets)`. It returns `Array<{ target: PrdSectionId; drafts: Array<string> }>`, and an empty `drafts` means the target describes nothing to build. Its prompt, `statements.md`, asks for one to three sentences per target. Each says what a person does and what they then see, on a named example where one helps, and names no file, function or test.
+
+Targets:
+
+- On a first plan: every PRD section, and every PRD item with an ID, that has no statement, apart from the level 1 heading.
+- On planning again: only the sections in `replanOf(...).uncovered` that have no statement. The PRD is the only record, so this is what keeps a section the planner judged to have nothing to build from being asked about on every run.
+
+`withDrafts(markdown, drafts)` in core is pure and inserts each draft as `- Draft: <text> {#<owner>#v<n>}`.
+
+- For a section, the list goes under a new `Done when:` line at the end of the section's own body, before its first child heading.
+- For an item, the `Done when:` line and its list are indented under the item.
+
+It changes no existing line. A property checks that removing the inserted lines gives back the original text byte for byte.
+
+`settle(markdown, id, answer)` is pure:
+
+| Answer          | Result                                                                  |
+| --------------- | ----------------------------------------------------------------------- |
+| `accept`        | Removes `Draft: `                                                       |
+| `rewrite(text)` | Replaces the text with the person's words, confirmed, under the same ID |
+| `delete`        | Removes the line, and the `Done when:` line when its list is left empty |
+| `skip`          | Changes nothing                                                         |
+
+In `cairn plan`, after IDs are assigned and before the spec step, `ask-statements.ts` runs:
+
+1. Draft for the targets and write `prd.md`.
+2. For every draft in the PRD, in document order, print its section's title once, then the draft, then `Is this what you meant? [a]ccept, [r]ewrite, [d]elete, [s]kip:`. A rewrite reads the next line, and an empty line counts as a skip.
+3. Write `prd.md` after each answer, so an interrupted run keeps what was answered.
+
+Some runs ask nothing and leave every draft as it is: `--yes`, `--dry-run` (which also writes the drafts nowhere but memory) and a stdin that is not a terminal. `--spec` still asks.
+
+At the end of the run, when any draft is left in the PRD, `cairn plan` prints `Warning: planned against <n> draft statement(s). Confirm them in .cairn/prd.md, or run cairn plan again to be asked.` A confirmed statement is never asked about and never rewritten.
+
+Tests, with the scripted `Planner` and scripted stdin, in a temporary repository:
+
+- A PRD section with no statement gets drafts under it, and the drafts are asked about before `Planner.spec` is called. Proves prd.done-when.tracing#v1.
+- Accepting one draft and skipping another leaves the first without `Draft:` and the second with it, and the warning counts one. Proves prd.done-when.tracing#v2.
+- `--yes` leaves every draft, and a second run asks only about the draft left from the first.
+- A rewrite keeps the ID.
+
+#### Tracing statements {#spec.planning.done-when.tracing-statements}
+
+- Implements: `prd.done-when.tracing`
+- Files: `packages/cli/prompts/`, `packages/cli/src/planner.ts`, `packages/cli/src/spec-index.ts`, `packages/core/src/statements.ts`, `packages/core/src/lint.ts`, `packages/cli/src/api.ts`, `packages/core/test/statements.test.ts`, `packages/core/test/lint.test.ts`
+- Depends on: `spec.planning.done-when.statements`, `spec.contract.spec-index`, `spec.planning.planner-service`, `spec.lint`
+
+Planner rules. The `spec` and `sections` prompts say that each test a section names ends with `(proves <statement IDs>)`. They also say the section writes a test for every statement of the PRD sections and items it implements that is not tagged for a person. Drafts are passed to the planner marked as drafts.
+
+`Planner.index` fills each test's `proves`. Code keeps only IDs that `statementsOf` knows, and prints a warning naming the section for each ID it drops.
+
+`taskStatementsOf(task, statements, index)` is pure:
+
+- A task carries the statements whose owner is one of its `prdSections`. A task that names a section does not carry the statements of the items under it, since items have their own tasks.
+- A statement's `provedBy` lists the tests, in the task's `specSections`, whose `proves` holds it.
+
+`spec.json`'s `tasks` and the trace's `TraceTask.statements` and `TraceStatement.provedBy` come from it.
+
+Lint warnings:
+
+| Rule                     | Fires when                                                                                                 |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `draft-statement`        | A statement is a draft                                                                                     |
+| `unproved-statement`     | A statement not tagged for a person is in no test's `proves` in any spec section that implements its owner |
+| `task-without-statement` | A task carries no statement                                                                                |
+
+None of them is an error.
+
+A statement is part of its section's body, so editing a confirmed statement changes the section's hash. Its spec sections and their tasks are then reported stale by the rules in `spec.planning.again`, with nothing new needed.
+
+Tests:
+
+- Properties: every statement a task carries has an owner among its `prdSections`, and every `provedBy` test sits in one of its spec sections.
+- Lint fires `draft-statement` on a draft. It fires `unproved-statement` on an untagged statement with no test and not on a human-tagged one. It fires `task-without-statement`. All three are warnings, so `cairn lint` exits 0. Proves prd.done-when.tracing#v3, on lint.
+
+#### Statements in briefs and reviews {#spec.planning.done-when.statements-in-briefs-and-reviews}
+
+- Implements: `prd.done-when.tracing`
+- Files: `packages/contract/src/js.ts`, `packages/cli/src/commands/status.ts`, `packages/cli/src/commands/approve.ts`, `apps/viewer/src/view/detailView.ts`, `packages/contract/test/js.test.ts`, `apps/viewer/test/statements.scene.test.ts`
+- Depends on: `spec.planning.done-when.tracing-statements`, `spec.contract.javascript-entry`, `spec.status.cairn-status-and-cairn-approve`, `spec.viewer.detail-panel`
+
+`formatStatements(task, trace, { order })` in `@cairn/contract/js` returns a markdown block:
+
+```text
+Done when:
+- Saving the current filters as "Mine" and reloading the page shows "Mine". (proved by spec.saved-views.persist#t2)
+- DRAFT, nobody has agreed to this: Opening a shared view's link in another browser shows the same tasks.
+- A person judges this: The saved views menu reads well at phone width.
+```
+
+With `order: "document"`, the statements come in document order. With `order: "review"`, the ones tagged for a person come first.
+
+- The orchestrator puts `formatStatements(task, trace, { order: "document" })` at the top of each agent's brief. This adds to step 4 of `spec.orchestrator-adapter`.
+- `cairn status --task <id>` prints the task's line, then the same block.
+- `cairn approve <id>` prints the block with `order: "review"`, as a checklist with `[ ]` boxes, before it appends the approval. Approval stays one act; it does not ask about each line. A statement tagged for a person counts as settled once the task carries a human approval event.
+- The viewer's task detail has a "Done when" block after its heading block. Drafts carry a `Draft` tag. While the task is `blocked_on_human`, the block is a checklist with the human-tagged statements first. After approval, those statements show as settled.
+
+Tests:
+
+- `formatStatements` marks drafts and orders human-tagged statements first under `review`.
+- The brief for the task that builds the section in prd.done-when.tracing#v1's scenario shows both statements, with the skipped one marked as a draft. Proves prd.done-when.tracing#v3.
+- A Scene test opens a gated task and finds the checklist with a human statement first.
+
+### Task categories {#spec.planning.task-categories}
+
+- Implements: `prd.outcomes.categories`
+- Files: `packages/contract/src/manifest.ts`, `packages/contract/src/config.ts`, `packages/core/src/lint.ts`, `packages/cli/src/planner.ts`, `packages/cli/prompts/`, `packages/core/src/stack.ts`, `packages/core/test/lint.test.ts`
+- Depends on: `spec.contract.manifest`, `spec.contract.config`, `spec.planning.planner-service`, `spec.planning.stack-order`, `spec.lint`
+
+`ManifestTask` gains `category?: string`, and `TaskDraft` gains `category: string`. `stackOf` copies it through. The field is optional because tasks already in the manifest are never changed (see `spec.planning.again`), and they were planned before categories existed.
+
+`Config` gains:
+
+```ts
+categories: Array<{ name: Slug; description: string }>;
+// defaults: mechanical (renames, moves, config), feature, ui, test, schema, refactor, bugfix, docs
+```
+
+- The `tasks` and `splitTask` prompts list the categories with their descriptions. A draft whose category is not in the list fails to decode, and is retried once like any other failed decode.
+- Lint adds `unknown-category`, an error for a category not in `config.categories`, and `missing-category`, a warning for a task with none.
+- History and metrics group a task with no category under `uncategorised` (see `spec.status.outcome-metrics`). The router reads the config's list and has none built in.
+
+Tests:
+
+- A draft with category `infra` is refused when the config lacks it, and accepted once the config adds it.
+- Lint fires `unknown-category` and `missing-category`.
+- An old manifest decodes.
+
+### Conflict scores {#spec.planning.conflict-scores}
+
+- Implements: `prd.conflicts`, `prd.conflicts.predicting`
+- Files: `packages/core/src/conflicts.ts`, `packages/cli/src/git.ts`, `packages/contract/src/config.ts`, `packages/core/test/conflicts.test.ts`
+- Depends on: `spec.status.relation-index`, `spec.status.cairn-status-and-cairn-approve`, `spec.contract.config`
+
+Config:
+
+```ts
+conflicts: {
+  generated: Array<string>; // defaults: ["pnpm-lock.yaml", "**/demo-trace.json", "packages/contract/schema/**"]
+  additive: Array<string>; // defaults: ["**/index.ts"]
+  high: number; // defaults to 0.5
+  history: number; // commits of history to read; defaults to 500
+  hotspot: number; // parallel tasks sharing one file before judging asks about it; defaults to 3
+}
+```
+
+`Git.history(n)` reads `git log -n <n> --name-only --format=%H` on `baseBranch`. `historyOf(commits)` is pure and returns each file's change count and each pair's co-change count. It leaves out commits that touch more than 20 files, which are mass edits.
+
+`scoreOf(a, b, files, history, config)` is pure. It scores two tasks that can run at the same time, which means neither needs the other directly or through other tasks, by the relation index. It returns `{ score, reasons }`, and each reason is `{ file, other?, kind, weight }`.
+
+| Kind        | When                                                                                                             | Weight       |
+| ----------- | ---------------------------------------------------------------------------------------------------------------- | ------------ |
+| `shared`    | Both change the file, or one declares a directory the other's file is in                                         | 0.5 × churn  |
+| `coupled`   | Each changes one of two files that co-change in at least 3 commits and at least half of the rarer file's commits | 0.25 × churn |
+| `additive`  | Both change a file matching `conflicts.additive`                                                                 | 0.1          |
+| `generated` | Both change a file matching `conflicts.generated`                                                                | 0            |
+
+- `churn` is `1 + min(1, changes / 50)`, so a file that changes often weighs up to twice as much.
+- `score = 1 − Π(1 − min(0.95, weight))` over the reasons, so it lies in `[0, 1)` and rises with every shared file.
+- Patterns match the way gate patterns do (see `spec.gates.path-matching`).
+
+The weights and the 0.5 threshold are my choice; the PRD gives no numbers. With them, one shared source file is already a high pair, and a shared lockfile scores nothing.
+
+`files` is each task's declared `files` at plan time. Once a task is running, the changed files of its commits and its worktree replace them (see `spec.orchestrator-adapter.conflict-aware-running`). The file an agent is in, which the PRD takes from presence, is not used: the v1 room carries no `focus`, so I chose to score on diffs alone until it does.
+
+Tests:
+
+- Properties: a score lies in `[0, 1)`; adding a shared file never lowers it; two tasks that share only a generated file score 0; a pair where one task needs the other is never scored.
+- Two parallel tasks planned against the same source file score higher than two that share only `pnpm-lock.yaml`, and the reasons name the file. This is the acceptance criterion.
+
+### Conflict ordering {#spec.planning.conflict-ordering}
+
+- Implements: `prd.conflicts.planning`
+- Files: `packages/core/src/conflicts.ts`, `packages/core/src/stack.ts`, `packages/core/src/lint.ts`, `packages/core/src/judging/questions.ts`, `packages/contract/src/judgments.ts`, `packages/cli/src/commands/plan.ts`, `packages/core/test/conflicts.test.ts`, `packages/cli/test/plan.test.ts`
+- Depends on: `spec.planning.conflict-scores`, `spec.contract.relation-kinds`, `spec.planning.stack-order`, `spec.planning.cairn-plan`, `spec.judging.questions`
+
+`orderingsOf(drafts, existing, scores, gates, config)` is pure. It runs after `stackOf` has ordered the new drafts and returns `{ applied, recommended }`. It walks high pairs, highest score first:
+
+- Both new and neither gated: the later of the two by ID gains `orderedAfter: [{ task: <earlier>, reason }]`. This is only done when the later task's needs plus the earlier task lie on one chain, so it gets a parent. It is also never done to a task that is already ordered after another.
+- A pair with an existing task, a gated task, or a later task whose needs lie on other stacks goes to `recommended`. Examples are "start t40 before t41" and "build Stack 12 on top of Stack 9". The manifest is never changed for these.
+
+A gated task is never ordered after another task, and no task is ordered after a gated one. Either would put something below a gate that the gate does not need, which `prd.human-gates` forbids. The reason is the score's reasons as text: `shares packages/core/src/lint.ts (34 changes)`.
+
+`stackOf` computes `parent` from `dependsOn` plus `orderedAfter`. `dependsOn` still lists only what a task needs.
+
+Lint:
+
+- `parent-mismatch` compares a task's parent with `parentOf` over `dependsOn` and `orderedAfter` together.
+- New error `bad-ordering`: `orderedAfter` names an unknown task, a task it already needs, or a gated task, or a gated task is itself ordered after another.
+
+Plan output, before the stack:
+
+```text
+conflicts
+  1  t12 ↔ t15  0.72  shares packages/core/src/lint.ts (34 changes): stacked t15 on t12
+  2  t40 ↔ t9   0.61  shares packages/cli/src/api.ts: recommend starting t40 after t9 lands
+```
+
+The task review question accepts `undo <n>`. That removes ordering `n`, runs `stackOf` again and prints the stack again.
+
+Judging. When `conflicts.hotspot` or more tasks that can run together share one source file, the stack checkpoint asks `splitFile`. It is a probability decision, with the file's path, its line count and the tasks' titles as input: would splitting the file remove more conflicts than reordering the work? `Judgment.target` gains `{ kind: "file"; path: string }`. The answer is only reported.
+
+Tests:
+
+- Properties: `applied` never involves a gated task; every task keeps the same `dependsOn`; no existing task changes; the result passes lint.
+- `undo` restores the stack as it was without the ordering.
+- A lint test finds `bad-ordering` on an ordering after a gated task.
 
 ## Lint {#spec.lint}
 
@@ -1358,6 +2241,280 @@ Tests use the scripted `Judge` and `Planner` layers: one `too_large` answer caus
 - `--strict` exits 1 on any `flag`. Without it the command exits 0 unless it fails.
 - It never writes `manifest.json`, `spec.md`, `spec.json` or `prd.md`. To act on a flag, edit the spec or re-run additive `cairn plan`, which preserves existing tasks and reports stale work. Only `cairn plan --respec`, which replaces the plan, requires every task to be `pending`.
 
+### Model catalog {#spec.judging.model-catalog}
+
+- Implements: `prd.judging-the-plan.routing`
+- Files: `packages/contract/src/config.ts`, `packages/contract/src/judgments.ts`, `packages/core/src/catalog.ts`, `packages/core/src/judging/questions.ts`, `packages/core/src/judging/verdicts.ts`, `packages/cli/src/refine.ts`, `packages/cli/src/commands/plan.ts`, `packages/core/test/catalog.test.ts`, `packages/core/test/verdicts.test.ts`
+- Depends on: `spec.judging.checkpoints`, `spec.contract.config`, `spec.contract.judgments`, `spec.contract.attempts`
+
+Config gains a catalog and what the person can run:
+
+```ts
+routing: {
+  catalog: { version: string; models: Array<CatalogModel> }
+  access: Array<{ route: Route; provider: string; models: Array<string> | "all"; note?: string }>
+  harnesses: Array<string> // what the runner can start: "claude-code", "codex", "pi"
+  prefer: { subscriptionsFirst: boolean; ceilingUsd: number | undefined; faster: boolean } // defaults: true, undefined, false
+}
+
+CatalogModel = {
+  name: string // what the manifest's model field holds: "sonnet"
+  id: string // concrete: "claude-sonnet-5-5"
+  provider: string
+  reasoning: Array<Reasoning> // the settings it supports
+  description: string // its capabilities, in a sentence or two
+  harnesses: Array<string>
+  routes: Array<Route>
+  prices: Array<Price>
+}
+
+Price = {
+  effective: string // ISO date
+  source: string // the page the rates came from
+  tier?: string
+  inputPerMTok: number
+  cachedInputPerMTok: number
+  outputPerMTok: number
+  cacheWritePerMTok?: number
+  longContext?: { above: number; inputPerMTok: number; cachedInputPerMTok: number; outputPerMTok: number }
+}
+```
+
+When `routing.catalog.models` is empty, the catalog is built from `judge.models`. Each name becomes an entry with its description, no prices, and access assumed. Configs written before the catalog existed therefore route as they do today.
+
+`catalog.ts` is pure:
+
+- `eligibleOf(catalog, access, harnesses)` gives the models the runner can execute: some route of the model is in `access` for its provider, and some harness of the model is in `harnesses`. Subscription access never counts as API credit.
+- `priceOf(model, at)` gives the price in effect at `at`, or none. A missing price stays unknown.
+
+Routing question. The task's `model` decision classifies over the eligible names only. Its input gains:
+
+- each eligible model's description, its supported reasoning settings and its current price, or "price unknown";
+- the task's declared files and their count;
+- whether it is gated;
+- its statements and the tests that prove them;
+- the person's preferences.
+
+The decision's description asks for the lowest expected total cost of an accepted result within those preferences, counting likely retries and repair, not the lowest token price. When a category has enough history, history ranks the candidates first (see `spec.judging.routing-from-history`).
+
+Provider rules. `routeOf` also requires that the configured judge provider is validated for automatic routing, and that the chosen reasoning setting is one the model supports. Otherwise the planner's choice stands, and the judgment is `unsure` with the reason. The thresholds are the provider's own (see `spec.judging.openai-decisions`).
+
+`Judgment` gains:
+
+```ts
+recommendation?: {
+  model: string
+  modelId: string
+  reasoning: Reasoning
+  source: "judge" | "history" | "planner"
+  applied: boolean
+  evidence: Array<string> // typed facts: "price $3/$15 per MTok (2026-10-01)", "gated", "12 files"
+  policy: string // "subscriptions first, no ceiling"
+  uncertainties: Array<string> // "no price for gpt-6-mini", "no history in schema"
+  alternative: { model: string; reasoning: Reasoning } | null
+}
+explanation?: string // text the provider returned beside its typed answer; never parsed
+```
+
+`Judgments` gains `provider`, `policy` and `catalogVersion`. Code writes `message` and `evidence` from the typed answer. `explanation` is shown under the label "The judge's explanation".
+
+Plan output lists each routed task: `routed t12 sonnet medium → haiku low (judge typesafe jev-1.14.0, confidence 0.91; catalog 2026-11; subscriptions first) · alternative sonnet low`.
+
+The task review question accepts `set <task> <model> [reasoning]`. It overrides the recommendation for that task and prints the stack again. A model outside the eligible set is refused, with the reason.
+
+Tests:
+
+- Properties: `eligibleOf` never returns a model with no route in `access`; subscription access never makes an `api`-only model eligible; `routeOf` never returns an ineligible model, or a reasoning setting the model lacks.
+- Without validation, a confident answer is recorded as a recommendation with `applied: false`.
+- `set t12 opus high` changes that task and no other.
+
+### OpenAI Decisions {#spec.judging.openai-decisions}
+
+- Implements: `prd.judging-the-plan.comparing`
+- Files: `packages/cli/src/decision-openai.ts`, `packages/cli/src/models.ts`, `packages/contract/src/config.ts`, `packages/contract/src/judgments.ts`, `packages/core/src/judging/verdicts.ts`, `packages/cli/test/decision-openai.test.ts`, `packages/cli/test/fixtures/openai-decisions/`
+- Depends on: `spec.models`, `spec.judging.judge-service`, `spec.judging.model-catalog`
+
+A second `DecisionModel` Layer, built with `DecisionModel.make` over `HttpClient`, calls the [OpenAI Decisions API](https://developers.openai.com/api/docs/guides/decisions). Read that guide and its API reference on the day it is written. The request and response shapes in `decision-openai.ts` are decoded through schemas written from them, and no shape is guessed.
+
+Config:
+
+```ts
+judge += {
+  provider: "typesafe" | "openai" // defaults to "typesafe"
+  automaticRouting: boolean // TypeSafe's; defaults to true
+  openai: {
+    model: string // pinned, no "latest"
+    pass: number
+    flag: number
+    minConfidence: number
+    automaticRouting: boolean // defaults to false
+    keyEnv: string | undefined // defaults to OPENAI_API_KEY
+  }
+}
+```
+
+`judge.pass`, `judge.flag` and `judge.minConfidence` stay as they are and are TypeSafe's. Thresholds are never copied between providers.
+
+TypeSafe keeps automatic routing because the checkpoints were built against it. OpenAI is advisory until a person sets `judge.openai.automaticRouting` after the comparison below. That default is my choice.
+
+Answer mapping keeps each answer's meaning:
+
+| OpenAI answer         | `Judgment.answer`                                                                                   |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| Bounded choice        | `RateAnswer` with `scoreKind: "score"`: the choice's scores, never read as probabilities of success |
+| Condition probability | `ProbabilityAnswer`                                                                                 |
+| Rubric score          | New `ScoreAnswer = { score: number; min: number; max: number }`                                     |
+
+`RateAnswer` gains `scoreKind: "probability" | "score"`, and TypeSafe's answers are `"probability"`. `verdictOf` reads a `score` against the provider's own thresholds, after scaling the score to `[0, 1]`. An answer type the provider cannot give for a question is `Unanswered` with `Invalid`, so it is `unsure` and the draft stands.
+
+`judgments.json` records `provider` and the pinned model per judgment.
+
+Tests run against recorded response fixtures and a stub `HttpClient`:
+
+- Each answer type maps as in the table.
+- A choice score is never used as a probability.
+- An unexpected response shape is a `JudgeError` naming the field.
+- A missing `OPENAI_API_KEY` makes judging skip with a message.
+
+### Comparing decision providers {#spec.judging.comparing-decision-providers}
+
+- Implements: `prd.judging-the-plan.comparing`
+- Files: `packages/cli/src/evaluate.ts`, `packages/cli/src/commands/judge.ts`, `packages/cli/src/migrations/`, `packages/contract/src/config.ts`, `packages/cli/test/evaluate.test.ts`
+- Depends on: `spec.judging.openai-decisions`, `spec.judging.cairn-judge`, `spec.sessions.trace-store`
+
+`cairn judge --compare --tasks <ids>` asks both providers the task questions for the given tasks. It uses the same `inputsOf` evidence, the same catalog and the same policy, and sets the answers beside the manifest's existing assignments. A person picks the 20 to 30 tasks: mechanical edits, ordinary features and sensitive logic. Picking them is judgment, so the command does not choose.
+
+- It writes nothing in `.cairn/` except rows in `cairn.db`. The manifest and `judgments.json` are left as they are.
+- Each request is a row in a new migration's table `evaluations`, with: run ID, provider, pinned model version, target, input hash, input, typed answers, the manifest's assignment, latency in ms, reported tokens, cost, and whether the estimate or a report gave the cost.
+- It prints one line per task: `t12  manifest sonnet/medium  typesafe haiku/low (0.91)  openai sonnet/low (score 0.74)  disagree`. Then it prints totals: agreement between each pair, latency p50 and p95, tokens and dollars.
+
+Budget:
+
+```ts
+judge.evaluation: { budgetUsd: number; maxRequests: number } // defaults: 5, 60
+```
+
+- Before each request, the command estimates its cost conservatively. Input tokens are taken as the encoded input's characters divided by 3. Output tokens are taken as the request's output cap. Both are priced at the judge model's catalog price.
+- It stops when the spent total plus the next estimate would pass `budgetUsd`, or after `maxRequests` requests, and prints why.
+- Spent is the reported cost where there is one, and the estimate otherwise.
+- A judge model with no catalog price stops the run before the first request: `No price for <model> in routing.catalog: the paid comparison cannot start.`
+
+Adding this command runs nothing. A person runs it.
+
+Automatic routing for a provider is turned on only by a person editing config. They do that after running a few recommended assignments through the orchestrator and comparing them in `cairn stats` on completion, review and repair, time and total cost (see `spec.status.cairn-stats`). Agreement with the old assignments is not enough on its own.
+
+Tests, with scripted decision layers and stub prices:
+
+- The run stops before a request whose estimate would pass the cap.
+- A missing price refuses to start.
+- The manifest and `judgments.json` are unchanged byte for byte.
+- Each row records both answers and the disagreement.
+
+### Cloudflare AI Gateway {#spec.judging.cloudflare-ai-gateway}
+
+- Implements: `prd.judging-the-plan.gateway`
+- Files: `packages/contract/src/config.ts`, `packages/cli/src/models.ts`, `packages/cli/src/decision-openai.ts`, `packages/cli/src/commands/plan.ts`, `packages/cli/test/gateway.test.ts`
+- Depends on: `spec.models`, `spec.judging.openai-decisions`
+
+API calls go through [Cloudflare AI Gateway](https://www.cloudflare.com/products/ai-gateway/) unless a person says otherwise. Planning that runs on a CLI keeps the CLI's own sign-in.
+
+Config:
+
+```ts
+gateway: {
+  accountId: string
+  id: string // the gateway's name
+  tokenEnv: string | undefined // the variable holding the gateway token
+  billing: "provider-key" | "byok" | "unified" // required
+  logging: "on" | "off" // required: whether the gateway may log request bodies
+} | undefined
+
+planner.route: "gateway" | "direct" // required when planner.source is "api"
+judge.openai.route: "gateway" | "direct" // required
+```
+
+- With `route: "gateway"`, the client's `apiUrl` is `https://gateway.ai.cloudflare.com/v1/<accountId>/<id>/<provider>`, unless `baseUrl` is set. `planner.gatewayTokenEnv` falls back to `gateway.tokenEnv`. A gateway route with no `gateway` block and no `baseUrl` fails to decode, naming both.
+- With `route: "direct"`, calls go to the provider. Direct is never chosen for a person. A config with `source: "api"` and no `planner.route` fails to decode, with a message that names the field and both values. This breaks `api` configs written before this change, and the message says what to add.
+- `billing`:
+  - `provider-key` sends the provider key in the provider's own header, so the provider account is billed and its credits apply. For OpenAI, the key has to belong to the project and organization that hold the credits; the docs page says so.
+  - `byok` sends no provider key, and the gateway uses the [stored key](https://developers.cloudflare.com/ai-gateway/configuration/bring-your-own-keys/).
+  - `unified` sends no provider key and is billed to the Cloudflare balance through [Unified Billing](https://developers.cloudflare.com/ai-gateway/features/unified-billing/). Cairn prints that this does not use OpenAI credits.
+  - A refusal under one billing mode is reported and never retried under another.
+- `logging` is required whenever a gateway route is used, because requests carry repository content. Each request sends the per-request logging header Cloudflare documents for that value. Read Cloudflare's docs for the header's name before writing it. Retention is set in the gateway itself, and the docs page says so.
+- The route reported on each attempt is `gateway` or `unified` (see `spec.contract.attempts`).
+- The request body names the configured model unchanged, so the gateway serves the model that was selected.
+- The TypeSafe judge has no gateway route. `cairn plan` prints `judge: typesafe jev-1.14.0, direct` so the route is never implied.
+- Secrets: the gateway token and provider keys are read with `Config.Redacted`, added to the `Redactor`'s secret set, and never written to config, logs or `cairn.db`.
+
+OpenAI Decisions through the gateway. A `404`, or a response that does not decode as a Decisions answer, is a `JudgeError`: `The gateway did not serve the Decisions endpoint. Set judge.openai.route to "direct" to call OpenAI directly.` The gateway route for this judge is printed as `experimental` until a person has checked a real response through their gateway. The test fixture recorded from that check is then committed. The docs list the route as supported only once that fixture exists.
+
+Tests, with a stub `HttpClient`:
+
+- The gateway URL is built from the config.
+- `provider-key` sends the provider header and `byok` and `unified` send none.
+- The logging header follows `logging`.
+- A missing `route` fails to decode.
+- A `404` from the gateway gives the message above.
+- A billing refusal is not retried.
+
+### Routing from history {#spec.judging.routing-from-history}
+
+- Implements: `prd.outcomes.routing`
+- Files: `packages/core/src/history.ts`, `packages/cli/src/refine.ts`, `packages/contract/src/config.ts`, `packages/contract/src/judgments.ts`, `packages/cli/src/commands/plan.ts`, `packages/core/test/history.test.ts`, `packages/cli/test/refine.test.ts`
+- Depends on: `spec.status.outcome-metrics`, `spec.judging.model-catalog`, `spec.planning.task-categories`
+
+Config:
+
+```ts
+routing += {
+  adaptive: boolean // defaults to false: history recommends and changes nothing
+  minTasks: number // defaults to 5
+  window: number // defaults to 30
+  explore: number // the share of ungated tasks sent to the second choice; defaults to 0
+  thresholds: { firstPass: number; hours: number | undefined } // defaults: 0.6, undefined
+}
+```
+
+`rankOf(category, candidates, outcomes, config)` is pure. A candidate is an eligible `(model, reasoning, harness)` triple. A task counts for the triple of its first attempt and carries the cost of all its attempts, retries and escalations included, because the first choice is what the router controls. That attribution is my choice.
+
+- A candidate's history is its last `window` finished tasks in the category: tasks that verified or failed for good.
+- With fewer than `minTasks`, the candidate has no history.
+- Candidates whose first-pass rate is below `thresholds.firstPass`, or whose median time to completion is above `thresholds.hours`, drop out.
+- The rest are ranked by cost per verified task, ascending. A candidate whose tasks all have unknown cost is ranked after the priced ones by first-pass rate, unless `prefer.subscriptionsFirst` is set. Then subscription candidates come first, ranked by API-equivalent cost per verified task where it is known (see `spec.sessions.api-equivalent-cost`), and by first-pass rate otherwise.
+- `prefer.ceilingUsd` removes candidates whose cost per verified task is above it.
+- A new model ID has no history, so a new model version starts over.
+
+At the routing checkpoint, `refine` asks `rankOf` before the judge:
+
+- With history, the top candidate is the history recommendation. When the judge chooses differently, both are recorded and shown.
+- With no history, the catalog and the judge choose (see `spec.judging.model-catalog`), and the plan says `no history in <category>`.
+- `routing.adaptive` off: the recommendation is recorded with `applied: false`, and the planner's or the judge's choice stands. On: the history recommendation replaces it. Turning it off again returns to the earlier rules.
+- Exploring: an ungated task whose ID hashes (SHA-256, first 4 bytes over 2³²) below `routing.explore` takes the second-ranked candidate, and the plan marks it `exploring`. The hash keeps the choice the same from one run to the next.
+
+Each recommendation is a `Judgment` with question `history` (added to the `question` union) and `recommendation.source: "history"`. It also carries:
+
+```ts
+history: {
+  candidates: Array<{
+    model: string;
+    reasoning: Reasoning;
+    harness: string;
+    tasks: number;
+    costPerVerified: number | null;
+    firstPass: number;
+    leftOut: number; // tasks with unknown cost
+  }>;
+  constraints: Array<string>;
+  explored: boolean;
+}
+```
+
+Tests:
+
+- Two eligible models with five finished tasks each in a category: the one with lower cost per verified task that meets the thresholds is recommended, and the plan output names the metrics and task counts. With four tasks each, the plan says there is no history.
+- With `routing.adaptive` off, the recommendation is recorded and no task's model changes.
+- Property: `explore: 0` never explores, and a gated task never explores.
+
 ## Status {#spec.status}
 
 ### Task machine {#spec.status.task-machine}
@@ -1424,6 +2581,245 @@ A section's status comes from the tasks linked to it or to any section under it.
 - Depends on: `spec.contract.trailers`
 
 Landing is read from trailers, so a task commit without them never lands. A `commit-msg` hook in `lefthook.yml` runs `scripts/trailers/commit-msg.ts` on the message. On a branch that is a task's `branch` in `.cairn/manifest.json`, it refuses a message without exactly one `Cairn-Task` trailer naming that task and at least one `Cairn-Section` trailer naming a spec section the task lists, and says which trailers to add. `Cairn-Session` is not required, since agents in this repo have no session ID in the form the contract takes. On any other branch, or with no branch checked out, as in a rebase, it passes. `AGENTS.md` says which trailers a task commit carries.
+
+### Attempts {#spec.status.attempts}
+
+- Implements: `prd.outcomes.attempts`
+- Files: `packages/core/src/attempts.ts`, `packages/core/src/derive.ts`, `packages/contract/src/config.ts`, `packages/cli/src/commands/session.ts`, `packages/cli/src/migrations/`, `packages/core/test/attempts.test.ts`
+- Depends on: `spec.contract.attempts`, `spec.status.derivation`, `spec.judging.model-catalog`, `spec.sessions.cairn-session`
+
+`attemptsOf(events, catalog, config)` is pure and returns each task's `Attempt`s, in order.
+
+- An attempt runs from a status event `running` to the next `done` or `failed` event for the task. A `running` with neither after it is `open`.
+- `kind` comes from the event when it is given. Otherwise it is `first` for the first attempt, `retry` when the model and reasoning match the attempt before, and `escalation` when they differ. A hand-off to a person is a `running` event with a `human:` actor and `attempt: "escalation"`.
+- `outcome` is `verified` on `done` and `failed` on `failed`. On a gated task, `blocked_on_human` after `running` ends the attempt as verified, since the checks passed.
+- `cost`:
+  - a number on the event is `reported`;
+  - `null` with route `subscription` stays `null`, with `costSource: "unknown"`;
+  - a missing cost with usage and a catalog price for the model at the attempt's start is `priced` (see `spec.sessions.api-equivalent-cost`);
+  - anything else is unknown.
+
+Limits:
+
+```ts
+attempts: {
+  maxAttempts: number; // defaults to 3
+  maxCostUsd: number | undefined;
+  tasks: Record<TaskId, { maxAttempts?: number; maxCostUsd?: number }>;
+}
+```
+
+After a failed attempt, a task that has reached its attempt limit, or whose known cost has reached its cost limit, is terminal. `derive` keeps it `failed`, and a later `running` for it is a warning, `past-limit`. `TraceTask.terminal` carries the flag, and the orchestrator does not start a terminal task.
+
+`taskCostOf(task)` sums the cost of every attempt and of every usage event (review and conflict resolution sessions) on the task. It also returns how many of those had unknown cost.
+
+Raw reports. `cairn session put --usage <file>` stores the provider's or the gateway's usage report, as it came and redacted, in a new table `usage_reports(session_id primary key, report text, stored_at)`. A new migration adds it. The normalised numbers on the events sit beside it, and the report is never reinterpreted.
+
+Tests:
+
+- Properties: every `done` or `failed` event closes exactly one attempt; the attempt count equals the number of `running` events; a task terminal by count has at least `maxAttempts` failed attempts.
+- An `infra` failure is an attempt with its cost and reason.
+- A subscription attempt keeps `cost: null`.
+
+### Outcome metrics {#spec.status.outcome-metrics}
+
+- Implements: `prd.outcomes`, `prd.outcomes.metrics`
+- Files: `packages/core/src/metrics.ts`, `packages/core/test/metrics.test.ts`
+- Depends on: `spec.status.attempts`, `spec.planning.task-categories`
+
+`metricsOf(tasks, groupBy)` is pure. Each input is a task with its category, attempts, usage events and hold time. It returns one `Metrics` per group, where a group is any combination of category, model, reasoning and harness. A task belongs to the triple of its first attempt (see `spec.judging.routing-from-history`).
+
+```ts
+Metrics = {
+  tasks: number // finished tasks behind the numbers
+  verified: number
+  costPerVerified: number | null
+  firstPassRate: number
+  medianHoursToDone: number | null
+  retryRate: number // retries per task
+  escalationRate: number
+  terminalFailureRate: number
+  costPerAttempt: number | null
+  failedAttemptShare: number
+  cacheUtilization: number | null
+  reasoningPerVerified: number | null
+  leftOut: { attempts: number; tasks: number } // unknown cost: never counted as free
+}
+```
+
+- Cost per verified task is the known cost of every attempt and usage event of the group's tasks, failed ones included, divided by the tasks that verified. A task that never verified adds its cost and no task. Tasks that have any attempt of unknown cost are left out of both sums and counted in `leftOut`.
+- First-pass rate is the share of tasks whose first attempt verified.
+- Time to completion runs from the first `running` to the verified `done`. It leaves out time held at a gate (from `blocked_on_human` to the human `done`) and time behind a conflict hold (from a `hold` event to the task's next `running`).
+- Model failure rates count only `checks` and `agent` failures. An attempt that failed for `infra` or `upstream` adds its cost to the task and nothing to the failure rates. It does not make the next attempt a "first".
+- Cache utilization is cached input over all input. Reasoning per verified task counts only attempts that reported reasoning tokens.
+- Tasks with no category group under `uncategorised`.
+
+Tests:
+
+- A task that failed verification once and passed on its second attempt counts as one verified task carrying both costs, and not as a first-pass success. This is the acceptance criterion.
+- An `infra` failure adds its cost and does not lower the first-pass rate. This is the acceptance criterion.
+- A subscription attempt is left out of cost and counted in `leftOut`.
+- Gate time is subtracted.
+- The PRD's table of three models gives costs per verified task of $0.50, $0.35 and $0.86, using its rounded figures.
+
+### `cairn stats` {#spec.status.cairn-stats}
+
+- Implements: `prd.outcomes.reporting`
+- Files: `packages/cli/src/commands/stats.ts`, `packages/cli/src/main.ts`, `packages/cli/test/stats.test.ts`
+- Depends on: `spec.status.outcome-metrics`, `spec.judging.routing-from-history`, `spec.status.cairn-status-and-cairn-approve`
+
+`cairn stats` derives attempts from `events.jsonl` and prints the metrics for this repo. It prints one table per category, with one row per model, reasoning level and harness:
+
+```text
+feature
+  model    reasoning  harness      tasks  cost/verified  first pass  hours  retry  escalate  terminal  cache  left out
+  sonnet   medium     claude-code     12          $0.35        92%    1.4   0.08      0.00        0%    71%  2 attempts (subscription)
+```
+
+Every number shows the number of tasks behind it.
+
+Routed tasks follow:
+
+```text
+routed
+  t131  sonnet → haiku  estimated $0.20  cost $0.46  (2 attempts)
+```
+
+The estimate is the recommendation's estimated cost per verified task at the time, from `judgments.json`.
+
+In shadow mode, a section compares each history recommendation with what ran: the task, both choices, and how what ran did.
+
+Flags:
+
+- `--category <name>` prints one category.
+- `--since <date>` counts only tasks whose first attempt started on or after it.
+- `--json` prints `{ groups: Array<{ category, model, reasoning, harness, metrics }>, routed, shadow }`.
+
+Nothing is written, and nothing leaves the machine.
+
+Tests:
+
+- A temporary `.cairn/` with scripted events prints the rows with task counts.
+- A subscription attempt appears with its tokens, is left out of cost, and the row says how many attempts were left out. This is the acceptance criterion.
+- `--json` decodes through its schema.
+
+### Relation index {#spec.status.relation-index}
+
+- Implements: `prd.relations`, `prd.relations.index`
+- Files: `packages/core/src/relation-index.ts`, `packages/core/test/relation-index.test.ts`
+- Depends on: `spec.contract.relation-kinds`, `spec.contract.items-and-statements`, `spec.sections.list-items`
+
+`indexOf(source)` is pure and reads nothing but its argument. `source` is `{ manifest, specIndex, prd }` or `{ trace }`. One extractor per kind turns the source into `Relation`s:
+
+| Kind           | Read from                            |
+| -------------- | ------------------------------------ |
+| `needs`        | `dependsOn`                          |
+| `builtOn`      | `parent`                             |
+| `orderedAfter` | `orderedAfter`                       |
+| `builds`       | `specSections`                       |
+| `names`        | `prdSections`                        |
+| `implements`   | each spec section's own `Implements` |
+| `dependsOn`    | each spec section's own `Depends on` |
+| `proves`       | each test's `proves`                 |
+
+The index is rebuilt whenever its source changes and is never saved. Callers memoise it on the source's identity.
+
+```ts
+RelationIndex = {
+  out(id, kind): Array<Relation> // what this points at
+  into(id, kind): Array<Relation> // what points at it
+  needsAll(task): Array<TaskId> // directly or through other tasks, in build order
+  neededByAll(task): Array<TaskId>
+  buildOrder(tasks?): Array<TaskId> // topological over needs; ties in TaskIdOrder
+  canStart(task, statusOf): boolean
+  waitsOn(task, statusOf): Array<TaskId>
+  waitedOnBy(task, statusOf): Array<TaskId>
+  canRunTogether(a, b): boolean // neither needs the other, directly or not
+  dangling: Array<Relation> // an end that does not exist, left out of every answer
+  cycles: Array<Array<TaskId>> // strongly connected sets in needs, each in TaskIdOrder
+}
+```
+
+- `canStart` is true for a pending, non-terminal task whose every needed task is `done` or `landed` by `statusOf`.
+- `waitsOn` gives the unfinished tasks among those it directly needs.
+- `waitedOnBy` gives the unfinished tasks that directly need it.
+- Tasks in a cycle are left out of `buildOrder` and reported in `cycles`.
+
+Tests:
+
+- Properties over generated manifests: `out` and `into` are inverses for every kind; `buildOrder` puts every task after everything it needs; `canStart` is true exactly when `waitsOn` is empty for a pending, non-terminal task; a manifest with no cycle has empty `cycles`.
+- In this repo's manifest with t71 made to depend on t73, `cycles` is `[[t71, t72, t73]]`. Proves prd.relations.index#v1, on the index.
+- Marking a task's only unfinished dependency `done` makes `canStart` true, with nothing else changed. Proves prd.relations.index#v2, on the index.
+
+### Section links {#spec.status.section-links}
+
+- Implements: `prd.relations.sections`
+- Files: `packages/core/src/section-links.ts`, `packages/core/test/section-links.test.ts`
+- Depends on: `spec.status.relation-index`, `spec.sections.item-coverage`
+
+`sectionLinksOf(index, prd, id, { transitive })` is pure. It works for a PRD section or a list item with an ID.
+
+- A section's own tasks are the tasks that roll up to it (see `spec.sections.item-coverage`): those linked to it and to every section and item under it.
+- A target of a link is a section or item that one of the needed tasks links to directly: the task names it, or builds a spec section that implements it. Using the direct link names the most specific end and not every heading above it. That choice is mine.
+- `needs` holds every target such that one of the section's own tasks needs a task of the target that is not one of the section's own. It carries the pairs that make the link: `[{ task: "t95", needs: "t94" }]`.
+- `neededBy` is the same in the other direction.
+- `next` lists the section's unfinished tasks in `buildOrder`. Tasks that can start come first, and each of the others has its `waitsOn`. A `ready` count goes with it.
+- With `transitive`, `needs` and `neededBy` hold everything before and after the section, in build order. Each entry names the section through which it is reached.
+
+Tests:
+
+- Properties: a link's pairs always run from one of the section's own tasks to one of the target's direct tasks; a section never needs itself; `ready` equals the number of `next` entries that can start.
+- On this repo's plan, `prd.viewer.fuzzy-search` needs `prd.viewer.task-detail` with the pair `t95 needs t94`, and the reverse link holds. Proves prd.viewer.dependencies#v1, on the data.
+
+### Answers from the index {#spec.status.answers-from-the-index}
+
+- Implements: `prd.relations.index`
+- Files: `packages/core/src/lint.ts`, `packages/core/src/derive.ts`, `packages/core/src/stacks.ts`, `packages/contract/src/trace.ts`, `packages/cli/src/api.ts`, `packages/cli/src/commands/status.ts`, `apps/viewer/src/reader.ts`, `packages/core/test/index-answers.test.ts`
+- Depends on: `spec.status.relation-index`, `spec.lint`, `spec.status.cairn-status-and-cairn-approve`, `spec.planning.stack-diagram`
+
+Every part of Cairn that asks what a task needs, or what it waits on, asks the index.
+
+- Lint. New error `need-cycle`, with one finding per entry of `cycles`: `t71, t72, t73 need each other in a cycle`. `bad-parent` keeps unknown references and drops cycles. `unknown-section` and `bad-parent` read the index's `dangling` relations.
+- Trace. `TraceTask` gains `canStart: boolean`, `waitsOn: Array<TaskId>` and `waitedOnBy: Array<TaskId>`, from the index over derived statuses. The existing `waiting` flag stays.
+- `cairn status` prints `can start` for a task that can start, and `waits on t94, t95` for one that cannot. `--json` carries the trace's fields, and the orchestrator chooses what to start from them (see `spec.orchestrator-adapter`).
+- Stack layout. `stacksOf` reads what a stack waits on from `index.out(task, "needs")` and its cycles from `index.cycles`. It no longer reads `dependsOn` itself.
+- Viewer. The reader builds the index from the trace with `indexOf({ trace })`, through `@cairn/core`, which the viewer already imports for stack grouping. It uses that index for everything the trace does not carry: section links, and what a task needs or is needed by, directly or not.
+
+Tests:
+
+- Property over generated manifests: the `waitsOn` in `cairn status --json`, the `waitsOn` the viewer's detail panel derives, and `index.waitsOn` are equal for every task. Lint's `need-cycle` findings equal `index.cycles`. This is the acceptance criterion.
+- Making t71 depend on t73 in this repo's manifest fails `cairn lint`, with an error that names t71, t72 and t73. Proves prd.relations.index#v1.
+- After the only unfinished dependency of a task is marked done, `cairn status` shows the task as able to start at the next read. Proves prd.relations.index#v2.
+
+### Conflict record {#spec.status.conflict-record}
+
+- Implements: `prd.conflicts.learning`
+- Files: `packages/core/src/conflicts.ts`, `packages/cli/src/commands/status.ts`, `packages/core/test/conflicts.test.ts`
+- Depends on: `spec.orchestrator-adapter.conflict-aware-running`
+
+Every restack the orchestrator runs is a conflict event with `action: "restack"`, `conflicted: boolean`, the files git stopped on, and the score the pair had at that moment (see `spec.orchestrator-adapter.conflict-aware-running`). `events.jsonl` is therefore the record, and nothing more is stored.
+
+`calibrationOf(events, high)` is pure:
+
+```ts
+{
+  high: {
+    restacks: number;
+    conflicted: number;
+  }
+  low: {
+    restacks: number;
+    conflicted: number;
+  }
+}
+```
+
+`cairn status` ends with `conflicts: 4 of 9 high-scoring restacks conflicted; 1 of 40 low-scoring did`, once any restack is recorded.
+
+Tests:
+
+- Every restack event is counted exactly once, in high or low by its recorded score.
+- A conflicted restack keeps its files and score.
 
 ## Sessions {#spec.sessions}
 
@@ -1512,6 +2908,182 @@ A line of a read type that does not decode is skipped and counted. A log in whic
 
 Tests: a fixture trimmed from one of this repo's sessions and run through `redact`, checked turn by turn; a property that every `tool_use` ID gives exactly one tool turn, and that each edit's `added` and `removed` are exactly the `+` and `-` lines of its patch.
 
+### Usage records {#spec.sessions.usage-records}
+
+- Implements: `prd.outcomes.session-cost`
+- Files: `packages/core/src/codex-usage.ts`, `packages/core/src/usage.ts`, `packages/cli/src/commands/session.ts`, `packages/cli/src/trace-store.ts`, `packages/cli/src/migrations/`, `packages/core/test/codex-usage.test.ts`, `packages/core/test/fixtures/codex/`
+- Depends on: `spec.sessions.trace-store`, `spec.sessions.cairn-session`, `spec.sessions.redaction`
+
+Session cost starts with Codex, whose session logs, its "rollouts", record usage as they go. Claude Code's usage waits for its own reader.
+
+This diagram shows the path a session's usage takes from its log to the task's total:
+
+```mermaid
+flowchart LR
+  rollout["Codex rollout"] --> calls["codexUsageOf: one record per call"]
+  calls --> store["usage_calls keyed by session and call"]
+  store --> estimate["estimateOf with dated rates"]
+  estimate --> total["task total over distinct sessions"]
+  total --> trace["TraceTask.usage"]
+```
+
+`cairn session put --task t1 --id s_x --format codex < rollout.jsonl` stores a Codex rollout the way it stores a Claude Code log: redacted, under the session ID. That explicit linking is the only way a Codex session enters `cairn.db`.
+
+`codexUsageOf(log)` is pure. Read a real rollout on the machine before writing it, and trim one into the fixture. Field names are checked against that fixture, not assumed.
+
+- Lines with the turn's context give the model and the reasoning setting in effect. A change partway through a session applies from that line on.
+- Token count lines give cumulative totals. Each call's usage is the difference from the previous snapshot. A snapshot equal to the last adds nothing. A total lower than the last starts a new segment, as happens when a session resumes.
+- Each record is `{ callKey, at, model, reasoning, input, cachedInput, output, reasoningTokens }`. `callKey` is the line's timestamp and the cumulative total. Reasoning tokens are part of output, as Codex reports them.
+- A snapshot with no model in effect keeps `model: null`, and its cost stays unknown. The planned model is never put in its place.
+- Rate-limit snapshots on the same lines go to the allowance (see `spec.sessions.subscription-allowance`).
+
+A new migration adds:
+
+```sql
+create table usage_calls (
+  session_id text not null,
+  call_key text not null,
+  at text not null,
+  model text,
+  reasoning text,
+  input integer, cached_input integer, output integer, reasoning_tokens integer,
+  primary key (session_id, call_key)
+);
+create table allocations (session_id text not null, task_id text not null, share real not null, primary key (session_id, task_id));
+alter table sessions add column parent_id text; -- a subagent's parent session
+alter table sessions add column purpose text;   -- attempt, review, conflict
+```
+
+- Calls are inserted with `on conflict do nothing`, so importing a session twice changes nothing.
+- Usage is keyed by session, so linking two commits to one session counts it once.
+- `--parent <session>` links a subagent. A subagent's usage counts once, toward its parent's task.
+- `cairn session allocate s_x t1=0.6 t2=0.4` splits a shared session. Shares must lie in `(0, 1]` and sum to at most 1. Whatever is not allocated stays unassigned. A session with no allocation goes wholly to its `task_id`. A session that names no task and has no allocation is assigned to nothing.
+
+`taskUsageOf(task, sessions, calls, allocations)` is pure. It takes each distinct session once (the task's own sessions, their subagents, and its review and conflict sessions) and weights it by its share.
+
+Tests:
+
+- Importing a rollout twice leaves the task total unchanged. Proves prd.outcomes.session-cost#v2.
+- Linking two commits to one session leaves it unchanged. Proves prd.outcomes.session-cost#v2.
+- A subagent contributes once. Proves prd.outcomes.session-cost#v2.
+- A model change partway through gives records under both models.
+- A resumed session's lower total starts a segment and adds no negative usage.
+- Property: the sum of the per-call records equals the last cumulative total of each segment.
+
+### API-equivalent cost {#spec.sessions.api-equivalent-cost}
+
+- Implements: `prd.outcomes.session-cost`
+- Files: `packages/core/src/estimate.ts`, `packages/core/test/estimate.test.ts`
+- Depends on: `spec.sessions.usage-records`, `spec.judging.model-catalog`
+
+`estimateOf(calls, catalog)` is pure and returns an `Estimate` (see `spec.contract.usage-in-the-trace`). It is labelled `API-equivalent cost` wherever it is shown, and it is never billed cost.
+
+- Each call is priced with `priceOf(model, at)`:
+  - uncached input (input minus cached input) at the input rate;
+  - cached input at the cached rate;
+  - cache writes at the cache-write rate, when they are reported;
+  - output at the output rate.
+- Service tier and long-context rates apply when the price entry has them and the call matches.
+- Reasoning tokens are already in output and are not charged again. The reasoning level is not a multiplier.
+- Arithmetic is done in integer micro-dollars and summed in call order, so the same calls always give the same estimate. Display rounds to cents.
+- A call with no price, or no model, is unpriced. The estimate is then partial, with `coverage.priced < coverage.calls`, or `usd: null` when no call is priced. No price is ever guessed.
+- `sources` lists each rate's source and effective date. `assumptions` records the choices made, such as "cache writes not reported by Codex, so not charged".
+- `excluded` names the charges the estimate cannot see, such as "tool charges (web search, file search)".
+
+Tests:
+
+- Cached input and reasoning output give an estimate that is the same on every run, with reasoning not charged twice, including when the model changes partway through the session. Proves prd.outcomes.session-cost#v1.
+- A model with no rate leaves `coverage.priced` below `coverage.calls`. Proves prd.outcomes.session-cost#v1.
+- Property: the estimate equals the sum of the per-call estimates, and lowering any rate never raises it.
+
+### Subscription allowance {#spec.sessions.subscription-allowance}
+
+- Implements: `prd.outcomes.session-cost`
+- Files: `packages/core/src/allowance.ts`, `packages/core/src/codex-usage.ts`, `packages/contract/src/config.ts`, `packages/cli/src/migrations/`, `packages/core/test/allowance.test.ts`
+- Depends on: `spec.sessions.usage-records`, `spec.sessions.api-equivalent-cost`
+
+A subscription attempt keeps `cost: null` for the cost metrics. Allowance and allocation are separate estimates shown beside it.
+
+Config:
+
+```ts
+subscriptions: Array<{
+  id: string; // "codex-pro"
+  harness: string; // "codex"
+  exclusive: boolean; // the person uses this account for nothing but Cairn; defaults to false
+  fee?: { amount: number; currency: string; period: "month" | "year"; share: number }; // share: the part allocated to Cairn
+}>;
+```
+
+Snapshots. Codex's rate-limit snapshots, read by `codexUsageOf`, are stored in a new table:
+
+```sql
+allowance_snapshots(allowance_id, observed_at, used_percent, window_minutes, resets_at, session_id)
+```
+
+The allowance identity is `<subscription id>:<window>`, for each window the provider reports. Separate windows are never merged, and no fixed token cap is assumed or derived from prices.
+
+`allowanceOf(snapshots, sessions, subscriptions)` is pure:
+
+- Account use is each allowance's latest snapshot, giving used and remaining percent and the time it was observed. It is labelled `Account (all use)`.
+- A session's consumption is the change between its first and last snapshots in the same allowance and the same `resets_at`. A reset between them splits the change at the reset, and no part of it can be negative. A fall within one window is treated as a missing snapshot.
+- Consumption is attributable only when the subscription is `exclusive` and no other session in `cairn.db` using the same allowance overlaps it in time. Otherwise the session's share is `null`, and the account change is shown as context. Cairn cannot see other devices or products, so without `exclusive` no share is claimed. That rule is my choice.
+- The provider reports whole or rounded percents, so each share carries a note: `±1 point: Codex reports whole percents`.
+
+Allocation. `allocationOf(subscription, period, sessions)` is pure. When a fee is configured, the period's budget is `amount × share`. It is spread over the period's sessions on that subscription in proportion to their API-equivalent estimates.
+
+- A period still open is `provisional`.
+- An included session with an unknown estimate, or a zero total, makes the allocation `null`.
+- The method is stated: `fee × share, in proportion to API-equivalent estimates, <n> sessions`.
+- It is labelled `Allocated subscription cost`. It is neither a provider charge nor allowance consumed, and it sets no cap.
+
+All of this stays in `cairn.db` and in the private trace fields (see `spec.contract.usage-in-the-trace`).
+
+Tests:
+
+- A subscription session has an API-equivalent estimate while billed cost stays `null`. Proves prd.outcomes.session-cost#v3.
+- An overlapping session makes the allowance share `null`. Proves prd.outcomes.session-cost#v3.
+- A reset between snapshots gives no negative consumption. Proves prd.outcomes.session-cost#v3.
+- A closed period's budget is allocated the same way on every run, and the shares sum to the budget. Proves prd.outcomes.session-cost#v4.
+- A missing estimate or a zero total gives `null`. Proves prd.outcomes.session-cost#v4.
+
+### Notes {#spec.sessions.notes}
+
+- Implements: `prd.viewer.notes`
+- Files: `packages/contract/src/note.ts`, `packages/contract/src/trace.ts`, `packages/contract/src/index.ts`, `packages/cli/src/migrations/`, `packages/cli/src/trace-store.ts`, `packages/cli/src/commands/note.ts`, `packages/cli/src/main.ts`, `packages/cli/src/api.ts`, `packages/cli/test/note.test.ts`
+- Depends on: `spec.sessions.trace-store`, `spec.cli.cairn-link`, `spec.contract.links`
+
+```ts
+Note = {
+  id: NoteId
+  kind: "note" | "review"
+  author: string // "agent:t2", "human:Ada", "orchestrator"
+  body: string // markdown
+  status: "open" | "resolved"
+  anchor: string // a link path (see spec.contract.links)
+  task: TaskId | null
+  session: SessionId | null
+  at: DateTime.Utc
+  resolvedAt: DateTime.Utc | null
+}
+Trace += { notes: Array<Note> }
+```
+
+A new migration adds a `notes` table with those columns. Notes hang off the session ID when there is one, and never off the commit.
+
+- `cairn note add --kind review --author agent:t2 [--session s_x] <link arguments>` stores a note. The body is read from stdin, or from `--body`. The anchor is built from the same arguments as `cairn link` by `stepsOfArgs`, and encoded with `LinkFromPath`. `task` is the link's task step, or else the session's task. It prints the note's ID and its link.
+- `cairn note resolve <id>` sets `resolved`.
+- The server reads the notes into the trace. `Session.notes` becomes the notes whose `session` is that session.
+
+Review findings on a pull request are written by the orchestrator's second-model review, with `cairn note add --kind review` on the lines they are about. Running that review stays the orchestrator's job.
+
+Tests, in a temporary repository:
+
+- A review on a diff line stores the anchor `cairn link` would print.
+- An unknown task in the arguments exits 1.
+- `resolve` changes only the status.
+- The trace carries the note.
+
 ## Orchestrator adapter {#spec.orchestrator-adapter}
 
 - Implements: `prd.orchestrator-contract`
@@ -1529,6 +3101,88 @@ What the existing orchestrator does per task, using only `@cairn/contract/js` an
 Graphite does the rest of the stack work: `gt submit --stack` opens or updates one pull request per task, and `gt sync` pulls `baseBranch`, deletes merged branches and restacks what is left. Landing is still read from git (see `spec.status.derivation`): a squash merge carries the task's trailers onto `baseBranch`. Graphite runs git hooks by default, so `pnpm check` still gates every commit; `--no-verify` is refused as before.
 
 The `adapters` package from the vision comes later. For dogfooding, this list is the contract the orchestrator has to meet.
+
+### Attempts and verification {#spec.orchestrator-adapter.attempts-and-verification}
+
+- Implements: `prd.outcomes.attempts`
+- Files: `packages/contract/src/config.ts`, `AGENTS.md`, `packages/cli/test/orchestrator-contract.test.ts`
+- Depends on: `spec.contract.attempts`, `spec.status.attempts`, `spec.sessions.usage-records`
+
+What the orchestrator adds to each task's run:
+
+1. The `running` event carries `session`, `harness`, `model`, `reasoning` and `attempt`. A retry keeps the model and reasoning. An escalation raises one of them, or hands the task to a person. A repair after review is `repair`.
+2. When the agent stops, the orchestrator runs `config.verify.command` in the task's worktree. It defaults to `pnpm check`, which runs the tests the spec sections name and the repo's checks.
+   - Exit 0 gives `done`, or `blocked_on_human` for a gated task.
+   - Anything else gives `failed`, with `failure: "checks"`.
+   - The agent giving up gives `agent`. A runner, provider or network error gives `infra`. A dependency that turns out to be wrong gives `upstream`.
+   - Changes to checks, lint rules and tests an attempt did not write are caught by this repo's hooks, as today. The adapter adds no detector of its own.
+3. The `done` or `failed` event carries `usage`, `cost` and `route`. A subscription run reports `cost: null` and route `subscription`.
+4. The session goes to `cairn session put`, and the raw usage report, when the provider gave one, goes to `--usage`.
+5. A review or conflict resolution session on the task is a usage event with its `purpose`.
+6. A task with `terminal: true` in `cairn status --json` is never started again.
+
+`AGENTS.md` lists these fields for anyone writing an adapter.
+
+Tests: the contract test drives a scripted orchestrator through a failed `checks` attempt and a passing retry. It finds two attempts, one verified task, and both costs in `cairn stats --json`.
+
+### Conflict-aware running {#spec.orchestrator-adapter.conflict-aware-running}
+
+- Implements: `prd.conflicts.running`, `prd.conflicts.landing`
+- Files: `packages/core/src/schedule.ts`, `packages/contract/src/events.ts`, `packages/contract/src/trace.ts`, `packages/contract/src/js.ts`, `packages/cli/src/git.ts`, `packages/cli/src/api.ts`, `packages/cli/src/commands/status.ts`, `apps/viewer/src/view/detailView.ts`, `packages/core/test/schedule.test.ts`, `apps/viewer/test/conflicts.scene.test.ts`
+- Depends on: `spec.planning.conflict-scores`, `spec.status.answers-from-the-index`, `spec.contract.attempts`
+
+Conflict events join the `Event` union:
+
+```ts
+ConflictEvent = {
+  kind: "conflict"
+  v?: 1
+  ts: string
+  taskId: TaskId
+  action: "hold" | "release" | "notice" | "restack"
+  other: TaskId | null // the task it waits on, or the one it conflicts with
+  first: TaskId | null // on a notice: which task lands first
+  files: Array<string>
+  score: number
+  conflicted?: boolean // on a restack: whether git stopped
+  detail: string
+}
+```
+
+A held task stays `pending`. The event names what it waits on.
+
+Live files. Once a task is running, `Git.changedFiles(branch)` replaces its planned files in `scoreOf`. It gives the files of its commits plus the uncommitted changes in its worktree, which it finds with `git worktree list --porcelain` and reads with `git diff --name-only <merge-base>`. `Git.patch(branch)` gives the same diff as hunks.
+
+`scheduleOf(trace, scores, patches, config)` is pure and goes into `cairn status --json` as `Trace.schedule`:
+
+```ts
+Schedule = {
+  ready: Array<{ task: TaskId; score: number; against: TaskId | null; hold: boolean }>
+  notices: Array<{ tasks: [TaskId, TaskId]; files: Array<string>; first: TaskId }>
+  landing: Array<{ first: number; then: number; files: Array<string> }> // stack numbers
+}
+```
+
+- `ready` is every task that can start, sorted by `hold`, then by its highest score against a running task, then by ID. `hold` is set when that score is at or above `conflicts.high`.
+- The orchestrator fills free agents from the top. It takes a `hold` task only when no task without `hold` is left, so no agent sits idle only to avoid a risk. When it passes over a held task for another, it writes a `hold` event, and a `release` when the task the hold waits on lands.
+- `notices`: two running tasks whose hunks change overlapping lines of the same file, on the base version of that file. `first` is whichever task's stack lands first.
+- `landing`: for each pair of stacks with a high score between their unfinished tasks, the stack with fewer unfinished tasks lands first, then the one with fewer changed lines, then the lower number. `cairn status` prints `land stack 12 before stack 9 (shares packages/core/src/lint.ts)`.
+
+What the orchestrator does with it:
+
+- For each new notice, it writes a `notice` event on both tasks. It sends `formatNotice(notice)` to both agents through the channel it gives briefs on: `t15 also changes packages/core/src/lint.ts lines 40–62. t12 lands first; restack onto it as soon as it lands.`
+- When a stack lands, it tells every running or waiting stack that scores against it to restack at once (`gt sync`). It writes one `restack` event per stack, with `conflicted` and the files git stopped on.
+- It never stops or reassigns a running agent. That is a person's call.
+- Messages come only from the orchestrator. Delivery through the room, and adapters for message boards, come later (see `prd.later`).
+
+Viewer. Conflict events are in each task's `events`, so the detail panel's timeline shows them: `held behind t12 (0.72, packages/core/src/lint.ts)`, `told: t12 lands first`, `restacked onto t12, conflicted in lint.ts`.
+
+Tests:
+
+- With one task running and two ready, where only the first ready task shares files with the running one, `ready` puts the second first and the orchestrator starts it. This is the acceptance criterion.
+- With one free agent and only held tasks ready, a held task starts.
+- Two running tasks with overlapping hunks give one notice naming both tasks and the file, and a Scene test finds the notice and the order in each task's timeline. This is the acceptance criterion.
+- Properties: `ready` holds exactly the tasks that can start; `landing` is the same whatever order the stacks come in.
 
 ## CLI {#spec.cli}
 
@@ -1590,6 +3244,92 @@ Tests, in `link.test.ts`, with the in-memory `Git` layer and a temporary `.cairn
 - `--passage` turns its section into a passage.
 - An unknown section, an unknown task, `--line` with no `--file`, and `--file` after a task with no commits each exit 1, with the token named.
 - `--base ""` prints the path alone.
+
+### Documentation {#spec.cli.documentation}
+
+- Implements: `prd.docs`
+
+The docs site serves the person setting Cairn up and the agents working in a repo. It sits beside the demo on `prdtrace.com`, under `/docs/`. Its reference pages are built from the code, and its picture of the viewer is the viewer, so neither goes out of date.
+
+#### Reference from code {#spec.cli.documentation.reference-from-code}
+
+- Implements: `prd.docs`
+- Files: `packages/cli/src/commands/index.ts`, `apps/docs/scripts/reference.ts`, `apps/docs/scripts/check-pages.ts`, `packages/contract/schema/`, `packages/contract/src/`, `apps/docs/test/reference.test.ts`
+
+`packages/cli/src/commands/index.ts` exports `commands`, the list of `effect/cli` command definitions that `main.ts` already composes. Read `effect/cli`'s declarations for how a command exposes its name, description, options, arguments and subcommands before writing the generator.
+
+`reference.ts` runs at build time and writes pages that are not committed:
+
+- One CLI page per command: its usage line, description, options with their types and defaults, and subcommands.
+- One page per file in `.cairn/`. The JSON files come from the contract's generated JSON Schema: each field's name, type, whether it is required, its default and its description annotation. The generation in `spec.contract.javascript-entry` adds `judgments`, `spec-index` and `trace`. A field with no description shows `—`, and the build prints a warning naming it. `prd.md`, `spec.md` and `cairn.db` have pages written by hand.
+
+`check-pages.ts` fails the build when a page names a command in backticks (`` `cairn <word>` ``) that `commands` does not have: `getting-started.md:12 names cairn foo, which no longer exists`.
+
+Tests:
+
+- A command added to a fixture command list appears in the generated reference with no page edited.
+- A page naming a removed command fails the check.
+- A schema field added to a fixture appears in its file's table.
+
+#### Docs site {#spec.cli.documentation.docs-site}
+
+- Implements: `prd.docs`
+- Files: `apps/docs/`, `apps/viewer/package.json`, `apps/site/`, `.github/workflows/ci.yml`, `pnpm-workspace.yaml`
+- Depends on: `spec.cli.documentation.reference-from-code`, `spec.viewer.markdown-rendering`, `spec.viewer.fuzzy-matching`, `spec.viewer.design-system`
+
+`apps/docs` is a Foldkit app:
+
+- Pages are markdown in `apps/docs/pages/`, ordered by an `NN-` prefix on the file name, plus the generated reference pages.
+- Each page renders through the viewer's `renderMarkdown`, so code, tables and diagrams look as they do in the viewer. `apps/viewer/package.json` exports `./markdown`, `./search` and its `ui` stylesheets for this.
+- Navigation is a sidebar of page titles, with the current page marked by `aria-current`.
+- Search covers every page. At build time, a JSON index of every page's title, headings and prose is written. The client ranks it with the viewer's matcher, so the docs and the viewer rank the same way.
+
+Prerendering. Read Foldkit's declarations for rendering a view to a string. If it has one, the build writes `docs/<page>/index.html` for each page with it. If it does not, the build renders each page's virtual nodes in Node with `snabbdom-to-html` (MIT), since Foldkit draws with Snabbdom. The client takes over when it loads.
+
+Deploy. `apps/site`, which already deploys the demo, builds the docs and serves them under `/docs/`, with the demo at the root. Read the installed Alchemy's `Cloudflare.Website` to see where built assets go. If the `deploy` job in `.github/workflows/ci.yml` needs a step for this, that edit is to a gated path, and a person approves the task.
+
+Tests:
+
+- The build writes one HTML file per page, with its text present before any script runs.
+- Search for `cairn plan` finds the getting started page and the command's reference page.
+- A page's links resolve within the site.
+
+#### Pages {#spec.cli.documentation.pages}
+
+- Implements: `prd.docs`
+- Files: `apps/docs/pages/`
+- Depends on: `spec.cli.documentation.docs-site`
+
+Pages written by hand, each short and in markdown:
+
+1. Getting started: from `cairn init`, through editing `prd.md`, `cairn plan` and its two reviews and the questions about done-when statements, to the orchestrator running the stack and a stack landing.
+2. Section IDs, list items and done-when statements.
+3. Planning: the planner's sources, planning again, dry runs and diagrams.
+4. Judging: the checkpoints, the decision providers, the model catalog, routing from history and Cloudflare AI Gateway.
+5. Human gates: tags, `humanPaths`, and `cairn approve`.
+6. Cost per verified task: attempts, metrics, session cost estimates and `cairn stats`.
+7. Conflict-aware ordering.
+8. Writing an orchestrator adapter: the events, trailers, sessions, notes and links it must write.
+9. The viewer and deep links, with the viewer itself on the page (see `spec.cli.documentation.the-viewer-on-a-page`).
+
+The Cloudflare AI Gateway page lists the Decisions route as supported only once the check in `spec.judging.cloudflare-ai-gateway` has been recorded. It also says that retention is set in the gateway.
+
+Tests: the page check from `spec.cli.documentation.reference-from-code` passes on every page.
+
+#### The viewer on a page {#spec.cli.documentation.the-viewer-on-a-page}
+
+- Implements: `prd.docs`
+- Files: `apps/docs/src/viewerEmbed.ts`, `apps/docs/test/viewer-embed.test.ts`
+- Depends on: `spec.cli.documentation.docs-site`, `spec.viewer.demo-data`, `spec.viewer.deep-links.opening-a-link`
+
+A fenced block tagged `cairn-viewer` holds a link path, such as `/section/prd.viewer`. The docs render it as an `iframe` of the demo viewer at that path, with a title and a fixed height of 640px. The sample plan is the demo trace, which is this repo's own plan, so the reader and the stacks on the page are the real ones and change with each deploy. In dev, the iframe's origin comes from `VITE_DEMO_ORIGIN`, the viewer's dev server.
+
+I chose an iframe over mounting the viewer's update and view inside the docs app. It runs the same build the demo ships, with no second integration to keep in step.
+
+Tests:
+
+- A `cairn-viewer` block renders an iframe whose `src` is the decoded link on the demo origin.
+- A block whose path does not decode through `LinkFromPath` fails the build, naming the page and the step.
 
 ## Patch routes {#spec.patch-routes}
 
@@ -2403,6 +4143,229 @@ Tests:
   - "Copy alone" with lines selected gives the task, diff, file and lines.
   - A stack box's corner copies `/stack/<root>`.
   - A selection over 500 characters disables the passage button.
+
+### List items {#spec.viewer.list-items}
+
+- Implements: `prd.viewer.items`
+- Files: `apps/viewer/src/markdown.ts`, `apps/viewer/src/reader.ts`, `apps/viewer/src/wires.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/view/specPaneView.ts`, `apps/viewer/src/view/detailView.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/ui/components.css`, `apps/viewer/test/items.scene.test.ts`, `apps/viewer/test/reader.test.ts`
+- Depends on: `spec.contract.items-and-statements`, `spec.sections.item-coverage`, `spec.viewer.reader`, `spec.viewer.spec-cards`, `spec.viewer.curves`, `spec.viewer.detail-panel`
+
+A list item with an ID reads as a small section inside its section.
+
+- Rendering. `renderMarkdown` strips a trailing `{#id}` or `{#}` from a list item. An item with an ID gets `data-item` and `data-wire="prd:<id>"`, and ends with the `itemAnnotation` hook.
+- The annotation is a native button: a status dot, then `1 spec · 2/7 tasks` from `countsOf(trace, id)`. An item that nothing maps to shows `nothing maps to this` in its place. The item's ID is a small button that shows on hover and on focus within the item, and copies on click through `ClickedSectionId`.
+- Counts. `chainOf(trace, section)` now includes the chains of the items under it. The heading's status line and the section's cards count the whole section, its items with it.
+- Hover. `HoveredNode` on the annotation lights the item's chain: its cards, their task rows and its chips. `linksOf` adds a curve from the item to each of its cards.
+- Pin. `ClickedItemAnnotation` pins the item in `maybePinned`, since an item ID is a `PrdSectionId`. `currentOf` returns it, so the spec pane shows only its cards and the stacks light only its tasks. Clicking again, or Escape with no panel open, unpins it.
+- From the spec side. A card's `Implements` chips that name a PRD section or item are buttons that send `ClickedImplementsChip`. That scrolls the PRD pane to the item or the heading and sets `reader.maybeMarked`, which gives the element `data-marked` until the next click or hover elsewhere. Hovering a task row or a chip gives `data-marked` to the items it builds.
+- Detail. "Traces to" lists the task's items with the title of the section each is in: `prd.cli.lint · in CLI`.
+
+Tests:
+
+- Property: an item's counts never pass its section's counts.
+- Scene tests on the demo trace with `prd.cli`'s items given IDs:
+  - Each command shows its own annotation.
+  - Pinning `prd.cli.lint` leaves lit only the cards that implement it and its tasks.
+  - Opening one of those tasks lists `prd.cli.lint`.
+  - Hovering its row marks the item.
+  - Clicking an `Implements` chip scrolls to and marks it.
+
+### Cost on the graph {#spec.viewer.cost-on-the-graph}
+
+- Implements: `prd.viewer.cost`
+- Files: `apps/viewer/src/cost.ts`, `apps/viewer/src/view/costView.ts`, `apps/viewer/src/view/detailView.ts`, `apps/viewer/src/view/specPaneView.ts`, `apps/viewer/src/detail.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/ui/components.css`, `apps/viewer/test/cost.test.ts`, `apps/viewer/test/cost.scene.test.ts`
+- Depends on: `spec.contract.usage-in-the-trace`, `spec.viewer.detail-panel`, `spec.viewer.spec-cards`, `spec.viewer.models`, `spec.viewer.design-system`
+
+`cost.ts` is pure:
+
+- `compactOf(usage)` gives the short label:
+  - `API est. $0.42` when the estimate is complete;
+  - `API est. $0.42 · partial` when it is partial;
+  - `Usage unavailable` when there is no usage or no priced call. It is never `$0`.
+- `cardCostOf(tasks)` sums share × estimate over distinct `(session, task)` pairs. A session referenced twice is counted once, and a shared session counts only its share. Coverage is stated as `1 of 2 tasks priced`.
+- `allowanceOf(tasks)` sums attributable percents only within the same allowance and `resetsAt`, and keeps each allowance's label.
+
+Views:
+
+- Detail panel. A `Usage and cost` block sits below model and reasoning and before the commits and code. Its summary line is the API-equivalent estimate and the attributable allowance consumed. Expanding it (`disclosureView`) lists:
+  - each session with its purpose and share;
+  - actual models and reasoning per session;
+  - token categories;
+  - billed cost when it is known;
+  - allocated subscription cost when it is configured;
+  - each rate's source and date, the assumptions and exclusions, and the coverage.
+    Account-wide allowance sits under its own `Account (all use)` label and is never added to the task.
+- Task row. `compactOf` follows the model chip as a button, `ClickedCostEstimate`, which opens the task's detail with the cost block expanded. The detail state's `isCostOpen` holds that. Selecting the task's chip opens the same detail.
+- Card header. `cardCostOf` gives the total, with its coverage when it is partial. A disclosure lists the contributing tasks and sessions. Cards can overlap, so the pane never adds their totals.
+- Percentages always carry their allowance's label, such as `3% of codex-pro weekly`.
+- Narrow widths. Task rows are a size container. Below 380px, the cost moves to a second line under the title, and the title, model and status stay. Every label is visible text, and every detail is a button or a disclosure, so nothing depends on hover.
+
+Tests:
+
+- Properties: `cardCostOf` is unchanged by repeating a session, and never exceeds the sum of its tasks' estimates.
+- Scene tests:
+  - A row's estimate opens the detail with its breakdown, and its sessions add up to the card header's total. Proves prd.viewer.cost#v1.
+  - A card with one priced task and one with no usage shows a partial total with its coverage, and two references to one session do not raise it. Proves prd.viewer.cost#v2.
+  - Tab reaches the estimate, Enter opens the breakdown, and in a 360px row the title and the cost both show. Proves prd.viewer.cost#v3.
+
+### Attempts in the detail panel {#spec.viewer.attempts-in-the-detail-panel}
+
+- Implements: `prd.outcomes.reporting`
+- Files: `apps/viewer/src/view/detailView.ts`, `apps/viewer/test/attempts.scene.test.ts`
+- Depends on: `spec.contract.usage-in-the-trace`, `spec.viewer.detail-panel`, `spec.judging.routing-from-history`
+
+After the cost block, the task detail lists its attempts, one row each:
+
+- `#2 escalation`;
+- `modelChipView` for what it ran on;
+- the harness and its version;
+- the outcome, and the failure reason when it failed;
+- its start and duration;
+- its tokens;
+- its cost, `unknown`, or `subscription`.
+
+A terminal task says `Stopped at its limit of 3 attempts`.
+
+Under the list, the routing decision that chose the task's model comes from the task's `model` and `history` judgments in the trace. It shows the source (judge, history or planner), whether it was applied, the evidence, the alternative and, for history, the candidates with their task counts.
+
+Tests: Scene tests on a fixture trace find two attempt rows with the first failed for `checks`, the routing decision with its source, and `unknown` for an attempt with no cost.
+
+### What depends on what {#spec.viewer.what-depends-on-what}
+
+- Implements: `prd.viewer.dependencies`
+- Files: `apps/viewer/src/reader.ts`, `apps/viewer/src/view/linksView.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/view/detailView.ts`, `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/test/dependencies.scene.test.ts`
+- Depends on: `spec.status.section-links`, `spec.status.answers-from-the-index`, `spec.viewer.reader`, `spec.viewer.list-items`, `spec.viewer.detail-panel`
+
+The reader asks `sectionLinksOf` on the index it builds from the trace.
+
+- A heading's status line and an item's annotation end with `needs 3 · needed by 1`. A section with unfinished tasks adds `2 ready`, or `waiting` when none can start. This links part is its own button, `ClickedLinks`, apart from the pin button.
+- `reader.maybeLinksOpen` holds the one section whose list is open. Clicking the button again closes it. So does Escape, after an open panel has gone back and before a pin is cleared. Opening a list does not pin.
+- `linksView` sits under the heading, with three groups:
+  - `Needs`: each section or item with its status dot and the pairs, `t95 needs t94`;
+  - `Needed by`, the same way;
+  - `Next`: the unfinished tasks in build order, ready ones first, each other one with `waits on t94`.
+- A section or item entry sends `ClickedLinkedSection`, which scrolls the PRD to it and marks it. A task entry sends `ClickedTask`. Hovering an entry sends `HoveredNode` for it, which lights its tasks in the stacks.
+- A `switchView` labelled "Everything before and after" sets `reader.isLinksTransitive`, which shows the transitive lists in build order.
+- Task detail. Beside the parent and dependencies, the panel lists `Needed by`. For a pending task it says `Can start now`, or `Waits on t94, t95`.
+
+Tests, Scene tests on the demo trace:
+
+- Opening the links of Fuzzy search lists Task detail under `Needs` with `t95 needs t94`, and opening Task detail's lists Fuzzy search under `Needed by`. Proves prd.viewer.dependencies#v1.
+- A fixture where a section's unfinished tasks all wait on another section's tasks says `waiting` and names those tasks in `Next`, and says `1 ready` once they are marked done. Proves prd.viewer.dependencies#v2.
+- Opening a list leaves the pin as it was.
+
+### Command menu {#spec.viewer.command-menu}
+
+- Implements: `prd.viewer.command-menu`
+- Files: `apps/viewer/src/menu.ts`, `apps/viewer/src/view/menuView.ts`, `apps/viewer/src/subscription/menuKeys.ts`, `apps/viewer/src/view/searchView.ts`, `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/ui/components.css`, `apps/viewer/test/menu.test.ts`, `apps/viewer/test/menu.scene.test.ts`
+- Depends on: `spec.viewer.search-interaction`, `spec.viewer.prose-search`, `spec.viewer.reader`, `spec.viewer.spec-cards`, `spec.viewer.models`, `spec.viewer.deep-links.copying-a-link`, `spec.viewer.design-system`
+
+The menu rebuilds [⌘K](https://github.com/dip/cmdk)'s behaviour in Foldkit. It ranks with the fuzzy search index, so the menu and the toolbar search box never disagree.
+
+```ts
+Menu = { page: "root" | "tasks" | "prd" | "spec"; query: string; active: number; returnFocus: string | null }
+model.maybeMenu: Option<Menu>
+```
+
+This diagram shows the menu's states and the events that move between them:
+
+```mermaid
+stateDiagram-v2
+  [*] --> Closed
+  Closed --> Root: shortcut, slash or trigger
+  Root --> Closed: Escape or shortcut
+  Root --> Page: open a nested page
+  Page --> Root: Backspace on an empty query, or Escape
+  Root --> Closed: run a result
+  Page --> Closed: run a result
+```
+
+Opening. `menuKeys.ts` listens to `keydown` on the document:
+
+- ⌘K on macOS, or Ctrl+K elsewhere, sends `PressedMenuShortcut`, which opens or closes the menu. The platform is read once from `navigator.userAgentData` or `navigator.platform`.
+- `/` sends it too, when the event's target is not an input, a textarea or editable content.
+- The toolbar search box becomes a button showing the current query, and a click on it opens the menu.
+
+Opening stores the focused element's ID in `returnFocus`, and closing focuses that element again.
+
+`menuResultsOf(model)` in `menu.ts` is pure:
+
+- With an empty query on the root page, it lists the commands, then the current section's tasks.
+- With a query, it runs the fuzzy search and groups the results under PRD, Spec, Tasks, then Commands. A group with no matches is hidden.
+- On a nested page, only that kind is listed.
+- Each result has its kind, its title and the matched ranges, and a task also has its status and ID.
+
+Commands are the controls the viewer already has:
+
+- models and reasoning on or off;
+- Titles, Summary and Full spec for the cards;
+- open the code view, when the detail panel shows a task;
+- copy a link to what is in view, through `ClickedCopyLink` with `linkOf(model)`;
+- `Search tasks…`, `Search the PRD…` and `Search the spec…`, which open a page.
+
+Folding and unfolding every finished trunk is listed once the stacks pane folds trunks; until then it does not apply, so it is not listed. Each command has `appliesTo(model)`. A command that does not apply is not listed. A command with a shortcut shows it on the right.
+
+Keys in the menu:
+
+- Up and Down move `active` and wrap at the ends. Pointer movement over a result sets `active`.
+- The active search result previews its chain behind the menu, as the active fuzzy search result does: `currentOf` takes it while the menu is open.
+- Enter, or a click, runs the active result. A search result closes the menu and sets the search query and active result to it, exactly as selecting it in fuzzy search does. A command closes the menu and runs.
+- Backspace on an empty query, or Escape, on a nested page goes back to the root page.
+- Escape on the root page closes the menu. The preview goes with it, so the panes, the pin and the detail panel are as they were.
+- After a search result has run, a second Escape clears the search, as it does today.
+- `PressedEscape` reaches the detail panel only when the menu is closed.
+
+View. `menuView` is a `role="dialog"` with `aria-modal="true"` over the centre of the window.
+
+- The query is an input with `role="combobox"`, `aria-expanded`, `aria-controls` and `aria-activedescendant`. A nested page shows its badge before it.
+- Results are a `role="listbox"` with `role="group"` sections labelled by their headings, and `role="option"` items with `aria-selected`.
+- Tab and Shift+Tab stay on the input while the dialog is open.
+- The list's height follows its results. The dialog fades and scales in over `--d-fade`, and with reduced motion `base.css` turns that off.
+- A query with no matches says `No matches for "<query>"`.
+
+Tests:
+
+- Properties in `menu.test.ts`: groups always come in the fixed order; Up and Down wrap; the search results in the menu equal fuzzy search's results for the same query.
+- Scene tests on the demo trace:
+  - ⌘K, then `fuzy matchng`, then Enter brings `spec.viewer.fuzzy-matching` and its chain into view.
+  - ⌘K, `Search tasks…`, `t52` and Enter opens t52 with its stack lit.
+  - Backspace on an empty query returns to the root page.
+  - Escape closes the menu with the panes, the pin and the detail panel as they were, and focus back on the element it came from.
+  - `/` typed in an input does not open the menu.
+
+### Notes {#spec.viewer.notes}
+
+- Implements: `prd.viewer.notes`
+- Files: `apps/viewer/src/notes.ts`, `apps/viewer/src/view/noteView.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/view/specPaneView.ts`, `apps/viewer/src/view/stackChipsView.ts`, `apps/viewer/src/view/detailView.ts`, `apps/viewer/src/view/diffView.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/test/notes.test.ts`, `apps/viewer/test/notes.scene.test.ts`
+- Depends on: `spec.sessions.notes`, `spec.viewer.deep-links.resolving-a-link`, `spec.viewer.detail-panel`, `spec.viewer.diff-view`, `spec.viewer.spec-cards`, `spec.viewer.stacks`
+
+The viewer only shows notes. People writing notes in the room comes with v2.
+
+`notesOf(trace, loaded, isShowingResolved)` in `notes.ts` is pure. It decodes each note's anchor with `LinkFromPath` and resolves it with `resolveLink`, then places the note by the last step that resolved:
+
+| Last step            | Where the note shows              |
+| -------------------- | --------------------------------- |
+| Passage, PRD section | Beside the heading or the passage |
+| Spec section         | Beside the card's header          |
+| Task, commit         | On the task's row and chip        |
+| Lines in a diff      | On that line in the diff          |
+
+A note whose anchor does not resolve all the way is listed in the task detail, when its link names a task, or under its section otherwise. It carries the missing step's message (see `spec.viewer.deep-links.resolving-a-link`).
+
+Views:
+
+- A note marker is a small button with a count of open notes. Opening it shows each note's kind, author, status and markdown body, rendered through `renderMarkdown`, with a link that opens its anchor.
+- Task rows and chips show `◆ 2`, the number of open notes.
+- In the diff, notes on lines go into the mount's `data-notes` attribute as JSON, which the mount's `MutationObserver` reads and draws as line annotations, as turn marks are drawn.
+- The task detail lists the task's notes, and each one opens its link.
+- Resolved notes are hidden. A `switchView` labelled "Show resolved notes" sets `isShowingResolved`, which is local to the window.
+
+Tests:
+
+- Properties: every note is placed exactly once, either at its anchor or in a missing list.
+- A resolved note is hidden unless the switch is on.
+- A Scene test with a review on a diff line finds it in the mount's `data-notes`, in the task detail, and opening its link reaches that line.
+- A note on a deleted section shows under the task with its missing step.
 
 ## Testing {#spec.testing}
 
