@@ -28,7 +28,7 @@ Cover the spec sections you were given, and only those. Every one of them that b
 
 ## What to draft
 
-Draft tasks for these spec sections: {{sections}}
+Draft tasks for these spec sections: {{sections}}{{part}}
 
 ## Tasks already planned
 
