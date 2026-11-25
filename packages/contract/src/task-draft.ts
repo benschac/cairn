@@ -13,7 +13,8 @@ import { Reasoning } from "./manifest.ts";
  */
 export const TaskDraft = Schema.Struct({
   dependsOn: Schema.Array(Schema.NonEmptyString).annotate({
-    description: "The exact titles of the other tasks in this plan that must land first.",
+    description:
+      "The exact titles of the other tasks in this plan, or the IDs of tasks already planned, that must land first.",
   }),
   files: Schema.Array(Schema.String).annotate({
     description: "The files the task creates or changes.",

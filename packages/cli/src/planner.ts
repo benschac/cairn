@@ -1,5 +1,5 @@
 import { IndexedSection, TaskDraft, defaultConfig } from "@cairn/contract";
-import type { Config, Section, SpecSectionId } from "@cairn/contract";
+import type { Config, ManifestTask, PrdSectionId, Section, SpecSectionId } from "@cairn/contract";
 import { drawsOf, mermaidBlocksOf, sectionsOf, withoutMermaidBlocks } from "@cairn/core";
 import {
   Array,
@@ -25,7 +25,7 @@ export class PlannerError extends Schema.TaggedError<
   PlannerError,
   { readonly brand: unique symbol }
 >()("PlannerError", {
-  call: Schema.Literals(["spec", "tasks", "splitSection", "splitTask", "index"]),
+  call: Schema.Literals(["spec", "sections", "tasks", "splitSection", "splitTask", "index"]),
   reason: Schema.String,
 }) {}
 
@@ -158,7 +158,18 @@ export interface Prompts {
   /** Asks again after a reply failed to decode, with the decode error in the prompt. */
   readonly retry: (prompt: string, error: string) => Effect.Effect<string, PromptError>;
   readonly spec: (prd: string) => Effect.Effect<string, PromptError>;
-  readonly tasks: (prd: string, spec: string) => Effect.Effect<string, PromptError>;
+  readonly sections: (
+    prd: string,
+    spec: string,
+    prdSections: ReadonlyArray<PrdSectionId>,
+    rewrite: ReadonlyArray<SpecSectionId>,
+  ) => Effect.Effect<string, PromptError>;
+  readonly tasks: (
+    prd: string,
+    spec: string,
+    specSections: ReadonlyArray<SpecSectionId>,
+    existing: ReadonlyArray<ManifestTask>,
+  ) => Effect.Effect<string, PromptError>;
   /** `draft` is the draft as JSON. */
   readonly splitTask: (
     draft: string,
@@ -168,6 +179,31 @@ export interface Prompts {
   readonly splitSection: (section: string, reason: string) => Effect.Effect<string, PromptError>;
   readonly index: (section: IndexTarget) => Effect.Effect<string, PromptError>;
 }
+
+/** IDs as a list of code spans, or `none` when there are none. */
+const idList = (ids: ReadonlyArray<string>) =>
+  Array.match(ids, {
+    onEmpty: () => "none",
+    onNonEmpty: (some) =>
+      Array.join(
+        Array.map(some, (id) => `\`${id}\``),
+        ", ",
+      ),
+  });
+
+/** The tasks the manifest already has, one bullet each, for the `tasks` prompt. */
+const existingList = (tasks: ReadonlyArray<ManifestTask>) =>
+  Array.match(tasks, {
+    onEmpty: () => "There are none: this is the first plan.",
+    onNonEmpty: (some) =>
+      Array.join(
+        Array.map(
+          some,
+          (task) => `- \`${task.id}\`: ${task.title} (builds ${idList(task.specSections)})`,
+        ),
+        "\n",
+      ),
+  });
 
 /** The models of the config's table, one bullet each, for the `tasks` prompt. */
 const modelTable = (models: Readonly<Record<string, string>>) =>
@@ -183,10 +219,11 @@ const modelTable = (models: Readonly<Record<string, string>>) =>
 export const loadPrompts = Effect.fn("loadPrompts")(function* (
   models: Readonly<Record<string, string>>,
 ) {
-  const [retry, spec, tasks, example, splitSection, splitTask, index] = yield* Effect.all(
+  const [retry, spec, sections, tasks, example, splitSection, splitTask, index] = yield* Effect.all(
     [
       readText("retry", promptUrl("retry")),
       readText("spec", promptUrl("spec")),
+      readText("sections", promptUrl("sections")),
       readText("tasks", promptUrl("tasks")),
       readText("spec example", exampleUrl),
       readText("split-section", promptUrl("split-section")),
@@ -198,8 +235,21 @@ export const loadPrompts = Effect.fn("loadPrompts")(function* (
   return {
     retry: (prompt, error) => fillPrompt("retry", retry, { error, prompt }),
     spec: (prd) => fillPrompt("spec", spec, { example, prd }),
-    tasks: (prd, specText) =>
-      fillPrompt("tasks", tasks, { models: modelTable(models), prd, spec: specText }),
+    sections: (prd, specText, prdSections, rewrite) =>
+      fillPrompt("sections", sections, {
+        prd,
+        rewrite: idList(rewrite),
+        sections: idList(prdSections),
+        spec: specText,
+      }),
+    tasks: (prd, specText, specSections, existing) =>
+      fillPrompt("tasks", tasks, {
+        existing: existingList(existing),
+        models: modelTable(models),
+        prd,
+        sections: idList(specSections),
+        spec: specText,
+      }),
     splitTask: (draft, specText, reason) =>
       fillPrompt("split-task", splitTask, {
         draft,
@@ -287,18 +337,35 @@ export const drawnOf = <E, R>(
   });
 
 /**
- * Plans with a language model. The calls here are `spec`, `tasks`, `splitSection`, `splitTask`
- * and `index`.
+ * Plans with a language model. The calls here are `spec`, `sections`, `tasks`, `splitSection`,
+ * `splitTask` and `index`.
  */
 export class Planner extends Context.Service<
   Planner,
   {
     /** The spec markdown for a PRD. */
     readonly spec: (prd: string) => Effect.Effect<string, PlannerError>;
-    /** The task drafts for a PRD and its spec. */
+    /**
+     * Markdown for new spec sections that implement `prdSections`, written to sit in `spec`, each
+     * naming the section it goes under. `rewrite` names sections of `spec` to write again under
+     * the same ID. The spec section leaves open how a rewrite is asked for; this is the fourth
+     * argument.
+     */
+    readonly sections: (
+      prd: string,
+      spec: string,
+      prdSections: ReadonlyArray<PrdSectionId>,
+      rewrite: ReadonlyArray<SpecSectionId>,
+    ) => Effect.Effect<string, PlannerError>;
+    /**
+     * The task drafts for `specSections` of the spec. `existing` is the tasks the manifest already
+     * has, which a draft may depend on by ID; it is empty on a first plan.
+     */
     readonly tasks: (
       prd: string,
       spec: string,
+      specSections: ReadonlyArray<SpecSectionId>,
+      existing: ReadonlyArray<ManifestTask>,
     ) => Effect.Effect<ReadonlyArray<TaskDraft>, PlannerError>;
     /** Markdown for two or more sections that replace `section`, because of `reason`. */
     readonly splitSection: (section: string, reason: string) => Effect.Effect<string, PlannerError>;
@@ -341,6 +408,22 @@ export class Planner extends Context.Service<
           Effect.mapError(failed("spec")),
         );
 
+        const sections = Effect.fn("Planner.sections")(
+          function* (
+            prd: string,
+            specText: string,
+            prdSections: ReadonlyArray<PrdSectionId>,
+            rewrite: ReadonlyArray<SpecSectionId>,
+          ) {
+            const prompt = yield* prompts.sections(prd, specText, prdSections, rewrite);
+            const reply = yield* textFor(prompt);
+            return yield* drawnOf(reply, (errors) =>
+              prompts.retry(prompt, errors).pipe(Effect.flatMap(textFor)),
+            );
+          },
+          Effect.mapError(failed("sections")),
+        );
+
         // `generateObject` decodes the reply through its schema, so a reply that does not decode
         // fails with a decode failure we can tell from a transport one. That lets each call
         // decide to retry once, with the decode error in the prompt.
@@ -367,8 +450,13 @@ export class Planner extends Context.Service<
           );
 
         const tasks = Effect.fn("Planner.tasks")(
-          function* (prd: string, specText: string) {
-            const prompt = yield* prompts.tasks(prd, specText);
+          function* (
+            prd: string,
+            specText: string,
+            specSections: ReadonlyArray<SpecSectionId>,
+            existing: ReadonlyArray<ManifestTask>,
+          ) {
+            const prompt = yield* prompts.tasks(prd, specText, specSections, existing);
             return yield* withRetry(prompt, draftsFor);
           },
           Effect.mapError(failed("tasks")),
@@ -421,7 +509,7 @@ export class Planner extends Context.Service<
           Effect.mapError(failed("index")),
         );
 
-        return Planner.of({ index, spec, splitSection, splitTask, tasks });
+        return Planner.of({ index, sections, spec, splitSection, splitTask, tasks });
       }),
     );
 

@@ -1,4 +1,4 @@
-import { Manifest, SpecSectionId, TaskDraft } from "@cairn/contract";
+import { Manifest, PrdSectionId, SpecSectionId, TaskDraft } from "@cairn/contract";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { Array, Effect, FileSystem, Layer, Path, Predicate, Record, Schema } from "effect";
@@ -65,7 +65,7 @@ const isPlannerError = Schema.is(PlannerError);
 
 const spec = (prd: string) => Planner.use((planner) => planner.spec(prd));
 const tasks = (prd: string, specText: string) =>
-  Planner.use((planner) => planner.tasks(prd, specText));
+  Planner.use((planner) => planner.tasks(prd, specText, [], []));
 
 it.effect.prop(
   "spec returns the model's markdown, and the prompt it sent holds the PRD",
@@ -418,4 +418,113 @@ it.effect.prop("a model failure while indexing is a PlannerError", [SpecSectionI
       expect(failure.call).toBe("index");
     }),
   ),
+);
+
+const sections = (
+  prd: string,
+  specText: string,
+  prdSections: ReadonlyArray<PrdSectionId>,
+  rewrite: ReadonlyArray<SpecSectionId>,
+) => Planner.use((planner) => planner.sections(prd, specText, prdSections, rewrite));
+
+const fence = (body: string) => `\`\`\`mermaid\n${body}\n\`\`\``;
+
+it.effect.prop(
+  "sections returns the model's markdown, and the prompt holds the PRD, the spec and the IDs",
+  [
+    Schema.NonEmptyString,
+    Schema.NonEmptyString,
+    Schema.Array(PrdSectionId),
+    Schema.Array(SpecSectionId),
+    Schema.String,
+  ],
+  ([prd, specText, prdSections, rewrite, markdown]) =>
+    planning(
+      [markdown],
+      Effect.gen(function* () {
+        const written = yield* sections(prd, specText, prdSections, rewrite);
+        const seen = yield* prompts;
+        const [first = ""] = seen;
+        expect(written).toBe(markdown);
+        expect(seen).toHaveLength(1);
+        expect(first).toContain(prd);
+        expect(first).toContain(specText);
+        Array.forEach(prdSections, (id) => {
+          expect(first).toContain(id);
+        });
+        Array.forEach(rewrite, (id) => {
+          expect(first).toContain(id);
+        });
+      }),
+    ),
+);
+
+it.effect("a model failure while writing sections is a PlannerError", () =>
+  planning(
+    [unreachable],
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(sections("prd", "spec", [], []));
+      expect(isPlannerError(failure)).toBe(true);
+      expect(failure.call).toBe("sections");
+    }),
+  ),
+);
+
+it.effect("a Mermaid block in sections that does not draw is sent back once with its error", () =>
+  planning(
+    [
+      `## A {#spec.a}\n\n${fence("flowchart TD\n  a --")}\n`,
+      `## A {#spec.a}\n\n${fence("flowchart TD\n  a --> b")}\n`,
+    ],
+    Effect.gen(function* () {
+      const written = yield* sections("prd", "spec", [], []);
+      const [first = "", second = ""] = yield* prompts;
+      expect(written).toContain("a --> b");
+      expect(second).toContain(first);
+      expect(second).toContain("spec.a");
+      expect(second).toContain("does not draw");
+    }),
+  ),
+);
+
+it.effect(
+  "a Mermaid block in sections that still does not draw is left out, with the section named",
+  () =>
+    planning(
+      [
+        `## A {#spec.a}\n\n${fence("flowchart TD\n  a --")}\n`,
+        `## A {#spec.a}\n\n${fence("flowchart TD\n  a --")}\n`,
+      ],
+      Effect.gen(function* () {
+        const written = yield* sections("prd", "spec", [], []);
+        const seen = yield* prompts;
+        expect(written).not.toContain("mermaid");
+        expect(seen).toHaveLength(2);
+      }),
+    ),
+);
+
+it.effect.prop(
+  "tasks prompts with the spec sections to draft and the tasks that exist, which a draft may depend on",
+  [Schema.Array(SpecSectionId).check(Schema.isMinLength(1))],
+  ([specSections]) =>
+    Effect.gen(function* () {
+      const manifestJson = yield* read("../../../.cairn/manifest.json");
+      const manifest = yield* Schema.decodeEffect(Schema.fromJsonString(Manifest))(manifestJson);
+      const existing = Array.take(manifest.tasks, 3);
+      yield* planning(
+        [encodeReply({ drafts: [] })],
+        Effect.gen(function* () {
+          yield* Planner.use((planner) => planner.tasks("prd", "spec", specSections, existing));
+          const [first = ""] = yield* prompts;
+          Array.forEach(specSections, (id) => {
+            expect(first).toContain(id);
+          });
+          Array.forEach(existing, (task) => {
+            expect(first).toContain(task.id);
+            expect(first).toContain(task.title);
+          });
+        }),
+      );
+    }).pipe(Effect.provide(NodeServices.layer)),
 );

@@ -28,6 +28,7 @@ const stubPlanner = (calls: Ref.Ref<ReadonlyArray<string>>, round: number) =>
   Planner.of({
     index: (target: IndexTarget) =>
       Ref.update(calls, Array.append(target.id)).pipe(Effect.as(proseFor(target.id, round))),
+    sections: unused,
     spec: unused,
     splitSection: unused,
     splitTask: unused,
@@ -240,6 +241,7 @@ it.effect("a failed index call fails the whole index with its PlannerError", () 
     const manifest = yield* manifestOf();
     const broken = Planner.of({
       index: () => Effect.fail(new PlannerError({ call: "index", reason: "unreachable" })),
+      sections: unused,
       spec: unused,
       splitSection: unused,
       splitTask: unused,

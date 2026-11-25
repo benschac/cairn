@@ -44,14 +44,23 @@ const placedOf = (sections: ReadonlyArray<Section>): ReadonlyArray<Placed> =>
   })[1];
 
 /**
+ * The section code writes for the stack diagram (`withStackDiagram`). Its `Context` key names the
+ * PRD's top section, which would cover every section under it, so what it names is left out of
+ * coverage: the diagram builds nothing and says nothing about what the PRD asks for.
+ */
+const STACKS_SECTION = "spec.stacks";
+
+/**
  * PRD sections no spec section covers (see `spec.format`). A section is covered when it, or a
  * section under it, is named in an `Implements`, `Defers` or `Context` key, or when a section
- * above it is named in a `Defers` or `Context` key. A heading with no ID is left out.
+ * above it is named in a `Defers` or `Context` key. The stack diagram's section covers nothing.
+ * A heading with no ID is left out.
  */
 export const uncoveredOf = (
   prd: ReadonlyArray<Section>,
-  spec: ReadonlyArray<Section>,
+  allSpec: ReadonlyArray<Section>,
 ): ReadonlyArray<{ readonly id: SectionId; readonly section: Section }> => {
+  const spec = Array.filter(allSpec, (section) => section.id !== STACKS_SECTION);
   const named = HashSet.fromIterable<string>(
     Array.flatMap(spec, ({ keys }) => Array.flatten([keys.implements, keys.defers, keys.context])),
   );

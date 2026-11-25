@@ -231,7 +231,15 @@ const setup = (files: Readonly<Record<string, string>>) =>
                 tasks: () => Effect.succeed(DRAFTS),
                 splitSection: () => Effect.die("plan does not split a section"),
                 splitTask: () => Effect.die("plan does not split a task"),
-                index: () => Effect.die("plan does not index a section"),
+                sections: () => Effect.die("plan does not write sections"),
+                index: () =>
+                  Effect.succeed({
+                    artifacts: [],
+                    decisions: [],
+                    requirements: [],
+                    summary: "",
+                    tests: [],
+                  }),
               }),
             ),
             Layer.succeed(

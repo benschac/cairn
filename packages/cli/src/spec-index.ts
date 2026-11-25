@@ -1,5 +1,5 @@
 import { PrdSectionId, SpecIndexJson, SpecSectionId } from "@cairn/contract";
-import type { BodyHash, IndexedSection, Manifest, Section, SpecIndex } from "@cairn/contract";
+import type { BodyHash, IndexedSection, ManifestTask, Section, SpecIndex } from "@cairn/contract";
 import { bodyHashOf, keyEntriesOf, sectionsOf } from "@cairn/core";
 import {
   Array,
@@ -31,7 +31,8 @@ export interface SpecIndexInput {
   readonly prd: string;
   /** The text of `spec.md`. */
   readonly spec: string;
-  readonly manifest: Manifest;
+  /** Its tasks fill each section's `tasks`. A plan whose tasks are not drafted yet has none. */
+  readonly manifest: { readonly tasks: ReadonlyArray<ManifestTask> };
   /** `spec.json` as it is on disk, if it is. A section it has keeps its entry. */
   readonly previous: Option.Option<SpecIndex>;
   /**
@@ -138,6 +139,27 @@ export const derivedOf = (input: Omit<SpecIndexInput, "changed">): ReadonlyArray
       ),
     };
   });
+};
+
+/**
+ * The sections of `previous` that a person edited since Cairn wrote them: the hash of the body
+ * differs from `writtenFrom.body`. These are the `changed` sections of `SpecIndexInput`. The index
+ * records no hash for a section a person wrote, so an edit to one is not seen here.
+ */
+export const editedOf = (spec: string, previous: SpecIndex): ReadonlyArray<SpecSectionId> => {
+  const bodies = Record.fromEntries(
+    Array.map(identifiedOf(sectionsOf(spec)), ({ id, section }) => [id, section.body] as const),
+  );
+  return Array.filterMap(previous.sections, (entry) =>
+    Option.exists(
+      Option.flatMap(Option.fromNullOr(entry.writtenFrom.body), (hash) =>
+        Option.map(Record.get(bodies, entry.id), (body) => hash !== bodyHashOf(body)),
+      ),
+      (differs) => differs,
+    )
+      ? Result.succeed(entry.id)
+      : Result.failVoid,
+  );
 };
 
 /**
