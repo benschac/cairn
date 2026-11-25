@@ -21,20 +21,31 @@ const lineOf = (
     ),
   );
 
-/** What `stackLines` says about a task besides its place in a stack: whether to mark it `new`. */
+/**
+ * What `stackLines` says about a task besides its place in a stack: whether to mark it `new`,
+ * whether to name its branch after its title, and a note to end its line with.
+ */
 export interface StackOptions {
+  readonly branch?: boolean;
   readonly isNew?: (task: ManifestTask) => boolean;
+  readonly note?: (task: ManifestTask) => Option.Option<string>;
 }
 
-const lineOfTask = (task: ManifestTask, depth: number, isNew: boolean) =>
+const lineOfTask = (
+  task: ManifestTask,
+  depth: number,
+  { branch = false, isNew = () => false, note = () => Option.none() }: StackOptions,
+) =>
   Array.join(
     Array.getSomes([
       Option.some(`${String.repeat(2 + 2 * depth)(" ")}${task.id}`),
       Option.some(task.status),
       Option.some(task.title),
+      Option.liftPredicate(task.branch, () => branch),
       Option.some(`${task.model}/${task.reasoning}`),
       Option.liftPredicate("GATE", () => task.humanGate.required),
-      Option.liftPredicate("new", () => isNew),
+      Option.liftPredicate("new", () => isNew(task)),
+      note(task),
     ]),
     "  ",
   );
@@ -47,7 +58,7 @@ const lineOfTask = (task: ManifestTask, depth: number, isNew: boolean) =>
  */
 export const stackLines = (
   tasks: ReadonlyArray<ManifestTask>,
-  { isNew = () => false }: StackOptions = {},
+  options: StackOptions = {},
 ): ReadonlyArray<string> => {
   const parents = Record.fromIterableWith(tasks, (task) => [task.id, task.parent] as const);
   const positions = Record.fromEntries(Array.map(tasks, (task, at) => [task.id, at] as const));
@@ -72,7 +83,7 @@ export const stackLines = (
     );
   return Array.flatMap(Array.dedupe(Array.map(placed, ({ root }) => root)), (root, at) =>
     Array.prepend(
-      Array.map(stackOf(root), ({ depth, task }) => lineOfTask(task, depth, isNew(task))),
+      Array.map(stackOf(root), ({ depth, task }) => lineOfTask(task, depth, options)),
       `Stack ${at + 1}`,
     ),
   );
