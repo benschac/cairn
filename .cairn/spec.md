@@ -857,16 +857,12 @@ flowchart BT
     direction BT
     t74["t74 · 74-patch-routes<br/>Serve commit and task patches from git<br/>wt-25"]
   end
-  subgraph s34["Stack 34 · server"]
-    direction BT
-    t78["t78 · 78-session-route<br/>Serve sessions from cairn.db<br/>wt-23"]
-  end
-  subgraph s35["Stack 35 · viewer"]
+  subgraph s34["Stack 34 · viewer"]
     direction BT
     t79["t79 · 79-session-pane<br/>Draw the session pane<br/>wt-24"]
     t80["t80 · 80-attribution<br/>Mark each hunk with the turn that wrote it<br/>wt-24"]
   end
-  subgraph s36["Stack 36 · viewer"]
+  subgraph s35["Stack 35 · viewer"]
     direction BT
     t84["t84 · 84-reader-derive<br/>Derive what the reader shows for a PRD section<br/>wt-27"]
     t85["t85 · 85-reader-screen<br/>Add the reader screen with the PRD pane and its current section<br/>wt-27"]
@@ -883,85 +879,85 @@ flowchart BT
     t96["t96 · 96-reading-presence<br/>Show who is reading which PRD section<br/>wt-27"]
     t97["t97 · 97-remove-canvas · GATE<br/>Make the reader the viewer and remove the canvas<br/>wt-27"]
   end
-  subgraph s37["Stack 37 · viewer"]
+  subgraph s36["Stack 36 · viewer"]
     direction BT
     t98["t98 · 98-detail-session<br/>Show the agent session in a task's detail<br/>wt-27"]
   end
-  subgraph s38["Stack 38 · viewer"]
+  subgraph s37["Stack 37 · viewer"]
     direction BT
     t99["t99 · 99-design-tokens<br/>Add the design tokens and the base stylesheet<br/>wt-28"]
     t100["t100 · 100-ui-pieces<br/>Build the shared marks and controls on the tokens<br/>wt-28"]
     t101["t101 · 101-restyle-code-view<br/>Move the code view, search and code blocks to the design system<br/>wt-28"]
   end
-  subgraph s39["Stack 39 · testing"]
+  subgraph s38["Stack 38 · testing"]
     direction BT
     t102["t102 · 102-xstate-test<br/>Add @xstate/test and move xstate to 6.0.0-beta.5<br/>wt-29"]
     t103["t103 · 103-presence-model<br/>Test the presence server against the room machine<br/>wt-29"]
   end
-  subgraph s40["Stack 40 · testing"]
+  subgraph s39["Stack 39 · testing"]
     direction BT
     t104["t104 · 104-reader-models<br/>Test the reader's trail, pin and dividers against models<br/>wt-30"]
   end
-  subgraph s41["Stack 41 · testing"]
+  subgraph s40["Stack 40 · testing"]
     direction BT
     t105["t105 · 105-derive-model<br/>Test derivation against a model of its inputs<br/>wt-31"]
   end
-  subgraph s42["Stack 42 · contract"]
+  subgraph s41["Stack 41 · contract"]
     direction BT
     t107["t107 · 107-written-from<br/>Record what each spec section was written from<br/>wt-33"]
   end
-  subgraph s43["Stack 43 · lint"]
+  subgraph s42["Stack 42 · lint"]
     direction BT
     t108["t108 · 108-diagram-draws<br/>Check that a Mermaid block draws<br/>wt-34"]
   end
-  subgraph s44["Stack 44 · planning"]
+  subgraph s43["Stack 43 · planning"]
     direction BT
     t109["t109 · 109-stack-diagram<br/>Draw the stack diagram from the manifest<br/>wt-34"]
   end
-  subgraph s45["Stack 45 · lint"]
+  subgraph s44["Stack 44 · lint"]
     direction BT
     t110["t110 · 110-diagram-checks<br/>Keep diagrams true in cairn lint and cairn plan<br/>wt-34"]
   end
-  subgraph s46["Stack 46 · planning"]
+  subgraph s45["Stack 45 · planning"]
     direction BT
     t112["t112 · 112-replan<br/>Find what planning again has to add<br/>wt-33"]
   end
-  subgraph s47["Stack 47 · planning"]
+  subgraph s46["Stack 46 · planning"]
     direction BT
     t113["t113 · 113-plan-again<br/>Plan again after the PRD changes<br/>wt-34"]
   end
-  subgraph s48["Stack 48 · planning"]
+  subgraph s47["Stack 47 · planning"]
     direction BT
     t114["t114 · 114-plan-dry-run<br/>Add dry runs and one-run planner choices to cairn plan<br/>wt-34"]
   end
-  subgraph s49["Stack 49 · status"]
+  subgraph s48["Stack 48 · status"]
     direction BT
     t116["t116 · 116-land-from-git<br/>Land a task from git whatever its status<br/>wt-31"]
   end
-  subgraph s50["Stack 50 · status"]
+  subgraph s49["Stack 49 · status"]
     direction BT
     t117["t117 · 117-trailer-check<br/>Refuse a task commit without its trailers<br/>wt-36"]
   end
-  subgraph s51["Stack 51 · contract"]
+  subgraph s50["Stack 50 · contract"]
     direction BT
     t118["t118 · 118-add-the-link-schema-that-reads-and-writes-link-paths<br/>Add the Link schema that reads and writes link paths<br/>wt-37"]
   end
-  subgraph s52["Stack 52 · cli"]
+  subgraph s51["Stack 51 · cli"]
     direction BT
     t119["t119 · 119-add-cairn-link<br/>Add cairn link<br/>wt-37"]
   end
-  subgraph s53["Stack 53 · viewer"]
+  subgraph s52["Stack 52 · viewer"]
     direction BT
     t120["t120 · 120-resolve-a-link-against-the-trace-and-show-what-is-missing<br/>Resolve a link against the trace and show what is missing<br/>wt-20"]
   end
-  subgraph s54["Stack 54 · viewer"]
+  subgraph s53["Stack 53 · viewer"]
     direction BT
     t121["t121 · 121-open-a-link-s-steps-in-the-reader-and-the-code-view<br/>Open a link's steps in the reader and the code view<br/>wt-20"]
     t122["t122 · 122-keep-the-address-bar-and-browser-history-in-step-with-the-open-link<br/>Keep the address bar and browser history in step with the open link<br/>wt-20"]
     t123["t123 · 123-mark-linked-passages-stacks-and-lines-in-the-panes<br/>Mark linked passages, stacks and lines in the panes<br/>wt-38"]
     t124["t124 · 124-add-copy-link-buttons-to-every-step<br/>Add Copy link buttons to every step<br/>wt-20"]
   end
-  subgraph s55["Stack 55 · viewer"]
+  subgraph s54["Stack 54 · viewer"]
     direction BT
     t125["t125 · 125-copy-links-to-selected-passages-and-diff-lines<br/>Copy links to selected passages and diff lines<br/>wt-20"]
   end
@@ -1074,9 +1070,6 @@ flowchart BT
   t52 --> t75
   t9 --> t76
   t76 --> t77
-  t2 -.-> t78
-  t74 -.-> t78
-  t77 -.-> t78
   t54 -.-> t79
   t76 -.-> t79
   t79 --> t80
@@ -1153,7 +1146,7 @@ flowchart BT
   t123 -.-> t125
   t124 -.-> t125
   class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125 sonnet
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125 sonnet
   class t11,t24,t27,t44,t56,t66,t102,t107 haiku
   class t1,t2,t3,t81,t97 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
