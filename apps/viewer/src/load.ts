@@ -1,5 +1,17 @@
 import { Session, Trace } from "@cairn/contract";
-import { Effect, Match, Number, Schema, String } from "effect";
+import {
+  Duration,
+  Effect,
+  Filter,
+  Match,
+  Number,
+  Option,
+  Ref,
+  Result,
+  Schema,
+  Stream,
+  String,
+} from "effect";
 import { FetchHttpClient, HttpClient } from "effect/http";
 
 /** The trace file could not be read at all. */
@@ -62,6 +74,85 @@ export const fetchPatch = (path: string): Effect.Effect<string, string> =>
         : Effect.succeed(text),
     ),
     Effect.provide(FetchHttpClient.layer),
+  );
+
+/** How often the viewer asks `cairn serve` whether the trace changed. */
+export const TRACE_POLL_INTERVAL = "2 seconds";
+
+/** The status that says the trace is the one the viewer already holds. */
+const NOT_MODIFIED = 304;
+
+/**
+ * Ask `/api/trace` once, with the ETag of the last trace as `If-None-Match`. None for a `304`;
+ * some trace and its ETag for a `200`. A failed request, an error status or a body that does
+ * not decode fails with the sentence the viewer shows above the last good trace.
+ */
+export const fetchTrace = (
+  maybeEtag: Option.Option<string>,
+): Effect.Effect<
+  Option.Option<{ readonly trace: Trace; readonly maybeEtag: Option.Option<string> }>,
+  string,
+  HttpClient.HttpClient
+> =>
+  HttpClient.HttpClient.pipe(
+    Effect.flatMap((client) =>
+      client.get("/api/trace", {
+        headers: Option.match(maybeEtag, {
+          onNone: () => ({}),
+          onSome: (etag) => ({ "if-none-match": etag }),
+        }),
+      }),
+    ),
+    Effect.mapError((error) => `The trace did not load: ${error.message}`),
+    Effect.flatMap((response) =>
+      response.status === NOT_MODIFIED
+        ? Effect.succeedNone
+        : Number.isGreaterThanOrEqualTo(response.status, FIRST_ERROR_STATUS)
+          ? Effect.fail(`The trace did not load: HTTP ${response.status}`)
+          : response.json.pipe(
+              Effect.mapError((error) => `The trace did not load: ${error.message}`),
+              Effect.flatMap((json) => decodeTrace(json).pipe(Effect.mapError(describeTraceError))),
+              Effect.map((trace) =>
+                Option.some({ maybeEtag: Option.fromUndefinedOr(response.headers["etag"]), trace }),
+              ),
+            ),
+    ),
+  );
+
+/**
+ * What `cairn serve` says about its trace, once now and then every `interval`: a trace that
+ * changed, or the error that kept it from arriving. A `304` says nothing. An error forgets the
+ * ETag, so the next good answer is a full `200` and clears the error even if the trace is the
+ * one the viewer already holds.
+ */
+export const pollTrace = (
+  interval: Duration.Input,
+): Stream.Stream<Result.Result<Trace, string>, never, HttpClient.HttpClient> =>
+  Stream.unwrap(
+    Effect.map(Ref.make(Option.none<string>()), (etag) =>
+      Stream.tick(interval).pipe(
+        Stream.mapEffect(() =>
+          Ref.get(etag).pipe(
+            Effect.flatMap(fetchTrace),
+            Effect.tap((maybeFetched) =>
+              Option.match(maybeFetched, {
+                onNone: () => Effect.void,
+                onSome: (fetched) => Ref.set(etag, fetched.maybeEtag),
+              }),
+            ),
+            Effect.map(Option.map(({ trace }) => Result.succeed(trace))),
+            Effect.catch((error) =>
+              Ref.set(etag, Option.none()).pipe(Effect.as(Option.some(Result.fail(error)))),
+            ),
+          ),
+        ),
+        Stream.filterMap(
+          Filter.fromPredicateOption(
+            (polled: Option.Option<Result.Result<Trace, string>>) => polled,
+          ),
+        ),
+      ),
+    ),
   );
 
 /**
