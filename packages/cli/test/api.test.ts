@@ -1,10 +1,13 @@
 import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { expect, layer } from "@effect/vitest";
-import { Array, Effect, FileSystem, Layer, Path, String } from "effect";
+import { Array, Effect, FileSystem, Layer, Path, Schema, String } from "effect";
 import { HttpClient, HttpRouter } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
+import { Manifest, TraceJson } from "@cairn/contract";
 import { ApiRoutes, Repository } from "../src/api.ts";
+import { Git } from "../src/git.ts";
+import { MainCheckout } from "../src/main-checkout.ts";
 
 const ZEROS = String.repeat(40)("0");
 
@@ -35,7 +38,26 @@ const TempRepository = Layer.effect(
   }),
 );
 
+const CAIRN_FILES = ["prd.md", "spec.md", "manifest.json"];
+
+// A main checkout whose `.cairn/` holds copies of this repository's PRD, spec and manifest.
+const TempWorkspace = Layer.unwrap(
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const source = yield* path.fromFileUrl(new URL("../../../.cairn/", import.meta.url));
+    const root = yield* fs.makeTempDirectoryScoped();
+    yield* fs.makeDirectory(path.join(root, ".cairn"));
+    yield* Effect.forEach(CAIRN_FILES, (name) =>
+      fs.copyFile(path.join(source, name), path.join(root, ".cairn", name)),
+    );
+    return MainCheckout.fixed(root);
+  }),
+);
+
 const Server = HttpRouter.serve(ApiRoutes, { disableListenLog: true, disableLogger: true }).pipe(
+  Layer.provide(Layer.merge(TempWorkspace, Git.memory())),
+  Layer.provideMerge(TempWorkspace),
   Layer.provide(TempRepository),
   Layer.provideMerge(NodeHttpServer.layerTest),
   Layer.provideMerge(TempRepository),
@@ -104,6 +126,88 @@ layer(Server)("patch routes", (it) => {
         404, 404, 404,
       ]);
       expect(commit.response.headers["cache-control"]).toBeUndefined();
+    }),
+  );
+});
+
+const cairnFile = Effect.fn("cairnFile")(function* (name: string) {
+  const path = yield* Path.Path;
+  const root = yield* (yield* MainCheckout).root;
+  return path.join(root, ".cairn", name);
+});
+
+const getWith = Effect.fn("getWith")(function* (headers: Record<string, string>) {
+  const response = yield* HttpClient.get("/api/trace", { headers });
+  return { response, text: yield* response.text };
+});
+
+layer(Server)("trace route", (it) => {
+  it.effect("returns the Trace as JSON with a quoted ETag", () =>
+    Effect.gen(function* () {
+      const { response, text } = yield* getWith({});
+      expect(response.status).toBe(200);
+      expect(response.headers["content-type"]).toContain("application/json");
+      expect(response.headers["etag"]).toMatch(/^"[0-9a-f]{64}"$/u);
+      const trace = yield* Schema.decodeEffect(TraceJson)(text);
+      const fs = yield* FileSystem.FileSystem;
+      const manifestFile = yield* cairnFile("manifest.json");
+      const manifestText = yield* fs.readFileString(manifestFile);
+      const manifest = yield* Schema.decodeEffect(Schema.fromJsonString(Manifest))(manifestText);
+      expect(trace.feature).toBe(manifest.feature);
+      expect(Array.length(trace.tasks)).toBe(Array.length(manifest.tasks));
+      expect(trace.judgments).toEqual([]);
+    }),
+  );
+
+  it.effect("answers a matching If-None-Match with 304 and no body, in any form", () =>
+    Effect.gen(function* () {
+      const etag = (yield* getWith({})).response.headers["etag"] ?? "";
+      const forms = [etag, `W/${etag}`, "*", `"other", ${etag}`];
+      const answers = yield* Effect.forEach(forms, (form) => getWith({ "if-none-match": form }));
+      expect(Array.map(answers, ({ response }) => response.status)).toEqual([304, 304, 304, 304]);
+      expect(Array.map(answers, ({ text }) => text)).toEqual(["", "", "", ""]);
+      expect(answers[0]?.response.headers["etag"]).toBe(etag);
+    }),
+  );
+
+  it.effect("sends the Trace again for a tag that does not match", () =>
+    Effect.gen(function* () {
+      const { response, text } = yield* getWith({ "if-none-match": '"stale"' });
+      expect(response.status).toBe(200);
+      expect(text).not.toBe("");
+    }),
+  );
+
+  it.effect(
+    "a changed input changes the ETag, and the old tag is answered with the new Trace",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const prd = yield* cairnFile("prd.md");
+        const original = yield* fs.readFileString(prd);
+        const before = (yield* getWith({})).response.headers["etag"] ?? "";
+        yield* fs.writeFileString(prd, `${original}\nAn edit.\n`);
+        const after = yield* getWith({ "if-none-match": before });
+        yield* fs.writeFileString(prd, original);
+        expect(after.response.status).toBe(200);
+        expect(after.response.headers["etag"]).not.toBe(before);
+        expect(after.text).toContain("An edit.");
+        const restored = yield* getWith({ "if-none-match": before });
+        expect(restored.response.status).toBe(304);
+      }),
+  );
+
+  it.effect("a missing file is a 500 that names the file", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const spec = yield* cairnFile("spec.md");
+      const original = yield* fs.readFileString(spec);
+      yield* fs.remove(spec);
+      const { response, text } = yield* getWith({}).pipe(
+        Effect.ensuring(Effect.orDie(fs.writeFileString(spec, original))),
+      );
+      expect(response.status).toBe(500);
+      expect(text).toContain("spec.md");
     }),
   );
 });

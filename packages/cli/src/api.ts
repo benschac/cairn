@@ -1,8 +1,11 @@
-import { Sha } from "@cairn/contract";
-import { Context, Effect, Layer, Option, Schema, Stream, String } from "effect";
+import { Sha, Trace } from "@cairn/contract";
+import { traceOf } from "@cairn/core";
+import { Array, Context, Effect, Layer, Option, Schema, Stream, String } from "effect";
 import { HttpRouter, HttpServerResponse } from "effect/http";
 import type { PlatformError } from "effect/PlatformError";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+
+import { inputsHashOf, loadTraceInput } from "./load-trace.ts";
 
 /** The repository the patch routes read. A directory other than the server's own lets a test use a temporary repository. */
 export class Repository extends Context.Service<Repository, { readonly directory: string }>()(
@@ -96,4 +99,34 @@ export const DiffRoute = HttpRouter.add("GET", "/api/diffs/:base/:head", () =>
   ),
 );
 
-export const ApiRoutes = Layer.mergeAll(CommitRoute, DiffRoute);
+/** Whether an `If-None-Match` header names `etag`: `*`, or a comma-separated list of tags, weak or strong. */
+const matches = (header: string, etag: string): boolean =>
+  Array.some(
+    Array.map(String.split(",")(header), (tag) =>
+      String.trim(String.replace(/^W\//u, "")(String.trim(tag))),
+    ),
+    (tag) => tag === "*" || tag === etag,
+  );
+
+const encodeTrace = HttpServerResponse.schemaJson(Trace);
+
+/**
+ * `GET /api/trace` (see `spec.server`): the Trace as JSON with an `ETag` from a hash of its inputs.
+ * A request whose `If-None-Match` names that tag gets `304` without the Trace being built.
+ */
+export const TraceRoute = HttpRouter.add("GET", "/api/trace", (request) =>
+  Effect.gen(function* () {
+    const input = yield* loadTraceInput;
+    const etag = `"${inputsHashOf(input)}"`;
+    const headers = { "cache-control": "no-cache", etag };
+    const fresh = Option.exists(
+      Option.fromUndefinedOr(request.headers["if-none-match"]),
+      (header) => matches(header, etag),
+    );
+    return fresh
+      ? HttpServerResponse.empty({ headers, status: 304 })
+      : yield* encodeTrace(traceOf(input), { headers });
+  }).pipe(Effect.catch((failure) => Effect.succeed(plain(500, failure.message)))),
+);
+
+export const ApiRoutes = Layer.mergeAll(CommitRoute, DiffRoute, TraceRoute);
