@@ -1282,7 +1282,7 @@ Add `failed`: `running` goes there on `fail`, and `start` takes it back to `runn
 
 An orchestrator that reports `done` for a gated task still leaves it in `blocked_on_human`: the machine enforces the gate, not the orchestrator.
 
-Anything the machine ignores becomes a warning in the result, not an error: an illegal transition, an approval from a non-human actor, an event or trailer for an unknown task, a commit on a task branch without trailers, and a branch that landed without approval.
+Anything the machine ignores becomes a warning in the result, not an error: an illegal transition, an approval from a non-human actor, an event or trailer for an unknown task, and a commit on a task branch without trailers.
 
 A `pending` task with a `blocked_on_human` task below it is marked `waiting`, so the viewer can show why it has not started.
 
@@ -2135,7 +2135,7 @@ Its states are the task's statuses: `pending`, `running`, `blocked_on_human`, `d
 
 - `reported`, with a status and an actor that is a human or an agent, is a line the orchestrator wrote. A gated task reported `done` goes to `blocked_on_human`, and only a human's `done` takes it on to `done`. A report the lifecycle does not allow leaves the status and adds a warning.
 - `committed`, with whether it touches a gated path such as a migration, is a commit with the task's trailers. A gated path gates the task for all its reports, those before the commit too.
-- `merged` and `squashed` make the task's commits reachable from `baseBranch`, or put its trailer on a commit there. That stays true for every later event. A task whose replayed reports end in `done` lands; one that ends anywhere else keeps its status, with a warning for landing without approval.
+- `merged` and `squashed` make the task's commits reachable from `baseBranch`, or put its trailer on a commit there. That stays true for every later event. The task lands from whatever status its replayed reports end in, and a gated task whose reports do not end in `done` lands with a warning for landing without approval.
 
 The system under test is `derive` with a test `Git` Layer. `send` adds an event line, with a later `ts` than the one before, or a commit to what the session holds. `read` runs `derive` over all of it and returns the task's status and its number of warnings. Each `read` shuffles the event lines with a seeded generator first, since their order in the file must not matter. Until t21 adds the `Git` service, the test defines a stand-in with the reads derivation needs; t21 replaces it with that service's in-memory layer.
 

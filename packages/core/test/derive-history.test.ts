@@ -17,15 +17,18 @@ const events = pipe(
   Array.map((line) => Schema.decodeUnknownSync(EventJson)(line)),
 );
 
-it("this repo's events land every task its manifest records as finished, with no commits", () => {
+// The backfill covers the tasks built before their commits carried trailers. A task built since lands from its
+// Cairn-Task trailer on main, which this test does not read, so it needs no line here.
+it("this repo's events land every task they name, with no commits, and name only finished tasks", () => {
   const derived = derive(manifest, [], { humanPaths: [] }, events, []);
-  const finished = Array.filter(derived.tasks, ({ id }) =>
-    Array.some(
-      manifest.tasks,
-      (task) => task.id === id && (task.status === "done" || task.status === "landed"),
-    ),
-  );
+  const named = Array.dedupe(Array.map(events, ({ taskId }) => taskId));
+  const finished = Array.filter(derived.tasks, ({ id }) => Array.contains(named, id));
   expect(Array.isReadonlyArrayNonEmpty(finished)).toBe(true);
+  expect(
+    Array.filter(manifest.tasks, ({ id, status }) =>
+      Array.contains(named, id) ? status !== "done" && status !== "landed" : false,
+    ),
+  ).toStrictEqual([]);
   expect(Array.map(finished, ({ id, status }) => ({ id, status }))).toStrictEqual(
     Array.map(finished, ({ id }) => ({ id, status: "landed" })),
   );

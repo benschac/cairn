@@ -769,7 +769,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -794,7 +794,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -2886,7 +2886,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     },
@@ -2912,7 +2912,7 @@
         "required": false,
         "reasons": []
       },
-      "status": "pending",
+      "status": "done",
       "commits": [],
       "sessions": []
     }

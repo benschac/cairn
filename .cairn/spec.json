@@ -4268,7 +4268,7 @@
         {
           "id": "spec.status.derivation#r7",
           "level": "must",
-          "text": "Anything the machine ignores becomes a warning in the result, not an error: an illegal transition, an approval from a non-human actor, an event or trailer for an unknown task, a commit on a task branch without trailers, and a branch that landed without approval."
+          "text": "Anything the machine ignores becomes a warning in the result, not an error: an illegal transition, an approval from a non-human actor, an event or trailer for an unknown task, and a commit on a task branch without trailers."
         },
         {
           "id": "spec.status.derivation#r8",
@@ -8925,7 +8925,7 @@
         {
           "id": "spec.testing.derivation-model#r4",
           "level": "must",
-          "text": "`committed` on a gated path gates every report of the task, earlier ones too; `merged` and `squashed` stay true, land a task whose reports end in `done` and otherwise add a warning for landing without approval."
+          "text": "`committed` on a gated path gates every report of the task, earlier ones too; `merged` and `squashed` stay true and land the task from any status, with a warning for landing without approval when it is gated and its reports do not end in `done`."
         },
         {
           "id": "spec.testing.derivation-model#r5",
