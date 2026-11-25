@@ -26,6 +26,12 @@ const diffRouter = pipe(
   mapTo(PatchRoute.Diff),
 );
 
+/** The route of one commit's patch: `/api/commits/<sha>`. */
+export const commitPathOf = (sha: Sha): string => commitRouter({ sha });
+
+/** The route of the diff from `base` to `head`: `/api/diffs/<base>/<head>`. */
+export const diffPathOf = (base: Sha, head: Sha): string => diffRouter({ base, head });
+
 /** The first seven characters of a SHA. */
 export const shortSha = (sha: string): string => String.takeLeft(sha, 7);
 
@@ -81,9 +87,8 @@ export const rangeOf = (
  */
 export const patchPathOf = (task: TraceTask, shown: Shown): Option.Option<string> =>
   Shown.match(shown, {
-    OneCommit: ({ sha }) =>
-      Option.map(commitOf(task, sha), (commit) => commitRouter({ sha: commit.sha })),
-    WholeTask: () => Option.map(rangeOf(task), ({ base, head }) => diffRouter({ base, head })),
+    OneCommit: ({ sha }) => Option.map(commitOf(task, sha), (commit) => commitPathOf(commit.sha)),
+    WholeTask: () => Option.map(rangeOf(task), ({ base, head }) => diffPathOf(base, head)),
   });
 
 /** The commit whose session is shown: the selected one, or a whole task's newest. */
