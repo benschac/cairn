@@ -1000,6 +1000,47 @@ mark[data-search-match] {
   font-size: var(--t-xl);
 }
 
+/* The arrow before a PRD heading's title is the button that folds its section to the header. */
+.prd-fold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  margin: 0 4px 0 -6px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-s);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.prd-fold:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.prd-fold-arrow {
+  display: inline-block;
+  color: var(--ink-soft);
+  font-weight: 400;
+  transition: transform var(--d-press) var(--ease);
+}
+
+.prd-fold[aria-expanded="true"] > .prd-fold-arrow {
+  transform: rotate(90deg);
+}
+
+.prd-sec[data-open="false"] > .prd-sec-head {
+  margin-bottom: 0;
+}
+
+.prd-prog > .prd-condense {
+  margin-left: auto;
+}
+
 .prd-id {
   padding: 1px 6px;
   border: 1px dashed var(--hair);

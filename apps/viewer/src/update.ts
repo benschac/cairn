@@ -57,7 +57,7 @@ import {
 } from "./search.ts";
 import { Resize, deltaOf, draggedTo, fittedTo, resized, stepOf } from "./panes.ts";
 import type { Trail } from "./detail.ts";
-import { ScrollTarget, isCardless, isOpenCard, targetsOf } from "./reader.ts";
+import { ScrollTarget, isCardless, isOpenCard, isOpenPrdSection, targetsOf } from "./reader.ts";
 import { Node } from "./trace.ts";
 
 // UPDATE
@@ -303,6 +303,20 @@ export const update = (model: Model, message: Message) =>
     ClickedDensity: ({ density }) => ({
       model: modifyFields(model, {
         reader: (reader) => modifyFields(reader, { density: () => density, opened: () => ({}) }),
+      }),
+    }),
+    // A PRD section opens or closes alone, to the opposite of what it shows now.
+    ClickedPrdHeading: ({ id }) => ({
+      model: modifyFields(model, {
+        reader: (reader) =>
+          modifyFields(reader, { prdOpened: Record.set(id, !isOpenPrdSection(reader, id)) }),
+      }),
+    }),
+    // Collapsing or expanding every section forgets the sections opened or closed on their own.
+    ClickedCondensePrd: () => ({
+      model: modifyFields(model, {
+        reader: (reader) =>
+          modifyFields(reader, { isPrdCondensed: Boolean.not, prdOpened: () => ({}) }),
       }),
     }),
     // A task row or a chip starts a new trail on that task.

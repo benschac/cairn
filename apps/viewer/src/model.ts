@@ -87,6 +87,10 @@ export const Reader = Schema.Struct({
   density: Density,
   /** The cards opened or closed on their own, apart from the density. */
   opened: Schema.Record(SectionId, Schema.Boolean),
+  /** The PRD pane shows its headings without their prose. Off at first. */
+  isPrdCondensed: Schema.Boolean,
+  /** The PRD sections opened or closed on their own, apart from the condensed switch. */
+  prdOpened: Schema.Record(SectionId, Schema.Boolean),
 });
 export type Reader = typeof Reader.Type;
 

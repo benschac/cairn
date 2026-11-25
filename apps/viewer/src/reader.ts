@@ -145,6 +145,16 @@ export interface Disclosed {
 export const isOpenCard = (disclosed: Disclosed, id: SectionId): boolean =>
   Option.getOrElse(Record.get(disclosed.opened, id), () => disclosed.density === "full");
 
+/** What decides whether a PRD section's prose shows: the condensed switch, and the sections opened or closed on their own. */
+export interface Folded {
+  readonly isPrdCondensed: boolean;
+  readonly prdOpened: Record.ReadonlyRecord<string, boolean>;
+}
+
+/** A PRD section is open when it was opened or closed on its own, and else when the PRD is not condensed. */
+export const isOpenPrdSection = (folded: Folded, id: SectionId): boolean =>
+  Option.getOrElse(Record.get(folded.prdOpened, id), () => !folded.isPrdCondensed);
+
 /** A spec section and the tasks that name it. */
 export interface Card {
   readonly section: TraceSection;
