@@ -43,6 +43,25 @@ Rules:
 - `cairn ids` adds missing IDs in place and never rewrites existing ones.
 - Renaming a heading keeps its ID. Deleting a heading with linked tasks is a lint error.
 
+### List items {#prd.section-ids.items}
+
+A section often lists things that are built separately, such as the commands under CLI. A list item can carry an ID the way a heading does, so a spec section or a task names the one item it builds and not the whole section around it:
+
+```markdown
+## Saved views {#prd.saved-views}
+
+- Save the current filters under a name. {#prd.saved-views.save}
+- Share a saved view by link. {#prd.saved-views.share}
+```
+
+- An item's ID follows the rules above and is unique among the document's headings and items. It goes wherever a section ID goes: a spec section's `Implements`, `Defers` and `Context`, a task's `prdSections`, a `Cairn-Section` trailer and a link.
+- Items are opt-in. Most items are prose, so `cairn ids` never gives an item an ID unasked. An item that ends in `{#}` asks for one, and `cairn ids` fills it in from the section's ID and the item's first words.
+- An item sits under the heading it is in, and under the item it is nested in. A section's status rolls up from its items' tasks as well as its own.
+- An item with an ID needs its own coverage. A spec section that implements the section does not cover the items in it, though one that defers the section or names it as context does. Once a section's items have IDs, `cairn lint` reports each one that no spec section names.
+- An item's tasks are the tasks that build a spec section implementing it, and the tasks that name it.
+- When a section's items have IDs, the planner names the items in `Implements` and `prdSections`, not the section that holds them.
+- Deleting an item with linked tasks is a lint error, as deleting a heading is.
+
 ## Manifest schema {#prd.manifest-schema}
 
 ```json
@@ -80,16 +99,16 @@ The plan is a set of stacks that can be built at the same time, not one long sta
 
 ## CLI {#prd.cli}
 
-- `cairn init` creates `.cairn/` and a PRD template.
-- `cairn ids` assigns missing section IDs in `prd.md` and `spec.md`.
-- `cairn plan` turns `prd.md` into `spec.md` and `spec.json`, then into `manifest.json`: tasks, stack order, parent links, model and reasoning level per task, human gates. It stops for a review after the spec and again after the tasks (see planning from a PRD). A decision model checks the breakdown at each step (see judging the plan).
-- `cairn lint` checks that every task references real section IDs, every PRD section maps to at least one task, and every task's parent follows from its dependencies, so nothing sits below a gated task except what it depends on.
-- `cairn judge` judges the current spec and manifest again and writes `judgments.json`.
-- `cairn status` prints the manifest as a tree with status.
-- `cairn stats` prints cost per verified task and the other outcome metrics per category and model (see cost per verified task).
-- `cairn serve` starts the local viewer.
-- `cairn link` prints a link into the viewer (see deep links).
-- `cairn note` adds a note or a review to `cairn.db`, anchored by a link (see notes).
+- `cairn init` creates `.cairn/` and a PRD template. {#prd.cli.init}
+- `cairn ids` assigns missing section IDs in `prd.md` and `spec.md`, and fills in a list item's empty `{#}`. {#prd.cli.ids}
+- `cairn plan` turns `prd.md` into `spec.md` and `spec.json`, then into `manifest.json`: tasks, stack order, parent links, model and reasoning level per task, human gates. It stops for a review after the spec and again after the tasks (see planning from a PRD). A decision model checks the breakdown at each step (see judging the plan). {#prd.cli.plan}
+- `cairn lint` checks that every task references real section IDs, every PRD section and every list item with an ID maps to at least one task, and every task's parent follows from its dependencies, so nothing sits below a gated task except what it depends on. {#prd.cli.lint}
+- `cairn judge` judges the current spec and manifest again and writes `judgments.json`. {#prd.cli.judge}
+- `cairn status` prints the manifest as a tree with status. {#prd.cli.status}
+- `cairn stats` prints cost per verified task and the other outcome metrics per category and model (see cost per verified task). {#prd.cli.stats}
+- `cairn serve` starts the local viewer. {#prd.cli.serve}
+- `cairn link` prints a link into the viewer (see deep links). {#prd.cli.link}
+- `cairn note` adds a note or a review to `cairn.db`, anchored by a link (see notes). {#prd.cli.note}
 
 ## Planning from a PRD {#prd.planning}
 
@@ -111,6 +130,7 @@ A PRD changes while its stack is being built. Running `cairn plan` on a plan tha
 
 - A PRD section that no spec section covers gets new spec sections, written to fit the spec that exists.
 - A spec section that no task builds gets new tasks. They take the next free IDs and may depend on tasks already in the manifest.
+- A list item given an ID after its section was planned is mapped, not planned again: `cairn plan` adds it to the `Implements` of the spec sections that already build it, and writes a spec section only for an item that none of them builds.
 - A task already in the manifest is never changed, renumbered or reordered, whatever its status.
 - Cairn records what each spec section was written from. When a PRD section changes afterwards, the spec sections that implement it are reported as out of date, and so are their tasks. Cairn rewrites an out-of-date spec section only when it wrote the section, nobody has edited it and no task builds it yet. Everything else is for a person to settle; changing a task that has started is v2's rebase flow.
 - `cairn plan --respec` writes the whole spec again and plans from nothing. It is refused once any task has left `pending`.
@@ -373,6 +393,17 @@ Suggested stack: Foldkit SPA for the viewer, a markdown renderer that preserves 
 
 Done when scrolling the PRD on this repo changes the spec cards and the lit stacks to the section at the top of the pane, and a pinned section stays current while the PRD scrolls.
 
+### List items {#prd.viewer.items}
+
+A list item with an ID (see section IDs) reads as a small section inside its section.
+
+- The item ends with its annotation: a status dot, how many spec sections implement it and how many of its tasks are done, such as `1 spec · 2/7 tasks`. An item that nothing maps to says so in its place. The item's ID shows on hover and copies on click.
+- The heading's status line still counts the whole section, its items with it.
+- Hovering an annotation lights the item's chain: the spec cards that implement it, their task rows and its tasks in the stacks, with a curve from the item to each card. Clicking it pins the item, which stays current like a pinned section: the spec pane shows only its cards and the stacks light only its tasks. Clicking it again, or Escape, unpins it.
+- From the other side, a spec card's `Implements` chips name items as well as sections, and clicking one scrolls the PRD to the item and marks it. Hovering a task row or chip marks the items it builds, and the task detail lists them with what it traces to.
+
+Done when the CLI section of this repo's PRD shows each command with its own status and task count, pinning `cairn lint` leaves lit only the cards that implement it and their tasks, and opening one of those tasks marks the `cairn lint` item.
+
 ### Spec cards {#prd.viewer.spec-cards}
 
 The spec pane shows one card for each spec section that implements the current PRD section, in the spec's order.
@@ -428,7 +459,7 @@ Clicking a task, in a spec card or in the stacks, opens its detail in a panel ov
 - Its code, without leaving the panel: the task's whole stacked diff, each file under its path, syntax-highlighted as in the code view. A task with no commits says it has no code yet.
 - Its commits, each with its subject and short SHA. Clicking one opens the code view on it. "Open in code view" opens the whole task there.
 - The agent session of its latest commit: the first prompt and the tool calls, one line each, with a link to the whole session in the code view. A commit with no session says so.
-- What it traces to: its PRD sections, which scroll the PRD to them, and its spec sections, which open in the panel. Then the files the plan expects it to touch, its events timeline and its judgments.
+- What it traces to: its PRD sections and list items, which scroll the PRD to them, and its spec sections, which open in the panel. Then the files the plan expects it to touch, its events timeline and its judgments.
 - Opening a spec section or another task from the panel adds a step to a trail at its top, and each step goes back to what it names. Escape goes back one step, and closes the panel at the first.
 
 The demo site has no server, so it ships the patches of the commits in its trace and shows code the same way. It ships no sessions.
@@ -502,7 +533,7 @@ Everything the viewer shows has a link, and links compose, so a person can send 
 
 ### What has a link {#prd.deep-links.targets}
 
-- A PRD or spec section, by its section ID.
+- A PRD or spec section, or a PRD list item with an ID, by its ID.
 - A passage: text selected in the PRD or the spec. Its link is the section ID and the quoted text, so it survives edits elsewhere in the document.
 - A note or review in `cairn.db` (see the orchestrator contract), which opens where it is attached.
 - A task, a stack, and a folded segment of finished tasks.
@@ -595,6 +626,7 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - With models and reasoning on, every task shows the model and reasoning it ran with, or the plan's choice marked as planned; with it off, none shows.
 - Opening a task shows its code in the detail panel without leaving the plan.
 - `cairn lint` catches an orphaned section ID and an unmapped PRD section.
+- Each command in the CLI section of this repo's PRD shows its own status and task count in the viewer, and `cairn lint` reports a list item with an ID that no spec section names.
 - With no API key set and Claude Code signed in, `cairn plan` on a new PRD writes a spec, stops for review, and after a yes writes a manifest that passes `cairn lint`.
 - Adding a section to this repo's PRD and running `cairn plan` adds spec sections and tasks for it and changes no task that was already in the manifest.
 - After `cairn plan`, the stack diagram in `spec.md` shows every task in the manifest, and editing the diagram by hand fails `cairn lint`.
