@@ -28,6 +28,7 @@
           "effect/ConfigProvider#fromDotEnv",
           "effect/cli/Command",
           "effect/cli/Flag",
+          "effect/cli/TerminalCapabilities",
           "effect/ai/AiError",
           "effect/ai/Decision",
           "effect/ai/DecisionModel",

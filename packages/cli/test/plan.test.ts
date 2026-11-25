@@ -77,6 +77,7 @@ const scriptedPlanner = (markdown: string, drafts: ReadonlyArray<TaskDraft>) =>
         tasks: (prd, spec) =>
           Ref.update(seen.tasks, Array.append({ prd, spec })).pipe(Effect.as(drafts)),
         splitSection: () => Effect.die("plan does not split a section"),
+        statements: () => Effect.succeed([]),
         splitTask: () => Effect.die("plan does not split a task"),
         sections: () => Effect.die("plan does not write sections"),
         index: () =>

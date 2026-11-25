@@ -45,9 +45,13 @@ export { itemsOf, type Item } from "./items.ts";
 export { assignItemIds, assignSectionIds, sectionIdsOf } from "./section-ids.ts";
 export { keyEntriesOf, sectionsOf } from "./sections.ts";
 export {
+  DraftAnswer,
   assignStatementIds,
   numberStatements,
+  settle,
   statementsOf,
+  withDrafts,
+  type Drafted,
   type Statement,
 } from "./statements.ts";
 export {

@@ -230,6 +230,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
                 spec: () => Effect.succeed(SPEC),
                 tasks: () => Effect.succeed(DRAFTS),
                 splitSection: () => Effect.die("plan does not split a section"),
+                statements: () => Effect.succeed([]),
                 splitTask: () => Effect.die("plan does not split a task"),
                 sections: () => Effect.die("plan does not write sections"),
                 index: () =>
