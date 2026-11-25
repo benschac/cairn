@@ -45,6 +45,12 @@ export { itemsOf, type Item } from "./items.ts";
 export { assignItemIds, assignSectionIds, sectionIdsOf } from "./section-ids.ts";
 export { keyEntriesOf, sectionsOf } from "./sections.ts";
 export {
+  assignStatementIds,
+  numberStatements,
+  statementsOf,
+  type Statement,
+} from "./statements.ts";
+export {
   derivedOf,
   identifiedOf,
   type DerivedInput,

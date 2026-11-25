@@ -85,7 +85,17 @@ interface Line {
   readonly plain: boolean;
 }
 
-/** A list item outside a fence and outside a `Done when:` list, as the scanner reads it. */
+/** The `Done when:` list a statement belongs to. */
+interface StatementList {
+  /** The line index of the `Done when:` line. */
+  readonly doneWhen: number;
+  /** The indent of the `Done when:` line. */
+  readonly doneWhenIndent: number;
+  /** The indent of the list's own items; a deeper item is part of a statement. */
+  readonly indent: number;
+}
+
+/** A list item outside a fence, as the scanner reads it. */
 export interface ItemBlock {
   /** The trailing `{#...}`: `""` for `{#}`, which asks for an ID, else the ID as written. */
   readonly attribute: Option.Option<string>;
@@ -98,6 +108,17 @@ export interface ItemBlock {
   readonly last: number;
   /** The item's own text on one line, without its attribute. */
   readonly text: string;
+}
+
+/** A block, with the `Done when:` list it is in when it is a statement. */
+interface Block extends ItemBlock {
+  readonly list: Option.Option<StatementList>;
+}
+
+/** The item of a `Done when:` list that is a statement, with the line of the `Done when:` line above it. */
+export interface StatementBlock extends ItemBlock {
+  readonly doneWhen: number;
+  readonly doneWhenIndent: number;
 }
 
 const lineOf = (line: string, fenced: boolean, heading: Option.Option<Heading>): Line => ({
@@ -144,11 +165,11 @@ const runEnd = (
   );
 
 /**
- * Per line: is it in a `Done when:` list? Those items are statements, not items. The list is the
- * one that follows a line reading exactly `Done when:`, with blank lines allowed between. It runs
- * while lines are its own items, are indented under one, or lazily continue one.
+ * Per line: the `Done when:` list it is in, if any. Those items are statements, not items. The
+ * list is the one that follows a line reading exactly `Done when:`, with blank lines allowed
+ * between. It runs while lines are its own items, are indented under one, or lazily continue one.
  */
-const statementLinesOf = (lines: readonly Line[]): readonly boolean[] => {
+const statementListsOf = (lines: readonly Line[]): readonly Option.Option<StatementList>[] => {
   const ranges = Array.getSomes(
     Array.map(lines, (line, index) =>
       line.doneWhen && line.plain
@@ -158,17 +179,17 @@ const statementLinesOf = (lines: readonly Line[]): readonly boolean[] => {
               pipe(
                 Array.get(lines, first),
                 Option.filter((head) => head.plain && Option.isSome(head.item)),
-                Option.map(
-                  (head) =>
-                    [
-                      first,
-                      runEnd(lines, first, (next, afterBlank) =>
-                        Option.isSome(next.item)
-                          ? next.indent >= head.indent
-                          : !afterBlank || next.indent > head.indent,
-                      ),
-                    ] as const,
-                ),
+                Option.map((head) => ({
+                  doneWhen: index,
+                  doneWhenIndent: line.indent,
+                  from: first,
+                  indent: head.indent,
+                  to: runEnd(lines, first, (next, afterBlank) =>
+                    Option.isSome(next.item)
+                      ? next.indent >= head.indent
+                      : !afterBlank || next.indent > head.indent,
+                  ),
+                })),
               ),
             ),
           )
@@ -176,17 +197,17 @@ const statementLinesOf = (lines: readonly Line[]): readonly boolean[] => {
     ),
   );
   return Array.map(lines, (_, index) =>
-    Array.some(ranges, ([from, to]) => index >= from && index <= to),
+    Array.findFirst(ranges, ({ from, to }) => index >= from && index <= to),
   );
 };
 
 /**
- * Every list item outside a fence, in document order. An item starts at a marker line. Its own text
- * runs until a nested list or a later item, a heading, a fence, a `Done when:` line, or a blank
- * line followed by a line that is not indented under it. The items of a `Done when:` list are
- * left out.
+ * Every list item outside a fence, in document order, with its `Done when:` list when it is in
+ * one. An item starts at a marker line. Its own text runs until a nested list or a later item, a
+ * heading, a fence, a `Done when:` line, or a blank line followed by a line that is not indented
+ * under it.
  */
-export const itemBlocksOf = (lines: readonly string[]): readonly ItemBlock[] => {
+const blocksOf = (lines: readonly string[]): readonly Block[] => {
   const headings = headingsOf(lines);
   const shapes = Array.map(
     Array.zip(lines, Array.zip(fencedOf(lines), headings)),
@@ -198,9 +219,9 @@ export const itemBlocksOf = (lines: readonly string[]): readonly ItemBlock[] => 
   })[1];
   return Array.getSomes(
     Array.map(
-      Array.zip(shapes, Array.zip(statementLinesOf(shapes), headingAbove)),
-      ([shape, [statement, heading]], index) =>
-        statement || !shape.plain
+      Array.zip(shapes, Array.zip(statementListsOf(shapes), headingAbove)),
+      ([shape, [list, heading]], index) =>
+        !shape.plain
           ? Option.none()
           : Option.map(shape.item, (first) => {
               const last = runEnd(
@@ -231,12 +252,27 @@ export const itemBlocksOf = (lines: readonly string[]): readonly ItemBlock[] => 
                 indent: shape.indent,
                 index,
                 last,
+                list,
                 text: pipe(written, String.replace(ITEM_ATTRIBUTE, "")),
               };
             }),
     ),
   );
 };
+
+/** Every list item outside a fence, in document order. The items of a `Done when:` list are statements and are left out. */
+export const itemBlocksOf = (lines: readonly string[]): readonly ItemBlock[] =>
+  Array.filter(blocksOf(lines), ({ list }) => Option.isNone(list));
+
+/** The statements: the items at the top of each `Done when:` list, in document order. */
+export const statementBlocksOf = (lines: readonly string[]): readonly StatementBlock[] =>
+  Array.flatMapNullishOr(blocksOf(lines), (block) =>
+    Option.match(block.list, {
+      onNone: () => undefined,
+      onSome: ({ doneWhen, doneWhenIndent, indent }) =>
+        block.indent === indent ? { ...block, doneWhen, doneWhenIndent } : undefined,
+    }),
+  );
 
 /** The IDs that items already carry. */
 const itemIdsOf = (blocks: readonly ItemBlock[]): readonly string[] =>

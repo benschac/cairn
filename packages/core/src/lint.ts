@@ -1,4 +1,4 @@
-import { IndexedSection, SectionPrefix } from "@cairn/contract";
+import { IndexedSection, SectionPrefix, ownerOf } from "@cairn/contract";
 import type {
   HumanGate,
   Manifest,
@@ -24,9 +24,11 @@ import {
 import { drawsOf, mermaidBlocksOf } from "./diagrams.ts";
 import { gateOf } from "./gates.ts";
 import type { GateConfig } from "./gates.ts";
+import { itemsOf } from "./items.ts";
 import { stalenessOf, uncoveredOf } from "./replan.ts";
 import { linesOf } from "./section-ids.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
+import { statementsOf } from "./statements.ts";
 import { parentOf } from "./stack.ts";
 import { derivedOf } from "./spec-index.ts";
 import type { DerivedSection } from "./spec-index.ts";
@@ -44,6 +46,7 @@ export const LintRule = Schema.Literals([
   "worktree-clash",
   "gate-mismatch",
   "index-drift",
+  "statement-owner",
   "no-commits-landed",
   "bad-diagram",
   "diagram-drift",
@@ -84,6 +87,7 @@ const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
   "parent-mismatch": "error",
   "stale-section": "warning",
   "stale-task": "warning",
+  "statement-owner": "error",
   "unknown-section": "error",
   "unmapped-section": "error",
   "worktree-clash": "error",
@@ -574,6 +578,21 @@ const stackFindings = (
   );
 };
 
+/** A statement whose ID names a section or item other than the one it sits under. */
+const statementOwners = (prd: string, sections: ReadonlyArray<Section>): ReadonlyArray<Finding> =>
+  Array.filterMap(statementsOf(prd, sections, itemsOf(prd, sections)), (statement) =>
+    Predicate.isNotUndefined(statement.id) && ownerOf(statement.id) !== statement.owner
+      ? Result.succeed(
+          findingOf(
+            "statement-owner",
+            "prd.md",
+            Option.some(statement.line),
+            `The statement ${statement.id} sits under ${statement.owner}, which is not the owner its ID names. Give it an ID of its own.`,
+          ),
+        )
+      : Result.failVoid,
+  );
+
 const FILE_ORDER: ReadonlyArray<LintFile> = ["prd.md", "spec.md", "manifest.json", "spec.json"];
 
 /** By file, then by line; a finding with no line comes last in its file. */
@@ -615,6 +634,7 @@ export const lint = (
     wrongPrefixes(specDocument),
     unknownInKeys(specDocument, prdIds, specIds),
     unmapped(prdDocument, specDocument),
+    statementOwners(prd, prdDocument.sections),
     badDiagrams("prd.md", prd),
     badDiagrams("spec.md", spec),
     diagramDrift(spec, manifest),

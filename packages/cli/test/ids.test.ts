@@ -109,6 +109,9 @@ it.effect("--check passes and prints nothing when every heading has an ID", () =
   ).pipe(Effect.provide(NodeServices.layer)),
 );
 
+const doneWhen = (ask: string) =>
+  `# Title\n\n## CLI\n\n- Lint. {#prd.cli.lint}\n  Done when:\n  - Lint shows it. {#prd.cli.lint#v2}\n  - Lint warns. ${ask}\n\nDone when:\n\n- Plan runs.\n`;
+
 const withItems =
   "# Title\n\n## CLI\n\n- `cairn lint` checks tasks. {#}\n- Plain item\n- Named {#prd.cli.named}\n";
 
@@ -143,6 +146,34 @@ it.effect("--check writes nothing and fails while an item still asks for an ID",
   ).pipe(Effect.provide(NodeServices.layer)),
 );
 
+const withStatements = doneWhen("{#}");
+
+const withStatementsDone =
+  "# Title {#prd.title}\n\n## CLI {#prd.cli}\n\n- Lint. {#prd.cli.lint}\n  Done when:\n  - Lint shows it. {#prd.cli.lint#v2}\n  - Lint warns. {#prd.cli.lint#v3}\n\nDone when:\n\n- Plan runs. {#prd.cli#v1}\n";
+
+it.effect(
+  "numbers a done-when statement after the items, never renumbering, and --check fails until then",
+  () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { readBoth, run } = yield* setup(withStatements, fullySet(bare, "spec"));
+        const error = yield* Effect.flip(run(true));
+        const missing = yield* printed;
+        expect(Schema.is(MissingSectionIds)(error)).toBe(true);
+        expect(missing).toEqual([
+          "Missing prd.title",
+          "Missing prd.cli",
+          "Missing prd.cli.lint#v3",
+          "Missing prd.cli#v1",
+        ]);
+        yield* run(false);
+        const [prd] = yield* readBoth;
+        expect(prd).toBe(withStatementsDone);
+        yield* run(true);
+      }),
+    ).pipe(Effect.provide(NodeServices.layer)),
+);
+
 const orphan = "- Before any heading {#}\n\n# Title {#prd.title}\n";
 
 it.effect("an item with no heading above it is reported, left as written, and fails --check", () =>
@@ -158,7 +189,7 @@ it.effect("an item with no heading above it is reported, left as written, and fa
       ]);
       const error = yield* Effect.flip(run(true));
       expect(Schema.is(MissingSectionIds)(error)).toBe(true);
-      expect(error.message).toBe("1 headings or items lack an ID; run cairn ids");
+      expect(error.message).toBe("1 headings, items or statements lack an ID; run cairn ids");
     }),
   ).pipe(Effect.provide(NodeServices.layer)),
 );
