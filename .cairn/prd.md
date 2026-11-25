@@ -210,7 +210,7 @@ Status values: `pending`, `running`, `blocked_on_human`, `failed`, `done`, `land
 
 The plan is a set of stacks that can be built at the same time, not one long stack. `dependsOn` lists the tasks a task needs. A task with no dependencies starts its own stack on `baseBranch`. A task whose dependencies all sit on one stack goes on top of the latest of them. A task that needs work from two stacks starts from `baseBranch` once that work has landed. Tasks on different stacks run in parallel, each with its own agent.
 
-`worktree` says where a task is built. Tasks that run one after another share a checkout; only work that can run at the same time needs its own. A task takes over the worktree of a task it depends on when it can, and gets a new one otherwise. `null` is the repo's own checkout. Two tasks share a worktree only when one depends on the other, so tasks running at once never collide.
+`worktree` says where a task is built. Tasks that run one after another share a checkout; only work that can run at the same time needs its own. A task takes over the worktree of a task it depends on when it can, and gets a new one otherwise. `null` is the repo's own checkout. Two tasks share a worktree only when one depends on the other, so tasks running at once never collide. A worktree need not be on the person's machine: where it lives is its runner's business (see remote runners).
 
 ## CLI {#prd.cli}
 
@@ -226,6 +226,8 @@ The plan is a set of stacks that can be built at the same time, not one long sta
 - `cairn note` adds a note or a review to `cairn.db`, anchored by a link (see notes). {#prd.cli.note}
 - `cairn watch` shows the run live in the terminal (see terminal view). {#prd.cli.watch}
 - `cairn mcp` starts a local MCP server for the current repo over stdio (see agent access). {#prd.cli.mcp}
+- `cairn run-task` builds one task from a clean checkout to a pushed branch, on the person's machine or on a remote runner (see remote runners). {#prd.cli.run-task}
+- `cairn runners` lists the configured runners and checks that each can build a task. {#prd.cli.runners}
 
 ### Checking the setup {#prd.cli.doctor}
 
@@ -397,6 +399,8 @@ The existing orchestrator reads `manifest.json` and runs tasks. It must:
 6. Stop and emit `blocked_on_human` for any task with `humanGate.required`, and do not start its children.
 
 Cairn derives manifest status from `events.jsonl` and git, so the orchestrator never edits `manifest.json` directly.
+
+An orchestrator can hand steps 2 to 6 to `cairn run-task`, which does them for one task on any runner (see remote runners), and keep only the choice of what starts.
 
 ## Human gates {#prd.human-gates}
 
@@ -602,6 +606,89 @@ The orchestrator keeps the scores current from events, commits and presence, and
 
 - Every conflict a restack actually hits is recorded with its files and the score the pair had.
 - `cairn status` reports how often a high score conflicted and how often a low one did, so the weights can be checked against the repo.
+
+## Remote runners {#prd.runners}
+
+Every agent runs on the person's machine today, one in each worktree. A plan with twenty stacks ready cannot use them: the machine runs out of cores and memory, and every agent shares its disk, its ports and its credentials. A runner is where a task is built. With a remote runner each worktree is a workspace on another machine, one the person owns or one rented by the minute, so a plan's parallel stacks are built by a swarm and the person's machine only starts the work and watches it.
+
+- The orchestrator still decides what starts and when (see the orchestrator contract and conflict-aware ordering). Cairn adds the run of one task and the places it can run.
+- Runners use the person's own machines and cloud accounts. Cairn hosts no compute and holds no credentials, so the non-goals stand.
+- A repo that configures no runner works as it does today.
+- Compute is the small part of what a task costs. Remote runners are for running more at once and for keeping agents apart; the saving still comes from routing each task to the cheapest model that verifies it (see cost per verified task).
+
+### Running one task {#prd.runners.run-task}
+
+`cairn run-task <id>` builds one task from a clean checkout to a pushed branch. It is steps 2 to 6 of the orchestrator contract as one command, and it is the only thing a runner has to start.
+
+- It checks out the task's parent branch, or `baseBranch` when the task has none, and runs the task's harness without a terminal: the model and reasoning level come from the manifest, and the prompt names the task, its spec sections and its declared files.
+- The harness is Claude Code, Codex or Pi, whichever the catalog's execution route for the task's model names. A harness runs only the models it supports, so a model outside Anthropic's needs a harness other than Claude Code.
+- It commits with the task's trailers, runs verification on the branch (see attempts), and pushes the branch only when verification passes.
+- It reports by printing event lines on stdout, one JSON object per line, the same lines as `events.jsonl`. Whatever started the run appends them, so a workspace needs no connection back to the person's machine.
+- It redacts the session log in the workspace and sends it after the last event. If redaction fails, the session never leaves the workspace and the attempt says it has none (see Redaction).
+- A gated task stops after its push with `blocked_on_human`, as on the person's machine.
+- It needs no Graphite sign-in. It commits and pushes with git, and the orchestrator tracks the fetched branch under its parent and submits it.
+- It stops when the task reaches its limit on cost, and the attempt fails with what it spent.
+- It runs the same way in a worktree on the person's machine, which is the `local` runner. Whatever a remote run does can be tried locally first.
+
+Done when `cairn run-task` on a pending task of this repo, in a fresh clone with no `.cairn/events.jsonl`, pushes a branch whose commits carry the task's trailers and prints a `running` line and then a `done` line that decode through the contract.
+
+### Runners {#prd.runners.kinds}
+
+A runner makes a workspace for a worktree, runs commands in it, streams their output and removes it. Runners are named in `.cairn/config.json`:
+
+```json
+{
+  "runners": {
+    "local": { "kind": "local" },
+    "devbox": { "kind": "ssh", "host": "devbox", "dir": "~/cairn" },
+    "swarm": {
+      "kind": "cloudflare-sandbox",
+      "url": "https://runner.example.workers.dev",
+      "max": 20
+    }
+  },
+  "runner": "local"
+}
+```
+
+- `local` is a git worktree on the person's machine, as today.
+- `ssh` is a machine the person already has: a devbox, a cloud VM, a rented VM that stays up. Cairn connects with the person's own SSH configuration and keys, and each worktree gets a directory under `dir`. The machine keeps its state between tasks.
+- `cloudflare-sandbox` is a [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/) in the person's own Cloudflare account, one for each worktree, made when the worktree's first task starts and removed when its last task ends. An Alchemy stack deploys the Worker that owns the sandboxes, and the CLI calls it with a token from the environment. It is the first on-demand runner because the room already lives on Cloudflare (see multiplayer).
+- Another provider, such as Fly Machines, Vercel Sandbox or E2B, is another Layer of the same `Runner` service. None is in the first build. Cairn does not run its own virtual machines.
+- One worktree is one workspace. Tasks that share a worktree run in the same workspace one after another, and tasks that run at the same time have different worktrees, so they never share a workspace (see manifest schema). The manifest names no runner: the plan says what is built and in which worktree, and the config says where a worktree lives.
+- `runner` names the default, and `cairn run-task --runner <name>` replaces it for one run. `max` is the most workspaces a runner has at once; a run that would exceed it waits and says so.
+- A workspace starts as a clone of the repo at the task's parent branch with dependencies installed. A runner that can snapshot keeps one snapshot of a clean install for each lockfile, and starts workspaces from it.
+- Git is the only state that has to survive. A workspace that sleeps, is lost or is removed is rebuilt from the pushed branches, so a task in a new workspace starts only once the branches it builds on are on the remote.
+- A workspace waiting at a human gate is stopped, not left running.
+- A `running` event carries the runner's name and the workspace's ID. The viewer shows them with the task's worktree.
+- `cairn runners` checks each runner before a swarm depends on it: the workspace can be made, has git, the package manager and the harness, can read the repo, has a model credential, and can run the repo's check command in its memory and disk.
+
+Done when three ready tasks on three stacks of this repo run at the same time in three Cloudflare sandboxes started from one machine, each pushes a verified branch, and the viewer shows all three running and then done.
+
+### Credentials {#prd.runners.credentials}
+
+<!-- human -->
+
+A workspace is given what one run needs and nothing that outlives it.
+
+- Models on a rented workspace are paid for through an API, by the Cloudflare AI Gateway route (see Cloudflare AI Gateway). The workspace gets the gateway's endpoint and a token; the provider's key stays in the gateway's stored keys and never enters the workspace.
+- Cairn never copies, stores or forwards a subscription sign-in. On `local` and `ssh`, the harness uses whatever sign-in the person set up on that machine themselves, and the attempt's route is `subscription`. On a workspace Cairn makes, subscription routes are not eligible and routing leaves them out (see choosing models for tasks). Anthropic does not let another product [offer claude.ai sign-in or its rate limits](https://code.claude.com/docs/en/agent-sdk/overview.md), so this is not left to configuration.
+- The repo is reached with a short-lived token for that one repo, allowed to read and write contents and pull requests and nothing else. An `ssh` runner uses the machine's own git credentials.
+- Credentials are read from the environment of the machine that starts the run and handed to the workspace for that run. They are never written to `.cairn/`, to an event or to a session log, and every value given to a workspace is on the redaction list for its session.
+- A workspace Cairn makes reaches only the model gateway, the git remote, the package registry and the hosts the config lists, where the runner can enforce it. `cairn runners` says when a runner cannot.
+- A workspace's repo token can push branches, so `baseBranch` should be protected on the remote. `cairn runners` warns when it is not.
+- A workspace cannot approve a gate. Approval stays with a person, on their own machine or in the room.
+
+Done when a run in a Cloudflare sandbox finishes with no provider key in the workspace's environment, files or session log, and a task routed to a subscription is refused there before a workspace is made.
+
+### What a run costs {#prd.runners.cost}
+
+- Verification runs in the workspace, so `done` means what it means locally.
+- A workspace that is lost, cannot be made, or runs out of memory or disk during the check command fails the attempt as `infra`, not `checks`, and the retry starts in a new workspace (see attempts).
+- Each attempt records its runner, the workspace's size, the seconds the workspace ran and what that compute cost. A price the runner does not report is unknown, never zero.
+- Cost per verified task includes compute. `cairn stats` reports the outcome metrics per runner as well, with tokens and compute shown apart.
+
+Ship this in four diffs: `cairn run-task` on the `local` runner; the `ssh` runner; the `cloudflare-sandbox` runner with its Alchemy stack and `cairn runners`; then compute in attempts and `cairn stats`.
 
 ## Relations {#prd.relations}
 
@@ -979,7 +1066,7 @@ This section is written ahead of its spec on purpose. It is the first section `c
 The CLI and local server are written in Effect, so every side effect is a typed service that tests can swap out.
 
 - Schemas: manifest, events, config, and commit trailers are Effect Schema definitions. Every file read from `.cairn/` is decoded through them, and failures are typed errors naming the bad field.
-- Services as Layers: `Git` (branches, log, trailers), `TraceStore` (`cairn.db`), `Planner` (model calls that write the spec and tasks), `Judge` (decision-model calls that judge them), `Orchestrator` (adapter to the user's runner), `Redactor`, and `Clock`.
+- Services as Layers: `Git` (branches, log, trailers), `TraceStore` (`cairn.db`), `Planner` (model calls that write the spec and tasks), `Judge` (decision-model calls that judge them), `Orchestrator` (adapter to the user's runner), `Runner` (where a task is built: a local worktree, a machine over SSH, a sandbox), `Harness` (the agent CLI that builds it), `Redactor`, and `Clock`.
 - Models: two kinds, each behind an `effect/ai` service. A language model writes (`LanguageModel`, for `Planner`); a decision model judges (`DecisionModel`, for `Judge`). Swapping a provider changes one Layer. API-backed Layers accept gateway endpoints and authentication, with Cloudflare AI Gateway as the preferred route and direct provider access as an explicitly configured fallback (see Cloudflare AI Gateway requirements in `prd.judging-the-plan.gateway`).
 - Configuration: each entrypoint reads the environment through one typed service, built from a shared base that each package extends. Secrets are redacted values in it. An Alchemy deploy reads the same definition its Worker runs with, so the deploy and the service cannot disagree about what is required. The pattern is Harry Solovay's, from [Advanced Effect Design Patterns at Effect Miami 3](https://youtu.be/_tSGby_q890?t=1781).
 - Composition: one composition root per entrypoint (CLI, server). Live Layers in production; test Layers (fake git, in-memory SQLite, scripted planner, scripted judge) in tests.
@@ -1057,6 +1144,11 @@ The hosted release gates are in Launch acceptance. These criteria describe the e
 - An attempt run on a subscription appears in `cairn stats` with its tokens, is left out of cost, and the report says how many attempts it left out.
 - A PRD section's links list the sections it needs and the sections that need it, each with the tasks that make the link, and its unfinished tasks in an order they can be built with the ones that can start now first.
 - `cairn lint`, `cairn status` and the viewer give the same answer to what a task waits on, property tested over generated manifests, and a cycle in what tasks need fails `cairn lint` with its tasks named.
+- `cairn run-task` builds the same task to the same verified, pushed branch on the `local` runner and on an `ssh` runner, and the event lines it prints decode through the contract on both.
+- Three ready tasks on three stacks run at the same time in three sandboxes, and the viewer shows each task's runner and status as it changes.
+- A run in a sandbox finishes with no provider key in the workspace, and a task routed to a subscription is refused there before a workspace is made.
+- A workspace killed while its task runs fails the attempt as `infra`, and the retry builds the task in a new workspace from the pushed parent branch.
+- `cairn runners` fails a runner whose workspace cannot run the repo's check command, and names what it lacked.
 
 ## Original local build order {#prd.one-day-build-order}
 
@@ -1281,6 +1373,9 @@ Done when:
 - Choosing a recovery during a run: after a failed attempt, pick a retry, a stronger model, another harness, more context or a smaller task from the failure reason and the attempts so far. Each recovery tried continues from the failed attempt's conversation on its own branch, so a retry with a different model or more context starts from what the failed attempt already knew, and the recoveries do not see each other.
 - Comparing models across tasks of different difficulty, and a regression rate: verified tasks whose work was later reverted or reopened.
 - Routing across parallel stacks for the plan as a whole, such as spending more on the critical path.
+- Starting runs from the room, so a swarm keeps building after the person's machine is closed, with agent presence and leases coming from the workspaces.
+- A workspace forked from a snapshot where a stack forks, so each column starts from its parent's finished checkout.
+- Runners that hand a task to someone else's hosted agent and take back a pull request, and more sandbox providers behind the `Runner` service.
 - Judging during a run: before a task starts, and on its diff after it is done.
 - Adapters for Vercel Board and other agent message boards.
 - Notes across rooms, such as every open note for one person, indexed in D1.
