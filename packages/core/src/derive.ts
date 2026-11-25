@@ -365,6 +365,7 @@ export const derive = (
         commits: Array.map(own, (commit) => Struct.omit(commit, ["branch", "onBase", "taskId"])),
         events: lines,
         gate,
+        statements: [],
         status,
         waiting: status === "pending" && Array.some(below(byId, task), isBlocked),
       });

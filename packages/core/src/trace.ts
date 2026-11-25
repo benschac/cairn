@@ -76,11 +76,13 @@ const documentOf = (
   summaries: HashMap.HashMap<string, string>,
   isSpec: boolean,
 ): TraceDocument => ({
+  items: [],
   markdown,
   path,
   sections: Array.getSomes(
     Array.map(sections, (section) => traceSectionOf(section, summaries, isSpec)),
   ),
+  statements: [],
 });
 
 /**

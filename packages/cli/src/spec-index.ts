@@ -204,6 +204,7 @@ export const specIndexOf = Effect.fn("specIndexOf")(function* (
     prd: `${CAIRN_DIRECTORY}/prd.md`,
     sections,
     source: `${CAIRN_DIRECTORY}/spec.md`,
+    tasks: [],
     version: 1,
   };
 });

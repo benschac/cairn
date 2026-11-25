@@ -473,6 +473,7 @@ it("the stack diagram's section covers nothing, though its Context names the PRD
     prd: ".cairn/prd.md",
     sections: [],
     source: ".cairn/spec.md",
+    tasks: [],
     version: 1,
   };
   expect(replanOf(prd, spec, index, Option.none()).uncovered).toEqual(["prd.share"]);

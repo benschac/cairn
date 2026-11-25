@@ -1,6 +1,6 @@
 import { Array, Option, Result, Schema, String, pipe } from "effect";
 
-import { SpecSectionId, TaskId } from "./ids.ts";
+import { PrdSectionId, SpecSectionId, TaskId } from "./ids.ts";
 
 export const SessionId = Schema.String.check(Schema.isPattern(/^s_[a-z0-9]{6,}$/u)).pipe(
   Schema.brand("SessionId"),
@@ -14,7 +14,8 @@ export const Sha = Schema.String.check(Schema.isPattern(/^[0-9a-f]{40}$/u)).pipe
 export type Sha = typeof Sha.Type;
 
 export const Trailers = Schema.Struct({
-  sections: Schema.NonEmptyArray(SpecSectionId),
+  /** The sections or PRD items the commit builds. */
+  sections: Schema.NonEmptyArray(Schema.Union([PrdSectionId, SpecSectionId])),
   sessionId: SessionId,
   taskId: TaskId,
 });

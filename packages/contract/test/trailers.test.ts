@@ -62,8 +62,8 @@ it("a message with no trailers is refused", () => {
   expect(failure("Just a subject")).toBe("missing-task");
 });
 
-it("a section that is not a spec section is refused in the trailers", () => {
-  expect(failure("Cairn-Task: t1\nCairn-Section: prd.viewer\nCairn-Session: s_abcdef")).toBe(
+it("a section that is neither a PRD nor a spec section is refused in the trailers", () => {
+  expect(failure("Cairn-Task: t1\nCairn-Section: docs.viewer\nCairn-Session: s_abcdef")).toBe(
     "invalid",
   );
 });

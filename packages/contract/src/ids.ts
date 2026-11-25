@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Array, Schema, String } from "effect";
 
 /**
  * Regex source for a lowercase kebab-case name, such as `cairn-mvp` or `v2-on-cloudflare`.
@@ -12,7 +12,7 @@ export const KEBAB = "[a-z0-9]+(?:-[a-z0-9]+)*";
  * regex source for what follows the id, such as `#r\d+` for a requirement in a section.
  */
 export const sectionPattern = (prefix: string, suffix = "") =>
-  new RegExp(String.raw`^${prefix}(?:\.${KEBAB})+${suffix}$`, "u");
+  new RegExp(globalThis.String.raw`^${prefix}(?:\.${KEBAB})+${suffix}$`, "u");
 
 export const SECTION_ID = sectionPattern("(?:prd|spec)");
 
@@ -33,6 +33,25 @@ export const SpecSectionId = Schema.String.check(Schema.isPattern(sectionPattern
   Schema.brand("SpecSectionId"),
 );
 export type SpecSectionId = typeof SpecSectionId.Type;
+
+/**
+ * The id of a done-when statement in the PRD: the id of the section or list item that owns it,
+ * `#v` and a version number, such as `prd.saved-views#v1`.
+ */
+export const StatementId = Schema.String.check(
+  Schema.isPattern(sectionPattern("prd", "#v[1-9]\\d*")),
+).pipe(Schema.brand("StatementId"));
+export type StatementId = typeof StatementId.Type;
+
+const decodePrdSectionId = Schema.decodeSync(PrdSectionId);
+
+/** The section or list item a statement belongs to: what comes before `#v`. */
+export const ownerOf = (id: StatementId): PrdSectionId =>
+  decodePrdSectionId(Array.headNonEmpty(String.split(id, "#")));
+
+/** The id of a test a spec section asks for: the section's id, `#t` and a number. */
+export const TestId = Schema.String.check(Schema.isPattern(sectionPattern("spec", "#t[1-9]\\d*")));
+export type TestId = typeof TestId.Type;
 
 /** A task id such as `t1`: no whitespace, so it survives a commit trailer. */
 export const TaskId = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9][A-Za-z0-9._-]*$/u)).pipe(

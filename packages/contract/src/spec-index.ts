@@ -1,6 +1,14 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
-import { KEBAB, PrdSectionId, sectionPattern, SpecSectionId, TaskId } from "./ids.ts";
+import {
+  KEBAB,
+  PrdSectionId,
+  sectionPattern,
+  SpecSectionId,
+  StatementId,
+  TaskId,
+  TestId,
+} from "./ids.ts";
 
 /** The id of something a spec section holds: the section's id, `#`, then `suffix`. */
 const itemId = (suffix: string) =>
@@ -29,10 +37,11 @@ export const SpecTestKind = Schema.Literals([
 ]);
 export type SpecTestKind = typeof SpecTestKind.Type;
 
-/** A test the section asks for, with an id such as `spec.format#t1`. */
+/** A test the section asks for, with an id such as `spec.format#t1`. `proves` lists the done-when statements it proves. */
 export const SpecTest = Schema.Struct({
-  id: itemId(`t${NUMBER}`),
+  id: TestId,
   kind: SpecTestKind,
+  proves: Schema.Array(StatementId).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
   text: Schema.NonEmptyString,
 });
 export type SpecTest = typeof SpecTest.Type;
@@ -137,12 +146,27 @@ export const IndexedSection = Schema.Struct({
 });
 export type IndexedSection = typeof IndexedSection.Type;
 
+/** What a task proves: each statement it traces, whether it is a draft and the tests that prove it. */
+export const IndexedTask = Schema.Struct({
+  id: TaskId,
+  statements: Schema.Array(
+    Schema.Struct({
+      draft: Schema.Boolean,
+      id: StatementId,
+      provedBy: Schema.Array(TestId),
+    }),
+  ),
+});
+export type IndexedTask = typeof IndexedTask.Type;
+
 /** `spec.json`: a structured copy of `spec.md`, its sections in document order. */
 export const SpecIndex = Schema.Struct({
   manifest: Schema.NonEmptyString,
   prd: Schema.NonEmptyString,
   sections: Schema.Array(IndexedSection),
   source: Schema.NonEmptyString,
+  /** Empty in an index written before statements existed. */
+  tasks: Schema.Array(IndexedTask).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
   version: Schema.Literal(1),
 });
 export type SpecIndex = typeof SpecIndex.Type;
