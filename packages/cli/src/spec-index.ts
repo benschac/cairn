@@ -1,19 +1,7 @@
-import { PrdSectionId, SpecIndexJson, SpecSectionId } from "@cairn/contract";
-import type { BodyHash, IndexedSection, ManifestTask, Section, SpecIndex } from "@cairn/contract";
-import { bodyHashOf, keyEntriesOf, sectionsOf } from "@cairn/core";
-import {
-  Array,
-  Effect,
-  HashSet,
-  Option,
-  Predicate,
-  Record,
-  Result,
-  Schema,
-  String,
-  Struct,
-  pipe,
-} from "effect";
+import { SpecIndexJson, SpecSectionId } from "@cairn/contract";
+import type { IndexedSection, ManifestTask, SpecIndex } from "@cairn/contract";
+import { bodyHashOf, derivedOf, identifiedOf, sectionsOf } from "@cairn/core";
+import { Array, Effect, HashSet, Option, Record, Result, Schema, String, Struct } from "effect";
 
 import { Planner } from "./planner.ts";
 import type { PlannerError } from "./planner.ts";
@@ -48,98 +36,6 @@ export interface SpecIndexInput {
    */
   readonly written: ReadonlyArray<SpecSectionId>;
 }
-
-const isSpecSectionId = Schema.is(SpecSectionId);
-const isPrdSectionId = Schema.is(PrdSectionId);
-
-/** A section of `spec.md` that has a spec section ID. */
-interface Identified {
-  readonly id: SpecSectionId;
-  readonly section: Section;
-}
-
-const identifiedOf = (sections: ReadonlyArray<Section>): ReadonlyArray<Identified> =>
-  Array.filterMap(sections, (section) =>
-    Predicate.isNotUndefined(section.id) && isSpecSectionId(section.id)
-      ? Result.succeed({ id: section.id, section })
-      : Result.failVoid,
-  );
-
-/**
- * The values the section itself lists under `key`. `Section.keys` also holds what the headings
- * above it list, which the index leaves out.
- */
-const ownValuesOf = (section: Section, key: string): ReadonlyArray<string> =>
-  Array.flatMap(keyEntriesOf(String.split(section.body, "\n")), ([name, values]) =>
-    name === key ? values : [],
-  );
-
-/** The section above it that has a spec section ID, which is its parent in the index. */
-const parentOf = (section: Section): SpecSectionId | null =>
-  pipe(Option.fromNullishOr(section.parent), Option.filter(isSpecSectionId), Option.getOrNull);
-
-/** The fields of an entry that code derives from `spec.md` and `manifest.json`, and `writtenFrom`. */
-type Derived = Omit<IndexedSection, (typeof PROSE_FIELDS)[number]>;
-
-/**
- * The derived fields of every section of `spec.md` that has an ID, in document order.
- * `writtenFrom` is made for a section in `written` and for one `previous` does not have; any
- * other keeps the one in `previous`.
- */
-export const derivedOf = (input: Omit<SpecIndexInput, "changed">): ReadonlyArray<Derived> => {
-  const identified = identifiedOf(sectionsOf(input.spec));
-  const prdHashes: Record.ReadonlyRecord<string, BodyHash> = Record.fromEntries(
-    Array.filterMap(sectionsOf(input.prd), (section) =>
-      Predicate.isUndefined(section.id)
-        ? Result.failVoid
-        : Result.succeed([section.id, bodyHashOf(section.body)] as const),
-    ),
-  );
-  const recorded = Record.fromEntries(
-    Array.map(
-      Option.match(input.previous, { onNone: () => [], onSome: (index) => index.sections }),
-      (entry) => [entry.id, entry.writtenFrom] as const,
-    ),
-  );
-  const written = HashSet.fromIterable(input.written);
-  return Array.map(identified, ({ id, section }): Derived => {
-    const own = (key: string) => ownValuesOf(section, key);
-    const implemented = Array.filter(own("Implements"), isPrdSectionId);
-    return {
-      children: Array.filterMap(identified, (other) =>
-        parentOf(other.section) === id ? Result.succeed(other.id) : Result.failVoid,
-      ),
-      context: Array.filter(own("Context"), isPrdSectionId),
-      defers: Array.filter(own("Defers"), isPrdSectionId),
-      dependsOn: Array.filter(own("Depends on"), isSpecSectionId),
-      files: own("Files"),
-      human: section.human,
-      id,
-      implements: implemented,
-      level: section.level,
-      line: section.line,
-      parent: parentOf(section),
-      tasks: Array.filterMap(input.manifest.tasks, (task) =>
-        Array.contains(task.specSections, id) ? Result.succeed(task.id) : Result.failVoid,
-      ),
-      title: section.title,
-      writtenFrom: Option.getOrElse(
-        Option.filter(Record.get(recorded, id), () => !HashSet.has(written, id)),
-        () => ({
-          body: HashSet.has(written, id) ? bodyHashOf(section.body) : null,
-          prd: Record.fromEntries(
-            Array.filterMap(implemented, (prd) =>
-              Option.match(Record.get(prdHashes, prd), {
-                onNone: () => Result.failVoid,
-                onSome: (hash) => Result.succeed([prd, hash] as const),
-              }),
-            ),
-          ),
-        }),
-      ),
-    };
-  });
-};
 
 /**
  * The sections of `previous` that a person edited since Cairn wrote them: the hash of the body

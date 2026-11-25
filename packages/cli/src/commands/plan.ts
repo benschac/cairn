@@ -2,6 +2,7 @@ import { Manifest, Slug, SpecSectionId } from "@cairn/contract";
 import type { Config as CairnConfig, ManifestTask, Section, SpecIndex } from "@cairn/contract";
 import {
   assignSectionIds,
+  derivedOf,
   gateOf,
   lint,
   replanOf,
@@ -34,7 +35,7 @@ import { MainCheckout } from "../main-checkout.ts";
 import { liveLanguageModel } from "../models.ts";
 import { Planner, PlannerError } from "../planner.ts";
 import { stackLines } from "../print-stack.ts";
-import { derivedOf, editedOf, specIndexOf, specIndexText } from "../spec-index.ts";
+import { editedOf, specIndexOf, specIndexText } from "../spec-index.ts";
 import { mergeSections } from "../spec-merge.ts";
 import {
   CAIRN_DIRECTORY,

@@ -1,4 +1,4 @@
-import { SectionPrefix } from "@cairn/contract";
+import { IndexedSection, SectionPrefix } from "@cairn/contract";
 import type {
   HumanGate,
   Manifest,
@@ -10,6 +10,7 @@ import type {
 import {
   Array,
   Equal,
+  Equivalence,
   HashSet,
   Option,
   Order,
@@ -27,6 +28,8 @@ import { stalenessOf, uncoveredOf } from "./replan.ts";
 import { linesOf } from "./section-ids.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
 import { parentOf } from "./stack.ts";
+import { derivedOf } from "./spec-index.ts";
+import type { DerivedSection } from "./spec-index.ts";
 import { withStackDiagram } from "./stack-diagram.ts";
 
 /** The rules `lint` checks (see `spec.lint`). */
@@ -40,6 +43,7 @@ export const LintRule = Schema.Literals([
   "parent-mismatch",
   "worktree-clash",
   "gate-mismatch",
+  "index-drift",
   "no-commits-landed",
   "bad-diagram",
   "diagram-drift",
@@ -52,7 +56,7 @@ export const Severity = Schema.Literals(["error", "warning"]);
 export type Severity = typeof Severity.Type;
 
 /** The file a finding is in, relative to `.cairn/`. */
-export const LintFile = Schema.Literals(["prd.md", "spec.md", "manifest.json"]);
+export const LintFile = Schema.Literals(["prd.md", "spec.md", "manifest.json", "spec.json"]);
 export type LintFile = typeof LintFile.Type;
 
 /**
@@ -74,6 +78,7 @@ const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
   "diagram-drift": "error",
   "duplicate-id": "error",
   "gate-mismatch": "error",
+  "index-drift": "warning",
   "missing-id": "error",
   "no-commits-landed": "warning",
   "parent-mismatch": "error",
@@ -341,6 +346,102 @@ const checkoutOf = (worktree: string | null): string =>
     onSome: (name) => `worktree ${name}`,
   });
 
+/**
+ * The fields of an entry in `spec.json` that code derives from `spec.md` and `manifest.json`, so
+ * that they can drift from them (see `spec.contract.spec-index`). `writtenFrom` is recorded, not derived.
+ */
+const DERIVED_KEYS = [
+  "children",
+  "context",
+  "defers",
+  "dependsOn",
+  "files",
+  "human",
+  "implements",
+  "level",
+  "line",
+  "parent",
+  "tasks",
+  "title",
+] as const;
+type DerivedKey = (typeof DERIVED_KEYS)[number];
+
+/** Whether two values of the derived field `key` are equal, by the field's schema. */
+const SAME_BY_KEY: { readonly [K in DerivedKey]: Equivalence.Equivalence<DerivedSection[K]> } = {
+  children: Schema.toEquivalence(IndexedSection.fields.children),
+  context: Schema.toEquivalence(IndexedSection.fields.context),
+  defers: Schema.toEquivalence(IndexedSection.fields.defers),
+  dependsOn: Schema.toEquivalence(IndexedSection.fields.dependsOn),
+  files: Schema.toEquivalence(IndexedSection.fields.files),
+  human: Schema.toEquivalence(IndexedSection.fields.human),
+  implements: Schema.toEquivalence(IndexedSection.fields.implements),
+  level: Schema.toEquivalence(IndexedSection.fields.level),
+  line: Schema.toEquivalence(IndexedSection.fields.line),
+  parent: Schema.toEquivalence(IndexedSection.fields.parent),
+  tasks: Schema.toEquivalence(IndexedSection.fields.tasks),
+  title: Schema.toEquivalence(IndexedSection.fields.title),
+};
+
+/** Whether one value and another of the derived field `key` are equal. */
+const sameField = <K extends DerivedKey>(
+  key: K,
+  one: DerivedSection[K],
+  other: DerivedSection[K],
+): boolean => SAME_BY_KEY[key](one, other);
+
+/** The derived fields whose values in `entry` differ from `expected`, in `DERIVED_KEYS` order. */
+const driftedKeys = (entry: DerivedSection, expected: DerivedSection): ReadonlyArray<DerivedKey> =>
+  Array.filter(DERIVED_KEYS, (key) => !sameField(key, entry[key], expected[key]));
+
+/** An `index-drift` finding about `spec.json`, which has no line of its own. */
+const drift = (message: string): Finding =>
+  findingOf("index-drift", "spec.json", Option.none(), message);
+
+/**
+ * What `spec.json` gets wrong about `spec.md` and `manifest.json`: a section with no entry, an
+ * entry for no section, and a derived field of an entry that the files do not give.
+ */
+const indexDrift = (
+  prd: string,
+  spec: string,
+  tasks: ReadonlyArray<ManifestTask>,
+  index: SpecIndex,
+): ReadonlyArray<Finding> => {
+  const expected = derivedOf({
+    manifest: { tasks },
+    prd,
+    previous: Option.none(),
+    spec,
+    written: [],
+  });
+  const entries = Record.fromEntries(
+    Array.map(index.sections, (entry) => [entry.id, entry] as const),
+  );
+  const expectedIds = HashSet.fromIterable(Array.map(expected, (section) => section.id));
+  return Array.flatten([
+    Array.flatMap(expected, (section) =>
+      Option.match(Record.get(entries, section.id), {
+        onNone: () => [drift(`spec.json has no entry for ${section.id}. Run cairn plan.`)],
+        onSome: (entry) =>
+          Array.map(driftedKeys(entry, section), (key) =>
+            drift(
+              `${section.id}'s ${key} in spec.json differs from spec.md or manifest.json. Run cairn plan.`,
+            ),
+          ),
+      }),
+    ),
+    Array.filterMap(index.sections, (entry) =>
+      HashSet.has(expectedIds, entry.id)
+        ? Result.failVoid
+        : Result.succeed(
+            drift(
+              `spec.json has an entry for ${entry.id}, which spec.md does not have. Run cairn plan.`,
+            ),
+          ),
+    ),
+  ]);
+};
+
 const gateText = (gate: HumanGate): string =>
   gate.required ? `required (${Array.join(gate.reasons, ", ")})` : "not required";
 
@@ -473,7 +574,7 @@ const stackFindings = (
   );
 };
 
-const FILE_ORDER: ReadonlyArray<LintFile> = ["prd.md", "spec.md", "manifest.json"];
+const FILE_ORDER: ReadonlyArray<LintFile> = ["prd.md", "spec.md", "manifest.json", "spec.json"];
 
 /** By file, then by line; a finding with no line comes last in its file. */
 const byPlace: Order.Order<Finding> = Order.combine(
@@ -505,6 +606,7 @@ export const lint = (
   const specDocument: Document = { file: "spec.md", prefix: "spec", sections: sectionsOf(spec) };
   const prdIds = HashSet.fromIterable(Array.map(identifiedOf(prdDocument), ({ id }) => id));
   const specIds = HashSet.fromIterable(Array.map(identifiedOf(specDocument), ({ id }) => id));
+  const tasks = Option.match(manifest, { onNone: () => [], onSome: (plan) => plan.tasks });
   const findings = Array.flatten([
     missingIds(prdDocument),
     missingIds(specDocument),
@@ -526,13 +628,11 @@ export const lint = (
     }),
     Option.match(index, {
       onNone: () => [],
-      onSome: (written) =>
-        staleFindings(
-          prdDocument,
-          specDocument,
-          written,
-          Option.match(manifest, { onNone: () => [], onSome: (plan) => plan.tasks }),
-        ),
+      onSome: (written) => indexDrift(prd, spec, tasks, written),
+    }),
+    Option.match(index, {
+      onNone: () => [],
+      onSome: (written) => staleFindings(prdDocument, specDocument, written, tasks),
     }),
   ]);
   return Array.sort(findings, byPlace);

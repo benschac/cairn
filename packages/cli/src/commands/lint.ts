@@ -4,7 +4,14 @@ import { Command } from "effect/cli";
 import { lint } from "@cairn/core";
 import type { Finding } from "@cairn/core";
 
-import { CAIRN_DIRECTORY, loadConfig, loadManifest, loadPrd, loadSpec } from "../workspace.ts";
+import {
+  CAIRN_DIRECTORY,
+  loadConfig,
+  loadManifest,
+  loadPrd,
+  loadSpec,
+  loadSpecIndex,
+} from "../workspace.ts";
 
 /** `cairn lint` found errors. Warnings alone do not fail it. */
 export class LintErrors extends Schema.TaggedError<LintErrors, { readonly brand: unique symbol }>()(
@@ -37,7 +44,8 @@ export const lintPlan = Effect.fn("lintPlan")(function* () {
     Effect.catchTag("MissingFile", () => Effect.succeedNone),
   );
   const config = yield* loadConfig;
-  const findings = lint(prd, spec, manifest, config);
+  const index = yield* loadSpecIndex;
+  const findings = lint(prd, spec, manifest, config, index);
   yield* Effect.forEach(findings, (finding) => Console.log(formatFinding(finding)), {
     discard: true,
   });
