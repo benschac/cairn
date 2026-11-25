@@ -4,10 +4,11 @@ import { Array, Effect, FileSystem, Layer, Path, Schema, String } from "effect";
 import { HttpClient, HttpRouter } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { Manifest, TraceJson } from "@cairn/contract";
+import { Manifest, Session, SessionId, TaskId, TraceJson } from "@cairn/contract";
 import { ApiRoutes, Repository } from "../src/api.ts";
 import { Git } from "../src/git.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
+import { TraceStore } from "../src/trace-store.ts";
 
 const ZEROS = String.repeat(40)("0");
 
@@ -56,7 +57,8 @@ const TempWorkspace = Layer.unwrap(
 );
 
 const Server = HttpRouter.serve(ApiRoutes, { disableListenLog: true, disableLogger: true }).pipe(
-  Layer.provide(Layer.merge(TempWorkspace, Git.memory())),
+  Layer.provide(Layer.mergeAll(TempWorkspace, Git.memory(), TraceStore.layerMemory)),
+  Layer.provideMerge(TraceStore.layerMemory),
   Layer.provideMerge(TempWorkspace),
   Layer.provide(TempRepository),
   Layer.provideMerge(NodeHttpServer.layerTest),
@@ -208,6 +210,72 @@ layer(Server)("trace route", (it) => {
       );
       expect(response.status).toBe(500);
       expect(text).toContain("spec.md");
+    }),
+  );
+});
+
+const encodeLine = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+
+/** A Claude Code log of one prompt and the reply to it. */
+const LOG = Array.join(
+  [
+    encodeLine({
+      message: { content: "Add the store", role: "user" },
+      timestamp: "2026-01-01T00:00:00.000Z",
+      type: "user",
+      uuid: "u1",
+    }),
+    encodeLine({
+      message: { content: [{ text: "Added it.", type: "text" }], role: "assistant" },
+      timestamp: "2026-01-01T00:00:01.000Z",
+      type: "assistant",
+      uuid: "a1",
+    }),
+  ],
+  "\n",
+);
+
+const sessionId = Schema.decodeSync(SessionId);
+const T1 = Schema.decodeSync(TaskId)("t1");
+
+layer(Server)("session route", (it) => {
+  it.effect(
+    "returns a stored session read into turns, with its redaction counts and no notes",
+    () =>
+      Effect.gen(function* () {
+        const store = yield* TraceStore;
+        yield* store.put({
+          agent: "claude",
+          endedAt: null,
+          id: sessionId("s_stored1"),
+          log: LOG,
+          model: null,
+          redactions: { "github-token": 2 },
+          startedAt: null,
+          taskId: T1,
+        });
+        const { response, text } = yield* get("/api/sessions/s_stored1");
+        expect(response.status).toBe(200);
+        expect(response.headers["content-type"]).toContain("application/json");
+        const session = yield* Schema.decodeEffect(Schema.fromJsonString(Session))(text);
+        expect(session).toMatchObject({
+          format: "claude-code",
+          id: "s_stored1",
+          notes: [],
+          redactions: { "github-token": 2 },
+          skipped: 0,
+          taskId: "t1",
+        });
+        expect(Array.map(session.turns, ({ kind }) => kind)).toEqual(["prompt", "reply"]);
+      }),
+  );
+
+  it.effect("an id the store does not hold is 404, and one that is not a session id is 400", () =>
+    Effect.gen(function* () {
+      const unknown = yield* get("/api/sessions/s_missing1");
+      const malformed = yield* get("/api/sessions/not-a-session");
+      expect([unknown.response.status, malformed.response.status]).toEqual([404, 400]);
+      expect(unknown.text).toContain("s_missing1");
     }),
   );
 });
