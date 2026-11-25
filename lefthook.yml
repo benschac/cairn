@@ -5,6 +5,12 @@ pre-commit:
     check:
       run: pnpm check:commit
 
+# A commit on a task's branch carries its Cairn-Task and Cairn-Section trailers.
+commit-msg:
+  commands:
+    trailers:
+      run: node scripts/trailers/commit-msg.ts {1}
+
 pre-push:
   commands:
     checked:

@@ -46,6 +46,10 @@
       "inputs": ["scripts/tasks/**", "packages/contract/src/**", "package.json"],
       "outputs": []
     },
+    "//#test:trailers": {
+      "inputs": ["scripts/trailers/**", "packages/contract/src/**", "package.json"],
+      "outputs": []
+    },
     "//#test:lint": {
       "inputs": [
         "lint/**",
