@@ -5,7 +5,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import { Message } from "../message.ts";
 import type { Destination, Model } from "../model.ts";
 import { currentOf, searchedSectionOf } from "../reader.ts";
-import { Resize, limitsOf } from "../panes.ts";
+import { Resize } from "../panes.ts";
 import { switchView } from "../ui/controls.ts";
 import { detailView } from "./detailView.ts";
 import { dividerView, DIVIDER_WIDTH } from "./dividerView.ts";
@@ -144,14 +144,13 @@ export const readerView = (
           [
             h.Style({
               display: "grid",
-              // The widths are what a person chose; the columns give each pane up to that, and
-              // down to its least before the stacks pane goes under 240px.
+              // The widths are what a person chose, and the columns hold them: a window too
+              // narrow for them scrolls the reader sideways instead of narrowing a pane.
               "--prd-width": `${model.widths.prd}px`,
               "--spec-width": `${model.widths.spec}px`,
-              "grid-template-columns": `minmax(${limitsOf("prd").min}px, var(--prd-width)) ${DIVIDER_WIDTH}px minmax(${limitsOf("spec").min}px, var(--spec-width)) ${DIVIDER_WIDTH}px minmax(240px, 1fr)`,
+              "grid-template-columns": `var(--prd-width) ${DIVIDER_WIDTH}px var(--spec-width) ${DIVIDER_WIDTH}px minmax(240px, 1fr)`,
               "grid-template-rows": "minmax(0, 1fr)",
               "min-height": "0",
-              // Narrower than every least width and both dividers, the reader scrolls sideways.
               "overflow-x": "auto",
               "overflow-y": "hidden",
               "user-select": Resize.guards.Resizing(model.resize) ? "none" : "auto",

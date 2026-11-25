@@ -58,14 +58,14 @@ it("each divider is a focusable vertical separator that reports its pane's width
     expect(prdDivider).toHaveAttr("tabIndex", "0"),
     expect(prdDivider).toHaveAttr("aria-valuenow", "520"),
     expect(prdDivider).toHaveAttr("aria-valuemin", "300"),
-    expect(prdDivider).toHaveAttr("aria-valuemax", "1000"),
+    expect(prdDivider).toHaveAttr("aria-valuemax", "1600"),
     expect(specDivider).toHaveAttr("aria-valuenow", "440"),
     expect(specDivider).toHaveAttr("aria-valuemin", "260"),
-    expect(specDivider).toHaveAttr("aria-valuemax", "1100"),
+    expect(specDivider).toHaveAttr("aria-valuemax", "1600"),
   );
 });
 
-it("the grid's columns are the chosen widths held between the least widths and the stacks pane", () => {
+it("the grid's columns hold the chosen widths and scroll sideways rather than narrow a pane", () => {
   scene(
     { update, view },
     given(reading),
@@ -74,7 +74,7 @@ it("the grid's columns are the chosen widths held between the least widths and t
     expect(grid).toHaveStyle("--spec-width", "440px"),
     expect(grid).toHaveStyle(
       "grid-template-columns",
-      "minmax(300px, var(--prd-width)) 76px minmax(260px, var(--spec-width)) 76px minmax(240px, 1fr)",
+      "var(--prd-width) 76px var(--spec-width) 76px minmax(240px, 1fr)",
     ),
     expect(grid).toHaveStyle("overflow-x", "auto"),
   );
@@ -123,7 +123,7 @@ it("a drag stops at the pane's limits", () => {
     mountedReader,
     pressed("prd", 0),
     movedTo(5000),
-    expect(prdDivider).toHaveAttr("aria-valuenow", "1000"),
+    expect(prdDivider).toHaveAttr("aria-valuenow", "1600"),
     movedTo(-5000),
     expect(prdDivider).toHaveAttr("aria-valuenow", "300"),
   );

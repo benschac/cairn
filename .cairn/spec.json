@@ -7232,12 +7232,12 @@
         {
           "id": "spec.viewer.panes#r2",
           "level": "must",
-          "text": "`resized(widths, pane, delta)` is pure and holds a width between its pane's limits: 300 to 1000 for the PRD, 260 to 1100 for the spec and 360 to 1400 for the detail panel."
+          "text": "`resized(widths, pane, delta)` is pure and holds a width between its pane's limits: 300 to 1600 for the PRD, 260 to 1600 for the spec and 360 to 1800 for the detail panel."
         },
         {
           "id": "spec.viewer.panes#r3",
           "level": "must",
-          "text": "The reader's grid, not the model, fits a window: its columns are minmax(300px, prd), a divider, minmax(260px, spec), a divider and minmax(240px, 1fr), so a narrow window narrows the PRD and the spec down to their least widths before the stacks pane goes under 240px; under 952px the reader scrolls sideways, and the detail panel is never wider than the window."
+          "text": "The reader's grid, not the model, fits a window: its columns are prd, a divider, spec, a divider and minmax(240px, 1fr), so a window too narrow for the chosen widths scrolls the reader sideways and never narrows a pane, and the detail panel is never wider than the window."
         },
         {
           "id": "spec.viewer.panes#r4",
