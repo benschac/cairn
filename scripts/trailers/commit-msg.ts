@@ -39,22 +39,41 @@ class TrailersMissing extends Schema.TaggedError<TrailersMissing>()("TrailersMis
 
 const decodeManifest = Schema.decodeUnknownEffect(Schema.fromJsonString(Manifest));
 
+// Why git could not read the message's trailers.
+class TrailersUnreadable extends Schema.TaggedError<TrailersUnreadable>()("TrailersUnreadable", {
+  exitCode: Schema.Number,
+}) {
+  override get message() {
+    return `git interpret-trailers exited ${this.exitCode}`;
+  }
+}
+
+// Runs git with its stderr shown, and gives back what it printed and how it exited.
+const git = (args: ReadonlyArray<string>) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const handle = yield* spawner.spawn(ChildProcess.make("git", args, { stderr: "inherit" }));
+      const [stdout, exitCode] = yield* Effect.all(
+        [Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode],
+        { concurrency: "unbounded" },
+      );
+      return { exitCode, stdout };
+    }),
+  );
+
 // The checked-out branch; none when HEAD is detached, where `git symbolic-ref` exits 1.
-const currentBranch = Effect.scoped(
-  Effect.gen(function* () {
-    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-    const handle = yield* spawner.spawn(
-      ChildProcess.make("git", ["symbolic-ref", "--quiet", "--short", "HEAD"], {
-        stderr: "inherit",
-      }),
-    );
-    const [stdout, exitCode] = yield* Effect.all(
-      [Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode],
-      { concurrency: "unbounded" },
-    );
-    return exitCode === 0 ? Option.some(String.trim(stdout)) : Option.none();
-  }),
+const currentBranch = Effect.map(
+  git(["symbolic-ref", "--quiet", "--short", "HEAD"]),
+  ({ exitCode, stdout }) => (exitCode === 0 ? Option.some(String.trim(stdout)) : Option.none()),
 );
+
+// The message's trailers as git reads them, which is how landing reads them: only the last paragraph, without
+// comment lines or what follows the scissors line `git commit -v` adds.
+const trailersOf = (file: string) =>
+  Effect.flatMap(git(["interpret-trailers", "--parse", file]), ({ exitCode, stdout }) =>
+    exitCode === 0 ? Effect.succeed(stdout) : Effect.fail(new TrailersUnreadable({ exitCode })),
+  );
 
 // The task whose branch is checked out; none on any other branch or with no branch checked out.
 const taskOnBranch = Effect.gen(function* () {
@@ -74,11 +93,10 @@ const commitMsg = Command.make(
   },
   ({ file }) =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
       const task = yield* taskOnBranch;
       const report = yield* Option.match(task, {
         onNone: () => Effect.succeed(Option.none<string>()),
-        onSome: (each) => Effect.map(fs.readFileString(file), (message) => refusal(each, message)),
+        onSome: (each) => Effect.map(trailersOf(file), (trailers) => refusal(each, trailers)),
       });
       yield* Option.match(report, {
         onNone: () => Effect.void,
