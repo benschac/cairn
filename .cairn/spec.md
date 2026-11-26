@@ -926,13 +926,13 @@ The `cli` source, the default. `cli-model.ts` is a `LanguageModel` that runs the
 
 Current support: the Claude CLI source, the Codex CLI source and the four API providers (`anthropic`, `openai`, `openrouter` and `openai-compatible`) are implemented. Codex runs with the person's `~/.codex/config.toml` and execpolicy rules ignored and every tool, app, plugin and hook switched off, each flag checked against a real `codex-cli 0.172.0` run (`cli-model.ts` lists them and what a run showed).
 
-| `planner.cli` | Command                                                      | Structured output                             |
-| ------------- | ------------------------------------------------------------ | --------------------------------------------- |
-| `claude`      | `claude -p --tools "" --output-format json`, prompt on stdin | `--json-schema` with the call's JSON Schema   |
-| `codex`       | `codex exec`, prompt on stdin                                | The schema flag `codex exec --help` documents |
+| `planner.cli` | Command                                                                  | Structured output                             |
+| ------------- | ------------------------------------------------------------------------ | --------------------------------------------- |
+| `claude`      | `claude -p --safe-mode --tools "" --output-format json`, prompt on stdin | `--json-schema` with the call's JSON Schema   |
+| `codex`       | `codex exec`, prompt on stdin                                            | The schema flag `codex exec --help` documents |
 
 - `--model` is passed only when `planner.model` or `planner.small` is set.
-- The CLI runs with no tools, in a temporary directory, so it cannot read or change the repository. Everything it needs is in the prompt.
+- The CLI runs with no tools, in a temporary directory, so it cannot read or change the repository. Everything it needs is in the prompt, so claude runs in safe mode: the person's CLAUDE.md, skills, plugins, hooks and MCP servers are not loaded, and are not sent to the model with every call.
 - The command runs through `ChildProcess` from `effect/unstable/process`. A non-zero exit, or output that is not the expected JSON, is a `PlannerError` carrying the CLI's stderr.
 - Read `claude --help` and `codex exec --help` on the machine before writing the flags; both CLIs change often. A flag the installed CLI does not have fails with a message naming the CLI's version.
 - A binary that is not on `PATH` fails before any file changes: `claude was not found. Install Claude Code, or set planner.cli or planner.source in .cairn/config.json.`
