@@ -132,6 +132,14 @@ that.
   machines and the viewer use these types; do not redeclare them.
 - `packages/core`: the machines. A lifecycle is an XState machine built with
   `setupEffect`, whose context and events are schemas from the contract.
+- Ports inside, adapters outside: `packages/contract` and `packages/core` take
+  plain values and do no IO. A job that needs disk, git, a socket or a model is
+  a `Context.Service` declared in core and implemented in `packages/cli`, which
+  provides its Layer. `no-restricted-imports` in `oxlint.config.ts` refuses
+  Node IO modules, `@effect/platform-*`, `@effect/sql-*`, `@effect/ai-*`,
+  Effect's transport modules (`effect/http`, `effect/process`, ...) and the
+  CLI or the apps there, and core in contract. Rat-stack's reasoning is the
+  `/lore/hexagonal-architecture` page in `.agent_sources/ratstack/docs.txt`.
 
 - `apps/viewer`: the Foldkit viewer. A Schema-defined Model, fact-named
   Messages, one `update` and one `view`. Test it with a Scene from

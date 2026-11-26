@@ -21,7 +21,7 @@ For a new action, use `add-a-capability`; for persistence, `add-a-store`; for re
 | Foldkit app (Model, Messages, `update`, `view`, Scenes) | `apps/viewer`.                                                                                                                                          |
 | Alchemy stack on Cloudflare                             | `apps/site` (`alchemy.run.ts`). Deploying needs the owner's credentials.                                                                                |
 | Local process, services, CLIs                           | `packages/cli` and the Effect scripts under `scripts/`.                                                                                                 |
-| Ports and adapters                                      | `adapters`, listed in VISION.md; add it when a real external boundary needs it, not before.                                                             |
+| Ports and adapters                                      | Ports in `packages/core`, adapters in `packages/cli`; `no-restricted-imports` in `oxlint.config.ts` keeps IO out of core and contract. The `adapters` package in VISION.md comes when a real external boundary needs it. |
 
 - Keep domain operations independent of transport and storage. Add a port and adapter only at a real external boundary.
 - When two surfaces expose the same action, share its input, output, errors and implementation; keep handlers thin.

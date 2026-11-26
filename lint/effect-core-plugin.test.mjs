@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -460,7 +460,95 @@ const tsgoCases = [
   ],
 ];
 
+// [name, path from the repo root, source, the imports no-restricted-imports must refuse]. The
+// overrides in oxlint.config.ts pick these files by path: core and contract do no IO.
+const boundaryCases = [
+  [
+    "core: Node IO",
+    "packages/core/src/boundary-0.ts",
+    'import { execFileSync } from "node:child_process"\nimport { readFile } from "fs/promises"\nexport const f = [execFileSync, readFile]',
+    ["node:child_process", "fs/promises"],
+  ],
+  [
+    "core: pure Node modules",
+    "packages/core/src/boundary-1.ts",
+    'import { matchesGlob } from "node:path"\nimport { createHash } from "node:crypto"\nexport const f = [matchesGlob, createHash]',
+    [],
+  ],
+  [
+    "core: provider packages",
+    "packages/core/src/boundary-2.ts",
+    'import { NodeServices } from "@effect/platform-node"\nimport { SqliteClient } from "@effect/sql-sqlite-node"\nimport { AnthropicClient } from "@effect/ai-anthropic"\nexport const f = [NodeServices, SqliteClient, AnthropicClient]',
+    ["@effect/platform-node", "@effect/sql-sqlite-node", "@effect/ai-anthropic"],
+  ],
+  [
+    "core: Effect transport modules",
+    "packages/core/src/boundary-3.ts",
+    'import { HttpClient } from "effect/http"\nimport { ChildProcess } from "effect/process"\nimport { SqlClient } from "effect/sql"\nexport const f = [HttpClient, ChildProcess, SqlClient]',
+    ["effect/http", "effect/process", "effect/sql"],
+  ],
+  [
+    "core: subpaths of refused modules",
+    "packages/core/src/boundary-11.ts",
+    'import { layer } from "@effect/platform-node/NodeFileSystem"\nimport { FileSystem } from "effect/FileSystem"\nimport { Resolver } from "node:dns/promises"\nimport { readFile } from "fs/promises"\nexport const f = [layer, FileSystem, Resolver, readFile]',
+    [
+      "@effect/platform-node/NodeFileSystem",
+      "effect/FileSystem",
+      "node:dns/promises",
+      "fs/promises",
+    ],
+  ],
+  [
+    "core: FileSystem from effect",
+    "packages/core/src/boundary-4.ts",
+    'import { Effect, FileSystem } from "effect"\nexport const f = [Effect, FileSystem]',
+    ["FileSystem from effect"],
+  ],
+  [
+    "core: Effect and its decision port",
+    "packages/core/src/boundary-5.ts",
+    'import { Effect, Schema } from "effect"\nimport { Decision } from "effect/ai"\nimport { Manifest } from "@cairn/contract"\nexport const f = [Effect, Schema, Decision, Manifest]',
+    [],
+  ],
+  [
+    "core: the CLI and the apps",
+    "packages/core/src/boundary-6.ts",
+    'import { serve } from "@cairn/cli/serve"\nimport { view } from "@cairn/viewer"\nimport { git } from "../../cli/src/git.ts"\nimport { serve as root } from "../../../packages/cli/src/serve.ts"\nexport const f = [serve, view, git, root]',
+    [
+      "@cairn/cli/serve",
+      "@cairn/viewer",
+      "../../cli/src/git.ts",
+      "../../../packages/cli/src/serve.ts",
+    ],
+  ],
+  [
+    "contract: core",
+    "packages/contract/src/boundary-7.ts",
+    'import { lint } from "@cairn/core"\nimport { stack } from "../../core/src/stack.ts"\nimport { gates } from "../../../packages/core/src/gates.ts"\nexport const f = [lint, stack, gates]',
+    ["@cairn/core", "../../core/src/stack.ts", "../../../packages/core/src/gates.ts"],
+  ],
+  [
+    "contract: Node IO",
+    "packages/contract/src/boundary-8.ts",
+    'import { execFileSync } from "node:child_process"\nexport const f = execFileSync',
+    ["node:child_process"],
+  ],
+  [
+    "contract js entry: one git call",
+    "packages/contract/src/js.ts",
+    'import { execFileSync } from "node:child_process"\nimport { readFileSync } from "node:fs"\nimport { lint } from "@cairn/core"\nexport const f = [execFileSync, readFileSync, lint]',
+    ["node:fs", "@cairn/core"],
+  ],
+  [
+    "cli: adapters",
+    "packages/cli/src/boundary-10.ts",
+    'import { execFileSync } from "node:child_process"\nimport { NodeServices } from "@effect/platform-node"\nimport { HttpClient } from "effect/http"\nexport const f = [execFileSync, NodeServices, HttpClient]',
+    [],
+  ],
+];
+
 const lintFound = new Map();
+const boundaryFound = new Map();
 const tsgoFound = new Map();
 const caseIndex = (path) => Number(/case-(\d+)\.ts$/.exec(path)?.[1] ?? -1);
 
@@ -475,10 +563,16 @@ const setup = async () => {
 const lint = async () => {
   const project = join(dir, "oxlint");
   await mkdir(project);
-  const files = lintCases.map((_, index) => `case-${index}.ts`);
+  const cases = lintCases.map((_, index) => `case-${index}.ts`);
+  const boundaries = boundaryCases.map(([, path]) => path);
+  const files = [...cases, ...boundaries];
   await Promise.all(
-    lintCases.map(([, source], index) => writeFile(join(project, files[index]), source)),
+    boundaries.map((path) => mkdir(dirname(join(project, path)), { recursive: true })),
   );
+  await Promise.all([
+    ...lintCases.map(([, source], index) => writeFile(join(project, cases[index]), source)),
+    ...boundaryCases.map(([, path, source]) => writeFile(join(project, path), source)),
+  ]);
   await writeFile(
     join(project, "tsconfig.json"),
     JSON.stringify({ extends: join(root, "tsconfig.base.json"), files, include: [] }),
@@ -494,10 +588,19 @@ const lint = async () => {
   const { diagnostics, number_of_files: linted } = JSON.parse(result.stdout);
   assert.equal(linted, files.length, "every fixture must be linted");
   assert.ok(!diagnostics.some((d) => d.message.includes("Error running JS plugin")), result.stdout);
-  const reported = files.map(() => []);
-  for (const diagnostic of diagnostics)
+  const reported = cases.map(() => []);
+  const refused = new Map(boundaries.map((path) => [path, []]));
+  for (const diagnostic of diagnostics) {
     reported[caseIndex(diagnostic.filename)]?.push(diagnostic.code);
+    const [, name, from] =
+      /^'([^']+)' import (?:from '([^']+)' )?is restricted/.exec(diagnostic.message) ?? [];
+    if (diagnostic.code === "eslint(no-restricted-imports)" && name)
+      refused
+        .get(relative(project, resolve(project, diagnostic.filename)))
+        ?.push(from ? `${name} from ${from}` : name);
+  }
   for (const [index, [name]] of lintCases.entries()) lintFound.set(name, reported[index]);
+  for (const [name, path] of boundaryCases) boundaryFound.set(name, refused.get(path));
 };
 
 const typecheck = async (extend, cases) => {
@@ -539,6 +642,15 @@ await test("core/* oxlint rules", (t) =>
         const core = new Set(lintFound.get(name).filter((code) => code.startsWith("core(")));
         const want = new Set([expected ?? []].flat().map((rule) => `core(${rule})`));
         assert.deepEqual(core, want);
+      }),
+    ),
+  ));
+
+await test("core and contract import no adapters", (t) =>
+  Promise.all(
+    boundaryCases.map(([name, , , expected]) =>
+      t.test(name, () => {
+        assert.deepEqual(new Set(boundaryFound.get(name)), new Set(expected));
       }),
     ),
   ));
