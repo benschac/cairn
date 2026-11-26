@@ -24,6 +24,7 @@ import {
 } from "effect";
 import { Command, Flag } from "effect/cli";
 
+import { replaceFile } from "../../packages/cli/src/atomic-write.ts";
 import { escapeCell } from "../agent-sources/markdown.ts";
 
 const INDEX = ".agent_sources/effect/core-index.md";
@@ -210,7 +211,7 @@ const indexCore = Effect.fn("indexEffectCore")(function* ({ check }: { check: bo
     return `${INDEX} matches effect@${version} (${rows.length} exports)`;
   }
   yield* fs.makeDirectory(path.dirname(target), { recursive: true });
-  yield* fs.writeFileString(target, index);
+  yield* replaceFile(target, index);
   return `Indexed effect@${version} in ${INDEX}: ${files.length} modules, ${rows.length} exports`;
 });
 

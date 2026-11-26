@@ -28,6 +28,7 @@ import {
 import { Command } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
+import { replaceFile } from "../../packages/cli/src/atomic-write.ts";
 import { appendRecord, pushedCommits, RECORD_FILE, recordedCommits } from "./checked.ts";
 import { holdCheckLock, LOCK_FILE } from "./lock.ts";
 
@@ -127,9 +128,9 @@ const check = Command.make("check", {}, () =>
         `Passed, but ${short} was not recorded as checked: the tree had uncommitted changes or HEAD moved. Commit everything and run pnpm check again before pushing.`,
       );
     }
-    const fs = yield* FileSystem.FileSystem;
     const { file, record } = yield* readRecord;
-    yield* fs.writeFileString(file, appendRecord(record, after.head));
+    // Replaced whole: pre-push reads this file, and a truncated record would refuse every push.
+    yield* replaceFile(file, appendRecord(record, after.head));
     return yield* Effect.logInfo(
       `Recorded ${short} as checked: it and every commit below it may be pushed.`,
     );

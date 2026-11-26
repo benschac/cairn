@@ -1,13 +1,28 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
 import { Array, pipe, Predicate, Record, Schema, String } from "effect";
 
-import { appendRecord, pushedCommits, RECORD_LIMIT, recordedCommits } from "./checked.ts";
+import {
+  appendRecord,
+  pushedCommits,
+  RECORD_FILE,
+  RECORD_LIMIT,
+  recordedCommits,
+} from "./checked.ts";
 import { Holder, LOCK_FILE } from "./lock.ts";
 
 const GATE = join(import.meta.dirname, "gate.ts");
@@ -135,6 +150,19 @@ await test("a check that passes at the top lets the whole stack push, failing mi
   assert.equal(pushed.status, 0, pushed.stderr);
   // Deleting a remote branch sends no commit.
   assert.equal(push(ZERO).status, 0);
+});
+
+await test("the record is replaced whole, not rewritten in place, and leaves no staging directory", () => {
+  const record = join(repo, ".git", RECORD_FILE);
+  const before = statSync(record);
+  const passed = check();
+  assert.equal(passed.status, 0, passed.stderr);
+  const after = statSync(record);
+  // A new file at the same path, so a reader holds the old record or the new, never a half-written one.
+  assert.notEqual(after.ino, before.ino);
+  assert.equal(after.mode, before.mode);
+  assert.deepEqual(Array.filter(readdirSync(join(repo, ".git")), String.startsWith(".write-")), []);
+  assert.equal(push(top).status, 0);
 });
 
 await test("a commit the checked top does not contain is refused, even beside covered ones", () => {

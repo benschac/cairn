@@ -25,6 +25,11 @@ Both are `Effect.fn`s needing `FileSystem | Path` and close their own scope. `ca
 directory the same way: it stages `.cairn/` in the repository root and renames the directory into place
 (`packages/cli/src/commands/init.ts`). `scripts/gate/lock.ts` (`tryTake`) is the create half written by hand.
 
+The scripts under `scripts/` replace their generated files with it too: the record of checked commits
+(`scripts/gate/gate.ts`), `demo-trace.json` and the `.agent_sources` indexes and `sources.json`. The one
+write left plain is `refresh-pattern-sources`' cached document, which `replaceFile` cannot take: it writes
+the downloaded bytes unchanged, so that their `sha256` stays the one `sources.json` records.
+
 ## The API underneath
 
 | Step | Export | Declaration |

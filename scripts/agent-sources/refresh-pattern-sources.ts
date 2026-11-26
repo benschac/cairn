@@ -31,6 +31,7 @@ import { Command, Flag } from "effect/cli";
 import { Digest } from "effect/crypto";
 import { FetchHttpClient, HttpClient } from "effect/http";
 
+import { replaceFile } from "../../packages/cli/src/atomic-write.ts";
 import { headingsOf, topicTable } from "./markdown.ts";
 
 // Each expected failure logs its own message once (see the command below), so the runtime is told not to print it again.
@@ -192,11 +193,11 @@ const refresh = Effect.fn("refreshPatternSources")(function* ({
     Effect.fnUntraced(function* ({ source, bytes, index }) {
       yield* fs.makeDirectory(path.dirname(path.join(root, source.document)), { recursive: true });
       yield* fs.writeFile(path.join(root, source.document), bytes);
-      yield* fs.writeFileString(path.join(root, source.index), index);
+      yield* replaceFile(path.join(root, source.index), index);
     }),
     { discard: true },
   );
-  yield* fs.writeFileString(sourcesFile, `${json}\n`);
+  yield* replaceFile(sourcesFile, `${json}\n`);
   return `Cached and indexed ${prepared.length} Ratstack references`;
 });
 

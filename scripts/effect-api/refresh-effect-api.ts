@@ -28,6 +28,7 @@ import {
 import { Command, Flag } from "effect/cli";
 import { Yaml } from "effect/encoding";
 
+import { replaceFile } from "../../packages/cli/src/atomic-write.ts";
 import { escapeCell } from "../agent-sources/markdown.ts";
 
 const INDEX = ".agent_sources/effect/index.md";
@@ -330,7 +331,7 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
     return `${INDEX} matches the installed Effect packages`;
   }
   yield* fs.makeDirectory(path.dirname(target), { recursive: true });
-  yield* fs.writeFileString(target, index);
+  yield* replaceFile(target, index);
   return `Indexed ${withModules.length} Effect packages in ${INDEX}`;
 });
 

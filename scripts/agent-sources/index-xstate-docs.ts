@@ -26,6 +26,7 @@ import {
 import { Command, Flag } from "effect/cli";
 import { Yaml } from "effect/encoding";
 
+import { replaceFile } from "../../packages/cli/src/atomic-write.ts";
 import { escapeCell, headingsOf, topicTable } from "./markdown.ts";
 
 // The workspace that depends on XState; pnpm links its packages into its node_modules.
@@ -231,7 +232,7 @@ const indexXStateDocs = Effect.fn("indexXStateDocs")(function* ({ check }: { che
     ({ file, text }) =>
       fs
         .makeDirectory(path.dirname(path.join(repo, file)), { recursive: true })
-        .pipe(Effect.andThen(fs.writeFileString(path.join(repo, file), text))),
+        .pipe(Effect.andThen(replaceFile(path.join(repo, file), text))),
     { discard: true },
   );
   return `Indexed ${rows.length} XState pages and ${topics.length} @xstate/effect topics`;

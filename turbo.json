@@ -6,7 +6,8 @@
     ".cairn/spec.md",
     ".cairn/manifest.json",
     ".cairn/spec.json",
-    "packages/cli/src/git.ts"
+    "packages/cli/src/git.ts",
+    "packages/cli/src/atomic-write.ts"
   ],
   "tasks": {
     "dev": { "cache": false, "persistent": true },

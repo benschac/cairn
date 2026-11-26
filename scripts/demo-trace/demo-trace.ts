@@ -32,6 +32,7 @@ import {
 import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
+import { replaceFile } from "../../packages/cli/src/atomic-write.ts";
 import { eventsOf, firstDifference, latest, parseShown, SHOW_FORMAT } from "./plan.ts";
 
 const OUTPUT = "apps/viewer/src/demo-trace.json";
@@ -183,7 +184,8 @@ const demoTrace = Effect.fn("demo-trace")(function* ({ check }: { check: boolean
       onSome: (difference) => Effect.fail(new Stale({ difference })),
     });
   } else {
-    yield* fs.writeFileString(file, text);
+    // Replaced whole: the Vite dev server watches this file and would decode it half written.
+    yield* replaceFile(file, text);
     yield* Console.log(`wrote ${OUTPUT}`);
   }
 });
