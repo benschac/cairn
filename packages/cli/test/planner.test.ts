@@ -9,7 +9,22 @@ import {
 import type { Config } from "@cairn/contract";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Array, Effect, FileSystem, Layer, Path, Predicate, Record, Schema, Struct } from "effect";
+import {
+  Array,
+  Duration,
+  Effect,
+  Fiber,
+  FileSystem,
+  Layer,
+  Logger,
+  Path,
+  Predicate,
+  Record,
+  Schema,
+  String,
+  Struct,
+} from "effect";
+import { TestClock, TestConsole } from "effect/testing";
 
 import { IndexProse, Planner, PlannerError, StatementDrafts, TaskDrafts } from "../src/planner.ts";
 import { Script, scripted, unreachable } from "./fixtures/scripted-language-model.ts";
@@ -104,6 +119,77 @@ it.effect.prop(
         expect(first).toContain(prd);
       }),
     ),
+);
+
+/**
+ * A logger that prints only a line's annotations to stderr, and a console that keeps them: the
+ * lines the planner logs are read from `TestConsole.errorLines`.
+ */
+const logged = Layer.merge(
+  TestConsole.layer,
+  Logger.layer([
+    Logger.withConsoleError(Logger.map(Logger.formatStructured, (entry) => entry.annotations)),
+  ]),
+);
+
+/** How long a model call takes in a test: up to an hour, in whole seconds. */
+const Seconds = Schema.Int.check(Schema.isBetween({ maximum: 3600, minimum: 1 }));
+
+it.effect.prop(
+  "a model call logs how long it took and the sizes of its prompt and reply",
+  [Schema.NonEmptyString, Schema.String, Seconds],
+  ([prd, markdown, seconds]) =>
+    planning(
+      [Effect.delay(Effect.succeed(markdown), Duration.seconds(seconds))],
+      Effect.gen(function* () {
+        const fiber = yield* Effect.forkChild(spec(prd));
+        yield* TestClock.adjust(Duration.seconds(seconds));
+        yield* Fiber.join(fiber);
+        const [prompt = ""] = yield* prompts;
+        const lines = yield* TestConsole.errorLines;
+        expect(lines).toEqual([
+          {
+            call: "spec",
+            outcome: "ok",
+            promptChars: String.length(prompt),
+            replyChars: String.length(markdown),
+            seconds,
+          },
+        ]);
+      }),
+    ).pipe(Effect.provide(logged)),
+);
+
+it.effect.prop(
+  "a reply that does not decode logs a failed call, and its retry logs a call of its own",
+  [Schema.Array(Draft), Schema.NonEmptyString],
+  ([drafts, bad]) => {
+    const good = encodeReply({ drafts });
+    return planning(
+      [bad, good],
+      Effect.gen(function* () {
+        yield* tasks("prd", "spec");
+        const [first = "", second = ""] = yield* prompts;
+        const lines = yield* TestConsole.errorLines;
+        expect(lines).toEqual([
+          {
+            call: "tasks",
+            outcome: "failed",
+            promptChars: String.length(first),
+            replyChars: 0,
+            seconds: 0,
+          },
+          {
+            call: "tasks",
+            outcome: "ok",
+            promptChars: String.length(second),
+            replyChars: String.length(good),
+            seconds: 0,
+          },
+        ]);
+      }),
+    ).pipe(Effect.provide(logged));
+  },
 );
 
 it.effect("spec returns this repository's spec as the model wrote it", () =>
