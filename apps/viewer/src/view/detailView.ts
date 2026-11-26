@@ -1,6 +1,6 @@
 import { SectionId, type Trace, type TraceSection, type TraceTask } from "@cairn/contract";
 import { stacksOf } from "@cairn/core/stacks";
-import { Array, Option, Record } from "effect";
+import { Array, Option, Record, String } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { DETAIL_HEADING_ID, type Trail } from "../detail.ts";
@@ -221,6 +221,74 @@ const tracesView = (trace: Trace, task: TraceTask, h: HtmlBuilder<Message>): Htm
     h,
   );
 
+/**
+ * Whether a human has approved the task: it is past the gate (done or landed) and its events hold a
+ * `done` written by a `human:` actor. A human `done` that only finished a gated task leaves it
+ * blocked_on_human, so it does not count.
+ */
+const approvedByHuman = (task: TraceTask): boolean =>
+  (task.status === "done" || task.status === "landed") &&
+  Array.some(
+    task.events,
+    (event) => event.status === "done" && String.startsWith("human:")(event.actor),
+  );
+
+/**
+ * The statements the task carries, found in the PRD by ID. While the task waits on a human they
+ * are a checklist with the human-tagged ones first; once a human approved, those show as settled.
+ */
+const doneWhenView = (
+  trace: Trace,
+  task: TraceTask,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> => {
+  const carried = Array.flatMap(task.statements, (id) =>
+    Array.fromOption(Array.findFirst(trace.prd.statements, (statement) => statement.id === id)),
+  );
+  const reviewing = task.status === "blocked_on_human";
+  const approved = approvedByHuman(task);
+  const shown = reviewing
+    ? Array.appendAll(
+        Array.filter(carried, (statement) => statement.human),
+        Array.filter(carried, (statement) => !statement.human),
+      )
+    : carried;
+  return Array.match(shown, {
+    onEmpty: () => [],
+    onNonEmpty: (statements) => [
+      partView(
+        "done-when",
+        "Done when",
+        [
+          h.ul(
+            [],
+            Array.map(statements, (statement) => {
+              const settled = statement.human && approved;
+              return h.keyed("li")(
+                statement.id,
+                Array.appendAll(
+                  [h.DataAttribute("done-when-statement", statement.id)],
+                  settled ? [h.DataAttribute("settled", "")] : [],
+                ),
+                Array.appendAll(
+                  Array.appendAll(
+                    reviewing || settled ? [settled ? "[x] " : "[ ] "] : [],
+                    statement.draft
+                      ? [h.span([h.Class("chip"), h.DataAttribute("draft", "")], ["Draft"]), " "]
+                      : [],
+                  ),
+                  [statement.text],
+                ),
+              );
+            }),
+          ),
+        ],
+        h,
+      ),
+    ],
+  });
+};
+
 /** "on t52" for a parent, "from main" for none. */
 const parentText = (task: TraceTask): string =>
   Option.match(Option.fromNullOr(task.parent), {
@@ -281,6 +349,7 @@ const taskView = (
         ),
       ),
     ],
+    doneWhenView(trace, task, h),
     task.gate.required ? [gateView(task, h)] : [],
     [
       commitsView(task, h),
