@@ -13,6 +13,7 @@ import {
   Array,
   Console,
   Context,
+  Duration,
   Effect,
   FileSystem,
   HashSet,
@@ -474,6 +475,29 @@ const failed =
   (error: AiError.AiError | PlannerError | PromptError | Schema.SchemaError) =>
     Schema.is(PlannerError)(error) ? error : new PlannerError({ call, reason: error.message });
 
+/**
+ * Logs one line when a model call ends: which call it was, how long it took, the sizes of its
+ * prompt and reply in characters, and whether it failed. A retry is a model call of its own, so it
+ * has its own line. The line goes where the program's logger sends it: stderr for `cairn`.
+ */
+const timed =
+  (call: PlannerError["call"]) =>
+  <A extends { readonly text: string }, E, R>(prompt: string, ask: Effect.Effect<A, E, R>) =>
+    Effect.timed(Effect.result(ask)).pipe(
+      Effect.tap(([elapsed, reply]) =>
+        Effect.logInfo("Planner call").pipe(
+          Effect.annotateLogs({
+            call,
+            outcome: Result.isSuccess(reply) ? "ok" : "failed",
+            promptChars: String.length(prompt),
+            replyChars: Result.isSuccess(reply) ? String.length(reply.success.text) : 0,
+            seconds: Number.round(Duration.toSeconds(elapsed), 1),
+          }),
+        ),
+      ),
+      Effect.flatMap(([, reply]) => Effect.fromResult(reply)),
+    );
+
 /** The Mermaid blocks of `markdown` that do not draw, each with its parser error and the section it is in. */
 const undrawnIn = (markdown: string) => {
   const sections = sectionsOf(markdown);
@@ -606,28 +630,30 @@ export class Planner extends Context.Service<
         const prompts = yield* loadPrompts(config.judge.models, config.categories);
         const knownCategories = inCategories(config.categories);
 
-        const textFor = (prompt: string) =>
-          LanguageModel.generateText({ prompt }).pipe(
-            Effect.provideService(LanguageModel.LanguageModel, model),
-            Effect.map((response) => response.text),
-          );
+        const textFor = (call: PlannerError["call"]) => (prompt: string) =>
+          timed(call)(
+            prompt,
+            LanguageModel.generateText({ prompt }).pipe(
+              Effect.provideService(LanguageModel.LanguageModel, model),
+            ),
+          ).pipe(Effect.map((response) => response.text));
 
         const spec = Effect.fn("Planner.spec")(
           function* (prd: string) {
             const prompt = yield* prompts.spec(prd);
-            const reply = yield* textFor(prompt);
+            const reply = yield* textFor("spec")(prompt);
             return yield* drawnOf(reply, (errors) =>
-              prompts.retry(prompt, errors).pipe(Effect.flatMap(textFor)),
+              prompts.retry(prompt, errors).pipe(Effect.flatMap(textFor("spec"))),
             );
           },
           Effect.mapError(failed("spec")),
         );
 
         const drawnFor = (prompt: string) =>
-          textFor(prompt).pipe(
+          textFor("sections")(prompt).pipe(
             Effect.flatMap((reply) =>
               drawnOf(reply, (errors) =>
-                prompts.retry(prompt, errors).pipe(Effect.flatMap(textFor)),
+                prompts.retry(prompt, errors).pipe(Effect.flatMap(textFor("sections"))),
               ),
             ),
           );
@@ -677,14 +703,14 @@ export class Planner extends Context.Service<
           );
 
         const draftsFor = (schema: typeof TaskDrafts) => (prompt: string) =>
-          LanguageModel.generateObject({
-            objectName: "TaskDrafts",
+          timed("tasks")(
             prompt,
-            schema,
-          }).pipe(
-            Effect.provideService(LanguageModel.LanguageModel, model),
-            Effect.map((response) => response.value.drafts),
-          );
+            LanguageModel.generateObject({
+              objectName: "TaskDrafts",
+              prompt,
+              schema,
+            }).pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+          ).pipe(Effect.map((response) => response.value.drafts));
 
         const tasks = Effect.fn("Planner.tasks")(
           function* (
@@ -711,23 +737,20 @@ export class Planner extends Context.Service<
         const splitSection = Effect.fn("Planner.splitSection")(
           function* (section: string, reason: string) {
             const prompt = yield* prompts.splitSection(section, reason);
-            const response = yield* LanguageModel.generateText({ prompt }).pipe(
-              Effect.provideService(LanguageModel.LanguageModel, model),
-            );
-            return response.text;
+            return yield* textFor("splitSection")(prompt);
           },
           Effect.mapError(failed("splitSection")),
         );
 
         const splitDraftsFor = (prompt: string) =>
-          LanguageModel.generateObject({
-            objectName: "SplitDrafts",
+          timed("splitTask")(
             prompt,
-            schema: SplitDrafts.check(knownCategories),
-          }).pipe(
-            Effect.provideService(LanguageModel.LanguageModel, model),
-            Effect.map((response) => response.value.drafts),
-          );
+            LanguageModel.generateObject({
+              objectName: "SplitDrafts",
+              prompt,
+              schema: SplitDrafts.check(knownCategories),
+            }).pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+          ).pipe(Effect.map((response) => response.value.drafts));
 
         const splitTask = Effect.fn("Planner.splitTask")(
           function* (draft: TaskDraft, specText: string, reason: string) {
@@ -742,14 +765,14 @@ export class Planner extends Context.Service<
           function* (section: IndexTarget) {
             const prompt = yield* prompts.index(section);
             const proseFor = (text: string) =>
-              LanguageModel.generateObject({
-                objectName: "IndexProse",
-                prompt: text,
-                schema: indexProseOf(section.id),
-              }).pipe(
-                Effect.provideService(LanguageModel.LanguageModel, model),
-                Effect.map((response) => response.value),
-              );
+              timed("index")(
+                text,
+                LanguageModel.generateObject({
+                  objectName: "IndexProse",
+                  prompt: text,
+                  schema: indexProseOf(section.id),
+                }).pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+              ).pipe(Effect.map((response) => response.value));
             return yield* withRetry(prompt, proseFor);
           },
           Effect.mapError(failed("index")),
@@ -759,14 +782,14 @@ export class Planner extends Context.Service<
           function* (prd: string, targets: ReadonlyArray<PrdSectionId>) {
             const prompt = yield* prompts.statements(prd, targets);
             const draftsOf = (text: string) =>
-              LanguageModel.generateObject({
-                objectName: "StatementDrafts",
-                prompt: text,
-                schema: statementDraftsOf(targets),
-              }).pipe(
-                Effect.provideService(LanguageModel.LanguageModel, model),
-                Effect.map((response) => response.value.statements),
-              );
+              timed("statements")(
+                text,
+                LanguageModel.generateObject({
+                  objectName: "StatementDrafts",
+                  prompt: text,
+                  schema: statementDraftsOf(targets),
+                }).pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+              ).pipe(Effect.map((response) => response.value.statements));
             return yield* withRetry(prompt, draftsOf);
           },
           Effect.mapError(failed("statements")),
