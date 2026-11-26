@@ -1,4 +1,5 @@
 import {
+  LinesStep,
   PrdSectionId,
   SectionId,
   Link,
@@ -59,6 +60,8 @@ import {
   linkTargetsOf,
   loadedOf,
   noticeOf,
+  foundPassageOf,
+  pathOfLink,
   resolveLink,
   sharedLengthOf,
   type Resolution,
@@ -535,6 +538,63 @@ const openedFrom = (
   });
 
 /**
+ * Opens the selected passage of `section` as a step, pinning and marking it as a link does, and
+ * copies the link up to that step. What else is open stays where it is, and nothing scrolls: the
+ * passage is already in front of the reader. Without a trace, with no selection in that section or
+ * with one its prose does not hold, nothing happens.
+ */
+const passageLinkCopied = (model: Model, section: SectionId): Update.Return<Model, Message> =>
+  Option.match(
+    Option.flatMap(traceOf(model), (trace) =>
+      Option.map(
+        Option.flatMap(
+          Option.filter(model.maybeSelectedPassage, (selection) => selection.section === section),
+          (selection) => foundPassageOf(trace, selection),
+        ),
+        (passage) => ({ passage, trace }),
+      ),
+    ),
+    {
+      onNone: () => ({ model }),
+      onSome: ({ passage, trace }) => {
+        const opened = modifyFields(appliedStep(trace, model, passage), {
+          maybeCopiedLink: () => Option.none(),
+        });
+        const link = linkOf(opened);
+        const upToPassage = Option.match(
+          Array.findFirstIndex(link, (step) => step.kind === "passage"),
+          { onNone: () => link, onSome: (index) => Array.take(link, index + 1) },
+        );
+        return { commands: [CopyLink({ path: pathOfLink(upToPassage) })], model: opened };
+      },
+    },
+  );
+
+const decodeLines = Schema.decodeUnknownOption(LinesStep);
+
+/**
+ * The lines a person selected in the diff, in the file they selected them in, which becomes the
+ * code view's file: the link then names the file and the lines together, whether or not the file
+ * was picked in the tree. A range that is not lines leaves the file with none. With no code view
+ * open there is nothing to set.
+ */
+const linesSelected = (
+  model: Model,
+  path: string,
+  maybeLines: Option.Option<typeof LinesStep.Type>,
+): Model =>
+  inCode(model, (code) =>
+    modifyFields(code, {
+      maybeFile: () => Option.some(path),
+      maybeLines: () => maybeLines,
+    }),
+  );
+
+/** The diff's selection was cleared: the file stays and its lines go. */
+const linesCleared = (model: Model): Model =>
+  inCode(model, (code) => modifyFields(code, { maybeLines: () => Option.none() }));
+
+/**
  * A link waiting for its data is resolved again when a patch or a session arrives: `received` is
  * the model with it, and `model` the one before. The steps that were waiting are brought into view.
  */
@@ -972,6 +1032,7 @@ const updated = (model: Model, message: Message) =>
       commands: [CopyLink({ path })],
       model: modifyFields(model, { maybeCopiedLink: () => Option.none() }),
     }),
+    ClickedCopyPassageLink: ({ section }) => passageLinkCopied(model, section),
     ClickedSectionId: ({ id }) => ({ commands: [CopySectionId({ id })], model }),
     // Pinning keeps the pane where it is; the pinned section stays current while the PRD scrolls.
     // A PRD passage a link opened belongs to the pin it replaces, so it goes with it.
@@ -1045,6 +1106,16 @@ const updated = (model: Model, message: Message) =>
         readers: () => [],
         presenceConnection: () => PresenceConnection.Disconnected(),
       }),
+    }),
+    ClearedPassageSelection: () => ({
+      model: modifyFields(model, { maybeSelectedPassage: () => Option.none() }),
+    }),
+    SelectedPassage: ({ quote, section }) => ({
+      model: modifyFields(model, { maybeSelectedPassage: () => Option.some({ quote, section }) }),
+    }),
+    ClearedDiffLines: () => ({ model: linesCleared(model) }),
+    SelectedDiffLines: ({ end, path, side, start }) => ({
+      model: linesSelected(model, path, decodeLines({ end, kind: "lines", side, start })),
     }),
     // A refused copy leaves the button as it was.
     CompletedCopyLink: ({ isCopied, path }) => ({

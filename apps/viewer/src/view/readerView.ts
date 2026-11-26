@@ -3,7 +3,7 @@ import { Array, Option, Record } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { focusTaskOf } from "../arrows.ts";
-import { linkOf, pathOfLink, trailLinkOf } from "../links.ts";
+import { linkOf, passageButtonOf, pathOfLink, trailLinkOf } from "../links.ts";
 import { Message } from "../message.ts";
 import type { Destination, Model } from "../model.ts";
 import { currentOf, searchedSectionOf } from "../reader.ts";
@@ -158,6 +158,14 @@ export const readerView = (
     onNone: () => "",
     onSome: () => pathOfLink(Array.take(linkOf(model), 1)),
   });
+  // The selection's button is given to the panes as plain values, so a pane that memoizes its
+  // body is rebuilt when the button changes and not each time the selection grows.
+  const maybePassageButton = passageButtonOf(trace, model.maybeSelectedPassage);
+  const selectedSection: string = Option.match(maybePassageButton, {
+    onNone: () => "",
+    onSome: (button) => button.section,
+  });
+  const isSelectionOverLimit = Option.exists(maybePassageButton, (button) => button.isOverLimit);
   return h.div(
     [
       h.Class("reader"),
@@ -230,6 +238,8 @@ export const readerView = (
               model.search.results,
               model.search.maybeActive,
               model.reader.maybePassage,
+              selectedSection,
+              isSelectionOverLimit,
               model.readers,
               h,
             ),
@@ -243,6 +253,8 @@ export const readerView = (
               model.search.results,
               model.search.maybeActive,
               model.maybeCopiedLink,
+              selectedSection,
+              isSelectionOverLimit,
               h,
             ),
             dividerView("spec", model.widths, h),

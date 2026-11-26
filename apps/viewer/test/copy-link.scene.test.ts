@@ -1,7 +1,7 @@
-import { PrdSectionId, Session, SpecSectionId, Step, type Link } from "@cairn/contract";
+import { PrdSectionId, SectionId, Session, SpecSectionId, Step, type Link } from "@cairn/contract";
 import { stacksOf } from "@cairn/core/stacks";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Option, Result, Schema } from "effect";
+import { Array, Option, Result, Schema, String, pipe } from "effect";
 import {
   Command,
   Mount,
@@ -20,6 +20,8 @@ import { demoTrace } from "../src/demo.ts";
 import { RenderDiff } from "../src/diff.ts";
 import { aloneOf, linkOf, pathOfLink, trailLinkOf, trunkOf } from "../src/links.ts";
 import { Message } from "../src/message.ts";
+import { indexOf } from "../src/search.ts";
+import { quoteOf } from "../src/subscription/selection.ts";
 import { CopyLink, openLink, update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
@@ -353,4 +355,271 @@ it("aloneOf of the last step of a code link is the task, diff, file and lines, a
   assert(Option.map(aloneOf(link, 4), pathOfLink)).toEqual(Option.some(`${TO_FILE}/lines/n1-3`));
   assert(Option.map(aloneOf(link, 0), pathOfLink)).toEqual(Option.some("/section/prd.viewer"));
   assert(aloneOf(link, 5)).toEqual(Option.none());
+});
+
+// A SELECTED PASSAGE
+
+/** The first four words of a section's first prose block: text a link to the section still finds. */
+const quoteIn = (id: string) =>
+  Option.getOrThrow(
+    pipe(
+      Array.findFirst(indexOf(demoTrace).content, (entry) => entry.node.id === id),
+      Option.flatMap((entry) => Array.findFirst(entry.fields, (field) => field.kind === "prose")),
+      Option.map((field) => Array.join(Array.take(String.split(quoteOf(field.text), " "), 4), " ")),
+      Option.filter((quote) => Array.length(String.split(quote, " ")) === 4),
+    ),
+  );
+
+const PRD_QUOTE = quoteIn("prd.viewer");
+/** The reader with nothing opened. */
+const reading = linked([]);
+const selecting = (model: typeof loaded, section: string, quote: string) =>
+  update(model, Message.SelectedPassage({ quote, section: SectionId.make(section) })).model;
+const passageStepOf = (section: string, quote: string) =>
+  decodeStep({ kind: "passage", quote, section });
+const PRD_PATH = pathOfLink([passageStepOf("prd.viewer", PRD_QUOTE)]);
+const passageButton = (section: string) => selector(`[data-copy-passage="${section}"]`);
+const statusLine = selector('[data-status-line="prd.viewer"]');
+
+it("Copy link to passage pins the section, marks the passage and copies the link up to it", () => {
+  assert(String.startsWith("/passage/prd.viewer/")(PRD_PATH)).toBe(true);
+  scene(
+    app,
+    given(selecting(reading, "prd.viewer", PRD_QUOTE)),
+    readerMounted,
+    expectAll(all.selector("[data-copy-passage]")).toHaveCount(1),
+    expect(passageButton("prd.viewer")).toHaveText("Copy link to passage"),
+    expect(statusLine).toHaveAttr("aria-pressed", "false"),
+    click(passageButton("prd.viewer")),
+    Command.expectExact(CopyLink),
+    copied(PRD_PATH),
+    expect(statusLine).toHaveAttr("aria-pressed", "true"),
+    expect(selector("[data-prd-pane] mark[data-link-passage]")).toContainText(
+      Option.getOrThrow(Array.head(String.split(PRD_QUOTE, " "))),
+    ),
+    // The pinned row's own Copy link holds the same path, so it reads copied too.
+    expect(copyButton('[data-prd-sec="prd.viewer"] .prd-pinrow', PRD_PATH)).toHaveText("copied"),
+  );
+});
+
+it("the passage button is in the selected section's row alone, and leaves with the selection", () => {
+  const selected = selecting(reading, "prd.viewer", PRD_QUOTE);
+  scene(
+    app,
+    given(selected),
+    readerMounted,
+    expect(selector('[data-prd-sec="prd.viewer"] .prd-pinrow [data-copy-passage]')).toExist(),
+    expect(selector('[data-prd-sec="prd.goal"] [data-copy-passage]')).toBeAbsent(),
+  );
+  scene(
+    app,
+    given(update(selected, Message.ClearedPassageSelection()).model),
+    readerMounted,
+    expectAll(all.selector("[data-copy-passage]")).toBeEmpty(),
+  );
+});
+
+/** A PRD section's prose block of 600 or more characters, collapsed as a quote is. */
+const LONG_PROSE = Option.getOrThrow(
+  Array.findFirst(
+    Array.flatMap(indexOf(demoTrace).content, (entry) =>
+      Array.map(
+        Array.filter(
+          entry.fields,
+          (field) => field.kind === "prose" && String.length(quoteOf(field.text)) >= 600,
+        ),
+        (field) => ({ section: entry.node.id, text: quoteOf(field.text) }),
+      ),
+    ),
+    ({ section }) => Schema.is(PrdSectionId)(section),
+  ),
+);
+
+it("a selection over 500 characters disables the passage button, and 500 does not", () => {
+  const tooLong = Array.join(Array.replicate("word", 101), " ");
+  assert(String.length(tooLong)).toBe(504);
+  scene(
+    app,
+    given(selecting(reading, "prd.viewer", tooLong)),
+    readerMounted,
+    expect(passageButton("prd.viewer")).toBeDisabled(),
+    expect(passageButton("prd.viewer")).toHaveAttr(
+      "title",
+      "Select at most 500 characters to link to them.",
+    ),
+  );
+  const prose = LONG_PROSE.text;
+  const from = Option.getOrThrow(
+    Array.findFirst(Array.range(0, 60), (start) =>
+      Option.exists(
+        Option.all({
+          first: Array.get(String.split(prose, ""), start),
+          last: Array.get(String.split(prose, ""), start + 499),
+        }),
+        ({ first, last }) => first !== " " && last !== " ",
+      ),
+    ),
+  );
+  const atLimit = String.slice(from, from + 500)(prose);
+  assert(String.length(atLimit)).toBe(500);
+  scene(
+    app,
+    given(selecting(reading, LONG_PROSE.section, atLimit)),
+    readerMounted,
+    expect(passageButton(LONG_PROSE.section)).not.toBeDisabled(),
+    expect(passageButton(LONG_PROSE.section)).not.toHaveAttr("title"),
+  );
+});
+
+it("a selection the section's prose does not hold, as one in a code block, shows no button", () => {
+  scene(
+    app,
+    given(selecting(reading, "prd.viewer", `${PRD_QUOTE} and then some words nobody wrote`)),
+    readerMounted,
+    expect(statusLine).toExist(),
+    expect(selector("[data-copy-passage]")).toBeAbsent(),
+  );
+});
+
+it("a selection that is not a quote a link can hold shows no button", () => {
+  scene(
+    app,
+    given(selecting(reading, "prd.viewer", "..")),
+    readerMounted,
+    expect(statusLine).toExist(),
+    expect(selector("[data-copy-passage]")).toBeAbsent(),
+  );
+});
+
+const specCard = Option.getOrThrow(
+  Array.findFirst(demoTrace.spec.sections, (section) =>
+    Option.isSome(
+      Option.liftPredicate(section.id, Schema.is(SpecSectionId)).pipe(
+        Option.filter(() => Array.isReadonlyArrayNonEmpty(section.keys.implements)),
+        Option.flatMap((id) => Option.liftThrowable(() => quoteIn(id))()),
+      ),
+    ),
+  ),
+);
+const SPEC_QUOTE = quoteIn(specCard.id);
+const SPEC_PRD = Option.getOrThrow(Array.head(specCard.keys.implements));
+
+it("on a spec card, Copy link to passage pins what the section implements and copies up to the passage", () => {
+  const path = pathOfLink([
+    decodeStep({ id: SPEC_PRD, kind: "section" }),
+    passageStepOf(specCard.id, SPEC_QUOTE),
+  ]);
+  const button = selector(`[data-spec="${specCard.id}"] [data-copy-passage="${specCard.id}"]`);
+  scene(
+    app,
+    given(selecting(linked([{ id: SPEC_PRD, kind: "section" }]), specCard.id, SPEC_QUOTE)),
+    readerMounted,
+    expectAll(all.selector("[data-copy-passage]")).toHaveCount(1),
+    click(button),
+    Command.expectExact(CopyLink),
+    copied(path),
+    expect(selector("[data-spec-pane] mark[data-link-passage]")).toContainText(
+      Option.getOrThrow(Array.head(String.split(SPEC_QUOTE, " "))),
+    ),
+  );
+});
+
+it("copying a passage keeps the trail and the code view the person has open", () => {
+  const trailed = selecting(twoSteps, "prd.viewer", PRD_QUOTE);
+  const opened = update(
+    trailed,
+    Message.ClickedCopyPassageLink({ section: SectionId.make("prd.viewer") }),
+  );
+  assert(pathOfLink(linkOf(opened.model))).toBe(`${PRD_PATH}${TWO_STEP_PATH}`);
+  assert(Array.map(opened.model.detail, (node) => node.id)).toEqual([specId, taskWithSpec.id]);
+});
+
+it("the click does nothing for a section the selection is not in", () => {
+  const selected = selecting(reading, "prd.viewer", PRD_QUOTE);
+  const clicked = update(
+    selected,
+    Message.ClickedCopyPassageLink({ section: SectionId.make("prd.goal") }),
+  );
+  assert(clicked.model).toEqual(selected);
+  assert(Option.getOrElse(Option.fromNullishOr(clicked.commands), () => [])).toEqual([]);
+});
+
+// SELECTED DIFF LINES
+
+/** The task's diff at its head, a file open in it and no lines, its patch received. */
+const fileOpen = update(
+  linked([
+    { id: task.id, kind: "task" },
+    { head, kind: "diff" },
+    { kind: "file", path: FILE },
+  ]),
+  Message.ReceivedPatch({ path: diffPathOf(base, head), result: Result.succeed(commitPatch) }),
+).model;
+
+const OTHER_FILE = "packages/contract/src/index.ts";
+const OTHER_TO_FILE = `/task/${task.id}/diff/${head}/file/${encodeURIComponent(OTHER_FILE)}`;
+
+it("SelectedDiffLines sets the lines, and the link gains its lines step", () => {
+  const before = linkOf(fileOpen);
+  assert(Option.exists(Array.last(before), (step) => step.kind === "lines")).toBe(false);
+  const selected = update(
+    fileOpen,
+    Message.SelectedDiffLines({ end: 3, path: FILE, side: "new", start: 1 }),
+  ).model;
+  assert(Array.drop(linkOf(selected), Array.length(before))).toEqual([
+    decodeStep({ end: 3, kind: "lines", side: "new", start: 1 }),
+  ]);
+  assert(pathOfLink(linkOf(selected))).toBe(`${TO_FILE}/lines/n1-3`);
+  // Copy alone picks the lines up with the task, the diff and the file.
+  assert(
+    Option.map(aloneOf(linkOf(selected), Array.length(linkOf(selected)) - 1), pathOfLink),
+  ).toEqual(Option.some(`${TO_FILE}/lines/n1-3`));
+  // Selecting again replaces them, and clearing the selection removes them.
+  const replaced = update(
+    selected,
+    Message.SelectedDiffLines({ end: 7, path: FILE, side: "old", start: 7 }),
+  ).model;
+  assert(pathOfLink(linkOf(replaced))).toBe(`${TO_FILE}/lines/o7`);
+  assert(linkOf(update(replaced, Message.ClearedDiffLines()).model)).toEqual(before);
+});
+
+it("lines selected in a file nobody opened in the tree open that file and join the link", () => {
+  const noFile = update(
+    linked([
+      { id: task.id, kind: "task" },
+      { head, kind: "diff" },
+    ]),
+    Message.ReceivedPatch({ path: diffPathOf(base, head), result: Result.succeed(commitPatch) }),
+  ).model;
+  const selected = update(
+    noFile,
+    Message.SelectedDiffLines({ end: 3, path: FILE, side: "new", start: 1 }),
+  ).model;
+  assert(pathOfLink(linkOf(selected))).toBe(`${TO_FILE}/lines/n1-3`);
+  // Lines in another file than the open one move the file with them.
+  const moved = update(
+    fileOpen,
+    Message.SelectedDiffLines({ end: 9, path: OTHER_FILE, side: "new", start: 9 }),
+  ).model;
+  assert(pathOfLink(linkOf(moved))).toBe(`${OTHER_TO_FILE}/lines/n9`);
+});
+
+it("lines change nothing with no code view open", () => {
+  assert(
+    update(loaded, Message.SelectedDiffLines({ end: 3, path: FILE, side: "new", start: 1 })).model,
+  ).toEqual(loaded);
+  assert(update(loaded, Message.ClearedDiffLines()).model).toEqual(loaded);
+});
+
+it("a range that is not lines leaves the file with none", () => {
+  const selected = update(
+    fileOpen,
+    Message.SelectedDiffLines({ end: 3, path: FILE, side: "new", start: 1 }),
+  ).model;
+  assert(
+    linkOf(
+      update(selected, Message.SelectedDiffLines({ end: 1, path: FILE, side: "new", start: 3 }))
+        .model,
+    ),
+  ).toEqual(linkOf(fileOpen));
 });

@@ -1197,7 +1197,8 @@ mark[data-link-passage] {
 }
 
 /* A Copy link button is a small btn: it sits beside what it links to and never competes with it. */
-.btn[data-copy-link] {
+.btn[data-copy-link],
+.btn[data-copy-passage] {
   padding: 1px 6px;
   box-shadow: none;
   color: var(--muted);
@@ -1206,17 +1207,25 @@ mark[data-link-passage] {
   white-space: nowrap;
 }
 
-.btn[data-copy-link]:hover {
+.btn[data-copy-link]:hover,
+.btn[data-copy-passage]:hover:not(:disabled) {
   color: var(--ink);
 }
 
-.prd-pinrow > .btn[data-copy-link] {
+.btn[data-copy-passage]:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.prd-pinrow > .btn[data-copy-link],
+.prd-pinrow > .btn[data-copy-passage] {
   padding: 1px 6px;
 }
 
 /* On a spec card, under its header and to the right. */
 .card-copy {
   display: flex;
+  gap: 6px;
   justify-content: flex-end;
   padding: 4px 11px 0;
 }

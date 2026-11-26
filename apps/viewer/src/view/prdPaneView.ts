@@ -33,9 +33,10 @@ import {
   type Rendered,
   type SectionHooks,
 } from "../markdown.ts";
-import { linkedMarksOf, sectionPathOf } from "../links.ts";
+import { linkedMarksOf, sectionPathOf, type PassageButton } from "../links.ts";
+import { PASSAGE_ATTRIBUTE } from "../subscription/selection.ts";
 import { blockKeyFor, marksOf, type SearchResult } from "../search.ts";
-import { copyButtonView } from "./copyLinkView.ts";
+import { copyButtonView, copyPassageView, passageButtonFor } from "./copyLinkView.ts";
 import {
   coverageOf,
   countsOf,
@@ -164,6 +165,7 @@ const statusLineView = (
   isPinned: boolean,
   pinnedPath: string,
   maybeCopiedLink: Option.Option<string>,
+  maybePassageButton: Option.Option<PassageButton>,
   h: HtmlBuilder<Message>,
 ): Html =>
   Option.match(coverageOf(status), {
@@ -184,10 +186,20 @@ const statusLineView = (
             ),
           ],
           // The pinned section's link, up to its step: the passage when one replaced the section.
-          isPinned ? [copyButtonView(maybeCopiedLink, pinnedPath, "Copy link", h)] : [],
+          Array.appendAll(
+            isPinned ? [copyButtonView(maybeCopiedLink, pinnedPath, "Copy link", h)] : [],
+            Array.map(Array.fromOption(maybePassageButton), (button) => copyPassageView(button, h)),
+          ),
         ),
       ),
-    onSome: (note) => h.p([h.Class("prd-covnote"), h.DataAttribute("coverage", status)], [note]),
+    onSome: (note) => {
+      const covered = h.p([h.Class("prd-covnote"), h.DataAttribute("coverage", status)], [note]);
+      // A selection in a section with a coverage note puts its button in a row under the note.
+      return Option.match(maybePassageButton, {
+        onNone: () => covered,
+        onSome: (button) => h.div([h.Class("prd-pinrow")], [covered, copyPassageView(button, h)]),
+      });
+    },
   });
 
 /** The section's ID, small beside its title; it reads "copied" once the clipboard took it. */
@@ -359,6 +371,7 @@ const sectionView = (
   pinnedPath: string,
   maybeCopied: Option.Option<PrdSectionId>,
   maybeCopiedLink: Option.Option<string>,
+  maybePassageButton: Option.Option<PassageButton>,
   folded: Folded,
   searchOf: (sectionId: SectionId) => NodeSearch,
   readers: ReadonlyArray<SectionReader>,
@@ -415,6 +428,7 @@ const sectionView = (
                         Option.contains(maybePinned, id),
                         pinnedPath,
                         maybeCopiedLink,
+                        maybePassageButton,
                         h,
                       ),
                     ),
@@ -455,6 +469,7 @@ const sectionView = (
                     Array.appendAll(panel, [
                       h.Class("prose"),
                       h.DataAttribute("prd-prose", section.id),
+                      h.Attribute(PASSAGE_ATTRIBUTE, section.id),
                     ]),
                     [renderSection(document, section.id, h, hooks)],
                   ),
@@ -486,6 +501,8 @@ const prdBodyView = (
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
   maybePassage: Option.Option<typeof PassageStep.Type>,
+  selectedSection: string,
+  isSelectionOverLimit: boolean,
   readers: ReadonlyArray<SectionReader>,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -515,6 +532,7 @@ const prdBodyView = (
           pinnedPath,
           maybeCopied,
           maybeCopiedLink,
+          passageButtonFor(selectedSection, isSelectionOverLimit, section.id),
           folded,
           searchOf,
           readers,
@@ -561,6 +579,8 @@ export const prdPaneView = (
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
   maybePassage: Option.Option<typeof PassageStep.Type>,
+  selectedSection: string,
+  isSelectionOverLimit: boolean,
   readers: ReadonlyArray<SectionReader>,
   h: HtmlBuilder<Message>,
 ): Html =>
@@ -590,6 +610,8 @@ export const prdPaneView = (
         results,
         maybeActive,
         maybePassage,
+        selectedSection,
+        isSelectionOverLimit,
         readers,
         h,
       ]),

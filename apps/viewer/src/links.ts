@@ -1,10 +1,10 @@
 import {
+  PassageStep,
   PrdSectionId,
   SpecSectionId,
   Step,
   encodeLink,
   type SectionId,
-  type PassageStep,
   type Link,
   type LinkError,
   type Quote,
@@ -51,6 +51,7 @@ import {
   Shown,
   type CodeScreen,
   type Model,
+  type PassageSelection,
   type PatchData,
 } from "./model.ts";
 import { Range } from "./range.ts";
@@ -773,6 +774,51 @@ export const sectionPathOf = (id: SectionId): string =>
     onNone: () => "/",
     onSome: (valid) => pathOfLink([sectionStep(valid)]),
   });
+
+/** The most characters a quote holds; the contract's `Quote` says the same. */
+export const QUOTE_LIMIT = 500;
+
+const decodePassage = Schema.decodeUnknownOption(PassageStep);
+
+/** The passage step a selection makes. None when its text is not a quote a link can hold. */
+export const passageStepOf = ({
+  quote,
+  section,
+}: PassageSelection): Option.Option<typeof PassageStep.Type> =>
+  decodePassage({ kind: "passage", quote, section });
+
+/** The passage step a selection makes, when the section's prose holds its quote. */
+export const foundPassageOf = (
+  trace: Trace,
+  selection: PassageSelection,
+): Option.Option<typeof PassageStep.Type> =>
+  Option.filter(passageStepOf(selection), ({ quote, section }) =>
+    Option.isSome(passageOf(indexOf(trace), section, quote)),
+  );
+
+/**
+ * "Copy link to passage" for a selection: its section, and whether the text is too long to link.
+ * None when the text is not one a link can quote, or when the section's prose does not hold it
+ * (a fenced code block, a diagram and a key row are shown but are not prose), so no button is
+ * shown for a link that would open as a changed passage.
+ */
+export interface PassageButton {
+  readonly isOverLimit: boolean;
+  readonly section: SectionId;
+}
+
+export const passageButtonOf = (
+  trace: Trace,
+  maybeSelection: Option.Option<PassageSelection>,
+): Option.Option<PassageButton> =>
+  Option.flatMap(maybeSelection, (selection): Option.Option<PassageButton> =>
+    String.length(selection.quote) > QUOTE_LIMIT
+      ? Option.some({ isOverLimit: true, section: selection.section })
+      : Option.as(foundPassageOf(trace, selection), {
+          isOverLimit: false,
+          section: selection.section,
+        }),
+  );
 
 /**
  * The paths the code view's buttons copy: the whole link, the link's last step alone, and the link

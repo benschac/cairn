@@ -13,6 +13,7 @@ import { diagramView } from "../diagram.ts";
 import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
 import { linkedMarksOf, sectionPathOf } from "../links.ts";
 import { documentOf, renderSection, type Rendered } from "../markdown.ts";
+import { PASSAGE_ATTRIBUTE } from "../subscription/selection.ts";
 import { Message } from "../message.ts";
 import type { Density, Reader } from "../model.ts";
 import { cardsOf, coverageOf, isOpenCard, ranOf, statusWordOf, tasksOf } from "../reader.ts";
@@ -28,7 +29,7 @@ import {
 import { disclosureView, segmentedView } from "../ui/controls.ts";
 import { dotView, gateView, labelView, tagView } from "../ui/marks.ts";
 import { hoverChainOf, isSpecDimmed, isTaskDimmed, rowKey, specKey, strayKey } from "../wires.ts";
-import { copyButtonView } from "./copyLinkView.ts";
+import { copyButtonView, copyPassageView, passageButtonFor } from "./copyLinkView.ts";
 import { modelChipView, modelSquareView } from "./modelView.ts";
 import { fieldView, matchView, searchedAttributesOf, titleView } from "./nodeView.ts";
 import { hoverAttributesOf } from "./wiresView.ts";
@@ -156,7 +157,7 @@ const fullSectionView = (
     [
       h.div([h.Class("card-meta")], fieldView(search, "id", section.id, h)),
       h.div(
-        [h.Class("prose")],
+        [h.Class("prose"), h.Attribute(PASSAGE_ATTRIBUTE, section.id)],
         [
           renderSection(documentOf(trace.spec.markdown), section.id, h, {
             blockAttributesOf: (offset: number) => [
@@ -190,6 +191,8 @@ const cardView = (
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
   maybeCopiedLink: Option.Option<string>,
+  selectedSection: string,
+  isSelectionOverLimit: boolean,
   h: HtmlBuilder<Message>,
 ): Html => {
   const tasks = tasksOf(trace, section);
@@ -269,7 +272,15 @@ const cardView = (
               // Beside the header, not in it: a button holds no button.
               h.div(
                 [h.Class("card-copy")],
-                [copyButtonView(maybeCopiedLink, sectionPathOf(section.id), "Copy link", h)],
+                Array.prepend(
+                  Array.map(
+                    Array.fromOption(
+                      passageButtonFor(selectedSection, isSelectionOverLimit, section.id),
+                    ),
+                    (passage) => copyPassageView(passage, h),
+                  ),
+                  copyButtonView(maybeCopiedLink, sectionPathOf(section.id), "Copy link", h),
+                ),
               ),
             ],
             Array.appendAll(
@@ -397,6 +408,8 @@ export const specPaneView = (
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
   maybeCopiedLink: Option.Option<string>,
+  selectedSection: string,
+  isSelectionOverLimit: boolean,
   h: HtmlBuilder<Message>,
 ): Html =>
   Option.match(maybeCurrent, {
@@ -442,6 +455,9 @@ export const specPaneView = (
                     results,
                     maybeActive,
                     maybeCopiedLink,
+                    // A card is given the selection only when it holds it.
+                    selectedSection === section.id ? selectedSection : "",
+                    selectedSection === section.id && isSelectionOverLimit,
                     h,
                   ]),
                 ),

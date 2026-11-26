@@ -6,6 +6,7 @@ import {
   type CodeViewOptions,
   type DiffLineAnnotation,
   type FileDiffMetadata,
+  type SelectedLineRange,
 } from "@pierre/diffs";
 import {
   Array,
@@ -103,6 +104,14 @@ const NO_MARK: RenderMark = () => undefined;
 const DEFAULT_DIFF_STYLE: DiffStyle = "unified";
 
 /**
+ * What the list tells the mount when a person selects lines: the ID of the item the selection was
+ * made in, and the range, or none when the selection was cleared.
+ */
+export type LinesSelected = (id: string, maybeRange: Option.Option<SelectedLineRange>) => void;
+
+const NO_SELECTION: LinesSelected = () => undefined;
+
+/**
  * What the list is built with. The Highlights backend colours code with the lexers and the light
  * palette the documents' fenced code uses, so Shiki is never loaded; a file's language is the one
  * `@pierre/diffs` infers from its path, and a path with no lexer is plain text with its added and
@@ -112,10 +121,16 @@ const DEFAULT_DIFF_STYLE: DiffStyle = "unified";
 export const diffOptionsOf = (
   style: DiffStyle,
   renderMark: RenderMark = NO_MARK,
+  onLines: LinesSelected = NO_SELECTION,
 ): CodeViewOptions<HunkMark, undefined> => ({
   diffStyle: style,
+  enableLineSelection: true,
   hunkSeparators: "line-info",
   lineDiffType: "word-alt",
+  // A selection is reported when it is made, not as it is dragged: one message for each.
+  onLineSelected: (range, context) => {
+    onLines(context.item.id, Option.fromNullOr(range));
+  },
   preferredHighlighter: "highlights",
   renderAnnotation: renderMark,
   stickyHeaders: true,
@@ -229,6 +244,49 @@ export const linesFromText = (text: string): Option.Option<typeof LinesStep.Type
 /** The lines in the element's attribute; none when it is missing or is not a range of lines. */
 export const linesOf = (element: Element): Option.Option<typeof LinesStep.Type> =>
   Option.flatMap(Option.fromNullOr(element.getAttribute(LINES_ATTRIBUTE)), linesFromText);
+
+/**
+ * The lines a selection in the list makes: the range ordered, on the side it started on. A range
+ * that crosses from one side to the other has no lines on a single side, so it links its first
+ * line alone.
+ */
+export const linesOfRange = (range: SelectedLineRange): Option.Option<typeof LinesStep.Type> => {
+  const side = Option.getOrElse(
+    Option.fromUndefinedOr(range.side),
+    (): "additions" | "deletions" => "additions",
+  );
+  const isCrossing = Option.exists(Option.fromUndefinedOr(range.endSide), (end) => end !== side);
+  return decodeLines({
+    end: isCrossing ? range.start : Number.max(range.start, range.end),
+    kind: "lines",
+    side: side === "additions" ? "new" : "old",
+    start: isCrossing ? range.start : Number.min(range.start, range.end),
+  });
+};
+
+/** The file a selection in the list was made in, and the lines it selected there. */
+export interface DiffSelection {
+  readonly lines: typeof LinesStep.Type;
+  readonly path: string;
+}
+
+/**
+ * What a selection in the list selects: the file whose item it was made in, which a link names even
+ * when it was not the one open, and the lines. None when it was cleared, is in no file of the patch
+ * or is not lines.
+ */
+export const diffSelectionOf = (
+  files: ReadonlyArray<FileDiffMetadata>,
+  id: string,
+  maybeRange: Option.Option<SelectedLineRange>,
+): Option.Option<DiffSelection> =>
+  Option.all({
+    lines: Option.flatMap(maybeRange, linesOfRange),
+    path: Option.map(
+      Array.findFirst(files, (file) => itemIdOf(file.name) === id),
+      (file) => file.name,
+    ),
+  });
 
 const sameLines = Option.makeEquivalence(Schema.toEquivalence(LinesStep));
 
@@ -411,32 +469,39 @@ const followTurn = (
  * at mount are what the list started with, so only a difference from them is applied. The observer
  * disconnects when the scope closes.
  */
-const watchAttributes = (element: Element, list: CodeView<HunkMark>, drawn: Drawn) =>
+const watchAttributes = (
+  element: Element,
+  list: CodeView<HunkMark>,
+  drawn: Drawn,
+  shown: {
+    readonly file: MutableRef.MutableRef<Option.Option<string>>;
+    readonly lines: MutableRef.MutableRef<Option.Option<typeof LinesStep.Type>>;
+  },
+  linesSelected: LinesSelected,
+) =>
   Effect.acquireRelease(
     Effect.sync(() => {
       const shownStyle = MutableRef.make(diffStyleOf(element));
-      const shownFile = MutableRef.make(fileOf(element));
-      const shownLines = MutableRef.make(linesOf(element));
       const shownTurn = MutableRef.make(turnOf(element));
       const version = MutableRef.make(0);
       const watcher = new MutationObserver(() => {
         const style = diffStyleOf(element);
         if (style !== MutableRef.get(shownStyle)) {
           MutableRef.set(shownStyle, style);
-          list.setOptions(diffOptionsOf(style, drawn.renderMark));
+          list.setOptions(diffOptionsOf(style, drawn.renderMark, linesSelected));
         }
         const maybeFile = fileOf(element);
-        const isNewFile = !Equal.equals(maybeFile, MutableRef.get(shownFile));
+        const isNewFile = !Equal.equals(maybeFile, MutableRef.get(shown.file));
         if (isNewFile) {
-          MutableRef.set(shownFile, maybeFile);
+          MutableRef.set(shown.file, maybeFile);
           Option.match(maybeFile, {
             onNone: Function.constVoid,
             onSome: (path) => scrollToFile(list, path),
           });
         }
         const maybeLines = linesOf(element);
-        if (isNewFile || !sameLines(maybeLines, MutableRef.get(shownLines))) {
-          MutableRef.set(shownLines, maybeLines);
+        if (isNewFile || !sameLines(maybeLines, MutableRef.get(shown.lines))) {
+          MutableRef.set(shown.lines, maybeLines);
           showLines(list, maybeFile, maybeLines);
         }
         const maybeTurn = turnOf(element);
@@ -481,8 +546,35 @@ const drawFiles = (
   files: ReadonlyArray<FileDiffMetadata>,
   maybeSession: Option.Option<Session>,
   onTurn: (id: string) => void,
+  onLines: (maybeSelection: Option.Option<DiffSelection>) => void,
 ) =>
   Effect.gen(function* () {
+    // The file and lines the list shows: the attributes' at mount, then each the person selected or
+    // the model wrote. A selection is remembered here before it is sent, so the attributes it comes
+    // back as are already shown and the list does not scroll to what the person just selected.
+    const shown = {
+      file: MutableRef.make(fileOf(element)),
+      lines: MutableRef.make(linesOf(element)),
+    };
+    const linesSelected: LinesSelected = (id, maybeRange) =>
+      Option.match(diffSelectionOf(files, id, maybeRange), {
+        onNone: () => {
+          if (Option.isSome(MutableRef.get(shown.lines))) {
+            MutableRef.set(shown.lines, Option.none());
+            onLines(Option.none());
+          }
+        },
+        onSome: (selection) => {
+          const isShown =
+            sameLines(Option.some(selection.lines), MutableRef.get(shown.lines)) &&
+            Option.contains(MutableRef.get(shown.file), selection.path);
+          if (!isShown) {
+            MutableRef.set(shown.file, Option.some(selection.path));
+            MutableRef.set(shown.lines, Option.some(selection.lines));
+            onLines(Option.some(selection));
+          }
+        },
+      });
     const drawn: Drawn = {
       files,
       maybeAttribution: Option.map(maybeSession, (session) => attributionOf(files, session)),
@@ -490,7 +582,10 @@ const drawFiles = (
     };
     const list = yield* Effect.acquireRelease(
       Effect.sync(
-        () => new CodeView<HunkMark>(diffOptionsOf(diffStyleOf(element), drawn.renderMark)),
+        () =>
+          new CodeView<HunkMark>(
+            diffOptionsOf(diffStyleOf(element), drawn.renderMark, linesSelected),
+          ),
       ),
       (started) => Effect.sync(() => started.cleanUp()),
     );
@@ -517,15 +612,22 @@ const drawFiles = (
         followTurn(list, drawn, turnOf(element));
       },
     });
-    yield* watchAttributes(element, list, drawn);
+    yield* watchAttributes(element, list, drawn, shown, linesSelected);
   }).pipe(
     Effect.catch((reason) =>
       Effect.sync(() => showNote(element, `The diff could not be drawn: ${reason}`, true)),
     ),
   );
 
-/** What the diff mount sends: that it has drawn, then each click on a hunk's turn. */
-type DiffMessage = typeof Message.CompletedRenderDiff.Type | typeof Message.ClickedHunkMark.Type;
+/**
+ * What the diff mount sends: that it has drawn, each click on a hunk's turn, and the lines a
+ * person selects or clears.
+ */
+type DiffMessage =
+  | typeof Message.CompletedRenderDiff.Type
+  | typeof Message.ClickedHunkMark.Type
+  | typeof Message.SelectedDiffLines.Type
+  | typeof Message.ClearedDiffLines.Type;
 
 /**
  * Parses the patch and draws its files into the element with the library's `CodeView`, a
@@ -551,9 +653,24 @@ export const RenderDiff = Mount.defineStream("RenderDiff", {
                 Effect.sync(() => showNote(element, "This patch changes no files.", false)),
               onNonEmpty: (changed) =>
                 element instanceof HTMLElement
-                  ? drawFiles(element, changed, session, (id) => {
-                      Queue.offerUnsafe(queue, Message.ClickedHunkMark({ id }));
-                    })
+                  ? drawFiles(
+                      element,
+                      changed,
+                      session,
+                      (id) => {
+                        Queue.offerUnsafe(queue, Message.ClickedHunkMark({ id }));
+                      },
+                      (maybeSelection) => {
+                        Queue.offerUnsafe(
+                          queue,
+                          Option.match(maybeSelection, {
+                            onNone: () => Message.ClearedDiffLines(),
+                            onSome: ({ lines: { end, side, start }, path }) =>
+                              Message.SelectedDiffLines({ end, path, side, start }),
+                          }),
+                        );
+                      },
+                    )
                   : Effect.sync(() =>
                       showNote(element, "The diff has no element to draw in.", true),
                     ),
@@ -562,5 +679,10 @@ export const RenderDiff = Mount.defineStream("RenderDiff", {
         Queue.offerUnsafe(queue, Message.CompletedRenderDiff());
       }),
     ),
-  messages: [Message.CompletedRenderDiff, Message.ClickedHunkMark],
+  messages: [
+    Message.CompletedRenderDiff,
+    Message.ClickedHunkMark,
+    Message.SelectedDiffLines,
+    Message.ClearedDiffLines,
+  ],
 });

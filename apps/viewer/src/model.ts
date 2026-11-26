@@ -84,6 +84,13 @@ export const HighlightedTurn = Schema.Struct({
 export type HighlightedTurn = typeof HighlightedTurn.Type;
 
 /**
+ * Text selected inside one section's passage, as the subscription reads it: the quote is the
+ * selection's text with its whitespace collapsed, and may be too long to link.
+ */
+export const PassageSelection = Schema.Struct({ quote: Schema.String, section: SectionId });
+export type PassageSelection = typeof PassageSelection.Type;
+
+/**
  * The screen: the canvas, the reader (the plan screen), or the code view on a task with what is
  * shown of it, the file selected in it and the lines a link selected in that file. Everything the
  * canvas needs stays in the model while the code view is open.
@@ -173,6 +180,8 @@ export const Model = Schema.Struct({
   maybeCopiedLink: Schema.Option(Schema.String),
   /** What the last link that opened left out, or why the address was not a link, until dismissed. */
   maybeLinkNotice: Schema.Option(Schema.String),
+  /** The text selected inside a PRD or spec section's passage, when there is some. */
+  maybeSelectedPassage: Schema.Option(PassageSelection),
   /** A link waiting for the first trace, or for a patch or a session its steps read. */
   maybePendingLink: Schema.Option(Link),
   maybeHovered: Schema.Option(Node),
