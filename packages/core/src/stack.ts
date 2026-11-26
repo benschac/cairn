@@ -408,6 +408,7 @@ const taskOf = (feature: Slug, placement: Placement, worktree: string | null): M
     humanGate: gate,
     id: placement.id,
     model: draft.model,
+    orderedAfter: [],
     parent: placement.parent,
     prdSections: draft.prdSections,
     reasoning: draft.reasoning,
