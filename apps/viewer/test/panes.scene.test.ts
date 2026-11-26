@@ -6,7 +6,6 @@ import { Message } from "../src/message.ts";
 import { Screen, type Model } from "../src/model.ts";
 import { update } from "../src/update.ts";
 import { pressOnDivider, renderedWidthOf } from "../src/view/dividerView.ts";
-import { viewerBridge } from "../src/app.ts";
 import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
 import {
   byRole,
@@ -113,7 +112,7 @@ const fittedReader = (chartWidth: number) => (s: ViewerSteps) =>
   s
     .pipe(dividersRunning, prdScrolledTo("prd.goal"))
     .mounted(
-      viewerBridge.mountOf(ScrollStacksToBottom),
+      ScrollStacksToBottom,
       Message.CompletedScrollStacks({ maybeChartWidth: Option.some(chartWidth) }),
     )
     .pipe(wiresMeasuredAs(unmeasuredWires));

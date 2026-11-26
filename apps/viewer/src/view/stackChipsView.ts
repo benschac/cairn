@@ -1,19 +1,32 @@
 import type { PrdSectionId, SectionStatus, TaskId, Trace, TraceTask } from "@cairn/contract";
 import { labelOf, stacksOf, type Stack } from "@cairn/core/stacks";
-import { Array, Effect, HashSet, Number, Option, Order, Record, String, pipe } from "effect";
-import { Mount } from "foldkit";
-import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
+import { Mount as UiMount } from "@effect/ui";
+import type { Html } from "@effect/ui/html";
+import {
+  Array,
+  Effect,
+  HashSet,
+  Number,
+  Option,
+  Order,
+  Queue,
+  Record,
+  Stream,
+  String,
+  pipe,
+} from "effect";
 
 import { STACKS_LIST_KEY, dependencyLinksOf, stackArrowsOf } from "../arrows.ts";
 import { stackBoxesOf, trunkLabelOf, type Box, type BoxCell, type Trunk } from "../boxes.ts";
+import { styleText } from "../effect-ui/attributes.ts";
+import { nodeSearchOf } from "../highlight.ts";
 import { pathOfLink } from "../links.ts";
 import { Message } from "../message.ts";
 import type { Focus } from "../model.ts";
 import { currentTasksOf, planCountsOf, ranOf } from "../reader.ts";
-import { nodeSearchOf } from "../highlight.ts";
 import type { SearchResult } from "../search.ts";
 import { Node, type Chain } from "../trace.ts";
-import { dotView, labelView } from "../foldkit/marks.ts";
+import { dotView, labelView } from "../ui/marks.ts";
 import {
   forkKey,
   hoverChainOf,
@@ -23,10 +36,9 @@ import {
   type Measured,
 } from "../wires.ts";
 import { arrowsView } from "./arrowsView.ts";
-import { copyButtonView } from "../foldkit/copyLinkView.ts";
-import { modelAttributesOf, modelMarkView } from "../foldkit/modelView.ts";
-import { fieldView, searchedAttributesOf } from "../foldkit/nodeView.ts";
-import { hoverAttributesOf } from "./wiresView.ts";
+import { copyButtonView } from "./copyLinkView.ts";
+import { withModel, modelMarkView } from "./modelView.ts";
+import { fieldView, withSearched } from "./nodeView.ts";
 
 const isDone = (task: TraceTask): boolean => task.status === "done" || task.status === "landed";
 
@@ -67,14 +79,20 @@ const chartWidthOf = (pane: Element): Option.Option<number> => {
  * Scrolls the pane to the bottom, where the base branch bar is, and measures its chart. A Mount runs
  * once, when the pane is inserted, so the pane keeps whatever scroll a person gives it afterwards.
  */
-export const ScrollStacksToBottom = Mount.define("ScrollStacksToBottom", {
-  execute: ({ element }) =>
-    Effect.sync(() => {
-      element.scrollTop = element.scrollHeight;
-      return Message.CompletedScrollStacks({ maybeChartWidth: chartWidthOf(element) });
-    }),
-  messages: [Message.CompletedScrollStacks],
-});
+export const ScrollStacksToBottom = UiMount.makeStream(
+  "ScrollStacksToBottom",
+  { args: {} },
+  (element: HTMLElement) =>
+    Stream.callback<Message>((queue) =>
+      Effect.sync(() => {
+        element.scrollTop = element.scrollHeight;
+        Queue.offerUnsafe(
+          queue,
+          Message.CompletedScrollStacks({ maybeChartWidth: chartWidthOf(element) }),
+        );
+      }),
+    ),
+);
 
 /** Where a branch's name starts once its `<feature>/` prefix is left off. */
 export const branchStartOf = (feature: string, branch: string): number =>
@@ -101,6 +119,7 @@ const gridRowOf = (rows: number, row: number): number => 2 * (rows - row) + 1;
 
 /** A task's chip: a status dot and its ID, centred across the columns its `cell` spans. */
 const chipView = (
+  h: Html.H<Message>,
   trace: Trace,
   task: TraceTask,
   cell: BoxCell,
@@ -113,70 +132,71 @@ const chipView = (
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
   isLinked: boolean,
-  h: HtmlBuilder<Message>,
-): Html => {
+) => {
   const ran = ranOf(task);
   const isLit = HashSet.has(lit, task.id);
   const search = nodeSearchOf(results, maybeActive, { id: task.id, kind: "task" });
   const isCurrent = HashSet.has(current, task.id);
   const title = chipTitleOf(trace, task);
-  return h.keyed("button")(
-    task.id,
-    Array.flatten([
-      [
-        h.Type("button"),
-        h.Class("chip"),
-        h.DataAttribute("task", task.id),
-        h.DataAttribute("wire", taskKey(task.id)),
-        h.Title(title),
-        h.AriaLabel(title),
-        h.OnClick(Message.ClickedTask({ id: task.id })),
-        h.Style({
+  const node: Node = { id: task.id, kind: "task" };
+  const chip = withSearched(
+    h.button
+      .key(task.id)
+      .attr("type", "button")
+      .class("chip")
+      .attr("data-task", task.id)
+      .attr("data-wire", taskKey(task.id))
+      .attr("title", title)
+      .attr("aria-label", title)
+      .on("click", Message.ClickedTask({ id: task.id }))
+      // A node is hovered on pointer enter and on focus, and left on pointer leave and on blur.
+      .on("mouseenter", Message.HoveredNode({ node }))
+      .on("mouseleave", Message.LeftNode())
+      .on("focus", Message.HoveredNode({ node }))
+      .on("blur", Message.LeftNode())
+      .attr(
+        "style",
+        styleText({
           "grid-column": `${cell.column} / span ${cell.span}`,
           "grid-row": `${gridRowOf(rows, cell.row)}`,
           "justify-self": "center",
         }),
-      ],
-      hoverAttributesOf({ id: task.id, kind: "task" }, h),
-      searchedAttributesOf(search, h),
-      isShowingModels ? modelAttributesOf(ran, h) : [],
-      isDone(task) ? [h.DataAttribute("done", "")] : [],
-      task.gate.required ? [h.DataAttribute("gated", "")] : [],
-      isCurrent ? [h.DataAttribute("current", "")] : [],
-      isLinked ? [h.DataAttribute("linked", "")] : [],
-      isLit ? [h.DataAttribute("lit", "")] : [],
-      hasCurrent && !isCurrent && !isLit ? [h.DataAttribute("faded", "")] : [],
-      isTaskDimmed(maybeChain, task.id) && !isLit ? [h.DataAttribute("dimmed", "")] : [],
-    ]),
-    Array.appendAll(
-      Array.prepend(fieldView(search, "id", task.id, h), dotView(task.status, h)),
-      isShowingModels ? [modelMarkView(ran, h)] : [],
-    ),
+      ),
+    search,
   );
+  return (isShowingModels ? withModel(chip, ran) : chip)
+    .attrs({
+      "data-done": isDone(task) ? "" : undefined,
+      "data-gated": task.gate.required ? "" : undefined,
+      "data-current": isCurrent ? "" : undefined,
+      "data-linked": isLinked ? "" : undefined,
+      "data-lit": isLit ? "" : undefined,
+      "data-faded": hasCurrent && !isCurrent && !isLit ? "" : undefined,
+      "data-dimmed": isTaskDimmed(maybeChain, task.id) && !isLit ? "" : undefined,
+    })
+    .children(
+      dotView(h, task.status),
+      fieldView(h, search, "id", task.id),
+      isShowingModels && modelMarkView(h, ran),
+    );
 };
 
 /** What a child of a fork is labelled, in the gap row under its chip and across its columns. */
-const forkLabelView = (
-  id: TaskId,
-  text: string,
-  cell: BoxCell,
-  rows: number,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.keyed("span")(
-    `fork-${id}`,
-    [
-      h.Class("label"),
-      h.DataAttribute("fork-label", ""),
-      h.DataAttribute("wire", forkKey(id)),
-      h.Style({
+const forkLabelView = (h: Html.H<Message>, id: TaskId, text: string, cell: BoxCell, rows: number) =>
+  h.span
+    .key(`fork-${id}`)
+    .class("label")
+    .attr("data-fork-label", "")
+    .attr("data-wire", forkKey(id))
+    .attr(
+      "style",
+      styleText({
         "grid-column": `${cell.column} / span ${cell.span}`,
         "grid-row": `${gridRowOf(rows, cell.row) + 1}`,
         "justify-self": "center",
       }),
-    ],
-    [text],
-  );
+    )
+    .children(text);
 
 /**
  * The button under a box's grid that folds and unfolds its trunk. Folded, it stands for the trunk's
@@ -184,6 +204,7 @@ const forkLabelView = (
  * bar under the chips.
  */
 const segmentView = (
+  h: Html.H<Message>,
   box: Box,
   trunk: Trunk,
   current: HashSet.HashSet<string>,
@@ -192,8 +213,7 @@ const segmentView = (
   maybeChain: Option.Option<Chain>,
   maybeSelected: Option.Option<Node>,
   isLinked: boolean,
-  h: HtmlBuilder<Message>,
-): Html => {
+) => {
   const range = `${Array.headNonEmpty(trunk.tasks)}–${Array.lastNonEmpty(trunk.tasks)}`;
   const text = trunk.isFolded ? trunkLabelOf(box.stack, trunk) : `Fold ${range}`;
   const title = trunk.isFolded ? `${text} · click to unfold` : text;
@@ -210,69 +230,54 @@ const segmentView = (
     Option.exists(maybeChain, (chain) =>
       Array.every(trunk.tasks, (id) => !HashSet.has(chain.tasks, id)),
     );
-  return h.keyed("button")(
-    `segment-${trunk.root}`,
-    Array.flatten([
-      [
-        h.Type("button"),
-        h.Class("segment"),
-        h.DataAttribute("segment", trunk.root),
-        h.DataAttribute("holds", Array.join(trunk.tasks, " ")),
-        h.DataAttribute("wire", segmentKey(trunk.root)),
-        h.AriaExpanded(!trunk.isFolded),
-        h.Title(title),
-        h.AriaLabel(title),
-        h.OnClick(Message.ClickedSegment({ root: trunk.root })),
-      ],
-      trunk.isFolded
-        ? Array.flatten([
-            isCurrent ? [h.DataAttribute("current", "")] : [],
-            isLit ? [h.DataAttribute("lit", "")] : [],
-            hasCurrent && !isCurrent && !isLit ? [h.DataAttribute("faded", "")] : [],
-            isSelected ? [h.DataAttribute("selected", "")] : [],
-            isDimmed ? [h.DataAttribute("dimmed", "")] : [],
-            isLinked ? [h.DataAttribute("linked", "")] : [],
-          ])
-        : [],
-    ]),
-    trunk.isFolded ? [dotView("done", h), text] : [text],
-  );
+  const { isFolded } = trunk;
+  return h.button
+    .key(`segment-${trunk.root}`)
+    .attr("type", "button")
+    .class("segment")
+    .attr("data-segment", trunk.root)
+    .attr("data-holds", Array.join(trunk.tasks, " "))
+    .attr("data-wire", segmentKey(trunk.root))
+    .attr("aria-expanded", `${!isFolded}`)
+    .attr("title", title)
+    .attr("aria-label", title)
+    .on("click", Message.ClickedSegment({ root: trunk.root }))
+    .attrs({
+      "data-current": isFolded && isCurrent ? "" : undefined,
+      "data-lit": isFolded && isLit ? "" : undefined,
+      "data-faded": isFolded && hasCurrent && !isCurrent && !isLit ? "" : undefined,
+      "data-selected": isFolded && isSelected ? "" : undefined,
+      "data-dimmed": isFolded && isDimmed ? "" : undefined,
+      "data-linked": isFolded && isLinked ? "" : undefined,
+    })
+    .children(isFolded && dotView(h, "done"), text);
 };
 
 /**
  * The box's Copy link buttons, in its corner: the stack, and its finished trunk when it has one,
  * which is when the trunk holds two or more tasks.
  */
-const stackCopyView = (
-  box: Box,
-  maybeCopiedLink: Option.Option<string>,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.div(
-    [h.Class("stack-copy")],
-    Array.appendAll(
-      [
+const stackCopyView = (h: Html.H<Message>, box: Box, maybeCopiedLink: Option.Option<string>) =>
+  h.div
+    .class("stack-copy")
+    .children(
+      copyButtonView(
+        h,
+        maybeCopiedLink,
+        pathOfLink([{ kind: "stack", root: box.stack.root }]),
+        "Copy link",
+      ),
+      Option.isSome(box.maybeTrunk) &&
         copyButtonView(
-          maybeCopiedLink,
-          pathOfLink([{ kind: "stack", root: box.stack.root }]),
-          "Copy link",
           h,
+          maybeCopiedLink,
+          pathOfLink([{ kind: "segment", root: box.stack.root }]),
+          "Copy link to finished trunk",
         ),
-      ],
-      Option.isSome(box.maybeTrunk)
-        ? [
-            copyButtonView(
-              maybeCopiedLink,
-              pathOfLink([{ kind: "segment", root: box.stack.root }]),
-              "Copy link to finished trunk",
-              h,
-            ),
-          ]
-        : [],
-    ),
-  );
+    );
 
 const stackView = (
+  h: Html.H<Message>,
   trace: Trace,
   box: Box,
   current: HashSet.HashSet<string>,
@@ -285,8 +290,7 @@ const stackView = (
   maybeActive: Option.Option<Node>,
   maybeLinkFocus: Option.Option<Focus>,
   maybeCopiedLink: Option.Option<string>,
-  h: HtmlBuilder<Message>,
-): Html => {
+) => {
   const { stack } = box;
   // A link focused this box, by its stack or by its finished trunk. The box is outlined either
   // way. A folded trunk is marked as the segment, and an unfolded one as its chips, which then
@@ -301,45 +305,43 @@ const stackView = (
   const columns = Array.reduce(Record.values(box.cells), 1, (last, cell) =>
     Number.max(last, cell.column + cell.span - 1),
   );
-  return h.keyed("div")(
-    `stack-${stack.number}`,
-    Array.appendAll(
-      [
-        h.Class("stack"),
-        h.Role("group"),
-        h.Title(label),
-        h.AriaLabel(label),
-        h.DataAttribute("stack", `${stack.number}`),
-      ],
-      Array.flatten([
-        holdsCurrent(stack, current) ? [h.DataAttribute("current", "")] : [],
-        Option.isSome(maybeLinked) ? [h.DataAttribute("linked", "")] : [],
-      ]),
-    ),
-    Array.flatten([
-      [
-        h.div(
-          [
-            h.Class("stack-grid"),
-            // A box whose every task is folded into its segment has no chip row.
-            h.Style(
-              box.rows > 0
-                ? {
-                    "grid-template-columns": `repeat(${columns}, minmax(var(--stack-column), auto))`,
-                    "grid-template-rows": `repeat(${box.rows}, auto var(--stack-gap))`,
-                  }
-                : {},
-            ),
-          ],
+  return h.div
+    .key(`stack-${stack.number}`)
+    .class("stack")
+    .attr("role", "group")
+    .attr("title", label)
+    .attr("aria-label", label)
+    .attr("data-stack", `${stack.number}`)
+    .attrs({
+      "data-current": holdsCurrent(stack, current) ? "" : undefined,
+      "data-linked": Option.isSome(maybeLinked) ? "" : undefined,
+    })
+    .children(
+      h.div
+        .class("stack-grid")
+        // A box whose every task is folded into its segment has no chip row.
+        .attr(
+          "style",
+          styleText(
+            box.rows > 0
+              ? {
+                  "grid-template-columns": `repeat(${columns}, minmax(var(--stack-column), auto))`,
+                  "grid-template-rows": `repeat(${box.rows}, auto var(--stack-gap))`,
+                }
+              : {},
+          ),
+        )
+        .children(
           Array.flatMap(trace.tasks, (task) =>
             Array.match(Array.fromOption(Record.get(box.cells, task.id)), {
               onEmpty: () => [],
               onNonEmpty: ([cell]) =>
                 Array.prepend(
                   Array.map(Array.fromOption(Record.get(box.forkLabels, task.id)), (text) =>
-                    forkLabelView(task.id, text, cell, box.rows, h),
+                    forkLabelView(h, task.id, text, cell, box.rows),
                   ),
                   chipView(
+                    h,
                     trace,
                     task,
                     cell,
@@ -352,15 +354,14 @@ const stackView = (
                     results,
                     maybeActive,
                     Array.contains(linkedTasks, task.id),
-                    h,
                   ),
                 ),
             }),
           ),
         ),
-      ],
       Array.map(Option.toArray(box.maybeTrunk), (trunk) =>
         segmentView(
+          h,
           box,
           trunk,
           current,
@@ -369,13 +370,11 @@ const stackView = (
           maybeChain,
           maybeSelected,
           isSegmentLinked,
-          h,
         ),
       ),
-      [h.div([h.Class("label"), h.DataAttribute("stack-label", "")], [`${stack.number}`])],
-      [stackCopyView(box, maybeCopiedLink, h)],
-    ]),
-  );
+      h.div.class("label").attr("data-stack-label", "").children(`${stack.number}`),
+      stackCopyView(h, box, maybeCopiedLink),
+    );
 };
 
 /** "N of M stacks hold this section · X of Y tasks done". */
@@ -386,66 +385,54 @@ export const summaryOf = (trace: Trace, current: HashSet.HashSet<string>): strin
   return `${holding} of ${Array.length(stacks)} stacks hold this section · ${counts.done} of ${counts.tasks} tasks done`;
 };
 
-const dotLegendView = (text: string, status: SectionStatus, h: HtmlBuilder<Message>): Html =>
-  h.span([h.Class("stacks-legend-item")], [dotView(status, h), text]);
+const dotLegendView = (h: Html.H<Message>, text: string, status: SectionStatus) =>
+  h.span.class("stacks-legend-item").children(dotView(h, status), text);
 
 const swatchLegendView = (
+  h: Html.H<Message>,
   text: string,
-  attributes: ReadonlyArray<Attribute<Message>>,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.span(
-    [h.Class("stacks-legend-item")],
-    [h.span(Array.prepend(attributes, h.Class("swatch"))), text],
-  );
+  attributes: Record.ReadonlyRecord<string, string>,
+) => h.span.class("stacks-legend-item").children(h.span.class("swatch").attrs(attributes), text);
 
 /** The legend's colours: the three models Cairn colours. */
 const MODEL_ENTRIES: ReadonlyArray<string> = ["opus", "sonnet", "haiku"];
 
-const modelLegendView = (model: string, h: HtmlBuilder<Message>): Html =>
-  swatchLegendView(
-    model,
-    [
-      h.DataAttribute("legend-model", model),
-      h.DataAttribute("model", model),
-      h.DataAttribute("ran", "true"),
-    ],
-    h,
-  );
+const modelLegendView = (h: Html.H<Message>, model: string) =>
+  swatchLegendView(h, model, {
+    "data-legend-model": model,
+    "data-model": model,
+    "data-ran": "true",
+  });
 
 /** Over the diagram, held to the top of the pane: the count and the legend. */
 const overviewView = (
+  h: Html.H<Message>,
   trace: Trace,
   current: HashSet.HashSet<string>,
   isShowingModels: boolean,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.div(
-    [h.Class("stacks-top"), h.DataAttribute("stacks-summary", "")],
-    [
-      h.div([h.Class("col-head")], [labelView(`Stacks · ${summaryOf(trace, current)}`, h)]),
-      h.div(
-        [h.Class("stacks-legend"), h.DataAttribute("legend", "")],
-        Array.flatten([
-          [
-            dotLegendView("done", "done", h),
-            dotLegendView("pending", "pending", h),
-            swatchLegendView("in this section", [h.DataAttribute("current", "")], h),
-          ],
+) =>
+  h.div
+    .class("stacks-top")
+    .attr("data-stacks-summary", "")
+    .children(
+      h.div.class("col-head").children(labelView(h, `Stacks · ${summaryOf(trace, current)}`)),
+      h.div
+        .class("stacks-legend")
+        .attr("data-legend", "")
+        .children(
+          dotLegendView(h, "done", "done"),
+          dotLegendView(h, "pending", "pending"),
+          swatchLegendView(h, "in this section", { "data-current": "" }),
           isShowingModels
             ? Array.append(
-                Array.map(MODEL_ENTRIES, (model) => modelLegendView(model, h)),
-                h.span([], ["lo · med · hi · xhi = reasoning"]),
+                Array.map(MODEL_ENTRIES, (model) => modelLegendView(h, model)),
+                h.span("lo · med · hi · xhi = reasoning"),
               )
-            : [swatchLegendView("done", [h.DataAttribute("done", "")], h)],
-          [
-            h.span([h.Class("stacks-gate-note")], ["red = human gate"]),
-            h.span([], ["read up from main"]),
-          ],
-        ]),
-      ),
-    ],
-  );
+            : swatchLegendView(h, "done", { "data-done": "" }),
+          h.span.class("stacks-gate-note").children("red = human gate"),
+          h.span("read up from main"),
+        ),
+    );
 
 /**
  * The stacks pane: every stack, whatever the current section is. The levels are stacked bottom to
@@ -454,6 +441,7 @@ const overviewView = (
  * node: nothing hovers it and no curve runs to it.
  */
 export const stackChipsView = (
+  h: Html.H<Message>,
   trace: Trace,
   maybeCurrent: Option.Option<PrdSectionId>,
   isShowingModels: boolean,
@@ -466,8 +454,7 @@ export const stackChipsView = (
   maybeActive: Option.Option<Node>,
   maybeLinkFocus: Option.Option<Focus>,
   maybeCopiedLink: Option.Option<string>,
-  h: HtmlBuilder<Message>,
-): Html => {
+) => {
   const current = currentTasksOf(trace, maybeCurrent);
   const maybeChain = hoverChainOf(trace, maybeHovered);
   const hasCurrent = Option.isSome(maybeCurrent);
@@ -478,61 +465,50 @@ export const stackChipsView = (
     Record.values,
     Array.sortWith((row) => Array.headNonEmpty(row).stack.level, Order.flip(Order.Number)),
   );
-  return h.div(
-    [
-      h.Class("stacks-pane"),
-      h.Role("region"),
-      h.AriaLabel("Stacks"),
-      h.DataAttribute("stacks-pane", ""),
-      h.OnMount(ScrollStacksToBottom()),
-    ],
-    [
-      overviewView(trace, current, isShowingModels, h),
-      h.div(
-        [
-          h.Class("stacks-list"),
-          h.DataAttribute("stacks", ""),
-          h.DataAttribute("wire", STACKS_LIST_KEY),
-        ],
-        Array.prepend(
-          Array.map(levels, (row) =>
-            h.keyed("div")(
-              `level-${Array.headNonEmpty(row).stack.level}`,
-              [
-                h.Class("stacks-level"),
-                h.DataAttribute("level", `${Array.headNonEmpty(row).stack.level}`),
-              ],
-              Array.map(row, (box) =>
-                stackView(
-                  trace,
-                  box,
-                  current,
-                  dependencies.lit,
-                  hasCurrent,
-                  isShowingModels,
-                  maybeChain,
-                  maybeSelected,
-                  results,
-                  maybeActive,
-                  maybeLinkFocus,
-                  maybeCopiedLink,
-                  h,
-                ),
-              ),
-            ),
-          ),
+  return h.div
+    .class("stacks-pane")
+    .attr("role", "region")
+    .attr("aria-label", "Stacks")
+    .attr("data-stacks-pane", "")
+    .onMount(ScrollStacksToBottom())
+    .children(
+      overviewView(h, trace, current, isShowingModels),
+      h.div
+        .class("stacks-list")
+        .attr("data-stacks", "")
+        .attr("data-wire", STACKS_LIST_KEY)
+        .children(
           arrowsView(
             stackArrowsOf(boxes, maybeMeasured, dependencies.links),
             maybeChain,
             dependencies.lit,
-            h,
+          ),
+          Array.map(levels, (row) =>
+            h.div
+              .key(`level-${Array.headNonEmpty(row).stack.level}`)
+              .class("stacks-level")
+              .attr("data-level", `${Array.headNonEmpty(row).stack.level}`)
+              .children(
+                Array.map(row, (box) =>
+                  stackView(
+                    h,
+                    trace,
+                    box,
+                    current,
+                    dependencies.lit,
+                    hasCurrent,
+                    isShowingModels,
+                    maybeChain,
+                    maybeSelected,
+                    results,
+                    maybeActive,
+                    maybeLinkFocus,
+                    maybeCopiedLink,
+                  ),
+                ),
+              ),
           ),
         ),
-      ),
-      h.div(
-        [h.Class("base-bar"), h.DataAttribute("base-branch", trace.baseBranch)],
-        [trace.baseBranch],
-      ),
-    ],
-  );
+      h.div.class("base-bar").attr("data-base-branch", trace.baseBranch).children(trace.baseBranch),
+    );
 };

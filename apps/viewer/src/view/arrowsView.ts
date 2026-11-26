@@ -1,7 +1,8 @@
 import { Array, HashSet, Match, Option, String } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
 
 import type { Arrow } from "../arrows.ts";
+import { styleText } from "../effect-ui/attributes.ts";
+import { svgFor } from "../effect-ui/svg.ts";
 import type { Message } from "../message.ts";
 import { isKeyInChain } from "../wires.ts";
 import type { Chain } from "../trace.ts";
@@ -23,32 +24,27 @@ const lineOf = (kind: Arrow["kind"]) =>
     Match.exhaustive,
   );
 
-const headView = (h: HtmlBuilder<Message>): Html =>
-  h.defs(
-    [],
-    [
-      h.marker(
-        [
-          h.Id(HEAD_ID),
-          h.ViewBox("0 0 8 8"),
-          h.RefX("7"),
-          h.RefY("4"),
-          h.MarkerWidth("7"),
-          h.MarkerHeight("7"),
-          h.MarkerUnits("userSpaceOnUse"),
-          h.Orient("auto"),
-        ],
-        [h.polygon([h.Points("0,0.5 8,4 0,7.5"), h.Fill("var(--ink)")])],
-      ),
-    ],
+const svg = svgFor<Message>();
+
+const headView = () =>
+  svg.defs.children(
+    svg.marker
+      .attr("id", HEAD_ID)
+      .attr("viewBox", "0 0 8 8")
+      .attr("refX", "7")
+      .attr("refY", "4")
+      .attr("markerWidth", "7")
+      .attr("markerHeight", "7")
+      .attr("markerUnits", "userSpaceOnUse")
+      .attr("orient", "auto")
+      .children(svg.polygon.attr("points", "0,0.5 8,4 0,7.5").attr("fill", "var(--ink)")),
   );
 
 const arrowView = (
   arrow: Arrow,
   maybeChain: Option.Option<Chain>,
   lit: HashSet.HashSet<string>,
-  h: HtmlBuilder<Message>,
-): Html => {
+) => {
   const line = lineOf(arrow.kind);
   // A parent arrow is dimmed with its child's chip, which is not dimmed while it is lit. A
   // dependency arrow is the one drawn for the task in focus, so it never is.
@@ -59,26 +55,24 @@ const arrowView = (
       (chain) =>
         !isKeyInChain(chain, childKeyOf(arrow.target)) && !HashSet.has(lit, idOf(arrow.target)),
     );
-  return h.path(
-    Array.flatten([
-      [
-        h.DataAttribute("arrow", arrow.kind),
-        h.DataAttribute("arrow-source", arrow.source),
-        h.DataAttribute("arrow-target", arrow.target),
-        h.D(arrow.path),
-        h.Fill("none"),
-        h.MarkerEnd(`url(#${HEAD_ID})`),
-        h.Style({
-          opacity: isDimmed ? "0.15" : line.opacity,
-          stroke: "var(--ink)",
-          "stroke-dasharray": line.dash,
-          "stroke-width": line.width,
-          transition: "opacity var(--d-fade) ease-out",
-        }),
-      ],
-      isDimmed ? [h.DataAttribute("dimmed", "")] : [],
-    ]),
-  );
+  return svg.path
+    .attr("data-arrow", arrow.kind)
+    .attr("data-arrow-source", arrow.source)
+    .attr("data-arrow-target", arrow.target)
+    .attr("d", arrow.path)
+    .attr("fill", "none")
+    .attr("marker-end", `url(#${HEAD_ID})`)
+    .attr(
+      "style",
+      styleText({
+        opacity: isDimmed ? "0.15" : line.opacity,
+        stroke: "var(--ink)",
+        "stroke-dasharray": line.dash,
+        "stroke-width": line.width,
+        transition: "opacity var(--d-fade) ease-out",
+      }),
+    )
+    .attr("data-dimmed", isDimmed ? "" : undefined);
 };
 
 /**
@@ -90,13 +84,13 @@ export const arrowsView = (
   arrows: ReadonlyArray<Arrow>,
   maybeChain: Option.Option<Chain>,
   lit: HashSet.HashSet<string>,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.svg(
-    [
-      h.DataAttribute("arrow-layer", ""),
-      h.AriaHidden(true),
-      h.Style({
+) =>
+  svg.svg
+    .attr("data-arrow-layer", "")
+    .attr("aria-hidden", "true")
+    .attr(
+      "style",
+      styleText({
         height: "100%",
         inset: "0",
         overflow: "visible",
@@ -105,9 +99,8 @@ export const arrowsView = (
         width: "100%",
         "z-index": "0",
       }),
-    ],
-    Array.prepend(
-      Array.map(arrows, (arrow) => arrowView(arrow, maybeChain, lit, h)),
-      headView(h),
-    ),
-  );
+    )
+    .children(
+      headView(),
+      Array.map(arrows, (arrow) => arrowView(arrow, maybeChain, lit)),
+    );
