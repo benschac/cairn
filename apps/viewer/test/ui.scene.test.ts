@@ -1,9 +1,9 @@
 import { SectionStatus } from "@cairn/contract";
+import { Html } from "@effect/ui/html";
 import { HtmlScene } from "@effect/ui/html/testing";
 import { Locator } from "@effect/ui/testing";
 import { it } from "@effect/vitest";
 import { Array, Effect, Option, Record, Schema, String, pipe } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
 import { modifyFields } from "foldkit/struct";
 import { readFileSync } from "node:fs";
@@ -14,12 +14,12 @@ import {
   segmentedView,
   switchView,
   type SegmentedOption,
-} from "../src/ui/controls.ts";
+} from "../src/effect-ui/controls.ts";
 import { dotView, gateView, labelView, tagView, type TagKind } from "../src/ui/marks.ts";
-import { both, byRole, containing, hostFoldkitView, inside, withClass } from "./fixtures.ts";
+import { both, byRole, containing, inside, withClass } from "./fixtures.ts";
 
 // A small component hosts the three controls and the marks the way a view will: the state is its
-// Model, and what a person does is a fact-named Message. Its view is the Foldkit one, bridged.
+// Model, and what a person does is a fact-named Message.
 
 const Density = Schema.Literals(["titles", "summary", "full"]);
 type Density = typeof Density.Type;
@@ -65,64 +65,52 @@ const tagKinds: ReadonlyArray<TagKind> = ["prd", "spec", "task", "sha"];
 const switchLabel = "Models and reasoning";
 const groupLabel = "How much of the spec to show";
 
-/** The program's view; `observe` hears each Message the switch's `onToggle` builds. */
+/** The program's view. */
 
-const view = (model: Model, h: HtmlBuilder<Message>): Html =>
-  h.main(
-    [],
-    [
-      switchView(
-        {
-          id: "models",
-          isChecked: model.isChecked,
-          label: switchLabel,
-          onToggle: (isChecked) => Message.ClickedModelsSwitch({ isChecked }),
-        },
-        h,
-      ),
-      segmentedView(
-        {
-          label: groupLabel,
-          onSelect: (density) => Message.ClickedDensity({ density }),
-          options: densities,
-          selected: model.density,
-        },
-        h,
-      ),
-      disclosureView(
-        {
-          id: "spec-card",
-          isOpen: model.isOpen,
-          onToggle: (isOpen) => Message.ClickedSpecCard({ isOpen }),
-          toView: ({ button, panel }) =>
-            h.article(
-              [h.Class("card")],
-              Array.prepend(
-                model.isOpen ? [h.div(panel, ["The spec section in full"])] : [],
-                h.button(Array.prepend(button, h.Class("card-head")), ["Spec card"]),
-              ),
-            ),
-        },
-        h,
-      ),
-      h.div(
-        [h.Id("marks")],
-        Array.flatten([
-          Array.map(SectionStatus.literals, (status) => dotView(status, h)),
-          Array.map(tagKinds, (kind) => tagView(kind, `a ${kind}`, h)),
-          [gateView(h), labelView("Stacks", h)],
-        ]),
-      ),
-      h.p([h.Id("sent")], [model.sent]),
-    ],
+const view = (h: Html.H<Message>, model: Model) =>
+  h.main.children(
+    switchView(h, {
+      id: "models",
+      isChecked: model.isChecked,
+      label: switchLabel,
+      onToggle: (isChecked) => Message.ClickedModelsSwitch({ isChecked }),
+    }),
+    segmentedView(h, {
+      label: groupLabel,
+      onSelect: (density: Density) => Message.ClickedDensity({ density }),
+      options: densities,
+      selected: model.density,
+    }),
+    disclosureView(h, {
+      id: "spec-card",
+      isOpen: model.isOpen,
+      onToggle: (isOpen) => Message.ClickedSpecCard({ isOpen }),
+      view: ({ button, panel }) =>
+        h.article
+          .class("card")
+          .children(
+            button(h.button.class("card-head")).children("Spec card"),
+            model.isOpen && panel(h.div).children("The spec section in full"),
+          ),
+    }),
+    h.div.id("marks").children(
+      Array.map(SectionStatus.literals, (status) => dotView(h, status)),
+      Array.map(tagKinds, (kind) => tagView(h, kind, `a ${kind}`)),
+      gateView(h),
+      labelView(h, "Stacks"),
+    ),
+    h.p.id("sent").children(model.sent),
   );
 
-const Controls = hostFoldkitView({
+const Controls = Html.component({
   message: Message,
   model: Model,
   name: "Controls",
-  update: (model, message) =>
-    modifyFields(applied(model, message), { sent: () => sentText(message) }),
+  props: Model,
+}).make({
+  init: ($) => $.props,
+  update: ($, message) =>
+    modifyFields(applied($.model, message), { sent: () => sentText(message) }),
   view,
 });
 

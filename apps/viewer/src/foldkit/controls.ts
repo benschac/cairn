@@ -1,3 +1,7 @@
+// The Foldkit copy of a view that has moved to Effect UI, for the views still on Foldkit, which
+// render under the bridge (`spec.viewer.effect-ui.views`). Delete it in the change that moves its
+// last importer: `rg -l "foldkit/<this file>" apps/viewer/src`.
+
 import { Disclosure, Switch } from "@foldkit/ui";
 import { Array, Equal } from "effect";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";

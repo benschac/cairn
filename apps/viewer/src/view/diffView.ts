@@ -14,7 +14,7 @@ import {
 import { isDemoBuild } from "../load.ts";
 import type { Message } from "../message.ts";
 import { PatchData, type DiffStyle, type HighlightedTurn } from "../model.ts";
-import { segmentedView } from "../ui/controls.ts";
+import { segmentedView } from "../foldkit/controls.ts";
 
 /** The words on each of the diff style control's buttons, in the order they are shown. */
 const DIFF_STYLE_OPTIONS: ReadonlyArray<{ readonly value: DiffStyle; readonly label: string }> = [

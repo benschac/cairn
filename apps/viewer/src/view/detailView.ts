@@ -19,10 +19,11 @@ import { Message } from "../message.ts";
 import { WHOLE_TASK, type DiffStyle, type PatchData } from "../model.ts";
 import { ranOf, statusWordOf } from "../reader.ts";
 import { Node, judgmentsOf, nodeKeyOf, sectionTitleOf } from "../trace.ts";
-import { dotView, labelView, tagView } from "../ui/marks.ts";
-import { copyButtonView } from "./copyLinkView.ts";
+import { dotView, labelView, tagView } from "../foldkit/marks.ts";
+import { copyButtonView } from "../foldkit/copyLinkView.ts";
 import { patchView } from "./diffView.ts";
-import { dividerView, handleWidthOf } from "./dividerView.ts";
+import { dividerView } from "../foldkit/dividerView.ts";
+import { handleWidthOf } from "./dividerView.ts";
 import type { Widths } from "../panes.ts";
 
 /** The content's side padding: more than half the resize handle, which overlaps it. */

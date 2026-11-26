@@ -1,7 +1,8 @@
 import { Mount as UiMount } from "@effect/ui";
+import type { Html } from "@effect/ui/html";
 import { Filter, Match, Option, Predicate, Schema, Stream } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
 
+import { styleText } from "../effect-ui/attributes.ts";
 import type { HostMount } from "../effect-ui/bridge.ts";
 import { Message } from "../message.ts";
 import { Pane, dividerKeyOf, limitsOf, type Widths } from "../panes.ts";
@@ -29,7 +30,8 @@ export const handleWidthOf = (pane: Pane): number =>
     Match.orElse(() => DIVIDER_WIDTH),
   );
 
-const labelOf = (pane: Pane): string =>
+/** What a divider's separator is named, for the pane it resizes. */
+export const dividerLabelOf = (pane: Pane): string =>
   Match.value(pane).pipe(
     Match.when("prd", () => "Resize the PRD pane"),
     Match.when("spec", () => "Resize the spec pane"),
@@ -129,8 +131,8 @@ export const PressDivider = UiMount.makeStream(
 const decodePane = Schema.decodeUnknownSync(Pane);
 
 /**
- * The bridge puts `PressDivider` on each divider, which `data-divider` names, in place of its
- * Foldkit `pointerdown` handler.
+ * The bridge puts `PressDivider` on each divider still drawn by Foldkit (`foldkit/dividerView.ts`,
+ * in the detail panel), which `data-divider` names, in place of its Foldkit `pointerdown` handler.
  */
 export const dividerHostMount: HostMount<Message> = {
   attribute: "data-divider",
@@ -140,28 +142,32 @@ export const dividerHostMount: HostMount<Message> = {
 
 /**
  * The handle between two panes, or on the detail panel's left edge. It is a vertical separator that
- * can be focused: the arrow keys move it, and a press and drag with a pointer does too. The line is
- * drawn in the middle of its wide, empty strip.
+ * can be focused: the arrow keys move it, and a press and drag with a pointer does too, through the
+ * `PressDivider` mount, since a handler's payload has no `pointerId`. The line is drawn in the
+ * middle of its wide, empty strip.
  */
-export const dividerView = (pane: Pane, widths: Widths, h: HtmlBuilder<Message>): Html => {
+export const dividerView = (h: Html.H<Message>, pane: Pane, widths: Widths) => {
   const { max, min } = limitsOf(pane);
-  return h.div([
-    h.Class("divider"),
-    h.Role("separator"),
-    h.AriaOrientation("vertical"),
-    h.AriaLabel(labelOf(pane)),
-    h.AriaValuenow(widths[pane]),
-    h.AriaValuemin(min),
-    h.AriaValuemax(max),
-    h.Tabindex(0),
-    h.DataAttribute("divider", pane),
-    h.OnPointerDown(pressOnDivider(pane)),
-    h.OnKeyDownPreventDefault((key) =>
-      Option.map(dividerKeyOf(key), (arrow) => Message.PressedArrowOnDivider({ key: arrow, pane })),
-    ),
-    h.Style({
-      "user-select": "none",
-      width: `${handleWidthOf(pane)}px`,
-    }),
-  ]);
+  return h.div
+    .class("divider")
+    .attr("role", "separator")
+    .attr("aria-orientation", "vertical")
+    .attr("aria-label", dividerLabelOf(pane))
+    .attr("aria-valuenow", `${widths[pane]}`)
+    .attr("aria-valuemin", `${min}`)
+    .attr("aria-valuemax", `${max}`)
+    .attr("tabindex", "0")
+    .attr("data-divider", pane)
+    .attr("style", styleText({ "user-select": "none", width: `${handleWidthOf(pane)}px` }))
+    .on(
+      "keydown",
+      ({ key }) =>
+        Option.getOrUndefined(
+          Option.map(dividerKeyOf(key), (arrow) =>
+            Message.PressedArrowOnDivider({ key: arrow, pane }),
+          ),
+        ),
+      { preventDefault: true },
+    )
+    .onMount(PressDivider({ pane }));
 };

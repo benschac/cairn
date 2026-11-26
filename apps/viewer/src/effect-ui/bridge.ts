@@ -104,6 +104,20 @@ export interface FoldkitBridge<Msg> {
    * Call it once per render: it is one Foldkit render pass, whose lazy caches carry to the next.
    */
   readonly build: <A>(view: (h: HtmlBuilder<Msg>) => A) => A;
+  /**
+   * Runs an Effect UI view that holds bridged Foldkit views as one Foldkit render pass: every
+   * `bridged` call inside it shares the pass, so `createKeyedLazy` keeps the entries any of them
+   * used. Wrap a component's whole `view` in it, once per render.
+   */
+  readonly render: <A>(view: () => A) => A;
+  /**
+   * A Foldkit view as Effect UI nodes, built in the pass `render` opened: what an Effect UI view
+   * calls for a child that has not moved yet. Outside `render` it builds its own pass, as `build`.
+   */
+  readonly bridged: (
+    h: UiHtml.H<Msg>,
+    view: (h: HtmlBuilder<Msg>) => Html,
+  ) => View.Node<Msg> | null;
   /** A Foldkit `Html` value as Effect UI nodes; `null` is nothing, as Foldkit renders it. */
   readonly foldkitView: (h: UiHtml.H<Msg>, html: Html) => View.Node<Msg> | null;
   /** The Effect UI mount a Foldkit Mount definition becomes, for a Scene's `expectMount`. */
@@ -510,24 +524,58 @@ export const makeFoldkitBridge = <Msg>(options: FoldkitBridgeOptions<Msg>): Fold
     };
   };
 
+  /** Whether a `render` pass is open, so `bridged` builds in it rather than in a pass of its own. */
+  const isRendering = MutableRef.make(false);
+
+  const build = <A>(view: (h: HtmlBuilder<Msg>) => A): A => {
+    // As Foldkit's runtime renders: one registry across renders, so a lazy view built with the
+    // same arguments hits, and a transaction around each render, so a failed one is undone.
+    __beginRenderTransaction(registry);
+    __setRuntime(dispatch, Context.empty(), registry);
+    try {
+      const html = view(__htmlBuilder<Msg>());
+      __endRender(registry);
+      return html;
+    } catch (cause) {
+      __abandonRender(registry);
+      throw cause;
+    } finally {
+      __clearRuntime();
+    }
+  };
+
+  /** One Foldkit view built under the dispatch frame, inside the pass that is open. */
+  const buildInPass = (view: (h: HtmlBuilder<Msg>) => Html): Html => {
+    __setRuntime(dispatch, Context.empty(), registry);
+    try {
+      return view(__htmlBuilder<Msg>());
+    } finally {
+      __clearRuntime();
+    }
+  };
+
+  const foldkitView = (_h: UiHtml.H<Msg>, html: Html): View.Node<Msg> | null =>
+    html === null ? null : nodeOf(html);
+
   return {
-    build: (view) => {
-      // As Foldkit's runtime renders: one registry across renders, so a lazy view built with the
-      // same arguments hits, and a transaction around each render, so a failed one is undone.
+    build,
+    render: (view) => {
       __beginRenderTransaction(registry);
-      __setRuntime(dispatch, Context.empty(), registry);
+      MutableRef.set(isRendering, true);
       try {
-        const html = view(__htmlBuilder<Msg>());
+        const rendered = view();
         __endRender(registry);
-        return html;
+        return rendered;
       } catch (cause) {
         __abandonRender(registry);
         throw cause;
       } finally {
-        __clearRuntime();
+        MutableRef.set(isRendering, false);
       }
     },
-    foldkitView: (_h, html) => (html === null ? null : nodeOf(html)),
+    bridged: (h, view) =>
+      foldkitView(h, MutableRef.get(isRendering) ? buildInPass(view) : build(view)),
+    foldkitView,
     mountOf: (definition) => mountNamed(definition.name),
     command: (command) => commandNamed(command.name).make({ command }),
     commandOf: (definition) => commandNamed(definition.name),

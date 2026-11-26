@@ -1,8 +1,6 @@
 import type { SectionStatus } from "@cairn/contract";
-import { Array } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
-
-import type { Rendered } from "../markdown.ts";
+import type { View } from "@effect/ui";
+import type { Html } from "@effect/ui/html";
 
 /**
  * What a tag names: a PRD or a spec section, a task ID or a short SHA. `components.css` fills a
@@ -11,28 +9,25 @@ import type { Rendered } from "../markdown.ts";
 export type TagKind = "prd" | "spec" | "task" | "sha";
 
 /**
- * The marks that only show something, each a function of its data and `h`. The look is in
- * `components.css`, chosen from the attribute each mark carries.
+ * The marks that only show something, each a function of `h` and its data. The look is in
+ * `components.css`, chosen from the attribute each mark carries. The views still on Foldkit use
+ * `foldkit/marks.ts`.
  */
 
 /** A task's or a section's status as a round mark; `data-status` is what the stylesheet colours. */
-export const dotView = <Message>(status: SectionStatus, h: HtmlBuilder<Message>): Html =>
-  h.span([h.Class("dot"), h.DataAttribute("status", status), h.AriaHidden(true)]);
+export const dotView = <Msg>(h: Html.H<Msg>, status: SectionStatus) =>
+  h.span.class("dot").attr("data-status", status).attr("aria-hidden", "true");
 
 /**
  * A task ID, a short SHA, or `SPEC` or `PRD` in a card's header; `data-kind` is its fill. The text
- * is a string, or rendered nodes when a search marked part of it.
+ * is a string, or the marked nodes when a search matched part of it.
  */
-export const tagView = <Message>(
-  kind: TagKind,
-  text: string | Rendered,
-  h: HtmlBuilder<Message>,
-): Html => h.span([h.Class("tag"), h.DataAttribute("kind", kind)], Array.ensure(text));
+export const tagView = <Msg>(h: Html.H<Msg>, kind: TagKind, text: View.Input<Msg>) =>
+  h.span.class("tag").attr("data-kind", kind).children(text);
 
 /** `GATE`, on a task that waits for a human. */
-export const gateView = <Message>(h: HtmlBuilder<Message>): Html =>
-  h.span([h.Class("gate")], ["GATE"]);
+export const gateView = <Msg>(h: Html.H<Msg>) => h.span.class("gate").children("GATE");
 
 /** The small uppercase heading over a pane or a legend. */
-export const labelView = <Message>(text: string, h: HtmlBuilder<Message>): Html =>
-  h.span([h.Class("label")], [text]);
+export const labelView = <Msg>(h: Html.H<Msg>, text: string) =>
+  h.span.class("label").children(text);

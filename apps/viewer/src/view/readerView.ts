@@ -1,88 +1,23 @@
 import type { Trace } from "@cairn/contract";
+import type { Html } from "@effect/ui/html";
 import { Array, Option, Record } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { focusTaskOf } from "../arrows.ts";
+import { styleText } from "../effect-ui/attributes.ts";
+import { viewerBridge } from "../effect-ui/viewerBridge.ts";
 import { linkOf, passageButtonOf, pathOfLink, trailLinkOf } from "../links.ts";
 import { Message } from "../message.ts";
 import type { Model } from "../model.ts";
 import { currentOf, searchedSectionOf } from "../reader.ts";
 import { Resize } from "../panes.ts";
-import { switchView } from "../ui/controls.ts";
 import { detailView } from "./detailView.ts";
 import { linkNoticeView } from "./linkNoticeView.ts";
 import { dividerView, DIVIDER_WIDTH, STACKS_HANDLE_WIDTH } from "./dividerView.ts";
 import { prdPaneView } from "./prdPaneView.ts";
-import { searchView } from "./searchView.ts";
 import { specPaneView } from "./specPaneView.ts";
 import { stackChipsView } from "./stackChipsView.ts";
+import { topBarView } from "./topBarView.ts";
 import { MeasureWires, WIRES_ATTRIBUTE, wiresView } from "./wiresView.ts";
-
-const cairnLogoView = (h: HtmlBuilder<Message>): Html =>
-  h.svg(
-    [h.Width("20"), h.Height("20"), h.ViewBox("0 0 22 22"), h.AriaHidden(true)],
-    [
-      h.ellipse([
-        h.Cx("11"),
-        h.Cy("18"),
-        h.Rx("9"),
-        h.Ry("3.2"),
-        h.Fill("currentColor"),
-        h.Opacity("0.9"),
-      ]),
-      h.ellipse([
-        h.Cx("11"),
-        h.Cy("12.2"),
-        h.Rx("6.5"),
-        h.Ry("2.8"),
-        h.Fill("currentColor"),
-        h.Opacity("0.7"),
-      ]),
-      h.ellipse([
-        h.Cx("11"),
-        h.Cy("7.2"),
-        h.Rx("4.2"),
-        h.Ry("2.3"),
-        h.Fill("currentColor"),
-        h.Opacity("0.5"),
-      ]),
-      h.ellipse([
-        h.Cx("11"),
-        h.Cy("3.4"),
-        h.Rx("2.2"),
-        h.Ry("1.5"),
-        h.Fill("currentColor"),
-        h.Opacity("0.35"),
-      ]),
-    ],
-  );
-
-const topBarView = (trace: Trace, model: Model, presence: string, h: HtmlBuilder<Message>): Html =>
-  h.header(
-    [
-      h.Class("topbar"),
-      h.DataAttribute("topbar", ""),
-      h.Style({ position: "relative", "z-index": "10" }),
-    ],
-    [
-      h.span(
-        [h.Class("topbar-brand")],
-        [cairnLogoView(h), h.h1([h.Style({ "font-size": "var(--t-xl)", margin: "0" })], ["Cairn"])],
-      ),
-      h.span([h.DataAttribute("feature", "")], [trace.feature]),
-      searchView(trace, model.search, h),
-      switchView(
-        {
-          id: "models-switch",
-          isChecked: model.isShowingModels,
-          label: "Models and reasoning",
-          onToggle: () => Message.ClickedModelsSwitch(),
-        },
-        h,
-      ),
-      h.p([h.Role("status")], [presence]),
-    ],
-  );
 
 /** The roots of the stacks whose trunk is open. */
 const unfoldedRootsOf = (unfolded: Record.ReadonlyRecord<string, boolean>): ReadonlyArray<string> =>
@@ -113,13 +48,13 @@ export const TRAILING_ROOM = 320;
  * scroll. The current section is the active search result's first PRD section, else the pinned
  * one, else the one at the top. The panes preview a chain as a hover does: the hovered node's, and
  * the active result's while nothing is hovered.
+ *
+ * The frame (the top bar, the notice, the grid and its dividers) is Effect UI. The panes are still
+ * Foldkit and render through the bridge, each with `viewerBridge.bridged`, until their part moves
+ * (`spec.viewer.effect-ui.views`). The grid's `MeasureWires` is the bridged Foldkit Mount until
+ * the wires move.
  */
-export const readerView = (
-  trace: Trace,
-  model: Model,
-  presence: string,
-  h: HtmlBuilder<Message>,
-): Html => {
+export const readerView = (h: Html.H<Message>, trace: Trace, model: Model, presence: string) => {
   const maybeCurrent = currentOf(model.reader, searchedSectionOf(trace, model.search.maybeActive));
   const maybePreview = Option.orElse(model.maybeHovered, () => model.search.maybeActive);
   // The pinned section's link up to its step: the pin's step is the link's first.
@@ -135,11 +70,12 @@ export const readerView = (
     onSome: (button) => button.section,
   });
   const isSelectionOverLimit = Option.exists(maybePassageButton, (button) => button.isOverLimit);
-  return h.div(
-    [
-      h.Class("reader"),
-      h.DataAttribute("reader", ""),
-      h.Style({
+  return h.div
+    .class("reader")
+    .attr("data-reader", "")
+    .attr(
+      "style",
+      styleText({
         display: "grid",
         flex: "1",
         "grid-template-columns": "minmax(0, 1fr)",
@@ -148,53 +84,48 @@ export const readerView = (
         "min-width": "0",
         overflow: "hidden",
       }),
-    ],
-    Array.appendAll(
-      [
-        // The notice sits under the top bar, in the grid's first row.
-        h.div(
-          [],
-          Array.appendAll(
-            [topBarView(trace, model, presence, h)],
-            Option.match(model.maybeLinkNotice, {
-              onNone: () => [],
-              onSome: (text) => [
-                linkNoticeView(text, h, {
-                  onDismiss: Message.ClickedDismissLinkNotice(),
-                }),
-              ],
-            }),
+    )
+    .children(
+      // The notice sits under the top bar, in the grid's first row.
+      h.div(
+        topBarView(h, trace, model, presence),
+        Option.getOrUndefined(
+          Option.map(model.maybeLinkNotice, (text) =>
+            linkNoticeView(h, text, { onDismiss: Message.ClickedDismissLinkNotice() }),
           ),
         ),
-        h.div(
-          [
-            h.Style({
-              display: "grid",
-              // The widths are what a person chose, and the columns hold them, side by side as
-              // columns in a deck: a window too narrow for them scrolls the reader sideways, and
-              // the room after the stacks pane is never less than TRAILING_ROOM, so its handle
-              // never reaches the window's edge: scroll right and it can be dragged further.
-              "--prd-width": `${model.widths.prd}px`,
-              "--spec-width": `${model.widths.spec}px`,
-              "--stacks-width": `${model.widths.stacks}px`,
-              "grid-template-columns": `var(--prd-width) ${DIVIDER_WIDTH}px var(--spec-width) ${DIVIDER_WIDTH}px var(--stacks-width) ${STACKS_HANDLE_WIDTH}px minmax(${TRAILING_ROOM}px, 1fr)`,
-              "grid-template-rows": "minmax(0, 1fr)",
-              "min-height": "0",
-              "overflow-x": "auto",
-              "overflow-y": "hidden",
-              "user-select": Resize.guards.Resizing(model.resize) ? "none" : "auto",
-            }),
-            h.Class("reader-row"),
-            h.DataAttribute("reader-grid", ""),
-            h.OnMount(MeasureWires()),
-            // What changes the layout without changing a size the mount's observers see: the
-            // current section, whether the model chips wrap the rows, and the unfolded trunks.
-            h.Attribute(
-              WIRES_ATTRIBUTE,
-              wiresAttributeOf(maybeCurrent, model.isShowingModels, model.reader.unfolded),
-            ),
-          ],
-          [
+      ),
+      h.div
+        .attr(
+          "style",
+          styleText({
+            display: "grid",
+            // The widths are what a person chose, and the columns hold them, side by side as
+            // columns in a deck: a window too narrow for them scrolls the reader sideways, and
+            // the room after the stacks pane is never less than TRAILING_ROOM, so its handle
+            // never reaches the window's edge: scroll right and it can be dragged further.
+            "--prd-width": `${model.widths.prd}px`,
+            "--spec-width": `${model.widths.spec}px`,
+            "--stacks-width": `${model.widths.stacks}px`,
+            "grid-template-columns": `var(--prd-width) ${DIVIDER_WIDTH}px var(--spec-width) ${DIVIDER_WIDTH}px var(--stacks-width) ${STACKS_HANDLE_WIDTH}px minmax(${TRAILING_ROOM}px, 1fr)`,
+            "grid-template-rows": "minmax(0, 1fr)",
+            "min-height": "0",
+            "overflow-x": "auto",
+            "overflow-y": "hidden",
+            "user-select": Resize.guards.Resizing(model.resize) ? "none" : "auto",
+          }),
+        )
+        .class("reader-row")
+        .attr("data-reader-grid", "")
+        // What changes the layout without changing a size the mount's observers see: the
+        // current section, whether the model chips wrap the rows, and the unfolded trunks.
+        .attr(
+          WIRES_ATTRIBUTE,
+          wiresAttributeOf(maybeCurrent, model.isShowingModels, model.reader.unfolded),
+        )
+        .onMount(viewerBridge.mountOf(MeasureWires)({ args: undefined }))
+        .children(
+          viewerBridge.bridged(h, (foldkit) =>
             prdPaneView(
               trace,
               maybeCurrent,
@@ -210,9 +141,11 @@ export const readerView = (
               selectedSection,
               isSelectionOverLimit,
               model.readers,
-              h,
+              foldkit,
             ),
-            dividerView("prd", model.widths, h),
+          ),
+          dividerView(h, "prd", model.widths),
+          viewerBridge.bridged(h, (foldkit) =>
             specPaneView(
               trace,
               maybeCurrent,
@@ -224,9 +157,11 @@ export const readerView = (
               model.maybeCopiedLink,
               selectedSection,
               isSelectionOverLimit,
-              h,
+              foldkit,
             ),
-            dividerView("spec", model.widths, h),
+          ),
+          dividerView(h, "spec", model.widths),
+          viewerBridge.bridged(h, (foldkit) =>
             stackChipsView(
               trace,
               maybeCurrent,
@@ -240,37 +175,38 @@ export const readerView = (
               model.search.maybeActive,
               model.reader.maybeFocus,
               model.maybeCopiedLink,
-              h,
+              foldkit,
             ),
-            dividerView("stacks", model.widths, h),
+          ),
+          dividerView(h, "stacks", model.widths),
+          viewerBridge.bridged(h, (foldkit) =>
             wiresView(
               trace,
               maybeCurrent,
               model.maybeMeasuredWires,
               maybePreview,
               model.reader.unfolded,
-              h,
+              foldkit,
             ),
-          ],
-        ),
-      ],
-      Array.match(model.detail, {
-        onEmpty: () => [],
-        onNonEmpty: (trail) => [
-          detailView(
-            trace,
-            trail,
-            model.widths,
-            model.patches,
-            model.diffStyle,
-            {
-              maybeCopied: model.maybeCopiedLink,
-              trailPaths: Array.map(trail, (_, index) => pathOfLink(trailLinkOf(model, index))),
-            },
-            h,
           ),
-        ],
+        ),
+      Array.match(model.detail, {
+        onEmpty: () => null,
+        onNonEmpty: (trail) =>
+          viewerBridge.bridged(h, (foldkit) =>
+            detailView(
+              trace,
+              trail,
+              model.widths,
+              model.patches,
+              model.diffStyle,
+              {
+                maybeCopied: model.maybeCopiedLink,
+                trailPaths: Array.map(trail, (_, index) => pathOfLink(trailLinkOf(model, index))),
+              },
+              foldkit,
+            ),
+          ),
       }),
-    ),
-  );
+    );
 };

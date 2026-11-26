@@ -8,18 +8,16 @@ import { Array, Effect, Option, Predicate, Schema, String, pipe } from "effect";
 import { renderToString } from "foldkit/experimental/server";
 import type { Html as FoldkitHtml, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
-import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../../src/demo.ts";
 import { DrawDiagram } from "../../src/diagram.ts";
 import { RenderDiff } from "../../src/diff.ts";
 import { makeFoldkitBridge, type FoldkitBridge } from "../../src/effect-ui/bridge.ts";
 import { Message } from "../../src/message.ts";
-import { Screen } from "../../src/model.ts";
-import { linkNoticeView } from "../../src/view/linkNoticeView.ts";
+import { linkNoticeView } from "../../src/foldkit/linkNoticeView.ts";
 import { TrackPrdScroll, prdPaneView } from "../../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom } from "../../src/view/stackChipsView.ts";
-import { view as viewerView } from "../../src/view/view.ts";
+import { specPaneView } from "../../src/view/specPaneView.ts";
 import { MeasureWires } from "../../src/view/wiresView.ts";
 import { loaded } from "../fixtures.ts";
 
@@ -122,9 +120,21 @@ const viewerBridge = makeFoldkitBridge({
   mounts: [DrawDiagram, MeasureWires, RenderDiff, ScrollStacksToBottom, TrackPrdScroll],
 });
 
-/** The whole reader screen, the body of the viewer's `view`, as the host step will bridge it. */
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
-const reader = (h: HtmlBuilder<Message>): FoldkitHtml => viewerView(reading, h).body;
+/** The spec pane at `prd.viewer`, as the reader bridges it until the reader moves. */
+const specPane = (h: HtmlBuilder<Message>): FoldkitHtml =>
+  specPaneView(
+    demoTrace,
+    Option.some(PrdSectionId.make("prd.viewer")),
+    loaded.reader,
+    true,
+    Option.none(),
+    loaded.search.results,
+    loaded.search.maybeActive,
+    loaded.maybeCopiedLink,
+    "",
+    false,
+    h,
+  );
 
 /**
  * A component whose view is a Foldkit view through the bridge, over a line that shows the last
@@ -153,7 +163,7 @@ const bridged = <M>(
 
 const BridgedNotice = bridged("Notice", NoticeMessage, noticeBridge, notice, noticeSentText);
 const BridgedPrdPane = bridged("PrdPane", Message, viewerBridge, prdPane, sentText);
-const BridgedReader = bridged("Reader", Message, viewerBridge, reader, sentText);
+const BridgedSpecPane = bridged("SpecPane", Message, viewerBridge, specPane, sentText);
 
 /** The bridged component's HTML, from Effect UI's server render, without the line it adds. */
 const effectUiHtmlOf = (rendered: Effect.Effect<{ readonly html: string }>) =>
@@ -183,15 +193,13 @@ it.effect("the PRD pane renders the same DOM through the bridge as through Foldk
   }),
 );
 
-it.effect(
-  "the whole reader screen renders the same DOM through the bridge as through Foldkit",
-  () =>
-    Effect.gen(function* () {
-      const foldkit = yield* foldkitHtmlOf(reader);
-      const effectUi = yield* effectUiHtmlOf(HtmlServer.renderToHtml(BridgedReader, {}));
-      assert.isAbove(Array.length(tokensOf(foldkit)), 10_000);
-      assert.deepStrictEqual(tokensOf(effectUi), tokensOf(foldkit));
-    }),
+it.effect("the spec pane renders the same DOM through the bridge as through Foldkit", () =>
+  Effect.gen(function* () {
+    const foldkit = yield* foldkitHtmlOf(specPane);
+    const effectUi = yield* effectUiHtmlOf(HtmlServer.renderToHtml(BridgedSpecPane, {}));
+    assert.isAbove(Array.length(tokensOf(foldkit)), 1000);
+    assert.deepStrictEqual(tokensOf(effectUi), tokensOf(foldkit));
+  }),
 );
 
 // --- a click, both ways ------------------------------------------------------------------

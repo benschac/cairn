@@ -13,7 +13,7 @@ import { currentTasksOf, planCountsOf, ranOf } from "../reader.ts";
 import { nodeSearchOf } from "../highlight.ts";
 import type { SearchResult } from "../search.ts";
 import { Node, type Chain } from "../trace.ts";
-import { dotView, labelView } from "../ui/marks.ts";
+import { dotView, labelView } from "../foldkit/marks.ts";
 import {
   forkKey,
   hoverChainOf,
@@ -23,9 +23,9 @@ import {
   type Measured,
 } from "../wires.ts";
 import { arrowsView } from "./arrowsView.ts";
-import { copyButtonView } from "./copyLinkView.ts";
-import { modelAttributesOf, modelMarkView } from "./modelView.ts";
-import { fieldView, searchedAttributesOf } from "./nodeView.ts";
+import { copyButtonView } from "../foldkit/copyLinkView.ts";
+import { modelAttributesOf, modelMarkView } from "../foldkit/modelView.ts";
+import { fieldView, searchedAttributesOf } from "../foldkit/nodeView.ts";
 import { hoverAttributesOf } from "./wiresView.ts";
 
 const isDone = (task: TraceTask): boolean => task.status === "done" || task.status === "landed";

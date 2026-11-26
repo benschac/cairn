@@ -12,7 +12,7 @@ import {
 } from "../codeView.ts";
 import type { CodeScreen } from "../model.ts";
 import { Shown } from "../model.ts";
-import { dotView, gateView, labelView, tagView } from "../ui/marks.ts";
+import { dotView, gateView, labelView, tagView } from "../foldkit/marks.ts";
 
 /** The message constructors the tree's view needs; the app supplies its own. */
 export interface TreeMessages<Message> {

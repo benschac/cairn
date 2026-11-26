@@ -1,12 +1,11 @@
 import { PrdSectionId, type Trace } from "@cairn/contract";
+import type { Html } from "@effect/ui/html";
 import { Array, Option, Record, Schema, String } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { SEARCH_INPUT_ID } from "../command.ts";
 import { Message } from "../message.ts";
 import { snippetOf, type FieldKind, type SearchResult, type SearchState } from "../search.ts";
 import { Node, nodeKeyOf, nodeTitleOf } from "../trace.ts";
-import type { Rendered } from "../markdown.ts";
 import { tagView, type TagKind } from "../ui/marks.ts";
 import { markedView } from "./nodeView.ts";
 
@@ -44,55 +43,49 @@ const kindOf = (node: Node): readonly [kind: TagKind, label: string] =>
   });
 
 /** The context of a match: a bounded stretch of the text, marked, with an ellipsis where it is cut. */
-const snippetView = (result: SearchResult, h: HtmlBuilder<Message>): Rendered => {
+const snippetView = (h: Html.H<Message>, result: SearchResult) => {
   const snippet = snippetOf(result);
   return Array.flatten([
     snippet.isCutBefore ? ["…"] : [],
-    markedView(snippet.text, snippet.ranges, h),
+    markedView(h, snippet.text, snippet.ranges),
     snippet.isCutAfter ? ["…"] : [],
   ]);
 };
 
 /** What the query matched, and the matched text itself unless it is the title the row already shows. */
-const matchedFieldView = (result: SearchResult, h: HtmlBuilder<Message>): Html =>
-  h.span(
-    [h.DataAttribute("search-field", result.field)],
-    result.field === "title"
-      ? [FIELD_LABEL.title]
-      : Array.prepend(snippetView(result, h), `${FIELD_LABEL[result.field]}: `),
-  );
+const matchedFieldView = (h: Html.H<Message>, result: SearchResult) =>
+  h.span
+    .attr("data-search-field", result.field)
+    .children(
+      result.field === "title"
+        ? FIELD_LABEL.title
+        : Array.prepend(snippetView(h, result), `${FIELD_LABEL[result.field]}: `),
+    );
 
-const resultView = (
-  trace: Trace,
-  result: SearchResult,
-  isActive: boolean,
-  h: HtmlBuilder<Message>,
-): Html => {
+const resultView = (h: Html.H<Message>, trace: Trace, result: SearchResult, isActive: boolean) => {
   const [kind, label] = kindOf(result.node);
-  return h.li(
-    Array.appendAll(
-      [
-        h.Class("row"),
-        h.Id(optionIdOf(result.node)),
-        h.Role("option"),
-        h.AriaSelected(isActive),
-        h.DataAttribute("search-result", nodeKeyOf(result.node)),
-        h.DataAttribute("active", `${isActive}`),
-        h.OnClick(Message.ClickedSearchResult({ node: result.node })),
-      ],
+  return (
+    h.li
+      .class("row")
+      .id(optionIdOf(result.node))
+      .attr("role", "option")
+      .attr("aria-selected", `${isActive}`)
+      .attr("data-search-result", nodeKeyOf(result.node))
+      .attr("data-active", `${isActive}`)
       // The row's current mark, as the table of pieces has it.
-      isActive ? [h.DataAttribute("current", "")] : [],
-    ),
-    [
-      h.span([h.DataAttribute("search-kind", "")], [tagView(kind, label, h)]),
-      h.span(
-        [h.DataAttribute("search-title", "")],
-        result.field === "title"
-          ? markedView(result.text, result.ranges, h)
-          : [nodeTitleOf(trace, result.node)],
-      ),
-      h.div([], [matchedFieldView(result, h)]),
-    ],
+      .attr("data-current", isActive ? "" : undefined)
+      .on("click", Message.ClickedSearchResult({ node: result.node }))
+      .children(
+        h.span.attr("data-search-kind", "").children(tagView(h, kind, label)),
+        h.span
+          .attr("data-search-title", "")
+          .children(
+            result.field === "title"
+              ? markedView(h, result.text, result.ranges)
+              : nodeTitleOf(trace, result.node),
+          ),
+        h.div(matchedFieldView(h, result)),
+      )
   );
 };
 
@@ -109,48 +102,45 @@ const statusText = (search: SearchState): string =>
 
 /**
  * The toolbar's search: a labelled combobox, a polite count that does not take focus, and the
- * ranked results as a listbox. The input handles the arrow keys, Enter and Escape itself.
+ * ranked results as a listbox. The input handles the arrow keys, Enter and Escape itself, and
+ * keeps a handled key from the page.
  */
-export const searchView = (trace: Trace, search: SearchState, h: HtmlBuilder<Message>): Html => {
+export const searchView = (h: Html.H<Message>, trace: Trace, search: SearchState) => {
   const hasResults = Array.isReadonlyArrayNonEmpty(search.results);
-  const input = h.input(
-    Array.flatten([
-      [
-        h.Id(SEARCH_INPUT_ID),
-        h.Type("text"),
-        h.Role("combobox"),
-        h.AriaLabel("Search sections and tasks"),
-        h.Placeholder("Search sections and tasks"),
-        h.Autocomplete("off"),
-        h.AriaAutocomplete("list"),
-        h.AriaExpanded(hasResults),
-        h.Value(search.query),
-        h.OnInput((query) => Message.ChangedSearchQuery({ query })),
-        h.OnKeyDownPreventDefault(searchKeyMessage),
-      ],
-      hasResults ? [h.AriaControls(SEARCH_LISTBOX_ID)] : [],
-      Array.fromOption(
-        Option.map(search.maybeActive, (node) => h.AriaActiveDescendant(optionIdOf(node))),
-      ),
-    ]),
-  );
-  const status = h.p(
-    [h.AriaLive("polite"), h.DataAttribute("search-status", "")],
-    [statusText(search)],
-  );
-  const list = h.ul(
-    [
-      h.Id(SEARCH_LISTBOX_ID),
-      h.Role("listbox"),
-      h.AriaLabel("Search results"),
-      h.Class("search-list"),
-    ],
-    Array.map(search.results, (result) =>
-      resultView(trace, result, isActiveResult(search, result), h),
-    ),
-  );
-  return h.div(
-    [h.Class("search-box"), h.DataAttribute("search", "")],
-    hasResults ? [input, status, list] : [input, status],
-  );
+  return h.div
+    .class("search-box")
+    .attr("data-search", "")
+    .children(
+      h.input
+        .id(SEARCH_INPUT_ID)
+        .attr("type", "text")
+        .attr("role", "combobox")
+        .attr("aria-label", "Search sections and tasks")
+        .attr("placeholder", "Search sections and tasks")
+        .attr("autocomplete", "off")
+        .attr("aria-autocomplete", "list")
+        .attr("aria-expanded", `${hasResults}`)
+        .attr("aria-controls", hasResults ? SEARCH_LISTBOX_ID : undefined)
+        .attr(
+          "aria-activedescendant",
+          Option.getOrUndefined(Option.map(search.maybeActive, optionIdOf)),
+        )
+        .value(search.query)
+        .on("input", ({ value }) => Message.ChangedSearchQuery({ query: value }))
+        .on("keydown", ({ key }) => Option.getOrUndefined(searchKeyMessage(key)), {
+          preventDefault: true,
+        }),
+      h.p.attr("aria-live", "polite").attr("data-search-status", "").children(statusText(search)),
+      hasResults &&
+        h.ul
+          .id(SEARCH_LISTBOX_ID)
+          .attr("role", "listbox")
+          .attr("aria-label", "Search results")
+          .class("search-list")
+          .children(
+            Array.map(search.results, (result) =>
+              resultView(h, trace, result, isActiveResult(search, result)),
+            ),
+          ),
+    );
 };

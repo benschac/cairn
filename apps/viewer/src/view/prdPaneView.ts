@@ -36,7 +36,8 @@ import {
 import { linkedMarksOf, sectionPathOf, type PassageButton } from "../links.ts";
 import { PASSAGE_ATTRIBUTE } from "../subscription/selection.ts";
 import { blockKeyFor, marksOf, type SearchResult } from "../search.ts";
-import { copyButtonView, copyPassageView, passageButtonFor } from "./copyLinkView.ts";
+import { copyButtonView, copyPassageView } from "../foldkit/copyLinkView.ts";
+import { passageButtonFor } from "./copyLinkView.ts";
 import {
   coverageOf,
   countsOf,
@@ -50,10 +51,10 @@ import {
 } from "../reader.ts";
 import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
 import { sectionStatusOf, type Node } from "../trace.ts";
-import { disclosureView } from "../ui/controls.ts";
-import { dotView } from "../ui/marks.ts";
+import { disclosureView } from "../foldkit/controls.ts";
+import { dotView } from "../foldkit/marks.ts";
 import { prdKey } from "../wires.ts";
-import { fieldView, matchView, searchedAttributesOf } from "./nodeView.ts";
+import { fieldView, matchView, searchedAttributesOf } from "../foldkit/nodeView.ts";
 
 /** How far below the pane's top the line is that decides which section is being read. */
 export const TOP_LINE = 140;

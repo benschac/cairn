@@ -1,16 +1,15 @@
 import { UiSchema } from "@effect/ui";
 import { Html } from "@effect/ui/html";
-import { Collapsible, CollapsibleEvents } from "@effect/ui-kit";
 import { HtmlLocator, HtmlPlay, HtmlScene } from "@effect/ui/html/testing";
 import { Locator, TestHost } from "@effect/ui/testing";
 import { assert, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
 import {
-  DisclosureView,
-  SwitchView,
   disclosurePanelId,
+  disclosureView,
   switchLabelId,
+  switchView,
 } from "../../src/effect-ui/controls.ts";
 
 // A small component hosts the switch and the disclosure the way a view will, as
@@ -47,13 +46,13 @@ const Controls = Html.component({
   },
   view: (h, model) =>
     h.main.children(
-      SwitchView(h, {
+      switchView(h, {
         id: "models",
         isChecked: model.isChecked,
         label: switchLabel,
         onToggle: (isChecked): Message => Message.ClickedModelsSwitch({ isChecked }),
       }),
-      DisclosureView(h, {
+      disclosureView(h, {
         id: "spec-card",
         isOpen: model.isOpen,
         onToggle: (isOpen): Message => Message.ClickedSpecCard({ isOpen }),
@@ -61,8 +60,8 @@ const Controls = Html.component({
           h.article
             .class("card")
             .children(
-              disclosure.trigger(h.button.class("card-head")).children("Spec card"),
-              disclosure.panel(h.div)?.children("The spec section in full"),
+              disclosure.button(h.button.class("card-head")).children("Spec card"),
+              model.isOpen && disclosure.panel(h.div).children("The spec section in full"),
             ),
       }),
       h.p.id("sent").children(model.sent),
@@ -120,18 +119,13 @@ it.effect("a closed disclosure has aria-expanded false, no aria-controls and no 
   }),
 );
 
-// A Scene runs only the component it starts from, and the disclosure's click goes to the
-// `Collapsible` it holds, whose `update` turns it into `Toggled`. So the Scene stands in the event
-// the kit emits, and a Play, which runs the child, clicks the header as a person does.
+// The disclosure is a plain button whose click sends the component's own Message, so a Scene
+// clicks it as a person does, and so does a Play.
 
-it.effect("the disclosure maps the kit's Toggled to its Message and renders its panel", () =>
+it.effect("clicking the disclosure sends its Message and renders its panel", () =>
   Effect.gen(function* () {
     const s = yield* HtmlScene.make(Controls, closed);
-    s.childEmit(
-      Collapsible,
-      "spec-card",
-      CollapsibleEvents.Toggled({ open: true, reason: "trigger-press" }),
-    )
+    s.click(specCardHeader)
       .expect(sent)
       .toHaveText("ClickedSpecCard true")
       .expect(specCardHeader)

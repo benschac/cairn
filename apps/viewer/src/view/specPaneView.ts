@@ -26,12 +26,13 @@ import {
   type JudgmentMark,
   type Node,
 } from "../trace.ts";
-import { disclosureView, segmentedView } from "../ui/controls.ts";
-import { dotView, gateView, labelView, tagView } from "../ui/marks.ts";
+import { disclosureView, segmentedView } from "../foldkit/controls.ts";
+import { dotView, gateView, labelView, tagView } from "../foldkit/marks.ts";
 import { hoverChainOf, isSpecDimmed, isTaskDimmed, rowKey, specKey, strayKey } from "../wires.ts";
-import { copyButtonView, copyPassageView, passageButtonFor } from "./copyLinkView.ts";
-import { modelChipView, modelSquareView } from "./modelView.ts";
-import { fieldView, matchView, searchedAttributesOf, titleView } from "./nodeView.ts";
+import { copyButtonView, copyPassageView } from "../foldkit/copyLinkView.ts";
+import { passageButtonFor } from "./copyLinkView.ts";
+import { modelChipView, modelSquareView } from "../foldkit/modelView.ts";
+import { fieldView, matchView, searchedAttributesOf, titleView } from "../foldkit/nodeView.ts";
 import { hoverAttributesOf } from "./wiresView.ts";
 
 const DENSITIES: ReadonlyArray<{ readonly label: string; readonly value: Density }> = [

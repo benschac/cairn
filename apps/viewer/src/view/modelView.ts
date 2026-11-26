@@ -1,7 +1,8 @@
 import type { Reasoning } from "@cairn/contract";
-import { Array, Match } from "effect";
-import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
+import type { Html } from "@effect/ui/html";
+import { Match } from "effect";
 
+import { styleText, type Attributable } from "../effect-ui/attributes.ts";
 import type { Ran } from "../reader.ts";
 
 /** The short mark for a reasoning level, as the PRD names them. */
@@ -19,41 +20,31 @@ export const reasoningMarkOf = (reasoning: Reasoning): string =>
 export const modelTitleOf = (ran: Ran): string =>
   `${ran.ran ? "Ran on" : "Planned for"} ${ran.model}, ${ran.reasoning} reasoning`;
 
-/** What every size carries: the model's name for its colour, and whether it ran for its border. */
-export const modelAttributesOf = <Message>(
-  ran: Ran,
-  h: HtmlBuilder<Message>,
-): ReadonlyArray<Attribute<Message>> => [
-  h.DataAttribute("model", ran.model),
-  h.DataAttribute("ran", `${ran.ran}`),
-];
+/**
+ * What every size carries: the model's name for its colour, and whether it ran for its border.
+ * It adds them to the builder it is given and returns that builder.
+ */
+export const withModel = <B>(builder: B & Attributable<B>, ran: Ran): B =>
+  builder.attrs({ "data-model": ran.model, "data-ran": `${ran.ran}` });
 
 /** `sonnet · medium`, at the end of a task row. */
-export const modelChipView = <Message>(ran: Ran, h: HtmlBuilder<Message>): Html =>
-  h.span(
-    Array.appendAll(
-      [h.Class("chip"), h.DataAttribute("model-chip", ""), h.Title(modelTitleOf(ran))],
-      modelAttributesOf(ran, h),
-    ),
-    [`${ran.model} · ${ran.reasoning}`],
-  );
+export const modelChipView = <Msg>(h: Html.H<Msg>, ran: Ran) =>
+  withModel(
+    h.span.class("chip").attr("data-model-chip", "").attr("title", modelTitleOf(ran)),
+    ran,
+  ).children(`${ran.model} · ${ran.reasoning}`);
 
 /** The `lo`, `med`, `hi`, `xhi` or `max` that follows a stack chip's ID. */
-export const modelMarkView = <Message>(ran: Ran, h: HtmlBuilder<Message>): Html =>
-  h.span(
-    [
-      h.DataAttribute("model-mark", ""),
-      h.Title(modelTitleOf(ran)),
-      h.Style({ "font-size": "var(--t-xs)" }),
-    ],
-    [reasoningMarkOf(ran.reasoning)],
-  );
+export const modelMarkView = <Msg>(h: Html.H<Msg>, ran: Ran) =>
+  h.span
+    .attr("data-model-mark", "")
+    .attr("title", modelTitleOf(ran))
+    .attr("style", styleText({ "font-size": "var(--t-xs)" }))
+    .children(reasoningMarkOf(ran.reasoning));
 
 /** One small square in a spec card's header, for one task. */
-export const modelSquareView = <Message>(ran: Ran, h: HtmlBuilder<Message>): Html =>
-  h.span(
-    Array.appendAll(
-      [h.Class("swatch"), h.DataAttribute("model-square", ""), h.Title(modelTitleOf(ran))],
-      modelAttributesOf(ran, h),
-    ),
+export const modelSquareView = <Msg>(h: Html.H<Msg>, ran: Ran) =>
+  withModel(
+    h.span.class("swatch").attr("data-model-square", "").attr("title", modelTitleOf(ran)),
+    ran,
   );

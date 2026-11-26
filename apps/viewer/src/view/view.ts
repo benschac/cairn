@@ -1,8 +1,10 @@
 import type { Participant, Trace } from "@cairn/contract";
+import type { Html } from "@effect/ui/html";
 import { Array, Option } from "effect";
 import { AsyncData } from "foldkit";
-import type { Document, Html, HtmlBuilder } from "foldkit/html";
 
+import { styleText } from "../effect-ui/attributes.ts";
+import { viewerBridge } from "../effect-ui/viewerBridge.ts";
 import { copyLinksOf } from "../links.ts";
 import { Message } from "../message.ts";
 import { PresenceConnection, Screen, type Model } from "../model.ts";
@@ -34,10 +36,10 @@ const codeMessages: CodeMessages = {
   onMoreOfTurn: (id) => Message.ClickedMoreOfTurn({ id }),
 };
 
-const loadingView = (h: HtmlBuilder<Message>): Html =>
-  h.p([h.Role("status"), h.DataAttribute("loading", "")], ["Loading the trace..."]);
+const loadingView = (h: Html.H<Message>) =>
+  h.p.attr("role", "status").attr("data-loading", "").children("Loading the trace...");
 
-const alertView = (error: string, h: HtmlBuilder<Message>): Html => h.p([h.Role("alert")], [error]);
+const alertView = (h: Html.H<Message>, error: string) => h.p.attr("role", "alert").children(error);
 
 /** Everyone in the room but you. */
 const othersOf = (model: Model): ReadonlyArray<Participant> =>
@@ -46,59 +48,61 @@ const othersOf = (model: Model): ReadonlyArray<Participant> =>
     (participant) => !Option.contains(model.maybeYou, participant.id),
   );
 
-export const view = (model: Model, h: HtmlBuilder<Message>): Document =>
+/**
+ * The viewer's whole view: the reader or the code view, in `main`. `Viewer` calls it inside
+ * `viewerBridge.render`, so the views under it that are still Foldkit build in one pass. The code
+ * view is one of them.
+ */
+export const view = (h: Html.H<Message>, model: Model) =>
   Screen.match(model.screen, {
-    Reader: () => readerScreenView(model, h),
-    Code: (code) => ({
-      body: h.main(
-        [],
+    Reader: () => readerScreenView(h, model),
+    Code: (code) =>
+      h.main(
         Option.match(AsyncData.getData(model.trace), {
-          onNone: () => [loadingView(h)],
-          onSome: (trace) => [
-            codeView(
-              trace,
-              code,
-              model.patches,
-              model.diffStyle,
-              model,
-              model.maybeLinkNotice,
-              copyLinksOf(model),
-              h,
-              codeMessages,
+          onNone: () => loadingView(h),
+          onSome: (trace) =>
+            viewerBridge.bridged(h, (foldkit) =>
+              codeView(
+                trace,
+                code,
+                model.patches,
+                model.diffStyle,
+                model,
+                model.maybeLinkNotice,
+                copyLinksOf(model),
+                foldkit,
+                codeMessages,
+              ),
             ),
-          ],
         }),
       ),
-      title: "Cairn",
-    }),
   });
 
 /**
  * The reader fills the window: main is a column of the reader and, when the trace is stale, the
  * alert above it, so the window never scrolls and each pane keeps its own scroll.
  */
-const readerScreenView = (model: Model, h: HtmlBuilder<Message>): Document => {
+const readerScreenView = (h: Html.H<Message>, model: Model) => {
   const presence = presenceText(model, othersOf(model));
-  const loaded = (trace: Trace) => readerView(trace, model, presence, h);
-  return {
-    body: h.main(
-      [
-        h.Style({
-          display: "flex",
-          "flex-direction": "column",
-          height: "100vh",
-          overflow: "hidden",
-        }),
-      ],
-      AsyncData.match(model.trace, {
-        onFailure: (error) => [alertView(error, h)],
-        onIdle: () => [loadingView(h)],
-        onLoading: () => [loadingView(h)],
-        onRefreshing: (data) => [loaded(data)],
-        onStale: ({ data, error }) => [alertView(error, h), loaded(data)],
-        onSuccess: (data) => [loaded(data)],
+  const loaded = (trace: Trace) => readerView(h, trace, model, presence);
+  return h.main
+    .attr(
+      "style",
+      styleText({
+        display: "flex",
+        "flex-direction": "column",
+        height: "100vh",
+        overflow: "hidden",
       }),
-    ),
-    title: "Cairn",
-  };
+    )
+    .children(
+      AsyncData.match(model.trace, {
+        onFailure: (error) => alertView(h, error),
+        onIdle: () => loadingView(h),
+        onLoading: () => loadingView(h),
+        onRefreshing: (data) => loaded(data),
+        onStale: ({ data, error }) => [alertView(h, error), loaded(data)],
+        onSuccess: (data) => loaded(data),
+      }),
+    );
 };

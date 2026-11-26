@@ -7,7 +7,7 @@ import { isDemoBuild } from "../load.ts";
 import { renderMarkdown, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
 import { SessionData, type HighlightedTurn } from "../model.ts";
-import { copyButtonView } from "./copyLinkView.ts";
+import { copyButtonView } from "../foldkit/copyLinkView.ts";
 
 /** The message constructors the session pane needs. */
 export interface SessionMessages {

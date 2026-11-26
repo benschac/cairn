@@ -169,3 +169,209 @@ Written up for the owner; nothing has been filed.
    host-supplied dispatch (`__setRuntime` is reachable only past the `exports` map). Any
    integration that renders Foldkit views under another runtime needs it. Low priority, since the
    viewer drops Foldkit.
+
+## SVG
+
+`@effect/ui/html` has no SVG builders. `src/effect-ui/svg.ts` gives `svgFor<Message>()`: one builder per SVG tag
+(`svg`, `g`, `path`, `line`, `rect`, `circle`, `ellipse`, `polygon`, `polyline`, `text`, `tspan`, `defs`,
+`marker`, `use`, `symbol`, `clipPath`, `linearGradient`, `stop`). Each is Effect UI's own HTML element builder under
+an SVG tag, so it reads as `h` does (`attr`, `class`, `style`, `key`, `on`, `ref`, `onMount`, `children`, and a call as
+shorthand for `children`). The host creates an element whose tag it lists in `svgTags` in the SVG namespace, and the
+server writes its attributes in SVG case, so `viewBox` stays `viewBox`. There is no `title`: the host does not list it,
+so it would be an HTML element. Use `aria-label`.
+
+```ts
+const svg = svgFor<Message>();
+
+h.div.children(
+  svg.svg
+    .attr("viewBox", "0 0 100 40")
+    .attr("aria-hidden", "true")
+    .children(
+      svg.defs.children(svg.marker.attr("id", "head").children(svg.path.attr("d", "M0 0L4 2"))),
+      svg.path
+        .key("edge")
+        .attr("d", "M10 20L90 20")
+        .attr("marker-end", "url(#head)")
+        .style({ stroke: "var(--ink)" }),
+      svg.circle
+        .key("a")
+        .attr("r", "6")
+        .on("click", () => Message.ClickedNode({ id: "a" })),
+    ),
+);
+```
+
+`test/effect-ui/svg.test.ts` renders one and clicks a shape in a `HtmlScene`.
+
+## Writing views
+
+The frame moved first (`spec.viewer.effect-ui.views`, task t240): `view/view.ts`, `readerView.ts`
+(the top bar, the notice, the grid and its dividers), `topBarView.ts`, `dividerView.ts`,
+`linkNoticeView.ts`, `copyLinkView.ts`, `searchView.ts`, `nodeView.ts`, `modelView.ts`,
+`ui/marks.ts` and `effect-ui/controls.ts`. Everything below them is still Foldkit and renders through
+the bridge. A part that moves next copies what these files do.
+
+**The DOM does not change.** A view keeps its tags, classes, roles, labels, IDs, keys, attributes,
+inline styles and Messages, so the Scene tests pass unchanged. Before t240 was committed, the whole
+reader screen rendered by the new frame was compared token by token with the Foldkit one (the
+`tokensOf` comparison in `test/effect-ui/bridge.test.ts`); do the same for a part before you move it,
+with the Foldkit original from `git show`.
+
+In development Vite serves `foldkit` and `@foldkit/ui` from `node_modules` unbundled
+(`optimizeDeps.exclude` in `vite.config.ts`): the bridge imports Foldkit's html module by its path,
+and a pre-bundled `foldkit/html` would be a second copy with its own render frame, so a bridged view
+would throw that it was built outside a render. The tests and the production build have one copy
+either way.
+
+### A view function
+
+`h` comes first, then the data, and the function returns the builder, with no return type written.
+Names stay as they were (`fooView`), so a moved view keeps its importers' names. A view of the
+viewer types `h` as `Html.H<Message>`; a leaf a test hosts with its own Messages is generic.
+
+```ts
+export const linkNoticeView = <Message>(
+  h: Html.H<Message>,
+  text: string,
+  messages: LinkNoticeMessages<Message>,
+) =>
+  h.div
+    .class("link-notice")
+    .attr("role", "status")
+    .attr("data-link-notice", "")
+    .children(
+      h.p(text),
+      h.button
+        .attr("type", "button")
+        .class("btn")
+        .on("click", messages.onDismiss)
+        .children("Dismiss"),
+    );
+```
+
+`h` first is what `h.lazy` needs (it calls `fn(h, ...args)`). A helper that returns several
+children returns an array, and a parameter that takes text or marked nodes is `View.Input<Msg>`
+(`tagView(h, kind, text: View.Input<Msg>)`). Children nest one array deep in the types, so flatten a
+list of lists with `Array.flatten` before passing it (`searchView`'s `snippetView`).
+
+Attributes are chained calls: `h.Class` is `.class`, `h.Id` is `.id`, `h.Value` is `.value`
+(controlled), `h.Disabled` is `.disabled`, and everything else is `.attr(name, text)`: roles,
+`aria-*` as `"true"`/`"false"`, `data-*`, `tabindex` as `"0"`, `title`, `placeholder`,
+`autocomplete`. `.attr(name, undefined)` leaves an attribute off, which is how a conditional
+attribute is written:
+
+```ts
+.attr("aria-controls", hasResults ? SEARCH_LISTBOX_ID : undefined)
+.attr("aria-activedescendant", Option.getOrUndefined(Option.map(search.maybeActive, optionIdOf)))
+```
+
+Native buttons keep `.attr("type", "button")`. Disclosures and switches are the plain buttons in
+`effect-ui/controls.ts`, not `@effect/ui-kit`'s `Collapsible` and `Switch` (Verdict 3): a click on
+them reaches the viewer's `update` in a Scene.
+
+**Inline style.** Write `.attr("style", styleText({ ... }))` from `effect-ui/attributes.ts`, with
+the kebab-case names Foldkit's `h.Style` had. Effect UI's `.style` writes `a:b;c:d`, and the Scene
+tests read Foldkit's `a: b; c: d` (`styled`, `styleDeclaring`). Use `.style` in the components step.
+
+**An attribute bundle** (a Foldkit `ReadonlyArray<Attribute>`, such as `searchedAttributesOf`)
+becomes a function that takes the builder and returns it:
+
+```ts
+export const withSearched = <B>(builder: B & Attributable<B>, search: NodeSearch): B =>
+  builder.attrs({ "data-searched": search.isActive ? "active" : ... });
+
+withSearched(h.li.class("row"), search).children(...)
+```
+
+Type the parameter `B & Attributable<B>`, not `B extends Attributable<B>`: a bare `h.div` is a
+callable shorthand that the `extends` form does not infer. Call `attrs` once; `B` has nothing else.
+
+### Calling a child
+
+A child that has moved is called with the parent's `h`: `dividerView(h, "prd", model.widths)`.
+A child still on Foldkit goes through the bridge, with the Foldkit `h` the bridge hands in, in the
+position the child had:
+
+```ts
+viewerBridge.bridged(h, (foldkit) => specPaneView(trace, maybeCurrent, ..., foldkit)),
+dividerView(h, "spec", model.widths),
+```
+
+`Viewer`'s `view` is `(h, model) => viewerBridge.render(() => view(h, model))`: one Foldkit render
+pass per Effect UI render, which every `bridged` call inside shares, so `createKeyedLazy` keeps the
+entries each pane used. Never call `viewerBridge.build` from a view, and never pass an Effect UI node
+into a Foldkit view: the bridge runs one way. When you move a child, replace its `bridged` call
+with a direct one; that is the only change its parent needs.
+
+A leaf both sides still use (`dotView`, `copyButtonView`, `dividerView`, the controls, ...) has
+its Effect UI version at its own path and a Foldkit copy under `src/foldkit/`, which the Foldkit
+views import. Move a view, switch its imports from `../foldkit/...` to the Effect UI file, and
+delete a `src/foldkit/` file in the change that removes its last importer. Pure helpers
+(`copyLabelOf`, `passageButtonFor`, `handleWidthOf`, `modelTitleOf`) live only in the Effect UI
+file, and the Foldkit copy imports them from there.
+
+### Keys, empty children and lists
+
+`h.keyed("div")(key, ...)` is `.key(key)` on the builder; give a key exactly where Foldkit had one.
+An empty child is a hole (`false`, `null`, `undefined`), not an empty array:
+
+```ts
+model.isOpen && panel(h.div).children("The spec section in full"),
+Option.getOrUndefined(Option.map(model.maybeLinkNotice, (text) => linkNoticeView(h, text, ...))),
+Array.match(model.detail, { onEmpty: () => null, onNonEmpty: (trail) => ... }),
+```
+
+A list is `Array.map` into `.children(...)`; an array is flattened, so it can sit beside other
+children.
+
+### SVG
+
+Through `effect-ui/svg.ts` (see SVG above), with every attribute as `.attr` in SVG case:
+
+```ts
+const svg = svgFor<Message>();
+svg.svg
+  .attr("viewBox", "0 0 22 22")
+  .attr("aria-hidden", "true")
+  .children(svg.ellipse.attr("cx", "11").attr("cy", cy).attr("fill", "currentColor"));
+```
+
+### Mounts
+
+A Mount becomes an Effect UI mount with the same name, issued with `.onMount`:
+`.onMount(PressDivider({ pane }))`. When it moves, the Foldkit definition leaves
+`viewerBridge`'s `mounts` list and the fixtures' `viewerBridge.mountOf(X)` becomes `X`. While the
+view that owns a Mount is still Foldkit, an Effect UI element can issue the bridged one, as the
+reader grid does until the wires move: `.onMount(viewerBridge.mountOf(MeasureWires)({ args: undefined }))`
+(`args` is what the Foldkit Mount was called with).
+
+### Lazy views
+
+`createLazy` and `createKeyedLazy` become `h.lazy(fn, ...args)`. `fn` is declared at module level
+as `(h, ...args) => ...`, the args are compared with `===`, and the first argument tells calls
+apart, so a keyed lazy puts its key (the row, the section ID) first. Pass the plain values the
+Foldkit lazy was given, so a hit is as likely as before. A reused `h.lazy` node is the same object,
+so `sameNodes` in the wires scenes still sees the reuse.
+
+### Event data
+
+A handler gets Effect UI's payload, not a DOM event. Return the Message, or `undefined` to ignore
+the event; `{ preventDefault: true }` cancels the default only when a Message comes back, which is
+`OnKeyDownPreventDefault`:
+
+```ts
+.on("input", ({ value }) => Message.ChangedSearchQuery({ query: value }))
+.on("keydown", ({ key }) => Option.getOrUndefined(searchKeyMessage(key)), { preventDefault: true })
+```
+
+A payload has no `pointerId`, no target element and no `pointermove`: a handler that needs them is
+a mount on the element (`PressDivider`). An event goes to the innermost element with a handler for
+it, and only there.
+
+### Focus and blur
+
+`.on("focus", Message.FocusedX())` and `.on("blur", Message.BlurredX())`, two Messages, as the
+naming rules say. Moving focus stays a Foldkit Command (`Dom.focus` on an ID, through the update
+adapter) until the components step gives targets `Html.ref`s, so keep the IDs it looks up
+(`SEARCH_INPUT_ID`, the detail heading's).

@@ -1,8 +1,8 @@
 import { decodeLink, Step, type Link } from "@cairn/contract";
+import { Html } from "@effect/ui/html";
 import { HtmlScene } from "@effect/ui/html/testing";
 import { it } from "@effect/vitest";
 import { Array, Effect, Option, Result, Schema } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
 import { modifyFields } from "foldkit/struct";
 
@@ -18,7 +18,6 @@ import {
   byRole,
   containing,
   data,
-  hostFoldkitView,
   inside,
   loaded,
   readerMounted,
@@ -41,22 +40,23 @@ type NoticeMessage = typeof NoticeMessage.Type;
 const NoticeModel = Schema.Struct({ maybeNotice: Schema.Option(Schema.String) });
 type NoticeModel = typeof NoticeModel.Type;
 
-const view = (model: NoticeModel, h: HtmlBuilder<NoticeMessage>): Html =>
-  h.main(
-    [],
-    Option.match(model.maybeNotice, {
-      onNone: () => [],
-      onSome: (text) => [
-        linkNoticeView(text, h, { onDismiss: NoticeMessage.ClickedDismissLinkNotice() }),
-      ],
-    }),
+const view = (h: Html.H<NoticeMessage>, model: NoticeModel) =>
+  h.main.children(
+    Option.getOrUndefined(
+      Option.map(model.maybeNotice, (text) =>
+        linkNoticeView(h, text, { onDismiss: NoticeMessage.ClickedDismissLinkNotice() }),
+      ),
+    ),
   );
 
-const Notice = hostFoldkitView({
+const Notice = Html.component({
   message: NoticeMessage,
   model: NoticeModel,
   name: "Notice",
-  update: () => ({ maybeNotice: Option.none() }),
+  props: NoticeModel,
+}).make({
+  init: ($) => $.props,
+  update: (): NoticeModel => ({ maybeNotice: Option.none() }),
   view,
 });
 

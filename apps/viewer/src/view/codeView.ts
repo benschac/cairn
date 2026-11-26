@@ -13,8 +13,8 @@ import {
 import type { CopyLinks } from "../links.ts";
 import type { Message } from "../message.ts";
 import { Shown, type CodeScreen, type DiffStyle, type PatchData } from "../model.ts";
-import { copyButtonView } from "./copyLinkView.ts";
-import { linkNoticeView } from "./linkNoticeView.ts";
+import { copyButtonView } from "../foldkit/copyLinkView.ts";
+import { linkNoticeView } from "../foldkit/linkNoticeView.ts";
 import { diffStyleToggleView, patchView, type DiffMarks } from "./diffView.ts";
 import {
   loadedSessionOf,
