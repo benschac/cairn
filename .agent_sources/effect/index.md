@@ -21,6 +21,8 @@ Read [the source guide](../README.md) before applying examples.
 | @effect/platform-browser | 4.1.6 | 17 | 95 | `apps/viewer/node_modules/@effect/platform-browser/dist` |
 | @effect/platform-node | 4.1.6 | 30 | 69 | `node_modules/@effect/platform-node/dist` |
 | @effect/sql-sqlite-node | 4.1.6 | 2 | 11 | `packages/cli/node_modules/@effect/sql-sqlite-node/dist` |
+| @effect/ui | 0.0.0 | 48 | 858 | `apps/viewer/node_modules/@effect/ui/dist` |
+| @effect/ui-kit | 0.0.0 | 48 | 441 | `apps/viewer/node_modules/@effect/ui-kit/dist` |
 | @effect/vitest | 4.1.6 | 1 | 21 | `apps/viewer/node_modules/@effect/vitest/dist` |
 
 ## effect@4.1.6
@@ -608,6 +610,116 @@ Declarations: `packages/cli/node_modules/@effect/sql-sqlite-node/dist/<module>.d
 | --- | ---: | ---: | --- |
 | @effect/sql-sqlite-node/SqliteClient | 9 | 107 | Connects Effect SQL to SQLite on Node.js using `node:sqlite`. |
 | @effect/sql-sqlite-node/SqliteMigrator | 2 | 44 | Runs database migrations for Node.js SQLite projects that use Effect SQL. |
+
+## @effect/ui@0.0.0
+
+Declarations: `apps/viewer/node_modules/@effect/ui/dist/<module>.d.ts`. Guides: `apps/viewer/node_modules/@effect/ui/AGENTS.md`, `apps/viewer/node_modules/@effect/ui/ai-docs`, `apps/viewer/node_modules/@effect/ui/README.md`.
+
+| Module | Exports | Lines | Summary |
+| --- | ---: | ---: | --- |
+| @effect/ui/Command | 50 | 1616 | Commands are the side effects a component asks the runtime to run. |
+| @effect/ui/Component | 103 | 3840 | A component is a value: Schemas for its props, Model, messages and events, plus pure `init`, `update` and `view` functions. |
+| @effect/ui/Feature | 7 | 180 | Features are components a parent refers to by service instead of by value, so the implementation can be swapped with a Layer. |
+| @effect/ui/Head | 14 | 209 | The host-neutral part of a component's head: the title, title templates, and the fold that turns a tree of entries into one value. |
+| @effect/ui/MessageLog | 56 | 1503 | The message log: a development and test hook the runtime calls once per `update` and at every lifecycle step of every instance. |
+| @effect/ui/Mount | 18 | 402 | Mounts are the work an element starts with its host node, such as drawing on a canvas or measuring a box. |
+| @effect/ui/Query | 46 | 1172 | A keyed data cache. |
+| @effect/ui/Renderer | 21 | 572 | The renderer: mounts a component tree on a `Host` and keeps it in step with each instance's Model. |
+| @effect/ui/Route | 16 | 332 | Route definitions: a flat union of routes, each a path template with `params` and `search` Schemas, plus a parser and a printer that agree. |
+| @effect/ui/Router | 44 | 1048 | The `Router`: the current URL as a route value, its changes, and the navigation Commands. |
+| @effect/ui/Subscription | 10 | 303 | Subscriptions are keyed Streams an instance runs while it asks for them. |
+| @effect/ui/UiSchema | 3 | 133 | Schemas for UI values that are built often and must stay cheap to build. |
+| @effect/ui/UiStruct | 2 | 252 | Functions over plain structs, such as a Model or a struct inside one. |
+| @effect/ui/Validation | 19 | 587 | Field validation for forms: Foldkit's rules, with each field's state derived from what the user did instead of stored. |
+| @effect/ui/View | 48 | 1268 | Views are values: a tree of element, text and child nodes that a component's `view` returns and a host renders. |
+| @effect/ui/html/BrowserHost | 14 | 375 | The browser host for `@effect/ui`: mounts a component tree into an element of a real document. |
+| @effect/ui/html/BrowserRouter | 3 | 69 | The browser's Router: `window.history` behind the `@effect/ui` Router contract, plus link interception, scroll, route-change announcements and focus. |
+| @effect/ui/html/Canvas | 31 | 486 | A `<canvas>` drawn from data: the view lists shapes, and the canvas shows them. |
+| @effect/ui/html/Html | 57 | 1486 | The HTML element vocabulary for `@effect/ui`: element names on `h`, typed events with plain payloads, controlled properties, and refs typed by tag. |
+| @effect/ui/html/HtmlCommand | 21 | 378 | The HTML Commands: element ref operations (`focus`, `blur`, `scrollIntoView`, `measure`, `select`, `requestSubmit`, `showPicker`, `waitForAnimations`) and `waitForPaint`. |
+| @effect/ui/html/HtmlFiles | 10 | 211 | Files the user chooses: a Command that opens the browser's file picker, and reads of a `File` or `Blob` that stop when they're interrupted. |
+| @effect/ui/html/HtmlHead | 32 | 504 | The HTML vocabulary's head: meta and link tags, JSON-LD blocks, and the `lang`, `dir`, `class` and `data-*` attributes of `<html>` and `<body>`, on top of the host-neutral `Head.title` and `Head.titleTemplate`. |
+| @effect/ui/html/HtmlHydrate | 2 | 109 | Hydration: mounts a component tree over the HTML `HtmlServer.renderToHtml` rendered of it, adopting the server's nodes and the Model each instance rendered with. |
+| @effect/ui/html/HtmlImages | 3 | 50 | The image loader, for loading an image the page doesn't show yet. |
+| @effect/ui/html/HtmlKeyboard | 2 | 102 | Pure keyboard helpers over `Html.KeyPayload`: turn a table of single-key shortcuts into a handler for `HtmlSubscription.onDocument` or an element's `keydown` handler. |
+| @effect/ui/html/HtmlScheduler | 3 | 102 | A Scheduler for the browser, which keeps fiber work from holding up the page's rendering and input. |
+| @effect/ui/html/HtmlServer | 3 | 101 | Server rendering for `@effect/ui`: renders a component tree to HTML that `HtmlHydrate.hydrate` hydrates. |
+| @effect/ui/html/HtmlServerHttp | 1 | 105 | Serves a routed `@effect/ui` app's pages through `HttpRouter`, with `HtmlServer.renderToHtml` doing the rendering. |
+| @effect/ui/html/HtmlSubscription | 17 | 519 | The Subscriptions to the page, as opposed to one element's events: `onDocument` for a game's arrow keys or a press outside a popup, `shortcuts` for a table of keyboard shortcuts, `onCustomEvent` for a `CustomEvent` dispatched on the document, `onWindow` for the window's focus, `onAnimationFrame` for animation, and `onMediaQuery` for CSS media queries. |
+| @effect/ui/html/Markdown | 47 | 557 | Markdown documents as data, and the fold that renders them with `h`. |
+| @effect/ui/html/MarkdownParser | 6 | 98 | Parses Markdown source into a `Markdown.Document`, with no dependencies. |
+| @effect/ui/html/MarkdownVite | 3 | 34 | A Vite plugin that compiles imported `.md` files at build time into document modules, so no parser ships to the browser. |
+| @effect/ui/html/testing/HtmlLocator | 16 | 363 | Locates elements by ARIA role and accessible name, computed from tags and attributes, so a test finds elements the way assistive technology does. |
+| @effect/ui/html/testing/HtmlPlay | 3 | 179 | `Play` with the HTML vocabulary: steps that send what the browser host sends for each user action, and assertions on fields. |
+| @effect/ui/html/testing/HtmlScene | 5 | 357 | `Scene` with the HTML vocabulary: steps that send what the browser host sends for each user action, and assertions on fields. |
+| @effect/ui/html/testing/Ssr | 3 | 129 | Server rendering tests: render a tree on the server, hydrate it in a fresh document, and check that hydration adopted what the server rendered. |
+| @effect/ui/html/testing/TestAnimationFrames | 5 | 99 | A fake `HtmlSubscription.AnimationFrames` for whole-app tests, so a test fires animation frames without a window, in Node too. |
+| @effect/ui/html/testing/TestFiles | 6 | 107 | A fake `HtmlFiles.Files` for whole-app tests, so a test decides what the user chooses in each file picker, without a document, in Node too. |
+| @effect/ui/html/testing/TestGlobalEvents | 7 | 132 | A fake `HtmlSubscription.GlobalEvents` for whole-app tests, so a test fires document and window events without a document, in Node too. |
+| @effect/ui/html/testing/TestImages | 6 | 110 | A fake `HtmlImages.Images` for whole-app tests, so a test decides how each image load settles, without a document, in Node too. |
+| @effect/ui/html/testing/TestMediaQueries | 5 | 103 | A fake `HtmlSubscription.MediaQueries` for whole-app tests without a window. |
+| @effect/ui/testing/Locator | 14 | 170 | Locators over a minimal structural tree, so one locator works on a story's view value and on `TestHost`'s rendered tree alike. |
+| @effect/ui/testing/Play | 4 | 156 | Play tests mount a component on `TestHost` and drive it as a user does, with the Scene's steps, while the runtime runs: children are real, Commands and Subscriptions run against the Layers the test provides, and the test resolves nothing by hand. |
+| @effect/ui/testing/Scene | 10 | 495 | Scene tests drive one component through its rendered view and assert on what it renders: pure, with no runtime, no Layers and no host. |
+| @effect/ui/testing/Steps | 10 | 480 | The steps every kind of test shares, and the data they work on. |
+| @effect/ui/testing/Story | 12 | 475 | Story tests drive `update` with messages and assert on the Model: pure, with no runtime, no Layers, no host and no view. |
+| @effect/ui/testing/TestHost | 28 | 581 | Runtime tests: mount a component tree on a plain-object host, drive it, and wait for it to settle. |
+| @effect/ui/testing/TestQuery | 12 | 247 | A test harness for `@effect/ui/Query` with controllable host signals, fetch records, read-only entry views, and problem collection. |
+
+## @effect/ui-kit@0.0.0
+
+Declarations: `apps/viewer/node_modules/@effect/ui-kit/dist/<module>.d.ts`. Guides: `apps/viewer/node_modules/@effect/ui-kit/AGENTS.md`, `apps/viewer/node_modules/@effect/ui-kit/ai-docs`, `apps/viewer/node_modules/@effect/ui-kit/README.md`.
+
+| Module | Exports | Lines | Summary |
+| --- | ---: | ---: | --- |
+| @effect/ui-kit/Accordion | 12 | 277 | A set of panels, each under a heading with a button that shows and hides it, such as the questions of a FAQ. |
+| @effect/ui-kit/AlertDialog | 4 | 199 | A modal dialog that interrupts the user with something they must answer before going on, such as confirming that a draft is discarded. |
+| @effect/ui-kit/Autocomplete | 19 | 570 | An input that suggests completions from a list as the user types, and keeps whatever text the user enters. |
+| @effect/ui-kit/Avatar | 6 | 176 | A user's picture with a fallback, such as initials or an icon, while the picture loads or if it fails. |
+| @effect/ui-kit/Button | 3 | 148 | A native button that can stay focusable while disabled. |
+| @effect/ui-kit/Calendar | 6 | 170 | A controlled single-month calendar grid for picking a date. |
+| @effect/ui-kit/Checkbox | 5 | 267 | A controlled checkbox. |
+| @effect/ui-kit/CheckboxGroup | 5 | 107 | Shares one list of ticked values among the checkboxes inside it, and lets a parent checkbox tick or untick all of them. |
+| @effect/ui-kit/Collapsible | 8 | 150 | A panel that a button shows and hides, such as a section of settings or the answer to a question. |
+| @effect/ui-kit/Combobox | 21 | 696 | An input that filters a list of options as the user types, and picks one or more of them. |
+| @effect/ui-kit/ContextMenu | 5 | 268 | A menu that opens at the pointer on a right click, or after a long press on a touch screen, over an area of the page. |
+| @effect/ui-kit/DateField | 5 | 254 | A controlled text input for a calendar date. |
+| @effect/ui-kit/DatePicker | 7 | 425 | A headless date input with a popup calendar, built on `DateField` and `Calendar`. |
+| @effect/ui-kit/Dialog | 16 | 559 | A popup that opens on top of the page and asks for the user's attention, such as a form, a confirmation or a detail view. |
+| @effect/ui-kit/DirectionProvider | 5 | 62 | Tells the components inside it which way the text runs, so a control whose keys follow the reading direction, such as a one-time code field's Left and Right arrows, moves the right way in a right-to-left layout. |
+| @effect/ui-kit/Drawer | 16 | 314 | A panel that slides in from an edge of the screen, such as a bottom sheet or a navigation drawer, and is swiped away. |
+| @effect/ui-kit/Field | 4 | 176 | Groups a form control, or a group of them, with its label, description and error message, and reports whether the control is invalid, touched or focused on each of them. |
+| @effect/ui-kit/Fieldset | 3 | 63 | Groups several fields under one legend, such as a company field and a tax id field under "Billing details", and disables all of them at once. |
+| @effect/ui-kit/FileDrop | 7 | 107 | A headless file drop zone and picker trigger with shared `accept` and `multiple` filtering, drag-over state, and `Picked` / `Rejected` events. |
+| @effect/ui-kit/Form | 3 | 62 | A form that moves focus to its first invalid control after a submit, so a keyboard or screen reader user lands on the error without looking for it. |
+| @effect/ui-kit/Input | 3 | 145 | A native text input whose value lives in the caller's Model. |
+| @effect/ui-kit/ListNavigation | 12 | 169 | Moves an index across a list of items in response to arrow keys, `Home` and `End`, respecting orientation, text direction and looping. |
+| @effect/ui-kit/Menu | 26 | 754 | A button that opens a list of actions, links, checkbox and radio items, and submenus. |
+| @effect/ui-kit/Menubar | 3 | 96 | A row of menus, such as File, Edit and View along the top of an editor, that the arrow keys move through as one control. |
+| @effect/ui-kit/Meter | 3 | 79 | A meter that shows a measurement within a known range, such as disk usage or a battery level, whose value lives in the consumer's Model. |
+| @effect/ui-kit/NavigationMenu | 3 | 68 | A navigation landmark with a list of links, where the link to the page being shown is marked as the current one. |
+| @effect/ui-kit/NumberField | 11 | 523 | A controlled input for a number, with stepper buttons and an area to drag across. |
+| @effect/ui-kit/OTPField | 13 | 275 | A one-time code field: a row of one-character inputs for a verification code, which move focus as the user types, take a pasted or autofilled code whole, and submit it as one form value. |
+| @effect/ui-kit/Popover | 16 | 401 | A popup anchored to a trigger, for content the user asks for and can act on, such as a filter form, a profile card or a list of notifications. |
+| @effect/ui-kit/Positioning | 36 | 884 | Places a popup against an anchor element, keeps it inside a boundary, and reports where it ended up. |
+| @effect/ui-kit/PreviewCard | 18 | 391 | A card that shows a preview of what a link leads to while the link is hovered or focused with the keyboard. |
+| @effect/ui-kit/Progress | 4 | 96 | A progress bar for a task that takes a while, whose value lives in the consumer's Model. |
+| @effect/ui-kit/RadioGroup | 7 | 168 | A controlled group of radio buttons. |
+| @effect/ui-kit/RangeCalendar | 5 | 138 | A controlled single-month calendar grid for picking a range of dates, built on `Calendar`. |
+| @effect/ui-kit/ScrollArea | 7 | 242 | A native scroll container with custom scrollbars, overflow state, and edge-fade CSS variables. |
+| @effect/ui-kit/Select | 14 | 441 | A button that opens a list of options, showing the selected one. |
+| @effect/ui-kit/Separator | 3 | 104 | A horizontal or vertical divider between sections of content. |
+| @effect/ui-kit/Slider | 5 | 308 | A controlled slider with one thumb or several. |
+| @effect/ui-kit/Switch | 5 | 206 | A control that turns a setting on or off. |
+| @effect/ui-kit/Tabs | 11 | 225 | Tabs: a list of tabs, each showing one panel when it is active. |
+| @effect/ui-kit/Toast | 8 | 211 | A stack of short notifications that the app posts to and that leave on their own after a timeout. |
+| @effect/ui-kit/Toggle | 3 | 138 | A two-state button that is pressed or not, such as a bold button in a toolbar. |
+| @effect/ui-kit/ToggleGroup | 9 | 167 | A row of toggle buttons that share one value: the values of the pressed ones, such as text alignment in a toolbar. |
+| @effect/ui-kit/Toolbar | 9 | 198 | A row or column of controls, such as buttons, toggle groups, menus and a search input, that takes one stop in the Tab order and moves focus between its controls with the arrow keys. |
+| @effect/ui-kit/Tooltip | 12 | 340 | A popup that shows a short visual label for an element while it's hovered or focused. |
+| @effect/ui-kit/Typeahead | 12 | 166 | Matches typed prefixes against enabled items in a labelled list, with repeated-letter cycling. |
+| @effect/ui-kit/VirtualKeyboard | 10 | 265 | Tells where the software keyboard leaves the page visible, so content fixed to the bottom of the screen can sit above it. |
+| @effect/ui-kit/VirtualList | 13 | 535 | A list that renders only the items near the visible part of its scroll container, and leaves room for the others so the scrollbar covers the whole list. |
 
 ## @effect/vitest@4.1.6
 

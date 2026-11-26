@@ -57,6 +57,9 @@ const decodeWorkspace = Schema.decodeUnknownEffect(
   Schema.Struct({
     packages: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
     catalog: Pins,
+    catalogs: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.String)).pipe(
+      Schema.withDecodingDefaultKey(Effect.succeed({})),
+    ),
   }),
 );
 
@@ -103,7 +106,11 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
 
   // The workspaces that can declare an Effect dependency: the root and each folder a workspace glob names.
   const workspaceYaml = yield* fs.readFileString(path.join(repo, "pnpm-workspace.yaml"));
-  const { packages: globs, catalog } = yield* Effect.try({
+  const {
+    packages: globs,
+    catalog,
+    catalogs,
+  } = yield* Effect.try({
     try: () => Yaml.parse(workspaceYaml),
     catch: (cause) =>
       new IndexFailed({
@@ -147,11 +154,16 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
       return yield* Effect.forEach(
         effectDeps,
         Effect.fnUntraced(function* ([name, spec]) {
+          // `catalog:` is the default catalog and `catalog:<name>` a named one.
           const pin = yield* Effect.fromOption(
-            spec === "catalog:" ? Record.get(catalog, name) : Option.some(spec),
+            spec === "catalog:"
+              ? Record.get(catalog, name)
+              : String.startsWith("catalog:")(spec)
+                ? Option.flatMap(Record.get(catalogs, String.slice(8)(spec)), Record.get(name))
+                : Option.some(spec),
             () =>
               new IndexFailed({
-                reason: `${shown(dir)} pins ${name} to the catalog, which has no entry for it`,
+                reason: `${shown(dir)} pins ${name} to ${spec}, which has no entry for it`,
               }),
           );
           const found = yield* Effect.findFirst(
@@ -171,7 +183,9 @@ const refresh = Effect.fn("refreshEffectApi")(function* ({ check }: { check: boo
           const { version } = yield* fs
             .readFileString(path.join(found, "package.json"))
             .pipe(Effect.flatMap(decodeInstalled));
-          if (version !== pin) {
+          // A tarball URL, such as Effect UI's pkg.pr.new snapshot, pins a commit, not a version: the
+          // lockfile records its integrity, and the package names whatever version its manifest has.
+          if (version !== pin && !String.startsWith("https://")(pin)) {
             return yield* fail(
               `${shown(dir)} pins ${name}@${pin} but ${version} is installed; run pnpm install`,
             );

@@ -6,6 +6,7 @@
       {
         "name": "@effect/language-service",
         "ignoreEffectWarningsInTscExitCode": false,
+        "allowedExperimentalApis": ["@effect/ui", "@effect/ui-kit"],
         "allowedUnstableApis": [
           "@effect/vitest",
           "effect/http/FetchHttpClient",

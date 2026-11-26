@@ -13,6 +13,7 @@ a plain repository search skips it.
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [effect/](effect/)                                   | Generated indexes of the installed `effect` and `@effect/*` packages, and the native-to-Effect table. Tracked.                                                                                                                                                                                                                                                                                         |
 | [xstate/](xstate/), [xstate-effect/](xstate-effect/) | Indexes of the installed XState docs and the `@xstate/effect` README. Tracked.                                                                                                                                                                                                                                                                                                                         |
+| [effect-ui/](effect-ui/) | An index of Effect UI's guide, worked examples and source, at the commit the viewer pins. Tracked; the clone it points into is not. |
 | [ratstack/](ratstack/)                               | The rat-stack corpus and its topic index. Tracked.                                                                                                                                                                                                                                                                                                                                                     |
 | `github.com/`                                        | Full upstream clones (Effect-TS/effect, statelyai/xstate, joelhooks/rat-stack, foldkit, alchemy, effect-solutions) for source-level lookups. Ignored by git; search them by explicit path, for example `rg -n 'makeBy' .agent_sources/github.com/Effect-TS/effect/packages/effect/src/Array.ts`. They may be ahead of or behind the installed versions, so check `node_modules` before relying on one. |
 
@@ -85,6 +86,20 @@ sed -n '<start>,<end>p' packages/core/node_modules/@xstate/effect/README.md
 `packages/core/node_modules/xstate/docs/api-stability.json` classifies each export as public, experimental or internal. Read the declarations in `packages/core/node_modules/<package>/dist/` before calling an export. XState 6 and `@xstate/effect` are betas; do not apply v5 examples from elsewhere. The full upstream repository is cloned at `github.com/statelyai/xstate/` for source questions.
 
 `pnpm check:xstate-docs` fails when either index does not match the installed packages. After an XState or `@xstate/effect` upgrade, run `node scripts/agent-sources/index-xstate-docs.ts` and commit the result. The script reads only local files.
+
+## Effect UI
+
+`@effect/ui` and `@effect/ui-kit` come from one pkg.pr.new snapshot of Effect-TS/ui, pinned in
+`pnpm-workspace.yaml`'s `effect-ui` catalog, and `github.com/Effect-TS/ui/` is a clone of the same
+commit. [effect-ui/index.md](effect-ui/index.md) lists the guide's sections with their line
+ranges, the worked examples and where each part of the source lives. The installed packages ship
+the same guide (`apps/viewer/node_modules/@effect/ui/AGENTS.md`) and their declarations, which win
+if the clone ever disagrees. Both packages are experimental; the viewer's `tsconfig.json` allows
+their experimental APIs by name.
+
+| Reference | When to consult it | Upstream |
+| --- | --- | --- |
+| `effect-ui/` | Components, views, Commands, mounts, routing, the headless kit, Scene, Story and Play tests | [Effect-TS/ui](https://github.com/Effect-TS/ui) |
 
 ## Ratstack
 

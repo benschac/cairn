@@ -16,16 +16,17 @@ Effect, XState 6 and `@xstate/effect` change quickly. Read the installed source
 and docs under `node_modules` instead of trusting memory.
 [.agent_sources/README.md](.agent_sources/README.md) is the way in:
 
-| Need                     | Start here                                                                                                                        |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| Any Effect module        | `.agent_sources/effect/index.md`, then `core-index.md` for an export's line range in `node_modules/effect/dist/*.d.ts`            |
-| Review before a commit   | `.agent_sources/effect/checklist.md`: the smells to look for in your diff, the Effect API for each and the check that enforces it |
-| A native pattern         | `.agent_sources/effect/native-to-effect.md`: the Effect replacement for a loop, comparator, `Set`, `JSON`, `Date`, ...            |
-| Effect idioms            | `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/src/`                                                            |
-| XState, `@xstate/effect` | `.agent_sources/xstate/index.md`, `.agent_sources/xstate-effect/index.md`                                                         |
-| Model-based testing      | `node_modules/xstate/docs/model-based-testing.md`, then the `@xstate/test` README in `node_modules/@xstate/test/README.md`        |
-| Ratstack patterns        | `.agent_sources/ratstack/README.md`: offline `llms.txt` and `llms-full.txt` with line-range indexes                               |
-| Upstream source          | `.agent_sources/github.com/`: full clones of effect, xstate, rat-stack, foldkit, alchemy (gitignored)                             |
+| Need                        | Start here                                                                                                                        |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Any Effect module           | `.agent_sources/effect/index.md`, then `core-index.md` for an export's line range in `node_modules/effect/dist/*.d.ts`            |
+| Review before a commit      | `.agent_sources/effect/checklist.md`: the smells to look for in your diff, the Effect API for each and the check that enforces it |
+| A native pattern            | `.agent_sources/effect/native-to-effect.md`: the Effect replacement for a loop, comparator, `Set`, `JSON`, `Date`, ...            |
+| Effect idioms               | `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/src/`                                                            |
+| XState, `@xstate/effect`    | `.agent_sources/xstate/index.md`, `.agent_sources/xstate-effect/index.md`                                                         |
+| Effect UI, `@effect/ui-kit` | `.agent_sources/effect-ui/index.md`, then `apps/viewer/EFFECT-UI.md` for what the viewer's move needs                             |
+| Model-based testing         | `node_modules/xstate/docs/model-based-testing.md`, then the `@xstate/test` README in `node_modules/@xstate/test/README.md`        |
+| Ratstack patterns           | `.agent_sources/ratstack/README.md`: offline `llms.txt` and `llms-full.txt` with line-range indexes                               |
+| Upstream source             | `.agent_sources/github.com/`: full clones of effect, xstate, rat-stack, foldkit, alchemy, ui (gitignored)                         |
 
 `.agent_sources` is hidden: name its path to `rg` or pass `--hidden`. Do not
 read a whole cached document; search its index and read the line range.

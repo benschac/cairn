@@ -14,6 +14,8 @@
     "@cairn/contract": "workspace:*",
     "@cairn/core": "workspace:*",
     "@effect/platform-browser": "4.1.6",
+    "@effect/ui": "catalog:effect-ui",
+    "@effect/ui-kit": "catalog:effect-ui",
     "@foldkit/ui": "0.171.0",
     "@pierre/diffs": "1.6.4",
     "@pierre/highlights": "0.5.2",
