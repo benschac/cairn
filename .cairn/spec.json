@@ -164,7 +164,12 @@
       "implements": [],
       "files": [],
       "dependsOn": [],
-      "defers": ["prd.v2-diverging-state", "prd.v2-multiplayer-on-cloudflare", "prd.later"],
+      "defers": [
+        "prd.v2-diverging-state",
+        "prd.v2-multiplayer-on-cloudflare",
+        "prd.later",
+        "prd.refactors.layer-config"
+      ],
       "context": [],
       "tasks": ["t41"],
       "summary": "Scopes the spec to v1 and keeps the already-built presence piece.",

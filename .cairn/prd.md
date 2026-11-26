@@ -1278,3 +1278,14 @@ When several services share one shape and differ only in a type and an ID, a cur
 
 - Test doubles that several tests build alike, such as a scripted terminal, a stub planner or an HTTP client that records its requests, are written once as shared fixtures.
 - The Effect checklist carries the pattern, so a reviewer asks for it in a diff that repeats a service.
+
+### Configuring with a layer {#prd.refactors.layer-config}
+
+Cairn chooses its models from strings. `.cairn/config.json` names a `planner.source`, a `planner.provider` and a model, and `models.ts` matches those strings to one of six implementations, then builds the client from `planner.keyEnv`, `planner.baseUrl` and `planner.gatewayTokenEnv`. The judge reads `judge.model`, `judge.baseUrl` and `judge.gatewayTokenEnv` the same way. Each new provider, and each new way to reach one, adds a branch to that match and fields to the config, and the config can only reach what Cairn already wrote; the OpenAI Decisions judge would be the next branch. Instead, a project can hand Cairn a layer. `.cairn/config.ts` is ordinary TypeScript whose default export holds the layer of each model, built with the provider package's own `layer` and its key read with `Config.Redacted`. Cairn imports the file, decodes the export with a schema that accepts only a layer, and provides it to the planner and the judge, which only ever see `LanguageModel` and `DecisionModel`. The layer is the extension point: any implementation of the service works, with whatever it depends on, and the schema keeps the boundary validated and typed like any other input. The pattern comes from the same talk, [from 7:55](https://youtu.be/_tSGby_q890?t=475).
+
+- `config.ts` may export `planner`, the planner's `LanguageModel`; `plannerSmall`, the model of the small calls, which defaults to `planner`; and `judge`, the judge's `DecisionModel`. A model it leaves out is built from `config.json` as it is now.
+- `config.json` keeps every field it has, so a project that writes no TypeScript changes nothing. Its strings become the default layers instead of the only way in.
+- A `config.ts` that does not import, or whose export does not decode, stops `cairn plan` and `cairn judge` before they change a file, with a message that names the field. `cairn doctor` reports it on its config line.
+- `--source`, `--provider` and `--model` replace `config.json` fields for one run. For a model that `config.ts` provides they are refused, and the message names the file.
+- Cairn reads no key itself. The key stays in the person's environment, and the layer reads it when it is built.
+- The Effect checklist in `.agent_sources` carries the pattern, so a reviewer asks for a layer where a diff adds a string that picks an implementation.

@@ -24,7 +24,7 @@ A PRD section is covered when it, or a section under it, appears in some `Implem
 
 ## Scope {#spec.scope}
 
-- Defers: `prd.v2-diverging-state`, `prd.v2-multiplayer-on-cloudflare`, `prd.later`
+- Defers: `prd.v2-diverging-state`, `prd.v2-multiplayer-on-cloudflare`, `prd.later`, `prd.refactors.layer-config`
 
 This spec covers v1. Presence is the one v2 piece already built, and it stays: `cairn serve` keeps serving `/presence` next to the trace API.
 
