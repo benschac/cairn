@@ -32,10 +32,18 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
  * installed CLI no longer has makes it exit non-zero with a usage error, which this module turns
  * into a failure that names the CLI's version.
  *
- * - claude: `claude -p --tools "" --output-format json`, the prompt on stdin, and the call's JSON
- *   Schema as `--json-schema` for a structured answer, which comes back as `structured_output`.
+ * - claude: `claude -p --safe-mode --tools "" --output-format json`, the prompt on stdin, and the
+ *   call's JSON Schema as `--json-schema` for a structured answer, which comes back as
+ *   `structured_output`.
  * - codex: `codex exec`, the prompt on stdin, and the call's JSON Schema in a file given to
  *   `--output-schema`. Codex prints its last message on stdout and its progress on stderr.
+ *
+ * `--safe-mode` starts claude without the person's CLAUDE.md, skills, plugins, hooks, MCP servers
+ * and custom agents; their sign-in and model selection still apply. The planner's prompt holds
+ * everything a call needs, and without the flag each call also sent all of that to the model: on
+ * claude 2.1.332, a one-word prompt from a machine with a full Claude Code setup carried about
+ * 226,000 tokens, none of them read from the prompt cache, and took 10 seconds, against 2,700
+ * tokens and 6 seconds with the flag.
  *
  * Codex has no `--tools ""`, so its isolation is several switches, each checked against a real
  * codex-cli 0.172.0 run in an empty directory (a prompt that asked it to run `ls ~`, call any
@@ -327,7 +335,7 @@ export const layer = (options: CliModelOptions) =>
           Match.when("claude", () =>
             Effect.succeed(
               Array.flatten([
-                ["-p", "--tools", "", "--output-format", "json"],
+                ["-p", "--safe-mode", "--tools", "", "--output-format", "json"],
                 optionally("--model", model),
                 optionally("--json-schema", schema),
               ]),

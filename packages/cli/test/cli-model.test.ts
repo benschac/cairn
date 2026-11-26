@@ -126,7 +126,7 @@ const CLAUDE_STRUCTURED =
   '{"type":"result","subtype":"success","is_error":false,"result":"","structured_output":{"colour":"red"}}';
 
 it.effect(
-  "claude gets the prompt on stdin and the call's schema, no tools, and --model only when one is set",
+  "claude gets the prompt on stdin and the call's schema, no tools, none of the person's setup, and --model only when one is set",
   () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -137,7 +137,14 @@ it.effect(
       );
       expect(picked.value).toEqual({ colour: "red" });
       const argv = yield* argvOf(dir, "claude");
-      expect(Array.take(argv, 5)).toEqual(["-p", "--tools", "", "--output-format", "json"]);
+      expect(Array.take(argv, 6)).toEqual([
+        "-p",
+        "--safe-mode",
+        "--tools",
+        "",
+        "--output-format",
+        "json",
+      ]);
       expect(after(argv, "--model")).toEqual(Option.some("model-a"));
       const sentSchema = Option.getOrElse(after(argv, "--json-schema"), () => "");
       const schema = yield* Schema.decodeEffect(JsonValue)(sentSchema);
