@@ -329,7 +329,7 @@ Done when:
 - A statement's ID is the ID of its section or list item, then `#v` and a number. `cairn ids` gives a statement without one the next free number and never renumbers.
 - A statement belongs to the section its list is in, or to the list item it is nested under.
 - A statement that begins `Draft:` is one Cairn wrote and no person has confirmed. Any other statement is confirmed. Nothing else records the difference: the PRD is the record.
-- A statement only a person can judge carries `<!-- human -->`. It gates the tasks that carry it, as the tag does anywhere in a section (see human gates), and no test is expected for it.
+- A statement only a person can judge carries `<!-- human -->`. It gates the tasks that carry it, as the tag does in a section or a list item (see human gates), and no test is expected for it.
 
 ### Asking the person {#prd.done-when.asking}
 
@@ -382,7 +382,7 @@ Cairn derives manifest status from `events.jsonl` and git, so the orchestrator n
 
 A task is gated if either is true:
 
-- Tagged: any linked PRD or spec section contains `<!-- human -->`.
+- Tagged: a linked PRD or spec section, or a linked list item, carries `<!-- human -->`. A tag in a list item, or in a statement nested under one, gates that item and the items nested in it, not the rest of its section. A tag anywhere else in a section gates the whole section.
 - Detected: the task's planned or actual diff touches configured high-trust paths.
 
 Default high-trust patterns, named for what is risky rather than for one ORM or language. `cairn init` writes them into `.cairn/config.json`, where a project edits them for its own stack:
