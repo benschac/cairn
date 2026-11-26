@@ -1,7 +1,15 @@
-import { Manifest, PrdSectionId, SpecSectionId, TaskDraft } from "@cairn/contract";
+import {
+  Manifest,
+  PrdSectionId,
+  Slug,
+  SpecSectionId,
+  TaskDraft,
+  defaultConfig,
+} from "@cairn/contract";
+import type { Config } from "@cairn/contract";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Array, Effect, FileSystem, Layer, Path, Predicate, Record, Schema } from "effect";
+import { Array, Effect, FileSystem, Layer, Path, Predicate, Record, Schema, Struct } from "effect";
 
 import { IndexProse, Planner, PlannerError, StatementDrafts, TaskDrafts } from "../src/planner.ts";
 import { Script, scripted, unreachable } from "./fixtures/scripted-language-model.ts";
@@ -11,13 +19,14 @@ import type { Reply } from "./fixtures/scripted-language-model.ts";
  * Runs `program` against a planner whose model plays `replies`. The program can read the prompts
  * the model was given from `Script`.
  */
-const planning = <A, E>(
+const planningIn = <A, E>(
+  config: Pick<Config, "categories" | "judge">,
   replies: ReadonlyArray<string | Reply>,
   program: Effect.Effect<A, E, Planner | Script>,
 ) =>
   program.pipe(
     Effect.provide(
-      Planner.layer.pipe(
+      Planner.layerWith(config).pipe(
         Layer.provide(NodeServices.layer),
         Layer.provideMerge(
           scripted(
@@ -29,6 +38,18 @@ const planning = <A, E>(
       ),
     ),
   );
+
+const planning = <A, E>(
+  replies: ReadonlyArray<string | Reply>,
+  program: Effect.Effect<A, E, Planner | Script>,
+) => planningIn(defaultConfig, replies, program);
+
+/** A draft whose category is one of the config's defaults, which is what the planner accepts. */
+const Draft = TaskDraft.mapFields(
+  Struct.assign({
+    category: Schema.Literals(Array.map(defaultConfig.categories, ({ name }) => name)),
+  }),
+);
 
 const encodeReply = Schema.encodeSync(Schema.fromJsonString(TaskDrafts));
 const prompts = Script.use((script) => script.prompts);
@@ -50,6 +71,7 @@ const draftsOf = (manifest: Manifest) => {
   const titles = Record.fromIterableWith(manifest.tasks, (task) => [task.id, task.title]);
   return Array.map(manifest.tasks, (task) =>
     TaskDraft.make({
+      category: "feature",
       dependsOn: Array.getSomes(Array.map(task.dependsOn, (id) => Record.get(titles, id))),
       files: task.files,
       model: task.model,
@@ -118,7 +140,7 @@ it.effect("tasks decodes the drafts behind this repository's manifest", () =>
 
 it.effect.prop(
   "tasks returns any drafts the model sent, in order, with one call",
-  [Schema.Array(TaskDraft)],
+  [Schema.Array(Draft)],
   ([drafts]) =>
     planning(
       [encodeReply({ drafts })],
@@ -148,7 +170,7 @@ it.effect.prop(
 
 it.effect.prop(
   "a reply that does not decode is retried once, and the second prompt holds the first",
-  [Schema.Array(TaskDraft), Schema.NonEmptyString],
+  [Schema.Array(Draft), Schema.NonEmptyString],
   ([drafts, bad]) =>
     planning(
       [bad, encodeReply({ drafts }), "never asked for"],
@@ -163,14 +185,56 @@ it.effect.prop(
     ),
 );
 
+it.effect.prop(
+  "a draft with a category the config lacks is refused, and accepted once the config adds it",
+  [Draft],
+  ([draft]) => {
+    const infra = Struct.assign({ category: "infra" })(draft);
+    const reply = Schema.encodeSync(
+      Schema.fromJsonString(Schema.Struct({ drafts: Schema.Array(Schema.Unknown) })),
+    )({
+      drafts: [infra],
+    });
+    const added = Struct.assign({
+      categories: Array.append(defaultConfig.categories, {
+        description: "Infrastructure",
+        name: Schema.decodeSync(Slug)("infra"),
+      }),
+    })(defaultConfig);
+    return Effect.gen(function* () {
+      const failure = yield* planning([reply, reply], Effect.flip(tasks("prd", "spec")));
+      expect(isPlannerError(failure)).toBe(true);
+      expect(failure.reason).toContain("infra");
+      const planned = yield* planningIn(added, [reply], tasks("prd", "spec"));
+      expect(planned).toEqual([infra]);
+    });
+  },
+);
+
+it.effect(
+  "the tasks prompt lists each category with its description, and a refusal is retried once with the list",
+  () =>
+    planning(
+      ['{"drafts":[{"title":"No category"}]}', encodeReply({ drafts: [] })],
+      Effect.gen(function* () {
+        yield* tasks("prd", "spec");
+        const [first = "", second = ""] = yield* prompts;
+        yield* Effect.forEach(defaultConfig.categories, ({ description, name }) =>
+          Effect.sync(() => expect(first).toContain(`- \`${name}\`: ${description}`)),
+        );
+        expect(second).toContain('["category"]');
+      }),
+    ),
+);
+
 it.effect("the retry prompt holds the decode error of the first reply", () =>
   planning(
     ['{"drafts":[{"title":"No other fields"}]}', encodeReply({ drafts: [] })],
     Effect.gen(function* () {
       yield* tasks("prd", "spec");
       const [first = "", second = ""] = yield* prompts;
-      expect(first).not.toContain('["dependsOn"]');
-      expect(second).toContain('["dependsOn"]');
+      expect(first).not.toContain('["category"]');
+      expect(second).toContain('["category"]');
     }),
   ),
 );
@@ -262,14 +326,7 @@ const jsonString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 
 it.effect.prop(
   "splitTask returns the two or more drafts the model sent, and the prompt holds the draft, the spec and the reason",
-  [
-    TaskDraft,
-    Schema.NonEmptyString,
-    Schema.NonEmptyString,
-    TaskDraft,
-    TaskDraft,
-    Schema.Array(TaskDraft),
-  ],
+  [Draft, Schema.NonEmptyString, Schema.NonEmptyString, Draft, Draft, Schema.Array(Draft)],
   ([draft, specText, reason, one, two, rest]) => {
     const drafts = splitOf(one, two, rest);
     return planning(
@@ -290,7 +347,7 @@ it.effect.prop(
 
 it.effect.prop(
   "a split into fewer than two drafts is retried once with the reason in the prompt, then fails",
-  [TaskDraft, Schema.NonEmptyString, Schema.Array(TaskDraft).check(Schema.isMaxLength(1))],
+  [Draft, Schema.NonEmptyString, Schema.Array(Draft).check(Schema.isMaxLength(1))],
   ([draft, reason, drafts]) =>
     planning(
       [encodeReply({ drafts }), encodeReply({ drafts }), encodeReply({ drafts: [draft, draft] })],
@@ -309,7 +366,7 @@ it.effect.prop(
 
 it.effect.prop(
   "splitTask recovers when the retry decodes",
-  [TaskDraft, TaskDraft, TaskDraft, Schema.Array(TaskDraft)],
+  [Draft, Draft, Draft, Schema.Array(Draft)],
   ([draft, one, two, rest]) =>
     planning(
       ["not json", encodeReply({ drafts: splitOf(one, two, rest) })],
@@ -324,7 +381,7 @@ it.effect.prop(
 
 it.effect.prop(
   "a model failure while splitting a task is a PlannerError, with no second try",
-  [TaskDraft],
+  [Draft],
   ([draft]) =>
     planning(
       [unreachable, encodeReply({ drafts: [draft, draft] })],

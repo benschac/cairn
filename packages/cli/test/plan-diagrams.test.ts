@@ -182,6 +182,7 @@ const SPEC =
 
 const DRAFTS = [
   Schema.decodeSync(TaskDraft)({
+    category: "feature",
     dependsOn: [],
     files: ["src/capture.ts"],
     model: "sonnet",

@@ -1,5 +1,12 @@
 import { IndexedSection, PrdSectionId, TaskDraft, defaultConfig } from "@cairn/contract";
-import type { Config, ManifestTask, Section, SectionKeys, SpecSectionId } from "@cairn/contract";
+import type {
+  Category,
+  Config,
+  ManifestTask,
+  Section,
+  SectionKeys,
+  SpecSectionId,
+} from "@cairn/contract";
 import { drawsOf, mermaidBlocksOf, sectionsOf, withoutMermaidBlocks } from "@cairn/core";
 import type { Drafted } from "@cairn/core";
 import {
@@ -118,6 +125,23 @@ const draftsInPart = (part: PartIds, specSections: ReadonlyArray<SpecSectionId>)
       return Array.isReadonlyArrayNonEmpty(problems) ? Array.join(problems, "\n") : undefined;
     }),
   );
+
+/**
+ * Refuses a reply with a draft whose category is not one of `categories` (`spec.planning.task-categories`),
+ * so it is sent back once like any other failed decode.
+ */
+const inCategories = (categories: ReadonlyArray<Category>) =>
+  Schema.makeFilter<{ readonly drafts: ReadonlyArray<TaskDraft> }>(({ drafts }) => {
+    const names = Array.map(categories, ({ name }) => name);
+    const problems = Array.filterMap(drafts, (draft) =>
+      Array.contains(names, draft.category)
+        ? Result.failVoid
+        : Result.succeed(
+            `The task "${draft.title}" has the category ${draft.category}, which is not in the list. Use one of: ${Array.join(names, ", ")}.`,
+          ),
+    );
+    return Array.isReadonlyArrayNonEmpty(problems) ? Array.join(problems, "\n") : undefined;
+  });
 
 /** What `splitTask` asks the model for: the drafts that replace one, so at least two. */
 export const SplitDrafts = Schema.Struct({
@@ -332,6 +356,13 @@ const existingList = (tasks: ReadonlyArray<ManifestTask>) =>
       ),
   });
 
+/** The categories of the config, one bullet each, for the `tasks` and `splitTask` prompts. */
+const categoryTable = (categories: ReadonlyArray<Category>) =>
+  Array.join(
+    Array.map(categories, ({ description, name }) => `- \`${name}\`: ${description}`),
+    "\n",
+  );
+
 /** The models of the config's table, one bullet each, for the `tasks` prompt. */
 const modelTable = (models: Readonly<Record<string, string>>) =>
   Array.join(
@@ -354,10 +385,12 @@ const partRule = (prompt: string, template: string, part: PartIds | undefined) =
 
 /**
  * Reads the prompt files and the worked example once, then makes the prompts. `models` is the
- * config's `judge.models` table, which the `tasks` prompt shows the model.
+ * config's `judge.models` table and `categories` its `categories` list, which the `tasks` and
+ * `splitTask` prompts show the model.
  */
 export const loadPrompts = Effect.fn("loadPrompts")(function* (
   models: Readonly<Record<string, string>>,
+  categories: ReadonlyArray<Category>,
 ) {
   const [
     retry,
@@ -403,6 +436,7 @@ export const loadPrompts = Effect.fn("loadPrompts")(function* (
     tasks: (prd, specText, specSections, existing, part?: PartIds) =>
       Effect.gen(function* () {
         return yield* fillPrompt("tasks", tasks, {
+          categories: categoryTable(categories),
           existing: existingList(existing),
           models: modelTable(models),
           part: yield* partRule("part-tasks", partTasks, part),
@@ -413,6 +447,7 @@ export const loadPrompts = Effect.fn("loadPrompts")(function* (
       }),
     splitTask: (draft, specText, reason) =>
       fillPrompt("split-task", splitTask, {
+        categories: categoryTable(categories),
         draft,
         models: modelTable(models),
         reason,
@@ -563,12 +598,13 @@ export class Planner extends Context.Service<
    * model `config.judge.models`. It reads the prompt files when it is built, so a missing or
    * broken file fails there, before any call.
    */
-  static readonly layerWith = (config: Pick<Config, "judge">) =>
+  static readonly layerWith = (config: Pick<Config, "categories" | "judge">) =>
     Layer.effect(
       Planner,
       Effect.gen(function* () {
         const model = yield* LanguageModel.LanguageModel;
-        const prompts = yield* loadPrompts(config.judge.models);
+        const prompts = yield* loadPrompts(config.judge.models, config.categories);
+        const knownCategories = inCategories(config.categories);
 
         const textFor = (prompt: string) =>
           LanguageModel.generateText({ prompt }).pipe(
@@ -663,8 +699,8 @@ export class Planner extends Context.Service<
               prompt,
               draftsFor(
                 Option.match(Option.fromUndefinedOr(part), {
-                  onNone: () => TaskDrafts,
-                  onSome: (ids) => draftsInPart(ids, specSections),
+                  onNone: () => TaskDrafts.check(knownCategories),
+                  onSome: (ids) => draftsInPart(ids, specSections).check(knownCategories),
                 }),
               ),
             );
@@ -687,7 +723,7 @@ export class Planner extends Context.Service<
           LanguageModel.generateObject({
             objectName: "SplitDrafts",
             prompt,
-            schema: SplitDrafts,
+            schema: SplitDrafts.check(knownCategories),
           }).pipe(
             Effect.provideService(LanguageModel.LanguageModel, model),
             Effect.map((response) => response.value.drafts),

@@ -50,6 +50,7 @@ const SPEC =
 
 const draft = (title: string, specSection: string) =>
   Schema.decodeSync(TaskDraft)({
+    category: "feature",
     dependsOn: [],
     files: ["src/capture.ts"],
     model: "sonnet",

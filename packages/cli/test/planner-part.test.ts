@@ -205,6 +205,7 @@ const draftOf = (
   specSections: Array.NonEmptyReadonlyArray<SpecSectionId>,
 ) =>
   TaskDraft.make({
+    category: "feature",
     dependsOn: [],
     files: [],
     model: "sonnet",

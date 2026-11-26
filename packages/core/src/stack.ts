@@ -402,6 +402,7 @@ const taskOf = (feature: Slug, placement: Placement, worktree: string | null): M
   const { draft, gate } = placement.node;
   return {
     branch: `${feature}/${String.padStart(2, "0")(`${placement.position}`)}-${slugOf(draft.title)}`,
+    category: draft.category,
     commits: [],
     dependsOn: placement.dependsOn,
     files: draft.files,

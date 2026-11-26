@@ -71,6 +71,7 @@ const draftsOf = (drafts: Drafts): ReadonlyArray<TaskDraft> =>
     ),
     ({ draft, index }) =>
       decodeDraft({
+        category: "feature",
         dependsOn: Array.map(
           Array.dedupe(Array.filter(draft.needs, (need) => need < index)),
           (need) => `Part ${need}`,

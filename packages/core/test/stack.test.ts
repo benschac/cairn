@@ -22,6 +22,7 @@ const decodeDraft = Schema.decodeUnknownSync(TaskDraft);
 
 const draftOf = (title: string, dependsOn: ReadonlyArray<string>): TaskDraft =>
   decodeDraft({
+    category: "feature",
     dependsOn,
     files: [`packages/core/src/${title}.ts`],
     model: "sonnet",

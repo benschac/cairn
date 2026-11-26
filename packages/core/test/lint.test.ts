@@ -1,7 +1,7 @@
-import { IndexedSection, Manifest } from "@cairn/contract";
+import { IndexedSection, Manifest, Slug, defaultConfig } from "@cairn/contract";
 import type { SpecIndex } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, Option, Schema, String } from "effect";
+import { Array, Option, Schema, String, Struct } from "effect";
 
 import { derivedOf, lint } from "../src/index.ts";
 import type { Finding, LintRule } from "../src/index.ts";
@@ -202,4 +202,106 @@ it("all three are warnings, so a plan with only these findings has no error", ()
     "task-without-statement",
   ]);
   expect(Array.every(found, ({ severity }) => severity === "warning")).toBe(true);
+});
+
+// Task categories (spec.planning.task-categories).
+
+const CATEGORY_PRD = Array.join(["# Product {#prd.product}", "", "## Goal {#prd.goal}", ""], "\n");
+const CATEGORY_SPEC = Array.join(
+  [
+    "# Spec {#spec.spec}",
+    "",
+    "- Implements: `prd.goal`",
+    "",
+    "## Store {#spec.store}",
+    "",
+    "- Implements: `prd.goal`",
+    "",
+  ],
+  "\n",
+);
+
+const config = { categories: defaultConfig.categories, humanPaths: [] };
+const names = Array.map(config.categories, ({ name }) => name);
+
+/** A manifest of one task, with `category` when given. */
+const categoryManifestOf = (category: string | undefined) =>
+  Schema.decodeUnknownSync(Manifest)({
+    baseBranch: "main",
+    feature: "product",
+    tasks: [
+      {
+        branch: "product/01-store",
+        commits: [],
+        dependsOn: [],
+        files: [],
+        humanGate: { reasons: [], required: false },
+        id: "t1",
+        model: "sonnet",
+        parent: null,
+        prdSections: ["prd.goal"],
+        reasoning: "high",
+        sessions: [],
+        specSections: ["spec.store"],
+        status: "pending",
+        title: "Add the store",
+        worktree: null,
+        ...(category === undefined ? {} : { category }),
+      },
+    ],
+    version: 1,
+  });
+
+const categoryFindings = (
+  category: string | undefined,
+  withConfig: Parameters<typeof lint>[3] = config,
+): ReadonlyArray<Finding> =>
+  Array.filter(
+    lint(CATEGORY_PRD, CATEGORY_SPEC, Option.some(categoryManifestOf(category)), withConfig),
+    ({ rule }) => rule === "unknown-category" || rule === "missing-category",
+  );
+
+it.prop("a category in the config's list is no finding", [Schema.Literals(names)], ([category]) => {
+  expect(categoryFindings(category)).toEqual([]);
+});
+
+it.prop(
+  "a category outside the config's list is an unknown-category error that names it",
+  [Schema.NonEmptyString.check(Schema.makeFilter((text: string) => !Array.contains(names, text)))],
+  ([category]) => {
+    const [only, ...rest] = categoryFindings(category);
+    expect(rest).toEqual([]);
+    expect(only).toMatchObject({
+      file: "manifest.json",
+      rule: "unknown-category",
+      severity: "error",
+    });
+    expect(only?.message).toContain(category);
+  },
+);
+
+it("a task with no category is a missing-category warning, and an old manifest still lints", () => {
+  expect(categoryFindings(undefined)).toMatchObject([
+    {
+      file: "manifest.json",
+      message: "t1 has no category.",
+      rule: "missing-category",
+      severity: "warning",
+    },
+  ]);
+});
+
+it("a category the config adds stops being unknown", () => {
+  const added = Struct.assign({
+    categories: Array.append(config.categories, {
+      description: "Infrastructure",
+      name: Schema.decodeSync(Slug)("infra"),
+    }),
+  })(config);
+  expect(categoryFindings("infra")).toHaveLength(1);
+  expect(categoryFindings("infra", added)).toEqual([]);
+});
+
+it("a config with no categories checks none", () => {
+  expect(categoryFindings("infra", { humanPaths: [] })).toEqual([]);
 });

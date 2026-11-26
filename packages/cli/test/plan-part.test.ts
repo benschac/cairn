@@ -139,6 +139,7 @@ const draft = (
   dependsOn: Array<string>,
 ) =>
   Schema.decodeSync(TaskDraft)({
+    category: "feature",
     dependsOn,
     files: [`src/${specSection}.ts`],
     model: "sonnet",

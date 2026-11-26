@@ -12,6 +12,10 @@ import { Reasoning } from "./manifest.ts";
  * and code can resolve: a title is unique among one reply's drafts.
  */
 export const TaskDraft = Schema.Struct({
+  category: Schema.NonEmptyString.annotate({
+    description:
+      "The name of one of the categories the prompt lists, for the kind of work the task is.",
+  }),
   dependsOn: Schema.Array(Schema.NonEmptyString).annotate({
     description:
       "The exact titles of the other tasks in this plan, or the IDs of tasks already planned, that must land first.",

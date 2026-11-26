@@ -245,7 +245,7 @@ it.effect("the prompt the model gets holds the PRD and this repository's spec as
     const example = yield* fs.readFileString(
       new URL("../../../.cairn/spec.md", import.meta.url).pathname,
     );
-    const prompts = yield* loadPrompts(defaultConfig.judge.models);
+    const prompts = yield* loadPrompts(defaultConfig.judge.models, defaultConfig.categories);
     const prompt = yield* prompts.spec("The PRD of a small tool.");
     expect(prompt).toContain("The PRD of a small tool.");
     expect(prompt).toContain(example);
@@ -622,7 +622,7 @@ it.effect("a config that picks api with no model fails the layer instead of call
 
 /** The prompt files, filled from fixed values that hold no placeholder of their own. */
 const rendered = Effect.gen(function* () {
-  const prompts = yield* loadPrompts(defaultConfig.judge.models);
+  const prompts = yield* loadPrompts(defaultConfig.judge.models, defaultConfig.categories);
   return {
     retry: yield* prompts.retry("the first prompt", "the decode error"),
     spec: yield* prompts.spec("the prd"),
@@ -661,7 +661,7 @@ it.effect("the tasks prompt shows the model table of the config it was made for"
     const config = yield* Schema.decodeEffect(CairnConfig)({
       judge: { models: { tiny: "Changes that need no thought" } },
     });
-    const prompts = yield* loadPrompts(config.judge.models);
+    const prompts = yield* loadPrompts(config.judge.models, config.categories);
     const prompt = yield* prompts.tasks("prd", "spec", [], []);
     expect(prompt).toContain("tiny");
     expect(prompt).toContain("Changes that need no thought");
@@ -693,7 +693,7 @@ it.effect.prop(
   [Schema.String, Schema.String],
   ([prd, specText]) =>
     Effect.gen(function* () {
-      const prompts = yield* loadPrompts(defaultConfig.judge.models);
+      const prompts = yield* loadPrompts(defaultConfig.judge.models, defaultConfig.categories);
       const prompt = yield* prompts.tasks(prd, specText, [], []);
       expect(prompt).toContain(prd);
       expect(prompt).toContain(specText);
@@ -738,7 +738,9 @@ it.effect("a placeholder spelled with spaces is not silently kept", () =>
 
 it.effect("a prompt file that cannot be read fails the layer with a PromptError", () =>
   Effect.gen(function* () {
-    const failure = yield* Effect.flip(loadPrompts(defaultConfig.judge.models));
+    const failure = yield* Effect.flip(
+      loadPrompts(defaultConfig.judge.models, defaultConfig.categories),
+    );
     expect(Schema.is(PromptError)(failure)).toBe(true);
     expect(failure.message).toContain("no such file");
   }).pipe(
