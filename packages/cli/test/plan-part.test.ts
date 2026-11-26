@@ -38,8 +38,8 @@ import {
 import type { PlanOptions } from "../src/commands/plan.ts";
 import { Judge } from "../src/judge.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
-import { Planner, PlannerError } from "../src/planner.ts";
-import type { PromptError } from "../src/planner.ts";
+import { IndexProse, Planner, PlannerError } from "../src/planner.ts";
+import type { IndexTarget, PromptError } from "../src/planner.ts";
 import type { PartIds } from "../src/planner.ts";
 import { totalsLine } from "../src/print-stack.ts";
 import { Script, scripted } from "./fixtures/scripted-language-model.ts";
@@ -155,6 +155,27 @@ const ALPHA_DRAFTS = [draft("Add alpha", "spec.alpha", ALPHA, ["t1"])];
 
 const EMPTY_PROSE = { artifacts: [], decisions: [], requirements: [], summary: "", tests: [] };
 
+/** The statements each feature's spec section proves, as a planner that follows the sections prompt writes them. */
+const PROVED: Record.ReadonlyRecord<string, ReadonlyArray<string>> = {
+  "spec.alpha": ["prd.alpha#v1", "prd.alpha.detail#v1"],
+  "spec.beta": ["prd.beta#v1", "prd.beta.detail#v1"],
+};
+
+/** The prose of a section: one test that proves the statements of what it implements, or none. */
+const proseOf = (section: IndexTarget) =>
+  Schema.decodeUnknownEffect(IndexProse)({
+    artifacts: EMPTY_PROSE.artifacts,
+    decisions: EMPTY_PROSE.decisions,
+    requirements: EMPTY_PROSE.requirements,
+    summary: EMPTY_PROSE.summary,
+    tests: Option.match(Record.get(PROVED, section.id), {
+      onNone: () => [],
+      onSome: (proves) => [
+        { id: `${section.id}#t1`, kind: "scene", proves, text: "The feature shows." },
+      ],
+    }),
+  }).pipe(Effect.orDie);
+
 /** What the scripted planner was asked. A part is its IDs, sorted. */
 interface Asked {
   readonly sections: ReadonlyArray<{
@@ -190,7 +211,7 @@ const scriptedPlanner = (asked: Ref.Ref<Asked>, fixed: Option.Option<string>) =>
   Layer.succeed(
     Planner,
     Planner.of({
-      index: () => Effect.succeed(EMPTY_PROSE),
+      index: proseOf,
       sections: (_prd, _spec, prdSections, rewrite, part) =>
         Ref.update(asked, (seen) => ({
           ...seen,
