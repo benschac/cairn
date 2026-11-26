@@ -7,6 +7,7 @@ import { approveCommand } from "./commands/approve.ts";
 import { idsCommand } from "./commands/ids.ts";
 import { initCommand } from "./commands/init.ts";
 import { linkCommand } from "./commands/link.ts";
+import { judgeCommand } from "./commands/judge.ts";
 import { lintCommand } from "./commands/lint.ts";
 import { planCommand } from "./commands/plan.ts";
 import { statusCommand } from "./commands/status.ts";
@@ -19,6 +20,7 @@ const cairn = Command.make("cairn").pipe(
   Command.withSubcommands([
     initCommand,
     idsCommand,
+    judgeCommand,
     linkCommand,
     lintCommand,
     planCommand,
