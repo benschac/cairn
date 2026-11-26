@@ -284,6 +284,7 @@ A person edits `prd.md` and runs `cairn plan`. Everything after that is the tool
 A PRD changes while its stack is being built. Running `cairn plan` on a plan that already has a spec and tasks adds to it and never rewrites what is there.
 
 - A PRD section that no spec section covers gets new spec sections, written to fit the spec that exists.
+- New spec sections for different uncovered PRD sections are written side by side, each from the same reading of the spec that exists, and none sees another's draft.
 - A spec section that no task builds gets new tasks. They take the next free IDs and may depend on tasks already in the manifest.
 - A list item given an ID after its section was planned is mapped, not planned again: `cairn plan` adds it to the `Implements` of the spec sections that already build it, and writes a spec section only for an item that none of them builds.
 - A task already in the manifest is never changed, renumbered or reordered, whatever its status.
@@ -312,6 +313,7 @@ Planning should cost a person nothing beyond what they already pay for.
 
 - `cairn plan --dry-run` plans in memory and writes nothing. It prints the spec sections and the stack it would write, then one line of totals: sections, tasks, lint errors, flagged judgments and seconds taken.
 - `--source`, `--provider` and `--model` replace the config's planner for one run, so the same PRD can be planned by two models and the totals compared.
+- Planners compared in one run start side by side from one shared reading: the PRD is read and the done-when statements settled once. Each plans on its own in-memory copy of `.cairn/`, so neither sees the other's writes and the totals compare like with like.
 
 ### Planning a part {#prd.planning.part}
 
@@ -319,6 +321,7 @@ A PRD holds more than one feature, and a person usually wants one of them built 
 
 - `cairn plan <id>...` plans only the PRD sections named and the sections under them: spec sections for the ones nothing covers, then tasks for the spec sections that implement them. An ID is the one the viewer copies from a heading or a list item, so a person copies it and pastes it: `cairn plan prd.deep-links`. With no ID, `cairn plan` plans the whole PRD, as before.
 - The planner still reads the whole PRD, spec and manifest, so a new task can depend on a task the manifest has and a spec section can name other sections as context. What it writes stays inside the part named.
+- Several parts can be planned in one run. Each starts from the same reading of the whole PRD, spec and manifest, and what it writes stays inside its part and apart from the others until the run writes them.
 - It plans exactly what is named. When the part needs something outside it that is not planned yet, the spec section says what it assumes, and the other part is left for its own run.
 - Sections outside the part stay as they are. `cairn lint` still reports any that nothing covers: nothing is deferred to make a run smaller.
 - Stale sections and tasks are reported across the whole plan, as on any run. The questions about done-when statements, and the spec sections planning again writes again, stay inside the part.
@@ -456,6 +459,7 @@ Rules:
 
 - Evaluate OpenAI Decisions against Jev and the planner's existing assignments on the same 20–30 representative tasks, using the same spec evidence, candidate catalog and policy. Include mechanical edits, ordinary features and sensitive logic.
 - Keep experimental recommendations advisory and preserve the manifest. Record provider/model versions, inputs, typed answers, disagreements, latency, token usage and cost. Provider confidence thresholds must be evaluated separately rather than copied between providers.
+- Each provider judges from the same evidence on its own branch. The evaluation budget is one total shared by every provider, never split or copied per branch, so the cap holds across all of them.
 - Use a configurable evaluation budget, initially capped at $5, with bounded requests and conservative cost estimates before each call. Stop when the next request could exceed the cap; missing pricing prevents starting the paid evaluation. Adding this requirement does not itself run an evaluation or spend credits.
 - Compare a small set of recommended assignments through actual task execution and acceptance checks before enabling automatic routing. Judge quality by successful completion, review and repair effort, elapsed time and total cost; agreement with previous labels is not sufficient.
 
@@ -1254,7 +1258,7 @@ Done when:
 - More in the terminal view: approving a gate, reading the plan and its two reviews, and following an agent's output while it runs. The last needs the orchestrator to publish output as it is written, which the orchestrator contract does not ask for. Starting, detaching from and cancelling a run stay with the orchestrator unless Cairn becomes one.
 - Drift detection that flags or proposes spec updates when code diverges.
 - Cost per PRD section, and the outcome metrics drawn in the viewer as well as printed by `cairn stats`: cost by model and category, trends over time and retry chains.
-- Choosing a recovery during a run: after a failed attempt, pick a retry, a stronger model, another harness, more context or a smaller task from the failure reason and the attempts so far.
+- Choosing a recovery during a run: after a failed attempt, pick a retry, a stronger model, another harness, more context or a smaller task from the failure reason and the attempts so far. Each recovery tried continues from the failed attempt's conversation on its own branch, so a retry with a different model or more context starts from what the failed attempt already knew, and the recoveries do not see each other.
 - Comparing models across tasks of different difficulty, and a regression rate: verified tasks whose work was later reverted or reopened.
 - Routing across parallel stacks for the plan as a whole, such as spending more on the critical path.
 - Judging during a run: before a task starts, and on its diff after it is done.
