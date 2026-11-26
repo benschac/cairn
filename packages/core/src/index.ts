@@ -78,6 +78,7 @@ export {
   bodyHashOf,
   cosmeticOf,
   outOfDateOf,
+  readHashOf,
   replanOf,
   scopeOf,
   uncoveredItemsOf,

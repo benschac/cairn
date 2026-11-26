@@ -1,6 +1,6 @@
 import { JudgmentsJson, Manifest, SpecIndexJson, SpecSectionId, TaskDraft } from "@cairn/contract";
 import type { IndexedSection, PrdSectionId, SpecIndex } from "@cairn/contract";
-import { bodyHashOf, lint, sectionsOf } from "@cairn/core";
+import { bodyHashOf, lint, readHashOf, sectionsOf } from "@cairn/core";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import {
@@ -546,6 +546,61 @@ it.effect("--accept records the current PRD hashes of a section and changes noth
       expect(Array.some(again.lines, String.includes("stale-task t1"))).toBe(true);
     }),
   ),
+);
+
+it.effect(
+  "--accept records the current hashes of the sections a section depends on, each time it is run",
+  () =>
+    inRepository(
+      Effect.gen(function* () {
+        const { indexOf, run, text, write } = yield* changed;
+        const recorded = Effect.map(
+          indexOf,
+          (index) =>
+            Option.getOrThrow(
+              Array.findFirst(index.sections, (entry) => entry.id === "spec.capture"),
+            ).writtenFrom.spec,
+        );
+        const acceptanceHash = Effect.map(text("spec.md"), (spec) =>
+          Option.map(
+            Array.findFirst(sectionsOf(spec), (section) => section.id === "spec.acceptance"),
+            (section) => readHashOf(section.body),
+          ),
+        );
+        // The section depended on nothing when Cairn wrote it. A person adds a dependency.
+        const atFirst = yield* recorded;
+        const spec = yield* text("spec.md");
+        yield* write(
+          "spec.md",
+          String.replace(
+            "- Files: `src/capture.ts`",
+            "- Files: `src/capture.ts`\n- Depends on: `spec.acceptance`",
+          )(spec),
+        );
+        yield* run({ options: { accept: "spec.capture" } });
+        const accepted = yield* recorded;
+        const hash = yield* acceptanceHash;
+        // The section it depends on changes, and accepting again records what it says now.
+        const edited = yield* text("spec.md");
+        yield* write(
+          "spec.md",
+          String.replace("Done when a note is kept.", "Done when two notes are kept.")(edited),
+        );
+        const stale = yield* recorded;
+        yield* run({ options: { accept: "spec.capture" } });
+        const again = yield* recorded;
+        const hashNow = yield* acceptanceHash;
+        expect(atFirst).toEqual({});
+        expect(Option.some(accepted)).toEqual(
+          Option.map(hash, (found) => ({ "spec.acceptance": found })),
+        );
+        expect(stale).toEqual(accepted);
+        expect(Option.some(again)).toEqual(
+          Option.map(hashNow, (found) => ({ "spec.acceptance": found })),
+        );
+        expect(again).not.toEqual(accepted);
+      }),
+    ),
 );
 
 it.effect("--accept of a section the index lacks is refused and writes nothing", () =>

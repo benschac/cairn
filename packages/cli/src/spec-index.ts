@@ -5,6 +5,7 @@ import {
   derivedOf,
   identifiedOf,
   itemsOf,
+  readHashOf,
   sectionsOf,
   statementsOf,
   taskStatementsOf,
@@ -93,7 +94,7 @@ export const editedOf = (spec: string, previous: SpecIndex): ReadonlyArray<SpecS
           Option.orElse(Option.fromUndefinedOr(entry.indexedFrom), () =>
             Option.fromNullOr(entry.writtenFrom.body),
           ),
-          bodyHashOf(readOf(body)),
+          readHashOf(body),
         ),
     )
       ? Result.succeed(entry.id)
@@ -184,7 +185,7 @@ export const specIndexOf = Effect.fn("specIndexOf")(function* (
                 Effect.map((prose): IndexedSection => ({
                   ...derived,
                   ...prose,
-                  indexedFrom: bodyHashOf(readOf(section.body)),
+                  indexedFrom: readHashOf(section.body),
                 })),
               ),
           // The prose is kept, and so is the hash of the body it was read from, if the entry has one.

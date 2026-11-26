@@ -4,7 +4,7 @@ import { Array, HashSet, Option, Predicate, Record, Result, Schema, String, pipe
 
 import { identifiedOf } from "./identified.ts";
 import type { IdentifiedSection } from "./identified.ts";
-import { bodyHashOf } from "./replan.ts";
+import { bodyHashOf, readHashOf } from "./replan.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
 
 const isSpecSectionId = Schema.is(SpecSectionId);
@@ -39,10 +39,25 @@ const ownValuesOf = (section: Section, key: string): ReadonlyArray<string> =>
 const indexParentOf = (section: Section): SpecSectionId | null =>
   pipe(Option.fromNullishOr(section.parent), Option.filter(isSpecSectionId), Option.getOrNull);
 
+/** The hash of each of `ids` that `hashes` has: a section that does not exist records none. */
+const hashesOf = <Id extends string>(
+  ids: ReadonlyArray<Id>,
+  hashes: Record.ReadonlyRecord<string, BodyHash>,
+) =>
+  Record.fromEntries(
+    Array.filterMap(ids, (id) =>
+      Option.match(Record.get(hashes, id), {
+        onNone: () => Result.failVoid,
+        onSome: (hash) => Result.succeed([id, hash] as const),
+      }),
+    ),
+  );
+
 /**
  * The derived fields of every section of `spec.md` that has an ID, in document order.
  * `writtenFrom` is made for a section in `written` and for one `previous` does not have; any
- * other keeps the one in `previous`.
+ * other keeps the one in `previous`. It records the hash of each PRD section the section
+ * implements and of each spec section it depends on, as they are in `prd` and `spec`.
  */
 export const derivedOf = (input: DerivedInput): ReadonlyArray<DerivedSection> => {
   const identified = identifiedOf(sectionsOf(input.spec));
@@ -59,17 +74,21 @@ export const derivedOf = (input: DerivedInput): ReadonlyArray<DerivedSection> =>
       (entry) => [entry.id, entry.writtenFrom] as const,
     ),
   );
+  const specHashes: Record.ReadonlyRecord<string, BodyHash> = Record.fromEntries(
+    Array.map(identified, ({ id, section }) => [id, readHashOf(section.body)] as const),
+  );
   const written = HashSet.fromIterable(input.written);
   return Array.map(identified, ({ id, section }): DerivedSection => {
     const own = (key: string) => ownValuesOf(section, key);
     const implemented = Array.filter(own("Implements"), isPrdSectionId);
+    const dependsOn = Array.filter(own("Depends on"), isSpecSectionId);
     return {
       children: Array.filterMap(identified, (other) =>
         indexParentOf(other.section) === id ? Result.succeed(other.id) : Result.failVoid,
       ),
       context: Array.filter(own("Context"), isPrdSectionId),
       defers: Array.filter(own("Defers"), isPrdSectionId),
-      dependsOn: Array.filter(own("Depends on"), isSpecSectionId),
+      dependsOn,
       files: own("Files"),
       human: section.human,
       id,
@@ -85,14 +104,8 @@ export const derivedOf = (input: DerivedInput): ReadonlyArray<DerivedSection> =>
         Option.filter(Record.get(recorded, id), () => !HashSet.has(written, id)),
         () => ({
           body: HashSet.has(written, id) ? bodyHashOf(section.body) : null,
-          prd: Record.fromEntries(
-            Array.filterMap(implemented, (prd) =>
-              Option.match(Record.get(prdHashes, prd), {
-                onNone: () => Result.failVoid,
-                onSome: (hash) => Result.succeed([prd, hash] as const),
-              }),
-            ),
-          ),
+          prd: hashesOf(implemented, prdHashes),
+          spec: hashesOf(dependsOn, specHashes),
         }),
       ),
     };

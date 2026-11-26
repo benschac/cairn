@@ -111,11 +111,14 @@ export type BodyHash = typeof BodyHash.Type;
 /**
  * What a spec section was written from, set once when it is written or first indexed (see
  * `prd.planning.again`). `body` is null for a section a person wrote; `prd` holds the hash of each
- * PRD section it implements, as it was then.
+ * PRD section it implements, as it was then. `spec` holds the hash of each spec section it depends
+ * on, as it was then and without the stack diagram, so a later change to one of them can be told
+ * from the files alone. An entry made before `spec` was recorded has none.
  */
 export const WrittenFrom = Schema.Struct({
   body: Schema.NullOr(BodyHash),
   prd: Schema.Record(PrdSectionId, BodyHash),
+  spec: Schema.optionalKey(Schema.Record(SpecSectionId, BodyHash)),
 });
 export type WrittenFrom = typeof WrittenFrom.Type;
 
