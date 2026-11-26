@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { KEBAB, PrdSectionId, SpecSectionId, TaskId } from "./ids.ts";
 import { SessionId, Sha } from "./trailers.ts";
@@ -53,6 +53,9 @@ export type HumanGate = typeof HumanGate.Type;
 
 const BRANCH = new RegExp(String.raw`^${KEBAB}/\d{2,}-${KEBAB}$`, "u");
 
+export const OrderedAfter = Schema.Struct({ reason: Schema.String, task: TaskId });
+export type OrderedAfter = typeof OrderedAfter.Type;
+
 export const ManifestTask = Schema.Struct({
   branch: Schema.String.check(Schema.isPattern(BRANCH)),
   commits: Schema.Array(Sha),
@@ -61,6 +64,8 @@ export const ManifestTask = Schema.Struct({
   humanGate: HumanGate,
   id: TaskId,
   model: Schema.NonEmptyString,
+  /** A conflict ordering, not a dependency: this task is built after `task` for the `reason`. */
+  orderedAfter: Schema.Array(OrderedAfter).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
   parent: Schema.NullOr(TaskId),
   prdSections: Schema.NonEmptyArray(PrdSectionId),
   reasoning: Reasoning,

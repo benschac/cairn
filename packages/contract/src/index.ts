@@ -7,6 +7,7 @@ export * from "./config.ts";
 export * from "./ids.ts";
 export * from "./link.ts";
 export * from "./manifest.ts";
+export * from "./relations.ts";
 export * from "./section.ts";
 export * from "./session.ts";
 export * from "./spec-index.ts";
