@@ -6016,6 +6016,34 @@
       "status": "pending",
       "commits": [],
       "sessions": []
+    },
+    {
+      "id": "t235",
+      "title": "Add cairn doctor with git, config and planner checks",
+      "prdSections": ["prd.cli.doctor"],
+      "specSections": ["spec.cli.cairn-doctor"],
+      "files": [
+        "packages/cli/src/commands/doctor.ts",
+        "packages/cli/src/doctor.ts",
+        "packages/cli/src/commands/index.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/doctor.test.ts",
+        "packages/cli/test/fixtures/stub-claude/"
+      ],
+      "branch": "cairn-mvp/235-add-cairn-doctor-with-git-config-and-planner-checks",
+      "parent": null,
+      "dependsOn": ["t23", "t115"],
+      "worktree": "wt-12",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
     }
   ]
 }

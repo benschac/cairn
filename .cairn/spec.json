@@ -15901,7 +15901,8 @@
         "spec.cli.cairn-link",
         "spec.cli.documentation",
         "spec.cli.agent-access",
-        "spec.cli.terminal-view"
+        "spec.cli.terminal-view",
+        "spec.cli.cairn-doctor"
       ],
       "human": false,
       "implements": ["prd.cli", "prd.repo-layout", "prd.cli.init"],
@@ -21348,10 +21349,380 @@
       }
     },
     {
+      "id": "spec.cli.cairn-doctor",
+      "title": "`cairn doctor`",
+      "level": 3,
+      "line": 4264,
+      "parent": "spec.cli",
+      "children": [],
+      "human": false,
+      "implements": ["prd.cli.doctor"],
+      "files": [
+        "packages/cli/src/commands/doctor.ts",
+        "packages/cli/src/doctor.ts",
+        "packages/cli/src/commands/index.ts",
+        "packages/cli/src/main.ts",
+        "packages/cli/test/doctor.test.ts",
+        "packages/cli/test/fixtures/stub-claude/"
+      ],
+      "dependsOn": ["spec.cli", "spec.contract.config", "spec.models"],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Builds the read-only `cairn doctor` command, which runs three checks in order (git, config, planner), prints one plain `ok`/`fail` line per check saying what to fix, and exits 0 only when every check passes.",
+      "requirements": [
+        {
+          "id": "spec.cli.cairn-doctor#r1",
+          "level": "must-not",
+          "text": "`cairn doctor` must not write any file."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r2",
+          "level": "must-not",
+          "text": "`cairn doctor` must not make any network request."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r3",
+          "level": "must-not",
+          "text": "`cairn doctor` must not call a model or build a model Layer."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r4",
+          "level": "must",
+          "text": "`cairn doctor` runs three checks in order, git, then config, then planner, and each check prints exactly one line."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r5",
+          "level": "must",
+          "text": "A passing line starts with `ok`, followed by the check name and a message."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r6",
+          "level": "must",
+          "text": "A failing line starts with `fail` and ends with what the user should run or set to fix it."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r7",
+          "level": "must",
+          "text": "The command exits 0 when every line passes and 1 when any line fails."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r8",
+          "level": "must",
+          "text": "Output lines are plain text with no colour; the words `ok` and `fail` carry the result."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r9",
+          "level": "must",
+          "text": "Each check catches its own errors and turns them into a failing result, so one failing check never stops the checks after it."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r10",
+          "level": "must",
+          "text": "The git check runs `git --version` through `ChildProcess` with an argument list and a five-second timeout."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r11",
+          "level": "must",
+          "text": "The git check then runs `git rev-parse --path-format=absolute --git-common-dir` to find the main checkout, the same way every command does."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r12",
+          "level": "must",
+          "text": "When git is not found, the git line fails with `git was not found on PATH. Install git.`"
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r13",
+          "level": "must",
+          "text": "When run outside a git repository, the git line fails with `Not in a git repository. Run git init, or run cairn doctor inside your repo.`"
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r14",
+          "level": "must",
+          "text": "The config check looks for `.cairn/` in the main checkout, or in the current directory when outside a repository."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r15",
+          "level": "must",
+          "text": "When there is no `.cairn/` directory, the config line fails with `No .cairn directory in <dir>. Run cairn init.`"
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r16",
+          "level": "must",
+          "text": "The config check decodes `.cairn/config.json` through the contract's `Config`; on a decode failure it prints the typed error, which names the file and the field path, followed by `Fix .cairn/config.json.`"
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r17",
+          "level": "must",
+          "text": "A missing `config.json` decodes to the defaults and the config line passes with `no config.json; using the defaults`."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r18",
+          "level": "must",
+          "text": "The planner check uses the decoded config, and uses the defaults when there is no `.cairn/` directory."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r19",
+          "level": "must",
+          "text": "When `config.json` does not decode, the planner line fails with `Cannot check the planner until .cairn/config.json decodes.`"
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r20",
+          "level": "must",
+          "text": "For planner source `cli`, the planner check runs `<planner.cli> --version` with a five-second timeout, and a binary that cannot be started fails with the message `spec.models` gives (for example `claude was not found. Install Claude Code, or set planner.cli or planner.source in .cairn/config.json.`)."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r21",
+          "level": "must-not",
+          "text": "The planner check must not check that the planner CLI is signed in."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r22",
+          "level": "must",
+          "text": "For planner source `api`, the key variable checked is `planner.keyEnv`, or else the provider's default from the table in `spec.models`."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r23",
+          "level": "must",
+          "text": "For planner source `api`, when the key variable is unset or empty, the planner line fails, naming the variable."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r24",
+          "level": "must",
+          "text": "For provider `openai-compatible` with no key, the planner line passes with `no key needed for openai-compatible`."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r25",
+          "level": "must",
+          "text": "For planner source `api`, when `planner.gatewayTokenEnv` is set, the variable it names must be set too; otherwise the planner line fails, naming that variable."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r26",
+          "level": "must",
+          "text": "Environment variables are read with `Config.Redacted`."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r27",
+          "level": "must-not",
+          "text": "Variable values must never be printed or logged; a line names the variable only."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r28",
+          "level": "must-not",
+          "text": "`cairn doctor` must not check the judge."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r29",
+          "level": "must",
+          "text": "`commands/doctor.ts` runs the three checks, prints `formatChecks(results)`, then exits with `exitCodeOf(results)`."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r30",
+          "level": "must",
+          "text": "`formatChecks` is pure and pads the check names into columns."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r31",
+          "level": "must",
+          "text": "The doctor command is in the `commands` list in `commands/index.ts`, so the docs reference picks it up with no page edited."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r32",
+          "level": "must",
+          "text": "`main.ts` runs `cairn doctor` without first requiring `.cairn/`."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r33",
+          "level": "must",
+          "text": "Each doctor test runs in a temporary directory, with `PATH` holding only the directories the test chooses and the environment supplied by `ConfigProvider.fromMap`, so the real environment is never read."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#r34",
+          "level": "must",
+          "text": "The stub `claude` in `fixtures/stub-claude/` prints a version."
+        }
+      ],
+      "artifacts": [
+        {
+          "description": "Read-only command that checks git, config and planner readiness, prints one ok/fail line per check, and exits 0 or 1.",
+          "id": "spec.cli.cairn-doctor#command:cairn-doctor",
+          "kind": "command",
+          "location": "packages/cli/src/commands/doctor.ts",
+          "name": "cairn doctor"
+        },
+        {
+          "description": "The result of one doctor check.",
+          "fields": [
+            {
+              "description": "Which check produced the result.",
+              "name": "name",
+              "optional": false,
+              "type": "\"git\" | \"config\" | \"planner\""
+            },
+            {
+              "description": "Whether the check passed.",
+              "name": "ok",
+              "optional": false,
+              "type": "boolean"
+            },
+            {
+              "description": "The text printed on the check's line, including what to fix on failure.",
+              "name": "message",
+              "optional": false,
+              "type": "string"
+            }
+          ],
+          "id": "spec.cli.cairn-doctor#type:checkresult",
+          "kind": "type",
+          "location": "packages/cli/src/doctor.ts",
+          "name": "CheckResult"
+        },
+        {
+          "description": "Pure function that renders check results as plain text lines, padding the names into columns.",
+          "id": "spec.cli.cairn-doctor#function:formatchecks",
+          "kind": "function",
+          "location": null,
+          "name": "formatChecks",
+          "signature": "formatChecks(results)"
+        },
+        {
+          "description": "Returns 0 when every check result passed and 1 when any failed.",
+          "id": "spec.cli.cairn-doctor#function:exitcodeof",
+          "kind": "function",
+          "location": null,
+          "name": "exitCodeOf",
+          "signature": "exitCodeOf(results)"
+        },
+        {
+          "description": "Test fixture directory holding a stub `claude` binary that prints a version.",
+          "id": "spec.cli.cairn-doctor#file:fixtures-stub-claude",
+          "kind": "file",
+          "location": "packages/cli/test/fixtures/stub-claude/",
+          "name": "fixtures/stub-claude/"
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.cli.cairn-doctor#t1",
+          "kind": "example",
+          "proves": ["prd.cli.doctor#v1"],
+          "text": "In a git repository whose `.cairn/config.json` decodes and names the `cli` source with `claude`, with the stub `claude` on `PATH`, the output is one `ok` line each for git, config and planner, and the exit code is 0."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#t2",
+          "kind": "example",
+          "proves": ["prd.cli.doctor#v2"],
+          "text": "In a folder with no `.cairn/`, the config line fails and contains `Run cairn init`, and the exit code is non-zero."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#t3",
+          "kind": "example",
+          "proves": ["prd.cli.doctor#v3"],
+          "text": "With `planner.source: \"api\"`, `provider: \"anthropic\"`, a model, and no `ANTHROPIC_API_KEY` in the environment, the planner line fails and names `ANTHROPIC_API_KEY`; the git and config lines still print, and the exit code is non-zero."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#t4",
+          "kind": "example",
+          "proves": [],
+          "text": "With `planner.keyEnv: \"MY_KEY\"` and `MY_KEY` unset, the planner line fails naming `MY_KEY`."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#t5",
+          "kind": "example",
+          "proves": [],
+          "text": "With provider `openai-compatible` and no key, the planner line passes."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#t6",
+          "kind": "example",
+          "proves": [],
+          "text": "With `planner.gatewayTokenEnv` set to a variable that is unset, the planner line fails naming that variable."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#t7",
+          "kind": "example",
+          "proves": [],
+          "text": "A config with a bad field fails the config line naming the field, and the planner line says it cannot check until the config decodes."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#t8",
+          "kind": "example",
+          "proves": [],
+          "text": "With `planner.cli: \"codex\"` and no `codex` on `PATH`, the planner line gives the `spec.models` not-found message."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#t9",
+          "kind": "example",
+          "proves": [],
+          "text": "With `PATH` holding only the stub directory, the git line says git was not found, and the config and planner lines still print."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#t10",
+          "kind": "example",
+          "proves": [],
+          "text": "With a key set to a known value, the output does not contain that value."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#t11",
+          "kind": "example",
+          "proves": [],
+          "text": "Every file in the temporary directory is byte for byte the same after the run."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.cli.cairn-doctor#d1",
+          "text": "A missing `config.json` passes the config check, decoding to the defaults.",
+          "why": "`cairn plan` runs with the defaults, so nothing needs fixing."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#d2",
+          "text": "With no `.cairn/`, the planner check still runs using the default config.",
+          "why": "So a fresh folder still learns whether its planner would work."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#d3",
+          "text": "The planner check does not verify that the CLI is signed in.",
+          "why": "That would take a model call."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#d4",
+          "text": "Provider `openai-compatible` with no key passes the planner check.",
+          "why": "A local endpoint takes no key."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#d5",
+          "text": "The judge is not checked.",
+          "why": "The PRD asks only about the planner, and `cairn plan` already says when judging is skipped."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#d6",
+          "text": "The command exits 0 when every line passes and 1 when any fails.",
+          "why": "So a script can run it first."
+        },
+        {
+          "id": "spec.cli.cairn-doctor#d7",
+          "text": "Unlike the other commands, `main.ts` runs `cairn doctor` without first requiring `.cairn/`.",
+          "why": null
+        },
+        {
+          "id": "spec.cli.cairn-doctor#d8",
+          "text": "`cairn doctor` is not an operation or an MCP tool in this section.",
+          "why": null
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.cli.doctor": "6446be96011e8ba4d07ae68ddbbae39c9f154ab109d76f9b8e35fc6f888002b2"
+        }
+      }
+    },
+    {
       "id": "spec.patch-routes",
       "title": "Patch routes",
       "level": 2,
-      "line": 4264,
+      "line": 4332,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -21446,7 +21817,7 @@
       "id": "spec.server",
       "title": "Server",
       "level": 2,
-      "line": 4285,
+      "line": 4353,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -21610,7 +21981,7 @@
       "id": "spec.viewer",
       "title": "Viewer",
       "level": 2,
-      "line": 4308,
+      "line": 4376,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.viewer.model-and-messages",
@@ -21663,7 +22034,7 @@
       "id": "spec.viewer.model-and-messages",
       "title": "Model and messages",
       "level": 3,
-      "line": 4310,
+      "line": 4378,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -21806,7 +22177,7 @@
       "id": "spec.viewer.markdown-rendering",
       "title": "Markdown rendering",
       "level": 3,
-      "line": 4326,
+      "line": 4394,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -21890,7 +22261,7 @@
       "id": "spec.viewer.design-system",
       "title": "Design system",
       "level": 3,
-      "line": 4335,
+      "line": 4403,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22156,7 +22527,7 @@
       "id": "spec.viewer.reader",
       "title": "Reader",
       "level": 3,
-      "line": 4435,
+      "line": 4503,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22444,7 +22815,7 @@
       "id": "spec.viewer.spec-cards",
       "title": "Spec cards",
       "level": 3,
-      "line": 4487,
+      "line": 4555,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22620,7 +22991,7 @@
       "id": "spec.viewer.fuzzy-matching",
       "title": "Fuzzy matching",
       "level": 3,
-      "line": 4514,
+      "line": 4582,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22680,7 +23051,7 @@
       "id": "spec.viewer.search-interaction",
       "title": "Search controls and chain highlighting",
       "level": 3,
-      "line": 4533,
+      "line": 4601,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22771,7 +23142,7 @@
       "id": "spec.viewer.prose-search",
       "title": "Prose search and inline highlights",
       "level": 3,
-      "line": 4555,
+      "line": 4623,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22844,7 +23215,7 @@
       "id": "spec.viewer.curves",
       "title": "Curves",
       "level": 3,
-      "line": 4577,
+      "line": 4645,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23035,7 +23406,7 @@
       "id": "spec.viewer.stacks",
       "title": "Stacks",
       "level": 3,
-      "line": 4604,
+      "line": 4672,
       "parent": "spec.viewer",
       "children": [
         "spec.viewer.stacks.boxes",
@@ -23193,7 +23564,7 @@
       "id": "spec.viewer.stacks.boxes",
       "title": "Boxes, forks and finished trunks",
       "level": 4,
-      "line": 4644,
+      "line": 4712,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -23582,7 +23953,7 @@
       "id": "spec.viewer.stacks.box-view",
       "title": "Drawing a box",
       "level": 4,
-      "line": 4686,
+      "line": 4754,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -23851,7 +24222,7 @@
       "id": "spec.viewer.stacks.arrows",
       "title": "Parent arrows",
       "level": 4,
-      "line": 4710,
+      "line": 4778,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -24066,7 +24437,7 @@
       "id": "spec.viewer.stacks.dependencies",
       "title": "Dependency arrows",
       "level": 4,
-      "line": 4734,
+      "line": 4802,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -24292,7 +24663,7 @@
       "id": "spec.viewer.models",
       "title": "Models and reasoning",
       "level": 3,
-      "line": 4759,
+      "line": 4827,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24417,7 +24788,7 @@
       "id": "spec.viewer.panes",
       "title": "Panes",
       "level": 3,
-      "line": 4779,
+      "line": 4847,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24606,7 +24977,7 @@
       "id": "spec.viewer.presence",
       "title": "Presence in the reader",
       "level": 3,
-      "line": 4800,
+      "line": 4868,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24716,7 +25087,7 @@
       "id": "spec.viewer.detail-panel",
       "title": "Detail panel",
       "level": 3,
-      "line": 4815,
+      "line": 4883,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24864,7 +25235,7 @@
       "id": "spec.viewer.code-view",
       "title": "Code view",
       "level": 3,
-      "line": 4849,
+      "line": 4917,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24970,7 +25341,7 @@
       "id": "spec.viewer.diff-view",
       "title": "Diff view",
       "level": 3,
-      "line": 4876,
+      "line": 4944,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25163,7 +25534,7 @@
       "id": "spec.viewer.session-view",
       "title": "Session pane",
       "level": 3,
-      "line": 4902,
+      "line": 4970,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25230,7 +25601,7 @@
       "id": "spec.viewer.attribution",
       "title": "Hunks and turns",
       "level": 3,
-      "line": 4918,
+      "line": 4986,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25323,7 +25694,7 @@
       "id": "spec.viewer.detail-code",
       "title": "Code in the detail panel",
       "level": 3,
-      "line": 4938,
+      "line": 5006,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25460,7 +25831,7 @@
       "id": "spec.viewer.canvas-removal",
       "title": "Replacing the canvas",
       "level": 3,
-      "line": 4952,
+      "line": 5020,
       "parent": "spec.viewer",
       "children": [],
       "human": true,
@@ -25620,7 +25991,7 @@
       "id": "spec.viewer.demo-data",
       "title": "Demo data",
       "level": 3,
-      "line": 4973,
+      "line": 5041,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25736,7 +26107,7 @@
       "id": "spec.viewer.deep-links",
       "title": "Deep links",
       "level": 3,
-      "line": 4994,
+      "line": 5062,
       "parent": "spec.viewer",
       "children": [
         "spec.viewer.deep-links.resolving-a-link",
@@ -25816,7 +26187,7 @@
       "id": "spec.viewer.deep-links.resolving-a-link",
       "title": "Resolving a link",
       "level": 4,
-      "line": 5006,
+      "line": 5074,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -26241,7 +26612,7 @@
       "id": "spec.viewer.deep-links.opening-a-link",
       "title": "Opening a link",
       "level": 4,
-      "line": 5065,
+      "line": 5133,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -26717,7 +27088,7 @@
       "id": "spec.viewer.deep-links.copying-a-link",
       "title": "Copying a link",
       "level": 4,
-      "line": 5151,
+      "line": 5219,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -27117,7 +27488,7 @@
       "id": "spec.viewer.list-items",
       "title": "List items",
       "level": 3,
-      "line": 5192,
+      "line": 5260,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -27371,7 +27742,7 @@
       "id": "spec.viewer.cost-on-the-graph",
       "title": "Cost on the graph",
       "level": 3,
-      "line": 5218,
+      "line": 5286,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -27661,7 +28032,7 @@
       "id": "spec.viewer.attempts-in-the-detail-panel",
       "title": "Attempts in the detail panel",
       "level": 3,
-      "line": 5256,
+      "line": 5324,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -27801,7 +28172,7 @@
       "id": "spec.viewer.what-depends-on-what",
       "title": "What depends on what",
       "level": 3,
-      "line": 5278,
+      "line": 5346,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28037,7 +28408,7 @@
       "id": "spec.viewer.command-menu",
       "title": "Command menu",
       "level": 3,
-      "line": 5302,
+      "line": 5370,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28521,7 +28892,7 @@
       "id": "spec.viewer.notes",
       "title": "Notes",
       "level": 3,
-      "line": 5381,
+      "line": 5449,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28737,7 +29108,7 @@
       "id": "spec.testing",
       "title": "Testing",
       "level": 2,
-      "line": 5415,
+      "line": 5483,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.testing.model-based",
@@ -28766,7 +29137,7 @@
       "id": "spec.testing.model-based",
       "title": "Model-based tests",
       "level": 3,
-      "line": 5419,
+      "line": 5487,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -28862,7 +29233,7 @@
       "id": "spec.testing.presence-model",
       "title": "Presence against the room machine",
       "level": 3,
-      "line": 5439,
+      "line": 5507,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -28934,7 +29305,7 @@
       "id": "spec.testing.viewer-models",
       "title": "Reader interactions against models",
       "level": 3,
-      "line": 5455,
+      "line": 5523,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -29044,7 +29415,7 @@
       "id": "spec.testing.derivation-model",
       "title": "Derivation against a model of its inputs",
       "level": 3,
-      "line": 5485,
+      "line": 5553,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -29121,7 +29492,7 @@
       "id": "spec.acceptance",
       "title": "Acceptance",
       "level": 2,
-      "line": 5503,
+      "line": 5571,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -29272,7 +29643,7 @@
       "id": "spec.hosted-launch",
       "title": "Hosted launch",
       "level": 2,
-      "line": 5529,
+      "line": 5597,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.hosted-launch.hosted-contract",
@@ -29505,7 +29876,7 @@
       "id": "spec.hosted-launch.hosted-contract",
       "title": "Hosted contract",
       "level": 3,
-      "line": 5567,
+      "line": 5635,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -30915,7 +31286,7 @@
       "id": "spec.hosted-launch.policy",
       "title": "Policy",
       "level": 3,
-      "line": 5720,
+      "line": 5788,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -31239,7 +31610,7 @@
       "id": "spec.hosted-launch.worker-and-storage",
       "title": "Worker and storage",
       "level": 3,
-      "line": 5785,
+      "line": 5853,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -32048,7 +32419,7 @@
       "id": "spec.hosted-launch.accounts-and-workspaces",
       "title": "Accounts and workspaces",
       "level": 3,
-      "line": 5826,
+      "line": 5894,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -32320,7 +32691,7 @@
       "id": "spec.hosted-launch.entitlements",
       "title": "Entitlements",
       "level": 3,
-      "line": 5858,
+      "line": 5926,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -32658,7 +33029,7 @@
       "id": "spec.hosted-launch.room",
       "title": "Room",
       "level": 3,
-      "line": 5891,
+      "line": 5959,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33098,7 +33469,7 @@
       "id": "spec.hosted-launch.revisions",
       "title": "Revisions",
       "level": 3,
-      "line": 5956,
+      "line": 6024,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33494,7 +33865,7 @@
       "id": "spec.hosted-launch.document-directory",
       "title": "Document directory",
       "level": 3,
-      "line": 6004,
+      "line": 6072,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33788,7 +34159,7 @@
       "id": "spec.hosted-launch.members-and-invitations",
       "title": "Members and invitations",
       "level": 3,
-      "line": 6030,
+      "line": 6098,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -34146,7 +34517,7 @@
       "id": "spec.hosted-launch.agent-credentials-and-gate-approvals",
       "title": "Agent credentials and gate approvals",
       "level": 3,
-      "line": 6074,
+      "line": 6142,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -34488,7 +34859,7 @@
       "id": "spec.hosted-launch.visibility",
       "title": "Visibility",
       "level": 3,
-      "line": 6112,
+      "line": 6180,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -34904,7 +35275,7 @@
       "id": "spec.hosted-launch.discussion",
       "title": "Discussion",
       "level": 3,
-      "line": 6182,
+      "line": 6250,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -35360,7 +35731,7 @@
       "id": "spec.hosted-launch.links-between-prds",
       "title": "Links between PRDs",
       "level": 3,
-      "line": 6224,
+      "line": 6292,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -35594,7 +35965,7 @@
       "id": "spec.hosted-launch.data-sources",
       "title": "Data sources",
       "level": 3,
-      "line": 6247,
+      "line": 6315,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -35819,7 +36190,7 @@
       "id": "spec.hosted-launch.workspace-screens",
       "title": "Workspace screens",
       "level": 3,
-      "line": 6274,
+      "line": 6342,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36283,7 +36654,7 @@
       "id": "spec.hosted-launch.workspace-settings",
       "title": "Workspace settings",
       "level": 3,
-      "line": 6331,
+      "line": 6399,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36491,7 +36862,7 @@
       "id": "spec.hosted-launch.sharing-dialog",
       "title": "Sharing dialog",
       "level": 3,
-      "line": 6352,
+      "line": 6420,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36691,7 +37062,7 @@
       "id": "spec.hosted-launch.comments-in-the-reader",
       "title": "Comments in the reader",
       "level": 3,
-      "line": 6388,
+      "line": 6456,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36879,7 +37250,7 @@
       "id": "spec.hosted-launch.cairn-connect",
       "title": "`cairn connect`",
       "level": 3,
-      "line": 6424,
+      "line": 6492,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37294,7 +37665,7 @@
       "id": "spec.hosted-launch.plan-source",
       "title": "Plan source",
       "level": 3,
-      "line": 6463,
+      "line": 6531,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37530,7 +37901,7 @@
       "id": "spec.hosted-launch.billing",
       "title": "Billing",
       "level": 3,
-      "line": 6495,
+      "line": 6563,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37914,7 +38285,7 @@
       "id": "spec.hosted-launch.self-hosting",
       "title": "Self-hosting",
       "level": 3,
-      "line": 6549,
+      "line": 6617,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -38450,7 +38821,7 @@
       "id": "spec.hosted-launch.launch-acceptance",
       "title": "Launch acceptance",
       "level": 3,
-      "line": 6604,
+      "line": 6672,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,

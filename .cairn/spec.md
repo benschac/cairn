@@ -1641,6 +1641,10 @@ flowchart BT
     direction BT
     t234["t234 · 234-test-the-hosted-launch-acceptance-flows-and-isolation<br/>Test the hosted launch acceptance flows and isolation<br/>wt-69"]
   end
+  subgraph s135["Stack 135 · cli"]
+    direction BT
+    t235["t235 · 235-add-cairn-doctor-with-git-config-and-planner-checks<br/>Add cairn doctor with git, config and planner checks<br/>wt-12"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -2075,8 +2079,10 @@ flowchart BT
   t228 -.-> t234
   t229 -.-> t234
   t231 -.-> t234
+  t23 -.-> t235
+  t115 -.-> t235
   class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122,t138,t139,t140,t142,t144,t145,t148,t149,t150,t152,t154,t155,t158,t171,t175,t176,t179,t196,t198,t199,t200,t201,t203,t205,t206,t207,t208,t209,t212,t228,t231 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t172,t173,t174,t177,t178,t180,t181,t182,t183,t184,t185,t186,t187,t188,t189,t190,t191,t192,t193,t194,t195,t197,t202,t204,t211,t213,t214,t215,t216,t217,t218,t219,t220,t221,t222,t223,t224,t225,t226,t227,t229,t230,t232,t233,t234 sonnet
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t172,t173,t174,t177,t178,t180,t181,t182,t183,t184,t185,t186,t187,t188,t189,t190,t191,t192,t193,t194,t195,t197,t202,t204,t211,t213,t214,t215,t216,t217,t218,t219,t220,t221,t222,t223,t224,t225,t226,t227,t229,t230,t232,t233,t234,t235 sonnet
   class t11,t24,t27,t44,t56,t66,t102,t107,t210 haiku
   class t1,t2,t3,t81,t97,t126,t144,t147,t153,t155,t162,t175,t176,t194,t195,t200,t202,t205,t206,t214,t232 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
@@ -4260,6 +4266,74 @@ Tests:
 - `watch.test.ts` spawns `cairn watch` with stdout piped to a file. It exits non-zero, the file is empty with no `\x1b`, and stderr names `cairn status --json`. Proves prd.terminal.library#v6.
 - With `NO_COLOR=1`, the screen writes no colour codes. With `LANG=C`, the frame uses only ASCII.
 - A `Resized` from the fake stream redraws at the new size.
+
+### `cairn doctor` {#spec.cli.cairn-doctor}
+
+- Implements: `prd.cli.doctor`
+- Files: `packages/cli/src/commands/doctor.ts`, `packages/cli/src/doctor.ts`, `packages/cli/src/commands/index.ts`, `packages/cli/src/main.ts`, `packages/cli/test/doctor.test.ts`, `packages/cli/test/fixtures/stub-claude/`
+- Depends on: `spec.cli`, `spec.contract.config`, `spec.models`
+
+`cairn doctor` checks that this machine can run Cairn and says what to fix. It runs before anyone runs `cairn plan` and waits minutes to find out. It reads only. It writes no file, makes no network request, calls no model and builds no model Layer.
+
+It runs three checks, in order. Each one prints one line:
+
+```text
+ok    git      git version 2.47.0, in /Users/ada/rinkside
+ok    config   .cairn/config.json decodes (planner: cli claude)
+ok    planner  claude 2.1.3 is on PATH
+```
+
+A failing line starts with `fail` and ends with what to run or set:
+
+```text
+fail  config   No .cairn directory in /Users/ada/notes. Run cairn init.
+fail  planner  ANTHROPIC_API_KEY is not set. Set it in the environment, or name another variable in planner.keyEnv in .cairn/config.json.
+```
+
+The command exits 0 when every line passes and 1 when any line fails, so a script can run it first. Lines are plain text with no colour. The words `ok` and `fail` carry the result.
+
+Checks. `doctor.ts` defines `CheckResult = { name: "git" | "config" | "planner"; ok: boolean; message: string }`. It also defines one Effect per check. Each check catches its own errors and turns them into a failing result, so one failure never stops the checks after it.
+
+1. git
+   - The check runs `git --version` through `ChildProcess`, with an argument list and a five-second timeout.
+   - It then runs `git rev-parse --path-format=absolute --git-common-dir` to find the main checkout, the way every command does (see `spec.cli`).
+   - Git not found: `git was not found on PATH. Install git.`
+   - Outside a repository: `Not in a git repository. Run git init, or run cairn doctor inside your repo.`
+2. config
+   - The check looks for `.cairn/` in the main checkout. Outside a repository, it looks in the current directory.
+   - No `.cairn/`: `No .cairn directory in <dir>. Run cairn init.`
+   - It decodes `.cairn/config.json` through the contract's `Config`. A decode failure prints the typed error, which names the file and the field path, then `Fix .cairn/config.json.`
+   - A missing `config.json` decodes to the defaults, as `spec.contract.config` says. It passes with `no config.json; using the defaults`. I chose to pass it because `cairn plan` runs with the defaults, so nothing needs fixing.
+3. planner
+   - The check uses the decoded config. With no `.cairn/` it uses the defaults, so a fresh folder still learns whether its planner would work.
+   - When `config.json` does not decode, the line fails with `Cannot check the planner until .cairn/config.json decodes.`
+   - Source `cli`: the check runs `<planner.cli> --version` with a five-second timeout. A binary that cannot be started fails with the message `spec.models` gives, for example `claude was not found. Install Claude Code, or set planner.cli or planner.source in .cairn/config.json.` It does not check that the CLI is signed in, because that would take a model call.
+   - Source `api`, key: the variable is `planner.keyEnv`, or else the provider's default from the table in `spec.models`.
+     - Unset or empty: the line fails, naming the variable.
+     - Provider `openai-compatible` with no key: it passes with `no key needed for openai-compatible`, since a local endpoint takes none.
+   - Source `api`, gateway token: when `planner.gatewayTokenEnv` is set, its variable must be set too. If it is not, the line fails, naming it.
+   - Variables are read with `Config.Redacted`. Values are never printed or logged. The line names the variable only.
+
+The judge is not checked, because the PRD asks only about the planner. `cairn plan` already says when judging is skipped.
+
+Wiring. `commands/doctor.ts` runs the three checks and prints `formatChecks(results)`, which is pure and pads the names into columns. It then exits with `exitCodeOf(results)`. The command is in the `commands` list in `commands/index.ts`, so the docs reference picks it up with no page edited (see `spec.cli.documentation.reference-from-code`). Unlike the other commands, `main.ts` runs it without first requiring `.cairn/`. It is not an operation or an MCP tool in this section.
+
+Tests, in `doctor.test.ts`:
+
+- Each test runs in a temporary directory. `PATH` holds only the directories the test chooses, and the environment comes from `ConfigProvider.fromMap`, so the real environment is never read.
+- The stub `claude` in `fixtures/stub-claude/` prints a version.
+
+Tests:
+
+- In a git repository whose `.cairn/config.json` decodes and names the `cli` source with `claude`, and with the stub `claude` on `PATH`, the output is one `ok` line each for git, config and planner, and the exit code is 0. (proves prd.cli.doctor#v1)
+- In a folder with no `.cairn/`, the config line fails and contains `Run cairn init`, and the exit code is non-zero. (proves prd.cli.doctor#v2)
+- With `planner.source: "api"`, `provider: "anthropic"`, a model, and no `ANTHROPIC_API_KEY` in the environment, the planner line fails and names `ANTHROPIC_API_KEY`. The git and config lines still print, and the exit code is non-zero. (proves prd.cli.doctor#v3)
+- `planner.keyEnv: "MY_KEY"` unset names `MY_KEY`. `openai-compatible` with no key passes. A `planner.gatewayTokenEnv` whose variable is unset fails, naming it.
+- A config with a bad field fails the config line naming the field. The planner line says it cannot check until the config decodes.
+- `planner.cli: "codex"` with no `codex` on `PATH` gives the `spec.models` message.
+- With `PATH` holding only the stub directory, the git line says git was not found, and the other two lines still print.
+- With a key set to a known value, the output does not contain that value.
+- Every file in the temporary directory is byte for byte the same after the run.
 
 ## Patch routes {#spec.patch-routes}
 

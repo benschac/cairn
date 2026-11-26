@@ -227,6 +227,20 @@ The plan is a set of stacks that can be built at the same time, not one long sta
 - `cairn watch` shows the run live in the terminal (see terminal view). {#prd.cli.watch}
 - `cairn mcp` starts a local MCP server for the current repo over stdio (see agent access). {#prd.cli.mcp}
 
+### Checking the setup {#prd.cli.doctor}
+
+`cairn doctor` checks that this machine can run Cairn and says what to fix, before a person runs `cairn plan` and waits minutes to find out.
+
+- It checks for git, a `.cairn` directory with a `config.json` that decodes, and the planner the config names: the `claude` CLI on the `PATH`, or the API key the provider needs.
+- Each check prints one line that passes or fails, and a failed line says what to run or set.
+- It exits non-zero when any check fails, so a script can run it first.
+
+Done when:
+
+- Running `cairn doctor` in a git repo whose `.cairn` config decodes and names the Claude Code planner, with `claude` on the PATH, prints one passing line each for git, the config and the planner, then exits with status zero. {#prd.cli.doctor#v1}
+- Running `cairn doctor` in a folder with no `.cairn` directory prints a failing line for it that says to run `cairn init`, and the command exits non-zero. {#prd.cli.doctor#v2}
+- When the config names an API provider and its key is not set in the environment, `cairn doctor` prints a failing planner line that names the variable to set, and exits non-zero while the other checks still print their own lines. {#prd.cli.doctor#v3}
+
 ## Agent access {#prd.agent-access}
 
 An agent can use Cairn through the CLI or through MCP. The CLI remains a complete interface for people and agents with shell access. A short Markdown guide or skill explains the workflow, the review checkpoints and how to recover from errors. MCP adds discoverable tools with structured inputs and results for clients that support it; neither interface requires the other.
