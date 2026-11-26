@@ -40,7 +40,7 @@ export {
   type GateTask,
 } from "./gates.ts";
 export { Finding, LintFile, LintRule, Severity, lint } from "./lint.ts";
-export { Replan, bodyHashOf, replanOf, scopeOf } from "./replan.ts";
+export { Replan, bodyHashOf, replanOf, scopeOf, uncoveredItemsOf, uncoveredOf } from "./replan.ts";
 export {
   partOf,
   refusalOf,

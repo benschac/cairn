@@ -1,4 +1,11 @@
-import { Config as ConfigSchema, Judgments, Manifest, Slug, SpecSectionId } from "@cairn/contract";
+import {
+  Config as ConfigSchema,
+  Judgments,
+  Manifest,
+  PrdSectionId,
+  Slug,
+  SpecSectionId,
+} from "@cairn/contract";
 import type {
   Config as CairnConfig,
   Judgment,
@@ -7,18 +14,25 @@ import type {
   SpecIndex,
 } from "@cairn/contract";
 import {
+  assignItemIds,
   assignSectionIds,
   derivedOf,
   gateOf,
   inputsOf,
   itemsOf,
   lint,
+  partOf,
+  refusalOf,
   replanOf,
+  scopeOf,
   sectionIdsOf,
   sectionsOf,
   stackOf,
+  uncoveredItemsOf,
+  uncoveredOf,
   withStackDiagram,
 } from "@cairn/core";
+import type { Finding, Part, Replan } from "@cairn/core";
 import {
   Array,
   Config,
@@ -42,7 +56,7 @@ import {
   Struct,
   Terminal,
 } from "effect";
-import { Command, Flag } from "effect/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import {
   askStatements,
@@ -105,8 +119,22 @@ export class PlannerRefused extends Schema.TaggedError<
   }
 }
 
+/** `cairn plan <id>` named IDs it cannot plan, or `--respec` came with IDs: nothing was written. */
+export class PartRefused extends Schema.TaggedError<
+  PartRefused,
+  { readonly brand: unique symbol }
+>()("PartRefused", { lines: Schema.Array(Schema.String) }) {
+  override readonly [Runtime.errorReported] = false;
+  override get message() {
+    return Array.join(this.lines, "\n");
+  }
+}
+
 export const JUDGING_SKIPPED = "Judging skipped: TYPESAFE_API_KEY is not set.";
 export const UP_TO_DATE = "The plan is up to date.";
+export const PART_UP_TO_DATE = "This part is up to date.";
+export const NOT_PLANNED_YET = "Not planned yet:";
+export const RESPEC_TAKES_NO_IDS = "--respec plans the whole spec from nothing and takes no IDs.";
 export const DRAFT_QUESTION = "Draft tasks from this spec? [y/N]";
 export const WRITE_QUESTION = "Write manifest.json? [y/N]";
 export const EDIT_SPEC = "Edit .cairn/spec.md, then run cairn plan again.";
@@ -133,6 +161,8 @@ export interface PlanOptions {
   readonly accept?: string | undefined;
   /** Run both steps in memory: ask nothing, write nothing, and print totals (`spec.planning.dry-run`). */
   readonly dryRun?: boolean;
+  /** The PRD heading and list item IDs to plan, and what is under them (`spec.planning.planning-a-part`). None plans the whole PRD. */
+  readonly part?: ReadonlyArray<string> | undefined;
   /** Planner fields that replace the config's for this run. */
   readonly planner?: PlannerChoice;
   readonly respec: boolean;
@@ -197,11 +227,13 @@ const inMemory = Layer.effect(
 interface Planned {
   readonly errors: number;
   readonly flags: number;
+  /** The IDs a part run named, in document order; none for a run of the whole PRD. */
+  readonly part: ReadonlyArray<string>;
   readonly sections: number;
   readonly tasks: number;
 }
 
-const nothingPlanned: Planned = { errors: 0, flags: 0, sections: 0, tasks: 0 };
+const nothingPlanned: Planned = { errors: 0, flags: 0, part: [], sections: 0, tasks: 0 };
 
 /**
  * The feature's name for the manifest: the ID of the first heading of the PRD, without `prd.`,
@@ -263,6 +295,8 @@ interface Inputs {
   /** What judging has said in this run, in the order it said it. `judgments.json` keeps them. */
   readonly judged: Ref.Ref<ReadonlyArray<Judgment>>;
   readonly options: PlanOptions;
+  /** The part of the PRD this run plans, when it was given IDs. */
+  readonly part: Option.Option<Part>;
   readonly prd: string;
   readonly told: Ref.Ref<boolean>;
 }
@@ -277,6 +311,167 @@ export class AcceptRefused extends Schema.TaggedError<
     return `cairn plan --accept ${this.section} is refused: ${this.reason}`;
   }
 }
+
+/** `prd.md` with the IDs a part run gives it: the headings', then the list items' that ask for one. */
+const withIds = (prd: string) => {
+  const headings = assignSectionIds(prd, "prd");
+  const items = assignItemIds(headings.markdown);
+  return { added: Array.appendAll(headings.added, items.added), markdown: items.markdown };
+};
+
+/**
+ * `prd.md` as the run reads it, with the IDs it gives, and the part the run was asked to plan. A
+ * part run assigns item IDs as well, so an item whose `{#}` is filled in this run can be named. An
+ * ID that names nothing, and `--respec` with IDs, are refused here, before anything is written.
+ */
+const identified = Effect.fn("plan.identified")(function* (options: PlanOptions, prdText: string) {
+  const given = Option.getOrElse(
+    Option.fromUndefinedOr(options.part),
+    (): ReadonlyArray<string> => [],
+  );
+  if (!Array.isReadonlyArrayNonEmpty(given)) {
+    const { added, markdown } = assignSectionIds(prdText, "prd");
+    return { added, markdown, part: Option.none<Part>() };
+  }
+  yield* Effect.filterOrFail(
+    Effect.succeed(options.respec),
+    (respec) => !respec,
+    () => new PartRefused({ lines: [RESPEC_TAKES_NO_IDS] }),
+  );
+  const { added, markdown } = withIds(prdText);
+  const sections = sectionsOf(markdown);
+  const part = yield* Effect.fromResult(partOf(sections, itemsOf(markdown, sections), given)).pipe(
+    Effect.mapError(({ unknown }) => new PartRefused({ lines: Array.map(unknown, refusalOf) })),
+  );
+  return { added, markdown, part: Option.some(part) };
+});
+
+/** The IDs of a part as plain strings, which is how statements' owners and findings name them. */
+const idsOfPart = (part: Part) => HashSet.fromIterable<string>(part.ids);
+
+/** The line both reviews of a part run open with: what was named and how much sits under it. */
+const partLines = (part: Option.Option<Part>): ReadonlyArray<string> =>
+  Option.match(part, {
+    onNone: () => [],
+    onSome: ({ ids, named }) => {
+      const below = HashSet.size(ids) - Array.length(named);
+      const noun = below === 1 ? "section" : "sections";
+      const pronoun = Array.length(named) === 1 ? "it" : "them";
+      return [
+        `part: ${Array.join(named, ", ")}${below === 0 ? "" : ` (and ${below} ${noun} under ${pronoun})`}`,
+      ];
+    },
+  });
+
+/** The spec a part run starts when there is none: one heading, so the run writes no more of the spec than the part. */
+const specStartOf = (prd: string): string =>
+  withNewline(
+    assignSectionIds(
+      `# ${Option.match(
+        Array.findFirst(sectionsOf(prd), (section) => section.level === 1),
+        { onNone: () => "Plan", onSome: ({ title }) => title },
+      )} spec`,
+      "spec",
+    ).markdown,
+  );
+
+/** `spec.json` of a spec that has no sections yet, which a part run narrows against when there is no spec. */
+const NO_INDEX: SpecIndex = {
+  manifest: `${CAIRN_DIRECTORY}/manifest.json`,
+  prd: `${CAIRN_DIRECTORY}/prd.md`,
+  sections: [],
+  source: `${CAIRN_DIRECTORY}/spec.md`,
+  tasks: [],
+  version: 1,
+};
+
+const isPrdSectionId = Schema.is(PrdSectionId);
+
+/**
+ * The PRD sections and list items that no spec section covers, as `cairn lint` counts them: a
+ * section whose items are named is covered, and an item is covered when a key names it.
+ * `replanOf` has no item mapping yet (`spec.planning.again`), so a part run reads the items here,
+ * or a part named by an item would plan nothing and lint would still refuse it.
+ */
+const uncoveredWithItems = (prd: string, spec: string): ReadonlyArray<PrdSectionId> => {
+  const prdSections = sectionsOf(prd);
+  const items = itemsOf(prd, prdSections);
+  const specSections = sectionsOf(spec);
+  return Array.filter(
+    Array.map(
+      Array.appendAll(
+        uncoveredOf(prdSections, specSections, items),
+        uncoveredItemsOf(prdSections, specSections, items),
+      ),
+      ({ id }) => id,
+    ),
+    isPrdSectionId,
+  );
+};
+
+/** `whole`, the plan's `replanOf`, narrowed to the part when the run has one. */
+const narrowed = (
+  part: Option.Option<Part>,
+  whole: Replan,
+  prd: string,
+  spec: string,
+  index: SpecIndex,
+): Replan =>
+  Option.match(part, {
+    onNone: () => whole,
+    onSome: (found) =>
+      scopeOf({ ...whole, uncovered: uncoveredWithItems(prd, spec) }, found, index),
+  });
+
+/** What the run acts on: the whole plan's `replanOf`, narrowed to the part when the run has one. */
+const replanFor = (
+  part: Option.Option<Part>,
+  prd: string,
+  spec: string,
+  index: SpecIndex,
+  manifest: Option.Option<Manifest>,
+): Replan => narrowed(part, replanOf(prd, spec, index, manifest), prd, spec, index);
+
+/**
+ * Says which sections a part run left alone that the whole plan would have written again: they
+ * implement the part and something outside it, and a PRD section they implement changed. Lint does
+ * not report a section Cairn could rewrite, so the run does.
+ */
+const reportMoved = Effect.fn("plan.reportMoved")(function* (
+  spec: string,
+  whole: Replan,
+  scoped: Replan,
+) {
+  const moved = HashSet.fromIterable<string>(
+    Array.filter(scoped.staleSections, (id) => !Array.contains(whole.staleSections, id)),
+  );
+  const found = Array.filter(
+    sectionsOf(spec),
+    ({ id }) => Predicate.isNotUndefined(id) && HashSet.has(moved, id),
+  );
+  yield* Effect.forEach(
+    found,
+    ({ id, line }) =>
+      Console.log(
+        formatFinding({
+          file: "spec.md",
+          line: Option.some(line),
+          message: `${id} implements the part and sections outside it, and a PRD section it implements changed, so this run left it as it was. Update it if it needs it, then run cairn plan --accept ${id}.`,
+          rule: "stale-section",
+          severity: "warning",
+        }),
+      ),
+    { discard: true },
+  );
+});
+
+/**
+ * A finding that says a PRD section or item outside `part` is not planned, which a part run lets
+ * through. Both unmapped rules begin their message with the ID.
+ */
+const notPlannedYet = (part: HashSet.HashSet<string>, finding: Finding) =>
+  (finding.rule === "unmapped-section" || finding.rule === "unmapped-item") &&
+  !HashSet.has(part, Array.headNonEmpty(String.split(finding.message, " ")));
 
 const writeCairn = Effect.fn("plan.write")(function* (name: string, content: string) {
   const fs = yield* FileSystem.FileSystem;
@@ -300,10 +495,11 @@ const refined = Effect.fn("plan.refined")(function* ({ config, told }: Inputs, i
 
 /**
  * The fourth checkpoint, the stack questions (`spec.judging.checkpoints`): asked of the manifest
- * the plan would write. It only reports.
+ * the plan would write. It only reports. A part run's `complete` question lists only the part's
+ * PRD sections.
  */
 const stackJudged = Effect.fn("plan.stackJudged")(function* (
-  { config, told }: Inputs,
+  { config, part, told }: Inputs,
   prd: string,
   spec: string,
   manifest: Manifest,
@@ -312,7 +508,18 @@ const stackJudged = Effect.fn("plan.stackJudged")(function* (
     return [];
   }
   const judge = yield* Judge;
-  const { stack } = inputsOf(prd, spec, manifest);
+  const whole = inputsOf(prd, spec, manifest).stack;
+  // A part run asks whether the stack builds the part's PRD sections, not the ones left for later.
+  const stack = Option.match(part, {
+    onNone: () => whole,
+    onSome: (found) => {
+      const ids = idsOfPart(found);
+      return {
+        ...whole,
+        prdSections: Array.filter(whole.prdSections, ({ id }) => HashSet.has(ids, id)),
+      };
+    },
+  });
   const none: ReadonlyArray<Judgment> = [];
   return yield* judge
     .judge(
@@ -427,6 +634,29 @@ const currentIndex = Effect.fn("plan.currentIndex")(function* (
   return yield* Effect.flatMap(loadSpecIndex, (made) => Effect.fromOption(made).pipe(Effect.orDie));
 });
 
+/**
+ * `currentIndex` for a part run, with an entry for every section of `spec.md`. A section a person
+ * added has none, and `scopeOf` reads what a section implements from its entry, so no part would
+ * own it and its task would never be drafted.
+ */
+const partIndex = Effect.fn("plan.partIndex")(function* (
+  prd: string,
+  manifest: Option.Option<Manifest>,
+) {
+  const index = yield* currentIndex(prd, manifest);
+  const spec = yield* loadSpec;
+  const known = HashSet.fromIterable<string>(Array.map(index.sections, ({ id }) => id));
+  if (Array.every(specIdsOf(spec), (id) => HashSet.has(known, id))) {
+    return index;
+  }
+  yield* writeIndex(prd, manifest, { changed: [], previous: Option.some(index), written: [] });
+  return yield* Effect.flatMap(loadSpecIndex, (made) => Effect.fromOption(made).pipe(Effect.orDie));
+});
+
+/** The index a run reads: made complete for a part run, as it is on disk for any other. */
+const indexFor = (part: Option.Option<Part>, prd: string, manifest: Option.Option<Manifest>) =>
+  Option.isSome(part) ? partIndex(prd, manifest) : currentIndex(prd, manifest);
+
 /** The sections that `stale-section` and `stale-task` report, printed as `cairn lint` prints them. */
 const reportStale = Effect.fn("plan.reportStale")(function* (
   { config, prd }: Inputs,
@@ -448,9 +678,9 @@ const specStep = Effect.fn("plan.specStep")(function* (
   inputs: Inputs,
   manifest: Option.Option<Manifest>,
 ) {
-  const { options, prd } = inputs;
+  const { options, part, prd } = inputs;
   const existing = yield* optionally(loadSpec);
-  if (options.respec || Option.isNone(existing)) {
+  if (Option.isNone(part) && (options.respec || Option.isNone(existing))) {
     const planner = yield* Planner;
     const drafted = yield* planner.spec(prd);
     // Every section has an ID before judging, since a section without one is not judged.
@@ -483,11 +713,16 @@ const specStep = Effect.fn("plan.specStep")(function* (
     yield* writeJudgments(inputs);
     return { sections: Array.length(shown), wrote: true };
   }
-  // Planning again (`spec.planning.again`): the spec exists, so it is added to, never written from nothing.
-  const spec = existing.value;
-  const index = yield* currentIndex(prd, manifest);
+  // Planning again (`spec.planning.again`): the spec exists, so it is added to, never written from
+  // nothing. A part run with no spec starts one with a heading, because writing the whole spec would
+  // plan what was not named.
+  const started = Option.isNone(existing);
+  const spec = Option.getOrElse(existing, () => specStartOf(prd));
+  const index = started ? NO_INDEX : yield* indexFor(part, prd, manifest);
   yield* reportStale(inputs, spec, manifest, index);
-  const replan = replanOf(prd, spec, index, manifest);
+  const whole = replanOf(prd, spec, index, manifest);
+  const replan = narrowed(part, whole, prd, spec, index);
+  yield* reportMoved(spec, whole, replan);
   if (
     Array.isReadonlyArrayEmpty(replan.uncovered) &&
     Array.isReadonlyArrayEmpty(replan.rewritable)
@@ -504,7 +739,13 @@ const specStep = Effect.fn("plan.specStep")(function* (
     ),
   );
   const planner = yield* Planner;
-  const fragment = yield* planner.sections(prd, spec, prdSections, replan.rewritable);
+  const fragment = yield* planner.sections(
+    prd,
+    spec,
+    prdSections,
+    replan.rewritable,
+    Option.getOrUndefined(Option.map(part, ({ ids }) => ids)),
+  );
   const merged = mergeSections(spec, fragment, replan.rewritable);
   const before = HashSet.fromIterable<string>(sectionIdsOf(spec));
   /** The sections this run wrote or rewrote that `text` still has: judging may split one away. */
@@ -536,18 +777,21 @@ const specStep = Effect.fn("plan.specStep")(function* (
     (section) => Predicate.isNotUndefined(section.id) && HashSet.has(added, section.id),
   );
   yield* Effect.forEach(
-    Array.appendAll(
+    Array.flatten([
+      partLines(part),
       Array.map(printed, sectionLine),
-      Array.appendAll(changeLines(checked.judgments), reportLines(checked.judgments)),
-    ),
+      changeLines(checked.judgments),
+      reportLines(checked.judgments),
+    ]),
     (line) => Console.log(line),
     { discard: true },
   );
   yield* record(inputs, checked.judgments);
+  // A spec the run started has no index, so every section of it is indexed.
   yield* writeIndex(prd, manifest, {
-    changed: editedOf(next, index),
-    previous: Option.some(index),
-    written,
+    changed: started ? [] : editedOf(next, index),
+    previous: started ? Option.none() : Option.some(index),
+    written: started ? specIdsOf(next) : written,
   });
   yield* writeJudgments(inputs);
   return { sections: Array.length(printed), wrote: true };
@@ -589,17 +833,19 @@ const redraw = Effect.fn("plan.redraw")(function* (prd: string, manifest: Option
  * `spec.planning.again` names, read from the spec and index on disk. None when there is nothing to draft.
  */
 const draftable = Effect.fn("plan.draftable")(function* (
-  { options, prd }: Inputs,
+  inputs: Inputs,
   manifest: Option.Option<Manifest>,
 ) {
+  const { options, part, prd } = inputs;
   const spec = yield* loadSpec;
-  if (options.respec || Option.isNone(manifest)) {
+  // A part run drafts only for the sections that implement the part, the ones it just wrote among them.
+  if (Option.isNone(part) && (options.respec || Option.isNone(manifest))) {
     return Option.some<ReadonlyArray<SpecSectionId>>(specIdsOf(spec));
   }
-  const index = yield* currentIndex(prd, manifest);
+  const index = yield* indexFor(part, prd, manifest);
   return Option.map(
     Option.liftPredicate(
-      replanOf(prd, spec, index, manifest).untasked,
+      replanFor(part, prd, spec, index, manifest).untasked,
       Array.isReadonlyArrayNonEmpty,
     ),
     (ids): ReadonlyArray<SpecSectionId> => ids,
@@ -616,13 +862,19 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
   manifest: Option.Option<Manifest>,
   specSections: ReadonlyArray<SpecSectionId>,
 ) {
-  const { config, judged, options, prd } = inputs;
+  const { config, judged, options, part, prd } = inputs;
   const planner = yield* Planner;
   const spec = yield* loadSpec;
   // `--respec` plans from nothing; otherwise the tasks in the manifest stay as they are.
   const kept = options.respec ? Option.none<Manifest>() : manifest;
   const existing = tasksOf(kept);
-  const proposed = yield* planner.tasks(prd, spec, specSections, existing);
+  const proposed = yield* planner.tasks(
+    prd,
+    spec,
+    specSections,
+    existing,
+    Option.getOrUndefined(Option.map(part, ({ ids }) => ids)),
+  );
   // The task size and routing checkpoints shape the drafts before the stack orders them. The spec
   // on disk has its IDs, which step 1 gave it, so each draft's sections are found.
   const checked = yield* refined(inputs, {
@@ -666,7 +918,12 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
   };
   // Every manifest write draws the stack diagram again, so lint reads the spec as it will be written.
   const drawn = withStackDiagram(spec, drafted);
-  const findings = lint(prd, drawn, Option.some(drafted), config);
+  const found = lint(prd, drawn, Option.some(drafted), config);
+  // What a part run leaves for later does not stop its write: it is listed apart from what does.
+  const inPart = Option.map(part, idsOfPart);
+  const isLater = (finding: Finding) => Option.exists(inPart, (ids) => notPlannedYet(ids, finding));
+  const later = Array.filter(found, isLater);
+  const findings = Array.filter(found, (finding) => !isLater(finding));
   // A judgment of a draft that became a task is named by the task's ID; one of a draft a split
   // replaced stays named by its title.
   const ids = HashMap.fromIterable(
@@ -692,9 +949,14 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
   const old = HashSet.fromIterable(Array.map(existing, (task) => task.id));
   yield* Effect.forEach(
     Array.flatten([
+      partLines(part),
       changeLines(judgments),
       stackLines(drafted.tasks, { isNew: (task) => !HashSet.has(old, task.id) }),
       Array.map(findings, formatFinding),
+      Array.match(later, {
+        onEmpty: () => [],
+        onNonEmpty: (left) => Array.prepend(Array.map(left, formatFinding), NOT_PLANNED_YET),
+      }),
       reportLines(judgments),
     ]),
     (line) => Console.log(line),
@@ -702,7 +964,7 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
   );
   const errors = Array.length(Array.filter(findings, (finding) => finding.severity === "error"));
   const everything = yield* Ref.get(judged);
-  const planned: Planned = {
+  const planned: Omit<Planned, "part"> = {
     errors,
     flags: flagsOf(everything),
     sections: 0,
@@ -763,6 +1025,12 @@ export const needsPlanner = Effect.fn("plan.needsPlanner")(function* (options: P
   }
   const manifest = yield* optionally(loadManifest);
   yield* refuseRestart(options, manifest);
+  // The IDs of a part run are checked first, so a wrong one is refused before a model is built.
+  if (
+    Array.isReadonlyArrayNonEmpty(Option.getOrElse(Option.fromUndefinedOr(options.part), () => []))
+  ) {
+    yield* Effect.flatMap(loadPrd, (text) => identified(options, text));
+  }
   const spec = yield* optionally(loadSpec);
   const generating = options.respec || Option.isNone(spec);
   const drafting = (options.respec || Option.isNone(manifest)) && !options.spec;
@@ -773,11 +1041,11 @@ export const needsPlanner = Effect.fn("plan.needsPlanner")(function* (options: P
   // `spec.json` does not have yet. The PRD is read with the IDs `plan` is about to give it.
   const index = yield* loadSpecIndex;
   const prdText = yield* loadPrd;
-  const prd = assignSectionIds(prdText, "prd").markdown;
+  const { markdown: prd, part } = yield* identified(options, prdText);
   return Option.match(Option.all({ index, spec }), {
     onNone: () => true,
     onSome: ({ index: written, spec: text }) => {
-      const replan = replanOf(prd, text, written, manifest);
+      const replan = replanFor(part, prd, text, written, manifest);
       const drawn = Option.match(manifest, {
         onNone: () => text,
         onSome: (plan) => withStackDiagram(text, plan),
@@ -790,7 +1058,9 @@ export const needsPlanner = Effect.fn("plan.needsPlanner")(function* (options: P
         Array.isReadonlyArrayNonEmpty(replan.rewritable) ||
         Array.some(specIdsOf(drawn), (id) => !HashSet.has(indexed, id)) ||
         // An answer about a draft edits the PRD, which can make a section need writing again.
-        (draftCountOf(prd) > 0 && !options.yes && options.dryRun !== true) ||
+        (draftCountOf(prd, Option.map(part, idsOfPart)) > 0 &&
+          !options.yes &&
+          options.dryRun !== true) ||
         (!options.spec && Array.isReadonlyArrayNonEmpty(replan.untasked))
       );
     },
@@ -854,19 +1124,24 @@ const statementsStep = Effect.fn("plan.statementsStep")(function* (
   options: PlanOptions,
   prd: string,
   manifest: Option.Option<Manifest>,
+  part: Option.Option<Part>,
 ) {
   const spec = yield* optionally(loadSpec);
-  const only: Option.Option<ReadonlyArray<string>> = options.respec
-    ? Option.none()
-    : yield* Option.match(spec, {
-        onNone: () => Effect.succeedNone,
-        onSome: (text) =>
-          Effect.map(currentIndex(prd, manifest), (index) =>
-            Option.some(replanOf(prd, text, index, manifest).uncovered),
+  // A first plan drafts for every section and item, and planning again for the sections nothing
+  // covers. A part run does the same inside the part, and asks about the part's drafts only.
+  const only: Option.Option<ReadonlyArray<string>> = yield* Option.match(spec, {
+    onNone: () => Effect.succeed(Option.map(part, ({ ids }) => Array.fromIterable<string>(ids))),
+    onSome: (text) =>
+      options.respec
+        ? Effect.succeedNone
+        : Effect.map(indexFor(part, prd, manifest), (index) =>
+            Option.some<ReadonlyArray<string>>(
+              replanFor(part, prd, text, index, manifest).uncovered,
+            ),
           ),
-      });
+  });
   const drafted = yield* draftStatements(prd, targetsOf(prd, only), savePrd);
-  return yield* askStatements(drafted, options, savePrd);
+  return yield* askStatements(drafted, options, savePrd, Option.map(part, idsOfPart));
 });
 
 /** The spec and the tasks: what `steps` does once the PRD's statements are settled. */
@@ -880,7 +1155,7 @@ const planSteps = Effect.fn("plan.planSteps")(function* (
   if (Option.isNone(toDraft)) {
     // A manifest on disk keeps its diagram true, so a spec that drifted from it is drawn again.
     if (!specWritten && !(yield* redraw(inputs.prd, manifest))) {
-      yield* Console.log(UP_TO_DATE);
+      yield* Console.log(Option.isSome(inputs.part) ? PART_UP_TO_DATE : UP_TO_DATE);
     }
     const everything = yield* Ref.get(inputs.judged);
     return { ...nothingPlanned, flags: flagsOf(everything), sections };
@@ -914,20 +1189,25 @@ const steps = Effect.fn("plan.steps")(function* (options: PlanOptions) {
 
   const config = yield* configOf(options.planner);
   const told = yield* Ref.make(false);
+  // The IDs of a part run are checked here, before anything is written, even the IDs the PRD lacks.
   const prdText = yield* loadPrd;
-  const assigned = assignSectionIds(prdText, "prd");
+  const assigned = yield* identified(options, prdText);
+  const { part } = assigned;
   if (Array.isReadonlyArrayNonEmpty(assigned.added)) {
     yield* writeCairn("prd.md", assigned.markdown);
     yield* Effect.forEach(assigned.added, (id) => Console.log(`Added ${id}`), { discard: true });
   }
   const judged = yield* Ref.make<ReadonlyArray<Judgment>>([]);
-  const prd = yield* statementsStep(options, assigned.markdown, manifest);
-  const planned = yield* planSteps({ config, judged, options, prd, told }, manifest);
-  const drafts = draftCountOf(prd);
+  const prd = yield* statementsStep(options, assigned.markdown, manifest, part);
+  const planned = yield* planSteps({ config, judged, options, part, prd, told }, manifest);
+  const drafts = draftCountOf(prd, Option.map(part, idsOfPart));
   if (drafts > 0) {
-    yield* Console.log(draftWarning(drafts));
+    yield* Console.log(draftWarning(drafts, Option.isSome(part)));
   }
-  return planned;
+  return {
+    ...planned,
+    part: Option.match(part, { onNone: () => [], onSome: ({ named }) => named }),
+  };
 });
 
 /** A dry run: both steps over an in-memory copy of `.cairn/`, then one line of totals. */
@@ -998,6 +1278,12 @@ export const planCommand = Command.make(
       ),
       Flag.optional,
     ),
+    ids: Argument.String("id").pipe(
+      Argument.withDescription(
+        "A PRD heading or list item ID to plan with what is under it; none plans the whole PRD",
+      ),
+      Argument.variadic(),
+    ),
     respec: Flag.Boolean("respec").pipe(
       Flag.withDescription(
         "Write the spec again and plan from nothing; refused once a task has left pending",
@@ -1033,10 +1319,11 @@ export const planCommand = Command.make(
       Flag.withDefault(false),
     ),
   },
-  ({ accept: accepted, model, provider, source, ...flags }) => {
+  ({ accept: accepted, ids, model, provider, source, ...flags }) => {
     const options: PlanOptions = {
       ...flags,
       accept: Option.getOrUndefined(accepted),
+      part: ids,
       planner: {
         model: Option.getOrUndefined(model),
         provider: Option.getOrUndefined(provider),
@@ -1068,6 +1355,10 @@ export const planCommand = Command.make(
       Effect.tapErrorTag(
         ["RespecRefused", "ManifestRefused", "AcceptRefused", "PlannerRefused"],
         (error) => Effect.logError(error.message),
+      ),
+      // One line per ID that cannot be planned.
+      Effect.tapErrorTag("PartRefused", (error) =>
+        Effect.forEach(error.lines, (line) => Console.error(line), { discard: true }),
       ),
     );
   },
