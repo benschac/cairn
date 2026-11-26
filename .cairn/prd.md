@@ -645,7 +645,7 @@ The look is the prototype's paper look: ink borders, hard offset shadows and sol
 
 The reader replaces the canvas that could be panned, zoomed and rearranged. There is no pan or zoom, no dragging a document or a task card, no Fit and no Reset layout. Each pane scrolls on its own, and the panes can be made wider or narrower (see Panes).
 
-Suggested stack: Foldkit SPA for the viewer and a markdown renderer that preserves heading IDs. The local Node server exposes `.cairn/` files, `git log --format` with trailers and reads from `cairn.db`; the hosted Worker provides authenticated workspace and document operations. Demo, local and hosted data sources are selected explicitly, not inferred from whether the bundle is a production build.
+Suggested stack: an Effect UI SPA for the viewer (see Effect UI; it runs on Foldkit 0.x until that move is done) and a markdown renderer that preserves heading IDs. The local Node server exposes `.cairn/` files, `git log --format` with trailers and reads from `cairn.db`; the hosted Worker provides authenticated workspace and document operations. Demo, local and hosted data sources are selected explicitly, not inferred from whether the bundle is a production build.
 
 ### Reading the plan {#prd.viewer.reader}
 
@@ -797,6 +797,22 @@ People and agents leave notes on the document, plan and code: a question about a
 - A note shows as a marker where it is anchored: beside the passage or the spec section, on the line in the diff, on the task's row and chip with a count of open notes. The task detail lists the task's notes, and each note opens its link.
 - A note whose anchor no longer resolves shows in the task detail, or under its section, with the step that is missing (see deep links).
 - A resolved note is hidden until a person asks to see resolved notes.
+
+### Effect UI {#prd.viewer.effect-ui}
+
+The viewer moves from Foldkit 0.x to [Effect UI](https://ui.effect.website/), the frontend Foldkit's authors are building to replace it. Feature work has moved there and Foldkit 0.x gets only critical fixes, so staying means building on a framework that has stopped growing. Effect UI keeps what the viewer is built from: Schema Models, Messages named for facts, Commands, Subscriptions, Mounts and Scene tests. It adds components that each own their Model and update and re-render alone, a headless component kit and a smaller bundle.
+
+Effect UI is in public preview. It is not on npm, it has no upgrade guide yet, and its APIs will change. Cairn is new and has no users to protect, so it moves now, as an early adopter, and reports what it finds upstream.
+
+- Effect UI is installed from the snapshot builds its repository publishes for each commit, pinned to one commit for the whole repo. Moving to a newer commit is its own change, checked like any other.
+- Effect UI needs a newer `effect` than Cairn uses, so every Effect package moves to that version first, in its own change.
+- The move starts with a spike: port the switch and the disclosure to Effect UI's kit and one pane to Effect UI, with its Scene tests, and list each Foldkit feature the viewer uses that Effect UI does not have yet. Each gap is worked around in the viewer or reported upstream.
+- Then the whole viewer moves as one component with the Model and Messages it has now: the entry point and the address, the Subscriptions, the Commands and the Mounts, then the views pane by pane, each with its Scene tests.
+- The viewer looks and behaves the same after the move. Every Scene and Story test that passes before it passes after it, rewritten against Effect UI's test harness with the same clicks and the same checks. No feature is dropped to make the move.
+- After the move, the one `update` is split into components that own their state, a pane at a time, so a change in one pane re-renders only that pane.
+- When the move is done, nothing imports `foldkit` or `@foldkit/ui`. The Foldkit patch, the Vite plugin and the lint plugin are gone. AGENTS.md, the Effect checklist and the agent sources point at Effect UI, with its source and docs indexed like Effect's and XState's.
+
+Done when the viewer runs on Effect UI with no Foldkit package installed, `pnpm check` passes with the same Scene tests, and the demo at prdtrace.com looks and behaves as it did before the move.
 
 ## Code view {#prd.code-view}
 
