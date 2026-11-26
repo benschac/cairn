@@ -1313,3 +1313,7 @@ Every planner call is one-shot. A retry fills `retry.md` and sends it around the
 - The splits of one round branch from a trunk that opens with the spec, so the spec is sent once and each split adds only its own turns.
 - State that must add up across branches, such as a budget or a running total, stays one `Ref` and is never branched.
 - The Effect checklist in `.agent_sources` carries the pattern, so a reviewer asks for it where a diff re-sends a prompt that a conversation already holds, or shares one history between calls that run at once.
+- Where the pattern does not fit, or does not fit yet, is written down here so it is not looked for again:
+  - Indexing a section sends only that section. Its calls share no opening, so each has a chat of its own and there is nothing to branch from.
+  - The in-memory repository of the git tests and the in-memory `.cairn/` of a dry run keep their state in a `Ref` as a chat does. Each gets a `branch` of its own when a feature forks it: checking a landing order on a copy of the repository (see landing order) and comparing planners in one run (see comparing planners). Until then nothing would call it.
+  - Asking about done-when statements is not a fit. A statement the person settles is written into `prd.md`, and the spec step reads it from there, so the spec needs the file, not the conversation that drafted it.
