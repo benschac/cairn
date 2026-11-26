@@ -1,7 +1,10 @@
 import { codeToTokens, isSupportedLanguage, type ThemedToken } from "@pierre/highlights";
 import pierreLight from "@pierre/highlights/themes/pierre-light";
 import { Array, Option, Record, String, pipe } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
+import type { View } from "@effect/ui";
+import type { Html } from "@effect/ui/html";
+
+import { styleText } from "./effect-ui/attributes.ts";
 
 /** Shiki's font style flags, which `@pierre/highlights` shares. */
 const ITALIC = 1;
@@ -68,14 +71,15 @@ export const CODE_BLOCK_CLASS = "code-block light-only";
 
 /** The lines of tokens as spans, with a newline between lines. */
 const tokensView = <Message>(
-  h: HtmlBuilder<Message>,
+  h: Html.H<Message>,
   lines: ReadonlyArray<ReadonlyArray<ThemedToken>>,
-): ReadonlyArray<Html | string> =>
+): View.Children<Message, never> =>
   Array.intersperse(
     Array.map(lines, (line) =>
-      h.span(
-        [],
-        Array.map(line, (token) => h.span([h.Style(styleOf(token))], [token.content])),
+      h.span.children(
+        Array.map(line, (token) =>
+          h.span.attr("style", styleText(styleOf(token))).children(token.content),
+        ),
       ),
     ),
     "\n",
@@ -88,32 +92,32 @@ const tokensView = <Message>(
  * it changes the code, such as a redaction marker becoming a chip, the block is plain text.
  */
 export const codeBlockView = <Message>(
-  h: HtmlBuilder<Message>,
+  h: Html.H<Message>,
   code: string,
   lang: string | null | undefined,
-  textView: (text: string) => ReadonlyArray<Html | string> = (text) => [text],
-): Html => {
+  textView: (text: string) => View.Children<Message, never> = (text) => [text],
+) => {
   const plain = textView(code);
-  const isChanged = !(Array.length(plain) === 1 && Option.contains(Array.head(plain), code));
+  const isChanged = !(
+    Array.length(plain) === 1 && Option.exists(Array.head(plain), (only) => only === code)
+  );
   const maybeLanguage = languageOf(lang);
   const maybeLines = isChanged
     ? Option.none()
     : Option.flatMap(maybeLanguage, (language) => highlight(code, language));
-  return h.pre(
-    Array.prepend(
-      Array.fromOption(
-        Option.map(maybeLanguage, (language) => h.DataAttribute("language", language)),
-      ),
-      h.Class(CODE_BLOCK_CLASS),
-    ),
-    [
-      h.code(
-        Array.fromOption(Option.map(maybeLanguage, (language) => h.Class(`language-${language}`))),
-        Option.match(maybeLines, {
-          onNone: () => plain,
-          onSome: (lines) => tokensView(h, lines),
-        }),
-      ),
-    ],
-  );
+  return h.pre
+    .class(CODE_BLOCK_CLASS)
+    .attr("data-language", Option.getOrUndefined(maybeLanguage))
+    .children(
+      h.code
+        .class(
+          Option.getOrUndefined(Option.map(maybeLanguage, (language) => `language-${language}`)),
+        )
+        .children(
+          Option.match(maybeLines, {
+            onNone: () => plain,
+            onSome: (lines) => tokensView(h, lines),
+          }),
+        ),
+    );
 };

@@ -1,11 +1,14 @@
 import { readFileSync } from "node:fs";
 
 import { SectionId } from "@cairn/contract";
+import { View } from "@effect/ui";
+import { Html, HtmlServer } from "@effect/ui/html";
 import { HtmlScene } from "@effect/ui/html/testing";
 import { it } from "@effect/vitest";
 import {
   Array,
   Effect,
+  Match,
   Number,
   Option,
   Order,
@@ -16,7 +19,6 @@ import {
   String,
   pipe,
 } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
 import { expect as assert } from "vitest";
 
 import {
@@ -26,54 +28,82 @@ import {
   treeOf,
   type SectionHooks,
 } from "../src/markdown.ts";
-import { makeFoldkitBridge } from "../src/effect-ui/bridge.ts";
-import { data, hostFoldkitView, inside, tag as tagged, withoutAttr } from "./fixtures.ts";
+import { data, inside, tag as tagged, withoutAttr } from "./fixtures.ts";
 
-type VNode = NonNullable<Html>;
+type VNode = View.Element<never>;
 
-/** The bridge supplies the `h` builder a Foldkit view is built with, and nothing here sends a Message. */
-const bridge = makeFoldkitBridge<never>({ message: Schema.Never, mounts: [] });
+/**
+ * A builder with no component around it, for rendering markdown to nodes a test reads. Its tags
+ * hold no state, so the one a component's view is given serves every render.
+ */
+const bare: Html.H<never> = await (async () => {
+  const held: Array<Html.H<never>> = [];
+  await Effect.runPromise(
+    HtmlServer.renderToHtml(
+      Html.component({ message: Schema.Never, model: Schema.Struct({}), name: "Builder" }).make({
+        init: () => ({}),
+        update: () => ({}),
+        view: (builder) => {
+          held.push(builder);
+          return builder.span;
+        },
+      }),
+      {},
+    ),
+  );
+  return Option.getOrThrow(Array.head(held));
+})();
 
-/** Renders with the bridge's `h` builder and hands back the vnode tree. */
-const render = (markdown: string, hooks?: SectionHooks<never>): VNode =>
-  Option.getOrThrow(Option.fromNullOr(bridge.build((h) => renderMarkdown(markdown, h, hooks))));
-
-/** A Scene on a component that shows the Foldkit `body` `view` builds, with no Model and no Message. */
-const shown = (name: string, view: (h: HtmlBuilder<never>) => Html) =>
-  HtmlScene.make(
-    hostFoldkitView({
-      message: Schema.Never,
-      model: Schema.Null,
-      name,
-      update: (model: null) => model,
-      view: (_model: null, h) => view(h),
-    }),
-    null,
+const asElement = (content: View.Content<never>): VNode =>
+  Option.getOrThrow(
+    Match.value(View.toNode(content)).pipe(
+      Match.withReturnType<Option.Option<VNode>>(),
+      Match.tag("Element", (element) => Option.some(element)),
+      Match.orElse(() => Option.none()),
+    ),
   );
 
-const children = (node: VNode): ReadonlyArray<VNode | string> => node.children ?? [];
+/** Renders with a builder and hands back the node tree. */
+const render = (markdown: string, hooks?: SectionHooks<never>): VNode =>
+  asElement(renderMarkdown(markdown, bare, hooks));
+
+/** A Scene on a component that shows what `view` builds, with no Model and no Message. */
+const shown = (name: string, view: (h: Html.H<never>) => View.Content<never>) =>
+  HtmlScene.make(
+    Html.component({ message: Schema.Never, model: Schema.Struct({}), name }).make({
+      init: () => ({}),
+      update: () => ({}),
+      view: (builder) => view(builder),
+    }),
+    {},
+  );
+
+const children = (node: VNode): ReadonlyArray<VNode | string> =>
+  Array.getSomes(
+    Array.map(node.children, (child) =>
+      Match.value(child).pipe(
+        Match.withReturnType<Option.Option<VNode | string>>(),
+        Match.tag("Element", (element) => Option.some(element)),
+        Match.tag("Text", ({ text }) => Option.some(text)),
+        Match.orElse(() => Option.none()),
+      ),
+    ),
+  );
 
 const walk = (node: VNode | string): ReadonlyArray<VNode> =>
   Predicate.isString(node) ? [] : Array.prepend(Array.flatMap(children(node), walk), node);
 
 const textOf = (node: VNode | string): string =>
-  Predicate.isString(node)
-    ? node
-    : (node.text ?? Array.join(Array.map(children(node), textOf), ""));
+  Predicate.isString(node) ? node : Array.join(Array.map(children(node), textOf), "");
 
 const attr = (node: VNode, name: string): unknown =>
   pipe(
-    Option.fromNullishOr(node.data?.attrs?.[name]),
-    Option.orElse(() => Option.fromNullishOr(node.data?.props?.[name])),
+    Record.get(node.attrs, name),
+    Option.orElse(() => Record.get(node.props, name)),
     Option.getOrUndefined,
   );
 
-const tagOf = (element: VNode) =>
-  pipe(
-    Option.fromNullishOr(element.sel),
-    Option.map((sel) => Array.headNonEmpty(String.split(sel, /[.#]/u))),
-    Option.getOrUndefined,
-  );
+const tagOf = (element: VNode) => element.tag;
 
 const tags = (node: VNode) => Array.map(walk(node), tagOf);
 
@@ -253,8 +283,8 @@ it("HTML comments are dropped, including their text", () => {
 
 it("no element carries innerHTML or an event handler from the markdown", () => {
   Array.forEach(walk(render(`${Array.join(hostile, "\n\n")}\n\n${spec}`)), (element) => {
-    assert(element.data?.props?.["innerHTML"]).toBeUndefined();
-    assert(element.data?.on).toBeUndefined();
+    assert(element.props["innerHTML"]).toBeUndefined();
+    assert(element.handlers).toEqual({});
   });
 });
 
@@ -295,10 +325,10 @@ it.effect("wrapTitle wraps a section heading's title, and the decoration stays o
     let wrapped: ReadonlyArray<string> = [];
     const s = yield* shown("WrapTitle", (h) =>
       renderMarkdown("## Some `code` title {#spec.some}\n\n## Plain", h, {
-        decorate: () => [h.span([h.DataAttribute("badge", "")], ["badge"])],
+        decorate: () => [h.span.attr("data-badge", "").children("badge")],
         wrapTitle: (sectionId, title) => {
           wrapped = Array.append(wrapped, sectionId);
-          return [h.button([h.DataAttribute("title-of", sectionId)], title)];
+          return [h.button.attr("data-title-of", sectionId).children(title)];
         },
       }),
     );
@@ -314,9 +344,31 @@ it.effect("wrapTitle wraps a section heading's title, and the decoration stays o
   }),
 );
 
-const classes = (node: VNode): ReadonlyArray<string> => Record.keys(node.data?.class ?? {});
+const classes = (node: VNode): ReadonlyArray<string> =>
+  Array.filter(
+    String.split(
+      Option.getOrElse(Record.get(node.attrs, "class"), () => ""),
+      " ",
+    ),
+    String.isNonEmpty,
+  );
 
-const styleOf = (node: VNode): Readonly<Record<string, string>> => node.data?.style ?? {};
+/** The declarations of a `style` attribute, written `name: value; name: value`. */
+const styleOf = (node: VNode): Readonly<Record<string, string>> =>
+  Record.fromEntries(
+    Array.filterMap(
+      String.split(
+        Option.getOrElse(Record.get(node.attrs, "style"), () => ""),
+        "; ",
+      ),
+      (declaration) => {
+        const [name, value] = String.split(declaration, ": ");
+        return name === undefined || value === undefined
+          ? Result.failVoid
+          : Result.succeed([name, value] as const);
+      },
+    ),
+  );
 
 /** The elements of a code block's text: a span per token when it is highlighted. */
 const tokenSpans = (node: VNode) =>
@@ -393,7 +445,7 @@ it.effect("a mermaid fence is handed to the caller's diagramView, and no other f
         {
           diagramView: (source) => {
             sources = Array.append(sources, source);
-            return h.figure([h.DataAttribute("diagram", "")]);
+            return h.figure.attr("data-diagram", "");
           },
         },
       ),
@@ -410,7 +462,7 @@ const diagramKeys = (markdown: string): ReadonlyArray<string> => {
   render(markdown, {
     diagramView: (_source, key) => {
       keys = Array.append(keys, key);
-      return null;
+      return bare.div;
     },
   });
   return keys;
@@ -602,7 +654,7 @@ it("a marked document keeps its code blocks and diagram keys as they were", () =
       ...hooks,
       diagramView: (_source, key) => {
         keys = Array.append(keys, key);
-        return null;
+        return bare.div;
       },
     });
     return { code: firstTag(root, "pre"), keys, root };
@@ -622,7 +674,7 @@ it.effect("only a block that holds marks carries the caller's attributes", () =>
     const [marked] = Option.getOrThrow(Record.get(documentOf(markdown).blocks, "spec.zebra"));
     const s = yield* shown("Blocks", (h) =>
       renderMarkdown(markdown, h, {
-        blockAttributesOf: (offset) => [h.DataAttribute("block", `${offset}`)],
+        blockAttributesOf: (offset) => ({ "data-block": `${offset}` }),
         marks: { blocks: { [`${marked?.offset}`]: [{ end: 6, start: 0 }] }, titles: {} },
       }),
     );
@@ -719,13 +771,9 @@ it.prop(
   },
 );
 
-/** Renders one section of a parsed document with the bridge's builder, and hands back the vnode tree. */
+/** Renders one section of a parsed document, and hands back the node tree. */
 const renderOne = (markdown: string, id: string, hooks?: SectionHooks<never>): VNode =>
-  Option.getOrThrow(
-    Option.fromNullOr(
-      bridge.build((h) => renderSection(documentOf(markdown), SectionId.make(id), h, hooks)),
-    ),
-  );
+  asElement(renderSection(documentOf(markdown), SectionId.make(id), bare, hooks));
 
 const HEADING_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6"];
 
@@ -836,7 +884,7 @@ it("renderSection renders a section's list, table, highlighted code and diagram,
   const root = renderOne(RICH, "spec.rich", {
     diagramView: (source) => {
       sources = Array.append(sources, source);
-      return null;
+      return bare.div;
     },
   });
   const tagList = tags(root);

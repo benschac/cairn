@@ -1,21 +1,21 @@
 import { readFileSync } from "node:fs";
 
+import { Html } from "@effect/ui/html";
 import { HtmlScene } from "@effect/ui/html/testing";
 import { it } from "@effect/vitest";
 import { Array, Effect, Exit, Option, Schema, Stream, String } from "effect";
-import { liveViewStateChanges } from "foldkit/mount";
 import { expect as assert } from "vitest";
 
 import {
   DrawDiagram,
   diagramView,
   drawDiagram,
+  drawInElement,
   paintDiagram,
   type DiagramHost,
 } from "../src/diagram.ts";
-import { makeFoldkitBridge } from "../src/effect-ui/bridge.ts";
 import { Message } from "../src/message.ts";
-import { data, hostFoldkitView } from "./fixtures.ts";
+import { data } from "./fixtures.ts";
 
 const spec = readFileSync(new URL("../../../.cairn/spec.md", import.meta.url), "utf8");
 
@@ -143,24 +143,20 @@ it.effect("a diagram that fails to parse shows its source and why, never nothing
   }),
 );
 
-const bridge = makeFoldkitBridge({ message: Message, mounts: [DrawDiagram] });
+const Placeholder = Html.component({
+  message: Message,
+  model: Schema.Struct({}),
+  name: "Diagram",
+}).make({
+  init: () => ({}),
+  update: () => ({}),
+  view: (h) => diagramView(h, flowchart, "diagram:test"),
+});
 
 it.effect("a Mermaid block is an empty placeholder with a mount, not its text", () =>
   Effect.gen(function* () {
-    const s = yield* HtmlScene.make(
-      hostFoldkitView({
-        bridge,
-        message: Message,
-        model: Schema.Null,
-        name: "Diagram",
-        update: (model: null) => model,
-        view: (_model: null, h) => diagramView(h, flowchart, "diagram:test"),
-      }),
-      null,
-    );
-    s.expect(data("diagram"))
-      .toHaveText("")
-      .mounted(bridge.mountOf(DrawDiagram), Message.CompletedDrawDiagram());
+    const s = yield* HtmlScene.make(Placeholder, {});
+    s.expect(data("diagram")).toHaveText("").mounted(DrawDiagram, Message.CompletedDrawDiagram());
   }),
 );
 
@@ -209,7 +205,7 @@ const standIn = () => {
 };
 
 const sent = (mounted: Element, source: string) =>
-  Stream.runCollect(DrawDiagram({ source }).f(mounted, liveViewStateChanges));
+  Stream.runCollect(drawInElement(mounted, source));
 
 it.effect("the mount puts a diagram's SVG into its element", () =>
   Effect.gen(function* () {

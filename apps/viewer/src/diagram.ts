@@ -1,6 +1,6 @@
 import { Array, Effect, Hash, Number, Option, Predicate, Schema, Stream, String } from "effect";
-import { Mount } from "foldkit";
-import type { Html, HtmlBuilder } from "foldkit/html";
+import { Mount } from "@effect/ui";
+import type { Html } from "@effect/ui/html";
 import { renderAsync } from "pele/lazy";
 
 import { CODE_BLOCK_CLASS } from "./code.ts";
@@ -79,14 +79,16 @@ const hostOf = (element: Element): DiagramHost => ({
  * yet is a moment after it mounts. Unmounting first interrupts the draw. A diagram changes the
  * height of its pane, which the wires' ResizeObserver sees, so nothing is measured here.
  */
-export const DrawDiagram = Mount.defineStream("DrawDiagram", {
-  args: { source: Schema.String },
-  execute: ({ element, source }) =>
-    Stream.fromEffect(
-      Effect.as(paintDiagram(hostOf(element), source), Message.CompletedDrawDiagram()),
-    ),
-  messages: [Message.CompletedDrawDiagram],
-});
+export const drawInElement = (element: Element, source: string) =>
+  Stream.fromEffect(
+    Effect.as(paintDiagram(hostOf(element), source), Message.CompletedDrawDiagram()),
+  );
+
+export const DrawDiagram = Mount.makeStream(
+  "DrawDiagram",
+  { args: { source: Schema.String } },
+  (element: Element, { source }) => drawInElement(element, source),
+);
 
 /**
  * Where a Mermaid block goes. It has no children: the Mount owns what is inside it. A Mount runs
@@ -94,10 +96,10 @@ export const DrawDiagram = Mount.defineStream("DrawDiagram", {
  * diagram's `key`: a changed diagram gets a new element and is drawn again, instead of the old
  * element keeping the old drawing.
  */
-export const diagramView = (h: HtmlBuilder<Message>, source: string, key: string): Html =>
-  h.keyed("div")(key, [
-    h.DataAttribute("diagram", ""),
-    h.OnMount(DrawDiagram({ source })),
+export const diagramView = (h: Html.H<Message>, source: string, key: string) =>
+  h.div
+    .key(key)
+    .attr("data-diagram", "")
     // Pele's colours are light only.
-    h.Class("diagram light-only"),
-  ]);
+    .class("diagram light-only")
+    .onMount(DrawDiagram({ source }));

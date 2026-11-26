@@ -1,4 +1,3 @@
-import { DrawDiagram } from "../diagram.ts";
 import { Message } from "../message.ts";
 import { makeFoldkitBridge } from "./bridge.ts";
 
@@ -10,5 +9,5 @@ import { makeFoldkitBridge } from "./bridge.ts";
  */
 export const viewerBridge = makeFoldkitBridge({
   message: Message,
-  mounts: [DrawDiagram],
+  mounts: [],
 });

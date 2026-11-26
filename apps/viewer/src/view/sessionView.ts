@@ -2,12 +2,10 @@ import type { FileEdit, Session, ToolTurn, Turn } from "@cairn/contract";
 import type { View } from "@effect/ui";
 import type { Html } from "@effect/ui/html";
 import { Array, Match, Number, Option, Order, Record, String } from "effect";
-import type { HtmlBuilder } from "foldkit/html";
 
-import { viewerBridge } from "../effect-ui/viewerBridge.ts";
 import type { CopyLinks } from "../links.ts";
 import { isDemoBuild } from "../load.ts";
-import { renderMarkdown, type Rendered } from "../markdown.ts";
+import { renderMarkdown } from "../markdown.ts";
 import type { Message } from "../message.ts";
 import { SessionData, type HighlightedTurn } from "../model.ts";
 import { copyButtonView } from "./copyLinkView.ts";
@@ -56,14 +54,6 @@ const withChips = <Msg>(h: Html.H<Msg>, text: string): View.Children<Msg, never>
   Array.map(String.split(text, REDACTION), (part, index) =>
     isKindAt(index)
       ? h.span.class("chip").attr("data-redacted", part).children(`redacted: ${part}`)
-      : part,
-  );
-
-/** The same chips for the markdown a prompt or a reply renders, which is still Foldkit. */
-const foldkitChips = (text: string, h: HtmlBuilder<Message>): Rendered =>
-  Array.map(String.split(text, REDACTION), (part, index) =>
-    isKindAt(index)
-      ? h.span([h.Class("chip"), h.DataAttribute("redacted", part)], [`redacted: ${part}`])
       : part,
   );
 
@@ -207,10 +197,7 @@ const proseView = (
     .attr("data-kind", turn.kind)
     .children(
       h.strong.attr("data-turn-label", "").children(turn.kind === "prompt" ? "Prompt" : "Reply"),
-      // Markdown stays Foldkit until its own part moves; it renders through the bridge.
-      viewerBridge.bridged(h, (foldkit) =>
-        renderMarkdown(turn.text, foldkit, { textView: (text) => foldkitChips(text, foldkit) }),
-      ),
+      renderMarkdown(turn.text, h, { textView: (text) => withChips(h, text) }),
     );
 
 const turnView = (

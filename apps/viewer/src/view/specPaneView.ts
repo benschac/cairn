@@ -9,14 +9,11 @@ import {
 import type { View } from "@effect/ui";
 import type { Html } from "@effect/ui/html";
 import { Array, Option, Predicate, String } from "effect";
-import type { HtmlBuilder } from "foldkit/html";
 
 import { diagramView } from "../diagram.ts";
 import { disclosureView, segmentedView } from "../effect-ui/controls.ts";
 import { styleText } from "../effect-ui/attributes.ts";
 import { memoView } from "../effect-ui/memo.ts";
-import { viewerBridge } from "../effect-ui/viewerBridge.ts";
-import { matchView as foldkitMatchView } from "../foldkit/nodeView.ts";
 import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
 import { linkedMarksOf, sectionPathOf } from "../links.ts";
 import { documentOf, renderSection, type SectionHooks } from "../markdown.ts";
@@ -37,7 +34,7 @@ import { dotView, gateView, labelView, tagView } from "../ui/marks.ts";
 import { hoverChainOf, isSpecDimmed, isTaskDimmed, rowKey, specKey, strayKey } from "../wires.ts";
 import { copyButtonView, copyPassageView, passageButtonFor } from "./copyLinkView.ts";
 import { modelChipView, modelSquareView } from "./modelView.ts";
-import { fieldView, titleView, withSearched } from "./nodeView.ts";
+import { fieldView, matchView, titleView, withSearched } from "./nodeView.ts";
 import { withHover } from "./wiresView.ts";
 
 const DENSITIES: ReadonlyArray<{ readonly label: string; readonly value: Density }> = [
@@ -138,8 +135,7 @@ const summaryContentOf = (h: Html.H<Message>, summary: string) =>
 /**
  * The line with the section's ID, then the section's own markdown, with the matched text of its
  * prose marked and the open link's passage underlined. Each block with a search mark carries
- * `data-block`, which a selected result scrolls to. The markdown is Foldkit's, built through the
- * bridge.
+ * `data-block`, which a selected result scrolls to.
  */
 const fullSectionView = (
   h: Html.H<Message>,
@@ -151,29 +147,23 @@ const fullSectionView = (
 ) => {
   // A section's ID is the same text whichever document's brand it carries.
   const sectionId: string = section.id;
+  const hooks: SectionHooks<Message> = {
+    blockAttributesOf: (offset: number) => ({ "data-block": blockKeyFor("spec", offset) }),
+    diagramView: (source, key) => diagramView(h, source, key),
+    linked: linkedMarksOf(
+      trace,
+      Option.filter(maybePassage, (passage) => passage.section === sectionId),
+      "spec",
+    ),
+    marks: marksOf("spec", results),
+    markView: (text: string) => matchView(h, text),
+  };
   return h.div.attr("data-full-spec", section.id).children(
     h.div.class("card-meta").children(fieldView(h, search, "id", section.id)),
     h.div
       .class("prose")
       .attr(PASSAGE_ATTRIBUTE, section.id)
-      .children(
-        viewerBridge.bridged(h, (foldkit: HtmlBuilder<Message>) => {
-          const hooks: SectionHooks<Message> = {
-            blockAttributesOf: (offset: number) => [
-              foldkit.DataAttribute("block", blockKeyFor("spec", offset)),
-            ],
-            diagramView: (source, key) => diagramView(foldkit, source, key),
-            linked: linkedMarksOf(
-              trace,
-              Option.filter(maybePassage, (passage) => passage.section === sectionId),
-              "spec",
-            ),
-            marks: marksOf("spec", results),
-            markView: (text: string) => foldkitMatchView(text, foldkit),
-          };
-          return renderSection(documentOf(trace.spec.markdown), section.id, foldkit, hooks);
-        }),
-      ),
+      .children(renderSection(documentOf(trace.spec.markdown), section.id, h, hooks)),
   );
 };
 

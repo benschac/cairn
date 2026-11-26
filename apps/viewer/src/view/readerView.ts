@@ -48,9 +48,7 @@ export const TRAILING_ROOM = 320;
  * one, else the one at the top. The panes preview a chain as a hover does: the hovered node's, and
  * the active result's while nothing is hovered.
  *
- * The frame (the top bar, the notice, the grid and its dividers) is Effect UI. The panes are still
- * Foldkit and render through the bridge, each with `viewerBridge.bridged`, until their part moves
- * (`spec.viewer.effect-ui.views`). The grid's `MeasureWires` is an Effect UI mount.
+ * Every pane is Effect UI (`spec.viewer.effect-ui.views`). The grid's `MeasureWires` is an Effect UI mount.
  */
 export const readerView = (h: Html.H<Message>, trace: Trace, model: Model, presence: string) => {
   const maybeCurrent = currentOf(model.reader, searchedSectionOf(trace, model.search.maybeActive));

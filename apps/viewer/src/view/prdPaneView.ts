@@ -22,13 +22,10 @@ import {
   Stream,
   String,
 } from "effect";
-import type { HtmlBuilder } from "foldkit/html";
 
 import { diagramView } from "../diagram.ts";
 import { styleText } from "../effect-ui/attributes.ts";
 import { memoView } from "../effect-ui/memo.ts";
-import { viewerBridge } from "../effect-ui/viewerBridge.ts";
-import { matchView as foldkitMatchView } from "../foldkit/nodeView.ts";
 import { linkedMarksOf, sectionPathOf, type PassageButton } from "../links.ts";
 import { Message } from "../message.ts";
 import {
@@ -60,7 +57,7 @@ import { disclosureView } from "../effect-ui/controls.ts";
 import { dotView } from "../ui/marks.ts";
 import { prdKey } from "../wires.ts";
 import { copyButtonView, copyPassageView, passageButtonFor } from "./copyLinkView.ts";
-import { fieldView, withSearched } from "./nodeView.ts";
+import { fieldView, matchView, withSearched } from "./nodeView.ts";
 
 /** How far below the pane's top the line is that decides which section is being read. */
 export const TOP_LINE = 140;
@@ -164,8 +161,7 @@ export const statusLineText = (status: SectionStatus, counts: Counts): string =>
 
 /**
  * What the markdown of the document is rendered with: the parsed document, and the stretches a
- * search matched and a link's passage covers. Markdown is still Foldkit, so each piece of it is
- * built through the bridge with the Foldkit `h` the bridge hands in.
+ * search matched and a link's passage covers.
  */
 interface Markup {
   readonly document: MarkdownDocument;
@@ -173,27 +169,21 @@ interface Markup {
   readonly marks: Marks;
 }
 
-const hooksOf = (markup: Markup, foldkit: HtmlBuilder<Message>): SectionHooks<Message> => ({
-  blockAttributesOf: (offset: number) => [
-    foldkit.DataAttribute("block", blockKeyFor("prd", offset)),
-  ],
-  diagramView: (source, key) => diagramView(foldkit, source, key),
+const hooksOf = (h: Html.H<Message>, markup: Markup): SectionHooks<Message> => ({
+  blockAttributesOf: (offset: number) => ({ "data-block": blockKeyFor("prd", offset) }),
+  diagramView: (source, key) => diagramView(h, source, key),
   linked: markup.linked,
   marks: markup.marks,
-  markView: (text: string) => foldkitMatchView(text, foldkit),
+  markView: (text: string) => matchView(h, text),
 });
 
 /** A section's own markdown. */
 const proseView = (h: Html.H<Message>, markup: Markup, id: SectionId) =>
-  viewerBridge.bridged(h, (foldkit) =>
-    renderSection(markup.document, id, foldkit, hooksOf(markup, foldkit)),
-  );
+  renderSection(markup.document, id, h, hooksOf(h, markup));
 
 /** A section's title as markdown renders it, or the title's plain text when the document has none. */
 const titleContentOf = (h: Html.H<Message>, markup: Markup, section: TraceSection) => {
-  const rendered = viewerBridge.bridgedAll(h, (foldkit) =>
-    renderSectionTitle(markup.document, section.id, foldkit, hooksOf(markup, foldkit)),
-  );
+  const rendered = renderSectionTitle(markup.document, section.id, h, hooksOf(h, markup));
   return Array.isReadonlyArrayEmpty(rendered) ? [section.title] : rendered;
 };
 

@@ -29,9 +29,11 @@ import {
   Struct,
   pipe,
 } from "effect";
-import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
+import type { View } from "@effect/ui";
+import type { Html } from "@effect/ui/html";
 
 import { codeBlockView } from "./code.ts";
+import { styleText } from "./effect-ui/attributes.ts";
 import { segmentsOf, withinOf, type Range } from "./range.ts";
 
 /** The keys that start a spec section, in the order the format lists them. */
@@ -45,7 +47,10 @@ const KEY_LINE_PATTERN = /^([^:]*): \s*$/u;
 const SAFE_HREF_PATTERN = /^(?:https?:|mailto:|[#/.?]|[^:]*$)/iu;
 
 /** Rendered markdown: elements and bare text. */
-export type Rendered = ReadonlyArray<Html | string>;
+export type Rendered<Message> = View.Children<Message, never>;
+
+/** Attributes a hook adds to an element, by name; `undefined` leaves one off. */
+export type HookAttributes = Record.ReadonlyRecord<string, string | undefined>;
 
 /** The text of a node and everything under it. */
 const textOf = (node: Nodes): string => {
@@ -175,20 +180,20 @@ export const NO_MARKS: Marks = { blocks: {}, titles: {} };
 /** What a caller adds to a heading whose `{#id}` is a section ID, how deep headings start, and what a diagram is. */
 export interface SectionHooks<Message> {
   /** Attributes for the heading. */
-  readonly attributesOf?: (sectionId: SectionId) => ReadonlyArray<Attribute<Message>>;
+  readonly attributesOf?: (sectionId: SectionId) => HookAttributes;
   /** Nodes at the end of the heading. */
-  readonly decorate?: (sectionId: SectionId) => ReadonlyArray<Html>;
+  readonly decorate?: (sectionId: SectionId) => Rendered<Message>;
   /** What the heading's title renders as, such as a button holding it. */
-  readonly wrapTitle?: (sectionId: SectionId, title: Rendered) => Rendered;
+  readonly wrapTitle?: (sectionId: SectionId, title: Rendered<Message>) => Rendered<Message>;
   /** Levels added to every heading, so "# " can render below the page's own h1; h6 is the deepest. */
   readonly headingOffset?: number;
   /**
    * What a `mermaid` fence renders as, given its source, such as a placeholder a Mount draws into.
    * Without it a diagram is a code block of its source.
    */
-  readonly diagramView?: (source: string, key: string) => Html;
+  readonly diagramView?: (source: string, key: string) => View.Content<Message>;
   /** What a stretch of plain text renders as, when no search marks it; the session pane turns redactions into chips. */
-  readonly textView?: (text: string) => Rendered;
+  readonly textView?: (text: string) => Rendered<Message>;
   /** Matched stretches to wrap, split across the inline elements they cross. */
   readonly marks?: Marks;
   /**
@@ -197,24 +202,24 @@ export interface SectionHooks<Message> {
    */
   readonly linked?: Record.ReadonlyRecord<string, ReadonlyArray<Range>>;
   /** What a matched stretch of text renders as. */
-  readonly markView?: (text: string) => Html;
+  readonly markView?: (text: string) => View.Content<Message>;
   /** Attributes for a prose block that holds marks, given its offset in the markdown. */
-  readonly blockAttributesOf?: (offset: number) => ReadonlyArray<Attribute<Message>>;
+  readonly blockAttributesOf?: (offset: number) => HookAttributes;
 }
 
 /** What every renderer below reads: the builder and the caller's section hooks. */
 interface RenderContext<Message> {
-  readonly h: HtmlBuilder<Message>;
-  readonly attributesOf: (sectionId: SectionId) => ReadonlyArray<Attribute<Message>>;
-  readonly decorate: (sectionId: SectionId) => ReadonlyArray<Html>;
-  readonly wrapTitle: (sectionId: SectionId, title: Rendered) => Rendered;
+  readonly h: Html.H<Message>;
+  readonly attributesOf: (sectionId: SectionId) => HookAttributes;
+  readonly decorate: (sectionId: SectionId) => Rendered<Message>;
+  readonly wrapTitle: (sectionId: SectionId, title: Rendered<Message>) => Rendered<Message>;
   readonly headingOffset: number;
-  readonly diagramView: (source: string, key: string) => Html;
+  readonly diagramView: (source: string, key: string) => View.Content<Message>;
   readonly marks: Marks;
   readonly linked: Record.ReadonlyRecord<string, ReadonlyArray<Range>>;
-  readonly textView: (text: string) => Rendered;
-  readonly markView: (text: string) => Html;
-  readonly blockAttributesOf: (offset: number) => ReadonlyArray<Attribute<Message>>;
+  readonly textView: (text: string) => Rendered<Message>;
+  readonly markView: (text: string) => View.Content<Message>;
+  readonly blockAttributesOf: (offset: number) => HookAttributes;
 }
 
 /**
@@ -237,7 +242,7 @@ const searchedView = <Message>(
   context: RenderContext<Message>,
   text: string,
   ranges: ReadonlyArray<Range>,
-): Rendered =>
+): Rendered<Message> =>
   Array.isReadonlyArrayEmpty(ranges)
     ? [text]
     : Array.map(segmentsOf(text, ranges), (segment) =>
@@ -249,7 +254,11 @@ const searchedView = <Message>(
  * the part of the link's passage wrapped around those in a `mark[data-link-passage]`, which has no
  * fill, so a search mark inside it still shows.
  */
-const leafView = <Message>(context: RenderContext<Message>, text: string, at: At): Rendered => {
+const leafView = <Message>(
+  context: RenderContext<Message>,
+  text: string,
+  at: At,
+): Rendered<Message> => {
   const to = at.from + String.length(text);
   const searched = withinOf(at.ranges, at.from, to);
   const linked = withinOf(at.linked, at.from, to);
@@ -261,9 +270,7 @@ const leafView = <Message>(context: RenderContext<Message>, text: string, at: At
     const shown = searchedView(context, segment.text, withinOf(searched, from, end));
     return [
       end,
-      segment.isMatch
-        ? [context.h.mark([context.h.DataAttribute("link-passage", "")], shown)]
-        : shown,
+      segment.isMatch ? [context.h.mark.attr("data-link-passage", "").children(shown)] : shown,
     ];
   });
   return Array.flatten(pieces);
@@ -274,7 +281,7 @@ const renderInline = <Message>(
   context: RenderContext<Message>,
   nodes: ReadonlyArray<PhrasingContent>,
   at: At = UNMARKED,
-): Rendered => {
+): Rendered<Message> => {
   if (!isMarked(at)) {
     return Array.flatMap(nodes, (node) => render(context, node));
   }
@@ -298,7 +305,7 @@ const blockOffsetOf = (node: Paragraph | TableCell): Option.Option<number> =>
 const blockMarksOf = <Message>(
   context: RenderContext<Message>,
   node: Paragraph | TableCell,
-): { readonly at: At; readonly attributes: ReadonlyArray<Attribute<Message>> } =>
+): { readonly at: At; readonly attributes: HookAttributes } =>
   Option.match(
     Option.flatMap(blockOffsetOf(node), (offset) => {
       const ranges = Option.getOrElse(Record.get(context.marks.blocks, `${offset}`), () => []);
@@ -306,59 +313,61 @@ const blockMarksOf = <Message>(
       const at: At = { from: 0, linked, ranges };
       return Option.some({
         at,
-        attributes: Array.isReadonlyArrayNonEmpty(ranges) ? context.blockAttributesOf(offset) : [],
+        attributes: Array.isReadonlyArrayNonEmpty(ranges) ? context.blockAttributesOf(offset) : {},
       });
     }),
-    { onNone: () => ({ at: UNMARKED, attributes: [] }), onSome: (marked) => marked },
+    { onNone: () => ({ at: UNMARKED, attributes: {} }), onSome: (marked) => marked },
   );
+
+/**
+ * What a block element is to the renderer: attributes, then children. Elements of different tags,
+ * such as `th` and `td` or `h1` to `h6`, are different types, and a choice between them is this.
+ */
+interface Container<Message> {
+  readonly attr: (name: string, value: string | undefined) => Container<Message>;
+  readonly attrs: (attributes: HookAttributes) => Container<Message>;
+  readonly children: (content: Rendered<Message>) => View.Content<Message>;
+}
 
 const tableRow = <Message>(
   context: RenderContext<Message>,
-  cellTag: HtmlBuilder<Message>["th"],
+  cellTag: Container<Message>,
   align: ReadonlyArray<AlignType>,
   row: TableRow,
-): Html =>
-  context.h.tr(
-    [],
+) =>
+  context.h.tr.children(
     Array.map(row.children, (cell, column) => {
       const block = blockMarksOf(context, cell);
-      return cellTag(
-        Array.appendAll(
+      return cellTag
+        .attrs(block.attributes)
+        .attr(
+          "style",
           pipe(
             Array.get(align, column),
             Option.flatMap(Option.fromNullOr),
-            Option.map((cellAlign) => context.h.Style({ "text-align": cellAlign })),
-            Array.fromOption,
+            Option.map((cellAlign) => styleText({ "text-align": cellAlign })),
+            Option.getOrUndefined,
           ),
-          block.attributes,
-        ),
-        renderInline(context, cell.children, block.at),
-      );
+        )
+        .children(renderInline(context, cell.children, block.at));
     }),
   );
 
-const tableView = <Message>(context: RenderContext<Message>, node: Table): Html => {
+const tableView = <Message>(context: RenderContext<Message>, node: Table) => {
   const { h } = context;
-  return h.div(
-    [h.Class("tbl")],
-    [
-      h.table(
-        [],
-        Array.matchLeft(node.children, {
-          onEmpty: () => [h.thead([]), h.tbody([])],
-          onNonEmpty: (head, body) => {
-            const align = Option.getOrElse(Option.fromNullishOr(node.align), () => []);
-            return [
-              h.thead([], [tableRow(context, h.th, align, head)]),
-              h.tbody(
-                [],
-                Array.map(body, (row) => tableRow(context, h.td, align, row)),
-              ),
-            ];
-          },
-        }),
-      ),
-    ],
+  return h.div.class("tbl").children(
+    h.table.children(
+      Array.matchLeft(node.children, {
+        onEmpty: () => [h.thead, h.tbody],
+        onNonEmpty: (head, body) => {
+          const align = Option.getOrElse(Option.fromNullishOr(node.align), () => []);
+          return [
+            h.thead.children(tableRow(context, h.th, align, head)),
+            h.tbody.children(Array.map(body, (row) => tableRow(context, h.td, align, row))),
+          ];
+        },
+      }),
+    ),
   );
 };
 
@@ -386,11 +395,14 @@ const headingOf = (
 const sectionOf = (node: Heading): Option.Option<SectionId> =>
   Option.filter(headingOf(node).maybeId, isSectionId);
 
-const headingView = <Message>(context: RenderContext<Message>, node: Heading): Html => {
+const headingView = <Message>(context: RenderContext<Message>, node: Heading) => {
   const { h, attributesOf, decorate, headingOffset, wrapTitle } = context;
   const { children, maybeId } = headingOf(node);
-  const tag = Option.getOrElse(
-    Array.get([h.h1, h.h2, h.h3, h.h4, h.h5, h.h6], node.depth - 1 + headingOffset),
+  const tag: Container<Message> = Option.getOrElse(
+    Array.get<Container<Message>>(
+      [h.h1, h.h2, h.h3, h.h4, h.h5, h.h6],
+      node.depth - 1 + headingOffset,
+    ),
     () => h.h6,
   );
   const maybeSectionId = Option.filter(maybeId, isSectionId);
@@ -402,35 +414,25 @@ const headingView = <Message>(context: RenderContext<Message>, node: Heading): H
       () => [],
     ),
   });
-  return tag(
-    Option.match(maybeId, {
-      onNone: () => [],
-      onSome: (id) =>
-        Array.appendAll(
-          [h.Id(id), h.DataAttribute("section", id)],
-          Option.match(maybeSectionId, { onNone: () => [], onSome: attributesOf }),
-        ),
+  const titled: Rendered<Message> = Array.appendAll(
+    Option.match(maybeSectionId, {
+      onNone: () => title,
+      onSome: (sectionId) => wrapTitle(sectionId, title),
     }),
-    Array.appendAll(
-      Option.match(maybeSectionId, {
-        onNone: () => title,
-        onSome: (sectionId) => wrapTitle(sectionId, title),
-      }),
-      Option.match(maybeSectionId, { onNone: () => [], onSome: decorate }),
-    ),
+    Option.match(maybeSectionId, { onNone: (): Rendered<Message> => [], onSome: decorate }),
   );
+  return tag
+    .attrs({ "data-section": Option.getOrUndefined(maybeId), id: Option.getOrUndefined(maybeId) })
+    .attrs(Option.match(maybeSectionId, { onNone: () => ({}), onSome: attributesOf }))
+    .children(titled);
 };
 
-const keyRowsView = <Message>(h: HtmlBuilder<Message>, keyRows: ReadonlyArray<KeyRow>): Html =>
-  h.div(
-    [h.DataAttribute("keys", "")],
+const keyRowsView = <Message>(h: Html.H<Message>, keyRows: ReadonlyArray<KeyRow>) =>
+  h.div.attr("data-keys", "").children(
     Array.map(keyRows, ({ key, ids }) =>
-      h.div(
-        [h.DataAttribute("key-row", key)],
-        Array.prepend(
-          Array.map(ids, (id) => h.span([h.DataAttribute("key", key)], [id])),
-          h.span([h.DataAttribute("key-label", "")], [key]),
-        ),
+      h.div.attr("data-key-row", key).children(
+        h.span.attr("data-key-label", "").children(key),
+        Array.map(ids, (id) => h.span.attr("data-key", key).children(id)),
       ),
     ),
   );
@@ -439,20 +441,20 @@ const render = <Message>(
   context: RenderContext<Message>,
   content: Nodes,
   at: At = UNMARKED,
-): Rendered => {
+): Rendered<Message> => {
   const { h } = context;
   return Match.value(content).pipe(
-    Match.withReturnType<Rendered>(),
+    Match.withReturnType<Rendered<Message>>(),
     Match.discriminators("type")({
-      blockquote: (node) => [h.blockquote([], renderBlocks(context, node.children))],
-      break: () => [h.br([])],
+      blockquote: (node) => [h.blockquote.children(renderBlocks(context, node.children))],
+      break: () => [h.br],
       code: (node) => [
         node.lang === DIAGRAM_LANGUAGE
           ? context.diagramView(node.value, diagramKeyOf(node))
           : codeBlockView(h, node.value, node.lang, context.textView),
       ],
-      delete: (node) => [h.del([], renderInline(context, node.children, at))],
-      emphasis: (node) => [h.em([], renderInline(context, node.children, at))],
+      delete: (node) => [h.del.children(renderInline(context, node.children, at))],
+      emphasis: (node) => [h.em.children(renderInline(context, node.children, at))],
       heading: (node) => [headingView(context, node)],
       image: (node) =>
         leafView(
@@ -461,33 +463,39 @@ const render = <Message>(
           at,
         ),
       inlineCode: (node) => [
-        h.code(
-          isSectionId(node.value) ? [h.Class("ref")] : [],
-          isMarked(at) ? leafView(context, node.value, at) : context.textView(node.value),
-        ),
+        h.code
+          .class(isSectionId(node.value) ? "ref" : undefined)
+          .children(
+            isMarked(at) ? leafView(context, node.value, at) : context.textView(node.value),
+          ),
       ],
       link: (node) => [
-        h.a(
-          SAFE_HREF_PATTERN.test(node.url) ? [h.Class("lnk"), h.Href(node.url)] : [h.Class("lnk")],
-          renderInline(context, node.children, at),
-        ),
+        h.a
+          .class("lnk")
+          .attr("href", SAFE_HREF_PATTERN.test(node.url) ? node.url : undefined)
+          .children(renderInline(context, node.children, at)),
       ],
-      list: (node) => [
-        (node.ordered === true ? h.ol : h.ul)([], renderBlocks(context, node.children)),
-      ],
+      list: (node) => {
+        const list: Container<Message> = node.ordered === true ? h.ol : h.ul;
+        return [list.children(renderBlocks(context, node.children))];
+      },
       listItem: (node) => [
-        h.li([], Array.appendAll(checkbox(node.checked), renderBlocks(context, node.children))),
+        h.li.children(
+          Array.appendAll(checkbox(node.checked), renderBlocks(context, node.children)),
+        ),
       ],
       paragraph: (node) => {
         const block = blockMarksOf(context, node);
-        return [h.p(block.attributes, renderInline(context, node.children, block.at))];
+        return [
+          h.p.attrs(block.attributes).children(renderInline(context, node.children, block.at)),
+        ];
       },
       root: (node) => renderBlocks(context, node.children),
-      strong: (node) => [h.strong([], renderInline(context, node.children, at))],
+      strong: (node) => [h.strong.children(renderInline(context, node.children, at))],
       table: (node) => [tableView(context, node)],
       text: (node) =>
         isMarked(at) ? leafView(context, node.value, at) : context.textView(node.value),
-      thematicBreak: () => [h.hr([])],
+      thematicBreak: () => [h.hr],
     }),
     // Raw HTML, including comments, never reaches the page: those nodes render nothing.
     Match.orElse(() => []),
@@ -497,11 +505,11 @@ const render = <Message>(
 const renderBlocks = <Message>(
   context: RenderContext<Message>,
   nodes: ReadonlyArray<RootContent>,
-): Rendered =>
+): Rendered<Message> =>
   Array.flatMap(nodes, (node, index) =>
     Option.match(keyRowsAfterHeading(nodes, index), {
-      onNone: () => render(context, node),
-      onSome: (keyRows) => [keyRowsView(context.h, keyRows)],
+      onNone: (): Rendered<Message> => render(context, node),
+      onSome: (keyRows): Rendered<Message> => [keyRowsView(context.h, keyRows)],
     }),
   );
 
@@ -638,17 +646,17 @@ export const documentOf = (markdown: string): MarkdownDocument =>
 export const treeOf = (markdown: string): Root => documentOf(markdown).tree;
 
 const contextOf = <Message>(
-  h: HtmlBuilder<Message>,
+  h: Html.H<Message>,
   {
-    attributesOf = () => [],
+    attributesOf = () => ({}),
     decorate = () => [],
     diagramView = (source, _key) => codeBlockView(h, source, DIAGRAM_LANGUAGE),
-    blockAttributesOf = () => [],
+    blockAttributesOf = () => ({}),
     headingOffset = 0,
     linked = {},
     marks = NO_MARKS,
     textView = (text) => [text],
-    markView = (text) => h.mark([], [text]),
+    markView = (text) => h.mark.children(text),
     wrapTitle = (_sectionId, title) => title,
   }: SectionHooks<Message>,
 ): RenderContext<Message> => ({
@@ -667,10 +675,9 @@ const contextOf = <Message>(
 
 export const renderMarkdown = <Message>(
   markdown: string,
-  h: HtmlBuilder<Message>,
+  h: Html.H<Message>,
   hooks: SectionHooks<Message> = {},
-): Html =>
-  h.div([h.Class("markdown")], renderBlocks(contextOf(h, hooks), treeOf(markdown).children));
+) => h.div.class("markdown").children(renderBlocks(contextOf(h, hooks), treeOf(markdown).children));
 
 /**
  * The nodes of a section's own body, from its heading to the next heading of any level, with the
@@ -706,13 +713,14 @@ const sectionNodesOf = (
 export const renderSection = <Message>(
   document: MarkdownDocument,
   id: SectionId,
-  h: HtmlBuilder<Message>,
+  h: Html.H<Message>,
   hooks: SectionHooks<Message> = {},
-): Html =>
-  h.div(
-    [h.Class("markdown")],
-    Array.drop(renderBlocks(contextOf(h, hooks), sectionNodesOf(document.tree.children, id)), 1),
-  );
+) =>
+  h.div
+    .class("markdown")
+    .children(
+      Array.drop(renderBlocks(contextOf(h, hooks), sectionNodesOf(document.tree.children, id)), 1),
+    );
 
 /**
  * One section's heading title, rendered with its inline formatting and any search marks for that
@@ -721,9 +729,9 @@ export const renderSection = <Message>(
 export const renderSectionTitle = <Message>(
   document: MarkdownDocument,
   id: SectionId,
-  h: HtmlBuilder<Message>,
+  h: Html.H<Message>,
   hooks: SectionHooks<Message> = {},
-): Rendered =>
+): Rendered<Message> =>
   Option.match(
     Array.findFirst(
       document.tree.children,
