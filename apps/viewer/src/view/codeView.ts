@@ -223,7 +223,8 @@ export const codeView = (
         barView(task, code, diffStyle, copy, h, messages),
       ),
       [
-        h.div(
+        h.keyed("div")(
+          "code-body",
           [h.Class("code-body")],
           [
             treeView(trace, code, h, messages),

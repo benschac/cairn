@@ -8,7 +8,6 @@ import { Array, Effect, Option, Predicate, Schema, String, pipe } from "effect";
 import { renderToString } from "foldkit/experimental/server";
 import type { Html as FoldkitHtml, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
-import { Mount, click, expect, given, scene, selector } from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../../src/demo.ts";
@@ -202,26 +201,9 @@ const dismiss = HtmlLocator.role("button", { name: "Dismiss" });
 const goal = PrdSectionId.make("prd.goal");
 const viewerSection = PrdSectionId.make("prd.viewer");
 
-/** A Foldkit program around a view that shows the last Message it received, as the component does. */
-const foldkitSent =
-  <M>(view: (h: HtmlBuilder<M>) => FoldkitHtml) =>
-  (model: { readonly sent: string }, h: HtmlBuilder<M>): FoldkitHtml =>
-    h.div([], [view(h), h.p([h.Id("sent")], [model.sent])]);
-
 it.effect("a click on the bridged Dismiss sends the Message the Foldkit button sends", () =>
   Effect.gen(function* () {
     const expected = noticeSentText(NoticeMessage.ClickedDismissLinkNotice());
-    scene(
-      {
-        update: (_model: { readonly sent: string }, message: NoticeMessage) => ({
-          model: { sent: noticeSentText(message) },
-        }),
-        view: foldkitSent(notice),
-      },
-      given({ sent: "" }),
-      click(selector("button.btn")),
-      expect(selector("#sent")).toHaveText(expected),
-    );
     const s = yield* HtmlScene.make(BridgedNotice, {});
     s.click(dismiss).expect(sent).toHaveText(expected);
   }),
@@ -231,20 +213,7 @@ it.effect(
   "a click on a bridged status line sends the Message the Foldkit one sends, and the pane's Mount runs",
   () =>
     Effect.gen(function* () {
-      const statusLine = `[data-status-line="${viewerSection}"]`;
       const expected = sentText(Message.ClickedStatusLine({ id: viewerSection }));
-      scene(
-        {
-          update: (_model: { readonly sent: string }, message: Message) => ({
-            model: { sent: sentText(message) },
-          }),
-          view: foldkitSent(prdPane),
-        },
-        given({ sent: "" }),
-        Mount.resolve(TrackPrdScroll, Message.ScrolledPrd({ id: goal })),
-        click(selector(statusLine)),
-        expect(selector("#sent")).toHaveText(expected),
-      );
       const s = yield* HtmlScene.make(BridgedPrdPane, {});
       s.mounted(viewerBridge.mountOf(TrackPrdScroll), Message.ScrolledPrd({ id: goal }))
         .expect(sent)

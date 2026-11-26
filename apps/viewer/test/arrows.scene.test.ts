@@ -1,20 +1,27 @@
-import { PrdSectionId, TaskId } from "@cairn/contract";
+import { TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Option, Record } from "effect";
-import { Mount, all, expect, expectAll, given, hover, scene, selector } from "foldkit/scene";
+import { Array, Effect, Option, Record } from "effect";
 import { modifyFields } from "foldkit/struct";
 
 import { stackBoxesOf, type Box } from "../src/boxes.ts";
 import { demoTrace } from "../src/demo.ts";
 import type { Rect } from "../src/geometry.ts";
-import { Message } from "../src/message.ts";
 import { Screen } from "../src/model.ts";
-import { update } from "../src/update.ts";
-import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
-import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
-import { view } from "../src/view/view.ts";
 import type { Measured } from "../src/wires.ts";
-import { loaded, unfolded, unmeasuredWires, wiresMounted, wiresMountedWith } from "./fixtures.ts";
+import {
+  both,
+  data,
+  dividersRunning,
+  loaded,
+  prdScrolledTo,
+  stacksScrolled,
+  styled,
+  unfolded,
+  unmeasuredWires,
+  viewerScene,
+  wiresMeasuredAs,
+  type ViewerSteps,
+} from "./fixtures.ts";
 
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 const unfoldedReading = unfolded(reading);
@@ -46,70 +53,72 @@ const measuredFor = (boxes: ReadonlyArray<Box>): Measured => {
   };
 };
 
-const opened = (wires: ReturnType<typeof wiresMountedWith>) =>
-  [
-    Mount.resolve(TrackPrdScroll, Message.ScrolledPrd({ id: PrdSectionId.make("prd.goal") })),
-    Mount.resolve(
-      ScrollStacksToBottom,
-      Message.CompletedScrollStacks({ maybeChartWidth: Option.none() }),
-    ),
-    wires,
-  ] as const;
+const opened = (measured: Measured) => (s: ViewerSteps) =>
+  s.pipe(dividersRunning, prdScrolledTo("prd.goal"), stacksScrolled, wiresMeasuredAs(measured));
 
 const arrow = (source: string, target: string) =>
-  selector(`[data-arrow="parent"][data-arrow-source="${source}"][data-arrow-target="${target}"]`);
+  both(both(data("arrow", "parent"), data("arrow-source", source)), data("arrow-target", target));
 
-it("the stacks list is the origin the arrows are drawn from", () => {
-  scene(
-    { update, view },
-    given(reading),
-    ...opened(wiresMounted),
-    expect(selector("[data-stacks]")).toHaveAttr("data-wire", "stacks:list"),
-    expect(selector("[data-arrow-layer]")).toHaveAttr("aria-hidden", "true"),
-    expectAll(all.selector("[data-arrow]")).toHaveCount(0),
-  );
-});
+it.effect("the stacks list is the origin the arrows are drawn from", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(reading);
+    s.pipe(opened(unmeasuredWires))
+      .expect(data("stacks"))
+      .toHaveAttribute("data-wire", "stacks:list")
+      .expect(data("arrow-layer"))
+      .toHaveAttribute("aria-hidden", "true")
+      .expect(data("arrow"))
+      .toHaveCount(0);
+  }),
+);
 
-it("Stack 24, folded, has an arrow from its segment to each fork label and one into every other chip", () => {
-  const box = viewerOf(foldedBoxes);
-  assert(Array.length(box.arrows)).toBeGreaterThan(5);
-  scene(
-    { update, view },
-    given(reading),
-    ...opened(wiresMountedWith(measuredFor(foldedBoxes))),
-    ...Array.map(["t69", "t71", "t75"], (id) =>
-      expect(arrow("segment:t45", `fork:${id}`)).toExist(),
-    ),
-    ...Array.map(box.arrows, (link) => expect(arrow(link.source, link.target)).toExist()),
-    expectAll(all.selector("[data-arrow]")).toHaveCount(
-      Array.length(Array.flatMap(foldedBoxes, (each) => each.arrows)),
-    ),
-    expectAll(all.selector('[data-arrow="dependency"]')).toHaveCount(0),
-    expect(arrow("task:t45", "task:t46")).toBeAbsent(),
-  );
-});
+it.effect(
+  "Stack 24, folded, has an arrow from its segment to each fork label and one into every other chip",
+  () =>
+    Effect.gen(function* () {
+      const box = viewerOf(foldedBoxes);
+      assert(Array.length(box.arrows)).toBeGreaterThan(5);
+      const s = yield* viewerScene(reading);
+      const withForks = Array.reduce(
+        ["t69", "t71", "t75"],
+        s.pipe(opened(measuredFor(foldedBoxes))),
+        (steps, id) => steps.expect(arrow("segment:t45", `fork:${id}`)).toExist(),
+      );
+      Array.reduce(box.arrows, withForks, (steps, link) =>
+        steps.expect(arrow(link.source, link.target)).toExist(),
+      )
+        .expect(data("arrow"))
+        .toHaveCount(Array.length(Array.flatMap(foldedBoxes, (each) => each.arrows)))
+        .expect(data("arrow", "dependency"))
+        .toHaveCount(0)
+        .expect(arrow("task:t45", "task:t46"))
+        .toBeAbsent();
+    }),
+);
 
-it("Stack 24, unfolded, has an arrow from t45 to t46", () => {
-  scene(
-    { update, view },
-    given(unfoldedReading),
-    ...opened(wiresMountedWith(measuredFor(unfoldedBoxes))),
-    expect(arrow("task:t45", "task:t46")).toExist(),
-    expect(arrow("task:t45", "task:t46")).toHaveAttr("data-arrow", "parent"),
-    expectAll(all.selector("[data-arrow]")).toHaveCount(
-      Array.length(Array.flatMap(unfoldedBoxes, (each) => each.arrows)),
-    ),
-  );
-});
+it.effect("Stack 24, unfolded, has an arrow from t45 to t46", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(unfoldedReading);
+    s.pipe(opened(measuredFor(unfoldedBoxes)))
+      .expect(arrow("task:t45", "task:t46"))
+      .toExist()
+      .expect(arrow("task:t45", "task:t46"))
+      .toHaveAttribute("data-arrow", "parent")
+      .expect(data("arrow"))
+      .toHaveCount(Array.length(Array.flatMap(unfoldedBoxes, (each) => each.arrows)));
+  }),
+);
 
-it("an arrow is dimmed with its child's chip while another chain is hovered", () => {
-  scene(
-    { update, view },
-    given(unfoldedReading),
-    ...opened(wiresMountedWith(measuredFor(unfoldedBoxes))),
-    expect(arrow("task:t45", "task:t46")).toHaveStyle("opacity", "0.55"),
-    hover(selector('[data-task="t1"]')),
-    expect(arrow("task:t45", "task:t46")).toHaveAttr("data-dimmed", ""),
-    expect(arrow("task:t45", "task:t46")).toHaveStyle("opacity", "0.15"),
-  );
-});
+it.effect("an arrow is dimmed with its child's chip while another chain is hovered", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(unfoldedReading);
+    s.pipe(opened(measuredFor(unfoldedBoxes)))
+      .expect(both(arrow("task:t45", "task:t46"), styled("opacity", "0.55")))
+      .toExist()
+      .fire(data("task", "t1"), "mouseenter")
+      .expect(arrow("task:t45", "task:t46"))
+      .toHaveAttribute("data-dimmed", "")
+      .expect(both(arrow("task:t45", "task:t46"), styled("opacity", "0.15")))
+      .toExist();
+  }),
+);

@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 
+import { HtmlScene } from "@effect/ui/html/testing";
 import { it } from "@effect/vitest";
-import { Array, Effect, Exit, Option, Stream, String } from "effect";
+import { Array, Effect, Exit, Option, Schema, Stream, String } from "effect";
 import { liveViewStateChanges } from "foldkit/mount";
-import { Mount, expect, given, scene, selector } from "foldkit/scene";
 import { expect as assert } from "vitest";
 
 import {
@@ -13,7 +13,9 @@ import {
   paintDiagram,
   type DiagramHost,
 } from "../src/diagram.ts";
+import { makeFoldkitBridge } from "../src/effect-ui/bridge.ts";
 import { Message } from "../src/message.ts";
+import { data, hostFoldkitView } from "./fixtures.ts";
 
 const spec = readFileSync(new URL("../../../.cairn/spec.md", import.meta.url), "utf8");
 
@@ -141,21 +143,26 @@ it.effect("a diagram that fails to parse shows its source and why, never nothing
   }),
 );
 
-it("a Mermaid block is an empty placeholder with a mount, not its text", () => {
-  scene(
-    {
-      update: (model: null, _message: Message) => ({ model }),
-      view: (_model: null, h) => ({
-        body: diagramView(h, flowchart, "diagram:test"),
-        title: "diagram",
+const bridge = makeFoldkitBridge({ message: Message, mounts: [DrawDiagram] });
+
+it.effect("a Mermaid block is an empty placeholder with a mount, not its text", () =>
+  Effect.gen(function* () {
+    const s = yield* HtmlScene.make(
+      hostFoldkitView({
+        bridge,
+        message: Message,
+        model: Schema.Null,
+        name: "Diagram",
+        update: (model: null) => model,
+        view: (_model: null, h) => diagramView(h, flowchart, "diagram:test"),
       }),
-    },
-    given(null),
-    Mount.expectExact(DrawDiagram),
-    expect(selector("[data-diagram]")).toBeEmpty(),
-    Mount.resolve(DrawDiagram, Message.CompletedDrawDiagram()),
-  );
-});
+      null,
+    );
+    s.expect(data("diagram"))
+      .toHaveText("")
+      .mounted(bridge.mountOf(DrawDiagram), Message.CompletedDrawDiagram());
+  }),
+);
 
 /** A node the mount makes, recorded instead of built. */
 interface MadeNode {

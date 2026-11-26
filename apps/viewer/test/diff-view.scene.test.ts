@@ -1,19 +1,28 @@
 import { Sha } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, MutableRef, Option, Result, String, Struct } from "effect";
-import type { Html } from "foldkit/html";
-import { Mount, click, expect, given, role, scene, selector } from "foldkit/scene";
+import { Array, Effect, Option, Result, String, Struct } from "effect";
 import { modifyFields } from "foldkit/struct";
 
+import { viewerBridge } from "../src/app.ts";
 import { demoTrace } from "../src/demo.ts";
 import { RenderDiff } from "../src/diff.ts";
 import { Message } from "../src/message.ts";
 import { DiffStyle, TraceData } from "../src/model.ts";
 import { update as appUpdate } from "../src/update.ts";
 import { patchView } from "../src/view/diffView.ts";
-import { view as appView } from "../src/view/view.ts";
 import rangePatch from "./fixtures/range.patch?raw";
-import { loaded } from "./fixtures.ts";
+import {
+  both,
+  byRole,
+  containing,
+  data,
+  drawnDiff,
+  inside,
+  loaded,
+  pushedUrl,
+  styled,
+  viewerScene,
+} from "./fixtures.ts";
 
 const sha = (character: string) => Sha.make(String.repeat(40)(character));
 
@@ -36,8 +45,6 @@ const trace = Struct.evolve(demoTrace, {
 const model = modifyFields(loaded, { trace: () => TraceData.Success({ data: trace }) });
 const wholePath = `/api/diffs/${sha("0")}/${sha("a")}`;
 
-const app = { update: appUpdate, view: appView };
-
 const after = (...messages: ReadonlyArray<Message>) =>
   Array.reduce(messages, model, (current, message) => appUpdate(current, message).model);
 
@@ -46,112 +53,121 @@ const withPatch = after(
   Message.ReceivedPatch({ path: wholePath, result: Result.succeed(rangePatch) }),
 );
 
-const list = selector("[data-patch-path]");
-const styleOption = (name: string) => role("button", { name });
-const treeFile = (path: string) => selector(`[data-tree-file="${path}"]`);
+const list = data("patch-path");
+const styleOption = (name: string) => byRole("button", { name });
+const treeFile = (path: string) => data("tree-file", path);
 
-/** The diff mount of a loaded patch answers once it has drawn the patch. */
-const drawn = Mount.resolve(
-  RenderDiff,
-  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-  Message.CompletedRenderDiff(),
+it.effect(
+  "a loaded patch is an element with the diff mount, in the unified style, and nothing inside it",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(withPatch);
+      s.expectMount(
+        viewerBridge.mountOf(RenderDiff)({
+          args: RenderDiff({ session: Option.none(), text: rangePatch }).args,
+        }),
+      )
+        .expect(list)
+        .toHaveAttribute("data-patch-path", wholePath)
+        .expect(list)
+        .toHaveAttribute("data-diff-style", "unified")
+        .expect(list)
+        .toHaveText("")
+        .expect(both(list, styled("overflow-y", "auto")))
+        .toExist()
+        .pipe(drawnDiff);
+    }),
 );
 
-it("a loaded patch is an element with the diff mount, in the unified style, and nothing inside it", () => {
-  scene(
-    app,
-    given(withPatch),
-    Mount.expectExact(RenderDiff({ session: Option.none(), text: rangePatch })),
-    expect(list).toHaveAttr("data-patch-path", wholePath),
-    expect(list).toHaveAttr("data-diff-style", "unified"),
-    expect(list).toBeEmpty(),
-    expect(list).toHaveStyle("overflow-y", "auto"),
-    drawn,
-  );
-});
-
 it("the list is keyed by the patch's route path, so another patch is a new list", () => {
-  const built = MutableRef.make<Html>(null);
-  scene(
-    {
-      update: (current: null, _message: Message) => ({ model: current }),
-      view: (_current: null, h) => {
-        const body = patchView(withPatch.patches, wholePath, "unified", Option.none(), h);
-        MutableRef.set(built, body);
-        return { body, title: "diff" };
-      },
-    },
-    given(null),
-    drawn,
+  const body = viewerBridge.build((h) =>
+    patchView(withPatch.patches, wholePath, "unified", Option.none(), h),
   );
-  assert(Option.map(Option.fromNullOr(MutableRef.get(built)), ({ key }) => key)).toEqual(
-    Option.some(wholePath),
-  );
+  assert(Option.map(Option.fromNullOr(body), ({ key }) => key)).toEqual(Option.some(wholePath));
 });
 
-it("a patch that has not loaded is a note with the same path attribute, and no mount", () => {
-  const opened = after(Message.ClickedOpenCode({ id: task.id, maybeSha: Option.none() }));
-  scene(
-    app,
-    given(opened),
-    expect(list).toHaveAttr("data-patch-path", wholePath),
-    expect(list).toContainText("Loading"),
-    expect(list).not.toHaveAttr("data-diff-style"),
-    Mount.expectNone(),
-  );
-});
+it.effect("a patch that has not loaded is a note with the same path attribute, and no mount", () =>
+  Effect.gen(function* () {
+    const opened = after(Message.ClickedOpenCode({ id: task.id, maybeSha: Option.none() }));
+    const s = yield* viewerScene(opened);
+    s.expect(list)
+      .toHaveAttribute("data-patch-path", wholePath)
+      .expect(list)
+      .toHaveText(containing("Loading"))
+      .expect(list)
+      .toHaveAttribute("data-diff-style", false);
+  }),
+);
 
-it("the toggle flips the style, the pressed button and the attribute the mount watches", () => {
-  scene(
-    app,
-    given(withPatch),
-    drawn,
-    expect(styleOption("Unified")).toHaveAttr("aria-pressed", "true"),
-    expect(styleOption("Split")).toHaveAttr("aria-pressed", "false"),
-    click(styleOption("Split")),
-    expect(list).toHaveAttr("data-diff-style", "split"),
-    expect(styleOption("Split")).toHaveAttr("aria-pressed", "true"),
-    expect(styleOption("Unified")).toHaveAttr("aria-pressed", "false"),
-    click(styleOption("Unified")),
-    expect(list).toHaveAttr("data-diff-style", "unified"),
-    expect(styleOption("Unified")).toHaveAttr("aria-pressed", "true"),
-  );
-});
+it.effect(
+  "the toggle flips the style, the pressed button and the attribute the mount watches",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(withPatch);
+      s.pipe(drawnDiff)
+        .expect(styleOption("Unified"))
+        .toHaveAttribute("aria-pressed", "true")
+        .expect(styleOption("Split"))
+        .toHaveAttribute("aria-pressed", "false")
+        .click(styleOption("Split"))
+        .expect(list)
+        .toHaveAttribute("data-diff-style", "split")
+        .expect(styleOption("Split"))
+        .toHaveAttribute("aria-pressed", "true")
+        .expect(styleOption("Unified"))
+        .toHaveAttribute("aria-pressed", "false")
+        .click(styleOption("Unified"))
+        .expect(list)
+        .toHaveAttribute("data-diff-style", "unified")
+        .expect(styleOption("Unified"))
+        .toHaveAttribute("aria-pressed", "true");
+    }),
+);
 
-it("the toggle is in the top bar, whether or not the patch has loaded", () => {
-  scene(
-    app,
-    given(after(Message.ClickedOpenCode({ id: task.id, maybeSha: Option.none() }))),
-    expect(selector("[data-code-bar] [data-diff-style-toggle]")).toExist(),
-    click(styleOption("Split")),
-    expect(styleOption("Split")).toHaveAttr("aria-pressed", "true"),
-  );
-});
+it.effect("the toggle is in the top bar, whether or not the patch has loaded", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
+      after(Message.ClickedOpenCode({ id: task.id, maybeSha: Option.none() })),
+    );
+    s.expect(inside(data("code-bar"), data("diff-style-toggle")))
+      .toExist()
+      .click(styleOption("Split"))
+      .expect(styleOption("Split"))
+      .toHaveAttribute("aria-pressed", "true");
+  }),
+);
 
-it("a tree file click sets data-file on the list, which the mount scrolls to", () => {
-  scene(
-    app,
-    given(withPatch),
-    drawn,
-    expect(list).not.toHaveAttr("data-file"),
-    click(treeFile("src/view/b.ts")),
-    expect(list).toHaveAttr("data-file", "src/view/b.ts"),
-    expect(list).toHaveAttr("data-patch-path", wholePath),
-    click(treeFile("src/a.ts")),
-    expect(list).toHaveAttr("data-file", "src/a.ts"),
-  );
-});
+it.effect("a tree file click sets data-file on the list, which the mount scrolls to", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(withPatch);
+    s.pipe(drawnDiff)
+      .expect(list)
+      .toHaveAttribute("data-file", false)
+      .click(treeFile("src/view/b.ts"))
+      .pipe(pushedUrl)
+      .expect(list)
+      .toHaveAttribute("data-file", "src/view/b.ts")
+      .expect(list)
+      .toHaveAttribute("data-patch-path", wholePath)
+      .click(treeFile("src/a.ts"))
+      .pipe(pushedUrl)
+      .expect(list)
+      .toHaveAttribute("data-file", "src/a.ts");
+  }),
+);
 
-it("the diff pane does not scroll and the list fills it", () => {
-  scene(
-    app,
-    given(withPatch),
-    drawn,
-    expect(selector('[data-code-pane="diff"]')).toHaveStyle("display", "flex"),
-    expect(selector('[data-code-pane="diff"]')).not.toHaveStyle("overflow-y", "auto"),
-    expect(list).toHaveStyle("flex", "1"),
-  );
-});
+it.effect("the diff pane does not scroll and the list fills it", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(withPatch);
+    s.pipe(drawnDiff)
+      .expect(both(data("code-pane", "diff"), styled("display", "flex")))
+      .toExist()
+      .expect(both(data("code-pane", "diff"), styled("overflow-y", "auto")))
+      .toBeAbsent()
+      .expect(both(list, styled("flex", "1")))
+      .toExist();
+  }),
+);
 
 it.prop(
   "ClickedDiffStyle sets the style whichever it was, and changes nothing else",

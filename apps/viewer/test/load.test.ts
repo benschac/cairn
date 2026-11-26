@@ -4,7 +4,6 @@ import { vi } from "vitest";
 import { Array, Effect, Fiber, Option, Ref, Result, Schema, Stream, Struct } from "effect";
 import { TestClock } from "effect/testing";
 import { FetchHttpClient } from "effect/http";
-import { Subscription, expect, given, role, scene, selector } from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
 
 import demoTraceJson from "../src/demo-trace.json" with { type: "json" };
@@ -21,15 +20,16 @@ import { Message } from "../src/message.ts";
 import { traceMessages } from "../src/subscription/trace.ts";
 import { init } from "../src/init.ts";
 import { TraceData } from "../src/model.ts";
-import { update } from "../src/update.ts";
-import { view } from "../src/view/view.ts";
-import { mounted } from "./fixtures.ts";
+import { byRole, data, readerMounted, viewerScene, type ViewerSteps } from "./fixtures.ts";
 
-const columns = [
-  expect(role("region", { name: "PRD" })).toExist(),
-  expect(role("region", { name: "Spec" })).toExist(),
-  expect(role("region", { name: "Stacks" })).toExist(),
-];
+const columns = (s: ViewerSteps) =>
+  s
+    .expect(byRole("region", { name: "PRD" }))
+    .toExist()
+    .expect(byRole("region", { name: "Spec" }))
+    .toExist()
+    .expect(byRole("region", { name: "Stacks" }))
+    .toExist();
 const withTrace = (trace: TraceData) => modifyFields(init().model, { trace: () => trace });
 
 it("init starts loading", () => {
@@ -58,46 +58,49 @@ it("a trace that never arrived is described as not loaded", () => {
   );
 });
 
-it("a fresh model shows loading and no columns", () => {
-  scene(
-    { update, view },
-    given(init().model),
-    expect(selector("[data-loading]")).toExist(),
-    expect(selector("[data-reader]")).toBeAbsent(),
-    expect(role("alert")).toBeAbsent(),
-  );
-});
+it.effect("a fresh model shows loading and no columns", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(init().model);
+    s.expect(data("loading"))
+      .toExist()
+      .expect(data("reader"))
+      .toBeAbsent()
+      .expect(byRole("alert"))
+      .toBeAbsent();
+  }),
+);
 
-it("a loaded trace renders the columns and no loading state", () => {
-  scene(
-    { update, view },
-    given(withTrace(TraceData.Success({ data: demoTrace }))),
-    mounted,
-    ...columns,
-    expect(selector("[data-loading]")).toBeAbsent(),
-    expect(role("alert")).toBeAbsent(),
-  );
-});
+it.effect("a loaded trace renders the columns and no loading state", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(withTrace(TraceData.Success({ data: demoTrace })));
+    s.pipe(readerMounted, columns)
+      .expect(data("loading"))
+      .toBeAbsent()
+      .expect(byRole("alert"))
+      .toBeAbsent();
+  }),
+);
 
-it("a failed reload shows the alert above the last good trace", () => {
-  scene(
-    { update, view },
-    given(withTrace(TraceData.Stale({ data: demoTrace, error: "network down" }))),
-    mounted,
-    expect(role("alert")).toHaveText("network down"),
-    ...columns,
-  );
-});
+it.effect("a failed reload shows the alert above the last good trace", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
+      withTrace(TraceData.Stale({ data: demoTrace, error: "network down" })),
+    );
+    s.pipe(readerMounted).expect(byRole("alert")).toHaveText("network down").pipe(columns);
+  }),
+);
 
-it("a failed first load shows the alert only", () => {
-  scene(
-    { update, view },
-    given(withTrace(TraceData.Failure({ error: "boom" }))),
-    expect(role("alert")).toHaveText("boom"),
-    expect(selector("[data-reader]")).toBeAbsent(),
-    expect(selector("[data-loading]")).toBeAbsent(),
-  );
-});
+it.effect("a failed first load shows the alert only", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(withTrace(TraceData.Failure({ error: "boom" })));
+    s.expect(byRole("alert"))
+      .toHaveText("boom")
+      .expect(data("reader"))
+      .toBeAbsent()
+      .expect(data("loading"))
+      .toBeAbsent();
+  }),
+);
 
 // POLLING
 
@@ -211,22 +214,27 @@ it.effect("the demo build polls nothing", () =>
   Effect.map(Stream.runCollect(traceMessages(true)), (messages) => assert(messages).toEqual([])),
 );
 
-it("polled messages keep the columns up, and a polled error shows above them", () => {
-  scene(
-    { update, view },
-    given(withTrace(TraceData.Success({ data: demoTrace }))),
-    mounted,
-    Subscription.emit(
-      Message.SettledLoadTrace({
-        result: Result.succeed({ ...demoTrace, baseBranch: "elsewhere" }),
-      }),
-    ),
-    expect(role("alert")).toBeAbsent(),
-    ...columns,
-    Subscription.emit(
-      Message.SettledLoadTrace({ result: Result.fail("The trace did not load: HTTP 500") }),
-    ),
-    expect(role("alert")).toHaveText("The trace did not load: HTTP 500"),
-    ...columns,
-  );
-});
+it.effect("polled messages keep the columns up, and a polled error shows above them", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(withTrace(TraceData.Success({ data: demoTrace })));
+    s.pipe(readerMounted)
+      .subscription(
+        "trace",
+        Message.SettledLoadTrace({
+          result: Result.succeed({ ...demoTrace, baseBranch: "elsewhere" }),
+        }),
+      )
+      .pipe(readerMounted)
+      .expect(byRole("alert"))
+      .toBeAbsent()
+      .pipe(columns)
+      .subscription(
+        "trace",
+        Message.SettledLoadTrace({ result: Result.fail("The trace did not load: HTTP 500") }),
+      )
+      .pipe(readerMounted)
+      .expect(byRole("alert"))
+      .toHaveText("The trace did not load: HTTP 500")
+      .pipe(columns);
+  }),
+);

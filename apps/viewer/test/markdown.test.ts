@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 
 import { SectionId } from "@cairn/contract";
+import { HtmlScene } from "@effect/ui/html/testing";
 import { it } from "@effect/vitest";
 import {
   Array,
+  Effect,
   Number,
   Option,
   Order,
@@ -14,8 +16,7 @@ import {
   String,
   pipe,
 } from "effect";
-import type { Html } from "foldkit/html";
-import { expect, given, scene, selector } from "foldkit/scene";
+import type { Html, HtmlBuilder } from "foldkit/html";
 import { expect as assert } from "vitest";
 
 import {
@@ -25,25 +26,30 @@ import {
   treeOf,
   type SectionHooks,
 } from "../src/markdown.ts";
+import { makeFoldkitBridge } from "../src/effect-ui/bridge.ts";
+import { data, hostFoldkitView, inside, tag as tagged, withoutAttr } from "./fixtures.ts";
 
 type VNode = NonNullable<Html>;
 
-/** Renders through a real Scene, which supplies the `h` builder, and hands back the vnode tree. */
-const render = (markdown: string, hooks?: SectionHooks<never>): VNode => {
-  let rendered = Option.none<VNode>();
-  scene(
-    {
-      update: (model: null) => ({ model }),
-      view: (_model: null, h) => {
-        const body = renderMarkdown(markdown, h, hooks);
-        rendered = Option.fromNullOr(body);
-        return { body, title: "markdown" };
-      },
-    },
-    given(null),
+/** The bridge supplies the `h` builder a Foldkit view is built with, and nothing here sends a Message. */
+const bridge = makeFoldkitBridge<never>({ message: Schema.Never, mounts: [] });
+
+/** Renders with the bridge's `h` builder and hands back the vnode tree. */
+const render = (markdown: string, hooks?: SectionHooks<never>): VNode =>
+  Option.getOrThrow(Option.fromNullOr(bridge.build((h) => renderMarkdown(markdown, h, hooks))));
+
+/** A Scene on a component that shows the Foldkit `body` `view` builds, with no Model and no Message. */
+const shown = (name: string, view: (h: HtmlBuilder<never>) => Html) =>
+  HtmlScene.make(
+    hostFoldkitView({
+      message: Schema.Never,
+      model: Schema.Null,
+      name,
+      update: (model: null) => model,
+      view: (_model: null, h) => view(h),
+    }),
+    null,
   );
-  return Option.getOrThrow(rendered);
-};
 
 const children = (node: VNode): ReadonlyArray<VNode | string> => node.children ?? [];
 
@@ -209,20 +215,14 @@ it("renders a GFM table with a header row and body rows", () => {
   assert(textOf(root)).toBe("NameRoleAdahumanBotagent");
 });
 
-it("a table in a Scene is found by what a person reads", () => {
-  scene(
-    {
-      update: (model: null) => ({ model }),
-      view: (_model: null, h) => ({
-        body: renderMarkdown("## Hi {#spec.hi}\n\n| A |\n| - |\n| cell |", h),
-        title: "markdown",
-      }),
-    },
-    given(null),
-    expect(selector("[data-section='spec.hi']")).toHaveText("Hi"),
-    expect(selector("td")).toHaveText("cell"),
-  );
-});
+it.effect("a table in a Scene is found by what a person reads", () =>
+  Effect.gen(function* () {
+    const s = yield* shown("Table", (h) =>
+      renderMarkdown("## Hi {#spec.hi}\n\n| A |\n| - |\n| cell |", h),
+    );
+    s.expect(data("section", "spec.hi")).toHaveText("Hi").expect(tagged("td")).toHaveText("cell");
+  }),
+);
 
 const hostile = [
   "<script>alert(1)</script>",
@@ -290,30 +290,29 @@ it('without an offset "# " is an h1', () => {
   assert(tags(render("# Title {#prd.title}"))).toContain("h1");
 });
 
-it("wrapTitle wraps a section heading's title, and the decoration stays outside it", () => {
-  let wrapped: ReadonlyArray<string> = [];
-  scene(
-    {
-      update: (model: null) => ({ model }),
-      view: (_model: null, h) => {
-        const body = renderMarkdown("## Some `code` title {#spec.some}\n\n## Plain", h, {
-          decorate: () => [h.span([h.DataAttribute("badge", "")], ["badge"])],
-          wrapTitle: (sectionId, title) => {
-            wrapped = Array.append(wrapped, sectionId);
-            return [h.button([h.DataAttribute("title-of", sectionId)], title)];
-          },
-        });
-        return { body, title: "markdown" };
-      },
-    },
-    given(null),
-    expect(selector('[data-section="spec.some"] button')).toHaveText("Some code title"),
-    expect(selector('[data-section="spec.some"] button [data-badge]')).toBeAbsent(),
-    expect(selector('[data-section="spec.some"] [data-badge]')).toExist(),
-  );
-  // Only the heading with a section id is wrapped.
-  assert(Array.dedupe(wrapped)).toEqual(["spec.some"]);
-});
+it.effect("wrapTitle wraps a section heading's title, and the decoration stays outside it", () =>
+  Effect.gen(function* () {
+    let wrapped: ReadonlyArray<string> = [];
+    const s = yield* shown("WrapTitle", (h) =>
+      renderMarkdown("## Some `code` title {#spec.some}\n\n## Plain", h, {
+        decorate: () => [h.span([h.DataAttribute("badge", "")], ["badge"])],
+        wrapTitle: (sectionId, title) => {
+          wrapped = Array.append(wrapped, sectionId);
+          return [h.button([h.DataAttribute("title-of", sectionId)], title)];
+        },
+      }),
+    );
+    const section = data("section", "spec.some");
+    s.expect(inside(section, tagged("button")))
+      .toHaveText("Some code title")
+      .expect(inside(inside(section, tagged("button")), data("badge")))
+      .toBeAbsent()
+      .expect(inside(section, data("badge")))
+      .toExist();
+    // Only the heading with a section id is wrapped.
+    assert(Array.dedupe(wrapped)).toEqual(["spec.some"]);
+  }),
+);
 
 const classes = (node: VNode): ReadonlyArray<string> => Record.keys(node.data?.class ?? {});
 
@@ -384,32 +383,26 @@ it("a mermaid fence is a code block of its source until the caller says what a d
   assert(textOf(firstTag(root, "code"))).toBe("flowchart LR\n  A --> B");
 });
 
-it("a mermaid fence is handed to the caller's diagramView, and no other fence is", () => {
-  let sources: ReadonlyArray<string> = [];
-  scene(
-    {
-      update: (model: null) => ({ model }),
-      view: (_model: null, h) => ({
-        body: renderMarkdown(
-          `${fence("mermaid", "flowchart LR\n  A --> B")}\n\n${fence("ts", "const x = 1;")}`,
-          h,
-          {
-            diagramView: (source) => {
-              sources = Array.append(sources, source);
-              return h.figure([h.DataAttribute("diagram", "")]);
-            },
+it.effect("a mermaid fence is handed to the caller's diagramView, and no other fence is", () =>
+  Effect.gen(function* () {
+    let sources: ReadonlyArray<string> = [];
+    const s = yield* shown("Diagrams", (h) =>
+      renderMarkdown(
+        `${fence("mermaid", "flowchart LR\n  A --> B")}\n\n${fence("ts", "const x = 1;")}`,
+        h,
+        {
+          diagramView: (source) => {
+            sources = Array.append(sources, source);
+            return h.figure([h.DataAttribute("diagram", "")]);
           },
-        ),
-        title: "markdown",
-      }),
-    },
-    given(null),
-    expect(selector("[data-diagram]")).toBeEmpty(),
-    expect(selector("pre")).toHaveText("const x = 1;"),
-  );
-  // A Scene renders the view once per step.
-  assert(Array.dedupe(sources)).toEqual(["flowchart LR\n  A --> B"]);
-});
+        },
+      ),
+    );
+    s.expect(data("diagram")).toHaveText("").expect(tagged("pre")).toHaveText("const x = 1;");
+    // A Scene renders the view once per step.
+    assert(Array.dedupe(sources)).toEqual(["flowchart LR\n  A --> B"]);
+  }),
+);
 
 /** The keys renderMarkdown gives each mermaid fence in `markdown`, in order, from one render. */
 const diagramKeys = (markdown: string): ReadonlyArray<string> => {
@@ -623,26 +616,24 @@ it("a marked document keeps its code blocks and diagram keys as they were", () =
   assert(marked.code).toEqual(plain.code);
 });
 
-it("only a block that holds marks carries the caller's attributes", () => {
-  const markdown = `${MARKED_HEADING}Marked prose.\n\nPlain prose.`;
-  const [marked] = Option.getOrThrow(Record.get(documentOf(markdown).blocks, "spec.zebra"));
-  scene(
-    {
-      update: (model: null) => ({ model }),
-      view: (_model: null, h) => ({
-        body: renderMarkdown(markdown, h, {
-          blockAttributesOf: (offset) => [h.DataAttribute("block", `${offset}`)],
-          marks: { blocks: { [`${marked?.offset}`]: [{ end: 6, start: 0 }] }, titles: {} },
-        }),
-        title: "markdown",
+it.effect("only a block that holds marks carries the caller's attributes", () =>
+  Effect.gen(function* () {
+    const markdown = `${MARKED_HEADING}Marked prose.\n\nPlain prose.`;
+    const [marked] = Option.getOrThrow(Record.get(documentOf(markdown).blocks, "spec.zebra"));
+    const s = yield* shown("Blocks", (h) =>
+      renderMarkdown(markdown, h, {
+        blockAttributesOf: (offset) => [h.DataAttribute("block", `${offset}`)],
+        marks: { blocks: { [`${marked?.offset}`]: [{ end: 6, start: 0 }] }, titles: {} },
       }),
-    },
-    given(null),
-    expect(selector(`[data-block="${marked?.offset}"]`)).toHaveText("Marked prose."),
-    expect(selector("[data-block] mark")).toHaveText("Marked"),
-    expect(selector("p:not([data-block])")).toHaveText("Plain prose."),
-  );
-});
+    );
+    s.expect(data("block", `${marked?.offset}`))
+      .toHaveText("Marked prose.")
+      .expect(inside(data("block"), tagged("mark")))
+      .toHaveText("Marked")
+      .expect(withoutAttr("data-block", tagged("p")))
+      .toHaveText("Plain prose.");
+  }),
+);
 
 it("parsing for search and for rendering is one parse", () => {
   const markdown = "## Title {#spec.title}\n\nText.";
@@ -728,22 +719,13 @@ it.prop(
   },
 );
 
-/** Renders one section of a parsed document through a real Scene, and hands back the vnode tree. */
-const renderOne = (markdown: string, id: string, hooks?: SectionHooks<never>): VNode => {
-  let rendered = Option.none<VNode>();
-  scene(
-    {
-      update: (model: null) => ({ model }),
-      view: (_model: null, h) => {
-        const body = renderSection(documentOf(markdown), SectionId.make(id), h, hooks);
-        rendered = Option.fromNullOr(body);
-        return { body, title: "markdown" };
-      },
-    },
-    given(null),
+/** Renders one section of a parsed document with the bridge's builder, and hands back the vnode tree. */
+const renderOne = (markdown: string, id: string, hooks?: SectionHooks<never>): VNode =>
+  Option.getOrThrow(
+    Option.fromNullOr(
+      bridge.build((h) => renderSection(documentOf(markdown), SectionId.make(id), h, hooks)),
+    ),
   );
-  return Option.getOrThrow(rendered);
-};
 
 const HEADING_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6"];
 

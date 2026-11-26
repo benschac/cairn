@@ -1,33 +1,33 @@
 import { PrdSectionId, Sha, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Option, Predicate, Result, String, Struct } from "effect";
-import {
-  Command,
-  all,
-  click,
-  expect,
-  expectAll,
-  given,
-  Mount,
-  role,
-  scene,
-  selector,
-  Subscription,
-} from "foldkit/scene";
+import { Array, Effect, Option, Predicate, Result, String, Struct } from "effect";
 import { modifyFields } from "foldkit/struct";
 import { vi } from "vitest";
 
 import { FetchPatch, FetchSession } from "../src/command.ts";
-import { RenderDiff } from "../src/diff.ts";
 import { demoTrace } from "../src/demo.ts";
 import { init } from "../src/init.ts";
 import { Message } from "../src/message.ts";
 import { Screen, Shown, TraceData } from "../src/model.ts";
 import { update as appUpdate } from "../src/update.ts";
-import { view as appView } from "../src/view/view.ts";
 import commitPatch from "./fixtures/commit.patch?raw";
 import rangePatch from "./fixtures/range.patch?raw";
-import { loaded, mounted, readerEnded, sessionWith } from "./fixtures.ts";
+import {
+  attr,
+  both,
+  byRole,
+  containing,
+  data,
+  drawnDiff,
+  loaded,
+  pushedUrl,
+  readerMounted,
+  resolved,
+  sent,
+  sessionWith,
+  styled,
+  viewerScene,
+} from "./fixtures.ts";
 
 const sha = (character: string) => Sha.make(String.repeat(40)(character));
 
@@ -60,145 +60,171 @@ const trace = Struct.evolve(demoTrace, {
 });
 const model = modifyFields(loaded, { trace: () => TraceData.Success({ data: trace }) });
 
-const app = { update: appUpdate, view: appView };
-
 /** A PRD section a person can pin on the reader. */
 const prdSection = PrdSectionId.make("prd.goal");
 
-const backButton = role("button", { name: "Back to the plan" });
-const treeTask = (id: string) => selector(`[data-tree-task="${id}"]`);
-const treeCommit = (value: string) => selector(`[data-tree-commit="${value}"]`);
-const treeFile = (path: string) => selector(`[data-tree-file="${path}"]`);
-const patch = selector("[data-patch-path]");
+const backButton = byRole("button", { name: "Back to the plan" });
+const treeTask = (id: string) => data("tree-task", id);
+const treeCommit = (value: string) => data("tree-commit", value);
+const treeFile = (path: string) => data("tree-file", path);
+const patch = data("patch-path");
+const currentRow = attr("aria-current");
 const wholePath = `/api/diffs/${sha("0")}/${sha("b")}`;
 const commitPath = (value: string) => `/api/commits/${sha(value)}`;
 
-/** The diff mount of a loaded patch answers once it has parsed the patch and drawn it. */
-const drawn = Mount.resolve(
-  RenderDiff,
-  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-  Message.CompletedRenderDiff(),
-);
-
 /** The fetch of a path is answered with its text, or with a failure. */
 const fetched = (path: string, result: Result.Result<string, string>) =>
-  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-  Command.resolve(FetchPatch({ path }), Message.ReceivedPatch({ path, result }));
+  resolved(FetchPatch, Message.ReceivedPatch({ path, result }));
 
-/** The fetch of a session is answered with it, or with a failure. */
+/** The fetch of a session is answered with it. */
 const fetchedSession = (id: string) =>
-  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-  Command.resolve(
-    FetchSession({ id }),
-    Message.ReceivedSession({ id, result: Result.succeed(sessionWith(id)) }),
-  );
+  resolved(FetchSession, Message.ReceivedSession({ id, result: Result.succeed(sessionWith(id)) }));
 
 /** The model after these messages, from the loaded trace. */
 const after = (...messages: ReadonlyArray<Message>) =>
   Array.reduce(messages, model, (current, message) => appUpdate(current, message).model);
 
-it("Open code on a task opens its whole diff, and its tree row is the current one", () => {
-  scene(
-    app,
-    given(model),
-    mounted,
-    Subscription.emit(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() })),
-    ...readerEnded(),
-    fetched(wholePath, Result.succeed(rangePatch)),
-    drawn,
-    expect(treeTask(stacked.id)).toHaveAttr("aria-current", "true"),
-    expect(patch).toHaveAttr("data-patch-path", wholePath),
-    expect(selector("[data-shown]")).toContainText("2 commits"),
-    expect(selector("[data-shown]")).toContainText(
-      `${String.takeLeft(sha("0"), 7)}..${String.takeLeft(sha("b"), 7)}`,
-    ),
-    expect(selector("[data-code-bar]")).toContainText(stacked.branch),
-  );
-});
+it.effect("Open code on a task opens its whole diff, and its tree row is the current one", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(model);
+    s.pipe(
+      readerMounted,
+      sent(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() })),
+      pushedUrl,
+      fetched(wholePath, Result.succeed(rangePatch)),
+      drawnDiff,
+    )
+      .expect(treeTask(stacked.id))
+      .toHaveAttribute("aria-current", "true")
+      .expect(patch)
+      .toHaveAttribute("data-patch-path", wholePath)
+      .expect(data("shown"))
+      .toHaveText(containing("2 commits"))
+      .expect(data("shown"))
+      .toHaveText(containing(`${String.takeLeft(sha("0"), 7)}..${String.takeLeft(sha("b"), 7)}`))
+      .expect(data("code-bar"))
+      .toHaveText(containing(stacked.branch));
+  }),
+);
 
-it("a commit opens that commit, and the session pane shows its session", () => {
-  scene(
-    app,
-    given(model),
-    mounted,
-    Subscription.emit(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.some(sha("a")) })),
-    ...readerEnded(),
-    fetched(commitPath("a"), Result.succeed(commitPatch)),
-    fetchedSession(`${template.session}`),
-    drawn,
-    expect(treeCommit(sha("a"))).toHaveAttr("aria-current", "true"),
-    expectAll(all.selector("[aria-current]")).toHaveCount(1),
-    expect(patch).toHaveAttr("data-patch-path", `/api/commits/${sha("a")}`),
-    expect(selector("[data-shown]")).toContainText("First"),
-    expect(selector("[data-session-id]")).toHaveAttr("data-session-id", `${template.session}`),
-  );
-});
+it.effect("a commit opens that commit, and the session pane shows its session", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(model);
+    s.pipe(
+      readerMounted,
+      sent(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.some(sha("a")) })),
+      pushedUrl,
+      fetched(commitPath("a"), Result.succeed(commitPatch)),
+      // The diff is keyed by its session once it is read, so the session's arrival draws it again.
+      drawnDiff,
+      fetchedSession(`${template.session}`),
+      drawnDiff,
+    )
+      .expect(treeCommit(sha("a")))
+      .toHaveAttribute("aria-current", "true")
+      .expect(currentRow)
+      .toHaveCount(1)
+      .expect(patch)
+      .toHaveAttribute("data-patch-path", `/api/commits/${sha("a")}`)
+      .expect(data("shown"))
+      .toHaveText(containing("First"))
+      .expect(data("session-id"))
+      .toHaveAttribute("data-session-id", `${template.session}`);
+  }),
+);
 
-it("the tree selects a task, a commit and a file, one current row at a time", () => {
-  scene(
-    app,
-    given(after(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }))),
-    expect(treeFile("src/a.ts")).toExist(),
-    expect(treeFile("docs/c.md")).toExist(),
-    click(treeFile("src/view/b.ts")),
-    expect(treeFile("src/view/b.ts")).toHaveAttr("aria-current", "true"),
-    expect(patch).toHaveAttr("data-file", "src/view/b.ts"),
-    expect(patch).toHaveAttr("data-patch-path", wholePath),
-    click(treeCommit(sha("b"))),
-    fetched(commitPath("b"), Result.succeed(commitPatch)),
-    drawn,
-    expect(treeCommit(sha("b"))).toHaveAttr("aria-current", "true"),
-    expect(patch).toHaveAttr("data-patch-path", `/api/commits/${sha("b")}`),
-    expect(treeFile("src/a.ts")).toBeAbsent(),
-    expect(selector("[data-session-id]")).toBeAbsent(),
-    click(treeFile("docs/c.md")),
-    expectAll(all.selector("[aria-current]")).toHaveCount(2),
-    click(treeTask(stacked.id)),
-    Mount.expectEnded(RenderDiff),
-    expect(treeTask(stacked.id)).toHaveAttr("aria-current", "true"),
-    expectAll(all.selector("[aria-current]")).toHaveCount(1),
-    expect(patch).toHaveAttr("data-patch-path", wholePath),
-  );
-});
+it.effect("the tree selects a task, a commit and a file, one current row at a time", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
+      after(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() })),
+    );
+    s.expect(treeFile("src/a.ts"))
+      .toExist()
+      .expect(treeFile("docs/c.md"))
+      .toExist()
+      .click(treeFile("src/view/b.ts"))
+      .pipe(pushedUrl)
+      .expect(treeFile("src/view/b.ts"))
+      .toHaveAttribute("aria-current", "true")
+      .expect(patch)
+      .toHaveAttribute("data-file", "src/view/b.ts")
+      .expect(patch)
+      .toHaveAttribute("data-patch-path", wholePath)
+      .click(treeCommit(sha("b")))
+      .pipe(pushedUrl, fetched(commitPath("b"), Result.succeed(commitPatch)), drawnDiff)
+      .expect(treeCommit(sha("b")))
+      .toHaveAttribute("aria-current", "true")
+      .expect(patch)
+      .toHaveAttribute("data-patch-path", `/api/commits/${sha("b")}`)
+      .expect(treeFile("src/a.ts"))
+      .toBeAbsent()
+      .expect(data("session-id"))
+      .toBeAbsent()
+      .click(treeFile("docs/c.md"))
+      .pipe(pushedUrl)
+      .expect(currentRow)
+      .toHaveCount(2)
+      .click(treeTask(stacked.id))
+      .pipe(pushedUrl)
+      .expect(treeTask(stacked.id))
+      .toHaveAttribute("aria-current", "true")
+      .expect(currentRow)
+      .toHaveCount(1)
+      .expect(patch)
+      .toHaveAttribute("data-patch-path", wholePath);
+  }),
+);
 
-it("the tree is three panes of the right widths, each pane scrolling on its own", () => {
-  scene(
-    app,
-    given(after(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }))),
-    expect(selector('[data-code-pane="tree"]')).toHaveStyle("width", "280px"),
-    expect(selector('[data-code-pane="tree"]')).toHaveStyle("overflow-y", "auto"),
-    expect(selector('[data-code-pane="session"]')).toHaveStyle("width", "420px"),
-    expect(selector('[data-code-pane="session"]')).toHaveStyle("overflow-y", "auto"),
-    expect(selector('[data-code-pane="diff"]')).toExist(),
-  );
-});
+it.effect("the tree is three panes of the right widths, each pane scrolling on its own", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
+      after(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() })),
+    );
+    s.expect(both(data("code-pane", "tree"), styled("width", "280px")))
+      .toExist()
+      .expect(both(data("code-pane", "tree"), styled("overflow-y", "auto")))
+      .toExist()
+      .expect(both(data("code-pane", "session"), styled("width", "420px")))
+      .toExist()
+      .expect(both(data("code-pane", "session"), styled("overflow-y", "auto")))
+      .toExist()
+      .expect(data("code-pane", "diff"))
+      .toExist();
+  }),
+);
 
-it("a task with no commits opens with a middle pane that says so", () => {
-  scene(
-    app,
-    given(after(Message.ClickedOpenCode({ id: bare.id, maybeSha: Option.none() }))),
-    expect(patch).toBeAbsent(),
-    expect(selector('[data-code-pane="diff"]')).toContainText("This task has no commits."),
-    expect(selector('[data-code-pane="session"]')).toContainText("No session"),
-  );
-});
+it.effect("a task with no commits opens with a middle pane that says so", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
+      after(Message.ClickedOpenCode({ id: bare.id, maybeSha: Option.none() })),
+    );
+    s.expect(patch)
+      .toBeAbsent()
+      .expect(data("code-pane", "diff"))
+      .toHaveText(containing("This task has no commits."))
+      .expect(data("code-pane", "session"))
+      .toHaveText(containing("No session"));
+  }),
+);
 
-it("back to the plan returns the reader with its pin as it was", () => {
-  const pinned = after(Message.ClickedStatusLine({ id: prdSection }));
-  const there = appUpdate(
-    pinned,
-    Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
-  ).model;
-  scene(
-    app,
-    given(there),
-    expect(selector("[data-code-view]")).toExist(),
-    click(backButton),
-    mounted,
-    expect(selector("[data-reader]")).toExist(),
-    expect(selector("[data-code-view]")).toBeAbsent(),
-  );
-});
+it.effect("back to the plan returns the reader with its pin as it was", () =>
+  Effect.gen(function* () {
+    const pinned = after(Message.ClickedStatusLine({ id: prdSection }));
+    const there = appUpdate(
+      pinned,
+      Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
+    ).model;
+    const s = yield* viewerScene(there);
+    s.expect(data("code-view"))
+      .toExist()
+      .click(backButton)
+      .pipe(pushedUrl, readerMounted)
+      .expect(data("reader"))
+      .toExist()
+      .expect(data("code-view"))
+      .toBeAbsent();
+  }),
+);
 
 it("opening the code view and going back changes only the screen", () => {
   const pinned = after(Message.ClickedStatusLine({ id: prdSection }));
@@ -243,97 +269,111 @@ it("messages that name nothing the trace or the screen holds are ignored", () =>
 
 // PATCHES
 
-it("opening a task asks for its patch route once, and shows it loading", () => {
-  const opened = appUpdate(
-    model,
-    Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
-  );
-  assert(
-    Array.map(
-      Option.getOrElse(Option.fromUndefinedOr(opened.commands), () => []),
-      (command) => [command.name, command.args],
-    ),
-  ).toEqual([["FetchPatch", { path: wholePath }]]);
-  scene(app, given(opened.model), expect(patch).toContainText("Loading"));
-});
+it.effect("opening a task asks for its patch route once, and shows it loading", () =>
+  Effect.gen(function* () {
+    const opened = appUpdate(
+      model,
+      Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
+    );
+    assert(
+      Array.map(
+        Option.getOrElse(Option.fromUndefinedOr(opened.commands), () => []),
+        (command) => [command.name, command.args],
+      ),
+    ).toEqual([["FetchPatch", { path: wholePath }]]);
+    const s = yield* viewerScene(opened.model);
+    s.expect(patch).toHaveText(containing("Loading"));
+  }),
+);
 
-it("a failed fetch shows its error, and selecting the path again fetches it again", () => {
-  scene(
-    app,
-    given(
+it.effect("a failed fetch shows its error, and selecting the path again fetches it again", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
       after(
         Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
         Message.ReceivedPatch({ path: wholePath, result: Result.fail("unknown revision") }),
       ),
-    ),
-    expect(patch).toContainText("unknown revision"),
-    click(treeCommit(sha("a"))),
-    fetched(commitPath("a"), Result.succeed(commitPatch)),
-    fetchedSession(`${template.session}`),
-    expect(patch).toHaveAttr("data-patch-path", commitPath("a")),
-    drawn,
-    click(treeTask(stacked.id)),
-    Mount.expectEnded(RenderDiff),
-    fetched(wholePath, Result.succeed(rangePatch)),
-    expect(patch).toHaveAttr("data-patch-path", wholePath),
-    drawn,
-  );
-});
+    );
+    s.expect(patch)
+      .toHaveText(containing("unknown revision"))
+      .click(treeCommit(sha("a")))
+      .pipe(
+        pushedUrl,
+        fetched(commitPath("a"), Result.succeed(commitPatch)),
+        // The diff is keyed by its session once it is read, so the session's arrival draws it again.
+        drawnDiff,
+        fetchedSession(`${template.session}`),
+      )
+      .expect(patch)
+      .toHaveAttribute("data-patch-path", commitPath("a"))
+      .pipe(drawnDiff)
+      .click(treeTask(stacked.id))
+      .pipe(pushedUrl, fetched(wholePath, Result.succeed(rangePatch)))
+      .expect(patch)
+      .toHaveAttribute("data-patch-path", wholePath)
+      .pipe(drawnDiff);
+  }),
+);
 
-it("a loaded path is not fetched again, and a loading one is not fetched twice", () => {
-  const loadedWhole = after(
-    Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
-    Message.ReceivedPatch({ path: wholePath, result: Result.succeed(rangePatch) }),
-  );
-  scene(
-    app,
-    given(loadedWhole),
-    drawn,
-    click(treeCommit(sha("a"))),
-    Mount.expectEnded(RenderDiff),
-    fetched(commitPath("a"), Result.succeed(commitPatch)),
-    fetchedSession(`${template.session}`),
-    drawn,
-    // A scene tells mounts apart by name and position, so a loaded patch swapped for another
-    // loaded patch is the same mount to it; the keyed element is checked in diff-view.scene.test.ts.
-    click(treeTask(stacked.id)),
-    Command.expectNone(),
-    expect(patch).toHaveAttr("data-patch-path", wholePath),
-    click(treeCommit(sha("a"))),
-    Command.expectNone(),
-    expect(patch).toHaveAttr("data-patch-path", commitPath("a")),
-  );
-  const loading = appUpdate(
-    appUpdate(model, Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() })).model,
-    Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
-  );
-  assert(loading.commands).toBeUndefined();
-});
+it.effect("a loaded path is not fetched again, and a loading one is not fetched twice", () =>
+  Effect.gen(function* () {
+    const loadedWhole = after(
+      Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
+      Message.ReceivedPatch({ path: wholePath, result: Result.succeed(rangePatch) }),
+    );
+    const s = yield* viewerScene(loadedWhole);
+    s.pipe(drawnDiff)
+      .click(treeCommit(sha("a")))
+      .pipe(
+        pushedUrl,
+        fetched(commitPath("a"), Result.succeed(commitPatch)),
+        // The diff is keyed by its session once it is read, so the session's arrival draws it again.
+        drawnDiff,
+        fetchedSession(`${template.session}`),
+        drawnDiff,
+      )
+      // A loaded patch swapped for another is a new keyed element, so its mount draws again.
+      .click(treeTask(stacked.id))
+      .pipe(pushedUrl, drawnDiff)
+      .expectNone()
+      .expect(patch)
+      .toHaveAttribute("data-patch-path", wholePath)
+      .click(treeCommit(sha("a")))
+      .pipe(pushedUrl, drawnDiff)
+      .expectNone()
+      .expect(patch)
+      .toHaveAttribute("data-patch-path", commitPath("a"));
+    const loading = appUpdate(
+      appUpdate(model, Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() })).model,
+      Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
+    );
+    assert(loading.commands).toBeUndefined();
+  }),
+);
 
-it("a loaded patch is handed to the mount whatever it holds, since only the mount parses it", () => {
-  scene(
-    app,
-    given(
-      after(
-        Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
-        Message.ReceivedPatch({ path: wholePath, result: Result.succeed("") }),
-      ),
-    ),
-    expect(patch).toHaveAttr("data-patch-path", wholePath),
-    drawn,
-  );
-});
+it.effect(
+  "a loaded patch is handed to the mount whatever it holds, since only the mount parses it",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(
+        after(
+          Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
+          Message.ReceivedPatch({ path: wholePath, result: Result.succeed("") }),
+        ),
+      );
+      s.expect(patch).toHaveAttribute("data-patch-path", wholePath).pipe(drawnDiff);
+    }),
+);
 
-it("the demo build fetches nothing and says the diff needs cairn serve", () => {
-  vi.stubEnv("PROD", true);
-  try {
+it.effect("the demo build fetches nothing and says the diff needs cairn serve", () =>
+  Effect.gen(function* () {
+    vi.stubEnv("PROD", true);
     const opened = appUpdate(
       model,
       Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
     );
     assert(opened.commands).toBeUndefined();
-    scene(app, given(opened.model), expect(patch).toContainText("cairn serve"));
-  } finally {
-    vi.unstubAllEnvs();
-  }
-});
+    const s = yield* viewerScene(opened.model);
+    s.expect(patch).toHaveText(containing("cairn serve"));
+  }).pipe(Effect.ensuring(Effect.sync(() => vi.unstubAllEnvs()))),
+);

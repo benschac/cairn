@@ -1,21 +1,19 @@
 import { Event, StatementId, TaskId, TraceStatement, type Trace } from "@cairn/contract";
 import { it } from "@effect/vitest";
-import { Array, Schema } from "effect";
-import { all, expect, expectAll, given, scene, selector } from "foldkit/scene";
+import { Array, Effect, Schema } from "effect";
 import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
-import { Message } from "../src/message.ts";
 import { Screen, TraceData } from "../src/model.ts";
-import { update } from "../src/update.ts";
-import { view } from "../src/view/view.ts";
-import { loaded, unmeasuredWires } from "./fixtures.ts";
-import { Mount } from "foldkit/scene";
-import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
-import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
-import { MeasureWires } from "../src/view/wiresView.ts";
-import { PrdSectionId } from "@cairn/contract";
-import { Option } from "effect";
+import { PressDivider } from "../src/view/dividerView.ts";
+import {
+  containing,
+  data,
+  loaded,
+  readerMounted,
+  viewerScene,
+  type ViewerSteps,
+} from "./fixtures.ts";
 
 const statement = (n: number, human: boolean, draft: boolean, text: string): TraceStatement =>
   Schema.decodeUnknownSync(TraceStatement)({
@@ -64,55 +62,58 @@ const opened = (trace: Trace) =>
     trace: () => TraceData.Success({ data: trace }),
   });
 
-const scrolledTop = Mount.resolveAll(
-  [TrackPrdScroll, Message.ScrolledPrd({ id: PrdSectionId.make("prd.goal") })],
-  [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
-  [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
+/** The reader's mounts, and the detail pane's divider that an open task adds. */
+const scrolledTop = (s: ViewerSteps) =>
+  s.pipe(readerMounted).expectMount(PressDivider({ pane: "detail" }));
+
+const items = data("done-when-statement");
+const settled = data("settled");
+const doneWhen = data("detail-part", "done-when");
+
+it.effect(
+  "a gated task waiting on a human shows a checklist, the human statement first and the draft tagged",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(opened(traceWith("blocked_on_human", [])));
+      s.pipe(scrolledTop)
+        .expect(items)
+        .toHaveCount(3)
+        .expect(doneWhen)
+        .toHaveText(
+          containing("[ ] The redaction notice reads well.[ ] Secrets never reach the log."),
+        )
+        .expect(data("done-when-statement", "prd.redaction#v2"))
+        .toHaveText(containing("Draft"))
+        .expect(data("done-when-statement", "prd.redaction#v1"))
+        .toHaveText("[ ] Secrets never reach the log.")
+        .expect(settled)
+        .toHaveCount(0);
+    }),
 );
 
-const items = all.selector("[data-done-when-statement]");
+it.effect("after a human approved, the human statement shows as settled", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(opened(traceWith("done", [approval])));
+    s.pipe(scrolledTop)
+      .expect(items)
+      .toHaveCount(3)
+      .expect(settled)
+      .toHaveText(containing("[x] The redaction notice reads well."))
+      .expect(settled)
+      .toHaveCount(1);
+  }),
+);
 
-it("a gated task waiting on a human shows a checklist, the human statement first and the draft tagged", () => {
-  scene(
-    { update, view },
-    given(opened(traceWith("blocked_on_human", []))),
-    scrolledTop,
-    expectAll(items).toHaveCount(3),
-    expect(selector("[data-detail-part='done-when']")).toContainText(
-      "[ ] The redaction notice reads well.[ ] Secrets never reach the log.",
-    ),
-    expect(selector("[data-done-when-statement='prd.redaction#v2']")).toContainText("Draft"),
-    expect(selector("[data-done-when-statement='prd.redaction#v1']")).not.toContainText("Draft"),
-    expectAll(all.selector("[data-settled]")).toHaveCount(0),
-  );
-});
+it.effect("a human done event on a task still blocked on a human settles nothing", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(opened(traceWith("blocked_on_human", [approval])));
+    s.pipe(scrolledTop).expect(doneWhen).toExist().expect(settled).toHaveCount(0);
+  }),
+);
 
-it("after a human approved, the human statement shows as settled", () => {
-  scene(
-    { update, view },
-    given(opened(traceWith("done", [approval]))),
-    scrolledTop,
-    expectAll(items).toHaveCount(3),
-    expect(selector("[data-settled]")).toContainText("[x] The redaction notice reads well."),
-    expectAll(all.selector("[data-settled]")).toHaveCount(1),
-  );
-});
-
-it("a human done event on a task still blocked on a human settles nothing", () => {
-  scene(
-    { update, view },
-    given(opened(traceWith("blocked_on_human", [approval]))),
-    scrolledTop,
-    expect(selector("[data-detail-part='done-when']")).toExist(),
-    expectAll(all.selector("[data-settled]")).toHaveCount(0),
-  );
-});
-
-it("a task that carries no statement shows no Done when block", () => {
-  scene(
-    { update, view },
-    given(opened(demoTrace)),
-    scrolledTop,
-    expect(selector("[data-detail-part='done-when']")).toBeAbsent(),
-  );
-});
+it.effect("a task that carries no statement shows no Done when block", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(opened(demoTrace));
+    s.pipe(scrolledTop).expect(doneWhen).toBeAbsent();
+  }),
+);

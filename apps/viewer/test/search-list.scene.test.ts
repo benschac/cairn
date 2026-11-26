@@ -1,26 +1,23 @@
 import { SectionId, TaskId } from "@cairn/contract";
 import { it } from "@effect/vitest";
-import { Schema } from "effect";
-import {
-  all,
-  expect,
-  expectAll,
-  expectHandled,
-  expectIgnored,
-  given,
-  keydown,
-  role,
-  scene,
-  selector,
-} from "foldkit/scene";
-import * as simulate from "foldkit/scene";
+import { Effect, Schema } from "effect";
 
+import { Message } from "../src/message.ts";
 import { searchTrace } from "../src/search.ts";
 import { demoTrace } from "../src/demo.ts";
 import { nodeKeyOf, type Node } from "../src/trace.ts";
-import { update } from "../src/update.ts";
-import { view } from "../src/view/view.ts";
-import { loaded, mounted, scrolledSearchResult } from "./fixtures.ts";
+import { ScrollSearchResult } from "../src/command.ts";
+import {
+  byRole,
+  containing,
+  data,
+  inside,
+  loaded,
+  readerMounted,
+  resolved,
+  viewerScene,
+  type ViewerSteps,
+} from "./fixtures.ts";
 
 const sectionNode = (id: string): Node => ({
   id: Schema.decodeSync(SectionId)(id),
@@ -32,132 +29,140 @@ const stackOrder = sectionNode("spec.planning.stack-order");
 const judgments = sectionNode("spec.contract.judgments");
 const t20 = taskNode("t20");
 
-const searchBox = role("combobox", { name: "Search sections and tasks" });
-const status = selector("[data-search-status]");
-const option = (node: Node) => selector(`[data-search-result="${nodeKeyOf(node)}"]`);
+const searchBox = byRole("combobox", { name: "Search sections and tasks" });
+const status = data("search-status");
+const results = data("search-result");
+const option = (node: Node) => data("search-result", nodeKeyOf(node));
 const optionId = (node: Node) => `search-option-${nodeKeyOf(node)}`;
 
 /** Typing sends the input's whole text, as the browser's input event does. */
-const typed = (query: string) => simulate.type(searchBox, query);
-const pressed = (key: string) => keydown(searchBox, key);
+const typed = (query: string) => (s: ViewerSteps) => s.type(searchBox, query);
+const pressed = (key: string) => (s: ViewerSteps) => s.keydown(searchBox, key);
+/** Moving the active search result scrolls the list to it; the test answers for the scroll. */
+const scrolledSearchResult = resolved(ScrollSearchResult, Message.CompletedScrollSearchResult());
 
-it("an abbreviation lists ranked results with their kind, title and matched field", () => {
-  scene(
-    { update, view },
-    given(loaded),
-    mounted,
-    expect(searchBox).toHaveAttr("aria-expanded", "false"),
-    expect(status).toHaveText(""),
-    typed("stkorder"),
-    scrolledSearchResult,
-    expect(searchBox).toHaveAttr("aria-expanded", "true"),
-    expect(status).toHaveText("2 results."),
-    expectAll(all.selector("[data-search-result]")).toHaveCount(2),
-    expect(role("listbox", { name: "Search results" })).toExist(),
-    expect(option(stackOrder)).toHaveAttr("role", "option"),
-    expect(option(stackOrder)).toContainText("Spec"),
-    expect(option(stackOrder)).toContainText("Stack order"),
-    expect(simulate.within(option(stackOrder), selector("[data-search-field]"))).toHaveText(
-      "title",
-    ),
-    expect(option(t20)).toContainText("Task"),
-    expect(simulate.within(option(t20), selector("[data-search-field]"))).toHaveText(
-      "branch: cairn-mvp/20-stack-order",
-    ),
-  );
-});
+it.effect("an abbreviation lists ranked results with their kind, title and matched field", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(loaded);
+    s.pipe(readerMounted)
+      .expect(searchBox)
+      .toHaveAttribute("aria-expanded", "false")
+      .expect(status)
+      .toHaveText("")
+      .pipe(typed("stkorder"), scrolledSearchResult)
+      .expect(searchBox)
+      .toHaveAttribute("aria-expanded", "true")
+      .expect(status)
+      .toHaveText("2 results.")
+      .expect(results)
+      .toHaveCount(2)
+      .expect(byRole("listbox", { name: "Search results" }))
+      .toExist()
+      .expect(option(stackOrder))
+      .toHaveAttribute("role", "option")
+      .expect(option(stackOrder))
+      .toHaveText(containing("Spec"))
+      .expect(option(stackOrder))
+      .toHaveText(containing("Stack order"))
+      .expect(inside(option(stackOrder), data("search-field")))
+      .toHaveText("title")
+      .expect(option(t20))
+      .toHaveText(containing("Task"))
+      .expect(inside(option(t20), data("search-field")))
+      .toHaveText("branch: cairn-mvp/20-stack-order");
+  }),
+);
 
-it("the arrow keys move through the results and stop at the first", () => {
-  scene(
-    { update, view },
-    given(loaded),
-    mounted,
-    typed("judgmnt"),
-    scrolledSearchResult,
-    expect(searchBox).toHaveAttr("aria-activedescendant", optionId(judgments)),
-    expect(option(judgments)).toHaveAttr("aria-selected", "true"),
-    pressed("ArrowUp"),
-    expectHandled(),
-    scrolledSearchResult,
-    expect(option(judgments)).toHaveAttr("aria-selected", "true"),
-    pressed("ArrowDown"),
-    expectHandled(),
-    scrolledSearchResult,
-    expect(option(judgments)).toHaveAttr("aria-selected", "false"),
-  );
-});
+it.effect("the arrow keys move through the results and stop at the first", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(loaded);
+    s.pipe(readerMounted, typed("judgmnt"), scrolledSearchResult)
+      .expect(searchBox)
+      .toHaveAttribute("aria-activedescendant", optionId(judgments))
+      .expect(option(judgments))
+      .toHaveAttribute("aria-selected", "true")
+      .pipe(pressed("ArrowUp"))
+      .expectDefaultPrevented(true)
+      .pipe(scrolledSearchResult)
+      .expect(option(judgments))
+      .toHaveAttribute("aria-selected", "true")
+      .pipe(pressed("ArrowDown"))
+      .expectDefaultPrevented(true)
+      .pipe(scrolledSearchResult)
+      .expect(option(judgments))
+      .toHaveAttribute("aria-selected", "false");
+  }),
+);
 
-it("emptying the query clears the list", () => {
-  scene(
-    { update, view },
-    given(loaded),
-    mounted,
-    typed("t43"),
-    scrolledSearchResult,
-    expectAll(all.selector("[data-search-result]")).not.toBeEmpty(),
-    typed(""),
-    expectAll(all.selector("[data-search-result]")).toBeEmpty(),
-    expectAll(all.selector("[data-searched]")).toBeEmpty(),
-    expect(status).toHaveText(""),
-  );
-});
+it.effect("emptying the query clears the list", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(loaded);
+    s.pipe(readerMounted, typed("t43"), scrolledSearchResult)
+      .expect(results)
+      .toExist()
+      .pipe(typed(""))
+      .expect(results)
+      .toHaveCount(0)
+      .expect(data("searched"))
+      .toHaveCount(0)
+      .expect(status)
+      .toHaveText("");
+  }),
+);
 
-it("a query with no matches says so and leaves the reader usable", () => {
-  scene(
-    { update, view },
-    given(loaded),
-    mounted,
-    typed("zzzz"),
-    expect(status).toHaveText("No results."),
-    expect(searchBox).toHaveAttr("aria-expanded", "false"),
-    expect(role("listbox")).toBeAbsent(),
-    pressed("ArrowDown"),
-    expectHandled(),
-    pressed("Enter"),
-    expectHandled(),
-    expect(role("region", { name: "PRD" })).toExist(),
-  );
-});
+it.effect("a query with no matches says so and leaves the reader usable", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(loaded);
+    s.pipe(readerMounted, typed("zzzz"))
+      .expect(status)
+      .toHaveText("No results.")
+      .expect(searchBox)
+      .toHaveAttribute("aria-expanded", "false")
+      .expect(byRole("listbox"))
+      .toBeAbsent()
+      .pipe(pressed("ArrowDown"))
+      .expectDefaultPrevented(true)
+      .pipe(pressed("Enter"))
+      .expectDefaultPrevented(true)
+      .expect(byRole("region", { name: "PRD" }))
+      .toExist();
+  }),
+);
 
-it("Escape clears the search", () => {
-  scene(
-    { update, view },
-    given(loaded),
-    mounted,
-    typed("stkorder"),
-    scrolledSearchResult,
-    pressed("Escape"),
-    expectHandled(),
-    expect(searchBox).toHaveValue(""),
-    expect(status).toHaveText(""),
-    expectAll(all.selector("[data-search-result]")).toBeEmpty(),
-    expectAll(all.selector("[data-search-match]")).toBeEmpty(),
-  );
-});
+it.effect("Escape clears the search", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(loaded);
+    s.pipe(readerMounted, typed("stkorder"), scrolledSearchResult, pressed("Escape"))
+      .expectDefaultPrevented(true)
+      .expect(searchBox)
+      .toHaveValue("")
+      .expect(status)
+      .toHaveText("")
+      .expect(results)
+      .toHaveCount(0)
+      .expect(data("search-match"))
+      .toHaveCount(0);
+  }),
+);
 
-it("keys other than the arrows, Enter and Escape are left to the input", () => {
-  scene(
-    { update, view },
-    given(loaded),
-    mounted,
-    typed("t43"),
-    scrolledSearchResult,
-    pressed("a"),
-    expectIgnored(),
-    pressed("Tab"),
-    expectIgnored(),
-    expect(searchBox).toHaveAttr("aria-expanded", "true"),
-  );
-});
+it.effect("keys other than the arrows, Enter and Escape are left to the input", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(loaded);
+    s.pipe(readerMounted, typed("t43"), scrolledSearchResult, pressed("a"))
+      .expectIgnored()
+      .pipe(pressed("Tab"))
+      .expectIgnored()
+      .expect(searchBox)
+      .toHaveAttribute("aria-expanded", "true");
+  }),
+);
 
-it("a typo finds the section it aimed at", () => {
-  const found = searchTrace(demoTrace, "judgmnt");
-  scene(
-    { update, view },
-    given(loaded),
-    mounted,
-    typed("judgmnt"),
-    scrolledSearchResult,
-    expect(status).toHaveText(`${found.length} results.`),
-  );
-});
+it.effect("a typo finds the section it aimed at", () =>
+  Effect.gen(function* () {
+    const found = searchTrace(demoTrace, "judgmnt");
+    const s = yield* viewerScene(loaded);
+    s.pipe(readerMounted, typed("judgmnt"), scrolledSearchResult)
+      .expect(status)
+      .toHaveText(`${found.length} results.`);
+  }),
+);

@@ -1,19 +1,7 @@
 import { PrdSectionId, type TraceTask } from "@cairn/contract";
-import { expect as assert, it } from "@effect/vitest";
-import { Array, HashSet, Option, Record, String } from "effect";
-import {
-  Mount,
-  all,
-  expect,
-  expectAll,
-  focus,
-  given,
-  hover,
-  scene,
-  selector,
-  Subscription,
-} from "foldkit/scene";
-import { Lazy } from "foldkit/test";
+import { assert, expect, it } from "@effect/vitest";
+import { vi } from "vitest";
+import { Array, Effect, HashSet, Option, Record, String } from "effect";
 import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
@@ -22,13 +10,27 @@ import { Message } from "../src/message.ts";
 import { Screen } from "../src/model.ts";
 import { cardsOf, type Cards } from "../src/reader.ts";
 import { chainOf } from "../src/trace.ts";
-import { update } from "../src/update.ts";
-import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
-import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
-import { view } from "../src/view/view.ts";
-import { MeasureWires } from "../src/view/wiresView.ts";
+import { CopySectionId } from "../src/update.ts";
 import { linksOf, rowKey, specKey, taskKey, type Measured, type Panes } from "../src/wires.ts";
-import { loaded, sequence } from "./fixtures.ts";
+import {
+  both,
+  data,
+  dividersRunning,
+  forEachStep,
+  inside,
+  loaded,
+  nodesWithAttr,
+  prdScrolledTo,
+  resolved,
+  sameNodes,
+  stacksScrolled,
+  styleDeclaring,
+  tag,
+  unmeasuredWires,
+  viewerScene,
+  type ViewerSteps,
+  wiresMeasuredAs,
+} from "./fixtures.ts";
 
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 
@@ -66,28 +68,24 @@ const keysOf = (links: ReadonlyArray<{ source: string; target: string }>) =>
 const prd = (id: string) => PrdSectionId.make(id);
 
 /** The reader on the section, with its mounts answered: the pane found it at the top, and the body measured `measured`. */
-const opened = (id: string, measured: Measured) =>
-  [
-    Mount.resolveAll(
-      [TrackPrdScroll, Message.ScrolledPrd({ id: prd(id) })],
-      [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
-      [MeasureWires, Message.MeasuredWires({ measured })],
-    ),
-  ] as const;
+const opened = (id: string, measured: Measured) => (s: ViewerSteps) =>
+  s.pipe(dividersRunning, prdScrolledTo(id), stacksScrolled, wiresMeasuredAs(measured));
 
-/** The pointer or focus leaves a node. Scene's blur step reads DOM globals this environment lacks, so send what OnBlur sends. */
-const left = Subscription.emit(Message.LeftNode());
-
-const wireLayer = "[data-wire-layer]";
-const paths = all.selector(`${wireLayer} path`);
+const wireLayer = data("wire-layer");
+const paths = inside(wireLayer, tag("path"));
 const pathOf = (source: string, target: string) =>
-  selector(`${wireLayer} path[data-wire-source="${source}"][data-wire-target="${target}"]`);
-const lit = all.selector(`${wireLayer} path[data-lit]`);
-const faint = all.selector(`${wireLayer} path[data-dimmed]`);
-const dimmedCards = all.selector("[data-spec-pane] [data-spec][data-dimmed]");
-const header = (id: string) => selector(`[data-spec="${id}"] [data-wire="${specKey(id)}"]`);
-const row = (spec: string, id: string) => selector(`[data-wire="${rowKey(spec, id)}"]`);
-const chip = (id: string) => selector(`[data-stacks-pane] [data-wire="${taskKey(id)}"]`);
+  inside(
+    wireLayer,
+    both(both(tag("path"), data("wire-source", source)), data("wire-target", target)),
+  );
+const lit = inside(wireLayer, both(tag("path"), data("lit")));
+const faint = inside(wireLayer, both(tag("path"), data("dimmed")));
+const dimmedCards = inside(data("spec-pane"), both(data("spec"), data("dimmed")));
+const anyDimmed = data("dimmed");
+const specCard = (id: string) => data("spec", id);
+const header = (id: string) => inside(specCard(id), data("wire", specKey(id)));
+const row = (spec: string, id: string) => data("wire", rowKey(spec, id));
+const chip = (id: string) => inside(data("stacks-pane"), data("wire", taskKey(id)));
 
 interface Example {
   readonly prd: PrdSectionId;
@@ -144,220 +142,299 @@ const links = linksOf(example.prd, example.cards);
 const everything = measuredFor(keysOf(links));
 
 it("the example is a section with two cards, a task one lists and a neighbour in that card", () => {
-  assert(Array.length(example.cards.cards)).toBeGreaterThanOrEqual(2);
-  assert(Array.isReadonlyArrayNonEmpty(links)).toBe(true);
-  assert(example.task.id).not.toBe(example.neighbour.id);
+  expect(Array.length(example.cards.cards)).toBeGreaterThanOrEqual(2);
+  expect(Array.isReadonlyArrayNonEmpty(links)).toBe(true);
+  expect(example.task.id).not.toBe(example.neighbour.id);
 });
 
-it("the elements a curve ends on carry their keys in data-wire", () => {
-  const first = Option.getOrThrow(Array.head(example.cards.cards));
-  scene(
-    { update, view },
-    given(
+it.effect("the elements a curve ends on carry their keys in data-wire", () =>
+  Effect.gen(function* () {
+    const first = Option.getOrThrow(Array.head(example.cards.cards));
+    const s = yield* viewerScene(
       modifyFields(reading, {
         reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(example.prd) }),
       }),
-    ),
-    ...opened(example.prd, everything),
-    expect(selector(`[data-prd-pane] [data-section="${example.prd}"]`)).toHaveAttr(
-      "data-wire",
-      `prd:${example.prd}`,
-    ),
-    expect(header(first.section.id)).toExist(),
-    ...Array.map(first.tasks, (task) => expect(row(first.section.id, task.id)).toExist()),
-    ...Array.map(first.tasks, (task) => expect(chip(task.id)).toExist()),
-    expectAll(all.selector("[data-prd-pane] [data-wire]")).toHaveCount(1),
-  );
+    );
+    s.pipe(opened(example.prd, everything))
+      .expect(inside(data("prd-pane"), data("section", example.prd)))
+      .toHaveAttribute("data-wire", `prd:${example.prd}`)
+      .expect(header(first.section.id))
+      .toExist()
+      .pipe(
+        forEachStep(first.tasks, (step, task) =>
+          step.expect(row(first.section.id, task.id)).toExist(),
+        ),
+        forEachStep(first.tasks, (step, task) => step.expect(chip(task.id)).toExist()),
+      )
+      .expect(inside(data("prd-pane"), data("wire")))
+      .toHaveCount(1);
+  }),
+);
+
+it.effect("with every end measured, there is one path for each link of the section", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(reading);
+    s.pipe(opened(example.prd, everything))
+      .expect(paths)
+      .toHaveCount(Array.length(links))
+      .expect(wireLayer)
+      .toHaveAttribute("aria-hidden", "true")
+      .expect(wireLayer)
+      .toHaveAttribute("style", styleDeclaring("pointer-events", "none"))
+      .expect(wireLayer)
+      .toHaveAttribute("style", styleDeclaring("position", "fixed"))
+      .pipe(
+        forEachStep(links, (step, link) => step.expect(pathOf(link.source, link.target)).toExist()),
+      )
+      .expect(lit)
+      .toHaveCount(0)
+      .expect(faint)
+      .toHaveCount(0)
+      .expect(dimmedCards)
+      .toHaveCount(0)
+      .expect(anyDimmed)
+      .toHaveCount(0);
+  }),
+);
+
+it.effect(
+  "a link whose end is not measured has no path, and nothing is drawn before anything is measured",
+  () =>
+    Effect.gen(function* () {
+      const unmeasured = Option.getOrThrow(Array.head(links));
+      const missing: Measured = {
+        boxes: Record.remove(everything.boxes, unmeasured.target),
+        panes,
+      };
+      const partly = yield* viewerScene(reading);
+      partly
+        .pipe(opened(example.prd, missing))
+        .expect(paths)
+        .toHaveCount(Array.length(links) - 1)
+        .expect(pathOf(unmeasured.source, unmeasured.target))
+        .toBeAbsent();
+      const none = yield* viewerScene(reading);
+      none
+        .pipe(opened(example.prd, { boxes: {}, panes }))
+        .expect(paths)
+        .toHaveCount(0);
+    }),
+);
+
+it.effect("a curve whose end was scrolled out of its pane is dashed, and the rest are not", () =>
+  Effect.gen(function* () {
+    const hidden = taskKey(example.task.id);
+    const scrolled: Measured = {
+      boxes: Record.map(everything.boxes, (box, key) =>
+        key === hidden ? modifyFields(box, { y: () => panes.stacks.y - 500 }) : box,
+      ),
+      panes,
+    };
+    const hiddenPath = pathOf(rowKey(example.spec, example.task.id), hidden);
+    const shownPath = pathOf(
+      rowKey(example.spec, example.neighbour.id),
+      taskKey(example.neighbour.id),
+    );
+    const s = yield* viewerScene(reading);
+    s.pipe(opened(example.prd, scrolled))
+      .expect(hiddenPath)
+      .toHaveAttribute("data-off-pane", "true")
+      .expect(hiddenPath)
+      .toHaveAttribute("style", styleDeclaring("stroke-dasharray", "5 4"))
+      .expect(shownPath)
+      .toHaveAttribute("data-off-pane", "false")
+      .expect(shownPath)
+      .toHaveAttribute("style", styleDeclaring("stroke-dasharray", "none"))
+      .expect(inside(wireLayer, both(tag("path"), data("off-pane", "true"))))
+      .toHaveCount(1);
+  }),
+);
+
+it.effect(
+  "hovering a row lights its two wires and dims the cards, rows and chips outside its chain",
+  () =>
+    Effect.gen(function* () {
+      const inChain = chainOf(demoTrace, { id: example.task.id, kind: "task" });
+      const stranger = Option.getOrThrow(
+        Array.findFirst(demoTrace.tasks, (task) => !HashSet.has(inChain.tasks, task.id)),
+      );
+      const hoveredRow = row(example.spec, example.task.id);
+      const hoveredPath = pathOf(rowKey(example.spec, example.task.id), taskKey(example.task.id));
+      const s = yield* viewerScene(reading);
+      s.pipe(opened(example.prd, everything))
+        .fire(hoveredRow, "mouseenter")
+        .expect(lit)
+        .toHaveCount(2)
+        .expect(pathOf(`prd:${example.prd}`, specKey(example.spec)))
+        .toHaveAttribute("data-lit", "")
+        .expect(hoveredPath)
+        .toHaveAttribute("data-lit", "")
+        .expect(hoveredPath)
+        .toHaveAttribute("style", styleDeclaring("stroke-width", "2.5"))
+        .expect(hoveredPath)
+        .toHaveAttribute("style", styleDeclaring("stroke", "var(--ink)"))
+        .expect(faint)
+        .toHaveCount(Array.length(links) - 2)
+        .expect(pathOf(`prd:${example.prd}`, specKey(example.other)))
+        .toHaveAttribute("data-dimmed", "")
+        .expect(pathOf(`prd:${example.prd}`, specKey(example.other)))
+        .toHaveAttribute("style", styleDeclaring("stroke-width", "1.5"))
+        .expect(specCard(example.other))
+        .toHaveAttribute("data-dimmed", "")
+        .expect(specCard(example.spec))
+        .toHaveAttribute("data-dimmed", false)
+        .expect(hoveredRow)
+        .toHaveAttribute("data-dimmed", false)
+        .expect(row(example.spec, example.neighbour.id))
+        .toHaveAttribute("data-dimmed", "")
+        .expect(chip(example.task.id))
+        .toHaveAttribute("data-dimmed", false)
+        .expect(chip(stranger.id))
+        .toHaveAttribute("data-dimmed", "")
+        .fire(hoveredRow, "mouseleave")
+        .expect(lit)
+        .toHaveCount(0)
+        .expect(faint)
+        .toHaveCount(0)
+        .expect(anyDimmed)
+        .toHaveCount(0)
+        .expect(chip(stranger.id))
+        .toHaveAttribute("data-dimmed", false);
+    }),
+);
+
+it.effect("focusing a chip lights the same chain as hovering it", () =>
+  Effect.gen(function* () {
+    // Foldkit's focus and blur handlers test their target with `instanceof Element`, which this
+    // environment has no global for; with a stand-in nothing is an Element, and they send their Message.
+    yield* Effect.acquireRelease(
+      Effect.sync(() => vi.stubGlobal("Element", Object)),
+      () => Effect.sync(() => vi.unstubAllGlobals()),
+    );
+    const s = yield* viewerScene(reading);
+    s.pipe(opened(example.prd, everything))
+      .focus(chip(example.task.id))
+      .expect(lit)
+      .toHaveCount(2)
+      .expect(specCard(example.other))
+      .toHaveAttribute("data-dimmed", "")
+      .expect(row(example.spec, example.neighbour.id))
+      .toHaveAttribute("data-dimmed", "")
+      .blur(chip(example.task.id))
+      .expect(lit)
+      .toHaveCount(0);
+  }),
+);
+
+it.effect(
+  "hovering a card's header lights the curve to it and the curves of the tasks it holds",
+  () =>
+    Effect.gen(function* () {
+      const card = Option.getOrThrow(Array.head(example.cards.cards));
+      const s = yield* viewerScene(reading);
+      s.pipe(opened(example.prd, everything))
+        .fire(header(card.section.id), "mouseenter")
+        .expect(pathOf(`prd:${example.prd}`, specKey(card.section.id)))
+        .toHaveAttribute("data-lit", "")
+        .pipe(
+          forEachStep(card.tasks, (step, task) =>
+            step
+              .expect(pathOf(rowKey(card.section.id, task.id), taskKey(task.id)))
+              .toHaveAttribute("data-lit", ""),
+          ),
+        )
+        .expect(pathOf(`prd:${example.prd}`, specKey(example.other)))
+        .toHaveAttribute("data-dimmed", "")
+        .expect(specCard(example.other))
+        .toHaveAttribute("data-dimmed", "")
+        .expect(specCard(card.section.id))
+        .toHaveAttribute("data-dimmed", false)
+        .fire(header(card.section.id), "mouseleave")
+        .expect(faint)
+        .toHaveCount(0);
+    }),
+);
+
+// Foldkit's `Lazy.expectAllReused` has no Effect UI equivalent. A lazy slot (the PRD body, each spec
+// card) hands the bridge the VNode of the last render when its inputs are the same, and the bridge
+// hands back the node it converted for it, so a slot was reused when the same node object stands in
+// both renders, and rebuilt when it does not.
+const prdBodies = (view: ViewerSteps["view"]) => nodesWithAttr(view, "class", "prd-body");
+const cardNodes = (view: ViewerSteps["view"]) => nodesWithAttr(view, "data-spec");
+
+const pinned = modifyFields(reading, {
+  reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(example.prd) }),
 });
 
-it("with every end measured, there is one path for each link of the section", () => {
-  scene(
-    { update, view },
-    given(reading),
-    ...opened(example.prd, everything),
-    expectAll(paths).toHaveCount(Array.length(links)),
-    expect(selector(wireLayer)).toHaveAttr("aria-hidden", "true"),
-    expect(selector(wireLayer)).toHaveStyle("pointer-events", "none"),
-    expect(selector(wireLayer)).toHaveStyle("position", "fixed"),
-    ...Array.map(links, (link) => expect(pathOf(link.source, link.target)).toExist()),
-    expectAll(lit).toHaveCount(0),
-    expectAll(faint).toHaveCount(0),
-    expectAll(dimmedCards).toHaveCount(0),
-    expectAll(all.selector("[data-dimmed]")).toHaveCount(0),
-  );
-});
+/** The pinned section's reader, its mounts answered with nothing measured. */
+const pinnedReader = Effect.map(viewerScene(pinned), (s) =>
+  s.pipe(opened(example.prd, unmeasuredWires)),
+);
 
-it("a link whose end is not measured has no path, and nothing is drawn before anything is measured", () => {
-  const unmeasured = Option.getOrThrow(Array.head(links));
-  const missing: Measured = {
-    boxes: Record.remove(everything.boxes, unmeasured.target),
-    panes,
-  };
-  scene(
-    { update, view },
-    given(reading),
-    ...opened(example.prd, missing),
-    expectAll(paths).toHaveCount(Array.length(links) - 1),
-    expect(pathOf(unmeasured.source, unmeasured.target)).toBeAbsent(),
-  );
-  scene(
-    { update, view },
-    given(reading),
-    ...opened(example.prd, { boxes: {}, panes }),
-    expectAll(paths).toHaveCount(0),
-  );
-});
-
-it("a curve whose end was scrolled out of its pane is dashed, and the rest are not", () => {
-  const hidden = taskKey(example.task.id);
-  const scrolled: Measured = {
-    boxes: Record.map(everything.boxes, (box, key) =>
-      key === hidden ? modifyFields(box, { y: () => panes.stacks.y - 500 }) : box,
-    ),
-    panes,
-  };
-  scene(
-    { update, view },
-    given(reading),
-    ...opened(example.prd, scrolled),
-    expect(pathOf(rowKey(example.spec, example.task.id), hidden)).toHaveAttr(
-      "data-off-pane",
-      "true",
-    ),
-    expect(pathOf(rowKey(example.spec, example.task.id), hidden)).toHaveStyle(
-      "stroke-dasharray",
-      "5 4",
-    ),
-    expect(
-      pathOf(rowKey(example.spec, example.neighbour.id), taskKey(example.neighbour.id)),
-    ).toHaveAttr("data-off-pane", "false"),
-    expect(
-      pathOf(rowKey(example.spec, example.neighbour.id), taskKey(example.neighbour.id)),
-    ).toHaveStyle("stroke-dasharray", "none"),
-    expectAll(all.selector(`${wireLayer} path[data-off-pane="true"]`)).toHaveCount(1),
-  );
-});
-
-it("hovering a row lights its two wires and dims the cards, rows and chips outside its chain", () => {
-  const inChain = chainOf(demoTrace, { id: example.task.id, kind: "task" });
-  const stranger = Option.getOrThrow(
-    Array.findFirst(demoTrace.tasks, (task) => !HashSet.has(inChain.tasks, task.id)),
-  );
-  scene(
-    { update, view },
-    given(reading),
-    ...opened(example.prd, everything),
-    hover(row(example.spec, example.task.id)),
-    expectAll(lit).toHaveCount(2),
-    expect(pathOf(`prd:${example.prd}`, specKey(example.spec))).toHaveAttr("data-lit", ""),
-    expect(pathOf(rowKey(example.spec, example.task.id), taskKey(example.task.id))).toHaveAttr(
-      "data-lit",
-      "",
-    ),
-    expect(pathOf(rowKey(example.spec, example.task.id), taskKey(example.task.id))).toHaveStyle(
-      "stroke-width",
-      "2.5",
-    ),
-    expect(pathOf(rowKey(example.spec, example.task.id), taskKey(example.task.id))).toHaveStyle(
-      "stroke",
-      "var(--ink)",
-    ),
-    expectAll(faint).toHaveCount(Array.length(links) - 2),
-    expect(pathOf(`prd:${example.prd}`, specKey(example.other))).toHaveAttr("data-dimmed", ""),
-    expect(pathOf(`prd:${example.prd}`, specKey(example.other))).toHaveStyle("stroke-width", "1.5"),
-    expect(selector(`[data-spec="${example.other}"]`)).toHaveAttr("data-dimmed", ""),
-    expect(selector(`[data-spec="${example.spec}"]`)).not.toHaveAttr("data-dimmed"),
-    expect(row(example.spec, example.task.id)).not.toHaveAttr("data-dimmed"),
-    expect(row(example.spec, example.neighbour.id)).toHaveAttr("data-dimmed", ""),
-    expect(chip(example.task.id)).not.toHaveAttr("data-dimmed"),
-    expect(chip(stranger.id)).toHaveAttr("data-dimmed", ""),
-    left,
-    expectAll(lit).toHaveCount(0),
-    expectAll(faint).toHaveCount(0),
-    expectAll(all.selector("[data-dimmed]")).toHaveCount(0),
-    expect(chip(stranger.id)).not.toHaveAttr("data-dimmed"),
-  );
-});
-
-it("focusing a chip lights the same chain as hovering it", () => {
-  scene(
-    { update, view },
-    given(reading),
-    ...opened(example.prd, everything),
-    focus(chip(example.task.id)),
-    expectAll(lit).toHaveCount(2),
-    expect(selector(`[data-spec="${example.other}"]`)).toHaveAttr("data-dimmed", ""),
-    expect(row(example.spec, example.neighbour.id)).toHaveAttr("data-dimmed", ""),
-    left,
-    expectAll(lit).toHaveCount(0),
-  );
-});
-
-it("hovering a card's header lights the curve to it and the curves of the tasks it holds", () => {
-  const card = Option.getOrThrow(Array.head(example.cards.cards));
-  scene(
-    { update, view },
-    given(reading),
-    ...opened(example.prd, everything),
-    hover(header(card.section.id)),
-    expect(pathOf(`prd:${example.prd}`, specKey(card.section.id))).toHaveAttr("data-lit", ""),
-    ...Array.map(card.tasks, (task) =>
-      expect(pathOf(rowKey(card.section.id, task.id), taskKey(task.id))).toHaveAttr("data-lit", ""),
-    ),
-    expect(pathOf(`prd:${example.prd}`, specKey(example.other))).toHaveAttr("data-dimmed", ""),
-    expect(selector(`[data-spec="${example.other}"]`)).toHaveAttr("data-dimmed", ""),
-    expect(selector(`[data-spec="${card.section.id}"]`)).not.toHaveAttr("data-dimmed"),
-    left,
-    expectAll(faint).toHaveCount(0),
-  );
-});
-
-it("a measurement renders the wires again and nothing else", () => {
-  const pinned = modifyFields(reading, {
-    reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(example.prd) }),
-  });
-  const measured = modifyFields(pinned, { maybeMeasuredWires: () => Option.some(everything) });
-  const remeasured = modifyFields(pinned, {
-    maybeMeasuredWires: () =>
-      Option.some({
+it.effect("a measurement renders the wires again and nothing else", () =>
+  Effect.gen(function* () {
+    const s = yield* pinnedReader;
+    const cardsBefore = cardNodes(s.view);
+    const bodiesBefore = prdBodies(s.view);
+    s.pipe(
+      wiresMeasuredAs(everything),
+      wiresMeasuredAs({
         boxes: Record.map(everything.boxes, (box) => modifyFields(box, { y: (y) => y + 1 })),
         panes,
       }),
-  });
-  assert(() =>
-    Lazy.expectAllReused({ model: measured, view: sequence([measured, remeasured]) }),
-  ).not.toThrow();
-});
+    );
+    assert.isAbove(Array.length(cardsBefore), 0);
+    assert.lengthOf(bodiesBefore, 1);
+    assert.isTrue(sameNodes(cardsBefore, cardNodes(s.view)));
+    assert.isTrue(sameNodes(bodiesBefore, prdBodies(s.view)));
+  }),
+);
 
-it("the PRD body is one lazy slot: it is rebuilt when the copied ID changes, and not by a measurement", () => {
-  const bare = Option.getOrThrow(
-    Array.findFirst(
-      demoTrace.prd.sections,
-      (section) =>
-        section.level > 1 && Array.isReadonlyArrayEmpty(cardsOf(demoTrace, prd(section.id)).cards),
-    ),
-  );
-  const pinned = modifyFields(reading, {
-    reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(prd(bare.id)) }),
-  });
-  const copied = modifyFields(pinned, { maybeCopied: () => Option.some(prd(bare.id)) });
-  const measured = modifyFields(pinned, { maybeMeasuredWires: () => Option.some(everything) });
-  assert(() =>
-    Lazy.expectAllReused({ model: pinned, view: sequence([pinned, measured]) }),
-  ).not.toThrow();
-  assert(() => Lazy.expectAllReused({ model: pinned, view: sequence([pinned, copied]) })).toThrow(
-    "1 lazy cache miss on the second render",
-  );
-});
+it.effect(
+  "the PRD body is one lazy slot: it is rebuilt when the copied ID changes, and not by a measurement",
+  () =>
+    Effect.gen(function* () {
+      const bare = Option.getOrThrow(
+        Array.findFirst(
+          demoTrace.prd.sections,
+          (section) =>
+            section.level > 1 &&
+            Array.isReadonlyArrayEmpty(cardsOf(demoTrace, prd(section.id)).cards),
+        ),
+      );
+      const reader = Effect.map(
+        viewerScene(
+          modifyFields(reading, {
+            reader: (each) => modifyFields(each, { maybePinned: () => Option.some(prd(bare.id)) }),
+          }),
+        ),
+        (s) => s.pipe(opened(bare.id, unmeasuredWires)),
+      );
+      const measuring = yield* reader;
+      const bodyBefore = prdBodies(measuring.view);
+      measuring.pipe(wiresMeasuredAs(everything));
+      assert.lengthOf(bodyBefore, 1);
+      assert.isTrue(sameNodes(bodyBefore, prdBodies(measuring.view)));
+      const copying = yield* reader;
+      const bodyBeforeCopy = prdBodies(copying.view);
+      copying
+        .click(data("section-id", bare.id))
+        .pipe(
+          resolved(
+            CopySectionId,
+            Message.CompletedCopySectionId({ id: prd(bare.id), isCopied: true }),
+          ),
+        );
+      assert.isFalse(sameNodes(bodyBeforeCopy, prdBodies(copying.view)));
+    }),
+);
 
-it("hovering rebuilds the cards, which it dims", () => {
-  const pinned = modifyFields(reading, {
-    reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(example.prd) }),
-  });
-  const hovered = modifyFields(pinned, {
-    maybeHovered: () => Option.some({ id: example.task.id, kind: "task" as const }),
-  });
-  assert(() => Lazy.expectAllReused({ model: pinned, view: sequence([pinned, hovered]) })).toThrow(
-    "ArgumentsChanged",
-  );
-});
+it.effect("hovering rebuilds the cards, which it dims", () =>
+  Effect.gen(function* () {
+    const s = yield* pinnedReader;
+    const cardsBefore = cardNodes(s.view);
+    s.fire(chip(example.task.id), "mouseenter");
+    assert.isAbove(Array.length(cardsBefore), 0);
+    assert.isFalse(sameNodes(cardsBefore, cardNodes(s.view)));
+  }),
+);

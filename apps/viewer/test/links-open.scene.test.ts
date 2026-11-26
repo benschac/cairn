@@ -1,7 +1,6 @@
 import { LinesStep, PrdSectionId, SpecSectionId, Step } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Option, Order, Result, Schema, String, pipe } from "effect";
-import { Mount, all, click, expect, expectAll, given, scene, selector } from "foldkit/scene";
+import { Array, Effect, Option, Order, Result, Schema, String, pipe } from "effect";
 import { modifyFields } from "foldkit/struct";
 
 import { stackBoxesOf } from "../src/boxes.ts";
@@ -12,14 +11,20 @@ import { Message } from "../src/message.ts";
 import { Screen } from "../src/model.ts";
 import { indexOf } from "../src/search.ts";
 import { openLink, update } from "../src/update.ts";
-import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
-import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
-import { view } from "../src/view/view.ts";
-import { MeasureWires } from "../src/view/wiresView.ts";
 import commitPatch from "./fixtures/commit.patch?raw";
-import { loaded, unmeasuredWires } from "./fixtures.ts";
-
-const app = { update, view };
+import {
+  both,
+  containing,
+  data,
+  inside,
+  loaded,
+  readerMounted,
+  tag,
+  viewerScene,
+  withClass,
+  type ViewerSteps,
+} from "./fixtures.ts";
+import { viewerBridge } from "../src/app.ts";
 const decodeStep = Schema.decodeUnknownSync(Step);
 const decodeLines = Schema.decodeUnknownSync(LinesStep);
 const isPrdSection = Schema.is(PrdSectionId);
@@ -69,66 +74,54 @@ const passageStep = ({ section, words }: typeof prdPassage) => ({
   section,
 });
 
-const readerMounted = Mount.resolveAll(
-  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-  [TrackPrdScroll, Message.ScrolledPrd({ id: PrdSectionId.make("prd.goal") })],
-  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-  [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
-  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-  [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
+const passageMark = both(tag("mark"), data("link-passage"));
+const prdMarks = inside(data("prd-pane"), passageMark);
+const specMarks = inside(data("spec-pane"), passageMark);
+
+it.effect("a PRD passage is underlined in the PRD pane, and nowhere else", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(linked([passageStep(prdPassage)]));
+    s.pipe(readerMounted)
+      .expect(prdMarks)
+      .toHaveText(containing(Option.getOrThrow(Array.head(prdPassage.words))))
+      .expect(specMarks)
+      .toHaveCount(0);
+  }),
 );
 
-const prdMarks = all.selector("[data-prd-pane] mark[data-link-passage]");
-const specMarks = all.selector("[data-spec-pane] mark[data-link-passage]");
+it.effect("a spec passage is underlined in its open card, and not in the PRD pane", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(linked([passageStep(specPassage)]));
+    s.pipe(readerMounted)
+      .expect(specMarks)
+      .toHaveText(containing(Option.getOrThrow(Array.head(specPassage.words))))
+      .expect(prdMarks)
+      .toHaveCount(0);
+  }),
+);
 
-it("a PRD passage is underlined in the PRD pane, and nowhere else", () => {
-  scene(
-    app,
-    given(linked([passageStep(prdPassage)])),
-    readerMounted,
-    expect(selector("[data-prd-pane] mark[data-link-passage]")).toContainText(
-      Option.getOrThrow(Array.head(prdPassage.words)),
-    ),
-    expectAll(specMarks).toBeEmpty(),
-  );
-});
+it.effect("a link with no passage marks no text", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(linked([{ id: prdPassage.section, kind: "section" }]));
+    s.pipe(readerMounted).expect(passageMark).toBeAbsent();
+  }),
+);
 
-it("a spec passage is underlined in its open card, and not in the PRD pane", () => {
-  scene(
-    app,
-    given(linked([passageStep(specPassage)])),
-    readerMounted,
-    expect(selector("[data-spec-pane] mark[data-link-passage]")).toContainText(
-      Option.getOrThrow(Array.head(specPassage.words)),
-    ),
-    expectAll(prdMarks).toBeEmpty(),
-  );
-});
-
-it("a link with no passage marks no text", () => {
-  scene(
-    app,
-    given(linked([{ id: prdPassage.section, kind: "section" }])),
-    readerMounted,
-    expect(selector("mark[data-link-passage]")).toBeAbsent(),
-  );
-});
-
-it("a search mark inside the passage still shows, inside the passage's mark", () => {
-  const word = Option.getOrThrow(
-    Array.last(Array.sort(prdPassage.words, Order.mapInput(Order.Number, String.length))),
-  );
-  const searching = update(
-    linked([passageStep(prdPassage)]),
-    Message.ChangedSearchQuery({ query: word }),
-  ).model;
-  scene(
-    app,
-    given(searching),
-    readerMounted,
-    expect(selector("mark[data-link-passage] mark[data-search-match]")).toExist(),
-  );
-});
+it.effect("a search mark inside the passage still shows, inside the passage's mark", () =>
+  Effect.gen(function* () {
+    const word = Option.getOrThrow(
+      Array.last(Array.sort(prdPassage.words, Order.mapInput(Order.Number, String.length))),
+    );
+    const searching = update(
+      linked([passageStep(prdPassage)]),
+      Message.ChangedSearchQuery({ query: word }),
+    ).model;
+    const s = yield* viewerScene(searching);
+    s.pipe(readerMounted)
+      .expect(inside(passageMark, data("search-match")))
+      .toExist();
+  }),
+);
 
 // A FOCUSED STACK AND SEGMENT
 
@@ -137,60 +130,75 @@ const withTrunk = Option.getOrThrow(
 );
 const { stack: boxStack } = withTrunk;
 const trunk = Option.getOrThrow(withTrunk.maybeTrunk);
-const linkedBoxes = all.selector("[data-stacks-pane] [data-stack][data-linked]");
-const linkedChips = all.selector("[data-stacks-pane] .chip[data-linked]");
-const linkedSegments = all.selector("[data-stacks-pane] [data-segment][data-linked]");
-const boxSelector = selector(`[data-stacks-pane] [data-stack="${boxStack.number}"]`);
-const segmentSelector = selector(`[data-stacks-pane] [data-segment="${trunk.root}"]`);
+const stacksPane = data("stacks-pane");
+const linkedBoxes = inside(stacksPane, both(data("stack"), data("linked")));
+const linkedChips = inside(stacksPane, both(withClass("chip"), data("linked")));
+const linkedSegments = inside(stacksPane, both(data("segment"), data("linked")));
+const boxSelector = inside(stacksPane, data("stack", `${boxStack.number}`));
+const segmentSelector = inside(stacksPane, data("segment", trunk.root));
 
-it("a stack's box is marked linked, and no other box, segment or chip is", () => {
-  scene(
-    app,
-    given(linked([{ kind: "stack", root: boxStack.root }])),
-    readerMounted,
-    expect(boxSelector).toHaveAttr("data-linked", ""),
-    expectAll(linkedBoxes).toHaveCount(1),
-    expectAll(linkedSegments).toBeEmpty(),
-    expectAll(linkedChips).toBeEmpty(),
-  );
-});
+it.effect("a stack's box is marked linked, and no other box, segment or chip is", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(linked([{ kind: "stack", root: boxStack.root }]));
+    s.pipe(readerMounted)
+      .expect(boxSelector)
+      .toHaveAttribute("data-linked", "")
+      .expect(linkedBoxes)
+      .toHaveCount(1)
+      .expect(linkedSegments)
+      .toHaveCount(0)
+      .expect(linkedChips)
+      .toHaveCount(0);
+  }),
+);
 
-it("a segment marks its box and the segment while the trunk is folded, and no chip", () => {
-  scene(
-    app,
-    given(linked([{ kind: "segment", root: boxStack.root }])),
-    readerMounted,
-    expect(segmentSelector).toHaveAttr("aria-expanded", "false"),
-    expect(boxSelector).toHaveAttr("data-linked", ""),
-    expect(segmentSelector).toHaveAttr("data-linked", ""),
-    expectAll(linkedBoxes).toHaveCount(1),
-    expectAll(linkedSegments).toHaveCount(1),
-    expectAll(linkedChips).toBeEmpty(),
-  );
-});
+it.effect("a segment marks its box and the segment while the trunk is folded, and no chip", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(linked([{ kind: "segment", root: boxStack.root }]));
+    s.pipe(readerMounted)
+      .expect(segmentSelector)
+      .toHaveAttribute("aria-expanded", "false")
+      .expect(boxSelector)
+      .toHaveAttribute("data-linked", "")
+      .expect(segmentSelector)
+      .toHaveAttribute("data-linked", "")
+      .expect(linkedBoxes)
+      .toHaveCount(1)
+      .expect(linkedSegments)
+      .toHaveCount(1)
+      .expect(linkedChips)
+      .toHaveCount(0);
+  }),
+);
 
-it("a segment marks its box and the chips of its trunk once it is unfolded, not the segment", () => {
-  scene(
-    app,
-    given(linked([{ kind: "segment", root: boxStack.root }])),
-    readerMounted,
-    click(segmentSelector),
-    expect(segmentSelector).toHaveAttr("aria-expanded", "true"),
-    expect(boxSelector).toHaveAttr("data-linked", ""),
-    expectAll(linkedBoxes).toHaveCount(1),
-    expectAll(linkedSegments).toBeEmpty(),
-    expectAll(linkedChips).toHaveCount(Array.length(trunk.tasks)),
-  );
-});
+it.effect(
+  "a segment marks its box and the chips of its trunk once it is unfolded, not the segment",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(linked([{ kind: "segment", root: boxStack.root }]));
+      s.pipe(readerMounted)
+        .click(segmentSelector)
+        .expect(segmentSelector)
+        .toHaveAttribute("aria-expanded", "true")
+        .expect(boxSelector)
+        .toHaveAttribute("data-linked", "")
+        .expect(linkedBoxes)
+        .toHaveCount(1)
+        .expect(linkedSegments)
+        .toHaveCount(0)
+        .expect(linkedChips)
+        .toHaveCount(Array.length(trunk.tasks));
+    }),
+);
 
-it("a link with no focus marks no box", () => {
-  scene(
-    app,
-    given(linked([{ id: prdPassage.section, kind: "section" }])),
-    readerMounted,
-    expect(selector("[data-stacks-pane] [data-linked]")).toBeAbsent(),
-  );
-});
+it.effect("a link with no focus marks no box", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(linked([{ id: prdPassage.section, kind: "section" }]));
+    s.pipe(readerMounted)
+      .expect(inside(stacksPane, data("linked")))
+      .toBeAbsent();
+  }),
+);
 
 // THE LINES OF A DIFF
 
@@ -215,31 +223,29 @@ const diffOf = (steps: ReadonlyArray<unknown>) =>
     Message.ReceivedPatch({ path: diffPathOf(base, head), result: Result.succeed(commitPatch) }),
   ).model;
 
-const drawn = Mount.resolve(
-  RenderDiff,
-  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-  Message.CompletedRenderDiff(),
-);
+/** The diff mount answering, as the page's diff renderer does. */
+const drawn = (s: ViewerSteps) =>
+  s.mounted(viewerBridge.mountOf(RenderDiff), Message.CompletedRenderDiff());
 
-it("the diff mount holds the lines a link selected, as the link writes them", () => {
-  scene(
-    app,
-    given(
+it.effect("the diff mount holds the lines a link selected, as the link writes them", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
       diffOf([
         { kind: "file", path: FILE },
         { end: 3, kind: "lines", side: "new", start: 1 },
       ]),
-    ),
-    drawn,
-    expect(selector("[data-patch-path]")).toHaveAttr("data-lines", "n1-3"),
-    expect(selector("[data-patch-path]")).toHaveAttr("data-file", FILE),
-  );
-});
+    );
+    s.pipe(drawn)
+      .expect(data("patch-path"))
+      .toHaveAttribute("data-lines", "n1-3")
+      .expect(data("patch-path"))
+      .toHaveAttribute("data-file", FILE);
+  }),
+);
 
-it("a line on the old side is written with its side", () => {
-  scene(
-    app,
-    given(
+it.effect("a line on the old side is written with its side", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
       modifyFields(diffOf([{ kind: "file", path: FILE }]), {
         screen: (screen) =>
           Screen.guards.Code(screen)
@@ -249,20 +255,17 @@ it("a line on the old side is written with its side", () => {
               })
             : screen,
       }),
-    ),
-    drawn,
-    expect(selector("[data-patch-path]")).toHaveAttr("data-lines", "o2"),
-  );
-});
+    );
+    s.pipe(drawn).expect(data("patch-path")).toHaveAttribute("data-lines", "o2");
+  }),
+);
 
-it("a diff opened with no lines has no lines attribute", () => {
-  scene(
-    app,
-    given(diffOf([{ kind: "file", path: FILE }])),
-    drawn,
-    expect(selector("[data-lines]")).toBeAbsent(),
-  );
-});
+it.effect("a diff opened with no lines has no lines attribute", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(diffOf([{ kind: "file", path: FILE }]));
+    s.pipe(drawn).expect(data("lines")).toBeAbsent();
+  }),
+);
 
 it.prop(
   "the lines attribute reads back as the lines it was written from",

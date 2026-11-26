@@ -1,30 +1,33 @@
 import { PrdSectionId, TaskId } from "@cairn/contract";
 import { labelOf, stacksOf, type Stack } from "@cairn/core/stacks";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Number, Option, Record } from "effect";
-import {
-  Mount,
-  all,
-  click,
-  expect,
-  expectAll,
-  given,
-  role,
-  scene,
-  selector,
-  within,
-} from "foldkit/scene";
+import { Array, Effect, Number, Option, Record } from "effect";
 import { modifyFields } from "foldkit/struct";
 
 import { stackBoxesOf } from "../src/boxes.ts";
 import { demoTrace } from "../src/demo.ts";
 import { Message } from "../src/message.ts";
 import { Screen } from "../src/model.ts";
-import { update } from "../src/update.ts";
-import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
-import { ScrollStacksToBottom, chipTitleOf } from "../src/view/stackChipsView.ts";
-import { view } from "../src/view/view.ts";
-import { focusedDetailHeading, loaded, unfolded, wiresMounted } from "./fixtures.ts";
+import { FocusDetailHeading } from "../src/update.ts";
+import { chipTitleOf } from "../src/view/stackChipsView.ts";
+import { PressDivider } from "../src/view/dividerView.ts";
+import {
+  both,
+  byRole,
+  containing,
+  data,
+  forEachStep,
+  inside,
+  loaded,
+  pushedUrl,
+  readerMounted,
+  resolved,
+  styleDeclaring,
+  tag,
+  unfolded,
+  viewerScene,
+  withClass,
+} from "./fixtures.ts";
 
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 const stacks = stacksOf(demoTrace.tasks);
@@ -35,151 +38,172 @@ const boxOf = (stack: Stack) =>
 const unfoldedReading = unfolded(reading);
 const stackOf = (id: string): Stack =>
   Option.getOrThrow(Array.findFirst(stacks, (stack) => Record.has(stack.cells, TaskId.make(id))));
-const box = (stack: Stack) => selector(`[data-stack="${stack.number}"]`);
-const chip = (id: string) => selector(`[data-task="${id}"]`);
-const scrolledTo = (id: string) =>
-  Mount.resolve(TrackPrdScroll, Message.ScrolledPrd({ id: PrdSectionId.make(id) }));
-const scrolledStacks = Mount.resolve(
-  ScrollStacksToBottom,
-  Message.CompletedScrollStacks({ maybeChartWidth: Option.none() }),
+const box = (stack: Stack) => data("stack", `${stack.number}`);
+const chip = (id: string) => data("task", id);
+
+it.effect("every stack is a box with its label for a title, holding its own chips", () =>
+  Effect.gen(function* () {
+    const viewer = stackOf("t52");
+    const s = yield* viewerScene(reading);
+    s.pipe(readerMounted)
+      .expect(byRole("region", { name: "Stacks" }))
+      .toExist()
+      .expect(inside(data("stacks-pane"), data("stack")))
+      .toHaveCount(stacks.length)
+      .pipe(
+        forEachStep(stacks, (step, stack) =>
+          step.expect(box(stack)).toHaveAttribute("title", labelOf(stack)),
+        ),
+      )
+      .expect(byRole("group", { name: labelOf(viewer) }))
+      .toHaveAttribute("data-stack", `${viewer.number}`)
+      // Folded, the trunk t45 to t52 is the segment and has no chips; every other task has its own.
+      .pipe(
+        forEachStep(Record.keys(boxOf(viewer).cells), (step, id) =>
+          step.expect(inside(box(viewer), chip(id))).toExist(),
+        ),
+        forEachStep(
+          Array.filter(Record.keys(viewer.cells), (id) => !Record.has(boxOf(viewer).cells, id)),
+          (step, id) => step.expect(inside(box(viewer), chip(id))).toBeAbsent(),
+        ),
+      )
+      .expect(inside(box(viewer), chip("t45")))
+      .toBeAbsent()
+      .expect(inside(box(viewer), chip("t9")))
+      .toBeAbsent()
+      .expect(inside(box(viewer), data("stack-label")))
+      .toHaveText(`${viewer.number}`)
+      .expect(inside(data("stacks-pane"), data("task")))
+      .toHaveCount(Array.reduce(boxes, 0, (drawn, each) => drawn + Record.size(each.cells)))
+      // Unfolded, every task of the plan is a chip again.
+      .click(data("segment", "t45"))
+      .pipe(
+        forEachStep(Record.keys(viewer.cells), (step, id) =>
+          step.expect(inside(box(viewer), chip(id))).toExist(),
+        ),
+      );
+  }),
 );
 
-/** The reader, with the pane's mounts answered. */
-const opened = [scrolledTo("prd.goal"), scrolledStacks, wiresMounted] as const;
+it.effect("a child chip sits in the row above its parent, in the same box", () =>
+  Effect.gen(function* () {
+    const stack = stackOf("t6");
+    assert(stack.root).toBe("t9");
+    const top = Array.reduce(Record.values(stack.cells), 1, (highest, cell) =>
+      Number.max(highest, cell.row),
+    );
+    assert(top).toBeGreaterThan(2);
+    // Each chip row is two grid rows, the chips' and a gap row under them.
+    const gridRowOf = (row: number) => 2 * (top - row) + 1;
+    const s = yield* viewerScene(reading);
+    s.pipe(readerMounted)
+      .expect(inside(box(stack), chip("t9")))
+      .toHaveAttribute("style", styleDeclaring("grid-row", `${gridRowOf(1)}`))
+      .expect(inside(box(stack), chip("t6")))
+      .toHaveAttribute("style", styleDeclaring("grid-row", `${gridRowOf(2)}`));
+  }),
+);
 
-it("every stack is a box with its label for a title, holding its own chips", () => {
-  const viewer = stackOf("t52");
-  scene(
-    { update, view },
-    given(reading),
-    ...opened,
-    expect(role("region", { name: "Stacks" })).toExist(),
-    expectAll(all.selector("[data-stacks-pane] [data-stack]")).toHaveCount(stacks.length),
-    ...Array.map(stacks, (stack) => expect(box(stack)).toHaveAttr("title", labelOf(stack))),
-    expect(role("group", { name: labelOf(viewer) })).toHaveAttr("data-stack", `${viewer.number}`),
-    // Folded, the trunk t45 to t52 is the segment and has no chips; every other task has its own.
-    ...Array.map(Record.keys(boxOf(viewer).cells), (id) =>
-      expect(within(box(viewer), chip(id))).toExist(),
-    ),
-    ...Array.map(
-      Array.filter(Record.keys(viewer.cells), (id) => !Record.has(boxOf(viewer).cells, id)),
-      (id) => expect(within(box(viewer), chip(id))).toBeAbsent(),
-    ),
-    expect(within(box(viewer), chip("t45"))).toBeAbsent(),
-    expect(within(box(viewer), chip("t9"))).toBeAbsent(),
-    expect(within(box(viewer), selector("[data-stack-label]"))).toHaveText(`${viewer.number}`),
-    expectAll(all.selector("[data-stacks-pane] [data-task]")).toHaveCount(
-      Array.reduce(boxes, 0, (drawn, each) => drawn + Record.size(each.cells)),
-    ),
-    // Unfolded, every task of the plan is a chip again.
-    click(selector('[data-segment="t45"]')),
-    ...Array.map(Record.keys(viewer.cells), (id) =>
-      expect(within(box(viewer), chip(id))).toExist(),
-    ),
-  );
-});
+it.effect("the levels run from the top down to the base branch bar, which is not a node", () =>
+  Effect.gen(function* () {
+    const top = Array.reduce(stacks, 1, (highest, stack) => Number.max(highest, stack.level));
+    const waiting = stackOf("t10");
+    assert(top).toBeGreaterThan(1);
+    assert(waiting.level).toBeGreaterThan(stackOf("t9").level);
+    const s = yield* viewerScene(reading);
+    s.pipe(readerMounted)
+      .expect(inside(data("stacks"), data("level", `${top}`)))
+      .toExist()
+      .expect(data("level"))
+      .toHaveCount(top)
+      .expect(inside(data("level", `${waiting.level}`), data("stack", `${waiting.number}`)))
+      .toExist()
+      .expect(inside(data("level", "1"), data("stack", "1")))
+      .toExist()
+      .expect(inside(data("stacks-pane"), data("base-branch")))
+      .toHaveText(demoTrace.baseBranch)
+      .expect(withClass("base-bar"))
+      .toHaveAttribute("data-base-branch", demoTrace.baseBranch)
+      .expect(inside(data("base-branch"), tag("button")))
+      .toBeAbsent()
+      .expect(both(data("base-branch"), data("task")))
+      .toBeAbsent()
+      .expect(both(data("base-branch"), data("wire")))
+      .toBeAbsent();
+  }),
+);
 
-it("a child chip sits in the row above its parent, in the same box", () => {
-  const stack = stackOf("t6");
-  assert(stack.root).toBe("t9");
-  const top = Array.reduce(Record.values(stack.cells), 1, (highest, cell) =>
-    Number.max(highest, cell.row),
-  );
-  assert(top).toBeGreaterThan(2);
-  // Each chip row is two grid rows, the chips' and a gap row under them.
-  const gridRowOf = (row: number) => 2 * (top - row) + 1;
-  scene(
-    { update, view },
-    given(reading),
-    ...opened,
-    expect(within(box(stack), chip("t9"))).toHaveStyle("grid-row", `${gridRowOf(1)}`),
-    expect(within(box(stack), chip("t6"))).toHaveStyle("grid-row", `${gridRowOf(2)}`),
-  );
-});
-
-it("the levels run from the top down to the base branch bar, which is not a node", () => {
-  const top = Array.reduce(stacks, 1, (highest, stack) => Number.max(highest, stack.level));
-  const waiting = stackOf("t10");
-  assert(top).toBeGreaterThan(1);
-  assert(waiting.level).toBeGreaterThan(stackOf("t9").level);
-  scene(
-    { update, view },
-    given(reading),
-    ...opened,
-    expect(selector("[data-stacks] [data-level]")).toHaveAttr("data-level", `${top}`),
-    expectAll(all.selector("[data-level]")).toHaveCount(top),
-    expect(selector(`[data-level="${waiting.level}"] [data-stack="${waiting.number}"]`)).toExist(),
-    expect(selector('[data-level="1"] [data-stack="1"]')).toExist(),
-    expect(selector("[data-stacks-pane] [data-base-branch]")).toHaveText(demoTrace.baseBranch),
-    expect(selector(".base-bar")).toHaveAttr("data-base-branch", demoTrace.baseBranch),
-    expect(selector("[data-base-branch] button")).toBeAbsent(),
-    expect(selector("[data-base-branch][data-task]")).toBeAbsent(),
-    expect(selector("[data-base-branch][data-wire]")).toBeAbsent(),
-  );
-});
-
-it("a gated chip has a gate mark in its border and says what it is; the others do not", () => {
-  const gated = Array.filter(demoTrace.tasks, (task) => task.gate.required);
-  const free = Array.filter(demoTrace.tasks, (task) => !task.gate.required);
-  assert(Array.length(gated)).toBeGreaterThan(0);
-  scene(
-    { update, view },
-    given(unfoldedReading),
-    ...opened,
-    ...Array.map(gated, (task) => expect(chip(task.id)).toHaveAttr("data-gated", "")),
-    ...Array.map(Array.take(free, 5), (task) => expect(chip(task.id)).not.toHaveAttr("data-gated")),
-    expect(chip("t1")).toHaveAttr("data-wire", "task:t1"),
-    expect(chip("t1")).toHaveAttr(
-      "aria-label",
-      chipTitleOf(
-        demoTrace,
-        Option.getOrThrow(Array.findFirst(demoTrace.tasks, (task) => task.id === "t1")),
+it.effect("a gated chip has a gate mark in its border and says what it is; the others do not", () =>
+  Effect.gen(function* () {
+    const gated = Array.filter(demoTrace.tasks, (task) => task.gate.required);
+    const free = Array.filter(demoTrace.tasks, (task) => !task.gate.required);
+    assert(Array.length(gated)).toBeGreaterThan(0);
+    const t1Title = chipTitleOf(
+      demoTrace,
+      Option.getOrThrow(Array.findFirst(demoTrace.tasks, (task) => task.id === "t1")),
+    );
+    const s = yield* viewerScene(unfoldedReading);
+    s.pipe(
+      readerMounted,
+      forEachStep(gated, (step, task) =>
+        step.expect(chip(task.id)).toHaveAttribute("data-gated", ""),
       ),
-    ),
-    expect(chip("t1")).toHaveAttr(
-      "title",
-      chipTitleOf(
-        demoTrace,
-        Option.getOrThrow(Array.findFirst(demoTrace.tasks, (task) => task.id === "t1")),
+      forEachStep(Array.take(free, 5), (step, task) =>
+        step.expect(chip(task.id)).toHaveAttribute("data-gated", false),
       ),
-    ),
-  );
-});
+    )
+      .expect(chip("t1"))
+      .toHaveAttribute("data-wire", "task:t1")
+      .expect(chip("t1"))
+      .toHaveAttribute("aria-label", t1Title)
+      .expect(chip("t1"))
+      .toHaveAttribute("title", t1Title);
+  }),
+);
 
-it("a pinned section lights its chips and their boxes and dims the rest, which still click", () => {
-  const prd = "prd.viewer.stacks";
-  const lit = Array.filter(demoTrace.tasks, (task) =>
-    Array.contains(task.prdSections, PrdSectionId.make(prd)),
-  );
-  assert(Array.length(lit)).toBeGreaterThan(0);
-  const other = Option.getOrThrow(
-    Array.findFirst(
-      demoTrace.tasks,
-      (task) => !Array.contains(task.prdSections, PrdSectionId.make(prd)),
-    ),
-  );
-  const first = Option.getOrThrow(Array.head(lit));
-  const litBox = stackOf(first.id);
-  scene(
-    { update, view },
-    given(reading),
-    ...opened,
-    click(selector(`[data-status-line="${prd}"]`)),
-    expect(chip(first.id)).toHaveAttr("data-current", ""),
-    expect(chip(first.id)).not.toHaveAttr("data-faded"),
-    expect(box(litBox)).toHaveAttr("data-current", ""),
-    expect(chip(other.id)).toHaveAttr("data-faded", ""),
-    expect(chip(other.id)).not.toHaveAttr("data-current"),
-    expect(selector("[data-stacks-summary]")).toContainText(
-      `of ${stacks.length} stacks hold this section`,
-    ),
-    expect(selector("[data-stacks-summary]")).toContainText(
-      `of ${demoTrace.tasks.length} tasks done`,
-    ),
-    expect(selector("[data-stacks-summary]")).toContainText("read up from main"),
-    // A dimmed chip still takes clicks.
-    click(chip(other.id)),
-    focusedDetailHeading,
-    expect(chip(other.id)).toExist(),
-  );
-});
+it.effect(
+  "a pinned section lights its chips and their boxes and dims the rest, which still click",
+  () =>
+    Effect.gen(function* () {
+      const prd = "prd.viewer.stacks";
+      const lit = Array.filter(demoTrace.tasks, (task) =>
+        Array.contains(task.prdSections, PrdSectionId.make(prd)),
+      );
+      assert(Array.length(lit)).toBeGreaterThan(0);
+      const other = Option.getOrThrow(
+        Array.findFirst(
+          demoTrace.tasks,
+          (task) => !Array.contains(task.prdSections, PrdSectionId.make(prd)),
+        ),
+      );
+      const first = Option.getOrThrow(Array.head(lit));
+      const litBox = stackOf(first.id);
+      const summary = data("stacks-summary");
+      const s = yield* viewerScene(reading);
+      s.pipe(readerMounted)
+        .click(data("status-line", prd))
+        .pipe(pushedUrl)
+        .expect(chip(first.id))
+        .toHaveAttribute("data-current", "")
+        .expect(chip(first.id))
+        .toHaveAttribute("data-faded", false)
+        .expect(box(litBox))
+        .toHaveAttribute("data-current", "")
+        .expect(chip(other.id))
+        .toHaveAttribute("data-faded", "")
+        .expect(chip(other.id))
+        .toHaveAttribute("data-current", false)
+        .expect(summary)
+        .toHaveText(containing(`of ${stacks.length} stacks hold this section`))
+        .expect(summary)
+        .toHaveText(containing(`of ${demoTrace.tasks.length} tasks done`))
+        .expect(summary)
+        .toHaveText(containing("read up from main"))
+        // A dimmed chip still takes clicks.
+        .click(chip(other.id))
+        .pipe(pushedUrl, resolved(FocusDetailHeading, Message.CompletedFocusDetailHeading()))
+        .expectMount(PressDivider({ pane: "detail" }))
+        .expect(chip(other.id))
+        .toExist();
+    }),
+);

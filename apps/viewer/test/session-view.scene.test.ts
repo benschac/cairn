@@ -1,7 +1,6 @@
 import { Session } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Option, Record, Result, Schema, Struct } from "effect";
-import { all, click, expect, expectAll, given, nth, scene, selector } from "foldkit/scene";
+import { Array, Effect, Option, Record, Result, Schema, Struct } from "effect";
 import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
@@ -9,8 +8,20 @@ import { Message } from "../src/message.ts";
 import { SessionData, TraceData } from "../src/model.ts";
 import { update as appUpdate } from "../src/update.ts";
 import { TURN_LINE_LIMIT } from "../src/view/sessionView.ts";
-import { view as appView } from "../src/view/view.ts";
-import { loaded } from "./fixtures.ts";
+import {
+  attr,
+  both,
+  containing,
+  data,
+  inside,
+  loaded,
+  notContaining,
+  nth,
+  pushedUrl,
+  tag,
+  viewerScene,
+  withClass,
+} from "./fixtures.ts";
 
 /** A task with a commit that has a session; the code view on that commit asks for the session. */
 const task = Option.getOrThrow(
@@ -20,8 +31,6 @@ const task = Option.getOrThrow(
 );
 const commit = Option.getOrThrow(Array.findFirst(task.commits, (each) => each.session !== null));
 const sessionId = `${commit.session}`;
-
-const app = { update: appUpdate, view: appView };
 
 type Turns = ReadonlyArray<Record<string, unknown>>;
 
@@ -65,40 +74,45 @@ const showing = (session: Session) =>
     Message.ReceivedSession({ id: sessionId, result: Result.succeed(session) }),
   ).model;
 
-const turn = (id: string) => selector(`[data-turn="${id}"]`);
-const turnButton = (id: string) => selector(`[data-turn="${id}"] button[aria-expanded]`);
-const pane = selector('[data-code-pane="session"]');
+const turn = (id: string) => data("turn", id);
+const turnButton = (id: string) => inside(turn(id), both(tag("button"), attr("aria-expanded")));
+const pane = data("code-pane", "session");
+const turnId = (id: string) => attr("id", `turn-${id}`);
+const output = (id: string) => inside(turn(id), inside(data("turn-part", "Output"), tag("pre")));
+const moreOf = (id: string) => data("more-of-turn", id);
 
-it("opening a commit with a session asks for it once, and shows it loading", () => {
-  assert(
-    Array.map(
-      Option.getOrElse(Option.fromUndefinedOr(opened.commands), () => []),
-      (command) => command.name,
-    ),
-  ).toContain("FetchSession");
-  assert(Record.get(opened.model.sessions, sessionId)).toEqual(Option.some(SessionData.Loading()));
-  const again = appUpdate(
-    opened.model,
-    Message.ClickedOpenCode({ id: task.id, maybeSha: Option.some(commit.sha) }),
-  );
-  assert(
-    Array.some(
-      Option.getOrElse(Option.fromUndefinedOr(again.commands), () => []),
-      (command) => command.name === "FetchSession",
-    ),
-  ).toBe(false);
-  scene(app, given(opened.model), expect(pane).toContainText(`Loading session ${sessionId}`));
-  scene(
-    app,
-    given(
+it.effect("opening a commit with a session asks for it once, and shows it loading", () =>
+  Effect.gen(function* () {
+    assert(
+      Array.map(
+        Option.getOrElse(Option.fromUndefinedOr(opened.commands), () => []),
+        (command) => command.name,
+      ),
+    ).toContain("FetchSession");
+    assert(Record.get(opened.model.sessions, sessionId)).toEqual(
+      Option.some(SessionData.Loading()),
+    );
+    const again = appUpdate(
+      opened.model,
+      Message.ClickedOpenCode({ id: task.id, maybeSha: Option.some(commit.sha) }),
+    );
+    assert(
+      Array.some(
+        Option.getOrElse(Option.fromUndefinedOr(again.commands), () => []),
+        (command) => command.name === "FetchSession",
+      ),
+    ).toBe(false);
+    const loading = yield* viewerScene(opened.model);
+    loading.expect(pane).toHaveText(containing(`Loading session ${sessionId}`));
+    const failed = yield* viewerScene(
       appUpdate(
         opened.model,
         Message.ReceivedSession({ id: sessionId, result: Result.fail("HTTP 404") }),
       ).model,
-    ),
-    expect(selector('[data-code-pane="session"] [role="alert"]')).toContainText("HTTP 404"),
-  );
-});
+    );
+    failed.expect(inside(pane, attr("role", "alert"))).toHaveText(containing("HTTP 404"));
+  }),
+);
 
 it("a failed session is fetched again when the commit is selected again", () => {
   const failed = appUpdate(
@@ -117,25 +131,31 @@ it("a failed session is fetched again when the commit is selected again", () => 
   ).toContain("FetchSession");
 });
 
-it("turns are listed in order, with a label that names prompts and replies", () => {
-  scene(
-    app,
-    given(showing(sessionOf([prompt, tool("c1"), reply]))),
-    expect(pane).toContainText(`Session ${sessionId}`),
-    expectAll(all.selector("[data-turn]")).toHaveCount(3),
-    expect(nth(all.selector("[data-turn]"), 0)).toHaveAttr("data-turn", "p1"),
-    expect(nth(all.selector("[data-turn]"), 1)).toHaveAttr("data-turn", "c1"),
-    expect(nth(all.selector("[data-turn]"), 2)).toHaveAttr("data-turn", "r1"),
-    expect(selector("#turn-p1 [data-turn-label]")).toHaveText("Prompt"),
-    expect(selector("#turn-r1 [data-turn-label]")).toHaveText("Reply"),
-    expect(turn("p1")).toContainText("Add the pane."),
-  );
-});
+it.effect("turns are listed in order, with a label that names prompts and replies", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(showing(sessionOf([prompt, tool("c1"), reply])));
+    s.expect(pane)
+      .toHaveText(containing(`Session ${sessionId}`))
+      .expect(data("turn"))
+      .toHaveCount(3)
+      .expect(nth(data("turn"), 0))
+      .toHaveAttribute("data-turn", "p1")
+      .expect(nth(data("turn"), 1))
+      .toHaveAttribute("data-turn", "c1")
+      .expect(nth(data("turn"), 2))
+      .toHaveAttribute("data-turn", "r1")
+      .expect(inside(turnId("p1"), data("turn-label")))
+      .toHaveText("Prompt")
+      .expect(inside(turnId("r1"), data("turn-label")))
+      .toHaveText("Reply")
+      .expect(turn("p1"))
+      .toHaveText(containing("Add the pane."));
+  }),
+);
 
-it("a tool turn is one button line with its name and target, and a failed one says so", () => {
-  scene(
-    app,
-    given(
+it.effect("a tool turn is one button line with its name and target, and a failed one says so", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
       showing(
         sessionOf([
           tool("c1", { name: "Edit", target: "src/a.ts", failed: true }),
@@ -143,121 +163,152 @@ it("a tool turn is one button line with its name and target, and a failed one sa
           tool("c3"),
         ]),
       ),
-    ),
-    expect(turnButton("c1")).toContainText("Edit"),
-    expect(turnButton("c1")).toContainText("src/a.ts"),
-    expect(selector('[data-turn="c1"] [data-mark="failed"]')).toExist(),
-    expect(selector('[data-turn="c2"] [data-mark="edits"]')).toExist(),
-    expect(selector('[data-turn="c2"] [data-mark="failed"]')).toBeAbsent(),
-    expect(selector('[data-turn="c3"] [data-mark]')).toBeAbsent(),
-    expect(turnButton("c1")).toHaveAttr("aria-expanded", "false"),
-    expect(selector('[data-turn="c1"] pre')).toBeAbsent(),
-  );
-});
+    );
+    s.expect(turnButton("c1"))
+      .toHaveText(containing("Edit"))
+      .expect(turnButton("c1"))
+      .toHaveText(containing("src/a.ts"))
+      .expect(inside(turn("c1"), data("mark", "failed")))
+      .toExist()
+      .expect(inside(turn("c2"), data("mark", "edits")))
+      .toExist()
+      .expect(inside(turn("c2"), data("mark", "failed")))
+      .toBeAbsent()
+      .expect(inside(turn("c3"), data("mark")))
+      .toBeAbsent()
+      .expect(turnButton("c1"))
+      .toHaveAttribute("aria-expanded", "false")
+      .expect(inside(turn("c1"), tag("pre")))
+      .toBeAbsent();
+  }),
+);
 
-it("clicking a tool turn opens it, showing its input and output, and clicking again closes it", () => {
-  scene(
-    app,
-    given(showing(sessionOf([tool("c1", { input: "git status", output: "clean" })]))),
-    click(turnButton("c1")),
-    expect(turnButton("c1")).toHaveAttr("aria-expanded", "true"),
-    expect(selector('[data-turn="c1"] [data-turn-part="Input"] pre')).toHaveText("git status"),
-    expect(selector('[data-turn="c1"] [data-turn-part="Output"] pre')).toHaveText("clean"),
-    click(turnButton("c1")),
-    expect(turnButton("c1")).toHaveAttr("aria-expanded", "false"),
-    expect(selector('[data-turn="c1"] pre')).toBeAbsent(),
-  );
-});
+it.effect(
+  "clicking a tool turn opens it, showing its input and output, and clicking again closes it",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(
+        showing(sessionOf([tool("c1", { input: "git status", output: "clean" })])),
+      );
+      s.click(turnButton("c1"))
+        .pipe(pushedUrl)
+        .expect(turnButton("c1"))
+        .toHaveAttribute("aria-expanded", "true")
+        .expect(inside(turn("c1"), inside(data("turn-part", "Input"), tag("pre"))))
+        .toHaveText("git status")
+        .expect(output("c1"))
+        .toHaveText("clean")
+        .click(turnButton("c1"))
+        .pipe(pushedUrl)
+        .expect(turnButton("c1"))
+        .toHaveAttribute("aria-expanded", "false")
+        .expect(inside(turn("c1"), tag("pre")))
+        .toBeAbsent();
+    }),
+);
 
-it("an opened turn is cut at 200 lines until its button asks for the rest", () => {
-  const long = Array.join(
-    Array.makeBy(TURN_LINE_LIMIT + 50, (index) => `line ${index}`),
-    "\n",
-  );
-  scene(
-    app,
-    given(showing(sessionOf([tool("c1", { output: long })]))),
-    click(turnButton("c1")),
-    expect(selector('[data-turn="c1"] [data-turn-part="Output"] pre')).toContainText(
-      `line ${TURN_LINE_LIMIT - 1}`,
-    ),
-    expect(selector('[data-turn="c1"] [data-turn-part="Output"] pre')).not.toContainText(
-      `line ${TURN_LINE_LIMIT}`,
-    ),
-    expect(turn("c1")).toContainText("Show the rest (50 more lines)"),
-    click(selector('[data-more-of-turn="c1"]')),
-    expect(selector('[data-turn="c1"] [data-turn-part="Output"] pre')).toContainText(
-      `line ${TURN_LINE_LIMIT + 49}`,
-    ),
-    expect(selector('[data-more-of-turn="c1"]')).toBeAbsent(),
-  );
-});
+it.effect("an opened turn is cut at 200 lines until its button asks for the rest", () =>
+  Effect.gen(function* () {
+    const long = Array.join(
+      Array.makeBy(TURN_LINE_LIMIT + 50, (index) => `line ${index}`),
+      "\n",
+    );
+    const s = yield* viewerScene(showing(sessionOf([tool("c1", { output: long })])));
+    s.click(turnButton("c1"))
+      .pipe(pushedUrl)
+      .expect(output("c1"))
+      .toHaveText(containing(`line ${TURN_LINE_LIMIT - 1}`))
+      .expect(output("c1"))
+      .toHaveText(notContaining(`line ${TURN_LINE_LIMIT}`))
+      .expect(turn("c1"))
+      .toHaveText(containing("Show the rest (50 more lines)"))
+      .click(moreOf("c1"))
+      .expect(output("c1"))
+      .toHaveText(containing(`line ${TURN_LINE_LIMIT + 49}`))
+      .expect(moreOf("c1"))
+      .toBeAbsent();
+  }),
+);
 
-it("a short turn has no button for the rest", () => {
-  scene(
-    app,
-    given(showing(sessionOf([tool("c1")]))),
-    click(turnButton("c1")),
-    expect(selector('[data-more-of-turn="c1"]')).toBeAbsent(),
-  );
-});
+it.effect("a short turn has no button for the rest", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(showing(sessionOf([tool("c1")])));
+    s.click(turnButton("c1")).pipe(pushedUrl).expect(moreOf("c1")).toBeAbsent();
+  }),
+);
 
-it("a redaction renders as a chip naming the kind, in a prompt, a reply and a tool output", () => {
-  scene(
-    app,
-    given(
-      showing(
-        sessionOf([
-          { ...prompt, text: "Use key [REDACTED:anthropic] now" },
-          { ...reply, text: "I sent it to **[REDACTED:email]**." },
-          tool("c1", { output: "token=[REDACTED:github]\nok" }),
-        ]),
-      ),
-    ),
-    expect(selector('#turn-p1 [data-redacted="anthropic"]')).toHaveText("redacted: anthropic"),
-    expect(turn("p1")).not.toContainText("[REDACTED"),
-    expect(selector('#turn-r1 [data-redacted="email"]')).toExist(),
-    click(turnButton("c1")),
-    expect(selector('#turn-c1 [data-redacted="github"]')).toExist(),
-  );
-});
+it.effect(
+  "a redaction renders as a chip naming the kind, in a prompt, a reply and a tool output",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(
+        showing(
+          sessionOf([
+            { ...prompt, text: "Use key [REDACTED:anthropic] now" },
+            { ...reply, text: "I sent it to **[REDACTED:email]**." },
+            tool("c1", { output: "token=[REDACTED:github]\nok" }),
+          ]),
+        ),
+      );
+      s.expect(inside(turnId("p1"), data("redacted", "anthropic")))
+        .toHaveText("redacted: anthropic")
+        .expect(turn("p1"))
+        .toHaveText(notContaining("[REDACTED"))
+        .expect(inside(turnId("r1"), data("redacted", "email")))
+        .toExist()
+        .click(turnButton("c1"))
+        .pipe(pushedUrl)
+        .expect(inside(turnId("c1"), data("redacted", "github")))
+        .toExist();
+    }),
+);
 
-it("a redaction in inline code, a fenced block or a tool target is a chip too, and plain code stays highlighted", () => {
-  scene(
-    app,
-    given(
-      showing(
-        sessionOf([
-          {
-            ...prompt,
-            text: "Run `curl [REDACTED:url]` then:\n\n```ts\nconst k = '[REDACTED:openai]';\n```",
-          },
-          { ...reply, text: "```ts\nconst a = 1;\n```" },
-          tool("c1", { target: "curl [REDACTED:url]" }),
-        ]),
-      ),
-    ),
-    expect(selector('#turn-p1 code [data-redacted="url"]')).toExist(),
-    expect(selector('#turn-p1 pre [data-redacted="openai"]')).toExist(),
-    expect(selector("#turn-p1 pre")).not.toContainText("[REDACTED"),
-    expect(selector('#turn-c1 [data-tool-target] [data-redacted="url"]')).toExist(),
-    expect(selector("#turn-r1 pre code.language-ts")).toExist(),
-  );
-});
+it.effect(
+  "a redaction in inline code, a fenced block or a tool target is a chip too, and plain code stays highlighted",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(
+        showing(
+          sessionOf([
+            {
+              ...prompt,
+              text: "Run `curl [REDACTED:url]` then:\n\n```ts\nconst k = '[REDACTED:openai]';\n```",
+            },
+            { ...reply, text: "```ts\nconst a = 1;\n```" },
+            tool("c1", { target: "curl [REDACTED:url]" }),
+          ]),
+        ),
+      );
+      s.expect(inside(turnId("p1"), inside(tag("code"), data("redacted", "url"))))
+        .toExist()
+        .expect(inside(turnId("p1"), inside(tag("pre"), data("redacted", "openai"))))
+        .toExist()
+        .expect(inside(turnId("p1"), tag("pre")))
+        .toHaveText(notContaining("[REDACTED"))
+        .expect(inside(turnId("c1"), inside(data("tool-target"), data("redacted", "url"))))
+        .toExist()
+        .expect(
+          inside(turnId("r1"), inside(tag("pre"), both(tag("code"), withClass("language-ts")))),
+        )
+        .toExist();
+    }),
+);
 
-it("raw HTML in a prompt is not rendered as markup", () => {
-  scene(
-    app,
-    given(showing(sessionOf([{ ...prompt, text: "<img src=x onerror=alert(1)> hello" }]))),
-    expect(selector("#turn-p1 img")).toBeAbsent(),
-    expect(turn("p1")).toContainText("hello"),
-  );
-});
+it.effect("raw HTML in a prompt is not rendered as markup", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
+      showing(sessionOf([{ ...prompt, text: "<img src=x onerror=alert(1)> hello" }])),
+    );
+    s.expect(inside(turnId("p1"), tag("img")))
+      .toBeAbsent()
+      .expect(turn("p1"))
+      .toHaveText(containing("hello"));
+  }),
+);
 
-it("the top shows the session ID, its notes and the redaction count of each kind", () => {
-  scene(
-    app,
-    given(
+it.effect("the top shows the session ID, its notes and the redaction count of each kind", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
       showing(
         sessionOf([prompt], {
           notes: [
@@ -266,60 +317,71 @@ it("the top shows the session ID, its notes and the redaction count of each kind
           redactions: { email: 2, anthropic: 1, github: 0 },
         }),
       ),
-    ),
-    expect(selector("[data-session-header] h3")).toContainText(sessionId),
-    expect(selector("[data-notes]")).toContainText("review by ben"),
-    expect(selector("[data-notes]")).toContainText("Looks right."),
-    expect(selector('[data-redaction-kind="email"]')).toHaveText("email: 2 redacted"),
-    expect(selector('[data-redaction-kind="anthropic"]')).toHaveText("anthropic: 1 redacted"),
-    expect(selector('[data-redaction-kind="github"]')).toBeAbsent(),
-  );
-});
+    );
+    s.expect(inside(data("session-header"), tag("h3")))
+      .toHaveText(containing(sessionId))
+      .expect(data("notes"))
+      .toHaveText(containing("review by ben"))
+      .expect(data("notes"))
+      .toHaveText(containing("Looks right."))
+      .expect(data("redaction-kind", "email"))
+      .toHaveText("email: 2 redacted")
+      .expect(data("redaction-kind", "anthropic"))
+      .toHaveText("anthropic: 1 redacted")
+      .expect(data("redaction-kind", "github"))
+      .toBeAbsent();
+  }),
+);
 
-it("skipped lines show at the bottom only when there are some", () => {
-  scene(
-    app,
-    given(showing(sessionOf([prompt], { skipped: 3 }))),
-    expect(selector("[data-skipped]")).toHaveText("Cairn skipped 3 lines it could not read."),
-  );
-  scene(app, given(showing(sessionOf([prompt]))), expect(selector("[data-skipped]")).toBeAbsent());
-});
+it.effect("skipped lines show at the bottom only when there are some", () =>
+  Effect.gen(function* () {
+    const some = yield* viewerScene(showing(sessionOf([prompt], { skipped: 3 })));
+    some.expect(data("skipped")).toHaveText("Cairn skipped 3 lines it could not read.");
+    const none = yield* viewerScene(showing(sessionOf([prompt])));
+    none.expect(data("skipped")).toBeAbsent();
+  }),
+);
 
-it("a session in a format Cairn cannot read says so and lists no turns", () => {
-  scene(
-    app,
-    given(showing(sessionOf([], { format: "unknown", skipped: 12 }))),
-    expect(pane).toContainText("Cairn cannot read that agent's log yet."),
-    expect(selector("[data-turns]")).toBeAbsent(),
-    expect(selector("[data-skipped]")).toExist(),
-  );
-});
+it.effect("a session in a format Cairn cannot read says so and lists no turns", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(showing(sessionOf([], { format: "unknown", skipped: 12 })));
+    s.expect(pane)
+      .toHaveText(containing("Cairn cannot read that agent's log yet."))
+      .expect(data("turns"))
+      .toBeAbsent()
+      .expect(data("skipped"))
+      .toExist();
+  }),
+);
 
-it("a commit with no session says so", () => {
-  const stripped = Struct.evolve(task, {
-    commits: (commits) =>
-      Array.map(commits, (each) => Struct.evolve(each, { session: () => null })),
-  });
-  const model = modifyFields(loaded, {
-    trace: () =>
-      TraceData.Success({
-        data: Struct.evolve(demoTrace, {
-          tasks: (tasks) => Array.map(tasks, (each) => (each.id === task.id ? stripped : each)),
+it.effect("a commit with no session says so", () =>
+  Effect.gen(function* () {
+    const stripped = Struct.evolve(task, {
+      commits: (commits) =>
+        Array.map(commits, (each) => Struct.evolve(each, { session: () => null })),
+    });
+    const model = modifyFields(loaded, {
+      trace: () =>
+        TraceData.Success({
+          data: Struct.evolve(demoTrace, {
+            tasks: (tasks) => Array.map(tasks, (each) => (each.id === task.id ? stripped : each)),
+          }),
         }),
-      }),
-  });
-  const without = appUpdate(
-    model,
-    Message.ClickedOpenCode({ id: task.id, maybeSha: Option.some(commit.sha) }),
-  );
-  assert(
-    Array.map(
-      Option.getOrElse(Option.fromUndefinedOr(without.commands), () => []),
-      (command) => command.name,
-    ),
-  ).toEqual(["FetchPatch"]);
-  scene(app, given(without.model), expect(pane).toContainText("No session was recorded"));
-});
+    });
+    const without = appUpdate(
+      model,
+      Message.ClickedOpenCode({ id: task.id, maybeSha: Option.some(commit.sha) }),
+    );
+    assert(
+      Array.map(
+        Option.getOrElse(Option.fromUndefinedOr(without.commands), () => []),
+        (command) => command.name,
+      ),
+    ).toEqual(["FetchPatch"]);
+    const s = yield* viewerScene(without.model);
+    s.expect(pane).toHaveText(containing("No session was recorded"));
+  }),
+);
 
 it.prop(
   "opening a turn twice leaves it closed, and showing the rest is kept",

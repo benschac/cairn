@@ -1,38 +1,38 @@
 import { PrdSectionId, SectionId, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, HashSet, Option, Record, Schema, String } from "effect";
-import {
-  Command,
-  Mount,
-  Subscription,
-  all,
-  click,
-  expect,
-  expectAll,
-  expectHandled,
-  given,
-  hover,
-  keydown,
-  role,
-  scene,
-  selector,
-} from "foldkit/scene";
-import * as simulate from "foldkit/scene";
+import { Effect, Array, HashSet, Option, Record, Schema, String } from "effect";
 import { modifyFields } from "foldkit/struct";
 
+import { viewerBridge } from "../src/app.ts";
+import { FocusSearchInput, ScrollSearchResult } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
 import { Message } from "../src/message.ts";
 import { Screen } from "../src/model.ts";
 import { cardsOf, isCardless, searchedSectionOf, targetsOf } from "../src/reader.ts";
 import { NO_SEARCH, queried, searchTrace, type SearchResult } from "../src/search.ts";
 import { chainOf, nodeKeyOf, type Node } from "../src/trace.ts";
-import { ScrollSearchTargets, update } from "../src/update.ts";
-import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
-import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
-import { view } from "../src/view/view.ts";
-import { MeasureWires } from "../src/view/wiresView.ts";
+import { ScrollSearchTargets } from "../src/update.ts";
+import { PressDivider } from "../src/view/dividerView.ts";
 import { linksOf, type Measured, type Panes } from "../src/wires.ts";
-import { focusedSearchInput, loaded, scrolledSearchResult, unfolded } from "./fixtures.ts";
+import {
+  attr,
+  both,
+  byRole,
+  data,
+  dividersRunning,
+  inside,
+  loaded,
+  prdScrolledTo,
+  pushedUrl,
+  resolved,
+  stacksScrolled,
+  tag,
+  unfolded,
+  unmeasuredWires,
+  viewerScene,
+  wiresMeasuredAs,
+  type ViewerSteps,
+} from "./fixtures.ts";
 
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 /** Stack 13's trunk, t19 and t20, is folded in `reading`; these scenes look at t20's chip. */
@@ -45,40 +45,26 @@ const sectionNode = (id: string): Node => ({
 });
 const taskNode = (id: string): Node => ({ id: TaskId.make(id), kind: "task" });
 
-const searchBox = role("combobox", { name: "Search sections and tasks" });
-const status = selector("[data-search-status]");
-const typed = (query: string) => simulate.type(searchBox, query);
-const pressed = (key: string) => keydown(searchBox, key);
-const option = (node: Node) => selector('[data-search-result="' + nodeKeyOf(node) + '"]');
+const searchBox = byRole("combobox", { name: "Search sections and tasks" });
+const status = data("search-status");
+const option = (node: Node) => data("search-result", nodeKeyOf(node));
 
-const heading = (id: string) => selector('[data-prd-pane] [data-section="' + id + '"]');
-const statusLine = (id: string) => selector('[data-status-line="' + id + '"]');
-const card = (id: string) => selector('[data-spec="' + id + '"]');
-const row = (id: string) => selector('[data-task-row="spec.planning.stack-order:' + id + '"]');
-const chip = (id: string) => selector('[data-stacks-pane] [data-task="' + id + '"]');
-const panel = selector("[data-detail]");
-const mark = selector("[data-search-match]");
-const marks = all.selector("[data-search-match]");
-const searched = all.selector("[data-searched]");
+const heading = (id: string) => inside(data("prd-pane"), data("section", id));
+const statusLine = (id: string) => data("status-line", id);
+const card = (id: string) => data("spec", id);
+const row = (id: string) => data("task-row", "spec.planning.stack-order:" + id);
+const chip = (id: string) => inside(data("stacks-pane"), data("task", id));
+const panel = data("detail");
+const mark = data("search-match");
+const searched = data("searched");
+const dimmed = data("dimmed");
 
 const PINNED = "prd.viewer.reader";
-/** Where t20 is brought into view: its chip, or the segment it is folded into. */
-const STACKS_T20 = '[data-stacks-pane] [data-task="t20"], [data-stacks-pane] [data-holds~="t20"]';
-
 /** The mounts the reader starts, answered as a page with this measurement would. */
-const mounted = (measured: Measured) =>
-  Mount.resolveAll(
-    [TrackPrdScroll, Message.ScrolledPrd({ id: prd("prd.goal") })],
-    [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
-    [MeasureWires, Message.MeasuredWires({ measured })],
-  );
+const mounted = (measured: Measured) => (s: ViewerSteps) =>
+  s.pipe(dividersRunning, prdScrolledTo("prd.goal"), stacksScrolled, wiresMeasuredAs(measured));
 
-const noPanes: Panes = {
-  prd: { height: 0, width: 0, x: 0, y: 0 },
-  spec: { height: 0, width: 0, x: 0, y: 0 },
-  stacks: { height: 0, width: 0, x: 0, y: 0 },
-};
-const unmeasured: Measured = { boxes: {}, panes: noPanes };
+const unmeasured = unmeasuredWires;
 
 /** Three panes, tall enough that every box below is in view. */
 const panes: Panes = {
@@ -86,7 +72,6 @@ const panes: Panes = {
   spec: { height: 4000, width: 400, x: 500, y: 50 },
   stacks: { height: 4000, width: 300, x: 900, y: 50 },
 };
-
 const paneOf = (key: string) =>
   String.startsWith("prd:")(key)
     ? panes.prd
@@ -114,9 +99,6 @@ const measuredFor = (id: string): Measured => {
 
 const MANIFEST = "prd.manifest-schema";
 const STACK_ORDER = sectionNode("spec.planning.stack-order");
-const wireLayer = "[data-wire-layer]";
-const lit = all.selector(wireLayer + " path[data-lit]");
-const faint = all.selector(wireLayer + " path[data-dimmed]");
 const wireCount = Array.length(linksOf(prd(MANIFEST), cardsOf(demoTrace, prd(MANIFEST))));
 const stackOrderTasks = Array.length(
   Array.filter(demoTrace.tasks, (task) =>
@@ -124,148 +106,200 @@ const stackOrderTasks = Array.length(
   ),
 );
 
-const left = Subscription.emit(Message.LeftNode());
+/** Moving the active search result scrolls the list to it; the test answers for the scroll. */
+const scrolledSearchResult = resolved(ScrollSearchResult, Message.CompletedScrollSearchResult());
 
-const scrolled = (
-  ...targets: ReadonlyArray<{ block: "nearest" | "start"; selectors: ReadonlyArray<string> }>
-) => Command.resolve(ScrollSearchTargets({ targets }), Message.CompletedScrollSearchTargets());
+/** Clicking a search result takes focus from the input, so it is moved back; the test answers for it. */
+const focusedSearchInput = resolved(FocusSearchInput, Message.CompletedFocusSearchInput());
 
-it("selecting a PRD section scrolls the PRD to its heading and makes it current, keeping the pin", () => {
-  scene(
-    { update, view },
-    given(reading),
-    mounted(unmeasured),
-    click(statusLine(PINNED)),
-    expect(heading(PINNED)).toHaveAttr("data-current", ""),
-    typed("fuzzy search"),
-    scrolledSearchResult,
-    expect(status).toHaveText(Array.length(searchTrace(demoTrace, "fuzzy search")) + " results."),
-    // The active result is current ahead of the pin, outlined and marked in its heading.
-    expect(heading("prd.viewer.fuzzy-search")).toHaveAttr("data-searched", "active"),
-    expect(heading("prd.viewer.fuzzy-search")).toHaveAttr("data-current", ""),
-    expect(heading(PINNED)).not.toHaveAttr("data-current"),
-    expect(simulate.within(heading("prd.viewer.fuzzy-search"), mark)).toExist(),
-    expect(statusLine(PINNED)).toHaveAttr("aria-pressed", "true"),
-    // Nothing is scrolled until a result is selected.
-    pressed("Enter"),
-    expectHandled(),
-    scrolled({
-      block: "start",
-      selectors: ['[data-prd-pane] [data-section="prd.viewer.fuzzy-search"]'],
+/**
+ * A selected result scrolls its targets into view; the test answers for it. Effect UI matches a
+ * pending Command by definition, not by its arguments, so the targets are no longer asserted.
+ */
+const scrolledTargets = (s: ViewerSteps) =>
+  s.resolve(viewerBridge.commandOf(ScrollSearchTargets), Message.CompletedScrollSearchTargets());
+
+const litPaths = inside(data("wire-layer"), both(tag("path"), data("lit")));
+const faintPaths = inside(data("wire-layer"), both(tag("path"), data("dimmed")));
+
+it.effect(
+  "selecting a PRD section scrolls the PRD to its heading and makes it current, keeping the pin",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(reading);
+      s.pipe(mounted(unmeasured))
+        .click(statusLine(PINNED))
+        .pipe(pushedUrl)
+        .expect(heading(PINNED))
+        .toHaveAttribute("data-current", "")
+        .type(searchBox, "fuzzy search")
+        .pipe(scrolledSearchResult)
+        .expect(status)
+        .toHaveText(Array.length(searchTrace(demoTrace, "fuzzy search")) + " results.")
+        // The active result is current ahead of the pin, outlined and marked in its heading.
+        .expect(heading("prd.viewer.fuzzy-search"))
+        .toHaveAttribute("data-searched", "active")
+        .expect(heading("prd.viewer.fuzzy-search"))
+        .toHaveAttribute("data-current", "")
+        .expect(heading(PINNED))
+        .toHaveAttribute("data-current", false)
+        .expect(inside(heading("prd.viewer.fuzzy-search"), mark))
+        .toExist()
+        .expect(statusLine(PINNED))
+        .toHaveAttribute("aria-pressed", "true")
+        // Nothing is scrolled until a result is selected.
+        .keydown(searchBox, "Enter")
+        .expectHandled()
+        .pipe(scrolledTargets)
+        // Escape clears the search and its marks; the pin is current again and is still pinned.
+        .keydown(searchBox, "Escape")
+        .expectHandled()
+        .expect(searched)
+        .toHaveCount(0)
+        .expect(mark)
+        .toHaveCount(0)
+        .expect(heading(PINNED))
+        .toHaveAttribute("data-current", "")
+        .expect(statusLine(PINNED))
+        .toHaveAttribute("aria-pressed", "true");
     }),
-    // Escape clears the search and its marks; the pin is current again and is still pinned.
-    pressed("Escape"),
-    expectHandled(),
-    expectAll(searched).toBeEmpty(),
-    expectAll(marks).toBeEmpty(),
-    expect(heading(PINNED)).toHaveAttr("data-current", ""),
-    expect(statusLine(PINNED)).toHaveAttr("aria-pressed", "true"),
-  );
-});
+);
 
-it("a spec section makes its first PRD section current, lights only its own curves and scrolls its card", () => {
-  const litWires = 1 + stackOrderTasks;
-  scene(
-    { update, view },
-    given(unfoldedReading),
-    mounted(measuredFor(MANIFEST)),
-    click(statusLine(PINNED)),
-    typed("stkorder"),
-    scrolledSearchResult,
-    // The chain's first PRD section in document order, not the pin; the pin is untouched.
-    expect(heading(MANIFEST)).toHaveAttr("data-current", ""),
-    expect(heading(PINNED)).not.toHaveAttr("data-current"),
-    expect(statusLine(PINNED)).toHaveAttr("aria-pressed", "true"),
-    expect(card(STACK_ORDER.id)).toHaveAttr("data-searched", "active"),
-    expect(simulate.within(card(STACK_ORDER.id), mark)).toExist(),
-    expect(chip("t20")).toHaveAttr("data-searched", "match"),
-    // Only the active result's chain is previewed: its curves are lit, every other is faint.
-    expectAll(lit).toHaveCount(litWires),
-    expectAll(faint).toHaveCount(wireCount - litWires),
-    expect(chip("t9")).toHaveAttr("data-dimmed", ""),
-    expect(chip("t20")).not.toHaveAttr("data-dimmed"),
-    pressed("Enter"),
-    expectHandled(),
-    scrolled({ block: "nearest", selectors: ['[data-spec="spec.planning.stack-order"]'] }),
-    // Hovering is the top preview, and leaving it falls back to the search.
-    hover(chip("t9")),
-    expect(chip("t20")).toHaveAttr("data-dimmed", ""),
-    left,
-    expect(chip("t20")).not.toHaveAttr("data-dimmed"),
-    expectAll(lit).toHaveCount(litWires),
-    pressed("Escape"),
-    expectAll(all.selector("[data-dimmed]")).toBeEmpty(),
-    expectAll(lit).toBeEmpty(),
-    expect(heading(PINNED)).toHaveAttr("data-current", ""),
-  );
-});
+it.effect(
+  "a spec section makes its first PRD section current, lights only its own curves and scrolls its card",
+  () =>
+    Effect.gen(function* () {
+      const litWires = 1 + stackOrderTasks;
+      const s = yield* viewerScene(unfoldedReading);
+      s.pipe(mounted(measuredFor(MANIFEST)))
+        .click(statusLine(PINNED))
+        .pipe(pushedUrl)
+        .type(searchBox, "stkorder")
+        .pipe(scrolledSearchResult)
+        // The chain's first PRD section in document order, not the pin; the pin is untouched.
+        .expect(heading(MANIFEST))
+        .toHaveAttribute("data-current", "")
+        .expect(heading(PINNED))
+        .toHaveAttribute("data-current", false)
+        .expect(statusLine(PINNED))
+        .toHaveAttribute("aria-pressed", "true")
+        .expect(card(STACK_ORDER.id))
+        .toHaveAttribute("data-searched", "active")
+        .expect(inside(card(STACK_ORDER.id), mark))
+        .toExist()
+        .expect(chip("t20"))
+        .toHaveAttribute("data-searched", "match")
+        // Only the active result's chain is previewed: its curves are lit, every other is faint.
+        .expect(litPaths)
+        .toHaveCount(litWires)
+        .expect(faintPaths)
+        .toHaveCount(wireCount - litWires)
+        .expect(chip("t9"))
+        .toHaveAttribute("data-dimmed", "")
+        .expect(chip("t20"))
+        .toHaveAttribute("data-dimmed", false)
+        .keydown(searchBox, "Enter")
+        .expectHandled()
+        .pipe(scrolledTargets)
+        // Hovering is the top preview, and leaving it falls back to the search.
+        .fire(chip("t9"), "mouseenter")
+        .expect(chip("t20"))
+        .toHaveAttribute("data-dimmed", "")
+        .fire(chip("t9"), "mouseleave")
+        .expect(chip("t20"))
+        .toHaveAttribute("data-dimmed", false)
+        .expect(litPaths)
+        .toHaveCount(litWires)
+        .keydown(searchBox, "Escape")
+        .expect(dimmed)
+        .toHaveCount(0)
+        .expect(litPaths)
+        .toHaveCount(0)
+        .expect(heading(PINNED))
+        .toHaveAttribute("data-current", "");
+    }),
+);
 
-it("a task scrolls its row and its chip, and its chain is the one previewed", () => {
-  scene(
-    { update, view },
-    given(unfoldedReading),
-    mounted(measuredFor(MANIFEST)),
-    typed("stkorder"),
-    scrolledSearchResult,
-    pressed("ArrowDown"),
-    scrolledSearchResult,
-    expect(heading(MANIFEST)).toHaveAttr("data-current", ""),
-    expect(row("t20")).toHaveAttr("data-searched", "active"),
-    expect(chip("t20")).toHaveAttr("data-searched", "active"),
-    expect(card(STACK_ORDER.id)).toHaveAttr("data-searched", "match"),
-    expectAll(lit).toHaveCount(2),
-    expect(chip("t9")).toHaveAttr("data-dimmed", ""),
-    pressed("Enter"),
-    expectHandled(),
-    scrolled(
-      { block: "nearest", selectors: ['[data-task-row$=":t20"]'] },
-      { block: "nearest", selectors: [STACKS_T20] },
-    ),
-  );
-});
+it.effect("a task scrolls its row and its chip, and its chain is the one previewed", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(unfoldedReading);
+    s.pipe(mounted(measuredFor(MANIFEST)))
+      .type(searchBox, "stkorder")
+      .pipe(scrolledSearchResult)
+      .keydown(searchBox, "ArrowDown")
+      .pipe(scrolledSearchResult)
+      .expect(heading(MANIFEST))
+      .toHaveAttribute("data-current", "")
+      .expect(row("t20"))
+      .toHaveAttribute("data-searched", "active")
+      .expect(chip("t20"))
+      .toHaveAttribute("data-searched", "active")
+      .expect(card(STACK_ORDER.id))
+      .toHaveAttribute("data-searched", "match")
+      .expect(litPaths)
+      .toHaveCount(2)
+      .expect(chip("t9"))
+      .toHaveAttribute("data-dimmed", "")
+      .keydown(searchBox, "Enter")
+      .expectHandled()
+      .pipe(scrolledTargets);
+  }),
+);
 
-it("a spec section that implements no PRD section opens in the detail panel, and clearing keeps it open", () => {
-  scene(
-    { update, view },
-    given(reading),
-    mounted(unmeasured),
-    click(statusLine(PINNED)),
-    typed("format"),
-    scrolledSearchResult,
-    // Moving to it only previews: it has no card, so the pin stays current and nothing opens.
-    expect(heading(PINNED)).toHaveAttr("data-current", ""),
-    expect(panel).toBeAbsent(),
-    pressed("Enter"),
-    expectHandled(),
-    expect(panel).toHaveAttr("data-detail-id", "spec.format"),
-    expect(heading(PINNED)).toHaveAttr("data-current", ""),
-    pressed("Escape"),
-    expectHandled(),
-    expect(searchBox).toHaveValue(""),
-    expect(panel).toHaveAttr("data-detail-id", "spec.format"),
-    expect(statusLine(PINNED)).toHaveAttr("aria-pressed", "true"),
-  );
-});
+it.effect(
+  "a spec section that implements no PRD section opens in the detail panel, and clearing keeps it open",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(reading);
+      s.pipe(mounted(unmeasured))
+        .click(statusLine(PINNED))
+        .pipe(pushedUrl)
+        .type(searchBox, "format")
+        .pipe(scrolledSearchResult)
+        // Moving to it only previews: it has no card, so the pin stays current and nothing opens.
+        .expect(heading(PINNED))
+        .toHaveAttribute("data-current", "")
+        .expect(panel)
+        .toBeAbsent()
+        .keydown(searchBox, "Enter")
+        .expectHandled()
+        .pipe(pushedUrl)
+        .expectMount(PressDivider({ pane: "detail" }))
+        .expect(panel)
+        .toHaveAttribute("data-detail-id", "spec.format")
+        .expect(heading(PINNED))
+        .toHaveAttribute("data-current", "")
+        .keydown(searchBox, "Escape")
+        .expectHandled()
+        .expect(searchBox)
+        .toHaveValue("")
+        .expect(panel)
+        .toHaveAttribute("data-detail-id", "spec.format")
+        .expect(statusLine(PINNED))
+        .toHaveAttribute("aria-pressed", "true");
+    }),
+);
 
-it("a click on a result selects it and returns focus to search, and a task result does not open the panel", () => {
-  scene(
-    { update, view },
-    given(reading),
-    mounted(unmeasured),
-    typed("stkorder"),
-    scrolledSearchResult,
-    click(option(taskNode("t20"))),
-    scrolled(
-      { block: "nearest", selectors: ['[data-task-row$=":t20"]'] },
-      { block: "nearest", selectors: [STACKS_T20] },
-    ),
-    focusedSearchInput,
-    expect(option(taskNode("t20"))).toHaveAttr("aria-selected", "true"),
-    expect(row("t20")).toHaveAttr("data-searched", "active"),
-    expect(panel).toBeAbsent(),
-    expectAll(all.selector("[data-pins]")).toBeEmpty(),
-  );
-});
+it.effect(
+  "a click on a result selects it and returns focus to search, and a task result does not open the panel",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(reading);
+      s.pipe(mounted(unmeasured))
+        .type(searchBox, "stkorder")
+        .pipe(scrolledSearchResult)
+        .click(option(taskNode("t20")))
+        .pipe(scrolledTargets, focusedSearchInput)
+        .expect(option(taskNode("t20")))
+        .toHaveAttribute("aria-selected", "true")
+        .expect(row("t20"))
+        .toHaveAttribute("data-searched", "active")
+        .expect(panel)
+        .toBeAbsent()
+        .expect(data("pins"))
+        .toHaveCount(0);
+    }),
+);
 
 /** The first result of the query that is prose in a section of the document. */
 const proseOf = (query: string, isWanted: (result: SearchResult) => boolean): SearchResult =>
@@ -283,84 +317,95 @@ const isSpec = (result: SearchResult) =>
 const isPrd = (result: SearchResult) =>
   result.node.kind === "section" && String.startsWith("prd.")(result.node.id);
 
-it("selecting prose in the PRD scrolls to the matched block, falling back to its heading", () => {
-  const found = proseOf("trailer", isPrd);
-  const offset = Option.getOrThrow(found.maybeOffset);
-  scene(
-    { update, view },
-    given(reading),
-    mounted(unmeasured),
-    typed("trailer"),
-    scrolledSearchResult,
-    click(option(found.node)),
-    scrolled({
-      block: "nearest",
-      selectors: [
-        '[data-block="prd:' + offset + '"]',
-        '[data-prd-pane] [data-section="' + found.node.id + '"]',
-      ],
+it.effect(
+  "selecting prose in the PRD scrolls to the matched block, falling back to its heading",
+  () =>
+    Effect.gen(function* () {
+      const found = proseOf("trailer", isPrd);
+      const offset = Option.getOrThrow(found.maybeOffset);
+      const s = yield* viewerScene(reading);
+      s.pipe(mounted(unmeasured))
+        .type(searchBox, "trailer")
+        .pipe(scrolledSearchResult)
+        .click(option(found.node))
+        .pipe(scrolledTargets, focusedSearchInput)
+        .expect(inside(data("block", "prd:" + offset), mark))
+        .toExist()
+        .expect(heading(found.node.id))
+        .toHaveAttribute("data-searched", "active");
     }),
-    focusedSearchInput,
-    expect(simulate.within(selector('[data-block="prd:' + offset + '"]'), mark)).toExist(),
-    expect(heading(found.node.id)).toHaveAttr("data-searched", "active"),
-  );
-});
+);
 
-it("a card holding the active result's prose is open while it is active, whatever the density", () => {
-  const found = proseOf("judgment", isSpec);
-  const section = Option.getOrThrow(searchedSectionOf(demoTrace, Option.some(found.node)));
-  const offset = Option.getOrThrow(found.maybeOffset);
-  const searching = modifyFields(reading, {
-    reader: (reader) =>
-      modifyFields(reader, { density: () => "titles", maybePinned: () => Option.some(section) }),
-    search: () => queried(NO_SEARCH, Option.some(demoTrace), "judgment"),
-  });
-  const header = selector('[data-spec="' + found.node.id + '"] [aria-expanded]');
-  const full = selector('[data-full-spec="' + found.node.id + '"]');
-  scene(
-    { update, view },
-    // The query has results, none of them active: the card is closed.
-    given(
-      modifyFields(searching, {
-        search: (search) => modifyFields(search, { maybeActive: () => Option.none() }),
-      }),
-    ),
-    mounted(unmeasured),
-    expect(header).toHaveAttr("aria-expanded", "false"),
-    expect(full).toBeAbsent(),
-  );
-  scene(
-    { update, view },
-    given(
-      modifyFields(searching, {
-        search: (search) => modifyFields(search, { maybeActive: () => Option.some(found.node) }),
-      }),
-    ),
-    mounted(unmeasured),
-    expect(header).toHaveAttr("aria-expanded", "true"),
-    expect(card(found.node.id)).toHaveAttr("data-searched", "active"),
-    expect(simulate.within(full, selector('[data-block="spec:' + offset + '"]'))).toExist(),
-    expect(simulate.within(full, mark)).toExist(),
-  );
-});
+it.effect(
+  "a card holding the active result's prose is open while it is active, whatever the density",
+  () =>
+    Effect.gen(function* () {
+      const found = proseOf("judgment", isSpec);
+      const section = Option.getOrThrow(searchedSectionOf(demoTrace, Option.some(found.node)));
+      const offset = Option.getOrThrow(found.maybeOffset);
+      const searching = modifyFields(reading, {
+        reader: (reader) =>
+          modifyFields(reader, {
+            density: () => "titles",
+            maybePinned: () => Option.some(section),
+          }),
+        search: () => queried(NO_SEARCH, Option.some(demoTrace), "judgment"),
+      });
+      const header = inside(data("spec", found.node.id), attr("aria-expanded"));
+      const full = data("full-spec", found.node.id);
+      // The query has results, none of them active: the card is closed.
+      const closed = yield* viewerScene(
+        modifyFields(searching, {
+          search: (search) => modifyFields(search, { maybeActive: () => Option.none() }),
+        }),
+      );
+      closed
+        .pipe(mounted(unmeasured))
+        .expect(header)
+        .toHaveAttribute("aria-expanded", "false")
+        .expect(full)
+        .toBeAbsent();
+      const open = yield* viewerScene(
+        modifyFields(searching, {
+          search: (search) => modifyFields(search, { maybeActive: () => Option.some(found.node) }),
+        }),
+      );
+      open
+        .pipe(mounted(unmeasured))
+        .expect(header)
+        .toHaveAttribute("aria-expanded", "true")
+        .expect(card(found.node.id))
+        .toHaveAttribute("data-searched", "active")
+        .expect(inside(full, data("block", "spec:" + offset)))
+        .toExist()
+        .expect(inside(full, mark))
+        .toExist();
+    }),
+);
 
-it("a query with no match says so and leaves the panes usable and undimmed", () => {
-  scene(
-    { update, view },
-    given(reading),
-    mounted(unmeasured),
-    click(statusLine(PINNED)),
-    typed("zzzzqqqq"),
-    expect(status).toHaveText("No results."),
-    expect(heading(PINNED)).toHaveAttr("data-current", ""),
-    expectAll(all.selector("[data-dimmed]")).toBeEmpty(),
-    expectAll(searched).toBeEmpty(),
-    pressed("Enter"),
-    expectHandled(),
-    click(statusLine(PINNED)),
-    expect(statusLine(PINNED)).toHaveAttr("aria-pressed", "false"),
-  );
-});
+it.effect("a query with no match says so and leaves the panes usable and undimmed", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(reading);
+    s.pipe(mounted(unmeasured))
+      .click(statusLine(PINNED))
+      .pipe(pushedUrl)
+      .type(searchBox, "zzzzqqqq")
+      .expect(status)
+      .toHaveText("No results.")
+      .expect(heading(PINNED))
+      .toHaveAttribute("data-current", "")
+      .expect(dimmed)
+      .toHaveCount(0)
+      .expect(searched)
+      .toHaveCount(0)
+      .keydown(searchBox, "Enter")
+      .expectHandled()
+      .click(statusLine(PINNED))
+      .pipe(pushedUrl)
+      .expect(statusLine(PINNED))
+      .toHaveAttribute("aria-pressed", "false");
+  }),
+);
 
 const sectionIds = Array.map(demoTrace.prd.sections, (section) => section.id);
 const specIds = Array.map(demoTrace.spec.sections, (section) => section.id);

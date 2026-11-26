@@ -1,21 +1,18 @@
 import { ParticipantId } from "@cairn/contract";
 import { it } from "@effect/vitest";
-import { Option } from "effect";
-import { Subscription, expect, given, role, scene } from "foldkit/scene";
+import { Effect, Option } from "effect";
 
 import { Message } from "../src/message.ts";
 import { update } from "../src/update.ts";
-import { view } from "../src/view/view.ts";
-import { loaded, mounted } from "./fixtures.ts";
+import { byRole, loaded, readerMounted, viewerScene } from "./fixtures.ts";
 
-it("a closed presence connection says so and drops the stale participants", () => {
-  scene(
-    { update, view },
-    given(loaded),
-    mounted,
-    Subscription.emit(Message.OpenedPresence()),
-    expect(role("status")).toHaveText("Nobody else is here."),
-    Subscription.emit(
+it.effect("a closed presence connection says so and drops the stale participants", () =>
+  Effect.gen(function* () {
+    // The presence socket is a page subscription the scene does not hear, so each Message is
+    // applied with `update` and the scene is given the Model it leaves.
+    const opened = update(loaded, Message.OpenedPresence()).model;
+    const received = update(
+      opened,
       Message.ReceivedPresence({
         presence: {
           participants: [
@@ -29,11 +26,22 @@ it("a closed presence connection says so and drops the stale participants", () =
           you: ParticipantId.make("p1"),
         },
       }),
-    ),
-    expect(role("status")).toHaveText("Here now: Planner (agent)"),
-    Subscription.emit(Message.ClosedPresence()),
-    expect(role("status")).toHaveText(
-      "The presence connection is lost. Other participants are not shown.",
-    ),
-  );
-});
+    ).model;
+    const closed = update(received, Message.ClosedPresence()).model;
+    const s = yield* viewerScene(loaded);
+    // A given Model draws the reader afresh, so its mounts start again.
+    s.pipe(readerMounted)
+      .given(opened)
+      .pipe(readerMounted)
+      .expect(byRole("status"))
+      .toHaveText("Nobody else is here.")
+      .given(received)
+      .pipe(readerMounted)
+      .expect(byRole("status"))
+      .toHaveText("Here now: Planner (agent)")
+      .given(closed)
+      .pipe(readerMounted)
+      .expect(byRole("status"))
+      .toHaveText("The presence connection is lost. Other participants are not shown.");
+  }),
+);

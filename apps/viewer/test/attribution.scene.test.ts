@@ -1,19 +1,31 @@
 import { Session } from "@cairn/contract";
+import { Story } from "@effect/ui/testing";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Option, Record, Result, Schema } from "effect";
-import { Mount, click, expect, given, scene, selector } from "foldkit/scene";
-import { Command, given as storyGiven, message, model, story } from "foldkit/story";
+import { Array, Effect, Option, Record, Result, Schema } from "effect";
 
 import { patchPathOf } from "../src/codeView.ts";
 import { ScrollTurn } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
+import { Viewer, viewerBridge } from "../src/app.ts";
 import { RenderDiff } from "../src/diff.ts";
 import { Message } from "../src/message.ts";
+import { PushUrl } from "../src/route.ts";
 import { Shown, type Model } from "../src/model.ts";
 import { update as appUpdate } from "../src/update.ts";
-import { view as appView } from "../src/view/view.ts";
 import commitPatch from "./fixtures/commit.patch?raw";
-import { loaded } from "./fixtures.ts";
+import {
+  attr,
+  both,
+  containing,
+  data,
+  inside,
+  loaded,
+  pushedUrl,
+  tag,
+  viewerProps,
+  viewerScene,
+  type ViewerSteps,
+} from "./fixtures.ts";
 
 /** A task with a commit that has a session, so the code view on it marks the diff's hunks. */
 const task = Option.getOrThrow(
@@ -52,8 +64,6 @@ const session = Schema.decodeUnknownSync(Session)({
   version: 1,
 });
 
-const app = { update: appUpdate, view: appView };
-
 const after = (start: Model, ...messages: ReadonlyArray<Message>): Model =>
   Array.reduce(messages, start, (current, next) => appUpdate(current, next).model);
 
@@ -65,80 +75,104 @@ const showing = after(
   Message.ReceivedSession({ id: sessionId, result: Result.succeed(session) }),
 );
 
-const list = selector("[data-patch-path]");
-const turn = (id: string) => selector(`li[data-turn="${id}"]`);
-const turnButton = (id: string) => selector(`li[data-turn="${id}"] button[aria-expanded]`);
-const drawn = Mount.resolve(
-  RenderDiff,
-  // oxlint-disable-next-line foldkit/no-child-message-construction-in-root -- src/message.ts is the root Message; the rule reads a path into src/ as a child module
-  Message.CompletedRenderDiff(),
+const list = data("patch-path");
+const turn = (id: string) => both(tag("li"), data("turn", id));
+const turnButton = (id: string) => inside(turn(id), both(tag("button"), attr("aria-expanded")));
+const drawn = (s: ViewerSteps) =>
+  s.mounted(viewerBridge.mountOf(RenderDiff), Message.CompletedRenderDiff());
+
+it.effect(
+  "ClickedHunkMark opens the turn, marks it from the diff side and scrolls the session to it",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* Story.make(Viewer, viewerProps);
+      s.given(showing)
+        .send(Message.ClickedHunkMark({ id: "c1" }))
+        // Opening the turn also writes the address, so the link gains the turn.
+        .expectExact(viewerBridge.commandOf(ScrollTurn), viewerBridge.commandOf(PushUrl))
+        .resolve(viewerBridge.commandOf(ScrollTurn), Message.CompletedScrollTurn())
+        .resolve(viewerBridge.commandOf(PushUrl), Message.CompletedNavigation())
+        .check(({ model }) => {
+          assert(model.maybeHighlightedTurn).toEqual(Option.some({ from: "diff", id: "c1" }));
+          assert(Record.get(model.openedTurns, "c1")).toEqual(Option.some(true));
+        });
+    }),
 );
 
-it("ClickedHunkMark opens the turn, marks it from the diff side and scrolls the session to it", () => {
-  story(
-    appUpdate,
-    storyGiven(showing),
-    message(Message.ClickedHunkMark({ id: "c1" })),
-    Command.expectExact(ScrollTurn({ id: "c1" })),
-    Command.resolve(ScrollTurn, Message.CompletedScrollTurn()),
-    model((next) => {
-      assert(next.maybeHighlightedTurn).toEqual(Option.some({ from: "diff", id: "c1" }));
-      assert(Record.get(next.openedTurns, "c1")).toEqual(Option.some(true));
+it.effect(
+  "after ClickedHunkMark the session pane shows the turn open and active, and the diff its hunks",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(after(showing, Message.ClickedHunkMark({ id: "c1" })));
+      s.pipe(drawn)
+        .expect(turn("c1"))
+        .toHaveAttribute("data-active", "")
+        .expect(turnButton("c1"))
+        .toHaveAttribute("aria-expanded", "true")
+        .expect(inside(turn("c1"), data("turn-part", "Input")))
+        .toHaveText(containing("the edit's input"))
+        .expect(turn("c2"))
+        .toHaveAttribute("data-active", false)
+        .expect(list)
+        .toHaveAttribute("data-turn", "c1")
+        .expect(list)
+        .toHaveAttribute("data-turn-from", "diff");
     }),
-  );
-});
+);
 
-it("after ClickedHunkMark the session pane shows the turn open and active, and the diff its hunks", () => {
-  scene(
-    app,
-    given(after(showing, Message.ClickedHunkMark({ id: "c1" }))),
-    drawn,
-    expect(turn("c1")).toHaveAttr("data-active", ""),
-    expect(turnButton("c1")).toHaveAttr("aria-expanded", "true"),
-    expect(selector('li[data-turn="c1"] [data-turn-part="Input"]')).toContainText(
-      "the edit's input",
-    ),
-    expect(turn("c2")).not.toHaveAttr("data-active"),
-    expect(list).toHaveAttr("data-turn", "c1"),
-    expect(list).toHaveAttr("data-turn-from", "diff"),
-  );
-});
+it.effect("the diff mount is given the session, so it can mark each hunk with its turns", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(showing);
+    s.expectMount(
+      viewerBridge.mountOf(RenderDiff)({
+        args: RenderDiff({ session: Option.some(session), text: commitPatch }).args,
+      }),
+    )
+      .pipe(drawn)
+      .expect(list)
+      .toHaveAttribute("data-turn", false);
+  }),
+);
 
-it("the diff mount is given the session, so it can mark each hunk with its turns", () => {
-  scene(
-    app,
-    given(showing),
-    Mount.expectExact(RenderDiff({ session: Option.some(session), text: commitPatch })),
-    drawn,
-    expect(list).not.toHaveAttr("data-turn"),
-  );
-});
+it.effect(
+  "opening a turn in the session pane marks its hunks from the session side; closing it clears them",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(showing);
+      s.pipe(drawn)
+        .click(turnButton("c2"))
+        .pipe(pushedUrl)
+        .expect(list)
+        .toHaveAttribute("data-turn", "c2")
+        .expect(list)
+        .toHaveAttribute("data-turn-from", "session")
+        .expect(turn("c2"))
+        .toHaveAttribute("data-active", "")
+        .click(turnButton("c2"))
+        .pipe(pushedUrl)
+        .expect(list)
+        .toHaveAttribute("data-turn", false)
+        .expect(list)
+        .toHaveAttribute("data-turn-from", false)
+        .expect(turn("c2"))
+        .toHaveAttribute("data-active", false);
+    }),
+);
 
-it("opening a turn in the session pane marks its hunks from the session side; closing it clears them", () => {
-  scene(
-    app,
-    given(showing),
-    drawn,
-    click(turnButton("c2")),
-    expect(list).toHaveAttr("data-turn", "c2"),
-    expect(list).toHaveAttr("data-turn-from", "session"),
-    expect(turn("c2")).toHaveAttr("data-active", ""),
-    click(turnButton("c2")),
-    expect(list).not.toHaveAttr("data-turn"),
-    expect(list).not.toHaveAttr("data-turn-from"),
-    expect(turn("c2")).not.toHaveAttr("data-active"),
-  );
-});
-
-it("closing a turn that is not the marked one leaves the marks alone", () => {
-  scene(
-    app,
-    given(after(showing, Message.ClickedTurn({ id: "c1" }), Message.ClickedTurn({ id: "c2" }))),
-    drawn,
-    expect(list).toHaveAttr("data-turn", "c2"),
-    click(turnButton("c1")),
-    expect(turnButton("c1")).toHaveAttr("aria-expanded", "false"),
-    expect(list).toHaveAttr("data-turn", "c2"),
-    expect(turn("c2")).toHaveAttr("data-active", ""),
-  );
-});
+it.effect("closing a turn that is not the marked one leaves the marks alone", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
+      after(showing, Message.ClickedTurn({ id: "c1" }), Message.ClickedTurn({ id: "c2" })),
+    );
+    s.pipe(drawn)
+      .expect(list)
+      .toHaveAttribute("data-turn", "c2")
+      .click(turnButton("c1"))
+      .expect(turnButton("c1"))
+      .toHaveAttribute("aria-expanded", "false")
+      .expect(list)
+      .toHaveAttribute("data-turn", "c2")
+      .expect(turn("c2"))
+      .toHaveAttribute("data-active", "");
+  }),
+);

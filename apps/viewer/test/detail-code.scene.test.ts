@@ -1,31 +1,34 @@
-import { PrdSectionId, TaskId } from "@cairn/contract";
+import { TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Option, Result, Schema, Struct } from "effect";
-import { Command, Mount, click, expect, given, scene, selector } from "foldkit/scene";
+import { Array, Effect, Option, Result, Schema, Struct } from "effect";
 import { modifyFields } from "foldkit/struct";
 
 import { FetchPatch } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
-import { RenderDiff } from "../src/diff.ts";
 import { Message } from "../src/message.ts";
 import { PatchData, Screen, TraceData, type Model } from "../src/model.ts";
 import { update } from "../src/update.ts";
-import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
-import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
-import { MeasureWires } from "../src/view/wiresView.ts";
-import { view } from "../src/view/view.ts";
 import rangePatch from "./fixtures/range.patch?raw";
-import { focusedDetailHeading, loaded, unmeasuredWires } from "./fixtures.ts";
+import {
+  both,
+  byRole,
+  containing,
+  data,
+  detailDividerRunning,
+  drawnDiff,
+  focusedHeading,
+  inside,
+  loaded,
+  pushedUrl,
+  readerMounted,
+  resolved,
+  styled,
+  viewerScene,
+} from "./fixtures.ts";
 
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 const taskId = (id: string) => Schema.decodeSync(TaskId)(id);
 const clickedTask = (id: string) => Message.ClickedTask({ id: taskId(id) });
-
-const scrolledTop = Mount.resolveAll(
-  [TrackPrdScroll, Message.ScrolledPrd({ id: PrdSectionId.make("prd.goal") })],
-  [ScrollStacksToBottom, Message.CompletedScrollStacks({ maybeChartWidth: Option.none() })],
-  [MeasureWires, Message.MeasuredWires({ measured: unmeasuredWires })],
-);
 
 /** A done task with one commit that has a parent, so its whole diff has a route. */
 const task6 = Option.getOrThrow(Array.findFirst(demoTrace.tasks, (each) => each.id === "t6"));
@@ -48,11 +51,11 @@ const withBare = (status: "pending" | "done") =>
       }),
   });
 
-const row = selector('[data-task-row="spec.contract.manifest:t6"]');
-const statusLine = selector('[data-status-line="prd.manifest-schema"]');
+const row = data("task-row", "spec.contract.manifest:t6");
+const statusLine = data("status-line", "prd.manifest-schema");
 
-const fetchedWhole = Command.resolve(
-  FetchPatch({ path: wholePath }),
+const fetchedWhole = resolved(
+  FetchPatch,
   Message.ReceivedPatch({ path: wholePath, result: Result.succeed(rangePatch) }),
 );
 
@@ -75,25 +78,26 @@ const requested = (model: Model, message: Message) => {
   };
 };
 
-it("opening a task with commits requests its whole diff and mounts it in a region of 60vh", () => {
-  scene(
-    { update, view },
-    given(reading),
-    scrolledTop,
-    click(statusLine),
-    click(row),
-    focusedDetailHeading,
-    fetchedWhole,
-    Mount.resolve(RenderDiff, Message.CompletedRenderDiff()),
-    expect(selector("[data-detail-code-summary]")).toContainText("1 commit"),
-    expect(selector("[data-detail-code-summary]")).toContainText("changed"),
-    expect(selector("[data-detail-code]")).toHaveStyle("height", "60vh"),
-    expect(selector("[data-detail-code] [data-patch-path]")).toHaveAttr(
-      "data-patch-path",
-      wholePath,
-    ),
-  );
-});
+it.effect(
+  "opening a task with commits requests its whole diff and mounts it in a region of 60vh",
+  () =>
+    Effect.gen(function* () {
+      const s = yield* viewerScene(reading);
+      s.pipe(readerMounted)
+        .click(statusLine)
+        .pipe(pushedUrl)
+        .click(row)
+        .pipe(pushedUrl, focusedHeading, detailDividerRunning, fetchedWhole, drawnDiff)
+        .expect(data("detail-code-summary"))
+        .toHaveText(containing("1 commit"))
+        .expect(data("detail-code-summary"))
+        .toHaveText(containing("changed"))
+        .expect(both(data("detail-code"), styled("height", "60vh")))
+        .toExist()
+        .expect(inside(data("detail-code"), data("patch-path")))
+        .toHaveAttribute("data-patch-path", wholePath);
+    }),
+);
 
 it("a route is requested once across two openings, and not at all when the model has it", () => {
   const first = requested(reading, clickedTask("t6"));
@@ -117,44 +121,56 @@ it("a route is requested once across two openings, and not at all when the model
   assert(requested(first.model, clickedTask("t6")).paths).toEqual([]);
 });
 
-it("a failed fetch shows its error in the region and is tried again when the task is shown", () => {
-  const failed = update(
-    requested(reading, clickedTask("t6")).model,
-    Message.ReceivedPatch({ path: wholePath, result: Result.fail("The server is not running.") }),
-  ).model;
-  scene(
-    { update, view },
-    given(failed),
-    scrolledTop,
-    click(statusLine),
-    click(row),
-    Command.resolve(
-      FetchPatch({ path: wholePath }),
-      Message.ReceivedPatch({ path: wholePath, result: Result.fail("Still down.") }),
-    ),
-    expect(selector("[data-detail-code] [role='alert']")).toContainText("Still down."),
-  );
-  assert(requested(failed, clickedTask("t6")).paths).toEqual([wholePath]);
-});
+it.effect(
+  "a failed fetch shows its error in the region and is tried again when the task is shown",
+  () =>
+    Effect.gen(function* () {
+      const failed = update(
+        requested(reading, clickedTask("t6")).model,
+        Message.ReceivedPatch({
+          path: wholePath,
+          result: Result.fail("The server is not running."),
+        }),
+      ).model;
+      const s = yield* viewerScene(failed);
+      // The model already has the task open, so the panel's divider runs from the start.
+      s.pipe(readerMounted, detailDividerRunning)
+        .click(statusLine)
+        .pipe(pushedUrl)
+        .click(row)
+        .pipe(
+          resolved(
+            FetchPatch,
+            Message.ReceivedPatch({ path: wholePath, result: Result.fail("Still down.") }),
+          ),
+        )
+        .expect(inside(data("detail-code"), byRole("alert")))
+        .toHaveText(containing("Still down."));
+      assert(requested(failed, clickedTask("t6")).paths).toEqual([wholePath]);
+    }),
+);
 
-it("a pending task with no commits says it has no code yet, and fetches nothing", () => {
-  assert(requested(withBare("pending"), clickedTask(bare.id)).paths).toEqual([]);
-  scene(
-    { update, view },
-    given(modifyFields(withBare("pending"), { detail: () => [{ id: bare.id, kind: "task" }] })),
-    scrolledTop,
-    expect(selector("[data-detail-code-note]")).toContainText(
-      "No code yet. The task has not started.",
-    ),
-    expect(selector("[data-detail-code]")).toBeAbsent(),
-  );
-});
+it.effect("a pending task with no commits says it has no code yet, and fetches nothing", () =>
+  Effect.gen(function* () {
+    assert(requested(withBare("pending"), clickedTask(bare.id)).paths).toEqual([]);
+    const s = yield* viewerScene(
+      modifyFields(withBare("pending"), { detail: () => [{ id: bare.id, kind: "task" }] }),
+    );
+    s.pipe(readerMounted, detailDividerRunning)
+      .expect(data("detail-code-note"))
+      .toHaveText(containing("No code yet. The task has not started."))
+      .expect(data("detail-code"))
+      .toBeAbsent();
+  }),
+);
 
-it("a done task with no commits says no commit carries its trailer", () => {
-  scene(
-    { update, view },
-    given(modifyFields(withBare("done"), { detail: () => [{ id: bare.id, kind: "task" }] })),
-    scrolledTop,
-    expect(selector("[data-detail-code-note]")).toContainText("Cairn-Task trailer"),
-  );
-});
+it.effect("a done task with no commits says no commit carries its trailer", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(
+      modifyFields(withBare("done"), { detail: () => [{ id: bare.id, kind: "task" }] }),
+    );
+    s.pipe(readerMounted, detailDividerRunning)
+      .expect(data("detail-code-note"))
+      .toHaveText(containing("Cairn-Task trailer"));
+  }),
+);
