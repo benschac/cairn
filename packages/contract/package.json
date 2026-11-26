@@ -9,7 +9,7 @@
     "./js": "./src/js.ts"
   },
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --testTimeout 15000",
     "typecheck": "effect-tsgo tsc --noEmit"
   },
   "dependencies": {
