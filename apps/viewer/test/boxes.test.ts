@@ -3,7 +3,15 @@ import { stacksOf, TaskIdOrder, type Stack } from "@cairn/core/stacks";
 import { expect, it } from "@effect/vitest";
 import { Array, Hash, HashSet, Number, Option, Order, Record, Schema, String, pipe } from "effect";
 
-import { BoxTask, boxOf, endKeyOf, trunkLabelOf, type Box } from "../src/boxes.ts";
+import {
+  BoxTask,
+  boxOf,
+  endKeyInOf,
+  endKeyOf,
+  stackBoxesOf,
+  trunkLabelOf,
+  type Box,
+} from "../src/boxes.ts";
 import { demoTrace } from "../src/demo.ts";
 
 const id = (n: number): TaskId => TaskId.make(`t${n}`);
@@ -342,3 +350,54 @@ it("a trunk of one task stays a chip", () => {
   expect(Record.keys(box.cells)).toEqual([id(1), id(2)]);
   expect(box.rows).toBe(2);
 });
+
+/** The roots a plan unfolds: about half. */
+const unfoldedOf = (tasks: ReadonlyArray<BoxTask>): Record<string, boolean> =>
+  Record.fromIterableWith(stacksOf(tasks), (stack) => [stack.root, hash(stack.root) % 2 === 0]);
+
+it.prop(
+  "stackBoxesOf gives each stack its box, unfolded exactly when its root is named",
+  [Plan, Finished],
+  ([generated, finished]) => {
+    const tasks = planOf(generated, finished);
+    const unfolded = unfoldedOf(tasks);
+    const boxes = stackBoxesOf(tasks, unfolded);
+    expect(Array.map(boxes, (box) => box.stack)).toEqual(stacksOf(tasks));
+    Array.forEach(boxes, (box) => {
+      const isUnfolded = Record.get(unfolded, box.stack.root).pipe(Option.getOrElse(() => false));
+      expect(box).toEqual(boxOf(box.stack, tasks, isUnfolded));
+      expect(Option.map(box.maybeTrunk, (trunk) => trunk.isFolded)).toEqual(
+        Option.map(box.maybeTrunk, () => !isUnfolded),
+      );
+    });
+    // No root named: every trunk is folded.
+    Array.forEach(stackBoxesOf(tasks, {}), (box) =>
+      expect(
+        Option.getOrElse(
+          Option.map(box.maybeTrunk, (trunk) => trunk.isFolded),
+          () => true,
+        ),
+      ).toBe(true),
+    );
+  },
+);
+
+it.prop(
+  "over every box, a drawn task's key is its chip's and a folded task's is its trunk's segment",
+  [Plan, Finished],
+  ([generated, finished]) => {
+    const tasks = planOf(generated, finished);
+    const boxes = stackBoxesOf(tasks, unfoldedOf(tasks));
+    const endKey = endKeyInOf(boxes);
+    Array.forEach(boxes, (box) =>
+      Array.forEach(Record.keys(box.stack.cells), (task) => {
+        expect(endKey(task)).toBe(endKeyOf(box)(task));
+        expect(endKey(task)).toBe(
+          Record.has(box.cells, task) ? `task:${task}` : `segment:${box.stack.root}`,
+        );
+      }),
+    );
+    // A task no stack holds is its own chip.
+    expect(endKey(ghost)).toBe("task:ghost");
+  },
+);

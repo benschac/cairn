@@ -32,9 +32,11 @@ import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
 import { view } from "../src/view/view.ts";
 import { MeasureWires } from "../src/view/wiresView.ts";
 import { linksOf, type Measured, type Panes } from "../src/wires.ts";
-import { focusedSearchInput, loaded, scrolledSearchResult } from "./fixtures.ts";
+import { focusedSearchInput, loaded, scrolledSearchResult, unfolded } from "./fixtures.ts";
 
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+/** Stack 13's trunk, t19 and t20, is folded in `reading`; these scenes look at t20's chip. */
+const unfoldedReading = unfolded(reading);
 
 const prd = (id: string) => PrdSectionId.make(id);
 const sectionNode = (id: string): Node => ({
@@ -60,6 +62,8 @@ const marks = all.selector("[data-search-match]");
 const searched = all.selector("[data-searched]");
 
 const PINNED = "prd.viewer.reader";
+/** Where t20 is brought into view: its chip, or the segment it is folded into. */
+const STACKS_T20 = '[data-stacks-pane] [data-task="t20"], [data-stacks-pane] [data-holds~="t20"]';
 
 /** The mounts the reader starts, answered as a page with this measurement would. */
 const mounted = (measured: Measured) =>
@@ -163,7 +167,7 @@ it("a spec section makes its first PRD section current, lights only its own curv
   const litWires = 1 + stackOrderTasks;
   scene(
     { update, view },
-    given(reading),
+    given(unfoldedReading),
     mounted(measuredFor(MANIFEST)),
     click(statusLine(PINNED)),
     typed("stkorder"),
@@ -199,7 +203,7 @@ it("a spec section makes its first PRD section current, lights only its own curv
 it("a task scrolls its row and its chip, and its chain is the one previewed", () => {
   scene(
     { update, view },
-    given(reading),
+    given(unfoldedReading),
     mounted(measuredFor(MANIFEST)),
     typed("stkorder"),
     scrolledSearchResult,
@@ -215,7 +219,7 @@ it("a task scrolls its row and its chip, and its chain is the one previewed", ()
     expectHandled(),
     scrolled(
       { block: "nearest", selectors: ['[data-task-row$=":t20"]'] },
-      { block: "nearest", selectors: ['[data-stacks-pane] [data-task="t20"]'] },
+      { block: "nearest", selectors: [STACKS_T20] },
     ),
   );
 });
@@ -253,7 +257,7 @@ it("a click on a result selects it and returns focus to search, and a task resul
     click(option(taskNode("t20"))),
     scrolled(
       { block: "nearest", selectors: ['[data-task-row$=":t20"]'] },
-      { block: "nearest", selectors: ['[data-stacks-pane] [data-task="t20"]'] },
+      { block: "nearest", selectors: [STACKS_T20] },
     ),
     focusedSearchInput,
     expect(option(taskNode("t20"))).toHaveAttr("aria-selected", "true"),

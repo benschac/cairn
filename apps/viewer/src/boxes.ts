@@ -1,5 +1,5 @@
 import { TaskId, TaskStatus } from "@cairn/contract";
-import { Stack, StackTask, TaskIdOrder } from "@cairn/core/stacks";
+import { Stack, StackTask, TaskIdOrder, stacksOf } from "@cairn/core/stacks";
 import { Array, Number, Option, Record, Schema, String, Struct, pipe } from "effect";
 
 import { trunkOf } from "./links.ts";
@@ -53,6 +53,21 @@ export const endKeyOf =
       { onNone: () => `task:${id}`, onSome: (trunk) => `segment:${trunk.root}` },
     );
 
+/**
+ * What `endKeyOf` gives over every box at once: the one folded trunk that holds the task decides,
+ * and any other task is its own chip.
+ */
+export const endKeyInOf =
+  (boxes: ReadonlyArray<Pick<Box, "maybeTrunk">>) =>
+  (id: TaskId): string =>
+    Option.match(
+      Array.findFirst(
+        Array.flatMap(boxes, (box) => Option.toArray(box.maybeTrunk)),
+        (trunk) => trunk.isFolded && Array.contains(trunk.tasks, id),
+      ),
+      { onNone: () => `task:${id}`, onSome: (trunk) => `segment:${trunk.root}` },
+    );
+
 /** `t45–t52 · viewer · 8 done`, or `t45–t52 · 8 done` for a stack with no area. */
 export const trunkLabelOf = (stack: Pick<Stack, "area">, trunk: Trunk): string =>
   Array.join(
@@ -68,6 +83,19 @@ export const trunkLabelOf = (stack: Pick<Stack, "area">, trunk: Trunk): string =
 const forkLabelOf = (task: BoxTask): Option.Option<string> =>
   Option.flatMap(Array.head(task.specSections), (section) =>
     Array.last(String.split(section, ".")),
+  );
+
+/** The box of every stack, each folded unless `unfolded` holds its root as `true`. */
+export const stackBoxesOf = (
+  tasks: ReadonlyArray<BoxTask>,
+  unfolded: Record.ReadonlyRecord<string, boolean>,
+): ReadonlyArray<Box> =>
+  Array.map(stacksOf(tasks), (stack) =>
+    boxOf(
+      stack,
+      tasks,
+      Option.getOrElse(Record.get(unfolded, stack.root), () => false),
+    ),
   );
 
 /**

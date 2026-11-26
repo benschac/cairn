@@ -1,6 +1,7 @@
-import type { PrdSectionId, Trace } from "@cairn/contract";
-import { Array, HashSet, Match, Number, Option, Record, Schema, String } from "effect";
+import type { PrdSectionId, TaskId, Trace } from "@cairn/contract";
+import { Array, HashSet, Match, Number, Option, Predicate, Record, Schema, String } from "effect";
 
+import type { Trunk } from "./boxes.ts";
 import { Positions, Rect } from "./geometry.ts";
 import type { Cards } from "./reader.ts";
 import { chainOf, type Chain, type Node } from "./trace.ts";
@@ -38,24 +39,31 @@ export const prdKey = (id: PrdSectionId): string => `prd:${id}`;
 export const specKey = (id: string): string => `spec:${id}`;
 export const rowKey = (spec: string, task: string): string => `row:${spec}:${task}`;
 export const taskKey = (id: string): string => `task:${id}`;
+export const segmentKey = (root: string): string => `segment:${root}`;
+export const forkKey = (id: string): string => `fork:${id}`;
 /** The `spec` part of a row key for a stray. */
 export const strayKey = STRAYS;
 
 /**
  * The curves the current section calls for: its PRD heading to the header of each card, and each
- * task row, a stray's too, to that task's chip in the stacks pane. Spec gap: the spec writes
- * `linksOf(cards)`, but `Cards` does not name the PRD section, so it is the first argument.
+ * task row, a stray's too, to the key `endKey` gives its task: its chip in the stacks pane, or the
+ * segment of the folded trunk it is in. Spec gap: the spec writes `linksOf(cards)`, but `Cards`
+ * does not name the PRD section, so it is the first argument.
  */
-export const linksOf = (prd: PrdSectionId, { cards, strays }: Cards): ReadonlyArray<Link> =>
+export const linksOf = (
+  prd: PrdSectionId,
+  { cards, strays }: Cards,
+  endKey: (id: TaskId) => string = taskKey,
+): ReadonlyArray<Link> =>
   Array.flatten([
     Array.map(cards, (card) => ({ source: prdKey(prd), target: specKey(card.section.id) })),
     Array.flatMap(cards, (card) =>
       Array.map(card.tasks, (task) => ({
         source: rowKey(card.section.id, task.id),
-        target: taskKey(task.id),
+        target: endKey(task.id),
       })),
     ),
-    Array.map(strays, (task) => ({ source: rowKey(STRAYS, task.id), target: taskKey(task.id) })),
+    Array.map(strays, (task) => ({ source: rowKey(STRAYS, task.id), target: endKey(task.id) })),
   ]);
 
 interface End {
@@ -69,7 +77,14 @@ const isPrdKey = String.startsWith("prd:");
 const paneOf = (key: string, panes: Panes): Rect =>
   Match.value(key).pipe(
     Match.when(isPrdKey, () => panes.prd),
-    Match.when(String.startsWith("task:"), () => panes.stacks),
+    Match.when(
+      Predicate.some([
+        String.startsWith("task:"),
+        String.startsWith("segment:"),
+        String.startsWith("fork:"),
+      ]),
+      () => panes.stacks,
+    ),
     Match.orElse(() => panes.spec),
   );
 
@@ -137,20 +152,34 @@ export const isTaskDimmed = (maybeChain: Option.Option<Chain>, id: string): bool
   Option.exists(maybeChain, (chain) => !HashSet.has(chain.tasks, id));
 
 /**
- * Whether the element a key names is in the chain. A row counts as its task, and a key that names
- * nothing the chain holds is not in it.
+ * Whether the element a key names is in the chain. A row counts as its task, a segment counts as
+ * the tasks of its trunk, and a key that names nothing the chain holds is not in it.
  */
-export const isKeyInChain = (chain: Chain, key: string): boolean => {
+export const isKeyInChain = (
+  chain: Chain,
+  key: string,
+  trunks: ReadonlyArray<Pick<Trunk, "root" | "tasks">> = [],
+): boolean => {
   const parts = String.split(":")(key);
   const id = Array.lastNonEmpty(parts);
   return Match.value(Array.headNonEmpty(parts)).pipe(
     Match.when("prd", () => HashSet.has(chain.prd, id)),
     Match.when("spec", () => HashSet.has(chain.spec, id)),
     Match.whenOr("row", "task", () => HashSet.has(chain.tasks, id)),
+    Match.when("segment", () =>
+      Array.some(
+        trunks,
+        (trunk) =>
+          trunk.root === id && Array.some(trunk.tasks, (task) => HashSet.has(chain.tasks, task)),
+      ),
+    ),
     Match.orElse(() => false),
   );
 };
 
 /** Whether the chain holds both ends of the wire: it is lit while its node is hovered. */
-export const isWireLit = (chain: Chain, wire: Wire): boolean =>
-  isKeyInChain(chain, wire.source) && isKeyInChain(chain, wire.target);
+export const isWireLit = (
+  chain: Chain,
+  wire: Wire,
+  trunks: ReadonlyArray<Pick<Trunk, "root" | "tasks">> = [],
+): boolean => isKeyInChain(chain, wire.source, trunks) && isKeyInChain(chain, wire.target, trunks);

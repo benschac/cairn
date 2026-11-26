@@ -16,6 +16,7 @@ import {
 import { Mount } from "foldkit";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
+import { endKeyInOf, stackBoxesOf, type Trunk } from "../boxes.ts";
 import { rectOf, type Rect } from "../geometry.ts";
 import { Message } from "../message.ts";
 import { cardsOf } from "../reader.ts";
@@ -200,8 +201,13 @@ const opacityOf = (wire: Wire, isLit: boolean, isDimmed: boolean): string =>
     Match.orElse(() => ROW_OPACITY),
   );
 
-const wireView = (wire: Wire, maybeChain: Option.Option<Chain>, h: HtmlBuilder<Message>): Html => {
-  const isLit = Option.exists(maybeChain, (chain) => isWireLit(chain, wire));
+const wireView = (
+  wire: Wire,
+  maybeChain: Option.Option<Chain>,
+  trunks: ReadonlyArray<Trunk>,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const isLit = Option.exists(maybeChain, (chain) => isWireLit(chain, wire, trunks));
   const isDimmed = Option.isSome(maybeChain) && !isLit;
   return h.path(
     Array.flatten([
@@ -235,13 +241,20 @@ export const wiresView = (
   maybeCurrent: Option.Option<PrdSectionId>,
   maybeMeasured: Option.Option<Measured>,
   maybeHovered: Option.Option<Node>,
+  unfolded: Record.ReadonlyRecord<string, boolean>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const maybeChain = hoverChainOf(trace, maybeHovered);
+  const boxes = stackBoxesOf(trace.tasks, unfolded);
+  const trunks = Array.flatMap(boxes, (box) => Option.toArray(box.maybeTrunk));
   const wires = Option.match(Option.all({ current: maybeCurrent, measured: maybeMeasured }), {
     onNone: (): ReadonlyArray<Wire> => [],
     onSome: ({ current, measured }) =>
-      wiresOf(linksOf(current, cardsOf(trace, current)), measured.boxes, measured.panes),
+      wiresOf(
+        linksOf(current, cardsOf(trace, current), endKeyInOf(boxes)),
+        measured.boxes,
+        measured.panes,
+      ),
   });
   return h.svg(
     [
@@ -257,6 +270,6 @@ export const wiresView = (
         "z-index": "2",
       }),
     ],
-    Array.map(wires, (wire) => wireView(wire, maybeChain, h)),
+    Array.map(wires, (wire) => wireView(wire, maybeChain, trunks, h)),
   );
 };

@@ -95,6 +95,13 @@ const blockSelectorOf = (result: SearchResult): ReadonlyArray<string> =>
   Array.map(Array.fromOption(blockKeyOf(result)), (key) => `[data-block="${key}"]`);
 
 /**
+ * What holds a task in the stacks pane: its chip, or the segment of the trunk it is folded into,
+ * whichever comes first in the page.
+ */
+export const stackTaskSelectorOf = (id: string): string =>
+  `[data-stacks-pane] [data-task="${id}"], [data-stacks-pane] [data-holds~="${id}"]`;
+
+/**
  * What a selected result brings into view in the reader. A PRD section scrolls the PRD pane to its
  * heading, or to its matched block. A spec section scrolls its card, or its matched block, in the
  * spec pane. A task scrolls its row in the spec pane and its chip in the stacks pane. The first
@@ -112,7 +119,7 @@ export const targetsOf = (result: SearchResult): ReadonlyArray<ScrollTarget> =>
         : [targetOf("nearest", Array.append(blockSelectorOf(result), `[data-spec="${id}"]`))],
     task: ({ id }) => [
       targetOf("nearest", [`[data-task-row$=":${id}"]`]),
-      targetOf("nearest", [`[data-stacks-pane] [data-task="${id}"]`]),
+      targetOf("nearest", [stackTaskSelectorOf(id)]),
     ],
   });
 

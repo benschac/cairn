@@ -751,6 +751,18 @@ const updated = (model: Model, message: Message) =>
           modifyFields(reader, { prdOpened: Record.set(id, !isOpenPrdSection(reader, id)) }),
       }),
     }),
+    // A finished trunk folds or unfolds on its own: it sends no command and is not in the link.
+    ClickedSegment: ({ root }) => ({
+      model: modifyFields(model, {
+        reader: (reader) =>
+          modifyFields(reader, {
+            unfolded: Record.set(
+              root,
+              !Option.getOrElse(Record.get(reader.unfolded, root), () => false),
+            ),
+          }),
+      }),
+    }),
     // Collapsing or expanding every section forgets the sections opened or closed on their own.
     ClickedCondensePrd: () => ({
       model: modifyFields(model, {

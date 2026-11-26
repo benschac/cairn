@@ -1277,8 +1277,93 @@ mark[data-search-match] {
   gap: 10px 7px;
 }
 
+/*
+ * A box's grid: each chip row is two grid rows, the chips' and a gap row the arrows into the row
+ * above cross. Columns are at least a chip wide.
+ */
 .stack-grid {
+  --stack-gap: 22px;
+  --stack-column: 36px;
   display: grid;
-  gap: 3px;
-  justify-items: start;
+  column-gap: 12px;
+  row-gap: 0;
+  align-items: center;
+}
+
+/* A fork's label sits in the gap row under its child and takes no width of its own. */
+.stack-grid > .label {
+  width: 0;
+  min-width: 100%;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+/*
+ * The segment under a box's grid, as wide as the box. Folded it is a done chip standing for the
+ * trunk's chips and takes their states: data-current, data-faded, data-selected and data-dimmed.
+ * Unfolded it is a slim bar.
+ */
+.stack > .segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 3px;
+  padding: 0 6px;
+  border: var(--line) solid var(--edge);
+  border-radius: 5px;
+  background-color: var(--green);
+  color: var(--ink);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  height: 21px;
+  transition:
+    opacity var(--d-fade) ease-out,
+    border-color var(--d-fade) ease-out,
+    transform var(--d-press) var(--ease);
+}
+
+.stack > .segment:active {
+  transform: scale(0.98);
+}
+
+.stack > .segment[aria-expanded="true"] {
+  height: 14px;
+  background-color: transparent;
+  color: var(--muted);
+}
+
+.stack > .segment > .dot {
+  width: 6px;
+  height: 6px;
+}
+
+.stack > .segment[data-current],
+.stack > .segment[data-selected] {
+  border-color: var(--ink);
+}
+
+.stack > .segment[data-current] {
+  box-shadow: var(--lift);
+  font-weight: 700;
+}
+
+.stack > .segment[data-selected] {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.stack > .segment[data-faded] {
+  opacity: 0.55;
+}
+
+.stack > .segment[data-dimmed] {
+  opacity: 0.3;
 }

@@ -1,5 +1,5 @@
 import type { Trace } from "@cairn/contract";
-import { Array, Option } from "effect";
+import { Array, Option, Record } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { Message } from "../message.ts";
@@ -113,6 +113,27 @@ const topBarView = (trace: Trace, model: Model, presence: string, h: HtmlBuilder
     ],
   );
 
+/** The roots of the stacks whose trunk is open. */
+const unfoldedRootsOf = (unfolded: Record.ReadonlyRecord<string, boolean>): ReadonlyArray<string> =>
+  Record.keys(Record.filter(unfolded, (isUnfolded) => isUnfolded));
+
+/** What the body's `data-wires` holds: the current section, the chip style and the unfolded roots. */
+const wiresAttributeOf = (
+  maybeCurrent: Option.Option<string>,
+  isShowingModels: boolean,
+  unfolded: Record.ReadonlyRecord<string, boolean>,
+): string =>
+  Array.join(
+    Array.appendAll(
+      [Option.getOrElse(maybeCurrent, () => ""), isShowingModels ? "models" : "plain"],
+      Array.match(unfoldedRootsOf(unfolded), {
+        onEmpty: () => [],
+        onNonEmpty: (roots) => [Array.join(roots, " ")],
+      }),
+    ),
+    "|",
+  );
+
 /** The least empty room after the stacks pane's handle, in pixels. */
 export const TRAILING_ROOM = 320;
 
@@ -183,10 +204,10 @@ export const readerView = (
             h.DataAttribute("reader-grid", ""),
             h.OnMount(MeasureWires()),
             // What changes the layout without changing a size the mount's observers see: the
-            // current section, and whether the model chips wrap the rows.
+            // current section, whether the model chips wrap the rows, and the unfolded trunks.
             h.Attribute(
               WIRES_ATTRIBUTE,
-              `${Option.getOrElse(maybeCurrent, () => "")}|${model.isShowingModels ? "models" : "plain"}`,
+              wiresAttributeOf(maybeCurrent, model.isShowingModels, model.reader.unfolded),
             ),
           ],
           [
@@ -218,13 +239,22 @@ export const readerView = (
               trace,
               maybeCurrent,
               model.isShowingModels,
+              model.reader.unfolded,
+              Array.last(model.detail),
               maybePreview,
               model.search.results,
               model.search.maybeActive,
               h,
             ),
             dividerView("stacks", model.widths, h),
-            wiresView(trace, maybeCurrent, model.maybeMeasuredWires, maybePreview, h),
+            wiresView(
+              trace,
+              maybeCurrent,
+              model.maybeMeasuredWires,
+              maybePreview,
+              model.reader.unfolded,
+              h,
+            ),
           ],
         ),
       ],

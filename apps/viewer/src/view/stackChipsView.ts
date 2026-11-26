@@ -1,16 +1,17 @@
-import type { PrdSectionId, SectionStatus, Trace, TraceTask } from "@cairn/contract";
+import type { PrdSectionId, SectionStatus, TaskId, Trace, TraceTask } from "@cairn/contract";
 import { labelOf, stacksOf, type Stack } from "@cairn/core/stacks";
 import { Array, Effect, HashSet, Number, Option, Order, Record, String, pipe } from "effect";
 import { Mount } from "foldkit";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
+import { stackBoxesOf, trunkLabelOf, type Box, type BoxCell, type Trunk } from "../boxes.ts";
 import { Message } from "../message.ts";
 import { currentTasksOf, planCountsOf, ranOf } from "../reader.ts";
 import { nodeSearchOf } from "../highlight.ts";
 import type { SearchResult } from "../search.ts";
-import type { Chain, Node } from "../trace.ts";
+import { Node, type Chain } from "../trace.ts";
 import { dotView, labelView } from "../ui/marks.ts";
-import { hoverChainOf, isTaskDimmed, taskKey } from "../wires.ts";
+import { forkKey, hoverChainOf, isTaskDimmed, segmentKey, taskKey } from "../wires.ts";
 import { modelAttributesOf, modelMarkView } from "./modelView.ts";
 import { fieldView, searchedAttributesOf } from "./nodeView.ts";
 import { branchStartOf } from "./stacksView.ts";
@@ -80,12 +81,15 @@ export const chipTitleOf = (trace: Trace, task: TraceTask): string =>
 const holdsCurrent = (stack: Stack, current: HashSet.HashSet<string>): boolean =>
   Array.some(Record.keys(stack.cells), (id) => HashSet.has(current, id));
 
-/** A task's chip: a status dot and its ID. Row 1 is the bottom, so `topRow` is the box's top row. */
+/** The grid row of a chip row: each holds the chips and, under them, a gap row. Row 1 is the bottom. */
+const gridRowOf = (rows: number, row: number): number => 2 * (rows - row) + 1;
+
+/** A task's chip: a status dot and its ID, centred across the columns its `cell` spans. */
 const chipView = (
   trace: Trace,
   task: TraceTask,
-  stack: Stack,
-  topRow: number,
+  cell: BoxCell,
+  rows: number,
   current: HashSet.HashSet<string>,
   hasCurrent: boolean,
   isShowingModels: boolean,
@@ -96,10 +100,6 @@ const chipView = (
 ): Html => {
   const ran = ranOf(task);
   const search = nodeSearchOf(results, maybeActive, { id: task.id, kind: "task" });
-  const position = Option.getOrElse(Record.get(stack.cells, task.id), () => ({
-    column: 1,
-    row: 1,
-  }));
   const isCurrent = HashSet.has(current, task.id);
   const title = chipTitleOf(trace, task);
   return h.keyed("button")(
@@ -114,9 +114,9 @@ const chipView = (
         h.AriaLabel(title),
         h.OnClick(Message.ClickedTask({ id: task.id })),
         h.Style({
-          "grid-column": `${position.column}`,
-          // A parent sits in the grid row below its child.
-          "grid-row": `${topRow - position.row + 1}`,
+          "grid-column": `${cell.column} / span ${cell.span}`,
+          "grid-row": `${gridRowOf(rows, cell.row)}`,
+          "justify-self": "center",
         }),
       ],
       hoverAttributesOf({ id: task.id, kind: "task" }, h),
@@ -135,21 +135,99 @@ const chipView = (
   );
 };
 
+/** What a child of a fork is labelled, in the gap row under its chip and across its columns. */
+const forkLabelView = (
+  id: TaskId,
+  text: string,
+  cell: BoxCell,
+  rows: number,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.keyed("span")(
+    `fork-${id}`,
+    [
+      h.Class("label"),
+      h.DataAttribute("fork-label", ""),
+      h.DataAttribute("wire", forkKey(id)),
+      h.Style({
+        "grid-column": `${cell.column} / span ${cell.span}`,
+        "grid-row": `${gridRowOf(rows, cell.row) + 1}`,
+        "justify-self": "center",
+      }),
+    ],
+    [text],
+  );
+
+/**
+ * The button under a box's grid that folds and unfolds its trunk. Folded, it stands for the trunk's
+ * chips and is marked as a chip is; unfolded, it is a slim bar under the chips.
+ */
+const segmentView = (
+  box: Box,
+  trunk: Trunk,
+  current: HashSet.HashSet<string>,
+  hasCurrent: boolean,
+  maybeChain: Option.Option<Chain>,
+  maybeSelected: Option.Option<Node>,
+  h: HtmlBuilder<Message>,
+): Html => {
+  const range = `${Array.headNonEmpty(trunk.tasks)}–${Array.lastNonEmpty(trunk.tasks)}`;
+  const text = trunk.isFolded ? trunkLabelOf(box.stack, trunk) : `Fold ${range}`;
+  const title = trunk.isFolded ? `${text} · click to unfold` : text;
+  const isCurrent = Array.some(trunk.tasks, (id) => HashSet.has(current, id));
+  const isSelected = Option.exists(maybeSelected, (node) =>
+    Node.match(node, {
+      section: () => false,
+      task: ({ id }) => Array.contains(trunk.tasks, id),
+    }),
+  );
+  const isDimmed = Option.exists(maybeChain, (chain) =>
+    Array.every(trunk.tasks, (id) => !HashSet.has(chain.tasks, id)),
+  );
+  return h.keyed("button")(
+    `segment-${trunk.root}`,
+    Array.flatten([
+      [
+        h.Type("button"),
+        h.Class("segment"),
+        h.DataAttribute("segment", trunk.root),
+        h.DataAttribute("holds", Array.join(trunk.tasks, " ")),
+        h.DataAttribute("wire", segmentKey(trunk.root)),
+        h.AriaExpanded(!trunk.isFolded),
+        h.Title(title),
+        h.AriaLabel(title),
+        h.OnClick(Message.ClickedSegment({ root: trunk.root })),
+      ],
+      trunk.isFolded
+        ? Array.flatten([
+            isCurrent ? [h.DataAttribute("current", "")] : [],
+            hasCurrent && !isCurrent ? [h.DataAttribute("faded", "")] : [],
+            isSelected ? [h.DataAttribute("selected", "")] : [],
+            isDimmed ? [h.DataAttribute("dimmed", "")] : [],
+          ])
+        : [],
+    ]),
+    trunk.isFolded ? [dotView("done", h), text] : [text],
+  );
+};
+
 const stackView = (
   trace: Trace,
-  stack: Stack,
+  box: Box,
   current: HashSet.HashSet<string>,
   hasCurrent: boolean,
   isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
+  maybeSelected: Option.Option<Node>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
 ): Html => {
-  const topRow = Array.reduce(Record.values(stack.cells), 1, (highest, cell) =>
-    Number.max(highest, cell.row),
-  );
+  const { stack } = box;
   const label = labelOf(stack);
+  const columns = Array.reduce(Record.values(box.cells), 1, (last, cell) =>
+    Number.max(last, cell.column + cell.span - 1),
+  );
   return h.keyed("div")(
     `stack-${stack.number}`,
     Array.appendAll(
@@ -162,29 +240,52 @@ const stackView = (
       ],
       holdsCurrent(stack, current) ? [h.DataAttribute("current", "")] : [],
     ),
-    [
-      h.div(
-        [h.Class("stack-grid")],
-        Array.map(
-          Array.filter(trace.tasks, (task) => Record.has(stack.cells, task.id)),
-          (task) =>
-            chipView(
-              trace,
-              task,
-              stack,
-              topRow,
-              current,
-              hasCurrent,
-              isShowingModels,
-              maybeChain,
-              results,
-              maybeActive,
-              h,
+    Array.flatten([
+      [
+        h.div(
+          [
+            h.Class("stack-grid"),
+            // A box whose every task is folded into its segment has no chip row.
+            h.Style(
+              box.rows > 0
+                ? {
+                    "grid-template-columns": `repeat(${columns}, minmax(var(--stack-column), auto))`,
+                    "grid-template-rows": `repeat(${box.rows}, auto var(--stack-gap))`,
+                  }
+                : {},
             ),
+          ],
+          Array.flatMap(trace.tasks, (task) =>
+            Array.match(Array.fromOption(Record.get(box.cells, task.id)), {
+              onEmpty: () => [],
+              onNonEmpty: ([cell]) =>
+                Array.prepend(
+                  Array.map(Array.fromOption(Record.get(box.forkLabels, task.id)), (text) =>
+                    forkLabelView(task.id, text, cell, box.rows, h),
+                  ),
+                  chipView(
+                    trace,
+                    task,
+                    cell,
+                    box.rows,
+                    current,
+                    hasCurrent,
+                    isShowingModels,
+                    maybeChain,
+                    results,
+                    maybeActive,
+                    h,
+                  ),
+                ),
+            }),
+          ),
         ),
+      ],
+      Array.map(Option.toArray(box.maybeTrunk), (trunk) =>
+        segmentView(box, trunk, current, hasCurrent, maybeChain, maybeSelected, h),
       ),
-      h.div([h.Class("label"), h.DataAttribute("stack-label", "")], [`${stack.number}`]),
-    ],
+      [h.div([h.Class("label"), h.DataAttribute("stack-label", "")], [`${stack.number}`])],
+    ]),
   );
 };
 
@@ -267,6 +368,8 @@ export const stackChipsView = (
   trace: Trace,
   maybeCurrent: Option.Option<PrdSectionId>,
   isShowingModels: boolean,
+  unfolded: Record.ReadonlyRecord<string, boolean>,
+  maybeSelected: Option.Option<Node>,
   maybeHovered: Option.Option<Node>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
@@ -276,9 +379,9 @@ export const stackChipsView = (
   const maybeChain = hoverChainOf(trace, maybeHovered);
   const hasCurrent = Option.isSome(maybeCurrent);
   const levels = pipe(
-    Array.groupBy(stacksOf(trace.tasks), (stack) => `${stack.level}`),
+    Array.groupBy(stackBoxesOf(trace.tasks, unfolded), (box) => `${box.stack.level}`),
     Record.values,
-    Array.sortWith((row) => Array.headNonEmpty(row).level, Order.flip(Order.Number)),
+    Array.sortWith((row) => Array.headNonEmpty(row).stack.level, Order.flip(Order.Number)),
   );
   return h.div(
     [
@@ -294,16 +397,20 @@ export const stackChipsView = (
         [h.Class("stacks-list"), h.DataAttribute("stacks", "")],
         Array.map(levels, (row) =>
           h.keyed("div")(
-            `level-${Array.headNonEmpty(row).level}`,
-            [h.Class("stacks-level"), h.DataAttribute("level", `${Array.headNonEmpty(row).level}`)],
-            Array.map(row, (stack) =>
+            `level-${Array.headNonEmpty(row).stack.level}`,
+            [
+              h.Class("stacks-level"),
+              h.DataAttribute("level", `${Array.headNonEmpty(row).stack.level}`),
+            ],
+            Array.map(row, (box) =>
               stackView(
                 trace,
-                stack,
+                box,
                 current,
                 hasCurrent,
                 isShowingModels,
                 maybeChain,
+                maybeSelected,
                 results,
                 maybeActive,
                 h,

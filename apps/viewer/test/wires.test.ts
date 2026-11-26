@@ -1,11 +1,23 @@
-import { PrdSectionId } from "@cairn/contract";
+import { PrdSectionId, TaskId } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
 import { Array, Hash, Number, Option, Record, Schema, String, pipe } from "effect";
 
 import { demoTrace } from "../src/demo.ts";
 import type { Rect } from "../src/geometry.ts";
+import { endKeyInOf, stackBoxesOf } from "../src/boxes.ts";
 import { cardsOf } from "../src/reader.ts";
-import { type Panes, linksOf, rowKey, specKey, taskKey, wiresOf } from "../src/wires.ts";
+import { chainOf } from "../src/trace.ts";
+import {
+  type Panes,
+  type Wire,
+  isWireLit,
+  linksOf,
+  rowKey,
+  segmentKey,
+  specKey,
+  taskKey,
+  wiresOf,
+} from "../src/wires.ts";
 
 const prdIds = Array.map(demoTrace.prd.sections, (section) => PrdSectionId.make(section.id));
 const Index = Schema.Int.check(Schema.isBetween({ maximum: 1000, minimum: 0 }));
@@ -194,4 +206,102 @@ it("a wire off the pane exists in the data and so does one on it", () => {
   });
   expect(Array.some(all, (wire) => wire.isOffPane)).toBe(true);
   expect(Array.some(all, (wire) => !wire.isOffPane)).toBe(true);
+});
+
+const folded = stackBoxesOf(demoTrace.tasks, {});
+const unfoldedBoxes = stackBoxesOf(
+  demoTrace.tasks,
+  Record.fromIterableWith(folded, (box) => [box.stack.root, true]),
+);
+
+const targets = (links: ReadonlyArray<{ readonly target: string }>) =>
+  Array.map(links, (link) => link.target);
+
+it.prop(
+  "linksOf ends a task's curve on the key the box gives it: the segment while its trunk is folded",
+  [Index],
+  ([index]) => {
+    const prd = prdAt(index);
+    const cards = cardsOf(demoTrace, prd);
+    const rowTargets = Array.map(
+      Array.filter(linksOf(prd, cards, endKeyInOf(folded)), (link) =>
+        String.startsWith("row:")(link.source),
+      ),
+      (link) => link.target,
+    );
+    expect(rowTargets).toEqual(
+      Array.map(
+        Array.filter(linksOf(prd, cards), (link) => String.startsWith("row:")(link.source)),
+        (link) =>
+          endKeyInOf(folded)(TaskId.make(Array.lastNonEmpty(String.split(link.target, ":")))),
+      ),
+    );
+    // Unfolded, every key is the chip's, as it is with no key function.
+    expect(targets(linksOf(prd, cards, endKeyInOf(unfoldedBoxes)))).toEqual(
+      targets(linksOf(prd, cards)),
+    );
+    // Only the ends of row curves move; the PRD and spec ends are the same.
+    expect(
+      Array.filter(
+        linksOf(prd, cards, endKeyInOf(folded)),
+        (link) => !String.startsWith("row:")(link.source),
+      ),
+    ).toEqual(Array.filter(linksOf(prd, cards), (link) => !String.startsWith("row:")(link.source)));
+  },
+);
+
+it("a section of the demo trace has a task in a folded trunk, so its curve ends on a segment", () => {
+  expect(
+    Array.some(prdIds, (prd) =>
+      Array.some(
+        linksOf(prd, cardsOf(demoTrace, prd), endKeyInOf(folded)),
+        (link) => link.target === segmentKey("t45"),
+      ),
+    ),
+  ).toBe(true);
+});
+
+it.prop(
+  "a curve to a segment is a curve to a chip: same path, held inside the stacks pane",
+  [Height, Seed],
+  ([height, seed]) => {
+    const panes = {
+      ...panesOf(height),
+      // A stacks pane shorter than the spec pane and lower, so a segment held in the wrong pane moves.
+      stacks: { height: Math.floor(height / 2), width: 300, x: 900, y: 120 },
+    };
+    const source = rowKey("spec.viewer.stacks", "t47");
+    // Both targets are the one rectangle, in the stacks pane, some of them out of its view.
+    const rect = boxOf(taskKey("t45"), seed, panes);
+    const wireTo = (target: string): Wire =>
+      Option.getOrThrow(
+        Array.head(
+          wiresOf(
+            [{ source, target }],
+            { [source]: boxOf(source, seed, panes), [target]: rect },
+            panes,
+          ),
+        ),
+      );
+    const chip = wireTo(taskKey("t45"));
+    const segment = wireTo(segmentKey("t45"));
+    expect(segment.path).toBe(chip.path);
+    expect(segment.isOffPane).toBe(chip.isOffPane);
+  },
+);
+
+it("a curve lights for a task in a folded trunk when its trunk is passed, and not otherwise", () => {
+  const trunks = Array.flatMap(folded, (box) => Option.toArray(box.maybeTrunk));
+  const wire: Wire = {
+    isOffPane: false,
+    path: "",
+    source: rowKey("spec.viewer.stacks", "t47"),
+    target: segmentKey("t45"),
+  };
+  const inTrunk = chainOf(demoTrace, { id: TaskId.make("t47"), kind: "task" });
+  const elsewhere = chainOf(demoTrace, { id: TaskId.make("t9"), kind: "task" });
+  expect(isWireLit(inTrunk, wire, trunks)).toBe(true);
+  // The segment is not a task of the chain unless its trunk is known.
+  expect(isWireLit(inTrunk, wire)).toBe(false);
+  expect(isWireLit(elsewhere, wire, trunks)).toBe(false);
 });
