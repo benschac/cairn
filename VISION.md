@@ -2,36 +2,46 @@
 
 ## What it is
 
-Cairn turns a markdown PRD into a spec and a stack of branches for agents to build.
-Each PRD section traces to its commits and the agent session that wrote them.
+Cairn is a shared workspace for building from PRDs. People write and discuss
+intent, turn it into a spec and a stack of branches for agents to build, and
+share progress. Each PRD section traces to its commits and the agent session
+that wrote them. A PRD is useful before it has code or a generated plan.
 
 ## Who it is for
 
-Me first, on RinkSide. Then open source, mostly for product managers and
-engineers, starting with engineers running agent-heavy, stacked-diff workflows.
+Product managers, engineers and their collaborators, starting with engineers
+running agent-heavy, stacked-diff workflows. RinkSide is the dogfood project.
+The product launches as prdddd: hosted signup is the primary experience, with
+open source and self-hosting available for people who want to operate it.
 
 ## What has to work first
 
-`cairn plan`: one command turns a PRD into a spec and a stack I'd approve, with
-every task linked to a PRD section and the risky ones gated.
+Someone signs up, creates a workspace and PRDs, invites members or document
+guests, discusses the work, follows agent progress and shares a public PRD or
+keeps it private. Launch includes whole-document permissions, comments,
+PRD-to-PRD links, basic revision history and restore, and paid workspace plans
+with clear seat and document limits.
+
+`cairn plan` remains the implementation path: one command turns a PRD into a
+spec and a stack I'd approve, with every task linked to a PRD section and the
+risky ones gated. The PRD's Hosted launch section defines the release gates.
 
 ## Presence, from the first step
 
-Cairn is multiplayer from the start. A plan is a shared document, and you see
-the cursor of everyone working in it, the way Google Docs shows the other people
-editing. A participant can be a human or an agent.
-
-The first step is a cursor display: open the viewer and watch the other cursors
-move around the screen. That gives the document its first shared state.
+Cairn is multiplayer. A participant can be a human or an agent. Launch includes
+presence, durable discussion and live agent progress. Basic document saves
+detect conflicts and preserve drafts. Simultaneous text editing and automatic
+offline merging can follow without blocking useful collaboration.
 
 ## What it is not
 
-- Not an editor.
+- Not a rich block editor; basic markdown editing is enough for launch.
 - Not an orchestrator.
 - Not a task manager.
-- No agent chat and no hosting in v1.
-- No accounts, teams or permissions in v1. Everyone who can reach a running
-  Cairn shares it.
+- No agent chat or cloud-hosted agent execution in v1.
+- No section-level or revision-specific sharing in v1. Guests receive access
+  to whole PRDs; comments inherit the document's visibility.
+- No Google Docs-style visual history or simultaneous text editing in v1.
 - Small features skip it.
 
 ## How I'll know it's working
@@ -40,14 +50,24 @@ move around the screen. That gives the document its first shared state.
 - Any PRD section reaches its diff and its session in two clicks or fewer.
 - Migrations always stop for my approval.
 - Someone else runs it on their own repo.
+- Someone signs up without a checkout, shares their own PRD and gets feedback.
+- A guest can read one invited PRD without seeing other private workspace data.
 - I build a Cairn feature with Cairn: its own PRD, spec and stack go through `cairn plan`.
 
 ## Stack and deploy
 
-Cairn runs on your machine, so the main release is an npm package (the CLI plus
-the local viewer), not a Cloudflare app. It is still a CAFE stack: Effect for
-the core and CLI, Foldkit for the viewer. Cloudflare plus Alchemy only hosts the
-docs and demo site for now, and a hosted team layer later if it ever happens.
+The primary product is a hosted Cloudflare application, provisioned with
+Alchemy. Effect supplies the core, policy services and CLI; Foldkit supplies the
+workspace and reader. Shared D1 holds accounts, membership and the PRD directory;
+each PRD's Durable Object owns its revisions, discussion and events, with R2 for
+attachments and large snapshots. The current deployment is still the demo;
+these hosted capabilities are the launch target.
+
+The CLI and local viewer connect repositories and agents to the workspace and
+remain useful independently. A supported self-hosted team deployment uses the
+same product and permission model in the operator's own Cloudflare account.
+Operating the managed service is a paid option; public/private capacity and
+member seats are plan dimensions, separate from document authorization.
 
 Model API keys come from the user's own environment and are never stored.
 Redaction keeps them out of session logs.
@@ -56,9 +76,9 @@ Alchemy Domain (`@alchemy.run/domain`) is something we are very interested in:
 it models a domain as commands, aggregates and events, and builds each piece as
 its own layer. We intend to use it to assemble our infrastructure.
 
-Other people should be able to reach a running Cairn. We can build it locally
-and expose it with something like Cloudflare Tunnel, so deploying to the cloud
-is optional and done as needed.
+People using the managed service need no deployment or Cloudflare account.
+Local previews and tunnels remain development options, not the hosted signup
+experience or a substitute for authenticated team access.
 
 ## State machines
 

@@ -1,20 +1,89 @@
 # Cairn MVP {#prd.cairn-mvp}
 
-A local tool that traces a feature from PRD to spec to stacked diffs to commits to agent sessions, and renders that trace as a read-only canvas. Built to be shippable in one day and dogfooded on RinkSide.
+A shared workspace for building from PRDs: write and discuss intent, turn it into a spec and stacked tasks, follow implementation, and share progress. Cairn is the working name; the product launches as prdddd. The hosted service is the primary signup experience, with an open-source, self-hostable option and a local CLI for repository and agent workflows.
 
 ## Goal {#prd.goal}
 
 Given a markdown PRD in a repo, produce a spec and a stack manifest, let the existing orchestrator execute the stack, and show a live view of which PRD sections are done, in progress, blocked, or waiting on a human. Every commit links back to its PRD section and to the agent session that produced it.
 
+A person can also sign up, create a workspace, write or import a PRD, invite collaborators, collect feedback and publish the document before connecting a repo or generating a spec. The PRD is useful on its own. The hosted launch scope below extends the original local MVP; accounts, whole-document sharing, comments and basic revisions are launch requirements, not deferred multiplayer features.
+
 ## Non-goals for v1 {#prd.non-goals-for-v1}
 
-- No rich editor (Tiptap etc). Users edit markdown in their own editor.
-- No real-time multi-user collaboration (v2, see multiplayer).
+- No rich block editor, simultaneous collaborative text editing or automatic merging of offline text edits. Basic markdown editing and explicit save-conflict handling are enough for launch; live comments and agent progress are in scope.
+- No section-level permissions, mixed public/private sections within one PRD, revision-specific guest review grants, or custom permission language. Access is granted to a whole PRD in v1.
+- No Google Docs-style visual edit history, detailed per-character attribution or document branching UI. Durable revisions, a basic history list and restore are in scope.
 - No agent-to-agent chat inbox. Coordination is orchestrator-assigned.
-- No hosted service, auth, or multi-repo support.
+- No cloud-hosted agent execution or deployment of the software users build. Agents can run on their own machines and report into the hosted workspace. A workspace may hold PRDs connected to different repositories; one plan spanning several repositories is later work.
 - No replacement of the existing orchestrator. This tool wraps it.
 
+## Hosted launch {#prd.launch}
+
+The launch promise is: create a workspace, bring your PRDs and collaborators, discuss the work, follow progress, and share what you choose. The normal path is visiting the hosted site and signing up; it requires no checkout, Cloudflare account or deployment. RinkSide remains a dogfood project, not a prerequisite for using the product.
+
+### Workspaces and PRDs {#prd.launch.workspaces}
+
+- Sign-up gives a person a personal workspace. They can create or join team workspaces and switch between them. A workspace owns its PRDs, membership, repository connections and subscription.
+- A workspace holds multiple independent PRDs. People can create a PRD, import markdown, rename and edit it, find it in the workspace and export its markdown. A PRD without a spec, manifest, task or repository is a valid document with discussion and sharing available.
+- Each PRD has a stable identity independent of its title, with its own sections, spec, tasks, comments, revisions and room. Local section/task names can repeat in other PRDs; routes and lookups include document and workspace context.
+- The existing reader is the per-PRD view inside the workspace. Empty states explain how to add a first PRD and how to connect implementation when wanted. A customer's workspace never silently falls back to the bundled demo.
+- Basic browser markdown editing is available at launch. A save names the revision it was based on; a stale save is refused with the current revision and the person's draft preserved, rather than overwriting another person's work.
+
+### Members, guests and agents {#prd.launch.membership}
+
+- Workspace members are regular collaborators. Invitations, acceptance, removal and simple owner/admin/member roles are available in the UI. Whole-PRD access distinguishes reading, commenting and editing; managing access and approving human gates require explicit authority.
+- Guests are invited to named PRDs as viewers or commenters without becoming workspace members. A guest cannot browse other private PRDs or the workspace's private membership and activity merely because they have a document invitation.
+- Private document access is explained by the sharing UI: which workspace members or invited people can read, comment or edit. An invitation is bound to its recipient and scope; knowing a private PRD's URL grants no access.
+- Agents have separate identities attributable to a human, with scoped and revocable credentials. An agent's effective permissions cannot exceed its delegation or the delegating person's current access. Agent sessions are not automatically human seats, and agent credentials cannot approve human gates.
+- Removing a membership, guest grant or agent delegation stops subsequent protected reads, writes and live updates, including on existing connections. Content already delivered cannot be recalled.
+
+### Public and private PRDs {#prd.launch.sharing}
+
+- A private PRD is available only to authorized members and invited guests. It is excluded from public discovery, search indexes and unauthenticated previews.
+- A public PRD has a stable signed-out reading URL, can be indexed by search engines, appears in public discovery/search and has a useful title and social preview. Public means public, not an unlisted secret link.
+- Sharing applies to the whole PRD. Comments inherit its visibility; anchoring a comment to a section does not create a section-level access rule. Public reading does not permit anonymous edits or comments: contributions require sign-in and the relevant grant.
+- A person with sharing authority can change visibility. Before making a document public, the UI explains which current document content, discussion and associated planning views will become public. Code, agent transcripts and private repository access are separate permissions and are not enabled by publishing the PRD.
+- Public access covers the current shared document and discussion, not an automatic release of every historical draft. Revision history remains available to authorized collaborators. Old comment anchors do not allow public readers to fetch a private revision; the UI makes clear that comment text itself becomes public.
+- Changing a PRD to private stops new anonymous reads and removes it from Cairn's public discovery and caches. The UI explains that external copies and search-engine caches cannot be recalled immediately.
+- Enforce visibility on the server for documents, comments, attachments, search, previews and live updates. Never deliver private data and rely on the browser to hide it.
+
+### Comments and links {#prd.launch.discussion}
+
+- Authorized people and agents can create comment threads, reply and resolve discussions on a PRD, a spec or an identified section/passage. Every thread and reply has a stable link and authenticated author. The room stores the discussion durably.
+- An anchor records the document, section or passage and the revision it refers to. If the text changes or disappears, preserve the discussion and identify the changed anchor; show its original context only to someone authorized to read that revision. An agent may resolve its own notes, but resolving a human's note is a human operation.
+- PRDs can link to other PRDs and their sections. A link does not grant access. Links and backlinks expose a target's private title, excerpt or activity only to someone allowed to read it; public pages and search do not reveal private neighboring documents.
+- Live comment and task-status updates are in scope independently of simultaneous text editing. Reconnecting reloads authoritative state without losing committed comments or duplicating progress events.
+
+### Revisions and history {#prd.launch.history}
+
+- Every accepted PRD or spec edit creates a durable content revision with its author, time and predecessor. Content revisions are distinct from file-format schema versions. Plans and approvals record the input revisions they apply to, and comments retain their source revision. An edit or restore does not transfer an earlier approval to changed inputs.
+- Authorized collaborators can list revisions and open an earlier version; restoring additionally requires document edit permission. Restore creates a new current revision and preserves intervening history; it never changes permissions, erases comments or silently resets task progress.
+- If a document changes after planning, the viewer identifies the plan's source revision and that it is no longer current. Automatic replanning and restacking of an in-progress implementation after document changes remain the later diverging-state work. Existing user-invoked incremental and partial planning are unchanged.
+- History and comments survive restart and deployment. Workspace activity feeds, detailed visual diffs and attribution, document forks, and revision-specific sharing are later enhancements rather than prerequisites for preserving versions now.
+
+### Hosted plans and self-hosting {#prd.launch.plans}
+
+- The managed service supports a free entry path and a paid workspace subscription, with checkout, billing management, cancellation and clear plan limits. The workspace is the billing unit; human member seats and allowed PRD counts are capacity dimensions.
+- Plans can limit member seats, total PRDs and public/private PRDs independently. Exact prices, allowances, the free plan's private allowance and guest caps remain product choices to settle before sales. Guests and agents are distinct from member seats; inviting an occasional reviewer must not silently buy a full member seat.
+- Enforce entitlements on the server and explain a reached limit before a paid or blocked action. Subscription changes never grant document access. Duplicate or delayed payment events must not grant duplicate capacity; downgrades and failed payments never publish or silently delete private work. Show the applicable grace/over-limit behavior and preserve export access.
+- Self-hosting remains a supported option alongside the primary managed experience. The first supported team deployment can use the operator's own Cloudflare account with configurable domain, auth providers and storage, using the same application and permission model. It does not require a subscription to Cairn's managed service. Local CLI use alone is not the self-hosted team offering; a portable Docker/VPS deployment is not a launch promise.
+- Provide signup and first-PRD guidance, a self-host deployment/upgrade guide, export and backup/restore instructions, and a support path. The managed launch must exercise restoring persisted documents, revisions and discussions before relying on them for customer work.
+
+### Launch acceptance {#prd.launch.acceptance}
+
+- A new user signs up without a checkout, creates a workspace and two PRDs, and reads, edits, exports and discusses either without generating a spec or manifest.
+- A member accepts an invitation and collaborates; a guest comments on one invited PRD and cannot discover another private PRD. A user in another workspace cannot read either through APIs, links, search or live subscriptions.
+- A public PRD opens signed out with share metadata and appears in public discovery. Making it private denies new anonymous access; neither state reveals an inaccessible linked PRD, private historical revision, repository code or agent transcript.
+- Two people saving against the same base revision cannot overwrite each other's work silently. Earlier versions and their comment anchors remain readable by authorized collaborators; restoring creates a new revision and preserves task history.
+- An authorized local agent reports progress into the correct PRD. Revoking its credential or a person's access stops subsequent protected operations and updates on an open connection; an agent cannot approve a human gate.
+- A workspace can purchase and manage the paid plan. Seat and PRD limits are enforced under concurrent requests, duplicate payment events do not duplicate entitlements, and cancellation or payment failure does not expose or erase private data.
+- A new operator follows the self-host guide in their own account and restores a backup containing PRDs, comments and revisions. The packaged/local viewer shows their data rather than the marketing demo.
+
+These are the hosted release gates. The existing local planning requirements remain part of the product, while advanced routing experiments, terminal features and the explicitly later collaboration features do not all have to ship before this launch.
+
 ## Repo layout {#prd.repo-layout}
+
+This is the local representation for one plan, used by the CLI and the hosted bridge. Hosted workspace/document identities and revision storage are separate; supporting multiple hosted PRDs does not require changing this local layout at launch.
 
 ```text
 .cairn/
@@ -133,7 +202,7 @@ Done when:
 - A planning call pauses for review, resumes only against the reviewed revision and cannot approve a human gate.
 - Logs do not corrupt the stdio protocol, and cancelling work or disconnecting leaves no owned process running or unreported partial write.
 
-An agent planning as a participant in a shared room is a later extension of this interface, not a prerequisite for local MCP access.
+An agent planning as a participant in a shared room through remote MCP is a later extension of this interface, not a prerequisite for local MCP access. Authenticated local agents reporting progress through `cairn connect` are part of the hosted launch and do not require remote MCP.
 
 ## Planning from a PRD {#prd.planning}
 
@@ -512,7 +581,7 @@ Before writing session JSONL, strip values matching env var names from `.env*`, 
 
 ## Viewer {#prd.viewer}
 
-Local web app served by `cairn serve`, read-only, polling or file-watching `.cairn/` and git.
+The same per-PRD reader runs in the hosted workspace and locally through `cairn serve`. The local trace view polls or watches `.cairn/` and git. The hosted workspace adds document creation, basic markdown editing, discussion, history and sharing, as defined in Hosted launch. Reading a PRD does not require a spec or stack; their panes become available when those artifacts exist.
 
 The viewer is a reader. The PRD is a document a person reads from top to bottom. The spec and the stacks sit beside it and follow the section being read, so the reader can branch off from any section into what specifies it, what builds it and the code that was written for it. The Curves variant of the prototype in `.cairn/design/prd-curves.html` is the reference for how it looks and moves. Where the prototype and this document disagree, this document wins.
 
@@ -530,7 +599,7 @@ The look is the prototype's paper look: ink borders, hard offset shadows and sol
 
 The reader replaces the canvas that could be panned, zoomed and rearranged. There is no pan or zoom, no dragging a document or a task card, no Fit and no Reset layout. Each pane scrolls on its own, and the panes can be made wider or narrower (see Panes).
 
-Suggested stack: Foldkit SPA for the viewer, a markdown renderer that preserves heading IDs, and a tiny Node server exposing `.cairn/` files and `git log --format` with trailers, plus reads from `cairn.db`.
+Suggested stack: Foldkit SPA for the viewer and a markdown renderer that preserves heading IDs. The local Node server exposes `.cairn/` files, `git log --format` with trailers and reads from `cairn.db`; the hosted Worker provides authenticated workspace and document operations. Demo, local and hosted data sources are selected explicitly, not inferred from whether the bundle is a production build.
 
 ### Reading the plan {#prd.viewer.reader}
 
@@ -675,7 +744,7 @@ Done when, on this repo, ⌘K then `fuzy matchng` and Enter brings the Fuzzy mat
 
 ### Notes {#prd.viewer.notes}
 
-Agents leave notes on the plan and the code: a review finding on a line, a question about a spec section, a remark on a task. The viewer shows them where they are about. In v1 it only shows them; people write notes in the room (see notes in the room).
+People and agents leave notes on the document, plan and code: a question about a PRD or spec section, a review finding on a line, a remark on a task. The viewer shows them where they are about. Hosted v1 includes creating threads, replies and resolving discussions; a note does not need an agent session or an implementation task (see Comments and links and Notes in the room).
 
 - A note has a kind (`note` or `review`), an author, a body in markdown, whether it is open or resolved, and an anchor: the deep link to what it is about, such as a PRD passage, a spec section, a task, a commit or a line of a diff.
 - Agents and the orchestrator write notes with `cairn note`, which stores them in `cairn.db` (see the orchestrator contract). The second-model review of each pull request writes its findings as review notes on the lines they are about.
@@ -685,7 +754,7 @@ Agents leave notes on the plan and the code: a review finding on a line, a quest
 
 ## Code view {#prd.code-view}
 
-The reader shows where the work stands. The code view shows the work itself: the code each task changed, beside the agent conversation that changed it. It is read-only, like the rest of the viewer.
+The reader shows where the work stands. The code view shows the work itself: the code each task changed, beside the agent conversation that changed it. The code view is read-only; hosted document editing and discussion happen in the workspace.
 
 It opens from a task or a commit in the detail panel and fills the window. "Back to the plan" returns to the reader as it was left, with its current section, its pin, its pane widths and the detail panel.
 
@@ -710,7 +779,7 @@ Cairn reads Claude Code session logs first. Other agents' logs come with their a
 
 ## Terminal view {#prd.terminal}
 
-`cairn watch` shows where the run stands without leaving the terminal. It is a second reader of the Trace the viewer reads, the one `cairn status --json` prints, and holds no state of its own. It is read-only, like the viewer: it starts, stops and retries nothing, because the orchestrator runs the tasks and Cairn does not. Closing it changes nothing about the run, and any number of terminals and browsers can watch the same repo at once.
+`cairn watch` shows where the run stands without leaving the terminal. It is a second reader of the Trace the viewer reads, the one `cairn status --json` prints, and holds no state of its own. This terminal view is read-only: it starts, stops and retries nothing, because the orchestrator runs the tasks and Cairn does not. Closing it changes nothing about the run, and any number of terminals and browsers can watch the same repo at once.
 
 It is for hierarchy and status, not for the viewer's curves or its code view. For those it prints the link `cairn link` would.
 
@@ -767,6 +836,8 @@ Done when:
 
 Everything the viewer shows has a link, and links compose, so a person can send someone to an exact point: this passage of the PRD, then the spec section that implements it, then the line of the stacked diff that builds it.
 
+Hosted links include the workspace and PRD identity; links to stored revisions and comments identify those resources too. A reference between PRDs does not imply a task dependency or grant access. Local links resolve within the current project, and the bridge maps them to the corresponding hosted document.
+
 ### What has a link {#prd.deep-links.targets}
 
 - A PRD or spec section, or a PRD list item with an ID, by its ID.
@@ -783,12 +854,13 @@ Everything the viewer shows has a link, and links compose, so a person can send 
 - Every step has "Copy link", which copies the whole path up to it. Each thing in the viewer can also be copied alone.
 - A link to a line in a task's diff records the commit it was copied at, so it opens on the same code after more commits land.
 - A link carries what was opened, not how the window looked: pane widths, the models switch, the cards' detail and a search stay with each viewer.
-- A link is a path, the same on `cairn serve` and on the demo site, so it opens in either on the same plan.
+- A link's trace steps use the same syntax locally and in the hosted viewer. The enclosing project/document mapping determines which plan they address; a link to a customer's PRD never resolves to the demo merely because the section IDs match.
 - Links are the viewer's Foldkit routes. One definition both reads a link and writes it, so a link the viewer copies always opens on the same steps, and every ID in it is decoded through its contract schema.
 - Opening a link in a new window loads everything its steps need, the same as clicking through them: the patches for a diff and the session for a turn.
 
 ### Links that no longer resolve {#prd.deep-links.missing}
 
+- Authorization is checked before resolving or describing a protected target. An unauthorized link shows a non-revealing unavailable state without private titles, excerpts or revision metadata.
 - A link opens as far as it resolves and says which step is missing and why: the section was deleted, the passage was edited, the task is gone, or the file is not in that diff. It never opens a blank window.
 - A passage that no longer matches opens its section and says the passage changed.
 
@@ -849,6 +921,8 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 
 ## Acceptance criteria {#prd.acceptance-criteria}
 
+The hosted release gates are in Launch acceptance. These criteria describe the existing local planning and trace capabilities and their follow-up work; they do not move explicitly deferred features into the hosted launch.
+
 - Running `cairn init`, `cairn plan`, and the orchestrator on a real RinkSide feature produces a manifest with at least three stacked tasks.
 - Every commit on those branches has Cairn trailers, including a `Cairn-Session` ID that resolves to a redacted session in `cairn.db`.
 - A task touching a migrations path is gated and its children do not start until it is approved.
@@ -889,7 +963,9 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 - A PRD section's links list the sections it needs and the sections that need it, each with the tasks that make the link, and its unfinished tasks in an order they can be built with the ones that can start now first.
 - `cairn lint`, `cairn status` and the viewer give the same answer to what a task waits on, property tested over generated manifests, and a cycle in what tasks need fails `cairn lint` with its tasks named.
 
-## One-day build order {#prd.one-day-build-order}
+## Original local build order {#prd.one-day-build-order}
+
+This is the historical local MVP sequence, not a duration estimate or release checklist for the hosted product. The hosted launch adds workspace/document identity, membership and access, discussion and revisions, sharing and live progress, then paid-plan operation and onboarding. Its acceptance criteria are above.
 
 1. Section ID parser and `cairn ids` (1h).
 2. Manifest schema, `cairn plan` prompt, and `cairn lint` (2h).
@@ -903,7 +979,7 @@ Adapters for Claude subagents, Pi, and plain shell scripts import only this pack
 
 ## v2: diverging state {#prd.v2-diverging-state}
 
-v2 lets humans and agents change the PRD and statuses at the same time, and keeps work correct when the PRD moves mid-stack. Each kind of state gets the strategy that fits it.
+Launch already preserves content revisions, rejects stale saves and shows live agent progress. This later extension adds simultaneous text editing, automatic offline merging, document branching and automated handling of plans whose PRD moves mid-stack. Each kind of state gets the strategy that fits it.
 
 | State                                                | Strategy                              | Why                                                                                               |
 | ---------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -916,7 +992,7 @@ Yjs stays an option for the editor if Loro's bindings fall short. Strategies can
 
 ### Versioning and branching {#prd.v2-diverging-state.versioning-and-branching}
 
-- Every PRD change is a Loro version. The manifest records `prdVersion`, the version it was planned from.
+- Launch content revision identities remain stable. The later Loro representation maps its versions to those revisions; the manifest's source revision identifies the PRD it was planned from rather than reusing the file-format version.
 - Draft PRD changes happen on a Loro fork and merge back when approved, mirroring how the stack works in git.
 
 ### Rebase flow {#prd.v2-diverging-state.rebase-flow}
@@ -933,49 +1009,51 @@ When the PRD head moves past `manifest.prdVersion`:
 ### v2 acceptance criteria {#prd.v2-diverging-state.v2-acceptance-criteria}
 
 - A human editing a section while an agent writes its status loses neither change.
+- Clients that edit text offline converge on reconnect with no lost edits, property tested with random edits and partitions; this is a later capability beyond launch save-conflict handling.
 - Editing one PRD section mid-stack marks only that section's chain stale.
 - A rebase restacks only the affected branches.
 
-## v2: multiplayer on Cloudflare {#prd.v2-multiplayer-on-cloudflare}
+## Hosted collaboration on Cloudflare {#prd.v2-multiplayer-on-cloudflare}
 
-A feature's PRD, spec, and stack live in a shared room. Humans and agents see each other's cursors and every change as it happens. Code and sessions stay in the team's git remote; the room holds the document, statuses, and presence, and fetches a diff or a session only to show it (see code and sessions in the room).
+A PRD and its associated spec and stack live in a shared room within a workspace. Launch includes authenticated membership, whole-PRD guest access, comments, accepted revisions and live agent progress. Simultaneous text editing and offline merges remain later work. Code and sessions stay in the team's git remote; the room holds document history, discussion, statuses and presence, and fetches an authorized diff or session only to show it (see Code and sessions in the room). Existing section IDs retain their `v2` names so links survive this scope change.
 
 ### Architecture {#prd.v2-multiplayer-on-cloudflare.architecture}
 
-- One [Durable Object](https://developers.cloudflare.com/durable-objects/) per room (one feature). It holds the [Loro](https://loro.dev/) document and the room's event log, applies updates, and fans them out over [hibernatable WebSockets](https://developers.cloudflare.com/durable-objects/best-practices/websockets/).
-- Storage: Durable Object SQLite for Loro updates and snapshots and for the event log's entries. [R2](https://developers.cloudflare.com/r2/) for version snapshots and files attached to notes. [D1](https://developers.cloudflare.com/d1/) for accounts (see accounts). None of them holds code or a session log (see code and sessions in the room).
+- A shared Worker application handles auth, workspace/document APIs and billing. Workspaces do not each require their own application deployment. The Foldkit frontend loads customer data from those APIs; serving the bundled demo alone is not the hosted service.
+- One [Durable Object](https://developers.cloudflare.com/durable-objects/) per PRD room accepts revision-checked edits and ordered events, and sends authorized updates over [hibernatable WebSockets](https://developers.cloudflare.com/durable-objects/best-practices/websockets/). Later collaborative text editing can add [Loro](https://loro.dev/) without changing document ownership or access boundaries.
+- Storage: each room's Durable Object SQLite owns document revisions, comments/replies, anchors and its event log. [R2](https://developers.cloudflare.com/r2/) holds large snapshots and files attached to notes, referenced by the room. Shared [D1](https://developers.cloudflare.com/d1/) holds accounts, workspace membership/invitations, the PRD directory, access grants and hosted billing metadata. These are distinct stores with explicit authority; none holds code or a session log (see Code and sessions in the room).
 - Statuses and leases are events written through the room's Durable Object, and its sequence orders them (see the event log).
-- Local bridge: `cairn connect` links a repo's `.cairn/` to a room. It pushes events, commit SHAs, and session IDs, and pulls PRD and spec edits back to markdown on disk.
-- Offline: the viewer still works on local files. Loro merges edits made while disconnected.
-- Deploy: Worker, Durable Object namespace, R2 bucket, D1 database, email sending subdomain and the Foldkit site, all defined in [Alchemy](https://alchemy.run/). Room tokens live in each room's storage. Alchemy generates the session signing secret and keeps it across deploys. Model keys never reach the server.
+- Local bridge: `cairn connect` maps a repo's `.cairn/` to a specific workspace and PRD room. It sends authorized events, commit SHAs and session IDs and synchronizes document revisions with markdown. A conflicting local/hosted revision is reported with the local draft preserved; reconnecting does not silently replace either side.
+- Offline: the local viewer still works on local files. Automatic offline text merging is a later extension; launch reconnects by fetching authoritative state and submitting changes against their expected revision.
+- Deploy: Worker, Durable Object namespace, R2 bucket, D1 database, email delivery and the Foldkit site are defined in [Alchemy](https://alchemy.run/). Authentication secrets survive deployments; OAuth, billing and other service credentials remain server-side. Users' local model keys never reach the hosted server.
 
 ### Event log {#prd.v2-multiplayer-on-cloudflare.event-log}
 
-A room's events run on Effect's `EventLog` ([`effect/eventlog`](https://github.com/Effect-TS/effect/tree/main/packages/effect/src/eventlog)).
+A room durably orders its accepted events behind a Cairn Effect service. Effect's `EventLog` ([`effect/eventlog`](https://github.com/Effect-TS/effect/tree/main/packages/effect/src/eventlog)) is a candidate implementation subject to the spike below, not a prerequisite for launching comments and progress.
 
 - The events are the contract's schemas: task status changes, leases, gate approvals, conflict holds and the orchestrator's notices to agents. Task status, the viewer's trace and the conflict scores are handlers that project them.
 - Each room is one store. Each human and each agent is its own identity, and the server checks every write against it: a gate approval from an agent is refused, and only the orchestrator writes notices to agents.
 - The room runs the unencrypted server, so it can run handlers, enforce those rules and score conflicts. Its entries live in the Durable Object's SQLite.
-- Every client keeps a local journal, IndexedDB in the viewer and SQLite in the CLI, so it works offline and sends what it wrote when it reconnects. The server's sequence orders a room's events; no client's clock decides.
+- Launch clients resynchronize committed state on reconnect and use stable event IDs so retrying does not duplicate an accepted operation. The server's sequence orders a room's events; no client's clock decides. Writable offline journals and automatic reconciliation are later extensions, and replayed writes must still pass current permissions.
 - `.cairn/events.jsonl` stays the orchestrator's interface (see orchestrator contract). `cairn connect` writes each new line into the room's log, and `cairn serve` reads the same events without a room.
 - `EventLog` is marked unstable. Cairn reaches it through one service of its own, so an Effect upgrade that changes it touches one module.
-- Prose stays out of the log, because Loro merges text. Presence stays out, because it is never persisted.
+- Document bodies live in revision storage; events may reference their revision IDs. Presence is ephemeral rather than durable document history. Later Loro updates remain separate from task-status events.
 
-A spike proves the fit before the room is built on it: one Durable Object running the event-log server on its own SQLite, with a browser client and a CLI client. If it misses the latency target or loses events when the Object hibernates, status and leases go back to registers the Durable Object writes, and the rest of v2 stands.
+A spike proves the fit before choosing that event-log implementation: one Durable Object running the event-log server on its own SQLite, with a browser client and a CLI client. If it misses the latency target or loses events when the Object hibernates, use a room-owned durable event store behind the same service. Comment durability, ordering, retry deduplication and reconnect behavior remain required whichever implementation is chosen.
 
 ### Notes in the room {#prd.v2-multiplayer-on-cloudflare.notes}
 
-In the room, people write notes too.
+Launch rooms support the threads, replies and resolution described in Comments and links. Discussion can exist before a spec, task or agent session.
 
-- A note is a row in the room's event log, so two people editing one note at once each keep the fields they changed.
-- A note on a passage holds a Loro cursor, so it follows its text through concurrent edits. Other anchors are deep links, as in v1.
+- Discussion operations are persisted by the room. Concurrent replies have distinct identities; a conflicting edit to one comment is refused without losing the draft. An event log alone does not merge concurrent comment fields.
+- A passage anchor holds its section, quoted text and source revision; other anchors use deep links. Missing or changed text leaves the discussion accessible with an explanation. Following text through concurrent Loro edits is later work.
 - A note's author is its writer's identity. An agent may resolve its own notes; only a human resolves a human's note.
 - Files attached to a note, such as a screenshot, are stored in R2.
 - `cairn connect` sends the notes in `cairn.db` to the room, and pulls the room's notes back.
 
 ### Presence {#prd.v2-multiplayer-on-cloudflare.presence}
 
-Presence is ephemeral and never persisted. Each participant broadcasts:
+Presence is ephemeral and never persisted. At launch it identifies participants, their reading/focus location and agent activity. The richer caret and Loro cursor example below belongs to the later simultaneous-editing extension:
 
 ```json
 {
@@ -989,15 +1067,15 @@ Presence is ephemeral and never persisted. Each participant broadcasts:
 }
 ```
 
-- Humans: a text caret and selection in the PRD and spec, plus their name beside the PRD section they are reading.
+- Humans: at launch, their name beside the PRD section they are reading. Text carets and selections shared during simultaneous editing are later work.
 - Agents: a labeled caret on the section they work from, a pulse on their stack node, and the file they are in. Agent presence comes from orchestrator events, so agents need no browser.
-- Heartbeats: every 5 s. Three missed marks the actor away. For an agent, its task goes `stalled` (new status) and its lease is released.
+- Heartbeats: every 5 s. Three missed marks the actor away. A lost presence connection does not itself authorize a second agent to execute the task; task and lease changes follow the authoritative execution policy.
 
 ### Accounts {#prd.v2-multiplayer-on-cloudflare.accounts}
 
-A person signs in to a room, so the room knows who wrote what. Accounts exist only in the hosted room: `cairn serve` on a person's own machine has none, as in v1.
+A person signs in to the application and owns or joins workspaces. The room receives their authenticated identity and authorized document access. Public PRD reading requires no account; commenting, editing and private access do. The managed and self-hosted team applications use the same account model. Local single-user `cairn serve` remains independent of hosted sign-in.
 
-- Sign-in is [Better Auth](https://www.better-auth.com/), run in the room's Worker through [Alchemy's Better Auth integration](https://alchemy.run/better-auth/what-is-better-auth/). Its users, linked accounts, sessions and one-time tokens live in [D1](https://alchemy.run/better-auth/databases/cloudflare-d1/), so a deploy needs nothing outside Cloudflare but the two OAuth apps, and the optional GitHub App when the room shows private repository code (see code and sessions in the room).
+- Sign-in is [Better Auth](https://www.better-auth.com/), run in the application's Worker through [Alchemy's Better Auth integration](https://alchemy.run/better-auth/what-is-better-auth/). Its users, linked accounts, sessions and one-time tokens live in [D1](https://alchemy.run/better-auth/databases/cloudflare-d1/). Its organization membership/invitation model maps to workspaces; whole-PRD guest grants and content permissions belong to Cairn's policy service. OAuth apps, email delivery, managed billing and optional GitHub App credentials are configured by the operator.
 - Three ways in, none with a password: [GitHub](https://www.better-auth.com/docs/authentication/github), [Google](https://www.better-auth.com/docs/authentication/google), and a [magic link](https://www.better-auth.com/docs/plugins/magic-link) sent by email. A link works once and expires after five minutes.
 - Magic links are sent with [Cloudflare Email Service](https://developers.cloudflare.com/email-service/), from a sending subdomain of the site's domain, through Alchemy's `Cloudflare.Email.Send` binding. Email Service is in beta; if it cannot send to any address, a transactional email provider takes its place behind the same service.
 - One person is one user. A sign-in joins the user that already has its email when the provider has confirmed that email ([account linking](https://www.better-auth.com/docs/concepts/users-accounts)), so GitHub, Google and a magic link to the same address reach the same user. No provider is trusted to link an email it has not confirmed.
@@ -1007,10 +1085,11 @@ A person signs in to a room, so the room knows who wrote what. Accounts exist on
 
 ### Permissions {#prd.v2-multiplayer-on-cloudflare.permissions}
 
-- Each room has one token: a plain string assigned when the room is created. A signed-in person with the token can join, and joining registers their event-log identity. Without a session the token is refused.
-- The server decides whether a writer is a human or an agent; no client says so. A person's own session, in the browser or the CLI, writes as that human. Each agent `cairn connect` registers gets its own identity, of kind agent, that records the person it acts for. The contract's `Participant` carries the user ID behind it.
-- Gate approvals are only accepted from a human identity and record the user who approved; the event log's server enforces it against the writer's identity.
-- An agent on a person's machine could still use that person's CLI session. Cairn does not guard against that in v2. Signed, scoped tokens and per-room members come later.
+- A focused Effect policy service decides whether an authenticated human, delegated agent or anonymous public reader may perform an action on a workspace, PRD or related resource. Rules use simple roles, workspace membership and explicit whole-document grants, and deny access unless a rule permits it. A generic policy language or a separate SpiceDB deployment is not required for launch.
+- The same rules govern HTTP requests, document operations, comment/history reads and writes, search and live subscriptions. A private room has no shared token that substitutes for membership. Subscription entitlements are separate from authorization.
+- The server establishes whether a writer is a human or an agent; a client-supplied presence kind never determines authority. Each registered agent has a credential scoped to its assigned resources/actions and records the person it acts for. The local bridge keeps agent credentials separate from the human sign-in and does not expose human approval operations through agent tools.
+- Gate approvals are accepted only from authorized human identities and record both the user and the reviewed inputs. Agent credentials cannot approve a gate even when the delegating user can. This does not claim to isolate a human's credentials from arbitrary software already able to read that person's machine.
+- Membership and grant changes invalidate subsequent protected access across Worker and room operations, including established sockets. Authorization caches must not keep a revoked grant effective. Permission checks and protected writes have a defined ordering so a stale decision cannot authorize a later operation after revocation.
 
 ### Code and sessions in the room {#prd.v2-multiplayer-on-cloudflare.code-and-sessions}
 
@@ -1028,9 +1107,9 @@ Where they live:
 How the viewer gets them depends on where it runs:
 
 - The local viewer, from `cairn serve`, reads the checkout and `cairn.db` as in v1. It fetches a teammate's session from the remote with the machine's own git credentials.
-- The hosted viewer has no checkout to read. For a public GitHub repository, the room's Worker fetches diffs directly from GitHub's REST API without requiring an App installation, a GitHub sign-in or a personal access token. Room sign-in still applies. Publicly available shared sessions use the same path.
+- The hosted viewer has no checkout to read. For a public GitHub repository, the room's Worker fetches diffs directly from GitHub's REST API without requiring an App installation, a GitHub sign-in or a personal access token from the reader. Cairn's document and code/session permissions still apply; anonymous PRD reading alone does not grant transcript access. Publicly available shared sessions use the same fetching path only when authorized for that audience.
 - Public API requests are authenticated server-side by default. When a person has signed in with GitHub and Cairn has a valid OAuth access token, the Worker uses that token: the normal REST allowance is 5,000 requests per hour per user, shared with other requests made on that user's behalf. Signing in alone does not raise the limit; the API request must carry the token.
-- For people signed in through Google or email, or without a usable GitHub user token, the Worker fetches public data using Cairn's OAuth app client ID and client secret. The normal allowance is 5,000 requests per hour per OAuth app, shared across these users. This requires no GitHub App installation and grants no private repository access. OAuth app secrets and user access tokens stay server-side and never appear in browser responses or logs.
+- For people signed in through Google or email, anonymous readers authorized for the public material, or anyone without a usable GitHub user token, the Worker fetches public data using Cairn's OAuth app client ID and client secret. The normal allowance is 5,000 requests per hour per OAuth app, shared across these users. This requires no GitHub App installation and grants no private repository access. OAuth app secrets and user access tokens stay server-side and never appear in browser responses or logs.
 - For a private repository, showing code is optional. The team installs a GitHub App on its personal account or organisation and grants access to selected repositories, with read-only Contents permission and GitHub's required Metadata permission. Connecting one of those repositories to a room explicitly enables its code access; signing in with GitHub alone does not grant it.
 - The Worker uses short-lived installation access tokens scoped to the connected repository. The App's private key and tokens never reach the browser. It passes fetched code and sessions to the browser and writes them to no storage and no log.
 - When a person opens a private diff or session without the required installation or repository access, the pane explains what is missing and offers to install the App or update its repository selection. A person who cannot install it on the organisation is sent to GitHub's request to an owner; Cairn shows access as pending until GitHub grants it.
@@ -1041,13 +1120,13 @@ How the viewer gets them depends on where it runs:
 
 Who sees them:
 
-- Public repository code needs no per-member GitHub authorization. For private repositories, code and sessions are shown by default only to members whose GitHub account can read the repo, checked with GitHub when they open one. The room's token is a plain string, and a leaked token should not show anyone the code.
-- The person who connected the private repo can explicitly open code and sessions to every member of the room, after being told that this grants access even to members without repository access. That is how a person with no GitHub seat sees them.
+- Public repository code needs no per-member GitHub authorization, but Cairn still checks the requested resource's visibility. For private repositories, code and sessions are shown by default only to authorized collaborators whose GitHub account can read the repo, checked with GitHub when they open one.
+- The person who connected the private repo, with authority to manage its sharing, can explicitly open code and sessions to the PRD's authorized collaborators, after being told which members and guests receive access even without repository access. Anonymous public readers are not included by that grant. This is how an invited person with no GitHub seat sees them.
 - A member who may not see them still sees every status, and the pane says why the code is hidden.
 
 What Cairn can read:
 
-- The PRD, the spec, notes, statuses and events are stored in the room, so the hosted service can read them at rest. They are the only content of a team's that it holds. Cloudflare encrypts them at rest, and a team on the hosted service is offered a data processing agreement.
+- PRDs, specs, revisions, notes, statuses and events are stored in the room, and attachments or large snapshots may be in R2, so the hosted service can read that content at rest. D1 holds account, workspace, access and billing metadata. Code and session logs remain excluded from those stores. Cloudflare encrypts stored data at rest, and a team on the hosted service is offered a data processing agreement.
 - Code and sessions pass through the room's Worker on the way to the browser, so the hosted room could read them in passing. It keeps neither. Disconnecting a private repository, removing it from the installation, or uninstalling or suspending the App stops subsequent private code and session reads. Content already delivered to a browser cannot be taken back. Public repositories remain readable through the public API.
 - A team that accepts neither runs the room in its own Cloudflare account with `alchemy deploy`, with a GitHub App it registered itself. Cairn's hosted service then never sees the repo.
 - The App's ID and private key are Alchemy config bindings, like the OAuth client secrets. None is in the repo.
@@ -1070,22 +1149,25 @@ Done when:
 
 ### Multiplayer acceptance criteria {#prd.v2-multiplayer-on-cloudflare.multiplayer-acceptance-criteria}
 
-- Two humans and one agent see each other's cursors and edits in under 250 ms p95 within one region.
-- Killing an agent process marks it away and stalls its task within 15 s.
+- Two humans and one agent see authorized committed comments, presence and task updates in under 250 ms p95 within one region; this does not require simultaneous prose editing.
+- Killing an agent process marks it away within 15 s without granting another agent execution authority through presence alone.
 - A gate approval from an agent identity is rejected, whatever the client says it is.
-- Clients that edit offline converge on reconnect with no lost edits, property tested with random edits and partitions.
+- A stale document save is refused with its draft preserved. Reconnecting clients load committed state, and retrying an accepted event does not duplicate it. Automatic offline text convergence belongs to the later diverging-state acceptance criteria.
 - `alchemy deploy` brings up a working room from an empty Cloudflare account, given the GitHub and Google OAuth client credentials.
 - GitHub, Google and a magic link to the same confirmed email sign in as one user.
 - A magic link signs in once; a second use, or a use after five minutes, is refused.
-- A client with the room's token but no session cannot join the room.
-- The event-log spike: a Durable Object running the event-log server on its own SQLite syncs a browser client and a CLI client within the latency target, and an Object that hibernated wakes with no lost events.
-- Two people editing one note at once each keep the fields they changed, and a note on a passage follows its text through concurrent edits.
-- A client that writes events offline sends them on reconnect, and every client then derives the same task statuses.
+- An anonymous reader can open a public PRD but not a private room. A guest can join only granted PRDs, and revoking access stops subsequent protected updates and writes on an existing connection.
+- A room that hibernates wakes with no lost accepted revisions, comments or events. If the Effect EventLog candidate is used, the browser/CLI spike must prove this before adoption.
+- Concurrent replies are both retained; conflicting edits to the same comment do not silently overwrite one another. A changed passage leaves the comment and its revision anchor intact.
+- A client resubmitting events after a disconnect is checked against current permissions, and authorized clients derive the same committed task statuses.
 - After a room has shown a diff and a session, its Durable Object, its R2 bucket and its D1 database hold no line of either.
 
 ## Later {#prd.later}
 
-- Rich editing beyond markdown: embeds, comments, and inline diffs.
+- Rich editing beyond basic markdown: embeds, simultaneous collaborative text editing and inline visual diffs. Comments, replies and resolution already belong to launch.
+- Section-level and mixed-audience sharing, review invitations pinned to selected revisions, and live editing across different section permissions. Whole-PRD member and guest access ships first.
+- Google Docs-style visual history and detailed edit attribution, document forks and automatic offline merging. Basic revision list, earlier-version reading and restore already belong to launch.
+- Workspace-wide activity feeds and expanded cross-document reporting beyond the initial PRD directory and links.
 - A map of the whole plan on one screen: every PRD section, spec section and stack at once, with every curve drawn. The prototype has it as its Map variant.
 - An inbox view of agent activity across rooms.
 - More in the terminal view: approving a gate, reading the plan and its two reviews, and following an agent's output while it runs. The last needs the orchestrator to publish output as it is written, which the orchestrator contract does not ask for. Starting, detaching from and cancelling a run stay with the orchestrator unless Cairn becomes one.
@@ -1099,9 +1181,9 @@ Done when:
 - Notes across rooms, such as every open note for one person, indexed in D1.
 - Code and sessions read from GitLab and other git hosts, and sessions encrypted on the machine that made them, for a team that wants a hosted room unable to read them even in passing.
 - A SOC 2 report for the hosted service.
-- [Effect Cluster](https://alchemy.run/cluster/what-is-effect-cluster/) for durable work that waits, such as room invitations by email and scheduled cleanup. On Cloudflare its [Durable Object pool](https://alchemy.run/cluster/cloudflare) makes each entity a Durable Object reached over RPC, with its state in memory, so the room itself stays a plain Durable Object with hibernatable WebSockets.
+- [Effect Cluster](https://alchemy.run/cluster/what-is-effect-cluster/) as a later implementation option for durable background work and scheduled cleanup. Workspace and guest invitations already work at launch without depending on this adoption. On Cloudflare its [Durable Object pool](https://alchemy.run/cluster/cloudflare) makes each entity a Durable Object reached over RPC, with its state in memory, so the room itself stays a plain Durable Object with hibernatable WebSockets.
 - An agent session planning as a participant in a shared room through MCP, building on local agent access.
 - Scoring planners against a reference plan, so a provider is chosen on measured quality and cost.
 - State diagrams drawn from the machines themselves.
 - A plan split across several PRD files, with one set of section IDs and one manifest.
-- Several independent plans in one repo, for a monorepo that holds more than one product.
+- Several independent plans in one local repo, for a monorepo that holds more than one product. Multiple independent PRDs in a hosted workspace already belong to launch.
