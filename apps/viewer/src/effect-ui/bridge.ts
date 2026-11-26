@@ -57,21 +57,6 @@ export interface FoldkitBridgeOptions<Msg> {
    * the bridge finds the definition here by name and runs it on the element Effect UI mounts.
    */
   readonly mounts: ReadonlyArray<FoldkitMount<Msg>>;
-  /**
-   * Effect UI mounts for Foldkit elements, for a handler that reads what an Effect UI payload does
-   * not carry, such as a pointer's `pointerId`. An element that has the attribute gets the mount,
-   * made from the attribute's value, in place of its Foldkit handlers for the mount's events.
-   */
-  readonly hostMounts?: ReadonlyArray<HostMount<Msg>> | undefined;
-}
-
-/** An Effect UI mount the bridge puts on each Foldkit element that has `attribute`. */
-export interface HostMount<Msg> {
-  /** The attribute that marks the element; its value is what the mount is made from. */
-  readonly attribute: string;
-  /** The events the mount listens for itself: the bridge drops the element's Foldkit handlers for them. */
-  readonly events: ReadonlyArray<string>;
-  readonly mount: (value: string) => View.Mount<Msg>;
 }
 
 /** A Foldkit Command, as `update` returns it: its name, its args, and the Effect whose result is a Message. */
@@ -118,6 +103,14 @@ export interface FoldkitBridge<Msg> {
     h: UiHtml.H<Msg>,
     view: (h: HtmlBuilder<Msg>) => Html,
   ) => View.Node<Msg> | null;
+  /**
+   * Several Foldkit nodes and bare strings as Effect UI children, built as `bridged` builds one:
+   * what an Effect UI view calls for rendered markdown that is a list, such as a section's title.
+   */
+  readonly bridgedAll: (
+    h: UiHtml.H<Msg>,
+    view: (h: HtmlBuilder<Msg>) => ReadonlyArray<Html | string>,
+  ) => ReadonlyArray<View.Node<Msg> | string>;
   /** A Foldkit `Html` value as Effect UI nodes; `null` is nothing, as Foldkit renders it. */
   readonly foldkitView: (h: UiHtml.H<Msg>, html: Html) => View.Node<Msg> | null;
   /** The Effect UI mount a Foldkit Mount definition becomes, for a Scene's `expectMount`. */
@@ -423,14 +416,6 @@ export const makeFoldkitBridge = <Msg>(options: FoldkitBridgeOptions<Msg>): Fold
       return definition;
     });
 
-  const hostMounts = Option.getOrElse(Option.fromUndefinedOr(options.hostMounts), Array.empty);
-
-  /** The host mount an element's attributes ask for, with the value it is made from. */
-  const hostMountOf = (attrs: Record.ReadonlyRecord<string, string>) =>
-    Array.findFirst(hostMounts, (hostMount) =>
-      Option.map(Record.get(attrs, hostMount.attribute), (value) => ({ hostMount, value })),
-    );
-
   const mountNamed = (name: string): BridgedMount<Msg> =>
     Option.getOrThrowWith(
       Record.get(bridgedMounts, name),
@@ -486,12 +471,7 @@ export const makeFoldkitBridge = <Msg>(options: FoldkitBridgeOptions<Msg>): Fold
     }
     const data = recordOf(vnode.data);
     const { attrs, props } = fieldsOf(data);
-    const maybeHost = hostMountOf(attrs);
-    const on = Record.filter(
-      recordOf(data["on"]),
-      (_, type) =>
-        !Option.exists(maybeHost, ({ hostMount }) => Array.contains(hostMount.events, type)),
-    );
+    const on = recordOf(data["on"]);
     const children = Predicate.isUndefined(vnode.children)
       ? Array.map(Array.fromNullishOr(vnode.text), View.text)
       : Array.getSomes(
@@ -514,10 +494,7 @@ export const makeFoldkitBridge = <Msg>(options: FoldkitBridgeOptions<Msg>): Fold
         ),
       ),
       handlers: handlersOf(vnode, on),
-      mount: Option.match(maybeHost, {
-        onNone: () => mountFor(data[FOLDKIT_MOUNT_KEY]),
-        onSome: ({ hostMount, value }) => hostMount.mount(value),
-      }),
+      mount: mountFor(data[FOLDKIT_MOUNT_KEY]),
       props,
       refKey: undefined,
       tag: vnode.sel,
@@ -545,7 +522,7 @@ export const makeFoldkitBridge = <Msg>(options: FoldkitBridgeOptions<Msg>): Fold
   };
 
   /** One Foldkit view built under the dispatch frame, inside the pass that is open. */
-  const buildInPass = (view: (h: HtmlBuilder<Msg>) => Html): Html => {
+  const buildInPass = <A>(view: (h: HtmlBuilder<Msg>) => A): A => {
     __setRuntime(dispatch, Context.empty(), registry);
     try {
       return view(__htmlBuilder<Msg>());
@@ -575,6 +552,12 @@ export const makeFoldkitBridge = <Msg>(options: FoldkitBridgeOptions<Msg>): Fold
     },
     bridged: (h, view) =>
       foldkitView(h, MutableRef.get(isRendering) ? buildInPass(view) : build(view)),
+    bridgedAll: (h, view) =>
+      Array.getSomes(
+        Array.map(MutableRef.get(isRendering) ? buildInPass(view) : build(view), (child) =>
+          Predicate.isString(child) ? Option.some(child) : Option.fromNullOr(foldkitView(h, child)),
+        ),
+      ),
     foldkitView,
     mountOf: (definition) => mountNamed(definition.name),
     command: (command) => commandNamed(command.name).make({ command }),

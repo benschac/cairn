@@ -1,4 +1,6 @@
 import type { PrdSectionId, Trace } from "@cairn/contract";
+import { Mount as UiMount } from "@effect/ui";
+import type { Html } from "@effect/ui/html";
 import {
   Array,
   Cause,
@@ -13,9 +15,9 @@ import {
   Stream,
   String,
 } from "effect";
-import { Mount } from "foldkit";
-import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
+import { styleText } from "../effect-ui/attributes.ts";
+import { svgFor } from "../effect-ui/svg.ts";
 import { endKeyInOf, stackBoxesOf, type Trunk } from "../boxes.ts";
 import { rectOf, type Rect } from "../geometry.ts";
 import { Message } from "../message.ts";
@@ -160,24 +162,32 @@ const measureWires = (body: Element, queue: Queue.Queue<WiresMessage, Cause.Done
  * Reads the rectangle of every `[data-wire]` element and of the three panes, and sends
  * `MeasuredWires` once it mounts and then each time they change. It runs on the reader's body.
  */
-export const MeasureWires = Mount.defineStream("MeasureWires", {
-  execute: ({ element }) => Stream.callback<WiresMessage>((queue) => measureWires(element, queue)),
-  messages: [Message.MeasuredWires],
-});
+export const MeasureWires = UiMount.makeStream(
+  "MeasureWires",
+  { args: {} },
+  (element: HTMLElement) => Stream.callback<WiresMessage>((queue) => measureWires(element, queue)),
+);
+
+/** An `h.button` builder, with whatever the caller chained on it. */
+type ButtonBuilder = Html.Element<
+  Message,
+  unknown,
+  Html.EventsOf<"button">,
+  HTMLButtonElement,
+  "button"
+>;
 
 /**
- * What a node that can be hovered sends: it is hovered on pointer enter and on focus, and left on
- * pointer leave and on blur, so a keyboard reader sees the same chain a mouse does.
+ * What a node that can be hovered sends, on the button it is given: it is hovered on pointer enter
+ * and on focus, and left on pointer leave and on blur, so a keyboard reader sees the same chain a
+ * mouse does.
  */
-export const hoverAttributesOf = (
-  node: Node,
-  h: HtmlBuilder<Message>,
-): ReadonlyArray<Attribute<Message>> => [
-  h.OnMouseEnter(Message.HoveredNode({ node })),
-  h.OnMouseLeave(Message.LeftNode()),
-  h.OnFocus(Message.HoveredNode({ node })),
-  h.OnBlur(Message.LeftNode()),
-];
+export const withHover = <B extends ButtonBuilder>(builder: B, node: Node): B =>
+  builder
+    .on("mouseenter", Message.HoveredNode({ node }))
+    .on("mouseleave", Message.LeftNode())
+    .on("focus", Message.HoveredNode({ node }))
+    .on("blur", Message.LeftNode());
 
 /** How faint a wire is while another chain is hovered, when off-pane, and at rest. */
 const DIMMED_OPACITY = "0.1";
@@ -201,34 +211,29 @@ const opacityOf = (wire: Wire, isLit: boolean, isDimmed: boolean): string =>
     Match.orElse(() => ROW_OPACITY),
   );
 
-const wireView = (
-  wire: Wire,
-  maybeChain: Option.Option<Chain>,
-  trunks: ReadonlyArray<Trunk>,
-  h: HtmlBuilder<Message>,
-): Html => {
+const svg = svgFor<Message>();
+
+const wireView = (wire: Wire, maybeChain: Option.Option<Chain>, trunks: ReadonlyArray<Trunk>) => {
   const isLit = Option.exists(maybeChain, (chain) => isWireLit(chain, wire, trunks));
   const isDimmed = Option.isSome(maybeChain) && !isLit;
-  return h.path(
-    Array.flatten([
-      [
-        h.DataAttribute("wire-source", wire.source),
-        h.DataAttribute("wire-target", wire.target),
-        h.DataAttribute("off-pane", `${wire.isOffPane}`),
-        h.D(wire.path),
-        h.Fill("none"),
-        h.Style({
-          opacity: opacityOf(wire, isLit, isDimmed),
-          stroke: "var(--ink)",
-          "stroke-dasharray": wire.isOffPane ? "5 4" : "none",
-          "stroke-width": isLit ? "2.5" : "1.5",
-          transition: "opacity var(--d-fade) ease-out, stroke-width var(--d-fade) ease-out",
-        }),
-      ],
-      isLit ? [h.DataAttribute("lit", "")] : [],
-      isDimmed ? [h.DataAttribute("dimmed", "")] : [],
-    ]),
-  );
+  return svg.path
+    .attr("data-wire-source", wire.source)
+    .attr("data-wire-target", wire.target)
+    .attr("data-off-pane", `${wire.isOffPane}`)
+    .attr("d", wire.path)
+    .attr("fill", "none")
+    .attr(
+      "style",
+      styleText({
+        opacity: opacityOf(wire, isLit, isDimmed),
+        stroke: "var(--ink)",
+        "stroke-dasharray": wire.isOffPane ? "5 4" : "none",
+        "stroke-width": isLit ? "2.5" : "1.5",
+        transition: "opacity var(--d-fade) ease-out, stroke-width var(--d-fade) ease-out",
+      }),
+    )
+    .attr("data-lit", isLit ? "" : undefined)
+    .attr("data-dimmed", isDimmed ? "" : undefined);
 };
 
 /**
@@ -237,13 +242,13 @@ const wireView = (
  * in its chain are lit and the rest fainter.
  */
 export const wiresView = (
+  _h: Html.H<Message>,
   trace: Trace,
   maybeCurrent: Option.Option<PrdSectionId>,
   maybeMeasured: Option.Option<Measured>,
   maybeHovered: Option.Option<Node>,
   unfolded: Record.ReadonlyRecord<string, boolean>,
-  h: HtmlBuilder<Message>,
-): Html => {
+) => {
   const maybeChain = hoverChainOf(trace, maybeHovered);
   const boxes = stackBoxesOf(trace.tasks, unfolded);
   const trunks = Array.flatMap(boxes, (box) => Option.toArray(box.maybeTrunk));
@@ -256,11 +261,12 @@ export const wiresView = (
         measured.panes,
       ),
   });
-  return h.svg(
-    [
-      h.DataAttribute("wire-layer", ""),
-      h.AriaHidden(true),
-      h.Style({
+  return svg.svg
+    .attr("data-wire-layer", "")
+    .attr("aria-hidden", "true")
+    .attr(
+      "style",
+      styleText({
         height: "100%",
         inset: "0",
         overflow: "visible",
@@ -269,7 +275,6 @@ export const wiresView = (
         width: "100%",
         "z-index": "2",
       }),
-    ],
-    Array.map(wires, (wire) => wireView(wire, maybeChain, trunks, h)),
-  );
+    )
+    .children(Array.map(wires, (wire) => wireView(wire, maybeChain, trunks)));
 };

@@ -4,7 +4,6 @@ import { Array, Option, Record } from "effect";
 
 import { focusTaskOf } from "../arrows.ts";
 import { styleText } from "../effect-ui/attributes.ts";
-import { viewerBridge } from "../effect-ui/viewerBridge.ts";
 import { linkOf, passageButtonOf, pathOfLink, trailLinkOf } from "../links.ts";
 import { Message } from "../message.ts";
 import type { Model } from "../model.ts";
@@ -51,8 +50,7 @@ export const TRAILING_ROOM = 320;
  *
  * The frame (the top bar, the notice, the grid and its dividers) is Effect UI. The panes are still
  * Foldkit and render through the bridge, each with `viewerBridge.bridged`, until their part moves
- * (`spec.viewer.effect-ui.views`). The grid's `MeasureWires` is the bridged Foldkit Mount until
- * the wires move.
+ * (`spec.viewer.effect-ui.views`). The grid's `MeasureWires` is an Effect UI mount.
  */
 export const readerView = (h: Html.H<Message>, trace: Trace, model: Model, presence: string) => {
   const maybeCurrent = currentOf(model.reader, searchedSectionOf(trace, model.search.maybeActive));
@@ -123,90 +121,72 @@ export const readerView = (h: Html.H<Message>, trace: Trace, model: Model, prese
           WIRES_ATTRIBUTE,
           wiresAttributeOf(maybeCurrent, model.isShowingModels, model.reader.unfolded),
         )
-        .onMount(viewerBridge.mountOf(MeasureWires)({ args: undefined }))
+        .onMount(MeasureWires())
         .children(
-          viewerBridge.bridged(h, (foldkit) =>
-            prdPaneView(
-              trace,
-              maybeCurrent,
-              model.reader.maybePinned,
-              model.reader.isPrdCondensed,
-              model.reader.prdOpened,
-              model.maybeCopied,
-              model.maybeCopiedLink,
-              pinnedPath,
-              model.search.results,
-              model.search.maybeActive,
-              model.reader.maybePassage,
-              selectedSection,
-              isSelectionOverLimit,
-              model.readers,
-              foldkit,
-            ),
+          prdPaneView(
+            h,
+            trace,
+            maybeCurrent,
+            model.reader.maybePinned,
+            model.reader.isPrdCondensed,
+            model.reader.prdOpened,
+            model.maybeCopied,
+            model.maybeCopiedLink,
+            pinnedPath,
+            model.search.results,
+            model.search.maybeActive,
+            model.reader.maybePassage,
+            selectedSection,
+            isSelectionOverLimit,
+            model.readers,
           ),
           dividerView(h, "prd", model.widths),
-          viewerBridge.bridged(h, (foldkit) =>
-            specPaneView(
-              trace,
-              maybeCurrent,
-              model.reader,
-              model.isShowingModels,
-              maybePreview,
-              model.search.results,
-              model.search.maybeActive,
-              model.maybeCopiedLink,
-              selectedSection,
-              isSelectionOverLimit,
-              foldkit,
-            ),
+          specPaneView(
+            h,
+            trace,
+            maybeCurrent,
+            model.reader,
+            model.isShowingModels,
+            maybePreview,
+            model.search.results,
+            model.search.maybeActive,
+            model.maybeCopiedLink,
+            selectedSection,
+            isSelectionOverLimit,
           ),
           dividerView(h, "spec", model.widths),
-          viewerBridge.bridged(h, (foldkit) =>
-            stackChipsView(
-              trace,
-              maybeCurrent,
-              model.isShowingModels,
-              model.reader.unfolded,
-              model.maybeMeasuredWires,
-              Array.last(model.detail),
-              maybePreview,
-              focusTaskOf(model),
-              model.search.results,
-              model.search.maybeActive,
-              model.reader.maybeFocus,
-              model.maybeCopiedLink,
-              foldkit,
-            ),
+          stackChipsView(
+            h,
+            trace,
+            maybeCurrent,
+            model.isShowingModels,
+            model.reader.unfolded,
+            model.maybeMeasuredWires,
+            Array.last(model.detail),
+            maybePreview,
+            focusTaskOf(model),
+            model.search.results,
+            model.search.maybeActive,
+            model.reader.maybeFocus,
+            model.maybeCopiedLink,
           ),
           dividerView(h, "stacks", model.widths),
-          viewerBridge.bridged(h, (foldkit) =>
-            wiresView(
-              trace,
-              maybeCurrent,
-              model.maybeMeasuredWires,
-              maybePreview,
-              model.reader.unfolded,
-              foldkit,
-            ),
+          wiresView(
+            h,
+            trace,
+            maybeCurrent,
+            model.maybeMeasuredWires,
+            maybePreview,
+            model.reader.unfolded,
           ),
         ),
       Array.match(model.detail, {
         onEmpty: () => null,
         onNonEmpty: (trail) =>
-          viewerBridge.bridged(h, (foldkit) =>
-            detailView(
-              trace,
-              trail,
-              model.widths,
-              model.patches,
-              model.diffStyle,
-              {
-                maybeCopied: model.maybeCopiedLink,
-                trailPaths: Array.map(trail, (_, index) => pathOfLink(trailLinkOf(model, index))),
-              },
-              foldkit,
-            ),
-          ),
+          detailView(h, trace, trail, model.widths, model.patches, model.diffStyle, {
+            maybeCopied: model.maybeCopiedLink,
+            trailPaths: Array.map(trail, (_, index) => pathOfLink(trailLinkOf(model, index))),
+          }),
       }),
     );
 };

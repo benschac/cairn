@@ -348,11 +348,17 @@ reader grid does until the wires move: `.onMount(viewerBridge.mountOf(MeasureWir
 
 ### Lazy views
 
-`createLazy` and `createKeyedLazy` become `h.lazy(fn, ...args)`. `fn` is declared at module level
-as `(h, ...args) => ...`, the args are compared with `===`, and the first argument tells calls
-apart, so a keyed lazy puts its key (the row, the section ID) first. Pass the plain values the
-Foldkit lazy was given, so a hit is as likely as before. A reused `h.lazy` node is the same object,
-so `sameNodes` in the wires scenes still sees the reuse.
+`createLazy` and `createKeyedLazy` become `memoView(h, fn, first, ...rest)`
+(`src/effect-ui/memo.ts`), not `h.lazy`. `h.lazy` keeps its nodes in the component instance's
+store, and a Scene draws a view without one, so under a Scene it builds every time and a test
+cannot tell that a hover left a document alone (report 4). `memoView` keeps the last node of each
+slot in the module instead, weakly, on its first argument: the slot is `fn` and `first`, the args
+are compared with `===`, and a call with the same ones gives back the node it gave, which the
+runtime's patch finds unchanged. `fn` is declared at module level as `(h, first, ...rest) => ...`
+and depends only on its arguments, and `first` is an object (the trace, a section), so a keyed lazy
+puts its key first. Pass plain values: an `Option` made fresh for each render never matches. A
+reused node is the same object, so `sameNodes` in the wires scenes still sees the reuse. Move to
+`h.lazy` when a Scene draws with a store.
 
 ### Event data
 

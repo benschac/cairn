@@ -10,8 +10,7 @@ export type TagKind = "prd" | "spec" | "task" | "sha";
 
 /**
  * The marks that only show something, each a function of `h` and its data. The look is in
- * `components.css`, chosen from the attribute each mark carries. The views still on Foldkit use
- * `foldkit/marks.ts`.
+ * `components.css`, chosen from the attribute each mark carries.
  */
 
 /** A task's or a section's status as a round mark; `data-status` is what the stylesheet colours. */

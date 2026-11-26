@@ -127,21 +127,25 @@ export const data = (name: string, value?: string) => Locator.attr(`data-${name}
  * helper here decodes the Message, which is the same value.
  */
 const messageOf = Schema.decodeSync(Message);
+const scrolledPrdOf = Schema.decodeSync(Message.ScrolledPrd);
+const measuredWiresOf = Schema.decodeSync(Message.MeasuredWires);
 
 /** The reader's PRD pane found `id` at its top, as the mount reports on a page with no layout. */
 export const prdScrolledTo = (id: string) => (s: ViewerSteps) =>
-  s.mounted(viewerBridge.mountOf(TrackPrdScroll), messageOf({ _tag: "ScrolledPrd", id }));
+  s.mounted(TrackPrdScroll, scrolledPrdOf({ _tag: "ScrolledPrd", id }));
+
+const stacksScrolledOf = Schema.decodeSync(Message.CompletedScrollStacks);
 
 /** The stacks pane has no chart to measure. */
 export const stacksScrolled = (s: ViewerSteps) =>
   s.mounted(
-    viewerBridge.mountOf(ScrollStacksToBottom),
-    messageOf({ _tag: "CompletedScrollStacks", maybeChartWidth: Option.none() }),
+    ScrollStacksToBottom,
+    stacksScrolledOf({ _tag: "CompletedScrollStacks", maybeChartWidth: Option.none() }),
   );
 
 /** The wires' mount answering with what it measured. */
 export const wiresMeasuredAs = (measured: Measured) => (s: ViewerSteps) =>
-  s.mounted(viewerBridge.mountOf(MeasureWires), messageOf({ _tag: "MeasuredWires", measured }));
+  s.mounted(MeasureWires, measuredWiresOf({ _tag: "MeasuredWires", measured }));
 
 /** The three pane dividers listen for a press from the moment they render; the test acknowledges each. */
 export const dividersRunning = (s: ViewerSteps) =>
@@ -262,7 +266,7 @@ export const focusedHeading = (s: ViewerSteps) =>
 
 /** The diff mount of a loaded patch answers once it has drawn the patch. */
 export const drawnDiff = (s: ViewerSteps) =>
-  s.mounted(viewerBridge.mountOf(RenderDiff), messageOf({ _tag: "CompletedRenderDiff" }));
+  s.mounted(RenderDiff, messageOf({ _tag: "CompletedRenderDiff" }));
 
 /** The detail panel's divider listens for a press from the moment the panel renders. */
 export const detailDividerRunning = (s: ViewerSteps) =>

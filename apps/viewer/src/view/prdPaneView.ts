@@ -6,10 +6,13 @@ import {
   type Trace,
   type TraceSection,
 } from "@cairn/contract";
+import { Mount as UiMount } from "@effect/ui";
+import type { Html } from "@effect/ui/html";
 import {
   Array,
   Cause,
   Effect,
+  Match,
   MutableRef,
   Option,
   Predicate,
@@ -19,25 +22,25 @@ import {
   Stream,
   String,
 } from "effect";
-import { Mount } from "foldkit";
-import { createLazy, type Html, type HtmlBuilder } from "foldkit/html";
+import type { HtmlBuilder } from "foldkit/html";
 
 import { diagramView } from "../diagram.ts";
-import type { SectionReader } from "../readers.ts";
+import { styleText } from "../effect-ui/attributes.ts";
+import { memoView } from "../effect-ui/memo.ts";
+import { viewerBridge } from "../effect-ui/viewerBridge.ts";
+import { matchView as foldkitMatchView } from "../foldkit/nodeView.ts";
+import { linkedMarksOf, sectionPathOf, type PassageButton } from "../links.ts";
 import { Message } from "../message.ts";
 import {
   documentOf,
   renderSection,
   renderSectionTitle,
   type MarkdownDocument,
-  type Rendered,
+  type Marks,
   type SectionHooks,
 } from "../markdown.ts";
-import { linkedMarksOf, sectionPathOf, type PassageButton } from "../links.ts";
-import { PASSAGE_ATTRIBUTE } from "../subscription/selection.ts";
-import { blockKeyFor, marksOf, type SearchResult } from "../search.ts";
-import { copyButtonView, copyPassageView } from "../foldkit/copyLinkView.ts";
-import { passageButtonFor } from "./copyLinkView.ts";
+import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
+import type { Range } from "../range.ts";
 import {
   coverageOf,
   countsOf,
@@ -49,12 +52,15 @@ import {
   type Folded,
   type SectionTop,
 } from "../reader.ts";
-import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
+import type { SectionReader } from "../readers.ts";
+import { blockKeyFor, marksOf, type SearchResult } from "../search.ts";
+import { PASSAGE_ATTRIBUTE } from "../subscription/selection.ts";
 import { sectionStatusOf, type Node } from "../trace.ts";
-import { disclosureView } from "../foldkit/controls.ts";
-import { dotView } from "../foldkit/marks.ts";
+import { disclosureView } from "../effect-ui/controls.ts";
+import { dotView } from "../ui/marks.ts";
 import { prdKey } from "../wires.ts";
-import { fieldView, matchView, searchedAttributesOf } from "../foldkit/nodeView.ts";
+import { copyButtonView, copyPassageView, passageButtonFor } from "./copyLinkView.ts";
+import { fieldView, withSearched } from "./nodeView.ts";
 
 /** How far below the pane's top the line is that decides which section is being read. */
 export const TOP_LINE = 140;
@@ -146,20 +152,57 @@ const trackScroll = (element: Element, queue: Queue.Queue<PrdMessage, Cause.Done
  * Follows the section at the top of the PRD pane: it sends `ScrolledPrd` once when it mounts and
  * then each time the answer changes. Nothing in the model changes on a scroll but that.
  */
-export const TrackPrdScroll = Mount.defineStream("TrackPrdScroll", {
-  execute: ({ element }) => Stream.callback<PrdMessage>((queue) => trackScroll(element, queue)),
-  messages: [Message.ScrolledPrd],
-});
+export const TrackPrdScroll = UiMount.makeStream(
+  "TrackPrdScroll",
+  { args: {} },
+  (element: HTMLElement) => Stream.callback<PrdMessage>((queue) => trackScroll(element, queue)),
+);
 
 /** `in progress · 3 spec · 5/12 tasks`. */
 export const statusLineText = (status: SectionStatus, counts: Counts): string =>
   `${statusWordOf(status)} · ${counts.specs} spec · ${counts.done}/${counts.tasks} tasks`;
 
 /**
+ * What the markdown of the document is rendered with: the parsed document, and the stretches a
+ * search matched and a link's passage covers. Markdown is still Foldkit, so each piece of it is
+ * built through the bridge with the Foldkit `h` the bridge hands in.
+ */
+interface Markup {
+  readonly document: MarkdownDocument;
+  readonly linked: Record.ReadonlyRecord<string, ReadonlyArray<Range>>;
+  readonly marks: Marks;
+}
+
+const hooksOf = (markup: Markup, foldkit: HtmlBuilder<Message>): SectionHooks<Message> => ({
+  blockAttributesOf: (offset: number) => [
+    foldkit.DataAttribute("block", blockKeyFor("prd", offset)),
+  ],
+  diagramView: (source, key) => diagramView(foldkit, source, key),
+  linked: markup.linked,
+  marks: markup.marks,
+  markView: (text: string) => foldkitMatchView(text, foldkit),
+});
+
+/** A section's own markdown. */
+const proseView = (h: Html.H<Message>, markup: Markup, id: SectionId) =>
+  viewerBridge.bridged(h, (foldkit) =>
+    renderSection(markup.document, id, foldkit, hooksOf(markup, foldkit)),
+  );
+
+/** A section's title as markdown renders it, or the title's plain text when the document has none. */
+const titleContentOf = (h: Html.H<Message>, markup: Markup, section: TraceSection) => {
+  const rendered = viewerBridge.bridgedAll(h, (foldkit) =>
+    renderSectionTitle(markup.document, section.id, foldkit, hooksOf(markup, foldkit)),
+  );
+  return Array.isReadonlyArrayEmpty(rendered) ? [section.title] : rendered;
+};
+
+/**
  * A coverage note as text, or the status line as a button that pins the section. The pinned
  * section's row also copies the link up to its step.
  */
 const statusLineView = (
+  h: Html.H<Message>,
   trace: Trace,
   id: PrdSectionId,
   status: SectionStatus,
@@ -167,205 +210,199 @@ const statusLineView = (
   pinnedPath: string,
   maybeCopiedLink: Option.Option<string>,
   maybePassageButton: Option.Option<PassageButton>,
-  h: HtmlBuilder<Message>,
-): Html =>
+) =>
   Option.match(coverageOf(status), {
     onNone: () =>
-      h.div(
-        [h.Class("prd-pinrow")],
-        Array.appendAll(
-          [
-            h.button(
-              [
-                h.Type("button"),
-                h.Class("btn"),
-                h.DataAttribute("status-line", id),
-                h.AriaPressed(`${isPinned}`),
-                h.OnClick(Message.ClickedStatusLine({ id })),
-              ],
-              [dotView(status, h), statusLineText(status, countsOf(trace, id))],
-            ),
-          ],
-          // The pinned section's link, up to its step: the passage when one replaced the section.
-          Array.appendAll(
-            isPinned ? [copyButtonView(maybeCopiedLink, pinnedPath, "Copy link", h)] : [],
-            Array.map(Array.fromOption(maybePassageButton), (button) => copyPassageView(button, h)),
-          ),
+      h.div.class("prd-pinrow").children(
+        h.button
+          .attr("type", "button")
+          .class("btn")
+          .attr("data-status-line", id)
+          .attr("aria-pressed", `${isPinned}`)
+          .on("click", Message.ClickedStatusLine({ id }))
+          .children(dotView(h, status), statusLineText(status, countsOf(trace, id))),
+        // The pinned section's link, up to its step: the passage when one replaced the section.
+        isPinned && copyButtonView(h, maybeCopiedLink, pinnedPath, "Copy link"),
+        Option.getOrUndefined(
+          Option.map(maybePassageButton, (button) => copyPassageView(h, button)),
         ),
       ),
     onSome: (note) => {
-      const covered = h.p([h.Class("prd-covnote"), h.DataAttribute("coverage", status)], [note]);
+      const covered = h.p.class("prd-covnote").attr("data-coverage", status).children(note);
       // A selection in a section with a coverage note puts its button in a row under the note.
       return Option.match(maybePassageButton, {
         onNone: () => covered,
-        onSome: (button) => h.div([h.Class("prd-pinrow")], [covered, copyPassageView(button, h)]),
+        onSome: (button) => h.div.class("prd-pinrow").children(covered, copyPassageView(h, button)),
       });
     },
   });
 
 /** The section's ID, small beside its title; it reads "copied" once the clipboard took it. */
 const idButtonView = (
+  h: Html.H<Message>,
   id: PrdSectionId,
   isCopied: boolean,
   search: NodeSearch,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.button(
-    [
-      h.Type("button"),
-      h.Class("prd-id"),
-      h.DataAttribute("section-id", id),
-      h.AriaLabel(`Copy the section ID ${id}`),
-      h.Title("Copy the section ID"),
-      h.OnClick(Message.ClickedSectionId({ id })),
-    ],
-    isCopied ? ["copied"] : fieldView(search, "id", id, h),
-  );
+) =>
+  h.button
+    .attr("type", "button")
+    .class("prd-id")
+    .attr("data-section-id", id)
+    .attr("aria-label", `Copy the section ID ${id}`)
+    .attr("title", "Copy the section ID")
+    .on("click", Message.ClickedSectionId({ id }))
+    .children(isCopied ? "copied" : fieldView(h, search, "id", id));
 
 /**
  * A chip for each other participant reading the section, beside its heading: their label, as the
  * top bar's "Here now" has it. Two readers on one section show two chips; nobody shows none.
  */
 const readersView = (
+  h: Html.H<Message>,
   id: PrdSectionId,
   everyone: ReadonlyArray<SectionReader>,
-  h: HtmlBuilder<Message>,
-): ReadonlyArray<Html> => {
+) => {
   const readers = Array.filter(everyone, (reader) => reader.section === id);
   return Array.match(readers, {
     onEmpty: () => [],
     onNonEmpty: (present) => [
-      h.span(
-        [
-          h.DataAttribute("readers", id),
-          h.Style({ display: "inline-flex", gap: "4px", "margin-left": "8px" }),
-        ],
-        Array.map(present, (reader) =>
-          h.span(
-            [
-              h.Class("chip"),
-              h.DataAttribute("reading", reader.id),
-              h.Title(`${reader.label} is reading this section`),
-            ],
-            [reader.label],
+      h.span
+        .attr("data-readers", id)
+        .attr("style", styleText({ display: "inline-flex", gap: "4px", "margin-left": "8px" }))
+        .children(
+          Array.map(present, (reader) =>
+            h.span
+              .class("chip")
+              .attr("data-reading", reader.id)
+              .attr("title", `${reader.label} is reading this section`)
+              .children(reader.label),
           ),
         ),
-      ),
     ],
   });
 };
 
-const titleContentOf = (
-  document: MarkdownDocument,
-  section: TraceSection,
-  hooks: SectionHooks<Message>,
-  h: HtmlBuilder<Message>,
-): Rendered => {
-  const rendered = renderSectionTitle(document, section.id, h, hooks);
-  return Array.isReadonlyArrayEmpty(rendered) ? [section.title] : rendered;
-};
-
-const headingTagOf = (level: number, h: HtmlBuilder<Message>) =>
-  Option.getOrElse(Array.get([h.h2, h.h3, h.h4, h.h5, h.h6], level - 2), () => h.h6);
-
-/** Folds every section to its heading, or unfolds them all. */
-const condenseButtonView = (isPrdCondensed: boolean, h: HtmlBuilder<Message>): Html =>
-  h.button(
+/** What follows a heading: the section's ID, its Copy link button and the other readers. */
+const identityViews = (
+  h: Html.H<Message>,
+  id: PrdSectionId & SectionId,
+  isCopied: boolean,
+  maybeCopiedLink: Option.Option<string>,
+  search: NodeSearch,
+  readers: ReadonlyArray<SectionReader>,
+) =>
+  Array.appendAll(
     [
-      h.Type("button"),
-      h.Class("btn prd-condense"),
-      h.DataAttribute("prd-condense", ""),
-      h.OnClick(Message.ClickedCondensePrd()),
+      idButtonView(h, id, isCopied, search),
+      copyButtonView(h, maybeCopiedLink, sectionPathOf(id), "Copy link"),
     ],
-    [isPrdCondensed ? "Expand all" : "Collapse all"],
+    readersView(h, id, readers),
   );
 
+/** Any heading builder: a union of the five tags would lose the requirements of what is built on it. */
+type HeadingBuilder = Html.Element<Message, never, Html.EventsOf<"h2">, HTMLHeadingElement>;
+
+const headingTagOf = (level: number, h: Html.H<Message>): HeadingBuilder =>
+  Match.value(level).pipe(
+    Match.when(2, () => h.h2),
+    Match.when(3, () => h.h3),
+    Match.when(4, () => h.h4),
+    Match.when(5, () => h.h5),
+    Match.orElse(() => h.h6),
+  );
+
+/** Folds every section to its heading, or unfolds them all. */
+const condenseButtonView = (h: Html.H<Message>, isPrdCondensed: boolean) =>
+  h.button
+    .attr("type", "button")
+    .class("btn prd-condense")
+    .attr("data-prd-condense", "")
+    .on("click", Message.ClickedCondensePrd())
+    .children(isPrdCondensed ? "Expand all" : "Collapse all");
+
 /** The progress meter and done count at the bottom of the document head, and the fold control. */
-const progressView = (trace: Trace, folded: Folded, h: HtmlBuilder<Message>): Html => {
+const progressView = (h: Html.H<Message>, trace: Trace, folded: Folded) => {
   const counts = planCountsOf(trace);
   const percent = counts.tasks === 0 ? 0 : (counts.done * 100) / counts.tasks;
-  return h.div(
-    [h.Class("prd-prog")],
-    [
-      h.div(
-        [
-          h.Class("meter"),
-          h.Role("meter"),
-          h.AriaLabel("Tasks done"),
-          h.AriaValuemin(0),
-          h.AriaValuemax(counts.tasks),
-          h.AriaValuenow(counts.done),
-        ],
-        [h.div([h.Style({ width: `${percent}%` })])],
-      ),
-      h.span([h.DataAttribute("plan-count", "")], [`${counts.done} of ${counts.tasks} tasks done`]),
-      condenseButtonView(folded.isPrdCondensed, h),
-    ],
+  return h.div.class("prd-prog").children(
+    h.div
+      .class("meter")
+      .attr("role", "meter")
+      .attr("aria-label", "Tasks done")
+      .attr("aria-valuemin", "0")
+      .attr("aria-valuemax", `${counts.tasks}`)
+      .attr("aria-valuenow", `${counts.done}`)
+      .children(h.div.attr("style", styleText({ width: `${percent}%` }))),
+    h.span.attr("data-plan-count", "").children(`${counts.done} of ${counts.tasks} tasks done`),
+    condenseButtonView(h, folded.isPrdCondensed),
   );
 };
 
 /** The document head: source path, title, intro prose and plan progress with a meter. */
 const headerView = (
+  h: Html.H<Message>,
   trace: Trace,
-  document: MarkdownDocument,
+  markup: Markup,
   maybeTitle: Option.Option<TraceSection>,
   maybeCopied: Option.Option<PrdSectionId>,
   maybeCopiedLink: Option.Option<string>,
   folded: Folded,
   searchOf: (sectionId: SectionId) => NodeSearch,
   readers: ReadonlyArray<SectionReader>,
-  hooks: SectionHooks<Message>,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.div(
-    [h.Class("prd-head"), h.DataAttribute("prd-header", "")],
-    Option.match(maybeTitle, {
-      onNone: () => [
-        h.div([h.Class("prd-crumb")], [".cairn/prd.md"]),
-        h.div(
-          [h.Class("prd-doc-title")],
-          [h.h2([h.Class("prd-doc-heading"), h.DataAttribute("prd-title", "")], [trace.feature])],
-        ),
-        progressView(trace, folded, h),
-      ],
-      onSome: (section) => [
-        h.div([h.Class("prd-crumb")], [".cairn/prd.md"]),
-        h.header(
-          Array.appendAll(
-            [
-              h.Class("prd-doc-title"),
-              h.Id(section.id),
-              h.DataAttribute("section", section.id),
-              h.Attribute(TITLE_ATTRIBUTE, ""),
-            ],
-            searchedAttributesOf(searchOf(section.id), h),
-          ),
-          Array.prepend(
+) =>
+  h.div
+    .class("prd-head")
+    .attr("data-prd-header", "")
+    .children(
+      Option.match(maybeTitle, {
+        onNone: () => [
+          h.div.class("prd-crumb").children(".cairn/prd.md"),
+          h.div
+            .class("prd-doc-title")
+            .children(
+              h.h2.class("prd-doc-heading").attr("data-prd-title", "").children(trace.feature),
+            ),
+          progressView(h, trace, folded),
+        ],
+        onSome: (section) => [
+          h.div.class("prd-crumb").children(".cairn/prd.md"),
+          withSearched(
+            h.header
+              .class("prd-doc-title")
+              .id(section.id)
+              .attr("data-section", section.id)
+              .attr(TITLE_ATTRIBUTE, ""),
+            searchOf(section.id),
+          ).children(
+            h.h2
+              .class("prd-doc-heading")
+              .attr("data-prd-title", "")
+              .children(titleContentOf(h, markup, section)),
             Array.flatMap(Array.fromOption(Option.liftPredicate(section.id, isPrdSection)), (id) =>
-              Array.prependAll(readersView(id, readers, h), [
-                idButtonView(id, Option.contains(maybeCopied, id), searchOf(id), h),
-                copyButtonView(maybeCopiedLink, sectionPathOf(id), "Copy link", h),
-              ]),
-            ),
-            h.h2(
-              [h.Class("prd-doc-heading"), h.DataAttribute("prd-title", "")],
-              titleContentOf(document, section, hooks, h),
+              identityViews(
+                h,
+                id,
+                Option.contains(maybeCopied, id),
+                maybeCopiedLink,
+                searchOf(id),
+                readers,
+              ),
             ),
           ),
-        ),
-        h.div([h.Class("prose")], [renderSection(document, section.id, h, hooks)]),
-        progressView(trace, folded, h),
-      ],
-    }),
-  );
+          h.div.class("prose").children(proseView(h, markup, section.id)),
+          progressView(h, trace, folded),
+        ],
+      }),
+    );
 
 /**
  * One PRD section below the title: a monospace header, status line or coverage note, and prose.
  * The arrow before the title is a disclosure button: a closed section shows its header alone.
  */
 const sectionView = (
+  h: Html.H<Message>,
   trace: Trace,
-  document: MarkdownDocument,
+  markup: Markup,
   section: TraceSection,
   maybeCurrent: Option.Option<PrdSectionId>,
   maybePinned: Option.Option<PrdSectionId>,
@@ -376,9 +413,7 @@ const sectionView = (
   folded: Folded,
   searchOf: (sectionId: SectionId) => NodeSearch,
   readers: ReadonlyArray<SectionReader>,
-  hooks: SectionHooks<Message>,
-  h: HtmlBuilder<Message>,
-): Html => {
+) => {
   const maybeId = Option.liftPredicate(section.id, isPrdSection);
   const headingTag = headingTagOf(section.level, h);
   const isCurrent = Option.exists(maybeCurrent, (current) =>
@@ -389,98 +424,78 @@ const sectionView = (
   const isOpen =
     isOpenPrdSection(folded, section.id) ||
     (search.isActive && Option.exists(search.maybeMatch, (match) => match.field === "prose"));
-  return disclosureView(
-    {
-      id: `prd-section-${section.id}`,
-      isOpen,
-      onToggle: () => Message.ClickedPrdHeading({ id: section.id }),
-      toView: ({ button, panel }) =>
-        h.section(
-          [
-            h.Class("prd-sec"),
-            h.DataAttribute("depth", `${section.level}`),
-            h.DataAttribute("open", `${isOpen}`),
-            h.DataAttribute("prd-sec", section.id),
-          ],
-          Array.appendAll(
-            [
-              h.header(
-                Array.flatten([
-                  [
-                    h.Class("prd-sec-head"),
-                    h.Id(section.id),
-                    h.DataAttribute("section", section.id),
-                  ],
-                  searchedAttributesOf(search, h),
-                  isCurrent
-                    ? [
-                        h.DataAttribute("current", ""),
-                        h.DataAttribute("wire", prdKey(PrdSectionId.make(section.id))),
-                      ]
-                    : [],
-                ]),
-                Array.prepend(
-                  Array.flatMap(Array.fromOption(maybeId), (id) =>
-                    Array.map(Array.fromOption(sectionStatusOf(trace, id)), (status) =>
-                      statusLineView(
-                        trace,
-                        id,
-                        status,
-                        Option.contains(maybePinned, id),
-                        pinnedPath,
-                        maybeCopiedLink,
-                        maybePassageButton,
-                        h,
-                      ),
-                    ),
+  return disclosureView(h, {
+    id: `prd-section-${section.id}`,
+    isOpen,
+    onToggle: () => Message.ClickedPrdHeading({ id: section.id }),
+    view: ({ button, panel }) =>
+      h.section
+        .class("prd-sec")
+        .attr("data-depth", `${section.level}`)
+        .attr("data-open", `${isOpen}`)
+        .attr("data-prd-sec", section.id)
+        .children(
+          withSearched(
+            h.header
+              .class("prd-sec-head")
+              .id(section.id)
+              .attr("data-section", section.id)
+              .attr("data-current", isCurrent ? "" : undefined)
+              .attr("data-wire", isCurrent ? prdKey(PrdSectionId.make(section.id)) : undefined),
+            search,
+          ).children(
+            h.div.class("prd-sh").children(
+              headingTag
+                .class("prd-title")
+                .attr("data-depth", `${section.level}`)
+                .children(
+                  // Only the arrow is the button: a title can hold a link, and a link
+                  // inside the button would fold the section as it navigates.
+                  button(
+                    h.button
+                      .class("prd-fold")
+                      .attr("data-prd-fold", section.id)
+                      .attr("aria-label", section.title),
+                  ).children(
+                    h.span.class("prd-fold-arrow").attr("aria-hidden", "true").children("›"),
                   ),
-                  h.div(
-                    [h.Class("prd-sh")],
-                    Array.prepend(
-                      Array.flatMap(Array.fromOption(maybeId), (id) =>
-                        Array.prependAll(readersView(id, readers, h), [
-                          idButtonView(id, Option.contains(maybeCopied, id), search, h),
-                          copyButtonView(maybeCopiedLink, sectionPathOf(id), "Copy link", h),
-                        ]),
-                      ),
-                      headingTag(
-                        [h.Class("prd-title"), h.DataAttribute("depth", `${section.level}`)],
-                        // Only the arrow is the button: a title can hold a link, and a link
-                        // inside the button would fold the section as it navigates.
-                        Array.prepend(
-                          titleContentOf(document, section, hooks, h),
-                          h.button(
-                            Array.appendAll(button, [
-                              h.Class("prd-fold"),
-                              h.DataAttribute("prd-fold", section.id),
-                              h.AriaLabel(section.title),
-                            ]),
-                            [h.span([h.Class("prd-fold-arrow"), h.AriaHidden(true)], ["›"])],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  titleContentOf(h, markup, section),
+                ),
+              Array.flatMap(Array.fromOption(maybeId), (id) =>
+                identityViews(
+                  h,
+                  id,
+                  Option.contains(maybeCopied, id),
+                  maybeCopiedLink,
+                  search,
+                  readers,
                 ),
               ),
-            ],
-            isOpen
-              ? [
-                  h.div(
-                    Array.appendAll(panel, [
-                      h.Class("prose"),
-                      h.DataAttribute("prd-prose", section.id),
-                      h.Attribute(PASSAGE_ATTRIBUTE, section.id),
-                    ]),
-                    [renderSection(document, section.id, h, hooks)],
-                  ),
-                ]
-              : [],
+            ),
+            Array.flatMap(Array.fromOption(maybeId), (id) =>
+              Array.map(Array.fromOption(sectionStatusOf(trace, id)), (status) =>
+                statusLineView(
+                  h,
+                  trace,
+                  id,
+                  status,
+                  Option.contains(maybePinned, id),
+                  pinnedPath,
+                  maybeCopiedLink,
+                  maybePassageButton,
+                ),
+              ),
+            ),
           ),
+          isOpen &&
+            panel(
+              h.div
+                .class("prose")
+                .attr("data-prd-prose", section.id)
+                .attr(PASSAGE_ATTRIBUTE, section.id),
+            ).children(proseView(h, markup, section.id)),
         ),
-    },
-    h,
-  );
+  });
 };
 
 /**
@@ -491,6 +506,7 @@ const sectionView = (
  * link's passage is underlined in the prose.
  */
 const prdBodyView = (
+  h: Html.H<Message>,
   trace: Trace,
   maybeCurrent: Option.Option<PrdSectionId>,
   maybePinned: Option.Option<PrdSectionId>,
@@ -505,70 +521,59 @@ const prdBodyView = (
   selectedSection: string,
   isSelectionOverLimit: boolean,
   readers: ReadonlyArray<SectionReader>,
-  h: HtmlBuilder<Message>,
-): Html => {
-  const document = documentOf(trace.prd.markdown);
+) => {
+  const markup: Markup = {
+    document: documentOf(trace.prd.markdown),
+    linked: linkedMarksOf(trace, maybePassage, "prd"),
+    marks: marksOf("prd", results),
+  };
   const folded: Folded = { isPrdCondensed, prdOpened };
   const searchOf = (sectionId: SectionId) =>
     nodeSearchOf(results, maybeActive, { id: sectionId, kind: "section" });
-  const hooks: SectionHooks<Message> = {
-    blockAttributesOf: (offset: number) => [h.DataAttribute("block", blockKeyFor("prd", offset))],
-    diagramView: (source, key) => diagramView(h, source, key),
-    linked: linkedMarksOf(trace, maybePassage, "prd"),
-    marks: marksOf("prd", results),
-    markView: (text: string) => matchView(text, h),
-  };
   const maybeTitle = Array.findFirst(trace.prd.sections, (section) => section.level === 1);
   const bodySections = Array.filter(trace.prd.sections, (section) => section.level > 1);
-  return h.div(
-    [h.Class("prd-body")],
-    Array.prepend(
-      Array.map(bodySections, (section) =>
-        sectionView(
-          trace,
-          document,
-          section,
-          maybeCurrent,
-          maybePinned,
-          pinnedPath,
-          maybeCopied,
-          maybeCopiedLink,
-          passageButtonFor(selectedSection, isSelectionOverLimit, section.id),
-          folded,
-          searchOf,
-          readers,
-          hooks,
-          h,
-        ),
-      ),
-      headerView(
+  return h.div.class("prd-body").children(
+    headerView(
+      h,
+      trace,
+      markup,
+      maybeTitle,
+      maybeCopied,
+      maybeCopiedLink,
+      folded,
+      searchOf,
+      readers,
+    ),
+    Array.map(bodySections, (section) =>
+      sectionView(
+        h,
         trace,
-        document,
-        maybeTitle,
+        markup,
+        section,
+        maybeCurrent,
+        maybePinned,
+        pinnedPath,
         maybeCopied,
         maybeCopiedLink,
+        passageButtonFor(selectedSection, isSelectionOverLimit, section.id),
         folded,
         searchOf,
         readers,
-        hooks,
-        h,
       ),
     ),
   );
 };
 
 /**
- * One slot: the body is rebuilt only when the trace, the current section, the pin, the folded
- * sections, the copied ID or link, the pinned link, the search, the passage or the room changes, so a measurement or a hover never renders the document again, and a query
- * only matches and marks: the parsed document is shared.
- */
-const prdBodyLazy = createLazy();
-
-/**
  * The PRD pane: the document as prose, with a status line and a copyable ID on each heading. The
- * pane scrolls on its own and its mount follows the section at its top.
+ * pane scrolls on its own and its mount follows the section at its top. The body is one memoised
+ * slot (`memoView`): it is rebuilt only when the trace, the current section, the pin, the folded sections, the
+ * copied ID or link, the pinned link, the search, the passage or the room changes, so a
+ * measurement or a hover never renders the document again, and a query only matches and marks:
+ * the parsed document is shared.
  */
 export const prdPaneView = (
+  h: Html.H<Message>,
   trace: Trace,
   maybeCurrent: Option.Option<PrdSectionId>,
   maybePinned: Option.Option<PrdSectionId>,
@@ -583,23 +588,25 @@ export const prdPaneView = (
   selectedSection: string,
   isSelectionOverLimit: boolean,
   readers: ReadonlyArray<SectionReader>,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.div(
-    [
-      h.Role("region"),
-      h.AriaLabel("PRD"),
-      h.DataAttribute("prd-pane", ""),
-      h.OnMount(TrackPrdScroll()),
-      h.Style({
+) =>
+  h.div
+    .attr("role", "region")
+    .attr("aria-label", "PRD")
+    .attr("data-prd-pane", "")
+    .onMount(TrackPrdScroll())
+    .attr(
+      "style",
+      styleText({
         "min-height": "0",
         "min-width": "0",
         "overflow-x": "hidden",
         "overflow-y": "auto",
       }),
-    ],
-    [
-      prdBodyLazy(prdBodyView, [
+    )
+    .children(
+      memoView(
+        h,
+        prdBodyView,
         trace,
         maybeCurrent,
         maybePinned,
@@ -614,7 +621,5 @@ export const prdPaneView = (
         selectedSection,
         isSelectionOverLimit,
         readers,
-        h,
-      ]),
-    ],
-  );
+      ),
+    );

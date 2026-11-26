@@ -1,25 +1,19 @@
-import { PrdSectionId } from "@cairn/contract";
-import type { View } from "@effect/ui";
+import { SectionId } from "@cairn/contract";
 import { Html, HtmlServer } from "@effect/ui/html";
 import { HtmlLocator, HtmlScene } from "@effect/ui/html/testing";
 import { Locator } from "@effect/ui/testing";
 import { assert, it } from "@effect/vitest";
-import { Array, Effect, Option, Predicate, Schema, String, pipe } from "effect";
+import { Array, Effect, Option, Schema, String, pipe } from "effect";
 import { renderToString } from "foldkit/experimental/server";
 import type { Html as FoldkitHtml, HtmlBuilder } from "foldkit/html";
 import { defineMessageUnion } from "foldkit/message";
 
 import { demoTrace } from "../../src/demo.ts";
 import { DrawDiagram } from "../../src/diagram.ts";
-import { RenderDiff } from "../../src/diff.ts";
 import { makeFoldkitBridge, type FoldkitBridge } from "../../src/effect-ui/bridge.ts";
 import { Message } from "../../src/message.ts";
+import { documentOf, renderSection, renderSectionTitle } from "../../src/markdown.ts";
 import { linkNoticeView } from "../../src/foldkit/linkNoticeView.ts";
-import { TrackPrdScroll, prdPaneView } from "../../src/view/prdPaneView.ts";
-import { ScrollStacksToBottom } from "../../src/view/stackChipsView.ts";
-import { specPaneView } from "../../src/view/specPaneView.ts";
-import { MeasureWires } from "../../src/view/wiresView.ts";
-import { loaded } from "../fixtures.ts";
 
 // Each view is rendered twice: by Foldkit, as the viewer renders it today, and by Effect UI
 // through the bridge. Each side's own server render turns its tree into HTML, so the comparison
@@ -83,8 +77,6 @@ const foldkitHtmlOf = <M>(view: (h: HtmlBuilder<M>) => FoldkitHtml) =>
 // --- the views -----------------------------------------------------------------------------
 
 /** What the component last received, as JSON, so a test reads it off the view. */
-const sentText = Schema.encodeSync(Schema.fromJsonString(Message));
-
 const NoticeMessage = defineMessageUnion({ ClickedDismissLinkNotice: {} });
 type NoticeMessage = typeof NoticeMessage.Type;
 const noticeSentText = Schema.encodeSync(Schema.fromJsonString(NoticeMessage));
@@ -94,47 +86,12 @@ const notice = (h: HtmlBuilder<NoticeMessage>): FoldkitHtml =>
     onDismiss: NoticeMessage.ClickedDismissLinkNotice(),
   });
 
-const prdPane = (h: HtmlBuilder<Message>): FoldkitHtml =>
-  prdPaneView(
-    demoTrace,
-    Option.none(),
-    loaded.reader.maybePinned,
-    loaded.reader.isPrdCondensed,
-    loaded.reader.prdOpened,
-    loaded.maybeCopied,
-    loaded.maybeCopiedLink,
-    "",
-    loaded.search.results,
-    loaded.search.maybeActive,
-    loaded.reader.maybePassage,
-    "",
-    false,
-    loaded.readers,
-    h,
-  );
-
 const noticeBridge = makeFoldkitBridge({ message: NoticeMessage, mounts: [] });
 /** Every Foldkit Mount the viewer issues, which is what the host step's bridge will be given. */
 const viewerBridge = makeFoldkitBridge({
   message: Message,
-  mounts: [DrawDiagram, MeasureWires, RenderDiff, ScrollStacksToBottom, TrackPrdScroll],
+  mounts: [DrawDiagram],
 });
-
-/** The spec pane at `prd.viewer`, as the reader bridges it until the reader moves. */
-const specPane = (h: HtmlBuilder<Message>): FoldkitHtml =>
-  specPaneView(
-    demoTrace,
-    Option.some(PrdSectionId.make("prd.viewer")),
-    loaded.reader,
-    true,
-    Option.none(),
-    loaded.search.results,
-    loaded.search.maybeActive,
-    loaded.maybeCopiedLink,
-    "",
-    false,
-    h,
-  );
 
 /**
  * A component whose view is a Foldkit view through the bridge, over a line that shows the last
@@ -162,8 +119,45 @@ const bridged = <M>(
   });
 
 const BridgedNotice = bridged("Notice", NoticeMessage, noticeBridge, notice, noticeSentText);
-const BridgedPrdPane = bridged("PrdPane", Message, viewerBridge, prdPane, sentText);
-const BridgedSpecPane = bridged("SpecPane", Message, viewerBridge, specPane, sentText);
+
+const markdownDocument = documentOf(demoTrace.prd.markdown);
+const markdownSection = SectionId.make("prd.viewer");
+
+/** A section's title and prose, as Foldkit renders them. */
+const markdownSectionView = (h: HtmlBuilder<Message>): FoldkitHtml =>
+  h.div(
+    [],
+    [
+      h.h2([], renderSectionTitle(markdownDocument, markdownSection, h)),
+      renderSection(markdownDocument, markdownSection, h),
+    ],
+  );
+
+/** The same, as an Effect UI view calls for markdown: `bridgedAll` for the title, `bridged` for the prose. */
+const BridgedMarkdown = Html.component({
+  message: Message,
+  model: Schema.Struct({}),
+  name: "Markdown",
+}).make({
+  init: () => ({}),
+  update: () => ({}),
+  view: (h) =>
+    viewerBridge.render(() =>
+      h.div.children(
+        h.div.children(
+          h.h2.children(
+            viewerBridge.bridgedAll(h, (foldkit) =>
+              renderSectionTitle(markdownDocument, markdownSection, foldkit),
+            ),
+          ),
+          viewerBridge.bridged(h, (foldkit) =>
+            renderSection(markdownDocument, markdownSection, foldkit),
+          ),
+        ),
+        h.p.id("sent"),
+      ),
+    ),
+});
 
 /** The bridged component's HTML, from Effect UI's server render, without the line it adds. */
 const effectUiHtmlOf = (rendered: Effect.Effect<{ readonly html: string }>) =>
@@ -184,20 +178,11 @@ it.effect("the link notice renders the same DOM through the bridge as through Fo
   }),
 );
 
-it.effect("the PRD pane renders the same DOM through the bridge as through Foldkit", () =>
+it.effect("a section's markdown renders the same DOM through the bridge as through Foldkit", () =>
   Effect.gen(function* () {
-    const foldkit = yield* foldkitHtmlOf(prdPane);
-    const effectUi = yield* effectUiHtmlOf(HtmlServer.renderToHtml(BridgedPrdPane, {}));
-    assert.isAbove(Array.length(tokensOf(foldkit)), 1000);
-    assert.deepStrictEqual(tokensOf(effectUi), tokensOf(foldkit));
-  }),
-);
-
-it.effect("the spec pane renders the same DOM through the bridge as through Foldkit", () =>
-  Effect.gen(function* () {
-    const foldkit = yield* foldkitHtmlOf(specPane);
-    const effectUi = yield* effectUiHtmlOf(HtmlServer.renderToHtml(BridgedSpecPane, {}));
-    assert.isAbove(Array.length(tokensOf(foldkit)), 1000);
+    const foldkit = yield* foldkitHtmlOf(markdownSectionView);
+    const effectUi = yield* effectUiHtmlOf(HtmlServer.renderToHtml(BridgedMarkdown, {}));
+    assert.isAbove(Array.length(tokensOf(foldkit)), 20);
     assert.deepStrictEqual(tokensOf(effectUi), tokensOf(foldkit));
   }),
 );
@@ -206,8 +191,6 @@ it.effect("the spec pane renders the same DOM through the bridge as through Fold
 
 const sent = Locator.attr("id", "sent");
 const dismiss = HtmlLocator.role("button", { name: "Dismiss" });
-const goal = PrdSectionId.make("prd.goal");
-const viewerSection = PrdSectionId.make("prd.viewer");
 
 it.effect("a click on the bridged Dismiss sends the Message the Foldkit button sends", () =>
   Effect.gen(function* () {
@@ -215,40 +198,4 @@ it.effect("a click on the bridged Dismiss sends the Message the Foldkit button s
     const s = yield* HtmlScene.make(BridgedNotice, {});
     s.click(dismiss).expect(sent).toHaveText(expected);
   }),
-);
-
-it.effect(
-  "a click on a bridged status line sends the Message the Foldkit one sends, and the pane's Mount runs",
-  () =>
-    Effect.gen(function* () {
-      const expected = sentText(Message.ClickedStatusLine({ id: viewerSection }));
-      const s = yield* HtmlScene.make(BridgedPrdPane, {});
-      s.mounted(viewerBridge.mountOf(TrackPrdScroll), Message.ScrolledPrd({ id: goal }))
-        .expect(sent)
-        .toHaveText(sentText(Message.ScrolledPrd({ id: goal })))
-        .click(Locator.attr("data-status-line", viewerSection))
-        .expect(sent)
-        .toHaveText(expected);
-    }),
-);
-
-/** An element's first child, and the PRD pane's body under the bridged component's root. */
-const childOf = <R>(node: View.Node<Message, R>) =>
-  Predicate.isTagged(node, "Element") ? Array.head(node.children) : Option.none();
-const bodyOf = <R>(view: View.Node<Message, R>) =>
-  Option.getOrThrow(Option.flatMap(childOf(view), childOf));
-
-it.effect(
-  "a render whose PRD pane did not change converts it to the same nodes as the last one",
-  () =>
-    Effect.gen(function* () {
-      // The pane's root is built again each render; the body under it is Foldkit's `createLazy`, so
-      // a second render hands the bridge the same VNode and gets back the same Effect UI node.
-      const s = yield* HtmlScene.make(BridgedPrdPane, {});
-      const before = s.view;
-      s.mounted(viewerBridge.mountOf(TrackPrdScroll), Message.ScrolledPrd({ id: goal }));
-      const after = s.view;
-      assert.notStrictEqual(before, after);
-      assert.strictEqual(bodyOf(after), bodyOf(before));
-    }),
 );
