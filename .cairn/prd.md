@@ -589,6 +589,7 @@ The orchestrator keeps the scores current from events, commits and presence, and
 
 - Of two conflicting stacks, the smaller or nearer-done one lands first, and `cairn status` shows the order.
 - When a stack lands, every running or waiting stack that scores against it is told to restack at once.
+- Cairn checks that order before `cairn status` shows it: it lands the stacks in that order on an in-memory copy of the repository, and when the copy hits a conflict it tries the other order on a copy of its own. The real repository is never touched.
 
 ### Learning from conflicts {#prd.conflicts.learning}
 
