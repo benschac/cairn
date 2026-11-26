@@ -426,7 +426,7 @@ IndexedSection = {
     body: string | null // hash of the section's body as the planner wrote it; null for a section a person wrote
     prd: Record<PrdSectionId, string> // hash of each PRD section it implements, as it was then
   }
-  // extracted from the section's prose by Planner.index
+  indexedFrom?: string // hash of the body Planner.index extracted the fields below from; absent in an entry made before it was recorded
   summary: string
   requirements: Array<{ id: `${SpecSectionId}#r${number}`; level: "must" | "must-not" | "should" | "may"; text: string }>
   artifacts: Array<Artifact> // { id, kind, name, location, description, ...kind-specific fields }
@@ -435,7 +435,7 @@ IndexedSection = {
 }
 ```
 
-`cairn plan` writes `spec.json` whenever it writes `spec.md` or `manifest.json`. Code fills the derived fields. `Planner.index` fills the rest, one call per section whose body changed; a section whose body is unchanged keeps its entry.
+`cairn plan` writes `spec.json` whenever it writes `spec.md` or `manifest.json`. Code fills the derived fields. `Planner.index` fills the rest, one call per section whose body changed; a section whose body is unchanged keeps its entry. A body changed when its hash differs from `indexedFrom`, the hash of the body the prose was last extracted from, which each call records. An entry without one is compared with `writtenFrom.body`, so a section a person edited before `indexedFrom` existed is read once more and then has one. Only a section Cairn wrote is compared: an edit to a section a person wrote is not seen.
 
 `writtenFrom` is what planning again reads (see `spec.planning.again`). A hash is the SHA-256 of the section's body with trailing whitespace removed from each line, in hex. A section's body hash differing from `writtenFrom.body` means a person edited it. `writtenFrom` is set once, when the section is written or first indexed, and only a rewrite of that section replaces it.
 

@@ -1175,13 +1175,19 @@ const mapItems = Effect.fn("plan.mapItems")(function* (
   const next = Array.reduce(mappings, spec, (text, { item, section }) =>
     withImplements(text, section, item),
   );
-  yield* writeCairn("spec.md", next);
-  yield* writeIndex(inputs.prd, manifest, {
-    changed: [],
+  const mappedSections = Array.dedupe(Array.map(mappings, ({ section }) => section));
+  const nextIndex = yield* specIndexOf({
+    changed: mappedSections,
+    manifest: { tasks: tasksOf(manifest) },
+    prd: inputs.prd,
     previous: Option.some(index),
-    rehashed: Array.dedupe(Array.map(mappings, ({ section }) => section)),
+    rehashed: mappedSections,
+    spec: next,
     written: [],
   });
+  const indexText = yield* specIndexText(nextIndex);
+  yield* writeCairn("spec.md", next);
+  yield* writeCairn("spec.json", indexText);
   yield* Effect.forEach(mappings, (mapping) => Console.log(mappedLine(mapping)), { discard: true });
   return { mapped: true, planned };
 });
