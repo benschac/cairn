@@ -29,6 +29,7 @@ added | rg '\{ ?\.\.\.\w+|Object\.assign'                                     # 
 added | rg 'JSON\.|Date\.|Math\.(random|max|min)|console\.|process\.(env|exit|argv)|setTimeout|setInterval|new Promise|async |await |fetch\('
 added | rg 'class \w+ extends Error|throw |try \{|catch \('                    # errors
 added | rg 'Schema\.(decode|encode)\w*Sync|as unknown as|as any|: any\b'       # boundaries and casts
+added | rg 'Effect\.context\b|run(Fork|Promise|Sync|Callback)With|provideContext'  # stored effects: what context they carry
 ```
 
 The checks that `pnpm check` runs catch most of the first five lines. The rest are review items.
@@ -127,6 +128,7 @@ The checks that `pnpm check` runs catch most of the first five lines. The rest a
 | --- | --- | --- | --- |
 | Open and close by hand, `finally`, a forgotten `removeEventListener` | `Effect.acquireRelease(acquire, release)`, `Effect.addFinalizer`, `Effect.scoped`; `Stream.fromEventListener` removes its listener | | `apps/viewer/src/presence.ts`, `packages/cli/src/presence.ts` |
 | A fiber started and never stopped | `Effect.forkScoped` ties it to the scope | | `packages/cli/src/presence.ts` |
+| An effect stored at one point and run at another, by code with a different context: a map of handlers, a callback a library or a runtime calls (an MCP tool, a Durable Object's `webSocketMessage` or `alarm`, a keypress or signal listener, a subscription's `attach`, a test's `sut`), run with the context captured whole by `Effect.context()` | Capture where it is stored, typed by what it needs: `Effect.context<Database>()`. At runtime that holds the whole context, the `Scope` of the layer or test that captured it included, so choose what goes along: `Context.pick(Database)` keeps one service, `Context.omit(Scope.Scope)` drops the scope. Where it runs, `flow(f, Effect.scoped, Effect.provideContext(context))`, or `Effect.runForkWith(context)` / `Effect.runPromiseWith(context)` outside a fiber. `provideContext` merges and the captured services win, so with `Effect.scoped` outside it the captured `Scope` shadows the fresh one and whatever a run acquires stays open until the app shuts down; `Effect.scoped` goes first, closest to the effect, so each run releases what it acquired. A handler that needs a scope per call can instead keep `Scope.Scope` in its `R` and let the caller provide one | | `packages/cli/test/git.test.ts` (`GitWrites`, `Context.pick`), `packages/core/test/derive.model.test.ts` (`callerContext`, `Context.omit`), `packages/cli/test/fixtures/scripted-terminal.ts` (scoped first), `packages/cli/src/presence.ts` (`Room.join` keeps `Scope` in its `R`; `createEffectActor` captures the context and swaps in a scope of the actor's own); Harry Solovay, [Advanced Effect Design Patterns](https://youtu.be/_tSGby_q890?t=963), Effect Miami 3, "Carrying context" |
 
 ## Concurrency
 

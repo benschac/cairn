@@ -15,7 +15,10 @@ export const scriptedTerminal = <R = never>(
       const remaining = yield* Ref.make(answers);
       return Terminal.make({
         columns: Effect.succeed(80),
-        display: (text) => display(text).pipe(Effect.provideContext(services)),
+        // `display` runs on each call, after the layer is built. `Effect.context` captured the
+        // layer's Scope too, so each call is scoped first: its own Scope sits closest to it and
+        // releases what it acquired, and the captured one never reaches it.
+        display: (text) => display(text).pipe(Effect.scoped, Effect.provideContext(services)),
         readInput: Effect.never,
         readLine: Ref.modify(remaining, (left) =>
           Array.match(left, {

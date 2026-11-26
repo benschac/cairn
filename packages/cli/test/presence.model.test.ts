@@ -10,7 +10,7 @@ import type { TestSut, TestSutSession } from "@xstate/test";
 import { eventsFromSchemas } from "@xstate/test/effect-schema";
 import {
   Array,
-  type Context,
+  Context,
   Effect,
   Equal,
   Exit,
@@ -215,6 +215,13 @@ const makeSession = (runWith: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>)
     } satisfies TestSutSession<SnapshotFrom<typeof roomMachine>, EventFrom<typeof roomMachine>>;
   });
 
+/**
+ * The test's services, for the effects `@xstate/test` runs outside the test's fiber. `Effect.context`
+ * captures the whole context, and `it.live` runs the test in a `Scope`, so it is left behind: an effect run later
+ * acquires in a scope of its own and never in the test's (see the Effect checklist, "Resources and scopes").
+ */
+const callerContext = Effect.context().pipe(Effect.map(Context.omit(Scope.Scope)));
+
 const sutIn = (services: Context.Context<never>) => {
   const runWith = Effect.runPromiseWith(services);
   const sut: TestSut<SnapshotFrom<typeof roomMachine>, EventFrom<typeof roomMachine>> = {
@@ -229,7 +236,7 @@ it.live(
   "every participant sees the room the room machine holds",
   () =>
     Effect.gen(function* () {
-      const services = yield* Effect.context();
+      const services = yield* callerContext;
       const sut = sutIn(services);
       const { coverage } = yield* Effect.promise(() =>
         propertyTest(roomMachine, { events, maxCommands: 12, numRuns: 25, seed: 1, sut }),
@@ -243,7 +250,7 @@ it.live(
 // twice under one name, and the first client stayed in the room.
 it.live("a participant who joins again replaces their first client in everyone's room", () =>
   Effect.gen(function* () {
-    const services = yield* Effect.context();
+    const services = yield* callerContext;
     const sut = sutIn(services);
     yield* Effect.promise(() => replayTest(roomMachine, leftOnClose, { expect: "pass", sut }));
   }),

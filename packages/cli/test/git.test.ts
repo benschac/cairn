@@ -136,7 +136,11 @@ const GitWrites = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const directory = yield* Directory;
-    const services = yield* Effect.context<ChildProcessSpawner.ChildProcessSpawner>();
+    // Captured in the layer and run on each call, so it keeps only the spawner and not the layer's
+    // Scope, which would hold each call's process open until the layer closed.
+    const services = yield* Effect.context<ChildProcessSpawner.ChildProcessSpawner>().pipe(
+      Effect.map(Context.pick(ChildProcessSpawner.ChildProcessSpawner)),
+    );
     const run = (...args: ReadonlyArray<string>) =>
       git(directory, args).pipe(Effect.provideContext(services));
     const head = Effect.map(run("rev-parse", "HEAD"), (sha) => Sha.make(sha));

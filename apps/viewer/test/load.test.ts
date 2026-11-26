@@ -2,7 +2,19 @@ import { UiStruct } from "@effect/ui";
 import { TaskStatus, type Trace } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { vi } from "vitest";
-import { Array, Effect, Fiber, Option, Ref, Result, Schema, Stream, Struct } from "effect";
+import {
+  Array,
+  Context,
+  Effect,
+  Fiber,
+  Option,
+  Ref,
+  Result,
+  Schema,
+  Scope,
+  Stream,
+  Struct,
+} from "effect";
 import { TestClock } from "effect/testing";
 import { FetchHttpClient } from "effect/http";
 
@@ -121,7 +133,9 @@ const otherJson = Struct.evolve(demoTraceJson, { baseBranch: () => "elsewhere" }
 const polled = (answers: ReadonlyArray<Answer>) =>
   Effect.gen(function* () {
     const sent = yield* Ref.make(Array.empty<Option.Option<string>>());
-    const context = yield* Effect.context();
+    // The stub fetch runs outside this fiber, so it takes the test's services along, but not the
+    // test's Scope: a request acquires nothing that should outlive it.
+    const context = yield* Effect.context().pipe(Effect.map(Context.omit(Scope.Scope)));
     const run = Effect.runPromiseWith(context);
     const fetchNext = (_input: unknown, request?: RequestInit) =>
       run(

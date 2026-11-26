@@ -23,6 +23,7 @@ import {
   Random,
   Ref,
   Schema,
+  Scope,
   Struct,
 } from "effect";
 import type { EventFrom, SnapshotFrom } from "xstate";
@@ -266,6 +267,13 @@ const makeSession = Effect.gen(function* () {
   return { perform, read };
 });
 
+/**
+ * The test's services, for the effects `@xstate/test` runs outside the test's fiber. `Effect.context`
+ * captures the whole context, and `it.effect` runs the test in a `Scope`, so it is left behind: an effect run later
+ * acquires in a scope of its own and never in the test's (see the Effect checklist, "Resources and scopes").
+ */
+const callerContext = Effect.context().pipe(Effect.map(Context.omit(Scope.Scope)));
+
 const sutIn = (services: Context.Context<never>) => {
   const runWith = Effect.runPromiseWith(services);
   const sut: TestSut<SnapshotFrom<Model>, ModelEvent> = {
@@ -300,7 +308,7 @@ const events = mergeEventGenerators(eventsFromSchemas(derivationModel), {
 
 it.effect("derive gives the status and warnings a model of its inputs gives", () =>
   Effect.gen(function* () {
-    const services = yield* Effect.context();
+    const services = yield* callerContext;
     const sut = sutIn(services);
     const { coverage } = yield* Effect.promise(() =>
       propertyTest(derivationModel, { events, maxCommands: 16, numRuns: 300, seed: 1, sut }),
@@ -314,7 +322,7 @@ it.effect("derive gives the status and warnings a model of its inputs gives", ()
 // The shrunk failure of a derive that let an agent's done approve a gated task.
 it.effect("an agent's done after a migration commit leaves the task blocked on a human", () =>
   Effect.gen(function* () {
-    const services = yield* Effect.context();
+    const services = yield* callerContext;
     yield* Effect.promise(() =>
       replayTest(derivationModel, agentApproves, { expect: "pass", sut: sutIn(services) }),
     );
@@ -324,7 +332,7 @@ it.effect("an agent's done after a migration commit leaves the task blocked on a
 // The shrunk failure of a derive that dropped a merged commit's paths from the gate.
 it.effect("a merge does not take a migration out of the gate", () =>
   Effect.gen(function* () {
-    const services = yield* Effect.context();
+    const services = yield* callerContext;
     yield* Effect.promise(() =>
       replayTest(derivationModel, landingSkipsGate, { expect: "pass", sut: sutIn(services) }),
     );
