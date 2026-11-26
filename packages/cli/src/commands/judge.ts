@@ -16,6 +16,7 @@ import {
 } from "effect";
 import { Command, Flag } from "effect/cli";
 
+import { replaceFile } from "../atomic-write.ts";
 import { Judge } from "../judge.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { CAIRN_DIRECTORY, loadConfig, loadManifest, loadPrd, loadSpec } from "../workspace.ts";
@@ -152,11 +153,10 @@ export const judgePlan = Effect.fn("judgePlan")(function* (options: JudgeOptions
     judgments: (all) => Array.map(all, (judgment) => reverdicted(judgment, manifest, config.judge)),
   });
 
-  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const root = yield* (yield* MainCheckout).root;
   const text = yield* judgmentsText(judgments);
-  yield* fs.writeFileString(path.join(root, CAIRN_DIRECTORY, "judgments.json"), text);
+  yield* replaceFile(path.join(root, CAIRN_DIRECTORY, "judgments.json"), text);
 
   const lines = HashMap.fromIterable(
     Array.getSomes(

@@ -45,6 +45,7 @@ import {
   Number,
   Option,
   Path,
+  PlatformError,
   Predicate,
   Record,
   Ref,
@@ -64,6 +65,7 @@ import {
   draftWarning,
   targetsOf,
 } from "../ask-statements.ts";
+import { replaceFile } from "../atomic-write.ts";
 import { Judge, JudgeError } from "../judge.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { liveLanguageModel } from "../models.ts";
@@ -194,21 +196,66 @@ export const configOf = Effect.fn("plan.configOf")(function* (
 /**
  * The file system of a dry run: reads see what the run has written, and a write is kept in memory
  * and never reaches the disk, so the steps read each other's files as they do in a real run.
+ *
+ * A run writes each file by staging it and renaming it into place (`replaceFile`), so the staging
+ * calls are kept in memory too: a staging directory is only a name, `chmod` on a staged file does
+ * nothing, and `rename` and `link` move what the run wrote. Asked to move or chmod a file the run
+ * did not write, it dies rather than touch the disk.
  */
 const inMemory = Layer.effect(
   FileSystem.FileSystem,
   Effect.gen(function* () {
     const disk = yield* FileSystem.FileSystem;
+    const paths = yield* Path.Path;
     const written = yield* Ref.make(HashMap.empty<string, string>());
+    const staged = yield* Ref.make(0);
     const kept = (path: string) => Effect.map(Ref.get(written), HashMap.get(path));
+    /** What the run wrote at `path`; anything else is on disk, which a dry run leaves alone. */
+    const own = (method: string, path: string) =>
+      kept(path).pipe(
+        Effect.flatMap(
+          Option.match({
+            onNone: () => Effect.die(`A dry run cannot ${method} ${path}: it did not write it`),
+            onSome: Effect.succeed,
+          }),
+        ),
+      );
+    const moved = (from: string, to: string, data: string) =>
+      Ref.update(written, (files) => HashMap.set(HashMap.remove(files, from), to, data));
+    const exists = (path: string) =>
+      kept(path).pipe(
+        Effect.flatMap(
+          Option.match({ onNone: () => disk.exists(path), onSome: () => Effect.succeed(true) }),
+        ),
+      );
     return {
       ...disk,
-      exists: (path) =>
-        kept(path).pipe(
-          Effect.flatMap(
-            Option.match({ onNone: () => disk.exists(path), onSome: () => Effect.succeed(true) }),
+      chmod: (path) => Effect.asVoid(own("chmod", path)),
+      link: (from, to) =>
+        own("link", from).pipe(
+          Effect.flatMap((data) =>
+            exists(to).pipe(
+              Effect.filterOrFail(
+                (taken) => !taken,
+                () =>
+                  PlatformError.systemError({
+                    _tag: "AlreadyExists",
+                    method: "link",
+                    module: "FileSystem",
+                    pathOrDescriptor: to,
+                  }),
+              ),
+              Effect.andThen(Ref.update(written, HashMap.set(to, data))),
+            ),
           ),
         ),
+      makeTempDirectoryScoped: ({ directory = paths.sep, prefix = "" } = {}) =>
+        Ref.updateAndGet(staged, (count) => count + 1).pipe(
+          Effect.map((count) => paths.join(directory, `${prefix}dry-run-${count}`)),
+        ),
+      rename: (from, to) =>
+        own("rename", from).pipe(Effect.flatMap((data) => moved(from, to, data))),
+      exists,
       readFileString: (path, encoding) =>
         kept(path).pipe(
           Effect.flatMap(
@@ -475,11 +522,11 @@ const notPlannedYet = (part: HashSet.HashSet<string>, finding: Finding) =>
   (finding.rule === "unmapped-section" || finding.rule === "unmapped-item") &&
   !HashSet.has(part, Array.headNonEmpty(String.split(finding.message, " ")));
 
+/** Replaces one file in `.cairn/` atomically, so `cairn serve` and an interrupted plan never see it half written. */
 const writeCairn = Effect.fn("plan.write")(function* (name: string, content: string) {
-  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const root = yield* (yield* MainCheckout).root;
-  yield* fs.writeFileString(path.join(root, CAIRN_DIRECTORY, name), content);
+  yield* replaceFile(path.join(root, CAIRN_DIRECTORY, name), content);
 });
 
 /**

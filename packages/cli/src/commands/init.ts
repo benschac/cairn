@@ -3,6 +3,7 @@ import { Command } from "effect/cli";
 
 import { defaultConfig } from "@cairn/contract";
 
+import { replaceFile } from "../atomic-write.ts";
 import { MainCheckout } from "../main-checkout.ts";
 
 export const CAIRN_DIRECTORY = ".cairn";
@@ -42,7 +43,15 @@ export const withIgnoredLine = (existing: string): string =>
     ? existing
     : `${existing}${String.isEmpty(existing) || String.endsWith("\n")(existing) ? "" : "\n"}${IGNORED_LINE}\n`;
 
-/** Creates `.cairn/` in the main checkout and ignores its database. Refuses, changing nothing, when `.cairn/` exists. */
+/**
+ * Creates `.cairn/` in the main checkout and ignores its database. Refuses, changing nothing, when `.cairn/` exists.
+ *
+ * The new `.cairn/` is built whole in a staging directory in the repository root and renamed into place, so a
+ * failed or interrupted init leaves no `.cairn/` behind for the next init to refuse. A rename onto a directory
+ * that is not empty fails (`ENOTEMPTY`, which the platform reports as `Unknown`) but one onto an empty
+ * directory replaces it, so the check up front stays, and a rename that fails because `.cairn/` appeared since
+ * is reported as `AlreadyInitialized`. `.gitignore` is written after the rename, by the init that made `.cairn/`.
+ */
 export const init = Effect.fn("init")(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -57,13 +66,38 @@ export const init = Effect.fn("init")(function* () {
   const templatePath = yield* path.fromFileUrl(new URL("../templates/prd.md", import.meta.url));
   const template = yield* fs.readFileString(templatePath);
   const gitignore = path.join(root, ".gitignore");
-  const hasGitignore = yield* fs.exists(gitignore);
-  const existing = hasGitignore ? yield* fs.readFileString(gitignore) : "";
-  yield* fs.makeDirectory(directory);
-  yield* fs.writeFileString(path.join(directory, "prd.md"), template);
-  yield* fs.writeFileString(path.join(directory, "events.jsonl"), "");
-  yield* fs.writeFileString(path.join(directory, "config.json"), DEFAULT_CONFIG);
-  yield* fs.writeFileString(gitignore, withIgnoredLine(existing));
+  const gitignoreText = fs
+    .exists(gitignore)
+    .pipe(
+      Effect.flatMap((present) => (present ? fs.readFileString(gitignore) : Effect.succeed(""))),
+    );
+  // A .gitignore init cannot read fails it here, before .cairn/ exists for the next init to refuse.
+  yield* gitignoreText;
+  yield* Effect.scoped(
+    Effect.gen(function* () {
+      const staging = yield* fs.makeTempDirectoryScoped({ directory: root, prefix: ".init-" });
+      const draft = path.join(staging, CAIRN_DIRECTORY);
+      yield* fs.makeDirectory(draft);
+      yield* fs.writeFileString(path.join(draft, "prd.md"), template);
+      yield* fs.writeFileString(path.join(draft, "events.jsonl"), "");
+      yield* fs.writeFileString(path.join(draft, "config.json"), DEFAULT_CONFIG);
+      yield* fs.rename(draft, directory).pipe(
+        Effect.catchTag("PlatformError", (error) =>
+          fs.exists(directory).pipe(
+            Effect.filterOrFail(
+              (taken) => !taken,
+              () => new AlreadyInitialized({ directory }),
+            ),
+            Effect.andThen(Effect.fail(error)),
+          ),
+        ),
+      );
+    }),
+  );
+  // Only the init whose rename won touches .gitignore, so one that lost a race leaves it as the winner left it.
+  // It is read again, so an edit made since the check above is kept.
+  const existing = yield* gitignoreText;
+  yield* replaceFile(gitignore, withIgnoredLine(existing));
   yield* Console.log(`Created ${directory}. Write your PRD in ${path.join(directory, "prd.md")}.`);
 });
 

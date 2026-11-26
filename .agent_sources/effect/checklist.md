@@ -31,6 +31,7 @@ added | rg 'class \w+ extends Error|throw |try \{|catch \('                    #
 added | rg 'Schema\.(decode|encode)\w*Sync|as unknown as|as any|: any\b'       # boundaries and casts
 added | rg 'Effect\.context\b|run(Fork|Promise|Sync|Callback)With|provideContext'  # stored effects: what context they carry
 added | rg 'status: [1-5][0-9]{2}'                                              # a status outside an error's Respondable method: let the error render it
+added | rg 'writeFile(String)?\(|fs\.exists\('                                # writes a reader can see half done
 ```
 
 The checks that `pnpm check` runs catch most of the first five lines. The rest are review items.
@@ -170,9 +171,16 @@ The checks that `pnpm check` runs catch most of the first five lines. The rest a
 | `node:fs`, `node:path`, `fileURLToPath` | `FileSystem.FileSystem` (`readFileString`, `writeFileString`, `readDirectory`, `exists`), `Path.Path` (`join`, `resolve`, `fromFileUrl`), provided by `NodeServices.layer` | `nodeBuiltinImport` (advisory) | `scripts/agent-sources/index-xstate-docs.ts` |
 | `child_process` | `ChildProcess.make(cmd, args, { cwd })` from `effect/process` through `ChildProcessSpawner` | | `scripts/land/land.ts`, `ai-docs/src/60_child-process/` |
 | `fetch` | `HttpClient.HttpClient`, `HttpClient.filterStatusOk`, `FetchHttpClient.layer` from `effect/http` | `globalFetch`, `globalFetchInEffect` | `scripts/agent-sources/refresh-pattern-sources.ts`, `ai-docs/src/50_http-client/` |
+| `fs.writeFileString(target, ...)` on a file something else reads (`.cairn/*`, a record in git's common directory, a generated index), or `fs.exists(target)` and then a write | Stage, then publish: `replaceFile(target, contents)` to replace, `createFile(target, contents)` to create only if absent (`FileAlreadyExists`). Underneath, `fs.makeTempDirectoryScoped({ directory: path.dirname(target), prefix: ".write-" })` in `Effect.scoped`, a write there, then `fs.rename` or `fs.link` with `Effect.catchReason("PlatformError", "AlreadyExists", ...)`. Not for an append-only log | | [atomic-writes.md](atomic-writes.md); `packages/cli/src/atomic-write.ts`, `scripts/gate/lock.ts` (`tryTake`); Harry Solovay, [Advanced Effect Design Patterns](https://youtu.be/_tSGby_q890?t=1366), Effect Miami 3, "Atomic writes" |
 | `process.argv`, top-level `await`, `process.exit` | `Command.make` with `Flag` and `Argument` from `effect/cli`, `Command.run`, `NodeRuntime.runMain` | | `scripts/agent-sources/index-xstate-docs.ts` |
 
 Each unstable module you import must be listed in `allowedUnstableApis` in that project's `tsconfig.json`.
+
+### Atomic writes
+
+A file something else reads is written whole or not at all: `replaceFile` or `createFile` from
+`packages/cli/src/atomic-write.ts`. [atomic-writes.md](atomic-writes.md) says which to use, what it does not
+cover (an append-only log, several files together, a power cut) and how to test it.
 
 ## Effect UI viewer
 

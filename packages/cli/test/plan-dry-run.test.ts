@@ -15,6 +15,7 @@ import {
   Result,
   Schema,
   Scope,
+  String,
 } from "effect";
 import { TestConsole } from "effect/testing";
 
@@ -71,12 +72,19 @@ const setup = (files: Readonly<Record<string, string>>) =>
       ([name, content]) => fs.writeFileString(path.join(root, ".cairn", name), content),
       { discard: true },
     );
-    const snapshot = Effect.forEach(NAMES, (name) =>
-      fs.readFileString(path.join(root, ".cairn", name)).pipe(
-        Effect.asSome,
-        Effect.catchTag("PlatformError", () => Effect.succeedNone),
+    // What a dry run must leave alone: every path under the root, a staging directory included, and the
+    // bytes of each file in .cairn/.
+    const snapshot = Effect.all({
+      contents: Effect.forEach(NAMES, (name) =>
+        fs.readFileString(path.join(root, ".cairn", name)).pipe(
+          Effect.asSome,
+          Effect.catchTag("PlatformError", () => Effect.succeedNone),
+        ),
       ),
-    );
+      listing: Effect.map(fs.readDirectory(root, { recursive: true }), (names) =>
+        Array.sort(names, String.Order),
+      ),
+    });
     const run = (options: Partial<Parameters<typeof plan>[0]> = {}) =>
       Effect.gen(function* () {
         const calls = yield* Ref.make(0);
@@ -105,21 +113,23 @@ const setup = (files: Readonly<Record<string, string>>) =>
     return { run, snapshot };
   });
 
-it.effect("a dry run leaves every file in .cairn/ as it was and asks nothing", () =>
-  inRepository(
-    Effect.gen(function* () {
-      const { run, snapshot } = yield* setup({ "prd.md": PRD });
-      const before = yield* snapshot;
-      const { asked, calls, lines, result } = yield* run();
-      const after = yield* snapshot;
-      expect(Result.isSuccess(result)).toBe(true);
-      expect(after).toEqual(before);
-      expect(asked).toEqual([]);
-      expect(calls).toBe(2);
-      expect(lines).toContain("  t1  pending  Add capture  sonnet/high  new");
-      expect(lines).not.toContain("Wrote .cairn/manifest.json");
-    }),
-  ),
+it.effect(
+  "a dry run leaves .cairn/'s listing and every file's bytes as they were and asks nothing",
+  () =>
+    inRepository(
+      Effect.gen(function* () {
+        const { run, snapshot } = yield* setup({ "prd.md": PRD });
+        const before = yield* snapshot;
+        const { asked, calls, lines, result } = yield* run();
+        const after = yield* snapshot;
+        expect(Result.isSuccess(result)).toBe(true);
+        expect(after).toEqual(before);
+        expect(asked).toEqual([]);
+        expect(calls).toBe(2);
+        expect(lines).toContain("  t1  pending  Add capture  sonnet/high  new");
+        expect(lines).not.toContain("Wrote .cairn/manifest.json");
+      }),
+    ),
 );
 
 it.effect("the totals line counts what the scripted plan holds", () =>

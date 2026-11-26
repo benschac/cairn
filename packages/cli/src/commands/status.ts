@@ -19,6 +19,7 @@ import {
 } from "effect";
 import { Command, Flag } from "effect/cli";
 
+import { replaceFile } from "../atomic-write.ts";
 import { loadTraceInput } from "../load-trace.ts";
 import { layer as gitLayer } from "../git-live.ts";
 import { MainCheckout } from "../main-checkout.ts";
@@ -141,7 +142,7 @@ export const refreshSnapshot = Effect.fn("status.refreshSnapshot")(function* (
   const root = yield* (yield* MainCheckout).root;
   const file = path.join(root, CAIRN_DIRECTORY, MANIFEST_FILE);
   const raw = yield* fs.readFileString(file);
-  yield* fs.writeFileString(file, snapshotText(raw, tasks));
+  yield* replaceFile(file, snapshotText(raw, tasks));
   return true;
 });
 

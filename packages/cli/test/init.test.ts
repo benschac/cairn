@@ -1,6 +1,20 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Array, Effect, FileSystem, Option, Path, Schema, String } from "effect";
+import {
+  Array,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  PlatformError,
+  Schema,
+  String,
+  Struct,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { ConfigJson, defaultConfig } from "@cairn/contract";
@@ -173,6 +187,124 @@ it.effect("init refuses an existing .cairn/, changes nothing and fails with a ty
       expect(after).toEqual(before);
     }),
   ).pipe(Effect.provide(NodeServices.layer)),
+);
+
+/** The real file system, whose write of `config.json`, the last file of the new `.cairn/`, does `instead`. */
+const configWriteDoes = (
+  instead: (
+    disk: FileSystem.FileSystem,
+    file: string,
+  ) => Effect.Effect<void, PlatformError.PlatformError>,
+) =>
+  Layer.effect(
+    FileSystem.FileSystem,
+    Effect.gen(function* () {
+      const disk = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      return Struct.assign(disk, {
+        writeFileString: (file: string, data: string) =>
+          path.basename(file) === "config.json"
+            ? instead(disk, file)
+            : disk.writeFileString(file, data),
+      });
+    }),
+  );
+
+it.effect("init that fails midway leaves no .cairn/ and nothing staged", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const root = yield* directoryOf;
+      const refused = PlatformError.systemError({
+        _tag: "PermissionDenied",
+        method: "writeFileString",
+        module: "FileSystem",
+      });
+      const exit = yield* Effect.exit(
+        initIn(root).pipe(Effect.provide(configWriteDoes(() => Effect.fail(refused)))),
+      );
+      const left = yield* snapshot(root);
+      // Nothing is left for the next init to refuse.
+      yield* initIn(root);
+      const again = yield* snapshot(root);
+      expect(Exit.isFailure(exit)).toBe(true);
+      expect(left).toEqual([]);
+      expect(Array.map(again, ([name]) => name)).toContain(".cairn/config.json");
+    }),
+  ).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("init that cannot read .gitignore fails before it makes .cairn/", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* directoryOf;
+      const gitignore = path.join(root, ".gitignore");
+      yield* fs.writeFileString(gitignore, "node_modules\n");
+      yield* fs.chmod(gitignore, 0o000);
+      const exit = yield* Effect.exit(initIn(root));
+      const made = yield* fs.exists(path.join(root, ".cairn"));
+      const names = yield* fs.readDirectory(root);
+      expect(Exit.isFailure(exit)).toBe(true);
+      expect(made).toBe(false);
+      expect(names).toEqual([".gitignore"]);
+    }),
+  ).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("init interrupted midway leaves no .cairn/ and nothing staged", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* directoryOf;
+      const started = yield* Deferred.make<void>();
+      const stalling = configWriteDoes(() =>
+        Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
+      );
+      const fiber = yield* Effect.forkChild(initIn(root).pipe(Effect.provide(stalling)));
+      yield* Deferred.await(started);
+      // prd.md and events.jsonl are written, but only in the staging directory.
+      const during = yield* fs.exists(path.join(root, ".cairn"));
+      yield* Fiber.interrupt(fiber);
+      const after = yield* snapshot(root);
+      expect(during).toBe(false);
+      expect(after).toEqual([]);
+    }),
+  ).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect(
+  "a .cairn/ made while init writes is kept with .gitignore, and init fails with AlreadyInitialized",
+  () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* directoryOf;
+        const theirs = path.join(root, ".cairn", "prd.md");
+        const gitignore = path.join(root, ".gitignore");
+        const ignored = `node_modules\n${IGNORED_LINE}\n.env\n`;
+        // Another init gets there first, after this one checked, and the person edits .gitignore since.
+        const racing = configWriteDoes((disk, file) =>
+          disk
+            .makeDirectory(path.join(root, ".cairn"))
+            .pipe(
+              Effect.andThen(disk.writeFileString(theirs, "theirs\n")),
+              Effect.andThen(disk.writeFileString(gitignore, ignored)),
+              Effect.andThen(disk.writeFileString(file, DEFAULT_CONFIG)),
+            ),
+        );
+        const error = yield* Effect.flip(initIn(root).pipe(Effect.provide(racing)));
+        const text = yield* fs.readFileString(theirs);
+        const names = yield* fs.readDirectory(path.join(root, ".cairn"));
+        const ignoring = yield* fs.readFileString(gitignore);
+        expect(Schema.is(AlreadyInitialized)(error)).toBe(true);
+        expect(text).toBe("theirs\n");
+        expect(names).toEqual(["prd.md"]);
+        expect(ignoring).toBe(ignored);
+      }),
+    ).pipe(Effect.provide(NodeServices.layer)),
 );
 
 // One honest test of the lookup: a real repository with a linked worktree.

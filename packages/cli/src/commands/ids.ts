@@ -1,9 +1,10 @@
-import { Array, Console, Effect, FileSystem, Path, Runtime, Schema } from "effect";
+import { Array, Console, Effect, Path, Runtime, Schema } from "effect";
 import { Command, Flag } from "effect/cli";
 
 import type { SectionPrefix } from "@cairn/contract";
 import { assignItemIds, assignSectionIds, numberStatements } from "@cairn/core";
 
+import { replaceFile } from "../atomic-write.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { CAIRN_DIRECTORY, loadPrd, loadSpec } from "../workspace.ts";
 
@@ -85,19 +86,16 @@ const write = Effect.fn("ids.write")(function* (
     readonly unplaced: ReadonlyArray<string>;
   }>,
 ) {
-  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const root = yield* (yield* MainCheckout).root;
   yield* Effect.forEach(
     Array.filter(results, (result) => Array.isReadonlyArrayNonEmpty(result.added)),
     (result) =>
-      fs
-        .writeFileString(path.join(root, CAIRN_DIRECTORY, result.name), result.markdown)
-        .pipe(
-          Effect.andThen(
-            Effect.forEach(result.added, (id) => Console.log(`Added ${id}`), { discard: true }),
-          ),
+      replaceFile(path.join(root, CAIRN_DIRECTORY, result.name), result.markdown).pipe(
+        Effect.andThen(
+          Effect.forEach(result.added, (id) => Console.log(`Added ${id}`), { discard: true }),
         ),
+      ),
     { discard: true },
   );
 });
