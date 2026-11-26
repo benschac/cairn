@@ -1334,3 +1334,18 @@ Some effects are stored at one point and run at another, by code with a differen
   - `@xstate/effect` captures the context when it creates an actor and puts a scope of the actor's own in place of the caller's, so the room machine needs nothing more.
   - The viewer's DOM listeners put a Message on a queue and run no effect, so they carry no context.
 - The Effect checklist in `.agent_sources` carries the pattern, so a reviewer asks for it where a diff captures `Effect.context()` whole, or provides a captured context outside `Effect.scoped`.
+
+### Errors that render themselves {#prd.refactors.errors-that-render-themselves}
+
+A server that picks each status in its handlers, catching one error for a `404` and another for a `400`, has to remember every error at every route, and an error it forgets becomes a `500`. Each failure a caller can cause says instead what it becomes: its class renders its own response through `HttpServerRespondable`, or, under `HttpApi`, its schema carries its status, and a handler only fails. Such a failure is also marked with `ErrorReporter.ignore`, so the server's error reporter hears only about what nobody expected. The pattern comes from Harry Solovay's talk [Advanced Effect Design Patterns](https://youtu.be/_tSGby_q890?t=1210) at Effect Miami 3, from 20:10, in its chapter "Errors that render themselves".
+
+- `cairn serve`'s API routes only fail. A parameter that does not decode, a SHA git does not have and a session the store does not hold each render their `400` or `404`, with the same body as before, and are not reported. Any other failure is a `500` that the server logs as an error with its cause.
+- The work still to come takes the pattern:
+  - The hosted API's errors are classes in the hosted contract, each with its status. A denied read and an ID that does not exist fail with the same `NotFound`, so their responses cannot drift apart. The routes are declared with `HttpApi`, so `cairn connect` and the hosted viewer call them through a client typed from the same definition and get each refusal back as its class.
+  - The Worker reaches a document's room through Effect RPC, whose error schemas are the same classes, so a room's `stale-revision` reaches the Worker's route as the error itself and renders as it would anywhere.
+  - The shape also works where a failure becomes something other than a response. Each error a CLI operation can fail with declares its own code and hint, and the CLI and MCP adapters read them from the error, instead of one function mapping every error and turning a forgotten one into `internal` (see agent access).
+- Where it does not fit, written down here so it is not looked for again:
+  - The viewer's files route answers a path it cannot serve with the viewer's page or a `404`, and has no domain error to render.
+  - The presence socket answers with frames, not statuses.
+  - The patch routes stay `text/plain`, because the code view shows a failed fetch's body as git wrote it. RFC 9457 problem details, which `effect/http` ships as `ProblemDetails`, would only wrap that text.
+- The Effect checklist in `.agent_sources` carries the pattern, with a note on the API and the traps found while building it, so a reviewer asks for it where a diff chooses a status beside a handler.

@@ -17378,6 +17378,11 @@
           "id": "spec.cli.agent-access.operations#r28",
           "level": "must",
           "text": "In the CLI, an `OperationError` prints to stderr as `error <code>: <message>`, followed by the hint, and the process exits 1."
+        },
+        {
+          "id": "spec.cli.agent-access.operations#r29",
+          "level": "must",
+          "text": "Each error an operation can fail with implements `Operational`, `errorOf` reads its code, hint and field from it, and a command whose error does not implement it does not compile."
         }
       ],
       "artifacts": [
@@ -30792,6 +30797,11 @@
           "id": "spec.hosted-launch.hosted-contract#r26",
           "level": "must",
           "text": "The JSON Schema files must be generated again, as in `spec.contract.javascript-entry`."
+        },
+        {
+          "id": "spec.hosted-launch.hosted-contract#r27",
+          "level": "must",
+          "text": "Each `HostedError` class carries its status on its schema and sets `ErrorReporter.ignore`, and `NotFound` also renders itself through `HttpServerRespondable`."
         }
       ],
       "artifacts": [
@@ -32021,7 +32031,7 @@
         }
       ],
       "writtenFrom": {
-        "body": "c8c6cf9e1dec21281c120f7491ffc7955e03767d88e33d02fdc4c7e451e2199d",
+        "body": "f72d3451bf065ade5f6b4512f415a156896c3db048e0eded1158a12dff270693",
         "prd": {
           "prd.launch.workspaces": "4141ebf8a4edd0701da9496f66211fb0100eb9968742e53b94a2dbdeb69bb934",
           "prd.launch.membership": "826c1138e907c3f2c09f065fd0ab00faf526a89d3a5f98cf707ebcbfee53b9df",
@@ -32035,7 +32045,7 @@
       "id": "spec.hosted-launch.policy",
       "title": "Policy",
       "level": 3,
-      "line": 5966,
+      "line": 5968,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -32196,6 +32206,11 @@
           "id": "spec.hosted-launch.policy#r30",
           "level": "must",
           "text": "The Worker must turn a denied write on something the principal can read into `403 forbidden` carrying the decision's reason, such as `Only a person can approve a gate.`."
+        },
+        {
+          "id": "spec.hosted-launch.policy#r31",
+          "level": "must",
+          "text": "A denied read and an ID that does not exist fail with the same `NotFound` error."
         }
       ],
       "artifacts": [
@@ -32359,7 +32374,7 @@
       "id": "spec.hosted-launch.worker-and-storage",
       "title": "Worker and storage",
       "level": 3,
-      "line": 6031,
+      "line": 6033,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -32555,6 +32570,11 @@
           "id": "spec.hosted-launch.worker-and-storage#r34",
           "level": "must",
           "text": "The Worker's `fetch` and `scheduled` handlers and the room's entry points run each call with the services built from the bindings, kept without `Scope`, and scoped before that context is provided."
+        },
+        {
+          "id": "spec.hosted-launch.worker-and-storage#r35",
+          "level": "must",
+          "text": "A handler only fails and never builds an error response: an unknown `/api` route fails with `NotFound`, a body that does not decode becomes `InvalidInput` naming its field once where the API is built, and only a `500` or a defect is reported."
         }
       ],
       "artifacts": [
@@ -33165,7 +33185,7 @@
         }
       ],
       "writtenFrom": {
-        "body": "c9d3cc91af2efbacc7a78903eaf64faac4d9a43e36e14be7eaefef4599b1f854",
+        "body": "4c871d963e790e728faeefaf553e9d8da60f14a40fdf80c30bc1b3a5d598353e",
         "prd": {}
       }
     },
@@ -33173,7 +33193,7 @@
       "id": "spec.hosted-launch.accounts-and-workspaces",
       "title": "Accounts and workspaces",
       "level": 3,
-      "line": 6073,
+      "line": 6076,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33445,7 +33465,7 @@
       "id": "spec.hosted-launch.entitlements",
       "title": "Entitlements",
       "level": 3,
-      "line": 6105,
+      "line": 6108,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33783,7 +33803,7 @@
       "id": "spec.hosted-launch.room",
       "title": "Room",
       "level": 3,
-      "line": 6138,
+      "line": 6141,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33942,6 +33962,11 @@
           "id": "spec.hosted-launch.room#r28",
           "level": "must",
           "text": "Each room entry point runs with the services the room built and a `Scope` of its own, and a room that wakes from hibernation builds its services again before it handles the call that woke it."
+        },
+        {
+          "id": "spec.hosted-launch.room#r29",
+          "level": "must",
+          "text": "A room's error reaches the Worker's handler as its `HostedError` class, which the handler fails with unchanged."
         }
       ],
       "artifacts": [
@@ -34217,7 +34242,7 @@
         }
       ],
       "writtenFrom": {
-        "body": "542bd78acf45582cf32c8bd9fce83caa48e58fb84b264146b3c5f1ecf42ef06e",
+        "body": "62e9544cdf4d2abbc2c8c0aab257a3009dfb6263850e06a7f7fda60db78f5678",
         "prd": {
           "prd.launch.membership": "826c1138e907c3f2c09f065fd0ab00faf526a89d3a5f98cf707ebcbfee53b9df",
           "prd.launch.discussion": "0053339ab8a2bb9037cc7e0c50bb2b368e4f1b687bc173ba4f7239bf4a347dfd"
@@ -34228,7 +34253,7 @@
       "id": "spec.hosted-launch.revisions",
       "title": "Revisions",
       "level": 3,
-      "line": 6205,
+      "line": 6210,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -34624,7 +34649,7 @@
       "id": "spec.hosted-launch.document-directory",
       "title": "Document directory",
       "level": 3,
-      "line": 6253,
+      "line": 6258,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -34918,7 +34943,7 @@
       "id": "spec.hosted-launch.members-and-invitations",
       "title": "Members and invitations",
       "level": 3,
-      "line": 6279,
+      "line": 6284,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -35276,7 +35301,7 @@
       "id": "spec.hosted-launch.agent-credentials-and-gate-approvals",
       "title": "Agent credentials and gate approvals",
       "level": 3,
-      "line": 6323,
+      "line": 6328,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -35618,7 +35643,7 @@
       "id": "spec.hosted-launch.visibility",
       "title": "Visibility",
       "level": 3,
-      "line": 6361,
+      "line": 6366,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36034,7 +36059,7 @@
       "id": "spec.hosted-launch.discussion",
       "title": "Discussion",
       "level": 3,
-      "line": 6431,
+      "line": 6436,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36490,7 +36515,7 @@
       "id": "spec.hosted-launch.links-between-prds",
       "title": "Links between PRDs",
       "level": 3,
-      "line": 6473,
+      "line": 6478,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36724,7 +36749,7 @@
       "id": "spec.hosted-launch.data-sources",
       "title": "Data sources",
       "level": 3,
-      "line": 6496,
+      "line": 6501,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36949,7 +36974,7 @@
       "id": "spec.hosted-launch.workspace-screens",
       "title": "Workspace screens",
       "level": 3,
-      "line": 6523,
+      "line": 6528,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37413,7 +37438,7 @@
       "id": "spec.hosted-launch.workspace-settings",
       "title": "Workspace settings",
       "level": 3,
-      "line": 6580,
+      "line": 6585,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37621,7 +37646,7 @@
       "id": "spec.hosted-launch.sharing-dialog",
       "title": "Sharing dialog",
       "level": 3,
-      "line": 6601,
+      "line": 6606,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37821,7 +37846,7 @@
       "id": "spec.hosted-launch.comments-in-the-reader",
       "title": "Comments in the reader",
       "level": 3,
-      "line": 6637,
+      "line": 6642,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -38009,7 +38034,7 @@
       "id": "spec.hosted-launch.cairn-connect",
       "title": "`cairn connect`",
       "level": 3,
-      "line": 6673,
+      "line": 6678,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -38182,6 +38207,11 @@
           "id": "spec.hosted-launch.cairn-connect#r29",
           "level": "must",
           "text": "`--watch` consumes the watcher as a stream in the command's fiber, and each sync is scoped on its own."
+        },
+        {
+          "id": "spec.hosted-launch.cairn-connect#r30",
+          "level": "must",
+          "text": "The commands call the hosted API through an `HttpApiClient` built from the hosted contract and match a refusal by its `HostedError` class, not by status."
         }
       ],
       "artifacts": [
@@ -38417,7 +38447,7 @@
         }
       ],
       "writtenFrom": {
-        "body": "b1f8f65820a90a9a356ea44d4beccdb8c96392ce9fd1c99d12aea6e24a507632",
+        "body": "b0e2550ec82342bc3f5be167d9bbd37a0271ba7df5d159dccf1f72bd6aa9e55f",
         "prd": {
           "prd.launch.membership": "826c1138e907c3f2c09f065fd0ab00faf526a89d3a5f98cf707ebcbfee53b9df",
           "prd.launch.history": "c970380f4bcb39a76b60b5ee01492469486e88b85904b963e6a7c11175b85c7e",
@@ -38429,7 +38459,7 @@
       "id": "spec.hosted-launch.plan-source",
       "title": "Plan source",
       "level": 3,
-      "line": 6712,
+      "line": 6718,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -38665,7 +38695,7 @@
       "id": "spec.hosted-launch.billing",
       "title": "Billing",
       "level": 3,
-      "line": 6744,
+      "line": 6750,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -39049,7 +39079,7 @@
       "id": "spec.hosted-launch.self-hosting",
       "title": "Self-hosting",
       "level": 3,
-      "line": 6798,
+      "line": 6804,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -39585,7 +39615,7 @@
       "id": "spec.hosted-launch.launch-acceptance",
       "title": "Launch acceptance",
       "level": 3,
-      "line": 6853,
+      "line": 6859,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -39764,13 +39794,14 @@
       "id": "spec.refactors",
       "title": "Refactors",
       "level": 2,
-      "line": 6895,
+      "line": 6901,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.refactors.service-factories",
         "spec.refactors.optional-services",
         "spec.refactors.branching-conversations",
-        "spec.refactors.carrying-context"
+        "spec.refactors.carrying-context",
+        "spec.refactors.errors-that-render-themselves"
       ],
       "human": false,
       "implements": [],
@@ -39793,7 +39824,7 @@
       "id": "spec.refactors.service-factories",
       "title": "Service factories",
       "level": 3,
-      "line": 6897,
+      "line": 6903,
       "parent": "spec.refactors",
       "children": [],
       "human": false,
@@ -39852,7 +39883,7 @@
       "id": "spec.refactors.optional-services",
       "title": "Optional services",
       "level": 3,
-      "line": 6917,
+      "line": 6923,
       "parent": "spec.refactors",
       "children": [],
       "human": false,
@@ -39909,7 +39940,7 @@
       "id": "spec.refactors.branching-conversations",
       "title": "Branching conversations",
       "level": 3,
-      "line": 6930,
+      "line": 6936,
       "parent": "spec.refactors",
       "children": [],
       "human": false,
@@ -39983,7 +40014,7 @@
       "id": "spec.refactors.carrying-context",
       "title": "Carrying context",
       "level": 3,
-      "line": 6943,
+      "line": 6949,
       "parent": "spec.refactors",
       "children": [],
       "human": false,
@@ -40049,6 +40080,88 @@
         "body": null,
         "prd": {
           "prd.refactors.carrying-context": "a3f8e8b126808ecdf77478748bb432fed5e30195931bdf5b2d1c6971fa5a6b0e"
+        }
+      }
+    },
+    {
+      "id": "spec.refactors.errors-that-render-themselves",
+      "title": "Errors that render themselves",
+      "level": 3,
+      "line": 6962,
+      "parent": "spec.refactors",
+      "children": [],
+      "human": false,
+      "implements": ["prd.refactors.errors-that-render-themselves"],
+      "files": [
+        "packages/cli/src/api.ts",
+        "packages/cli/src/trace-store.ts",
+        "packages/cli/src/serve.ts",
+        "packages/cli/test/api.test.ts",
+        "tsconfig.base.json",
+        ".agent_sources/effect/errors-that-render-themselves.md",
+        ".agent_sources/effect/checklist.md",
+        ".agent_sources/README.md"
+      ],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Lets the API routes' failures render their own responses and stay out of error reporting when a caller caused them, and records where the hosted API, its room and the CLI operations take the pattern.",
+      "requirements": [
+        {
+          "id": "spec.refactors.errors-that-render-themselves#r1",
+          "level": "must",
+          "text": "The API routes only fail: `MalformedParams`, `RevisionUnknown` and `SessionNotFound` render their `400` or `404` with the body they had before and set `ErrorReporter.ignore`."
+        },
+        {
+          "id": "spec.refactors.errors-that-render-themselves#r2",
+          "level": "must",
+          "text": "`GitFailed` renders a `500` with git's message and is reported, and any other failure is the server's `500` and is reported."
+        },
+        {
+          "id": "spec.refactors.errors-that-render-themselves#r3",
+          "level": "must",
+          "text": "A stored session row that does not decode is a defect, not a `SchemaError` answered with a `400`."
+        },
+        {
+          "id": "spec.refactors.errors-that-render-themselves#r4",
+          "level": "must",
+          "text": "`serve.ts` provides `ReportedFailures`, which logs each reported cause as an error with the context captured where its layer is built, `Scope` left out."
+        },
+        {
+          "id": "spec.refactors.errors-that-render-themselves#r5",
+          "level": "must",
+          "text": "`.agent_sources` has `errors-that-render-themselves.md`, a checklist row and scan line for the pattern, and a README pointer to the note."
+        }
+      ],
+      "artifacts": [],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.refactors.errors-that-render-themselves#d1",
+          "text": "Route parameters decode into `MalformedParams` instead of the router's own `400`.",
+          "why": "The router answers a `SchemaError` with an empty `400` but still reports it, so every malformed request would be logged as an error."
+        },
+        {
+          "id": "spec.refactors.errors-that-render-themselves#d2",
+          "text": "A missing `.cairn/` file under `/api/trace` gets the server's empty `500` instead of a body naming the file.",
+          "why": "Nobody expected it, so it is reported with its cause, which names the file; the viewer shows only the status of a failed trace fetch."
+        },
+        {
+          "id": "spec.refactors.errors-that-render-themselves#d3",
+          "text": "`unstableApiUsage` is off in `tsconfig.base.json`.",
+          "why": "`HttpServerRespondable` and `ErrorReporter` are unstable in the installed `effect`, and the owner chose turning the diagnostic off over suppressing it at each use."
+        },
+        {
+          "id": "spec.refactors.errors-that-render-themselves#d4",
+          "text": "The hosted API keeps the `HostedError` body shape instead of RFC 9457 problem details.",
+          "why": "Its clients are typed from the same `HttpApi` and decode the body into the class, so problem details would add a second shape for the same errors."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.refactors.errors-that-render-themselves": "01a056067196993388db269cb83ecd60fc9d8d76e099fe9dc915371d05bed62d"
         }
       }
     }

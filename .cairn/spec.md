@@ -3826,7 +3826,7 @@ This section adds four operations:
 1. Decode the input with `op.input`. A failure is `invalid-input`, with the field path.
 2. Unless the operation is `init`, check that `.cairn/` exists. If it does not, fail with `not-initialized` and the hint `Call init first.`.
 3. Run the operation with an `OperationContext` service. Its `progress(message, done?, total?)` reports progress, and its `WriteLog` records what was written.
-4. Map every typed error the commands already raise to an `OperationError` in `errorOf`. Each error gets one code, and the existing message becomes `message`. A defect is `internal`.
+4. Map every typed error the commands already raise to an `OperationError` in `errorOf`. Each error gets one code, and the existing message becomes `message`. A defect is `internal`. The error declares its own code, not `errorOf`: each error a command can fail with implements `Operational`, a protocol in `operations.ts` whose one method returns the error's `code`, `hint` and `field`, and `errorOf` reads that method. `runOperation` takes the command's effect with `Operational` as its error type, so a command that can fail with an error that declares no code does not compile (see `spec.refactors.errors-that-render-themselves`).
 
 Writes. Every file an operation writes goes through `writeFileAtomic(path, bytes)` in `write-log.ts`. It writes a temporary file in the same directory, renames it into place and then records the path in the `WriteLog`. The commands in this section stop writing through `FileSystem` directly. A file is therefore never left half written, and an operation that fails or is interrupted reports exactly the files it replaced in `changed`.
 
@@ -5953,6 +5953,8 @@ HostedError =
   | { code: "limit-reached"; message: string; dimension: Dimension | "guests"; plan: Slug; used: number; allowed: number; upgradeUrl: string | null }
 ```
 
+Each `HostedError` code is a class in `errors.ts`. Its encoded form is the object above, and its schema carries its status through `HttpApiSchema.status`: `not-found` `404`, `unauthenticated` `401`, `forbidden` `403`, `invalid-input` `400`, `conflict`, `stale-revision` and `stale-comment` `409`, and `limit-reached` `403`, which is my choice. Each is an answer the API owes, so each sets `ErrorReporter.ignore`. `NotFound` also implements `HttpServerRespondable`, so a route outside the `HttpApi` can fail with it too (see `spec.refactors.errors-that-render-themselves`).
+
 The JSON Schema files are generated again, as in `spec.contract.javascript-entry`.
 
 Tests:
@@ -6015,7 +6017,7 @@ Agents cannot edit or manage. That is my choice: the PRD asks agents to post pro
 
 The Worker turns a denial into a response:
 
-- A denied read of a workspace or document is `404 not-found`. Its body is the same body an ID that does not exist gets, so the response says nothing about whether the thing exists.
+- A denied read of a workspace or document is `404 not-found`. Its body is the same body an ID that does not exist gets, so the response says nothing about whether the thing exists. Both fail with the one `NotFound` class, which renders the response, so the two cannot drift apart.
 - A denied write on something the principal can read is `403 forbidden` with the reason, such as `Only a person can approve a gate.`.
 
 Tests are properties over generated facts:
@@ -6038,7 +6040,7 @@ Tests are properties over generated facts:
 - HTTP. The router is Effect HTTP, served through Effect's web handler. Read the installed `effect`'s declarations for the Workers entry before writing `worker.ts`. Routes decode their input and encode their output through the hosted contract. Better Auth's handler is mounted at `/api/auth/*` (see `spec.hosted-launch.accounts-and-workspaces`). The hosted viewer build (see `spec.hosted-launch.data-sources`) is served as Workers static assets, and every other `GET` path falls back to its page.
 - Principal. `principal.ts` resolves each request to a `Principal`. A Better Auth session cookie or a device-authorization bearer token gives a person. An `Authorization: Bearer cagt_…` header gives an agent (see `spec.hosted-launch.agent-credentials-and-gate-approvals`). Anything else is anonymous.
 - Facts. `facts.ts` loads `Facts` for a request with one D1 query per request, against the primary, so a decision never reads a stale replica. The same query also returns the document's `access_epoch` (see `spec.hosted-launch.room`).
-- Rooms. `PrdRoom` is a Durable Object class, one instance per document, addressed by `idFromName(documentId)`. The Worker calls it through Workers RPC. Its storage is its own SQLite, used through `@effect/sql-sqlite-do`, with migrations run through `Migrator.fromRecord` the first time the instance wakes. A migration is never edited once it lands, as in `spec.sessions.trace-store`.
+- Rooms. `PrdRoom` is a Durable Object class, one instance per document, addressed by `idFromName(documentId)`. The Worker calls it through Effect RPC (see `spec.hosted-launch.room`). Its storage is its own SQLite, used through `@effect/sql-sqlite-do`, with migrations run through `Migrator.fromRecord` the first time the instance wakes. A migration is never edited once it lands, as in `spec.sessions.trace-store`.
 - D1 is used through `@effect/sql-d1`. Its migrations sit in `src/d1/migrations/` and run on deploy. Better Auth's tables come from its own schema. Cairn adds:
 
 ```sql
@@ -6058,6 +6060,7 @@ create table pending_revocations (id text primary key, document_ids text not nul
 
 - Large bodies. `blobs.ts` stores a revision body over 512 KiB in R2 at `revisions/<document>/<revision>.md`. R2 is reached only through the room, so the room's policy applies to it. The launch has no attachments.
 - Caching. Every protected response carries `Cache-Control: no-store`. Public responses carry `no-cache` and an `ETag`. No shared cache ever holds document content, so making a document private has nothing to purge.
+- Errors. The routes are an `HttpApi` declared in the hosted contract and built with `HttpApiBuilder`, served through the same web handler. Better Auth's handler and the static-asset fallback stay plain routes beside it. A handler only fails, with a `HostedError` class or a defect, and never builds an error response. A catch-all route under `/api/*` fails with `NotFound`, which gives an unknown route the error shape. A body or parameter that does not decode becomes `InvalidInput` naming its field once, where the API is built, not in each handler: read how the installed `HttpApi` reports a decode failure before writing it. The Worker provides an `ErrorReporter` that logs what is reported, so only a `500` or a defect is logged as an error (see `spec.refactors.errors-that-render-themselves`).
 - Handlers. The runtime calls the Worker's `fetch` and `scheduled` handlers and the room's entry points outside any fiber. Each builds its services from the bindings once, keeps them as a context without `Scope`, and runs every request, cron tick and room call scoped before that context is provided, so what a call acquires is released when it ends (see `spec.refactors.carrying-context`).
 - Deploy. `alchemy.run.ts` defines the Worker, the `PrdRoom` namespace, the D1 database, the R2 bucket, the email binding, a cron trigger every minute (see `spec.hosted-launch.room`) and the secrets. The secrets are Alchemy config bindings and none is in the repo. The configuration it reads is in `spec.hosted-launch.self-hosting`.
 
@@ -6152,6 +6155,8 @@ Live updates. `GET /api/documents/:id/live` upgrades to a WebSocket once the Wor
 - An anonymous socket gets messages only while the document is public, and the trace in its public form (see `spec.hosted-launch.visibility`).
 - A socket whose session has expired is closed with code 4401 at its next broadcast.
 - `reading` messages go only to sockets with at least `comment` access. An anonymous reader neither sends nor receives presence.
+
+Errors. The Worker's calls to the room are an `RpcGroup` in the hosted contract whose error schemas are the `HostedError` classes and `StaleAuthorization`. Read the installed `RpcServer` and `RpcClient` declarations before writing it. The room serves the group from its `fetch` with `RpcServer.toHttpEffect`, and the Worker's client uses `RpcClient.layerProtocolHttp` with an `HttpClient` whose requests go to the room's stub. A room's `stale-revision` then reaches the Worker's handler as the class, and the handler only fails with it. If no protocol runs over the stub, the room keeps Workers RPC and returns the encoded error, and the Worker decodes it with the error's schema before it fails with it (see `spec.refactors.errors-that-render-themselves`).
 
 Entry points. `fetch`, `webSocketMessage`, `webSocketClose`, `alarm` and the RPC methods each run with the services the room built and a `Scope` of their own, as the Worker's handlers do (see `spec.hosted-launch.worker-and-storage`). A room that wakes from hibernation builds its services again before it handles the call that woke it.
 
@@ -6698,6 +6703,7 @@ Tests:
 
 Refusals:
 
+- The commands call the hosted API through an `HttpApiClient` built from the hosted contract's `HttpApi`, so a refusal arrives as its `HostedError` class and is matched by class, not by status (see `spec.refactors.errors-that-render-themselves`).
 - A `401` on an agent token prints `This agent's credential was revoked. Run cairn connect agent <name> again.` and exits 1. Local files are unchanged.
 - A `404` prints `This PRD is not available to you.` and exits 1.
 
@@ -6952,3 +6958,18 @@ The checklist's "Resources and scopes" table gains a row for an effect stored an
 The sections still to build say where it applies to them: `spec.cli.agent-access.mcp-server`, `spec.hosted-launch.worker-and-storage`, `spec.hosted-launch.room`, `spec.cli.terminal-view.cairn-watch` and `spec.hosted-launch.cairn-connect`. The viewer's presence subscription on Effect UI, in `apps/viewer/src/subscription/presence.ts`, runs its socket stream with `Effect.runForkWith` and the context the host hands it, and leaves the host's `Scope` out in the same way.
 
 Tests: the refactor changes no behaviour, so the tests it touches pass as they did. `scripted-terminal.test.ts` has a `display` that acquires and releases, and checks that each call releases before the next; providing the captured context without `Effect.scoped` releases them only when the layer closes, and fails it.
+
+### Errors that render themselves {#spec.refactors.errors-that-render-themselves}
+
+- Implements: `prd.refactors.errors-that-render-themselves`
+- Files: `packages/cli/src/api.ts`, `packages/cli/src/trace-store.ts`, `packages/cli/src/serve.ts`, `packages/cli/test/api.test.ts`, `tsconfig.base.json`, `.agent_sources/effect/errors-that-render-themselves.md`, `.agent_sources/effect/checklist.md`, `.agent_sources/README.md`
+
+The routes in `api.ts` only fail, and each failure a caller can cause renders itself and sets `ErrorReporter.ignore`. `MalformedParams` is the `400` for a path parameter that does not decode, with what did not decode; `paramsOf` decodes each route's parameters into it. `RevisionUnknown` is the `404` for a SHA git does not have, and `SessionNotFound` in `trace-store.ts` the `404` for a session the store does not hold, each with its message. `GitFailed` renders the `500` with git's message that `spec.patch-routes` asks for, and is reported. Every other failure gets the server's empty `500` and is reported: a `.cairn/` file that is missing under `/api/trace`, a store that fails, and a stored row that does not decode, which `sessionResponse` turns into a defect so it is not answered as the `400` of a malformed request.
+
+`ReportedFailures` in `serve.ts` is the server's `ErrorReporter`. It logs each reported cause as an error. The server calls it outside any fiber, so it logs with the context captured where its layer is built, without that layer's `Scope` (see `spec.refactors.carrying-context`).
+
+`HttpServerRespondable` and `ErrorReporter` are unstable Effect APIs, and the type check failed on them, so `unstableApiUsage` is off in `tsconfig.base.json`. `.agent_sources/effect/errors-that-render-themselves.md` describes the API, how the server picks a response and what it reports, and the traps. The checklist's "Effects and errors" table gains a row, and its scan a line for a status chosen outside an error.
+
+The sections still to build say where it applies to them: `spec.hosted-launch.hosted-contract`, `spec.hosted-launch.policy`, `spec.hosted-launch.worker-and-storage`, `spec.hosted-launch.room`, `spec.hosted-launch.cairn-connect` and `spec.cli.agent-access.operations`.
+
+Tests: `api.test.ts` serves the routes with `ReportedFailures` and a logger that records, and `reportedDuring` returns what was reported while a request ran. A malformed SHA, an unknown SHA and an unknown or malformed session ID keep their statuses and are not reported, and a missing `spec.md` is a `500` whose report names the file. A test renders `MalformedParams`, `RevisionUnknown` and `GitFailed` with `HttpServerRespondable.toResponse` and reads `ErrorReporter.isIgnored` from each. Taking `ErrorReporter.ignore` off `RevisionUnknown`, or logging below the error level, fails them.
