@@ -1,29 +1,24 @@
-import { Array, Context, Effect, Layer, Ref } from "effect";
+import { Effect, Layer } from "effect";
 import { HttpClient } from "effect/http";
 import type { HttpClientError, HttpClientRequest, HttpClientResponse } from "effect/http";
+
+import { Recorder } from "./recorder.ts";
 
 /** How a recording `HttpClient` answers a request. */
 export type Answer = (
   request: HttpClientRequest.HttpClientRequest,
 ) => Effect.Effect<HttpClientResponse.HttpClientResponse, HttpClientError.HttpClientError>;
 
-/** What a recording `HttpClient` saw, in order. */
-export class Wire extends Context.Service<
-  Wire,
-  { readonly requests: Effect.Effect<ReadonlyArray<HttpClientRequest.HttpClientRequest>> }
->()("@cairn/cli/test/Wire") {
+/** The requests a recording `HttpClient` was sent, in order. */
+export class Wire extends Recorder<Wire, HttpClientRequest.HttpClientRequest>()(
+  "@cairn/cli/test/Wire",
+) {
   /** An `HttpClient` that never touches the network: it records each request and answers it with `answer`. */
-  static readonly layer = (answer: Answer) =>
-    Layer.unwrap(
-      Effect.gen(function* () {
-        const seen = yield* Ref.make<ReadonlyArray<HttpClientRequest.HttpClientRequest>>([]);
-        const client = HttpClient.make((request) =>
-          Ref.update(seen, Array.append(request)).pipe(Effect.andThen(answer(request))),
-        );
-        return Layer.mergeAll(
-          Layer.succeed(HttpClient.HttpClient, client),
-          Layer.succeed(Wire, Wire.of({ requests: Ref.get(seen) })),
-        );
-      }),
-    );
+  static readonly client = (answer: Answer): Layer.Layer<HttpClient.HttpClient | Wire> =>
+    Layer.effect(
+      HttpClient.HttpClient,
+      Effect.map(Wire, (wire) =>
+        HttpClient.make((request) => wire.record(request).pipe(Effect.andThen(answer(request)))),
+      ),
+    ).pipe(Layer.provideMerge(Wire.layer));
 }

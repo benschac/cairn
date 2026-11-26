@@ -14,7 +14,7 @@ import { Wire } from "./fixtures/recording-client.ts";
 const FAKE_KEY = "test-key";
 
 /** An `HttpClient` that records each request and answers it with a TypeSafe answer. */
-const wire = Wire.layer((request) =>
+const wire = Wire.client((request) =>
   Effect.succeed(
     HttpClientResponse.fromWeb(
       request,
@@ -55,7 +55,7 @@ const decided = (
       Effect.provide(decisionModel(config).pipe(Layer.provide(environment(env)))),
     );
     const wired = yield* Wire;
-    const [request] = yield* wired.requests;
+    const [request] = yield* wired.seen;
     if (Predicate.isUndefined(request) || !Predicate.isTagged("Uint8Array")(request.body)) {
       return yield* Effect.die("the stub saw no request body");
     }
@@ -146,7 +146,7 @@ it.effect(
           }),
       );
       const wired = yield* Wire;
-      const sent = yield* wired.requests;
+      const sent = yield* wired.seen;
       expect(sent).toEqual([]);
     }).pipe(Effect.provide(wire)),
 );
@@ -182,7 +182,7 @@ it.effect("making the layer reads no key and sends nothing", () =>
     decisionModel(configOf({})).pipe(Layer.provide(provider));
     const wired = yield* Wire;
     const read = yield* Ref.get(reads);
-    const sent = yield* wired.requests;
+    const sent = yield* wired.seen;
     expect(read).toEqual([]);
     expect(sent).toEqual([]);
   }).pipe(Effect.provide(wire)),

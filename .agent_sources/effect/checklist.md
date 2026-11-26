@@ -116,6 +116,7 @@ The checks that `pnpm check` runs catch most of the first five lines. The rest a
 | A module-level singleton, a function that takes its dependencies as arguments | `class X extends Context.Service<X, {...}>()("cairn/...") { static readonly layer = Layer.effect(X, ...) }`; build with `X.of({...})` | | `packages/cli/src/presence.ts` (`Room`), `ai-docs/src/01_effect/03_services/` |
 | `Effect.provide` scattered through a program | Compose with `Layer.provide`, `Layer.provideMerge`, `Layer.mergeAll`; provide once at the entry | `strictEffectProvide` (advisory), `multipleEffectProvide` | `packages/cli/src/serve.ts` |
 | A long-running server started by hand | `Layer.launch`, `NodeHttpServer.layerConfig` | | `packages/cli/src/serve.ts` |
+| A family of services declared alike, each its own `Context.Service` and `Layer` that differ only in an item type and an id | A curried factory that wraps `Context.Service` and attaches what every member shares as statics, so each member is one line: `class Wire extends Recorder<Wire, Request>()("cairn/...") {}`, then `Wire.layer`. Annotate the factory with an interface that extends `Context.ServiceClass<Self, Id, Shape>` and adds the statics: `<Self, A>() => <const Id extends string>(id: Id): Recorder<Self, Id, A> => ...`. Inside, take `const Key = Context.Service<Self, Shape>()(id)`, declare `class Tag extends Key { static readonly layer = Layer.effect(Tag, ...) }` and return `Tag`, rather than `Object.assign` on the key | `classSelfMismatch` (it flags `class Tag extends Context.Service<Self, ...>()` written inline; extending the precomputed `Key` passes) | `packages/cli/test/fixtures/recorder.ts` (`Recorder`), `packages/cli/test/fixtures/recording-client.ts` (`Wire`) |
 
 ## Resources and scopes
 
@@ -198,6 +199,7 @@ Each unstable module you import must be listed in `allowedUnstableApis` in that 
 | Real sleeps or timeouts in a test | `TestClock.adjust(Duration.seconds(n))`, `TestClock.setTime` from `effect/testing/TestClock`; `it.effect` provides the test clock, `it.live` the real one | | `node_modules/effect/dist/testing/TestClock.d.ts` |
 | A loop of `expect` calls | One `expect(Array.map(cases, f)).toEqual(...)`, `Array.forEach`, or `it.prop` | `core/no-native-loop` | `packages/core/test/task-machine.test.ts` |
 | A machine tested by poking its state | Send events, assert on the status it reports, include the events it must ignore | | `packages/core/test/task-machine.test.ts` |
+| A test double rebuilt in each test file: a scripted `Terminal`, a hand-written stub of a service, an `HttpClient` that records requests | One fixture in `packages/cli/test/fixtures/` that takes only what differs between tests and names its return type: `scriptedTerminal(answers, display): Layer.Layer<Terminal.Terminal, never, R>`, `stubPlanner(calls): Calls`, the whole `Planner` shape, with every unscripted call dying by name, `Wire.client(answer)` | | `packages/cli/test/fixtures/scripted-terminal.ts`, `packages/cli/test/fixtures/stub-planner.ts`, `packages/cli/test/fixtures/recording-client.ts` |
 
 Break the behaviour and watch each new test fail before you commit.
 

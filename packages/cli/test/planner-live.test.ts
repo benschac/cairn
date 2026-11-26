@@ -113,7 +113,7 @@ const livePlanner = (config: CairnConfig, env: Layer.Layer<never>, answer: Answe
   Planner.layerWith(config).pipe(
     Layer.provide(languageModel(config).pipe(Layer.provide(env))),
     Layer.provide(NodeServices.layer),
-    Layer.provideMerge(Wire.layer(answer)),
+    Layer.provideMerge(Wire.client(answer)),
   );
 
 const spec = (prd: string) => Planner.use((planner) => planner.spec(prd));
@@ -123,7 +123,7 @@ const SentModel = Schema.fromJsonString(Schema.Struct({ model: Schema.String }))
 
 const sent = Effect.gen(function* () {
   const wired = yield* Wire;
-  const [request] = yield* wired.requests;
+  const [request] = yield* wired.seen;
   if (Predicate.isUndefined(request)) {
     return yield* Effect.die("the stub saw no request");
   }
@@ -147,7 +147,7 @@ it.effect("a missing key fails the layer with a ModelKeyError that names ANTHROP
     expect(failure.variable).toBe("ANTHROPIC_API_KEY");
     expect(failure.message).toContain("ANTHROPIC_API_KEY");
     expect(failure.toString()).toContain("ANTHROPIC_API_KEY");
-  }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
+  }).pipe(Effect.provide(Layer.mergeAll(Wire.client(replies), NodeServices.layer))),
 );
 
 it.effect("a key set to nothing counts as missing", () =>
@@ -158,7 +158,7 @@ it.effect("a key set to nothing counts as missing", () =>
       ).pipe(Effect.scoped),
     ).pipe(Effect.flatMap(only(Schema.is(ModelKeyError))));
     expect(failure.variable).toBe("ANTHROPIC_API_KEY");
-  }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
+  }).pipe(Effect.provide(Layer.mergeAll(Wire.client(replies), NodeServices.layer))),
 );
 
 it.effect("the key is read when the layer is built, and nothing else is read", () =>
@@ -180,7 +180,7 @@ it.effect("the key is read when the layer is built, and nothing else is read", (
     expect(beforeBuilding).toEqual([]);
     expect(afterPlanner).toEqual([]);
     expect(afterModel).toEqual([[ANTHROPIC_API_KEY]]);
-  }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
+  }).pipe(Effect.provide(Layer.mergeAll(Wire.client(replies), NodeServices.layer))),
 );
 
 const MODEL = Schema.String.check(Schema.isPattern(/^[a-z][a-z0-9.-]{0,30}$/u));
@@ -281,7 +281,7 @@ it.effect.prop(
       ).pipe(Effect.flatMap(only(Schema.is(ModelKeyError))));
       expect(failure.message).toContain(variable);
       expect(failure.message).not.toContain(ANTHROPIC_API_KEY);
-    }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer)));
+    }).pipe(Effect.provide(Layer.mergeAll(Wire.client(replies), NodeServices.layer)));
   },
 );
 
@@ -349,7 +349,7 @@ it.effect.prop(
       const reads = yield* keys.reads;
       expect(programs).toEqual([cli]);
       expect(reads).toEqual([]);
-    }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer)));
+    }).pipe(Effect.provide(Layer.mergeAll(Wire.client(replies), NodeServices.layer)));
   },
 );
 
@@ -394,7 +394,7 @@ const requestOf = (config: CairnConfig, env: Layer.Layer<never>) =>
   Effect.gen(function* () {
     yield* Effect.ignore(spec("a prd"));
     const wired = yield* Wire;
-    const [request] = yield* wired.requests;
+    const [request] = yield* wired.seen;
     if (Predicate.isUndefined(request)) {
       return yield* Effect.die("the stub saw no request");
     }
@@ -459,7 +459,7 @@ const requestsOf = (config: CairnConfig, env: Layer.Layer<never>) =>
   Effect.gen(function* () {
     yield* Effect.ignore(spec("a prd"));
     const wired = yield* Wire;
-    return yield* wired.requests;
+    return yield* wired.seen;
   }).pipe(Effect.provide(livePlanner(config, env, refuses)));
 
 const keyAndGateway = (variable: string, token: string) =>
@@ -514,9 +514,9 @@ it.effect.prop(
       expect(failure.variable).toBe(GATEWAY_VARIABLE);
       expect(failure.message).toContain(GATEWAY_VARIABLE);
       const wired = yield* Wire;
-      const requests = yield* wired.requests;
+      const requests = yield* wired.seen;
       expect(requests).toEqual([]);
-    }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
+    }).pipe(Effect.provide(Layer.mergeAll(Wire.client(replies), NodeServices.layer))),
 );
 
 it.effect.prop(
@@ -532,7 +532,7 @@ it.effect.prop(
       expect(failure.variable).toBe(
         provider === "openai" ? "OPENAI_API_KEY" : "OPENROUTER_API_KEY",
       );
-    }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
+    }).pipe(Effect.provide(Layer.mergeAll(Wire.client(replies), NodeServices.layer))),
 );
 
 it.effect("openai-compatible builds its layer and calls without a key", () =>
@@ -581,7 +581,7 @@ it.effect.prop(
       expect(request.model).toBe(
         Array.contains(["index", "splitSection", "splitTask"], call) ? "small-model" : "big-model",
       );
-    }).pipe(Effect.provide(Wire.layer(replies))),
+    }).pipe(Effect.provide(Wire.client(replies))),
 );
 
 it.effect("a config that picks api with no model fails the layer instead of calling a model", () =>
@@ -592,7 +592,7 @@ it.effect("a config that picks api with no model fails the layer instead of call
       Layer.build(languageModel(config).pipe(Layer.provide(withKey))).pipe(Effect.scoped),
     ).pipe(Effect.flatMap(only(Schema.is(ModelUnavailable))));
     expect(failure.message).toContain("planner.model");
-  }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
+  }).pipe(Effect.provide(Layer.mergeAll(Wire.client(replies), NodeServices.layer))),
 );
 
 /** The prompt files, filled from fixed values that hold no placeholder of their own. */

@@ -4,7 +4,6 @@ import { expect, it } from "@effect/vitest";
 import {
   Array,
   ConfigProvider,
-  Context,
   Effect,
   FileSystem,
   Layer,
@@ -12,7 +11,6 @@ import {
   Path,
   Predicate,
   Record,
-  Ref,
   Schema,
   Scope,
 } from "effect";
@@ -29,6 +27,7 @@ import { needsPlanner, plan, unusedJudge } from "../src/commands/plan.ts";
 import type { PlanOptions } from "../src/commands/plan.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
+import { Recorder } from "./fixtures/recorder.ts";
 import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
 import { stubPlanner } from "./fixtures/stub-planner.ts";
 
@@ -43,21 +42,14 @@ const REWRITTEN =
 const decodeId = Schema.decodeSync(PrdSectionId);
 
 /** What happened, in order: planner calls, and what was shown to the person. */
-class Events extends Context.Service<Events, Ref.Ref<ReadonlyArray<string>>>()(
-  "@cairn/cli/test/Events",
-) {}
-
-/** Adds a line to the events, as the closure of a layer that has them. */
-const noteIn = (events: Ref.Ref<ReadonlyArray<string>>) => (text: string) =>
-  Ref.update(events, Array.append(text));
+class Events extends Recorder<Events, string>()("@cairn/cli/test/Events") {}
 
 /** A planner whose `statements` drafts `drafts` for the targets it names and nothing for the rest. */
 const scriptedPlanner = (drafts: Readonly<Record<string, ReadonlyArray<string>>>) =>
   Layer.effect(
     Planner,
     Effect.gen(function* () {
-      const events = yield* Events;
-      const note = noteIn(events);
+      const note = (yield* Events).record;
       return stubPlanner({
         spec: () => note("spec").pipe(Effect.as(SPEC)),
         // A statement confirmed after the spec was written makes its section stale, so it is written again.
@@ -106,7 +98,7 @@ const setup = (prd: string) =>
       const options: PlanOptions = { dryRun, respec: false, spec: true, yes };
       const services = Layer.mergeAll(
         scriptedTerminal(answers, (line) =>
-          Events.use((events) => noteIn(events)(`ask ${line}`)),
+          Events.use((events) => events.record(`ask ${line}`)),
         ).pipe(Layer.provideMerge(scriptedPlanner(drafts))),
         MainCheckout.fixed(root),
         ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
@@ -116,16 +108,13 @@ const setup = (prd: string) =>
         const before = yield* TestConsole.logLines;
         yield* plan(options);
         const after = yield* TestConsole.logLines;
-        const log = yield* Events;
-        const events = yield* Ref.get(log);
+        const events = yield* Events.use((log) => log.seen);
         return {
           events,
           lines: Array.filter(Array.drop(after, Array.length(before)), Predicate.isString),
         };
       }).pipe(
-        Effect.provide(
-          Layer.provideMerge(services, Layer.effect(Events, Ref.make<ReadonlyArray<string>>([]))),
-        ),
+        Effect.provide(Layer.provideMerge(services, Events.layer)),
         Effect.provideService(TerminalCapabilities.TerminalCapabilities, {
           canAnimate: terminal,
           canColor: false,
