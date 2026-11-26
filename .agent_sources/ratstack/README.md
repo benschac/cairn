@@ -1,6 +1,6 @@
 # Apply Ratstack to Cairn
 
-Ratstack is the reference for Cairn's stack: Cloudflare, Alchemy, Foldkit and Effect, with XState machines and Effect Schema. The root [AGENTS.md](../../AGENTS.md) says to read <https://ratstack.sh/llms.txt> before building anything, take the piece the task needs and leave the rest, and not copy rat-stack. This directory holds that guide, the full corpus and the `rat-stack-mode` skill offline. AGENTS.md wins wherever they differ.
+Ratstack is the reference for Cairn's stack: Cloudflare, Alchemy and Effect, with XState machines and Effect Schema. Ratstack draws UIs with Foldkit; Cairn's viewer has moved to Effect UI (see [the Effect UI index](../effect-ui/index.md)), so take Ratstack's Foldkit patterns as the shape of an Elm-style app, not as APIs to call. The root [AGENTS.md](../../AGENTS.md) says to read <https://ratstack.sh/llms.txt> before building anything, take the piece the task needs and leave the rest, and not copy rat-stack. This directory holds that guide, the full corpus and the `rat-stack-mode` skill offline. AGENTS.md wins wherever they differ.
 
 ## Start a change
 
@@ -18,7 +18,7 @@ For a new action, use `add-a-capability`; for persistence, `add-a-store`; for re
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Effect Schemas shared by every surface                  | `packages/contract`. Do not redeclare a contract type elsewhere.                                                                                        |
 | Lifecycle machines (`setupEffect`)                      | `packages/core`. Context and events are contract schemas; see the [XState](../xstate/index.md) and [@xstate/effect](../xstate-effect/index.md) indexes. |
-| Foldkit app (Model, Messages, `update`, `view`, Scenes) | `apps/viewer`.                                                                                                                                          |
+| Foldkit app (Model, Messages, `update`, `view`, Scenes) | `apps/viewer`, written in Effect UI: see `apps/viewer/EFFECT-UI.md`.                                                                                    |
 | Alchemy stack on Cloudflare                             | `apps/site` (`alchemy.run.ts`). Deploying needs the owner's credentials.                                                                                |
 | Local process, services, CLIs                           | `packages/cli` and the Effect scripts under `scripts/`.                                                                                                 |
 | Ports and adapters                                      | `adapters`, listed in VISION.md; add it when a real external boundary needs it, not before.                                                             |

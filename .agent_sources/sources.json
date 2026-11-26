@@ -9,7 +9,7 @@
     "targetPackageVersion": null,
     "upstreamVersion": null,
     "upstreamRevision": null,
-    "compatibility": "Unversioned website snapshot. Cairn uses the same stack (Effect, XState, Foldkit, Alchemy, Cloudflare) at the versions its manifests pin; check the installed packages before applying an example.",
+    "compatibility": "Unversioned website snapshot. Cairn uses the same stack (Effect, XState, Alchemy, Cloudflare), with Effect UI in place of Foldkit, at the versions its manifests pin; check the installed packages before applying an example.",
     "document": "ratstack/guide.txt",
     "index": "ratstack/guide-index.md"
   },
@@ -23,7 +23,7 @@
     "targetPackageVersion": null,
     "upstreamVersion": null,
     "upstreamRevision": null,
-    "compatibility": "Unversioned website snapshot. Cairn uses the same stack (Effect, XState, Foldkit, Alchemy, Cloudflare) at the versions its manifests pin; check the installed packages before applying an example.",
+    "compatibility": "Unversioned website snapshot. Cairn uses the same stack (Effect, XState, Alchemy, Cloudflare), with Effect UI in place of Foldkit, at the versions its manifests pin; check the installed packages before applying an example.",
     "document": "ratstack/docs.txt",
     "index": "ratstack/index.md"
   }

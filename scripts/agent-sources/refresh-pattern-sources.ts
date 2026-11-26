@@ -81,7 +81,7 @@ const REGISTRY: ReadonlyArray<Source> = [
   },
 ];
 const COMPATIBILITY =
-  "Unversioned website snapshot. Cairn uses the same stack (Effect, XState, Foldkit, Alchemy, Cloudflare) at the versions its manifests pin; check the installed packages before applying an example.";
+  "Unversioned website snapshot. Cairn uses the same stack (Effect, XState, Alchemy, Cloudflare), with Effect UI in place of Foldkit, at the versions its manifests pin; check the installed packages before applying an example.";
 const TIMEOUT = Duration.seconds(30);
 const HTML = /<!doctype html|<html[\s>]/i;
 

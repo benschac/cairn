@@ -15,7 +15,7 @@ a plain repository search skips it.
 | [xstate/](xstate/), [xstate-effect/](xstate-effect/) | Indexes of the installed XState docs and the `@xstate/effect` README. Tracked.                                                                                                                                                                                                                                                                                                                         |
 | [effect-ui/](effect-ui/) | An index of Effect UI's guide, worked examples and source, at the commit the viewer pins. Tracked; the clone it points into is not. |
 | [ratstack/](ratstack/)                               | The rat-stack corpus and its topic index. Tracked.                                                                                                                                                                                                                                                                                                                                                     |
-| `github.com/`                                        | Full upstream clones (Effect-TS/effect, statelyai/xstate, joelhooks/rat-stack, foldkit, alchemy, effect-solutions) for source-level lookups. Ignored by git; search them by explicit path, for example `rg -n 'makeBy' .agent_sources/github.com/Effect-TS/effect/packages/effect/src/Array.ts`. They may be ahead of or behind the installed versions, so check `node_modules` before relying on one. |
+| `github.com/`                                        | Full upstream clones (Effect-TS/effect, statelyai/xstate, joelhooks/rat-stack, Effect-TS/ui, alchemy, effect-solutions) for source-level lookups. Ignored by git; search them by explicit path, for example `rg -n 'makeBy' .agent_sources/github.com/Effect-TS/effect/packages/effect/src/Array.ts`. They may be ahead of or behind the installed versions, so check `node_modules` before relying on one. |
 
 ## Effect
 
@@ -103,10 +103,10 @@ their experimental APIs by name.
 
 ## Ratstack
 
-Ratstack covers Cairn's whole stack (Cloudflare, Alchemy, Foldkit, Effect, XState), so it is the first place to look for a pattern. Follow [the Ratstack workflow](ratstack/README.md): search [the agent guide index](ratstack/guide-index.md) or [the corpus index](ratstack/index.md), then read only that line range of `guide.txt` or `docs.txt`. `ratstack/source/` is the pinned `rat-stack-mode` skill; `github.com/joelhooks/rat-stack/` is the full repository for package source, lint rules and the other skills.
+Ratstack covers Cairn's stack (Cloudflare, Alchemy, Effect, XState; its Foldkit material predates the viewer's move to Effect UI, so use [Effect UI](effect-ui/index.md) for the viewer), so it is the first place to look for a pattern. Follow [the Ratstack workflow](ratstack/README.md): search [the agent guide index](ratstack/guide-index.md) or [the corpus index](ratstack/index.md), then read only that line range of `guide.txt` or `docs.txt`. `ratstack/source/` is the pinned `rat-stack-mode` skill; `github.com/joelhooks/rat-stack/` is the full repository for package source, lint rules and the other skills.
 
 | Reference | When to consult it | Upstream |
 | --- | --- | --- |
-| `ratstack/` | Engineering principles, capabilities, stores, lifecycle machines, testing, Alchemy and Cloudflare infrastructure, Foldkit | [Agent guide](https://ratstack.sh/llms.txt) and [full corpus](https://ratstack.sh/llms-full.txt) |
+| `ratstack/` | Engineering principles, capabilities, stores, lifecycle machines, testing, Alchemy and Cloudflare infrastructure, Foldkit-style apps (the viewer uses Effect UI) | [Agent guide](https://ratstack.sh/llms.txt) and [full corpus](https://ratstack.sh/llms-full.txt) |
 
 The snapshots are unversioned; check the installed packages before applying an example. Refresh them explicitly with `node scripts/agent-sources/refresh-pattern-sources.ts`, or import earlier downloads with `--from-dir DIR --fetched-at ISO_TIMESTAMP` (DIR holds `ratstack-llms.txt` and `ratstack-full.txt`). Review the documents, indexes and `sources.json` together. Nothing fetches during install or build.

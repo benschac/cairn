@@ -9,9 +9,11 @@ export default Alchemy.Stack(
     state: Cloudflare.state(),
   },
   Effect.gen(function* () {
-    const demo = yield* Cloudflare.Website.Foldkit("Demo", {
+    // The viewer is a client-only Vite app: a deep link falls back to index.html and boots it.
+    const demo = yield* Cloudflare.Website.Vite("Demo", {
       rootDir: "../viewer",
       domain: { name: "prdtrace.com", redirects: ["www.prdtrace.com"] },
+      assets: { notFoundHandling: "single-page-application" },
     });
     // The gateway the planner's API calls go through, for logs and spend (see spec.models).
     // Cloudflare requires authentication on a new gateway, so callers send its token.
