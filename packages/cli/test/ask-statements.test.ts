@@ -30,6 +30,7 @@ import type { PlanOptions } from "../src/commands/plan.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
+import { stubPlanner } from "./fixtures/stub-planner.ts";
 
 const PRD = "# Notes\n\n## Capture\n\nKeep a note.\n";
 
@@ -57,21 +58,10 @@ const scriptedPlanner = (drafts: Readonly<Record<string, ReadonlyArray<string>>>
     Effect.gen(function* () {
       const events = yield* Events;
       const note = noteIn(events);
-      return Planner.of({
+      return stubPlanner({
         spec: () => note("spec").pipe(Effect.as(SPEC)),
-        tasks: () => Effect.die("these tests stop after the spec"),
-        splitSection: () => Effect.die("plan does not split a section"),
-        splitTask: () => Effect.die("plan does not split a task"),
         // A statement confirmed after the spec was written makes its section stale, so it is written again.
         sections: () => note("sections").pipe(Effect.as(REWRITTEN)),
-        index: () =>
-          Effect.succeed({
-            artifacts: [],
-            decisions: [],
-            requirements: [],
-            summary: "",
-            tests: [],
-          }),
         statements: (_, targets) =>
           note(`statements ${Array.join(targets, ",")}`).pipe(
             Effect.as(

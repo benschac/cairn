@@ -23,6 +23,7 @@ import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { totalsLine } from "../src/print-stack.ts";
 import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
+import { stubPlanner } from "./fixtures/stub-planner.ts";
 
 const PRD = "# Notes\n\n## Capture\n\nKeep a note.\n";
 
@@ -48,14 +49,8 @@ const NAMES = ["prd.md", "spec.md", "spec.json", "manifest.json", "config.json"]
 const scriptedPlanner = (calls: Ref.Ref<number>) =>
   Layer.succeed(
     Planner,
-    Planner.of({
-      index: () =>
-        Effect.succeed({ artifacts: [], decisions: [], requirements: [], summary: "", tests: [] }),
-      sections: () => Effect.die("a dry run does not write sections"),
+    stubPlanner({
       spec: () => Ref.update(calls, (count) => count + 1).pipe(Effect.as(SPEC)),
-      splitSection: () => Effect.die("plan does not split a section"),
-      statements: () => Effect.succeed([]),
-      splitTask: () => Effect.die("plan does not split a task"),
       tasks: () => Ref.update(calls, (count) => count + 1).pipe(Effect.as(DRAFTS)),
     }),
   );

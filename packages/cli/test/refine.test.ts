@@ -28,6 +28,7 @@ import { Judge } from "../src/judge.ts";
 import { Planner } from "../src/planner.ts";
 import { refine, refineWith } from "../src/refine.ts";
 import type { RefineInput } from "../src/refine.ts";
+import { stubPlanner } from "./fixtures/stub-planner.ts";
 
 /**
  * Nothing here reads a key or touches the network. The judge is `Judge.layerWith` over
@@ -109,8 +110,6 @@ const answerFor = (
 const titleOf = (state: unknown) =>
   Predicate.hasProperty(state, "title") && Predicate.isString(state.title) ? state.title : "";
 
-const unused = () => Effect.die("refine does not call this");
-
 const scripted = (script: Script) =>
   Layer.unwrap(
     Effect.gen(function* () {
@@ -130,11 +129,7 @@ const scripted = (script: Script) =>
             };
           }),
       });
-      const planner = Planner.of({
-        index: unused,
-        sections: unused,
-        spec: unused,
-        statements: unused,
+      const planner = stubPlanner({
         splitSection: (section) =>
           Effect.as(
             Ref.update(sectionSplits, Array.append(section)),
@@ -151,7 +146,6 @@ const scripted = (script: Script) =>
               () => [draft],
             ),
           ),
-        tasks: unused,
       });
       return Layer.mergeAll(
         Layer.succeed(DecisionModel.DecisionModel, model),

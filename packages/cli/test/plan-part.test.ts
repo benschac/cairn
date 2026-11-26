@@ -44,6 +44,7 @@ import { totalsLine } from "../src/print-stack.ts";
 import { Script, scripted } from "./fixtures/scripted-language-model.ts";
 import type { Reply } from "./fixtures/scripted-language-model.ts";
 import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
+import { stubPlanner } from "./fixtures/stub-planner.ts";
 
 /** A PRD of two features. Beta has a list item that asks for an ID, and every section has a statement. */
 const PRD = `# Notes {#prd.notes}
@@ -211,7 +212,7 @@ const mentions = (ids: ReadonlyArray<string>, id: string) => Array.contains(ids,
 const scriptedPlanner = (asked: Ref.Ref<Asked>, fixed: Option.Option<string>) =>
   Layer.succeed(
     Planner,
-    Planner.of({
+    stubPlanner({
       index: proseOf,
       sections: (_prd, _spec, prdSections, rewrite, part) =>
         Ref.update(asked, (seen) => ({
@@ -236,8 +237,6 @@ const scriptedPlanner = (asked: Ref.Ref<Asked>, fixed: Option.Option<string>) =>
         ),
       spec: () =>
         Ref.update(asked, (seen) => ({ ...seen, specs: seen.specs + 1 })).pipe(Effect.as("")),
-      splitSection: () => Effect.die("plan does not split a section"),
-      splitTask: () => Effect.die("plan does not split a task"),
       statements: (_prd, targets) =>
         Ref.update(asked, (seen) => ({
           ...seen,

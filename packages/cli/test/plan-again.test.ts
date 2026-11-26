@@ -42,6 +42,7 @@ import { targetName } from "../src/print-judgments.ts";
 import { mergeSections } from "../src/spec-merge.ts";
 import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
 import { scriptedJudge } from "./scripted-judge.ts";
+import { stubPlanner } from "./fixtures/stub-planner.ts";
 
 const PRD = `# Notes {#prd.notes}
 
@@ -131,7 +132,7 @@ const scriptedPlanner = ({ drafts, sections, spec }: Script) =>
         asked: yield* Ref.make(NOTHING),
         shown: yield* Ref.make<ReadonlyArray<string>>([]),
       });
-      const planner = Planner.of({
+      const planner = stubPlanner({
         index: (target) =>
           Ref.update(seen.asked, (asked) => ({
             ...asked,
@@ -146,9 +147,6 @@ const scriptedPlanner = ({ drafts, sections, spec }: Script) =>
           Ref.update(seen.asked, (asked) => ({ ...asked, specs: asked.specs + 1 })).pipe(
             Effect.as(spec),
           ),
-        splitSection: () => Effect.die("plan does not split a section"),
-        statements: () => Effect.succeed([]),
-        splitTask: () => Effect.die("plan does not split a task"),
         tasks: (_prd, _spec, specSections, existing) =>
           Ref.update(seen.asked, (asked) => ({
             ...asked,

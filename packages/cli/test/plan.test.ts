@@ -42,6 +42,7 @@ import { targetName } from "../src/print-judgments.ts";
 import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
 import { scriptedJudge } from "./scripted-judge.ts";
 import type { Script } from "./scripted-judge.ts";
+import { stubPlanner } from "./fixtures/stub-planner.ts";
 
 const PRD = "# Notes\n\n## Capture\n\nKeep a note.\n";
 
@@ -85,22 +86,11 @@ const scriptedPlanner = (
         specs: yield* Ref.make<ReadonlyArray<string>>([]),
         tasks: yield* Ref.make<ReadonlyArray<{ readonly prd: string; readonly spec: string }>>([]),
       });
-      const planner = Planner.of({
+      const planner = stubPlanner({
         spec: (prd) => Ref.update(seen.specs, Array.append(prd)).pipe(Effect.as(markdown)),
         tasks: (prd, spec) =>
           Ref.update(seen.tasks, Array.append({ prd, spec })).pipe(Effect.as(drafts)),
-        splitSection: () => Effect.die("plan does not split a section"),
-        statements: () => Effect.succeed([]),
         splitTask: (whole) => Effect.succeed(split(whole)),
-        sections: () => Effect.die("plan does not write sections"),
-        index: () =>
-          Effect.succeed({
-            artifacts: [],
-            decisions: [],
-            requirements: [],
-            summary: "",
-            tests: [],
-          }),
       });
       return Context.make(Seen, seen).pipe(Context.add(Planner, planner));
     }),

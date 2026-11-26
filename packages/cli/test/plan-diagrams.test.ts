@@ -24,6 +24,7 @@ import { ManifestRefused, UP_TO_DATE, plan, unusedJudge } from "../src/commands/
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { Script, scripted } from "./fixtures/scripted-language-model.ts";
+import { stubPlanner } from "./fixtures/stub-planner.ts";
 
 const fenced = (body: string) => `\`\`\`mermaid\n${body}\n\`\`\``;
 
@@ -227,21 +228,9 @@ const setup = (files: Readonly<Record<string, string>>) =>
           Layer.mergeAll(
             Layer.succeed(
               Planner,
-              Planner.of({
+              stubPlanner({
                 spec: () => Effect.succeed(SPEC),
                 tasks: () => Effect.succeed(DRAFTS),
-                splitSection: () => Effect.die("plan does not split a section"),
-                statements: () => Effect.succeed([]),
-                splitTask: () => Effect.die("plan does not split a task"),
-                sections: () => Effect.die("plan does not write sections"),
-                index: () =>
-                  Effect.succeed({
-                    artifacts: [],
-                    decisions: [],
-                    requirements: [],
-                    summary: "",
-                    tests: [],
-                  }),
               }),
             ),
             Layer.succeed(
