@@ -1,5 +1,6 @@
 import {
   SectionId,
+  type PassageStep,
   type PrdSectionId,
   type Trace,
   type TraceSection,
@@ -10,6 +11,7 @@ import { createKeyedLazy, type Html, type HtmlBuilder } from "foldkit/html";
 
 import { diagramView } from "../diagram.ts";
 import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
+import { linkedMarksOf } from "../links.ts";
 import { documentOf, renderSection, type Rendered } from "../markdown.ts";
 import { Message } from "../message.ts";
 import type { Density, Reader } from "../model.ts";
@@ -135,16 +137,20 @@ const summaryContentOf = (summary: string, h: HtmlBuilder<Message>): Rendered =>
 
 /**
  * The line with the section's ID, then the section's own markdown, with the matched text of its
- * prose marked. Each marked block carries `data-block`, which a selected result scrolls to.
+ * prose marked and the open link's passage underlined. Each block with a search mark carries
+ * `data-block`, which a selected result scrolls to.
  */
 const fullSectionView = (
   trace: Trace,
   section: TraceSection,
   search: NodeSearch,
   results: ReadonlyArray<SearchResult>,
+  maybePassage: Option.Option<typeof PassageStep.Type>,
   h: HtmlBuilder<Message>,
-): Html =>
-  h.div(
+): Html => {
+  // A section's ID is the same text whichever document's brand it carries.
+  const sectionId: string = section.id;
+  return h.div(
     [h.DataAttribute("full-spec", section.id)],
     [
       h.div([h.Class("card-meta")], fieldView(search, "id", section.id, h)),
@@ -156,6 +162,11 @@ const fullSectionView = (
               h.DataAttribute("block", blockKeyFor("spec", offset)),
             ],
             diagramView: (source, key) => diagramView(h, source, key),
+            linked: linkedMarksOf(
+              trace,
+              Option.filter(maybePassage, (passage) => passage.section === sectionId),
+              "spec",
+            ),
             marks: marksOf("spec", results),
             markView: (text: string) => matchView(text, h),
           }),
@@ -163,6 +174,7 @@ const fullSectionView = (
       ),
     ],
   );
+};
 
 /**
  * One spec card. Its header is where the curve from the PRD heading ends, and hovering it lights
@@ -257,7 +269,7 @@ const cardView = (
               isOpen
                 ? [
                     h.div(Array.prepend(panel, h.Class("card-body")), [
-                      fullSectionView(trace, section, search, results, h),
+                      fullSectionView(trace, section, search, results, reader.maybePassage, h),
                     ]),
                   ]
                 : Array.map(

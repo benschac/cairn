@@ -1,4 +1,4 @@
-import { Session } from "@cairn/contract";
+import { LinesStep, Session } from "@cairn/contract";
 import {
   CodeView,
   parsePatchFiles,
@@ -13,6 +13,7 @@ import {
   Equal,
   Function,
   MutableRef,
+  Number,
   Option,
   Predicate,
   Queue,
@@ -73,6 +74,13 @@ export const DIFF_STYLE_ATTRIBUTE = "data-diff-style";
 
 /** The file the tree selected reaches the mount through this attribute on its element. */
 export const FILE_ATTRIBUTE = "data-file";
+
+/**
+ * The lines a link selected in that file reach the mount through this attribute on its element,
+ * written as the link writes them: `n40-42` for lines 40 to 42 of the new side, `o7` for line 7 of
+ * the old side.
+ */
+export const LINES_ATTRIBUTE = "data-lines";
 
 /** The highlighted turn reaches the mount through this attribute on its element. */
 export const TURN_ATTRIBUTE = "data-turn";
@@ -185,6 +193,45 @@ export const diffStyleOf = (element: Element): DiffStyle =>
 export const fileOf = (element: Element): Option.Option<string> =>
   Option.fromNullOr(element.getAttribute(FILE_ATTRIBUTE));
 
+const LINES_SIDES = { new: "n", old: "o" } as const;
+
+/** What the lines attribute holds for a lines step: `n40-42`, or `n40` for one line. */
+export const linesTextOf = ({ end, side, start }: typeof LinesStep.Type): string =>
+  `${LINES_SIDES[side]}${start}${start === end ? "" : `-${end}`}`;
+
+const LINES_TEXT = /^([no])(\d+)(?:-(\d+))?$/u;
+
+const decodeLines = Schema.decodeUnknownOption(LinesStep);
+
+/** The lines a lines attribute's text names; none when it is not a range of lines. */
+export const linesFromText = (text: string): Option.Option<typeof LinesStep.Type> =>
+  Option.flatMap(Option.fromNullOr(LINES_TEXT.exec(text)), (groups) =>
+    Option.flatMap(
+      Option.all({
+        side: Option.map(Option.fromUndefinedOr(groups[1]), (letter) =>
+          letter === "n" ? "new" : "old",
+        ),
+        start: Option.flatMap(Option.fromUndefinedOr(groups[2]), Number.parse),
+      }),
+      ({ side, start }) =>
+        decodeLines({
+          end: Option.getOrElse(
+            Option.flatMap(Option.fromUndefinedOr(groups[3]), Number.parse),
+            () => start,
+          ),
+          kind: "lines",
+          side,
+          start,
+        }),
+    ),
+  );
+
+/** The lines in the element's attribute; none when it is missing or is not a range of lines. */
+export const linesOf = (element: Element): Option.Option<typeof LinesStep.Type> =>
+  Option.flatMap(Option.fromNullOr(element.getAttribute(LINES_ATTRIBUTE)), linesFromText);
+
+const sameLines = Option.makeEquivalence(Schema.toEquivalence(LinesStep));
+
 const decodeHighlightedTurn = Schema.decodeUnknownOption(HighlightedTurn);
 
 const sameTurn = Option.makeEquivalence(Schema.toEquivalence(HighlightedTurn));
@@ -206,6 +253,43 @@ const scrollToFile = (list: CodeView<HunkMark>, path: string): void => {
     list.scrollTo({ align: "start", id, type: "item" });
   }
 };
+
+/**
+ * Selects the lines a link named in its file and scrolls to them, on the side the link names. No
+ * lines, or lines in a file the patch does not hold, leave nothing selected.
+ */
+const showLines = (
+  list: CodeView<HunkMark>,
+  maybeFile: Option.Option<string>,
+  maybeLines: Option.Option<typeof LinesStep.Type>,
+): void =>
+  Option.match(
+    Option.filter(Option.all({ lines: maybeLines, path: maybeFile }), ({ path }) =>
+      Predicate.isNotUndefined(list.getItem(itemIdOf(path))),
+    ),
+    {
+      onNone: () => {
+        list.clearSelectedLines({ notify: false });
+      },
+      onSome: ({ lines, path }) => {
+        const side = lines.side === "new" ? "additions" : "deletions";
+        list.setSelectedLines(
+          {
+            id: itemIdOf(path),
+            range: { end: lines.end, endSide: side, side, start: lines.start },
+          },
+          { notify: false },
+        );
+        list.scrollTo({
+          align: "center",
+          id: itemIdOf(path),
+          lineNumber: lines.start,
+          side,
+          type: "line",
+        });
+      },
+    },
+  );
 
 /** Scrolls the list to the first hunk the turn wrote. A turn that wrote none scrolls nothing. */
 const scrollToTurn = (
@@ -332,6 +416,7 @@ const watchAttributes = (element: Element, list: CodeView<HunkMark>, drawn: Draw
     Effect.sync(() => {
       const shownStyle = MutableRef.make(diffStyleOf(element));
       const shownFile = MutableRef.make(fileOf(element));
+      const shownLines = MutableRef.make(linesOf(element));
       const shownTurn = MutableRef.make(turnOf(element));
       const version = MutableRef.make(0);
       const watcher = new MutationObserver(() => {
@@ -341,12 +426,18 @@ const watchAttributes = (element: Element, list: CodeView<HunkMark>, drawn: Draw
           list.setOptions(diffOptionsOf(style, drawn.renderMark));
         }
         const maybeFile = fileOf(element);
-        if (!Equal.equals(maybeFile, MutableRef.get(shownFile))) {
+        const isNewFile = !Equal.equals(maybeFile, MutableRef.get(shownFile));
+        if (isNewFile) {
           MutableRef.set(shownFile, maybeFile);
           Option.match(maybeFile, {
             onNone: Function.constVoid,
             onSome: (path) => scrollToFile(list, path),
           });
+        }
+        const maybeLines = linesOf(element);
+        if (isNewFile || !sameLines(maybeLines, MutableRef.get(shownLines))) {
+          MutableRef.set(shownLines, maybeLines);
+          showLines(list, maybeFile, maybeLines);
         }
         const maybeTurn = turnOf(element);
         if (!sameTurn(maybeTurn, MutableRef.get(shownTurn))) {
@@ -368,6 +459,7 @@ const watchAttributes = (element: Element, list: CodeView<HunkMark>, drawn: Draw
         attributeFilter: [
           DIFF_STYLE_ATTRIBUTE,
           FILE_ATTRIBUTE,
+          LINES_ATTRIBUTE,
           TURN_ATTRIBUTE,
           TURN_FROM_ATTRIBUTE,
         ],
@@ -417,6 +509,10 @@ const drawFiles = (
           onNone: Function.constVoid,
           onSome: (path) => scrollToFile(list, path),
         });
+        // Lines a link named are selected and scrolled to after the file, so they win the scroll.
+        if (Option.isSome(linesOf(element))) {
+          showLines(list, fileOf(element), linesOf(element));
+        }
         // A turn opened in the session pane while the diff was loading is scrolled to as well.
         followTurn(list, drawn, turnOf(element));
       },

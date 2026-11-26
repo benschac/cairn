@@ -967,6 +967,27 @@ mark[data-search-match] {
   outline-offset: 2px;
 }
 
+/*
+ * A link's passage is underlined in ink with no fill, so a search mark inside it still shows, and
+ * what a link focused in the stacks pane is outlined in ink, a shape that does not rely on colour: the
+ * box, a folded segment and the chips of an unfolded trunk.
+ */
+mark[data-link-passage] {
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--ink);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.stack[data-linked],
+.stack > .segment[data-linked],
+.stack .chip[data-linked] {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
 /* A code block and a drawn diagram: their colours are light only (see light-only). */
 .code-block {
   margin: 8px 0;

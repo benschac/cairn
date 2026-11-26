@@ -26257,6 +26257,7 @@
         "apps/viewer/src/update.ts",
         "apps/viewer/src/detail.ts",
         "apps/viewer/src/codeView.ts",
+        "apps/viewer/src/diff.ts",
         "apps/viewer/src/markdown.ts",
         "apps/viewer/src/view/prdPaneView.ts",
         "apps/viewer/src/view/specPaneView.ts",

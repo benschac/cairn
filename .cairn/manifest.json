@@ -3074,11 +3074,16 @@
       "prdSections": ["prd.deep-links.composing"],
       "specSections": ["spec.viewer.deep-links.opening-a-link"],
       "files": [
+        "apps/viewer/src/links.ts",
+        "apps/viewer/src/diff.ts",
         "apps/viewer/src/markdown.ts",
         "apps/viewer/src/view/prdPaneView.ts",
         "apps/viewer/src/view/specPaneView.ts",
         "apps/viewer/src/view/stackChipsView.ts",
         "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/view/codeView.ts",
+        "apps/viewer/src/ui/components.css",
         "apps/viewer/test/links-open.scene.test.ts"
       ],
       "branch": "cairn-mvp/123-mark-linked-passages-stacks-and-lines-in-the-panes",

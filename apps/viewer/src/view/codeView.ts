@@ -103,6 +103,7 @@ const marksOf = (
   code: CodeScreen,
   state: SessionState,
 ): DiffMarks => ({
+  maybeLines: code.maybeLines,
   maybeSession: Option.flatMap(
     Option.flatMapNullishOr(
       Option.flatMap(task, (found) => shownCommitOf(found, code.shown)),
