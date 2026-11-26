@@ -793,7 +793,7 @@ Section = {
   line: number // 1-based, for lint output
   parent: SectionId | undefined
   body: string // up to the next heading of any level
-  human: boolean // its body or an ancestor's body has <!-- human -->
+  human: boolean // its body, outside its list items, or an ancestor's body has <!-- human -->
   keys: { implements; files; dependsOn; defers; context } // own keys plus inherited ones
 }
 ```
@@ -831,7 +831,7 @@ Item = {
 - An item starts at a line that matches `^( *)([-*+]|\d+[.)]) +`. Its own text runs until its first nested list, the next item at the same indent or less, a heading, or a blank line followed by a line that is not indented.
 - An ID is a trailing ` {#<id>}` at the end of the item's own text. A trailing ` {#}` asks for one.
 - The items of a `Done when:` list are statements, not items, and `itemsOf` leaves them out (see `spec.planning.done-when.statements`).
-- An item is `human` when its own text has `<!-- human -->`, or when its section or any item it is nested in is human.
+- An item is `human` when its own text, or a statement nested under it, has `<!-- human -->`, or when its section or any item it is nested in is human. A tag inside a list item, counting the lists nested under it, does not make the section human (see `spec.sections.parsing`), so tagging one item leaves its siblings ungated.
 
 `assignItemIds(markdown, taken)` in `section-ids.ts` fills each `{#}`, and `cairn ids` runs it after the headings. The ID is the ID of the heading the item sits under, then `.`, then the first two words of the item's visible text, lowercased and joined by `-`. Markdown, backticks and punctuation are stripped first. On a clash it adds `-2`, `-3` and so on. The PRD only says "first words", so I chose two: ``- `cairn lint` checks … {#}`` under `prd.cli` becomes `{#prd.cli.cairn-lint}`.
 
@@ -901,7 +901,7 @@ Outstanding correction: task `t18` is recorded as `failed`, with its existing co
 
 `gateOf(task, sections, config, changedFiles)` returns `{ required, reasons }`:
 
-- `tag:human` if any linked PRD or spec section has `human: true`.
+- `tag:human` if any linked PRD or spec section, or any linked item, has `human: true` (see `spec.sections.item-coverage`).
 - `path:<pattern>` for each pattern that matches a file in `task.files` (plan time) or in `changedFiles` (after commits).
 
 The plan stores the plan-time result in `humanGate`. Status derivation recomputes it with the files the task's commits actually changed, so a hit after commit gates a task the plan did not.
@@ -2211,7 +2211,7 @@ Statement = {
 
 `assignStatementIds(markdown, statements)` gives a statement with no ID `{#<owner>#v<n>}`, where `n` is one more than the highest number its owner already uses. It never renumbers. `cairn ids` runs it after items, and `cairn ids --check` fails on a statement with no ID.
 
-A statement tagged `<!-- human -->` sits in its section's body, or under its item. `sectionsOf` and `itemsOf` already mark that section or item as human, so the gate follows with no new rule.
+A statement tagged `<!-- human -->` sits in its section's body, or under its item. `sectionsOf` marks the section human for a statement in its own list, and `itemsOf` marks the item human for a statement nested under it, so the gate follows with no new rule.
 
 Lint adds `statement-owner`, an error: a statement whose ID's owner is not the section or item it sits under. For example, a statement copied from another section with its ID still on it.
 
@@ -2469,7 +2469,7 @@ Scope. `replanOf` still computes its fields over the whole plan. `scopeOf(replan
 | `rewritable`                  | Only the sections whose own and inherited `Implements` all lie in `part.ids`. A rewritable section that also implements something outside the part is moved to `staleSections`, so a part run never rewrites spec for another part. I chose this; the PRD does not say |
 | `untasked`                    | Only the spec sections whose `Implements` names an ID in `part.ids`, plus the sections written in this run                                                                                                                                                             |
 | Item mapping                  | The mapping of newly given item IDs (see `spec.planning.again`) is done only for items in `part.ids`                                                                                                                                                                   |
-| `staleSections`, `staleTasks` | Not narrowed. They are reported over the whole plan, as on any run                                                                                                                                                                                                     |
+| `staleSections`, `staleTasks` | Not narrowed. They are reported over the whole plan, as on any run, with the sections moved out of `rewritable` added to `staleSections`                                                                                                                               |
 
 When `spec.md` does not exist, a part run does not call `Planner.spec`, because that would write the whole spec. The run starts the spec with one heading, `# <PRD title> spec {#spec.<prd-title-slug>-spec}`, and `Planner.sections` writes the part's sections into it. The stack diagram section is added on the first manifest write, as `withStackDiagram` already does.
 
@@ -2499,7 +2499,7 @@ Tests, in `part.test.ts`:
   - Naming a section and something under it gives the same part as naming the section alone.
 - For `scopeOf`, over generated plans:
   - Every field but the stale ones is a subset of the same field without a part.
-  - `staleSections` and `staleTasks` equal the whole-plan fields.
+  - `staleSections` equals the whole-plan field plus the sections moved out of `rewritable`, and `staleTasks` equals the whole-plan field.
   - A section that implements anything outside the part is never in `rewritable`.
 
 Tests, in `plan-part.test.ts`, with the scripted `Planner` and `Judge` in a temporary repository whose PRD has two features, `prd.a` and `prd.b`:
