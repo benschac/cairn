@@ -48,6 +48,13 @@ export {
   type UnknownPartIds,
   type UnknownPartReason,
 } from "./part.ts";
+export {
+  indexOf,
+  type IndexTask,
+  type RelationIndex,
+  type RelationSource,
+  type StatusOf,
+} from "./relation-index.ts";
 export { rollupOf, type RolledSection, type RollupItem, type RollupTask } from "./rollup.ts";
 export { itemsOf, type Item } from "./items.ts";
 export { assignItemIds, assignSectionIds, sectionIdsOf } from "./section-ids.ts";
