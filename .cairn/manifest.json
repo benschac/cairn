@@ -4896,6 +4896,1098 @@
       "status": "pending",
       "commits": [],
       "sessions": []
+    },
+    {
+      "id": "t193",
+      "title": "Add the hosted contract schemas",
+      "prdSections": [
+        "prd.launch.workspaces",
+        "prd.launch.membership",
+        "prd.launch.history",
+        "prd.launch.discussion",
+        "prd.launch.plans"
+      ],
+      "specSections": ["spec.hosted-launch.hosted-contract"],
+      "files": [
+        "packages/contract/src/hosted/ids.ts",
+        "packages/contract/src/hosted/workspace.ts",
+        "packages/contract/src/hosted/document.ts",
+        "packages/contract/src/hosted/access.ts",
+        "packages/contract/src/hosted/revision.ts",
+        "packages/contract/src/hosted/discussion.ts",
+        "packages/contract/src/hosted/plan.ts",
+        "packages/contract/src/hosted/entitlements.ts",
+        "packages/contract/src/hosted/room.ts",
+        "packages/contract/src/hosted/errors.ts",
+        "packages/contract/src/hosted/index.ts",
+        "packages/contract/package.json",
+        "packages/contract/schema/",
+        "packages/contract/test/hosted.test.ts"
+      ],
+      "branch": "cairn-mvp/193-add-the-hosted-contract-schemas",
+      "parent": null,
+      "dependsOn": ["t16", "t118"],
+      "worktree": "wt-56",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t194",
+      "title": "Scaffold the hosted Worker with its D1 schema and deploy definition",
+      "prdSections": ["prd.launch"],
+      "specSections": ["spec.hosted-launch.worker-and-storage"],
+      "files": [
+        "apps/hosted/package.json",
+        "apps/hosted/alchemy.run.ts",
+        "apps/hosted/src/worker.ts",
+        "apps/hosted/src/env.ts",
+        "apps/hosted/src/http/",
+        "apps/hosted/src/d1/migrations/",
+        "apps/hosted/vitest.config.ts",
+        "apps/hosted/test/worker.test.ts",
+        "pnpm-workspace.yaml"
+      ],
+      "branch": "cairn-mvp/194-scaffold-the-hosted-worker-with-its-d1-schema-and-deploy-definition",
+      "parent": "t193",
+      "dependsOn": ["t193"],
+      "worktree": "wt-56",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t195",
+      "title": "Add the PrdRoom Durable Object with its SQLite and R2 bodies",
+      "prdSections": ["prd.launch.history"],
+      "specSections": ["spec.hosted-launch.worker-and-storage"],
+      "files": [
+        "apps/hosted/src/room/room.ts",
+        "apps/hosted/src/room/migrations/",
+        "apps/hosted/src/blobs.ts",
+        "apps/hosted/test/room-storage.test.ts"
+      ],
+      "branch": "cairn-mvp/195-add-the-prdroom-durable-object-with-its-sqlite-and-r2-bodies",
+      "parent": "t194",
+      "dependsOn": ["t194"],
+      "worktree": "wt-56",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t196",
+      "title": "Decide hosted access with the policy function",
+      "prdSections": ["prd.launch.membership", "prd.launch.sharing"],
+      "specSections": ["spec.hosted-launch.policy"],
+      "files": [
+        "packages/core/src/policy.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/policy.test.ts"
+      ],
+      "branch": "cairn-mvp/196-decide-hosted-access-with-the-policy-function",
+      "parent": "t193",
+      "dependsOn": ["t193"],
+      "worktree": "wt-57",
+      "model": "opus",
+      "reasoning": "xhigh",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t197",
+      "title": "Sign people in and give each a personal workspace",
+      "prdSections": ["prd.launch", "prd.launch.workspaces"],
+      "specSections": ["spec.hosted-launch.accounts-and-workspaces"],
+      "files": [
+        "apps/hosted/src/auth.ts",
+        "apps/hosted/src/mailer.ts",
+        "apps/hosted/src/http/me.ts",
+        "apps/hosted/src/http/workspaces.ts",
+        "apps/hosted/test/accounts.test.ts"
+      ],
+      "branch": "cairn-mvp/197-sign-people-in-and-give-each-a-personal-workspace",
+      "parent": "t194",
+      "dependsOn": ["t194"],
+      "worktree": "wt-58",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t198",
+      "title": "Resolve request principals and load policy facts",
+      "prdSections": ["prd.launch.membership", "prd.launch.sharing"],
+      "specSections": ["spec.hosted-launch.worker-and-storage", "spec.hosted-launch.policy"],
+      "files": [
+        "apps/hosted/src/principal.ts",
+        "apps/hosted/src/facts.ts",
+        "apps/hosted/test/principal.test.ts"
+      ],
+      "branch": "cairn-mvp/198-resolve-request-principals-and-load-policy-facts",
+      "parent": null,
+      "dependsOn": ["t196", "t197"],
+      "worktree": "wt-58",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t199",
+      "title": "Reserve and report plan entitlements",
+      "prdSections": ["prd.launch.plans"],
+      "specSections": ["spec.hosted-launch.entitlements"],
+      "files": [
+        "apps/hosted/src/plans.ts",
+        "apps/hosted/src/entitlements.ts",
+        "apps/hosted/src/http/entitlements.ts",
+        "apps/hosted/test/entitlements.test.ts"
+      ],
+      "branch": "cairn-mvp/199-reserve-and-report-plan-entitlements",
+      "parent": "t198",
+      "dependsOn": ["t198"],
+      "worktree": "wt-58",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t200",
+      "title": "Bill workspaces through Stripe checkout and webhooks",
+      "prdSections": ["prd.launch.plans"],
+      "specSections": ["spec.hosted-launch.billing"],
+      "files": [
+        "apps/hosted/src/billing/stripe.ts",
+        "apps/hosted/src/billing/webhooks.ts",
+        "apps/hosted/src/http/billing.ts",
+        "apps/hosted/src/d1/migrations/",
+        "apps/hosted/test/billing.test.ts",
+        "apps/hosted/test/fixtures/stripe/"
+      ],
+      "branch": "cairn-mvp/200-bill-workspaces-through-stripe-checkout-and-webhooks",
+      "parent": "t199",
+      "dependsOn": ["t199"],
+      "worktree": "wt-58",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t201",
+      "title": "Order room writes and push live updates over room sockets",
+      "prdSections": ["prd.launch.discussion", "prd.launch.membership"],
+      "specSections": ["spec.hosted-launch.room"],
+      "files": [
+        "apps/hosted/src/room/room.ts",
+        "apps/hosted/src/room/sockets.ts",
+        "apps/hosted/src/room/events.ts",
+        "apps/hosted/src/http/live.ts",
+        "apps/hosted/src/http/state.ts",
+        "apps/hosted/test/room.test.ts"
+      ],
+      "branch": "cairn-mvp/201-order-room-writes-and-push-live-updates-over-room-sockets",
+      "parent": null,
+      "dependsOn": ["t195", "t198"],
+      "worktree": "wt-56",
+      "model": "opus",
+      "reasoning": "xhigh",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t202",
+      "title": "Store PRD and spec revisions with stale-save refusal and restore",
+      "prdSections": ["prd.launch.history", "prd.launch.workspaces"],
+      "specSections": ["spec.hosted-launch.revisions"],
+      "files": [
+        "apps/hosted/src/room/revisions.ts",
+        "apps/hosted/src/room/migrations/",
+        "apps/hosted/src/http/revisions.ts",
+        "apps/hosted/test/revisions.test.ts"
+      ],
+      "branch": "cairn-mvp/202-store-prd-and-spec-revisions-with-stale-save-refusal-and-restore",
+      "parent": null,
+      "dependsOn": ["t17", "t201"],
+      "worktree": "wt-56",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t203",
+      "title": "Revoke access across the Worker and open room sockets",
+      "prdSections": ["prd.launch.membership"],
+      "specSections": ["spec.hosted-launch.room"],
+      "files": [
+        "apps/hosted/src/revocation.ts",
+        "apps/hosted/src/room/room.ts",
+        "apps/hosted/src/worker.ts",
+        "apps/hosted/test/revocation.test.ts"
+      ],
+      "branch": "cairn-mvp/203-revoke-access-across-the-worker-and-open-room-sockets",
+      "parent": "t201",
+      "dependsOn": ["t201"],
+      "worktree": "wt-59",
+      "model": "opus",
+      "reasoning": "xhigh",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t204",
+      "title": "Create, import, rename, find and export PRDs in a workspace",
+      "prdSections": ["prd.launch.workspaces"],
+      "specSections": ["spec.hosted-launch.document-directory"],
+      "files": [
+        "apps/hosted/src/http/documents.ts",
+        "apps/hosted/src/d1/directory.ts",
+        "apps/hosted/test/documents.test.ts"
+      ],
+      "branch": "cairn-mvp/204-create-import-rename-find-and-export-prds-in-a-workspace",
+      "parent": null,
+      "dependsOn": ["t199", "t202"],
+      "worktree": "wt-56",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t205",
+      "title": "Switch PRD visibility with public search and discovery",
+      "prdSections": ["prd.launch.sharing"],
+      "specSections": ["spec.hosted-launch.visibility"],
+      "files": [
+        "apps/hosted/src/http/visibility.ts",
+        "apps/hosted/src/http/public.ts",
+        "apps/hosted/src/d1/search.ts",
+        "apps/hosted/src/d1/migrations/",
+        "apps/hosted/test/visibility.test.ts"
+      ],
+      "branch": "cairn-mvp/205-switch-prd-visibility-with-public-search-and-discovery",
+      "parent": null,
+      "dependsOn": ["t203", "t204"],
+      "worktree": "wt-56",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t206",
+      "title": "Index links between PRDs and answer them by access",
+      "prdSections": ["prd.launch.discussion"],
+      "specSections": ["spec.hosted-launch.links-between-prds"],
+      "files": [
+        "packages/core/src/doc-links.ts",
+        "packages/core/src/index.ts",
+        "apps/hosted/src/d1/links.ts",
+        "apps/hosted/src/d1/migrations/",
+        "apps/hosted/src/http/links.ts",
+        "packages/core/test/doc-links.test.ts",
+        "apps/hosted/test/links.test.ts"
+      ],
+      "branch": "cairn-mvp/206-index-links-between-prds-and-answer-them-by-access",
+      "parent": "t205",
+      "dependsOn": ["t205"],
+      "worktree": "wt-56",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t207",
+      "title": "Invite and remove workspace members and PRD guests",
+      "prdSections": ["prd.launch.membership"],
+      "specSections": ["spec.hosted-launch.members-and-invitations"],
+      "files": [
+        "apps/hosted/src/http/members.ts",
+        "apps/hosted/src/http/invitations.ts",
+        "apps/hosted/src/invitations.ts",
+        "apps/hosted/test/members.test.ts"
+      ],
+      "branch": "cairn-mvp/207-invite-and-remove-workspace-members-and-prd-guests",
+      "parent": null,
+      "dependsOn": ["t203", "t204"],
+      "worktree": "wt-59",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t208",
+      "title": "Issue scoped agent credentials and accept progress events",
+      "prdSections": ["prd.launch.membership"],
+      "specSections": ["spec.hosted-launch.agent-credentials-and-gate-approvals"],
+      "files": [
+        "apps/hosted/src/agents.ts",
+        "apps/hosted/src/http/agents.ts",
+        "apps/hosted/src/http/progress.ts",
+        "apps/hosted/test/agents.test.ts"
+      ],
+      "branch": "cairn-mvp/208-issue-scoped-agent-credentials-and-accept-progress-events",
+      "parent": "t207",
+      "dependsOn": ["t207"],
+      "worktree": "wt-59",
+      "model": "opus",
+      "reasoning": "xhigh",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t209",
+      "title": "Strip a trace to its public form",
+      "prdSections": ["prd.launch.sharing"],
+      "specSections": ["spec.hosted-launch.visibility"],
+      "files": ["apps/hosted/src/public-trace.ts", "apps/hosted/test/public-trace.test.ts"],
+      "branch": "cairn-mvp/209-strip-a-trace-to-its-public-form",
+      "parent": null,
+      "dependsOn": ["t156", "t194"],
+      "worktree": "wt-60",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t210",
+      "title": "Record the PRD hash a plan was made from",
+      "prdSections": ["prd.launch.history"],
+      "specSections": ["spec.hosted-launch.plan-source"],
+      "files": [
+        "packages/contract/src/manifest.ts",
+        "packages/contract/schema/",
+        "packages/cli/src/commands/plan.ts",
+        "packages/contract/test/manifest.test.ts"
+      ],
+      "branch": "cairn-mvp/210-record-the-prd-hash-a-plan-was-made-from",
+      "parent": "t30",
+      "dependsOn": ["t30"],
+      "worktree": "wt-61",
+      "model": "haiku",
+      "reasoning": "low",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t211",
+      "title": "Store plan snapshots and their source revisions in the room",
+      "prdSections": ["prd.launch.history"],
+      "specSections": ["spec.hosted-launch.plan-source"],
+      "files": [
+        "apps/hosted/src/room/plan.ts",
+        "apps/hosted/src/http/plan.ts",
+        "apps/hosted/test/plan.test.ts"
+      ],
+      "branch": "cairn-mvp/211-store-plan-snapshots-and-their-source-revisions-in-the-room",
+      "parent": null,
+      "dependsOn": ["t202", "t208", "t209", "t210"],
+      "worktree": "wt-61",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t212",
+      "title": "Approve human gates against recorded inputs",
+      "prdSections": ["prd.launch.membership", "prd.launch.history"],
+      "specSections": ["spec.hosted-launch.agent-credentials-and-gate-approvals"],
+      "files": [
+        "apps/hosted/src/http/approvals.ts",
+        "apps/hosted/src/room/approvals.ts",
+        "apps/hosted/test/approvals.test.ts"
+      ],
+      "branch": "cairn-mvp/212-approve-human-gates-against-recorded-inputs",
+      "parent": "t211",
+      "dependsOn": ["t211"],
+      "worktree": "wt-61",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t213",
+      "title": "Match comment anchors against the current revision",
+      "prdSections": ["prd.launch.discussion"],
+      "specSections": ["spec.hosted-launch.discussion"],
+      "files": [
+        "packages/core/src/anchors.ts",
+        "packages/core/src/index.ts",
+        "packages/core/test/anchors.test.ts",
+        "apps/viewer/test/anchors-agree.test.ts"
+      ],
+      "branch": "cairn-mvp/213-match-comment-anchors-against-the-current-revision",
+      "parent": null,
+      "dependsOn": ["t120", "t193"],
+      "worktree": "wt-62",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t214",
+      "title": "Store threads, replies and resolution in the room",
+      "prdSections": ["prd.launch.discussion"],
+      "specSections": ["spec.hosted-launch.discussion"],
+      "files": [
+        "apps/hosted/src/room/discussion.ts",
+        "apps/hosted/src/room/migrations/",
+        "apps/hosted/src/http/discussion.ts",
+        "apps/hosted/test/discussion.test.ts"
+      ],
+      "branch": "cairn-mvp/214-store-threads-replies-and-resolution-in-the-room",
+      "parent": null,
+      "dependsOn": ["t202", "t213"],
+      "worktree": "wt-62",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t215",
+      "title": "Render public PRD pages with share metadata",
+      "prdSections": ["prd.launch.sharing"],
+      "specSections": ["spec.hosted-launch.visibility"],
+      "files": [
+        "apps/hosted/src/render/page.ts",
+        "apps/hosted/src/worker.ts",
+        "apps/hosted/test/public-page.test.ts"
+      ],
+      "branch": "cairn-mvp/215-render-public-prd-pages-with-share-metadata",
+      "parent": null,
+      "dependsOn": ["t42", "t205", "t214"],
+      "worktree": "wt-62",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t216",
+      "title": "Choose the viewer's data source at build time",
+      "prdSections": ["prd.launch.workspaces", "prd.launch.acceptance"],
+      "specSections": ["spec.hosted-launch.data-sources"],
+      "files": [
+        "apps/viewer/src/source.ts",
+        "apps/viewer/src/load.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/vite.config.ts",
+        "apps/viewer/package.json",
+        "apps/site/",
+        "packages/cli/src/serve.ts",
+        "apps/viewer/test/source.test.ts",
+        "apps/viewer/test/bundle.test.ts"
+      ],
+      "branch": "cairn-mvp/216-choose-the-viewer-s-data-source-at-build-time",
+      "parent": null,
+      "dependsOn": ["t68", "t81"],
+      "worktree": "wt-26",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t217",
+      "title": "Add the hosted app shell with sign-in, routes and the workspace switcher",
+      "prdSections": ["prd.launch", "prd.launch.workspaces"],
+      "specSections": ["spec.hosted-launch.workspace-screens"],
+      "files": [
+        "apps/viewer/src/hosted/route.ts",
+        "apps/viewer/src/hosted/model.ts",
+        "apps/viewer/src/hosted/message.ts",
+        "apps/viewer/src/hosted/update.ts",
+        "apps/viewer/src/hosted/api.ts",
+        "apps/viewer/src/hosted/view/topbarView.ts",
+        "apps/viewer/src/hosted/view/switcherView.ts",
+        "apps/viewer/src/hosted/view/signInView.ts",
+        "apps/viewer/src/main.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/hosted/shell.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/217-add-the-hosted-app-shell-with-sign-in-routes-and-the-workspace-switcher",
+      "parent": null,
+      "dependsOn": ["t100", "t121", "t193", "t216"],
+      "worktree": "wt-26",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t218",
+      "title": "List a workspace's PRDs with import, empty states and limit notes",
+      "prdSections": ["prd.launch.workspaces", "prd.launch"],
+      "specSections": ["spec.hosted-launch.workspace-screens"],
+      "files": [
+        "apps/viewer/src/hosted/view/documentListView.ts",
+        "apps/viewer/src/hosted/view/emptyView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/hosted/update.ts",
+        "apps/viewer/test/hosted/documents.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/218-list-a-workspace-s-prds-with-import-empty-states-and-limit-notes",
+      "parent": "t217",
+      "dependsOn": ["t217"],
+      "worktree": "wt-26",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t219",
+      "title": "Edit a PRD in the browser with stale-save handling",
+      "prdSections": ["prd.launch.workspaces"],
+      "specSections": ["spec.hosted-launch.workspace-screens"],
+      "files": [
+        "apps/viewer/src/hosted/view/editorView.ts",
+        "apps/viewer/src/hosted/update.ts",
+        "apps/viewer/test/hosted/editor.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/219-edit-a-prd-in-the-browser-with-stale-save-handling",
+      "parent": "t217",
+      "dependsOn": ["t217"],
+      "worktree": "wt-63",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t220",
+      "title": "Show a PRD's history and restore a revision",
+      "prdSections": ["prd.launch.history"],
+      "specSections": ["spec.hosted-launch.workspace-screens"],
+      "files": [
+        "apps/viewer/src/hosted/view/historyView.ts",
+        "apps/viewer/src/hosted/update.ts",
+        "apps/viewer/test/hosted/history.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/220-show-a-prd-s-history-and-restore-a-revision",
+      "parent": "t217",
+      "dependsOn": ["t217"],
+      "worktree": "wt-64",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t221",
+      "title": "Keep an open PRD live over its room socket",
+      "prdSections": ["prd.launch.discussion", "prd.launch.membership"],
+      "specSections": ["spec.hosted-launch.workspace-screens"],
+      "files": [
+        "apps/viewer/src/hosted/live.ts",
+        "apps/viewer/src/hosted/update.ts",
+        "apps/viewer/test/hosted/live.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/221-keep-an-open-prd-live-over-its-room-socket",
+      "parent": "t217",
+      "dependsOn": ["t217"],
+      "worktree": "wt-65",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t222",
+      "title": "Add the members, agents and invitation screens",
+      "prdSections": ["prd.launch.membership"],
+      "specSections": ["spec.hosted-launch.workspace-settings"],
+      "files": [
+        "apps/viewer/src/hosted/view/membersView.ts",
+        "apps/viewer/src/hosted/view/agentsView.ts",
+        "apps/viewer/src/hosted/view/invitationView.ts",
+        "apps/viewer/src/hosted/update.ts",
+        "apps/viewer/test/hosted/members.scene.test.ts",
+        "apps/viewer/test/hosted/agents.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/222-add-the-members-agents-and-invitation-screens",
+      "parent": "t217",
+      "dependsOn": ["t217"],
+      "worktree": "wt-66",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t223",
+      "title": "Add the sharing dialog with visibility explanations",
+      "prdSections": ["prd.launch.sharing", "prd.launch.membership"],
+      "specSections": ["spec.hosted-launch.sharing-dialog"],
+      "files": [
+        "apps/viewer/src/hosted/sharing.ts",
+        "apps/viewer/src/hosted/view/sharingView.ts",
+        "apps/viewer/src/hosted/update.ts",
+        "apps/viewer/test/hosted/sharing.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/223-add-the-sharing-dialog-with-visibility-explanations",
+      "parent": "t217",
+      "dependsOn": ["t217"],
+      "worktree": "wt-67",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t224",
+      "title": "Start, read and resolve comment threads in the reader",
+      "prdSections": ["prd.launch.discussion"],
+      "specSections": ["spec.hosted-launch.comments-in-the-reader"],
+      "files": [
+        "apps/viewer/src/hosted/discussion.ts",
+        "apps/viewer/src/hosted/view/threadView.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/detail.ts",
+        "apps/viewer/src/subscription/selection.ts",
+        "apps/viewer/src/hosted/update.ts",
+        "apps/viewer/test/hosted/threads.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/224-start-read-and-resolve-comment-threads-in-the-reader",
+      "parent": null,
+      "dependsOn": ["t93", "t125", "t221"],
+      "worktree": "wt-65",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t225",
+      "title": "Show links between PRDs and backlinks in the reader",
+      "prdSections": ["prd.launch.discussion"],
+      "specSections": ["spec.hosted-launch.links-between-prds"],
+      "files": [
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/src/hosted/view/backlinksView.ts",
+        "apps/viewer/test/hosted/links.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/225-show-links-between-prds-and-backlinks-in-the-reader",
+      "parent": "t218",
+      "dependsOn": ["t218"],
+      "worktree": "wt-26",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t226",
+      "title": "Show a plan's source revision and stale approvals in the viewer",
+      "prdSections": ["prd.launch.history"],
+      "specSections": ["spec.hosted-launch.plan-source"],
+      "files": [
+        "apps/viewer/src/hosted/view/planSourceView.ts",
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/test/hosted/plan-source.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/226-show-a-plan-s-source-revision-and-stale-approvals-in-the-viewer",
+      "parent": "t217",
+      "dependsOn": ["t217"],
+      "worktree": "wt-68",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t227",
+      "title": "Connect a repo to a hosted PRD with device sign-in and stored credentials",
+      "prdSections": ["prd.launch.membership", "prd.launch.acceptance"],
+      "specSections": ["spec.hosted-launch.cairn-connect"],
+      "files": [
+        "packages/cli/src/commands/connect.ts",
+        "packages/cli/src/hosted-client.ts",
+        "packages/cli/src/credentials.ts",
+        "packages/cli/src/commands/index.ts",
+        "packages/cli/src/main.ts",
+        "packages/contract/src/connect.ts",
+        "packages/cli/test/connect.test.ts"
+      ],
+      "branch": "cairn-mvp/227-connect-a-repo-to-a-hosted-prd-with-device-sign-in-and-stored-credentials",
+      "parent": null,
+      "dependsOn": ["t22", "t204", "t208"],
+      "worktree": "wt-59",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t228",
+      "title": "Sync documents, events, plans and approvals with cairn connect sync",
+      "prdSections": ["prd.launch.history", "prd.launch.membership", "prd.launch.acceptance"],
+      "specSections": ["spec.hosted-launch.cairn-connect"],
+      "files": [
+        "packages/cli/src/connect-sync.ts",
+        "packages/cli/src/commands/connect.ts",
+        "packages/cli/test/connect-sync.test.ts"
+      ],
+      "branch": "cairn-mvp/228-sync-documents-events-plans-and-approvals-with-cairn-connect-sync",
+      "parent": null,
+      "dependsOn": ["t15", "t185", "t212", "t227"],
+      "worktree": "wt-59",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t229",
+      "title": "Add the billing settings screen",
+      "prdSections": ["prd.launch.plans"],
+      "specSections": ["spec.hosted-launch.billing"],
+      "files": [
+        "apps/viewer/src/hosted/view/billingView.ts",
+        "apps/viewer/src/hosted/update.ts",
+        "apps/viewer/test/hosted/billing.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/229-add-the-billing-settings-screen",
+      "parent": "t218",
+      "dependsOn": ["t218"],
+      "worktree": "wt-69",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t230",
+      "title": "Decode the deployment's self-host settings",
+      "prdSections": ["prd.launch.plans"],
+      "specSections": ["spec.hosted-launch.self-hosting"],
+      "files": [
+        "apps/hosted/src/config.ts",
+        "apps/hosted/alchemy.run.ts",
+        "apps/hosted/test/config.test.ts"
+      ],
+      "branch": "cairn-mvp/230-decode-the-deployment-s-self-host-settings",
+      "parent": "t200",
+      "dependsOn": ["t200"],
+      "worktree": "wt-58",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t231",
+      "title": "Back up and restore a deployment with cairn admin",
+      "prdSections": ["prd.launch.plans", "prd.launch.acceptance"],
+      "specSections": ["spec.hosted-launch.self-hosting"],
+      "files": [
+        "apps/hosted/src/http/admin.ts",
+        "apps/hosted/src/backup.ts",
+        "apps/hosted/src/room/backup.ts",
+        "packages/cli/src/commands/admin.ts",
+        "packages/cli/src/commands/index.ts",
+        "apps/hosted/test/backup.test.ts"
+      ],
+      "branch": "cairn-mvp/231-back-up-and-restore-a-deployment-with-cairn-admin",
+      "parent": null,
+      "dependsOn": ["t206", "t212", "t214", "t230"],
+      "worktree": "wt-58",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t232",
+      "title": "Run the weekly restore drill",
+      "prdSections": ["prd.launch.plans", "prd.launch.acceptance"],
+      "specSections": ["spec.hosted-launch.self-hosting"],
+      "files": [".github/workflows/restore-drill.yml"],
+      "branch": "cairn-mvp/232-run-the-weekly-restore-drill",
+      "parent": "t231",
+      "dependsOn": ["t231"],
+      "worktree": "wt-58",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:.github/workflows/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t233",
+      "title": "Write the hosted, self-hosting, backup and support docs pages",
+      "prdSections": ["prd.launch.plans"],
+      "specSections": ["spec.hosted-launch.self-hosting"],
+      "files": [
+        "apps/docs/pages/11-hosted-getting-started.md",
+        "apps/docs/pages/12-self-hosting.md",
+        "apps/docs/pages/13-backup-and-restore.md",
+        "apps/docs/pages/14-support.md"
+      ],
+      "branch": "cairn-mvp/233-write-the-hosted-self-hosting-backup-and-support-docs-pages",
+      "parent": null,
+      "dependsOn": ["t163", "t231"],
+      "worktree": "wt-46",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t234",
+      "title": "Test the hosted launch acceptance flows and isolation",
+      "prdSections": ["prd.launch.acceptance"],
+      "specSections": ["spec.hosted-launch.launch-acceptance"],
+      "files": [
+        "apps/hosted/test/acceptance/launch.test.ts",
+        "apps/hosted/test/acceptance/isolation.test.ts",
+        "apps/hosted/test/acceptance/checklist.md"
+      ],
+      "branch": "cairn-mvp/234-test-the-hosted-launch-acceptance-flows-and-isolation",
+      "parent": null,
+      "dependsOn": [
+        "t215",
+        "t219",
+        "t220",
+        "t222",
+        "t223",
+        "t224",
+        "t225",
+        "t226",
+        "t228",
+        "t229",
+        "t231"
+      ],
+      "worktree": "wt-69",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
     }
   ]
 }

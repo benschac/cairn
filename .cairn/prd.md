@@ -21,6 +21,10 @@ A person can also sign up, create a workspace, write or import a PRD, invite col
 
 The launch promise is: create a workspace, bring your PRDs and collaborators, discuss the work, follow progress, and share what you choose. The normal path is visiting the hosted site and signing up; it requires no checkout, Cloudflare account or deployment. RinkSide remains a dogfood project, not a prerequisite for using the product.
 
+Done when:
+
+- Draft: Visiting the hosted site and signing up lands a person in their own workspace without entering payment details, a Cloudflare account or a deployment. {#prd.launch#v1}
+
 ### Workspaces and PRDs {#prd.launch.workspaces}
 
 - Sign-up gives a person a personal workspace. They can create or join team workspaces and switch between them. A workspace owns its PRDs, membership, repository connections and subscription.
@@ -29,6 +33,12 @@ The launch promise is: create a workspace, bring your PRDs and collaborators, di
 - The existing reader is the per-PRD view inside the workspace. Empty states explain how to add a first PRD and how to connect implementation when wanted. A customer's workspace never silently falls back to the bundled demo.
 - Basic browser markdown editing is available at launch. A save names the revision it was based on; a stale save is refused with the current revision and the person's draft preserved, rather than overwriting another person's work.
 
+Done when:
+
+- Draft: After signing up, a person sees their personal workspace, creates a team workspace named "Acme", and can switch between the two from the workspace switcher. {#prd.launch.workspaces#v1}
+- Draft: Importing a markdown file as a new PRD called "Roadmap" shows it in the workspace's PRD list, where it can be renamed, edited, opened with comments and sharing available, and exported back to markdown without any spec, tasks or repository. {#prd.launch.workspaces#v2}
+- Draft: When two people edit the same PRD and the second saves after the first, the second save is refused with a message showing the current revision, and their unsaved draft is still in the editor. {#prd.launch.workspaces#v3}
+
 ### Members, guests and agents {#prd.launch.membership}
 
 - Workspace members are regular collaborators. Invitations, acceptance, removal and simple owner/admin/member roles are available in the UI. Whole-PRD access distinguishes reading, commenting and editing; managing access and approving human gates require explicit authority.
@@ -36,6 +46,12 @@ The launch promise is: create a workspace, bring your PRDs and collaborators, di
 - Private document access is explained by the sharing UI: which workspace members or invited people can read, comment or edit. An invitation is bound to its recipient and scope; knowing a private PRD's URL grants no access.
 - Agents have separate identities attributable to a human, with scoped and revocable credentials. An agent's effective permissions cannot exceed its delegation or the delegating person's current access. Agent sessions are not automatically human seats, and agent credentials cannot approve human gates.
 - Removing a membership, guest grant or agent delegation stops subsequent protected reads, writes and live updates, including on existing connections. Content already delivered cannot be recalled.
+
+Done when:
+
+- Draft: An admin invites a colleague by email, the colleague accepts and appears in the workspace's member list with the member role, and removing them makes the workspace's private PRDs unavailable to them on their next action, including in a tab already open. {#prd.launch.membership#v1}
+- Draft: A guest invited as a commenter on the PRD "Roadmap" can read and comment on it, but sees no other private PRDs, member list or activity of that workspace, and opening another private PRD's URL shows no access. {#prd.launch.membership#v2}
+- Draft: An agent acting for a person can post progress to a PRD they can access, but its attempt to approve a human gate is refused, and after its credential is revoked its next update is rejected. {#prd.launch.membership#v3}
 
 ### Public and private PRDs {#prd.launch.sharing}
 
@@ -47,12 +63,24 @@ The launch promise is: create a workspace, bring your PRDs and collaborators, di
 - Changing a PRD to private stops new anonymous reads and removes it from Cairn's public discovery and caches. The UI explains that external copies and search-engine caches cannot be recalled immediately.
 - Enforce visibility on the server for documents, comments, attachments, search, previews and live updates. Never deliver private data and rely on the browser to hide it.
 
+Done when:
+
+- Draft: Signed out, opening a public PRD's URL shows the document and its comments with a proper title and social preview, and the PRD appears in public discovery; a private PRD's URL shows no content and it does not appear in discovery or search. {#prd.launch.sharing#v1}
+- Draft: Choosing to make a private PRD public first shows an explanation of which document content, discussion and planning views will become public and that code, agent transcripts and repository access stay private. {#prd.launch.sharing#v2}
+- Draft: Making a public PRD private again means a signed-out visitor reloading its URL no longer sees it, it is gone from public discovery, and the UI explains that external copies and search-engine caches cannot be recalled immediately. {#prd.launch.sharing#v3}
+
 ### Comments and links {#prd.launch.discussion}
 
 - Authorized people and agents can create comment threads, reply and resolve discussions on a PRD, a spec or an identified section/passage. Every thread and reply has a stable link and authenticated author. The room stores the discussion durably.
 - An anchor records the document, section or passage and the revision it refers to. If the text changes or disappears, preserve the discussion and identify the changed anchor; show its original context only to someone authorized to read that revision. An agent may resolve its own notes, but resolving a human's note is a human operation.
 - PRDs can link to other PRDs and their sections. A link does not grant access. Links and backlinks expose a target's private title, excerpt or activity only to someone allowed to read it; public pages and search do not reveal private neighboring documents.
 - Live comment and task-status updates are in scope independently of simultaneous text editing. Reconnecting reloads authoritative state without losing committed comments or duplicating progress events.
+
+Done when:
+
+- Draft: A signed-in commenter selects a passage in a PRD section, starts a thread, a teammate replies and resolves it, and each comment has its own link that opens it showing its author. {#prd.launch.discussion#v1}
+- Draft: After the passage a comment was anchored to is edited, the thread is still shown with a note that its anchor changed, and its original text is visible only to people who can read that earlier revision. {#prd.launch.discussion#v2}
+- Draft: A public PRD that links to a private PRD shows public readers no title, excerpt or activity of the private one, while a member who can read both sees the link and its backlink. {#prd.launch.discussion#v3}
 
 ### Revisions and history {#prd.launch.history}
 
@@ -61,6 +89,12 @@ The launch promise is: create a workspace, bring your PRDs and collaborators, di
 - If a document changes after planning, the viewer identifies the plan's source revision and that it is no longer current. Automatic replanning and restacking of an in-progress implementation after document changes remain the later diverging-state work. Existing user-invoked incremental and partial planning are unchanged.
 - History and comments survive restart and deployment. Workspace activity feeds, detailed visual diffs and attribution, document forks, and revision-specific sharing are later enhancements rather than prerequisites for preserving versions now.
 
+Done when:
+
+- Draft: After a PRD is saved three times, its history list shows three revisions with author and time, and an authorized collaborator can open the earliest and read it as it was. {#prd.launch.history#v1}
+- Draft: Restoring an earlier revision adds a new current revision at the top of the history list, with the intervening revisions, comments and task statuses still present. {#prd.launch.history#v2}
+- Draft: When a PRD is edited after its plan was made, the viewer shows which revision the plan was made from and that it is no longer the current one. {#prd.launch.history#v3}
+
 ### Hosted plans and self-hosting {#prd.launch.plans}
 
 - The managed service supports a free entry path and a paid workspace subscription, with checkout, billing management, cancellation and clear plan limits. The workspace is the billing unit; human member seats and allowed PRD counts are capacity dimensions.
@@ -68,6 +102,12 @@ The launch promise is: create a workspace, bring your PRDs and collaborators, di
 - Enforce entitlements on the server and explain a reached limit before a paid or blocked action. Subscription changes never grant document access. Duplicate or delayed payment events must not grant duplicate capacity; downgrades and failed payments never publish or silently delete private work. Show the applicable grace/over-limit behavior and preserve export access.
 - Self-hosting remains a supported option alongside the primary managed experience. The first supported team deployment can use the operator's own Cloudflare account with configurable domain, auth providers and storage, using the same application and permission model. It does not require a subscription to Cairn's managed service. Local CLI use alone is not the self-hosted team offering; a portable Docker/VPS deployment is not a launch promise.
 - Provide signup and first-PRD guidance, a self-host deployment/upgrade guide, export and backup/restore instructions, and a support path. The managed launch must exercise restoring persisted documents, revisions and discussions before relying on them for customer work.
+
+Done when:
+
+- Draft: A workspace owner upgrades from the free plan through checkout, then sees the paid plan and its limits in billing settings, where they can manage or cancel it. {#prd.launch.plans#v1}
+- Draft: Trying to create a PRD or add a member beyond the plan's limit shows a message naming the limit before anything is charged or blocked, and inviting a guest reviewer does not add a paid member seat. {#prd.launch.plans#v2}
+- Draft: After a cancellation or failed payment, the workspace's private PRDs stay private and present, the over-limit or grace behaviour is shown, and the PRDs can still be exported. {#prd.launch.plans#v3}
 
 ### Launch acceptance {#prd.launch.acceptance}
 
@@ -80,6 +120,12 @@ The launch promise is: create a workspace, bring your PRDs and collaborators, di
 - A new operator follows the self-host guide in their own account and restores a backup containing PRDs, comments and revisions. The packaged/local viewer shows their data rather than the marketing demo.
 
 These are the hosted release gates. The existing local planning requirements remain part of the product, while advanced routing experiments, terminal features and the explicitly later collaboration features do not all have to ship before this launch.
+
+Done when:
+
+- Draft: A new user signs up without checkout, creates a workspace with two PRDs, and reads, edits, exports and comments on each without generating a spec; a guest invited to one of them can comment on it but cannot find the other. {#prd.launch.acceptance#v1}
+- Draft: A signed-out visitor opens a public PRD with its share preview and finds it in public discovery, and after it is made private the same visitor's reload shows no access and no linked private PRD, old revision, code or transcript is revealed in either state. {#prd.launch.acceptance#v2}
+- Draft: A new operator follows the self-host guide in their own Cloudflare account, restores a backup of PRDs, comments and revisions, and sees that data in the viewer instead of the marketing demo. {#prd.launch.acceptance#v3}
 
 ## Repo layout {#prd.repo-layout}
 

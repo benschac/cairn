@@ -802,7 +802,7 @@ It reuses the fence and heading rules `assignSectionIds` already has, so both ag
 
 ### `cairn ids` {#spec.sections.cairn-ids}
 
-- Implements: `prd.cli`, `prd.section-ids`
+- Implements: `prd.cli`, `prd.section-ids`, `prd.cli.ids`
 - Files: `packages/cli/src/commands/ids.ts`
 - Depends on: `spec.sections.parsing`
 
@@ -1096,6 +1096,7 @@ flowchart BT
   subgraph s16["Stack 16 · planning"]
     direction BT
     t30["t30 · 30-cairn-plan<br/>Add cairn plan<br/>wt-8"]
+    t210["t210 · 210-record-the-prd-hash-a-plan-was-made-from<br/>Record the PRD hash a plan was made from<br/>wt-61"]
   end
   subgraph s17["Stack 17 · status"]
     direction BT
@@ -1542,6 +1543,107 @@ flowchart BT
     t191["t191 · 191-draw-solid-parent-arrows-inside-the-stack-boxes<br/>Draw solid parent arrows inside the stack boxes<br/>wt-55"]
     t192["t192 · 192-draw-dashed-dependency-arrows-for-the-task-in-focus<br/>Draw dashed dependency arrows for the task in focus<br/>wt-55"]
   end
+  subgraph s116["Stack 116 · hosted-launch"]
+    direction BT
+    t193["t193 · 193-add-the-hosted-contract-schemas<br/>Add the hosted contract schemas<br/>wt-56"]
+    t194["t194 · 194-scaffold-the-hosted-worker-with-its-d1-schema-and-deploy-definition · GATE<br/>Scaffold the hosted Worker with its D1 schema and deploy definition<br/>wt-56"]
+    t196["t196 · 196-decide-hosted-access-with-the-policy-function<br/>Decide hosted access with the policy function<br/>wt-57"]
+    t195["t195 · 195-add-the-prdroom-durable-object-with-its-sqlite-and-r2-bodies · GATE<br/>Add the PrdRoom Durable Object with its SQLite and R2 bodies<br/>wt-56"]
+    t197["t197 · 197-sign-people-in-and-give-each-a-personal-workspace<br/>Sign people in and give each a personal workspace<br/>wt-58"]
+  end
+  subgraph s117["Stack 117 · hosted-launch"]
+    direction BT
+    t198["t198 · 198-resolve-request-principals-and-load-policy-facts<br/>Resolve request principals and load policy facts<br/>wt-58"]
+    t199["t199 · 199-reserve-and-report-plan-entitlements<br/>Reserve and report plan entitlements<br/>wt-58"]
+    t200["t200 · 200-bill-workspaces-through-stripe-checkout-and-webhooks · GATE<br/>Bill workspaces through Stripe checkout and webhooks<br/>wt-58"]
+    t230["t230 · 230-decode-the-deployment-s-self-host-settings<br/>Decode the deployment's self-host settings<br/>wt-58"]
+  end
+  subgraph s118["Stack 118 · hosted-launch"]
+    direction BT
+    t201["t201 · 201-order-room-writes-and-push-live-updates-over-room-sockets<br/>Order room writes and push live updates over room sockets<br/>wt-56"]
+    t203["t203 · 203-revoke-access-across-the-worker-and-open-room-sockets<br/>Revoke access across the Worker and open room sockets<br/>wt-59"]
+  end
+  subgraph s119["Stack 119 · hosted-launch"]
+    direction BT
+    t202["t202 · 202-store-prd-and-spec-revisions-with-stale-save-refusal-and-restore · GATE<br/>Store PRD and spec revisions with stale-save refusal and restore<br/>wt-56"]
+  end
+  subgraph s120["Stack 120 · hosted-launch"]
+    direction BT
+    t204["t204 · 204-create-import-rename-find-and-export-prds-in-a-workspace<br/>Create, import, rename, find and export PRDs in a workspace<br/>wt-56"]
+  end
+  subgraph s121["Stack 121 · hosted-launch"]
+    direction BT
+    t205["t205 · 205-switch-prd-visibility-with-public-search-and-discovery · GATE<br/>Switch PRD visibility with public search and discovery<br/>wt-56"]
+    t206["t206 · 206-index-links-between-prds-and-answer-them-by-access · GATE<br/>Index links between PRDs and answer them by access<br/>wt-56"]
+  end
+  subgraph s122["Stack 122 · hosted-launch"]
+    direction BT
+    t207["t207 · 207-invite-and-remove-workspace-members-and-prd-guests<br/>Invite and remove workspace members and PRD guests<br/>wt-59"]
+    t208["t208 · 208-issue-scoped-agent-credentials-and-accept-progress-events<br/>Issue scoped agent credentials and accept progress events<br/>wt-59"]
+  end
+  subgraph s123["Stack 123 · hosted-launch"]
+    direction BT
+    t209["t209 · 209-strip-a-trace-to-its-public-form<br/>Strip a trace to its public form<br/>wt-60"]
+  end
+  subgraph s124["Stack 124 · hosted-launch"]
+    direction BT
+    t211["t211 · 211-store-plan-snapshots-and-their-source-revisions-in-the-room<br/>Store plan snapshots and their source revisions in the room<br/>wt-61"]
+    t212["t212 · 212-approve-human-gates-against-recorded-inputs<br/>Approve human gates against recorded inputs<br/>wt-61"]
+  end
+  subgraph s125["Stack 125 · hosted-launch"]
+    direction BT
+    t213["t213 · 213-match-comment-anchors-against-the-current-revision<br/>Match comment anchors against the current revision<br/>wt-62"]
+  end
+  subgraph s126["Stack 126 · hosted-launch"]
+    direction BT
+    t214["t214 · 214-store-threads-replies-and-resolution-in-the-room · GATE<br/>Store threads, replies and resolution in the room<br/>wt-62"]
+  end
+  subgraph s127["Stack 127 · hosted-launch"]
+    direction BT
+    t215["t215 · 215-render-public-prd-pages-with-share-metadata<br/>Render public PRD pages with share metadata<br/>wt-62"]
+  end
+  subgraph s128["Stack 128 · hosted-launch"]
+    direction BT
+    t216["t216 · 216-choose-the-viewer-s-data-source-at-build-time<br/>Choose the viewer's data source at build time<br/>wt-26"]
+  end
+  subgraph s129["Stack 129 · hosted-launch"]
+    direction BT
+    t217["t217 · 217-add-the-hosted-app-shell-with-sign-in-routes-and-the-workspace-switcher<br/>Add the hosted app shell with sign-in, routes and the workspace switcher<br/>wt-26"]
+    t218["t218 · 218-list-a-workspace-s-prds-with-import-empty-states-and-limit-notes<br/>List a workspace's PRDs with import, empty states and limit notes<br/>wt-26"]
+    t219["t219 · 219-edit-a-prd-in-the-browser-with-stale-save-handling<br/>Edit a PRD in the browser with stale-save handling<br/>wt-63"]
+    t220["t220 · 220-show-a-prd-s-history-and-restore-a-revision<br/>Show a PRD's history and restore a revision<br/>wt-64"]
+    t221["t221 · 221-keep-an-open-prd-live-over-its-room-socket<br/>Keep an open PRD live over its room socket<br/>wt-65"]
+    t222["t222 · 222-add-the-members-agents-and-invitation-screens<br/>Add the members, agents and invitation screens<br/>wt-66"]
+    t223["t223 · 223-add-the-sharing-dialog-with-visibility-explanations<br/>Add the sharing dialog with visibility explanations<br/>wt-67"]
+    t226["t226 · 226-show-a-plan-s-source-revision-and-stale-approvals-in-the-viewer<br/>Show a plan's source revision and stale approvals in the viewer<br/>wt-68"]
+    t225["t225 · 225-show-links-between-prds-and-backlinks-in-the-reader<br/>Show links between PRDs and backlinks in the reader<br/>wt-26"]
+    t229["t229 · 229-add-the-billing-settings-screen<br/>Add the billing settings screen<br/>wt-69"]
+  end
+  subgraph s130["Stack 130 · hosted-launch"]
+    direction BT
+    t224["t224 · 224-start-read-and-resolve-comment-threads-in-the-reader<br/>Start, read and resolve comment threads in the reader<br/>wt-65"]
+  end
+  subgraph s131["Stack 131 · hosted-launch"]
+    direction BT
+    t227["t227 · 227-connect-a-repo-to-a-hosted-prd-with-device-sign-in-and-stored-credentials<br/>Connect a repo to a hosted PRD with device sign-in and stored credentials<br/>wt-59"]
+  end
+  subgraph s132["Stack 132 · hosted-launch"]
+    direction BT
+    t228["t228 · 228-sync-documents-events-plans-and-approvals-with-cairn-connect-sync<br/>Sync documents, events, plans and approvals with cairn connect sync<br/>wt-59"]
+  end
+  subgraph s133["Stack 133 · hosted-launch"]
+    direction BT
+    t231["t231 · 231-back-up-and-restore-a-deployment-with-cairn-admin<br/>Back up and restore a deployment with cairn admin<br/>wt-58"]
+    t232["t232 · 232-run-the-weekly-restore-drill · GATE<br/>Run the weekly restore drill<br/>wt-58"]
+  end
+  subgraph s134["Stack 134 · hosted-launch"]
+    direction BT
+    t233["t233 · 233-write-the-hosted-self-hosting-backup-and-support-docs-pages<br/>Write the hosted, self-hosting, backup and support docs pages<br/>wt-46"]
+  end
+  subgraph s135["Stack 135 · hosted-launch"]
+    direction BT
+    t234["t234 · 234-test-the-hosted-launch-acceptance-flows-and-isolation<br/>Test the hosted launch acceptance flows and isolation<br/>wt-69"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -1895,10 +1997,92 @@ flowchart BT
   t189 --> t190
   t190 --> t191
   t191 --> t192
-  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122,t138,t139,t140,t142,t144,t145,t148,t149,t150,t152,t154,t155,t158,t171,t175,t176,t179 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t172,t173,t174,t177,t178,t180,t181,t182,t183,t184,t185,t186,t187,t188,t189,t190,t191,t192 sonnet
-  class t11,t24,t27,t44,t56,t66,t102,t107 haiku
-  class t1,t2,t3,t81,t97,t126,t144,t147,t153,t155,t162,t175,t176 gate
+  t16 -.-> t193
+  t118 -.-> t193
+  t193 --> t194
+  t194 --> t195
+  t193 --> t196
+  t194 --> t197
+  t196 -.-> t198
+  t197 -.-> t198
+  t198 --> t199
+  t199 --> t200
+  t195 -.-> t201
+  t198 -.-> t201
+  t17 -.-> t202
+  t201 -.-> t202
+  t201 --> t203
+  t199 -.-> t204
+  t202 -.-> t204
+  t203 -.-> t205
+  t204 -.-> t205
+  t205 --> t206
+  t203 -.-> t207
+  t204 -.-> t207
+  t207 --> t208
+  t156 -.-> t209
+  t194 -.-> t209
+  t30 --> t210
+  t202 -.-> t211
+  t208 -.-> t211
+  t209 -.-> t211
+  t210 -.-> t211
+  t211 --> t212
+  t120 -.-> t213
+  t193 -.-> t213
+  t202 -.-> t214
+  t213 -.-> t214
+  t42 -.-> t215
+  t205 -.-> t215
+  t214 -.-> t215
+  t68 -.-> t216
+  t81 -.-> t216
+  t100 -.-> t217
+  t121 -.-> t217
+  t193 -.-> t217
+  t216 -.-> t217
+  t217 --> t218
+  t217 --> t219
+  t217 --> t220
+  t217 --> t221
+  t217 --> t222
+  t217 --> t223
+  t93 -.-> t224
+  t125 -.-> t224
+  t221 -.-> t224
+  t218 --> t225
+  t217 --> t226
+  t22 -.-> t227
+  t204 -.-> t227
+  t208 -.-> t227
+  t15 -.-> t228
+  t185 -.-> t228
+  t212 -.-> t228
+  t227 -.-> t228
+  t218 --> t229
+  t200 --> t230
+  t206 -.-> t231
+  t212 -.-> t231
+  t214 -.-> t231
+  t230 -.-> t231
+  t231 --> t232
+  t163 -.-> t233
+  t231 -.-> t233
+  t215 -.-> t234
+  t219 -.-> t234
+  t220 -.-> t234
+  t222 -.-> t234
+  t223 -.-> t234
+  t224 -.-> t234
+  t225 -.-> t234
+  t226 -.-> t234
+  t228 -.-> t234
+  t229 -.-> t234
+  t231 -.-> t234
+  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122,t138,t139,t140,t142,t144,t145,t148,t149,t150,t152,t154,t155,t158,t171,t175,t176,t179,t196,t198,t199,t200,t201,t203,t205,t206,t207,t208,t209,t212,t228,t231 opus
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t172,t173,t174,t177,t178,t180,t181,t182,t183,t184,t185,t186,t187,t188,t189,t190,t191,t192,t193,t194,t195,t197,t202,t204,t211,t213,t214,t215,t216,t217,t218,t219,t220,t221,t222,t223,t224,t225,t226,t227,t229,t230,t232,t233,t234 sonnet
+  class t11,t24,t27,t44,t56,t66,t102,t107,t210 haiku
+  class t1,t2,t3,t81,t97,t126,t144,t147,t153,t155,t162,t175,t176,t194,t195,t200,t202,t205,t206,t214,t232 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
   classDef sonnet fill:#2563eb,color:#ffffff,stroke:#1e3a8a
   classDef haiku fill:#facc15,color:#111111,stroke:#a16207
@@ -1910,7 +2094,7 @@ flowchart BT
 
 ### `cairn plan` {#spec.planning.cairn-plan}
 
-- Implements: `prd.cli`, `prd.planning.two-reviews`
+- Implements: `prd.cli`, `prd.planning.two-reviews`, `prd.cli.plan`
 - Files: `packages/cli/src/commands/plan.ts`
 - Depends on: `spec.planning.planner-service`, `spec.planning.stack-order`, `spec.lint`, `spec.sections.cairn-ids`, `spec.judging.checkpoints`, `spec.contract.spec-index`
 
@@ -2333,7 +2517,7 @@ Tests, in `plan-part.test.ts`, with the scripted `Planner` and `Judge` in a temp
 
 ## Lint {#spec.lint}
 
-- Implements: `prd.cli`, `prd.section-ids`, `prd.planning.diagrams`
+- Implements: `prd.cli`, `prd.section-ids`, `prd.planning.diagrams`, `prd.cli.lint`
 - Files: `packages/core/src/lint.ts`, `packages/core/src/diagrams.ts`, `packages/cli/src/commands/lint.ts`
 - Depends on: `spec.sections.parsing`, `spec.gates.detection`, `spec.planning.stack-order`
 
@@ -2439,6 +2623,7 @@ Tests use the scripted `Judge` and `Planner` layers: one `too_large` answer caus
 
 ### `cairn judge` {#spec.judging.cairn-judge}
 
+- Implements: `prd.cli.judge`
 - Files: `packages/cli/src/commands/judge.ts`
 - Depends on: `spec.judging.judge-service`, `spec.contract.judgments`
 
@@ -2771,7 +2956,7 @@ A section's status comes from the tasks linked to it or to any section under it.
 
 ### `cairn status` and `cairn approve` {#spec.status.cairn-status-and-cairn-approve}
 
-- Implements: `prd.cli`, `prd.human-gates`
+- Implements: `prd.cli`, `prd.human-gates`, `prd.cli.status`
 - Files: `packages/cli/src/commands/status.ts`, `packages/cli/src/commands/approve.ts`, `packages/cli/src/git.ts`
 - Depends on: `spec.status.derivation`
 
@@ -2871,7 +3056,7 @@ Tests:
 
 ### `cairn stats` {#spec.status.cairn-stats}
 
-- Implements: `prd.outcomes.reporting`
+- Implements: `prd.outcomes.reporting`, `prd.cli.stats`
 - Files: `packages/cli/src/commands/stats.ts`, `packages/cli/src/main.ts`, `packages/cli/test/stats.test.ts`
 - Depends on: `spec.status.outcome-metrics`, `spec.judging.routing-from-history`, `spec.status.cairn-status-and-cairn-approve`
 
@@ -3256,7 +3441,7 @@ Tests:
 
 ### Notes {#spec.sessions.notes}
 
-- Implements: `prd.viewer.notes`
+- Implements: `prd.viewer.notes`, `prd.cli.note`
 - Files: `packages/contract/src/note.ts`, `packages/contract/src/trace.ts`, `packages/contract/src/index.ts`, `packages/cli/src/migrations/`, `packages/cli/src/trace-store.ts`, `packages/cli/src/commands/note.ts`, `packages/cli/src/main.ts`, `packages/cli/src/api.ts`, `packages/cli/test/note.test.ts`
 - Depends on: `spec.sessions.trace-store`, `spec.cli.cairn-link`, `spec.contract.links`
 
@@ -3393,7 +3578,7 @@ Tests:
 
 ## CLI {#spec.cli}
 
-- Implements: `prd.cli`, `prd.repo-layout`
+- Implements: `prd.cli`, `prd.repo-layout`, `prd.cli.init`
 - Files: `packages/cli/src/main.ts`, `packages/cli/src/commands/init.ts`, `packages/cli/package.json`
 
 One `cairn` binary built with `effect/cli`. Each command finds `.cairn/` in the repo's main checkout, from `git rev-parse --path-format=absolute --git-common-dir`, not from the current worktree. Commands run inside a worktree read and write the same `events.jsonl` and `cairn.db` as everyone else.
@@ -3402,7 +3587,7 @@ One `cairn` binary built with `effect/cli`. Each command finds `.cairn/` in the 
 
 ### `cairn link` {#spec.cli.cairn-link}
 
-- Implements: `prd.deep-links.agents`
+- Implements: `prd.deep-links.agents`, `prd.cli.link`
 - Files: `packages/cli/src/commands/link.ts`, `packages/cli/src/link-args.ts`, `packages/cli/src/main.ts`, `packages/cli/test/link.test.ts`, `AGENTS.md`
 - Depends on: `spec.contract.links`, `spec.sections.parsing`, `spec.status.cairn-status-and-cairn-approve`
 
@@ -3704,6 +3889,7 @@ Tests, with the scripted `Planner` and `Judge` in a temporary repository:
 
 #### MCP server {#spec.cli.agent-access.mcp-server}
 
+- Implements: `prd.cli.mcp`
 - Files: `packages/cli/src/mcp/server.ts`, `packages/cli/src/mcp/tools.ts`, `packages/cli/src/commands/mcp.ts`, `packages/cli/src/commands/index.ts`, `packages/cli/src/main.ts`, `packages/cli/package.json`, `packages/cli/test/mcp.test.ts`, `packages/cli/test/fixtures/stub-claude/`
 - Depends on: `spec.cli.agent-access.operations`, `spec.cli.agent-access.review-checkpoints`, `spec.models`
 
@@ -4035,7 +4221,7 @@ Proves prd.terminal.library#v2.
 
 #### `cairn watch` {#spec.cli.terminal-view.cairn-watch}
 
-- Implements: `prd.terminal.terminals`, `prd.terminal.library`
+- Implements: `prd.terminal.terminals`, `prd.terminal.library`, `prd.cli.watch`
 - Files: `packages/cli/src/commands/watch.ts`, `packages/cli/src/watch/terminal.ts`, `packages/cli/src/watch/read-only.ts`, `packages/cli/src/commands/index.ts`, `packages/cli/src/main.ts`, `packages/cli/test/watch/terminal.test.ts`, `packages/cli/test/watch/watch.test.ts`
 - Depends on: `spec.cli.terminal-view.trace-stream`, `spec.cli.terminal-view.keys`
 
@@ -4102,7 +4288,7 @@ Tests run against a temporary repository with two commits: the commit route retu
 
 ## Server {#spec.server}
 
-- Implements: `prd.cli`, `prd.viewer`, `prd.code-view`
+- Implements: `prd.cli`, `prd.viewer`, `prd.code-view`, `prd.cli.serve`
 - Files: `packages/cli/src/serve.ts`, `packages/cli/src/api.ts`
 - Depends on: `spec.status.cairn-status-and-cairn-approve`, `spec.sessions.trace-store`, `spec.sessions.reading`
 
@@ -5343,3 +5529,1120 @@ The test fails when an agent's `done` approves a gated task, or a landing skips 
 | Models and reasoning show what ran or what is planned          | `ranOf` properties; a Scene finds `data-ran` on rows and chips and none of them with the switch off                                  |
 | A task's code shows in the detail panel                        | A Scene clicks a task row and finds the diff mount keyed by the task's range, with the reader still under it                         |
 | A broken broadcast or Escape fails a model-based test          | The presence and reader model tests, each broken once by its task, print the shortest failing event sequence                         |
+
+## Hosted launch {#spec.hosted-launch}
+
+- Implements: `prd.launch`
+
+This is Cairn's hosted service, which launches as prdddd. A person visits the site, signs up and lands in their own workspace. They do not enter payment details, open a Cloudflare account or deploy anything. One shared application serves every workspace. The same application, deployed into an operator's own Cloudflare account with billing off, is the self-hosted team offering (see `spec.hosted-launch.self-hosting`). The local CLI, `cairn serve` and the files in `.cairn/` work as before and need no account. `cairn connect` joins a repo to one hosted PRD (see `spec.hosted-launch.cairn-connect`).
+
+`spec.scope` defers `prd.v2-multiplayer-on-cloudflare`. The launch needs some of that architecture: accounts, one room per PRD, D1, R2 and the Alchemy deploy. Those parts are built here, as far as the `prd.launch` sections ask for them. The deferral still covers everything else:
+
+- simultaneous text editing and Loro;
+- carets and selections in presence;
+- code and sessions in the room;
+- syncing notes from `cairn.db`;
+- attachments on comments;
+- remote MCP.
+
+The diagram shows how requests reach each store:
+
+```mermaid
+flowchart LR
+  browser["Browser: workspace screens and the reader"] --> worker["Worker: auth, policy, HTTP APIs"]
+  cli["cairn connect"] --> worker
+  stripe["Stripe webhooks"] --> worker
+  worker --> d1["D1: accounts, workspaces, grants, directory, billing"]
+  worker --> room["PrdRoom Durable Object, one per PRD"]
+  room --> sqlite["Room SQLite: revisions, comments, events, plan"]
+  room --> r2["R2: revision bodies over 512 KiB"]
+```
+
+| Store       | Holds                                                                                                                                                                                                | Authority for                         |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| D1          | Better Auth's users, accounts, sessions and organizations; Cairn's workspaces, document directory, grants, invitations, agents, links between PRDs, public search, usage, subscriptions, revocations | Who may do what, and what exists      |
+| Room SQLite | Each PRD's revisions, threads, comments, progress events, plan records and trace snapshots                                                                                                           | Content and discussion of one PRD     |
+| R2          | Revision bodies over 512 KiB                                                                                                                                                                         | Nothing on its own; the room names it |
+
+The hosted service never stores code, diffs, session logs or model keys.
+
+Every launch section's Done-when statements are proved by a test named in one of the sections below. `spec.hosted-launch.launch-acceptance` maps the release gates to those tests.
+
+### Hosted contract {#spec.hosted-launch.hosted-contract}
+
+- Implements: `prd.launch.workspaces`, `prd.launch.membership`, `prd.launch.history`, `prd.launch.discussion`, `prd.launch.plans`
+- Files: `packages/contract/src/hosted/ids.ts`, `packages/contract/src/hosted/workspace.ts`, `packages/contract/src/hosted/document.ts`, `packages/contract/src/hosted/access.ts`, `packages/contract/src/hosted/revision.ts`, `packages/contract/src/hosted/discussion.ts`, `packages/contract/src/hosted/plan.ts`, `packages/contract/src/hosted/entitlements.ts`, `packages/contract/src/hosted/room.ts`, `packages/contract/src/hosted/errors.ts`, `packages/contract/src/hosted/index.ts`, `packages/contract/package.json`, `packages/contract/schema/`, `packages/contract/test/hosted.test.ts`
+- Depends on: `spec.contract.section-ids`, `spec.contract.links`, `spec.contract.events`, `spec.contract.trace`
+
+The Worker, the viewer and `cairn connect` exchange the shapes defined here. `@cairn/contract/hosted` exports them. The modules import IDs from `../ids.ts` and `../link.ts`, never from `index.ts`.
+
+```ts
+// ids.ts: random IDs are 12 characters of [a-z0-9] from crypto.getRandomValues
+WorkspaceId = ^w_[a-z0-9]{12}$
+DocumentId = ^doc_[a-z0-9]{12}$
+RevisionId = ^rev_[a-z0-9]{12}$
+AgentId = ^agt_[a-z0-9]{12}$
+InvitationId = ^inv_[a-z0-9]{12}$
+PlanRecordId = ^plan_[a-z0-9]{12}$
+EventId = Sha256Hex // SHA-256 of the events.jsonl line's bytes
+UserId = NonEmptyString // Better Auth's user ID
+
+Principal =
+  | { kind: "user"; userId: UserId }
+  | { kind: "agent"; agentId: AgentId; for: UserId }
+  | { kind: "anonymous" }
+Author = { principal: Principal; name: string } // name as shown; an agent shows "<agent name> for <person>"
+```
+
+```ts
+// workspace.ts
+Workspace = { id: WorkspaceId; name: string /* 1–80 */; kind: "personal" | "team"; createdAt: DateTime.Utc }
+Role = "owner" | "admin" | "member"
+Member = { workspaceId; userId; name; email; role: Role; joinedAt }
+
+// access.ts
+Access = "read" | "comment" | "edit" | "manage" // in this order
+MemberAccess = "none" | "read" | "comment" | "edit"
+atLeast(have: Access | "none", need: Access): boolean
+Grant = { documentId; userId; access: Access; grantedBy: UserId; at }
+Invitation =
+  | { id; kind: "workspace"; workspaceId; email; role: "admin" | "member"; invitedBy; expiresAt; status: InvitationStatus }
+  | { id; kind: "document"; workspaceId; documentId; email; access: "read" | "comment"; invitedBy; expiresAt; status: InvitationStatus }
+InvitationStatus = "pending" | "accepted" | "revoked" | "expired"
+AgentScope = { documents: NonEmptyArray<DocumentId>; actions: NonEmptyArray<"read" | "progress" | "comment"> }
+Agent = { id; workspaceId; name; for: UserId; scope: AgentScope; createdAt; lastUsedAt: DateTime.Utc | null; revokedAt: DateTime.Utc | null }
+```
+
+```ts
+// document.ts
+Document = {
+  id: DocumentId
+  workspaceId: WorkspaceId
+  title: string // 1–200; metadata, independent of the markdown's own heading
+  visibility: "private" | "public"
+  memberAccess: MemberAccess // what every workspace member has; defaults to "edit"
+  current: { prd: RevisionId; spec: RevisionId | null }
+  createdBy: UserId
+  createdAt: DateTime.Utc
+  updatedAt: DateTime.Utc
+}
+DocumentView = Document & { access: Access; markdown: string; hasPlan: boolean } // what GET /api/documents/:id returns
+
+// revision.ts
+Revision = {
+  id: RevisionId
+  documentId: DocumentId
+  kind: "prd" | "spec"
+  number: number // 1, 2, ... per document and kind
+  parent: RevisionId | null
+  author: Author
+  at: DateTime.Utc
+  hash: Sha256Hex // of the stored markdown's UTF-8 bytes
+  restoredFrom: RevisionId | null
+  bytes: number
+}
+RevisionBody = Revision & { markdown: string }
+SaveInput = { kind: "prd" | "spec"; base: RevisionId | null; markdown: string; clientId: string } // base is null only for a document's first spec revision
+```
+
+A content revision is not the same as a file format's `version` field. The two are never compared.
+
+```ts
+// discussion.ts
+Anchor = {
+  document: DocumentId
+  on: "prd" | "spec"
+  revision: RevisionId // the revision the author was reading
+  section: SectionId | null // null is the whole document
+  quote: Quote | null // a passage, as in spec.contract.links
+}
+Comment = { id: NoteId; thread: NoteId; author: Author; body: string /* markdown, ≤ 20,000 */; at; editedAt: DateTime.Utc | null; version: number }
+Thread = { root: NoteId; anchor: Anchor; status: "open" | "resolved"; resolvedBy: Author | null; resolvedAt: DateTime.Utc | null; comments: NonEmptyArray<Comment> }
+AnchorState =
+  | { state: "attached" }
+  | { state: "changed"; reason: "section-missing" | "passage-changed"; original: { sectionTitle: string; quote: Quote | null } | null } // null for a reader who may not open that revision
+ThreadView = Thread & { anchorState: AnchorState }
+```
+
+Comment IDs are `NoteId`s, so the `note` link step already names a comment (see `spec.contract.links`). A thread's root comment ID is the thread's ID.
+
+```ts
+// plan.ts
+PlanRecord = {
+  id: PlanRecordId
+  documentId: DocumentId
+  uploadedAt: DateTime.Utc
+  uploadedBy: Author
+  manifestHash: Sha256Hex
+  source: { prdHash: Sha256Hex | null; prdRevision: RevisionId | null; specRevision: RevisionId | null }
+}
+GateApproval = { task: TaskId; by: Author; at; inputs: { prdRevision: RevisionId; specRevision: RevisionId | null; plan: PlanRecordId; head: Sha | null } }
+
+// entitlements.ts
+Dimension = "members" | "prds" | "privatePrds" | "publicPrds"
+Limits = { members: number | null; prds: number | null; privatePrds: number | null; publicPrds: number | null; guestsPerPrd: number | null } // null is unlimited
+Entitlements = {
+  plan: Slug // "free", "team", "self-hosted"
+  status: "free" | "active" | "past_due" | "canceling" | "canceled"
+  limits: Limits
+  usage: Record<Dimension, number>
+  overLimit: Array<Dimension>
+  graceEndsAt: DateTime.Utc | null
+  billing: "managed" | "off"
+}
+
+// room.ts: server-to-client WebSocket messages; every write goes over HTTP
+RoomMessage =
+  | { type: "revision"; seq: number; revision: Revision }
+  | { type: "thread"; seq: number; thread: ThreadView }
+  | { type: "trace"; seq: number; hash: Sha256Hex }
+  | { type: "event"; seq: number; id: EventId; event: Event }
+  | { type: "approval"; seq: number; approval: GateApproval }
+  | { type: "visibility"; seq: number; visibility: "private" | "public" }
+  | { type: "access"; access: Access | "none" }
+  | { type: "reading"; participants: Array<{ name: string; section: PrdSectionId | null }> }
+
+// errors.ts
+HostedError =
+  | { code: "not-found"; message: string } // also every denied read; see spec.hosted-launch.policy
+  | { code: "unauthenticated" | "forbidden" | "invalid-input" | "conflict"; message: string; field?: string }
+  | { code: "stale-revision"; message: string; current: RevisionBody }
+  | { code: "stale-comment"; message: string; current: Comment }
+  | { code: "limit-reached"; message: string; dimension: Dimension | "guests"; plan: Slug; used: number; allowed: number; upgradeUrl: string | null }
+```
+
+The JSON Schema files are generated again, as in `spec.contract.javascript-entry`.
+
+Tests:
+
+- Every ID schema accepts what the generator makes and refuses the other prefixes.
+- `atLeast` follows the order of `Access`.
+- A document invitation with `access: "edit"` is refused.
+- Every `HostedError` round-trips.
+- A `RoomMessage` with an unknown `type` is refused.
+
+### Policy {#spec.hosted-launch.policy}
+
+- Implements: `prd.launch.membership`, `prd.launch.sharing`
+- Files: `packages/core/src/policy.ts`, `packages/core/test/policy.test.ts`
+- Depends on: `spec.hosted-launch.hosted-contract`
+
+`decide(facts, action)` in core is pure. It is the only place that says whether a principal may act. Every HTTP route, every room write, search, previews and live subscriptions ask it. It allows nothing that a rule does not allow. It takes no subscription input, so a plan can never grant access.
+
+```ts
+Facts = {
+  principal: Principal
+  memberships: Record<WorkspaceId, Role> // the user's, or an agent's delegating user's, as D1 holds them now
+  grants: Record<DocumentId, Access> // the same person's
+  workspace: { id: WorkspaceId; kind: "personal" | "team" } | null
+  document: { id: DocumentId; workspaceId: WorkspaceId; visibility: "private" | "public"; memberAccess: MemberAccess } | null
+  agent: { workspaceId: WorkspaceId; scope: AgentScope; revoked: boolean } | null
+  thread: { rootAuthor: Principal } | null
+}
+Decision = { allowed: boolean; access: Access | "none"; reason: string }
+```
+
+A person's access to a document:
+
+1. An owner or admin of its workspace has `manage`.
+2. A member has the greater of `memberAccess` and their own grant.
+3. Anyone else has their grant, but at most `comment`, which makes them a guest.
+4. A public document gives everyone, the anonymous reader included, at least `read`. This is the public floor.
+
+An agent has the lower of two things: its delegating person's access, worked out by those rules, and what its scope allows. `comment` in its actions allows `comment`. Otherwise its ceiling is `read`. An agent that is revoked, or whose scope does not name the document, has no access.
+
+| Action                     | Allowed when                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------- |
+| `document.read`            | Access is at least `read`: the current revisions, the threads and the plan view             |
+| `document.history`         | Access is at least `read` without the public floor: listing and opening revisions           |
+| `document.export`          | `document.read`                                                                             |
+| `document.comment`         | Access is at least `comment` and the principal is not anonymous                             |
+| `thread.resolve`           | `document.comment`, and for an agent the thread's root author is that agent                 |
+| `document.edit`            | A person with `edit`: save, restore, rename                                                 |
+| `document.manage`          | A person with `manage`: visibility, grants, guest invitations                               |
+| `plan.write`               | A person with `edit`, or an agent with `progress` in its actions and `read` on the document |
+| `progress.write`           | The same as `plan.write`                                                                    |
+| `gate.approve`             | A person, never an agent, with `manage`                                                     |
+| `workspace.read`           | A person who is a member: the PRD list, members, agents                                     |
+| `workspace.createDocument` | A person who is a member                                                                    |
+| `workspace.manageMembers`  | An owner or admin of a team workspace. Changing or removing an owner needs an owner         |
+| `workspace.billing`        | An owner                                                                                    |
+| `agent.create`             | A person who is a member, for documents they can read, with actions within their own access |
+
+Agents cannot edit or manage. That is my choice: the PRD asks agents to post progress and comments, not to change a PRD.
+
+The Worker turns a denial into a response:
+
+- A denied read of a workspace or document is `404 not-found`. Its body is the same body an ID that does not exist gets, so the response says nothing about whether the thing exists.
+- A denied write on something the principal can read is `403 forbidden` with the reason, such as `Only a person can approve a gate.`.
+
+Tests are properties over generated facts:
+
+- Facts with no membership, grant or public floor allow no action.
+- An agent's allowed actions are always a subset of its delegating person's.
+- An agent is never allowed `gate.approve`, `document.edit` or `document.manage`.
+- The anonymous principal is never allowed a write or `document.history`.
+- A guest is never allowed `workspace.read`, and its access is never above `comment`.
+- Raising a grant never takes away an allowed action.
+- Making a document public adds `document.read` and `document.export` for the anonymous principal and nothing else.
+
+### Worker and storage {#spec.hosted-launch.worker-and-storage}
+
+- Files: `apps/hosted/package.json`, `apps/hosted/alchemy.run.ts`, `apps/hosted/src/worker.ts`, `apps/hosted/src/env.ts`, `apps/hosted/src/principal.ts`, `apps/hosted/src/facts.ts`, `apps/hosted/src/http/`, `apps/hosted/src/d1/migrations/`, `apps/hosted/src/room/room.ts`, `apps/hosted/src/room/migrations/`, `apps/hosted/src/blobs.ts`, `apps/hosted/vitest.config.ts`, `apps/hosted/test/worker.test.ts`, `pnpm-workspace.yaml`
+- Depends on: `spec.hosted-launch.hosted-contract`, `spec.hosted-launch.policy`
+
+`apps/hosted` is one Cloudflare Worker for every workspace. No workspace gets its own deployment.
+
+- HTTP. The router is Effect HTTP, served through Effect's web handler. Read the installed `effect`'s declarations for the Workers entry before writing `worker.ts`. Routes decode their input and encode their output through the hosted contract. Better Auth's handler is mounted at `/api/auth/*` (see `spec.hosted-launch.accounts-and-workspaces`). The hosted viewer build (see `spec.hosted-launch.data-sources`) is served as Workers static assets, and every other `GET` path falls back to its page.
+- Principal. `principal.ts` resolves each request to a `Principal`. A Better Auth session cookie or a device-authorization bearer token gives a person. An `Authorization: Bearer cagt_…` header gives an agent (see `spec.hosted-launch.agent-credentials-and-gate-approvals`). Anything else is anonymous.
+- Facts. `facts.ts` loads `Facts` for a request with one D1 query per request, against the primary, so a decision never reads a stale replica. The same query also returns the document's `access_epoch` (see `spec.hosted-launch.room`).
+- Rooms. `PrdRoom` is a Durable Object class, one instance per document, addressed by `idFromName(documentId)`. The Worker calls it through Workers RPC. Its storage is its own SQLite, used through `@effect/sql-sqlite-do`, with migrations run through `Migrator.fromRecord` the first time the instance wakes. A migration is never edited once it lands, as in `spec.sessions.trace-store`.
+- D1 is used through `@effect/sql-d1`. Its migrations sit in `src/d1/migrations/` and run on deploy. Better Auth's tables come from its own schema. Cairn adds:
+
+```sql
+create table workspaces (id text primary key, organization_id text unique not null, kind text not null, name text not null, created_at text not null);
+create table documents (id text primary key, workspace_id text not null, title text not null, visibility text not null,
+  member_access text not null, current_prd text not null, current_spec text, access_epoch integer not null default 0,
+  created_by text not null, created_at text not null, updated_at text not null);
+create table document_grants (document_id text, user_id text, access text not null, granted_by text not null, at text not null, primary key (document_id, user_id));
+create table document_invitations (id text primary key, workspace_id text not null, document_id text not null, email text not null,
+  access text not null, token_hash text unique not null, invited_by text not null, expires_at text not null, status text not null, accepted_by text);
+create table agents (id text primary key, workspace_id text not null, name text not null, for_user text not null, scope text not null,
+  token_hash text not null, created_at text not null, last_used_at text, revoked_at text);
+create table connections (document_id text primary key, remote_url text, connected_by text not null, at text not null);
+create table usage (workspace_id text primary key, members integer not null, prds integer not null, private_prds integer not null, public_prds integer not null);
+create table pending_revocations (id text primary key, document_ids text not null, principals text not null, epoch integer not null, created_at text not null, attempts integer not null default 0);
+```
+
+- Large bodies. `blobs.ts` stores a revision body over 512 KiB in R2 at `revisions/<document>/<revision>.md`. R2 is reached only through the room, so the room's policy applies to it. The launch has no attachments.
+- Caching. Every protected response carries `Cache-Control: no-store`. Public responses carry `no-cache` and an `ETag`. No shared cache ever holds document content, so making a document private has nothing to purge.
+- Deploy. `alchemy.run.ts` defines the Worker, the `PrdRoom` namespace, the D1 database, the R2 bucket, the email binding, a cron trigger every minute (see `spec.hosted-launch.room`) and the secrets. The secrets are Alchemy config bindings and none is in the repo. The configuration it reads is in `spec.hosted-launch.self-hosting`.
+
+New dependencies: `better-auth`, `@effect/sql-d1`, `@effect/sql-sqlite-do`, `stripe` and the dev dependency `@cloudflare/vitest-pool-workers`, each pinned at the version current on the day it is added. `alchemy` is already in the workspace.
+
+Tests run in `@cloudflare/vitest-pool-workers` with local D1, Durable Objects and R2. Read its configuration docs before writing `vitest.config.ts`.
+
+- An unknown route is a `404` in the error shape.
+- A request with an invalid body gets `invalid-input`, naming the field.
+- A room that is evicted and woken keeps its SQLite rows.
+- A revision body of 600 KiB goes to R2 and reads back unchanged.
+
+### Accounts and workspaces {#spec.hosted-launch.accounts-and-workspaces}
+
+- Implements: `prd.launch`, `prd.launch.workspaces`
+- Files: `apps/hosted/src/auth.ts`, `apps/hosted/src/mailer.ts`, `apps/hosted/src/http/me.ts`, `apps/hosted/src/http/workspaces.ts`, `apps/hosted/test/accounts.test.ts`
+- Depends on: `spec.hosted-launch.worker-and-storage`
+
+Sign-in runs on Better Auth in the Worker, with its tables in D1, through Alchemy's Better Auth integration. Read that integration's docs and Better Auth's plugin docs before writing `auth.ts`.
+
+- Ways in. GitHub, Google and a magic link. An operator can turn each one off (see `spec.hosted-launch.self-hosting`). A magic link works once and expires after five minutes.
+- Linking. A sign-in joins the existing user with the same email only when the provider has confirmed that email. So GitHub, Google and a magic link to one address reach one user.
+- Device authorization serves `cairn connect` (see `spec.hosted-launch.cairn-connect`).
+- Workspaces. Better Auth's organization plugin holds workspace membership and roles. Each workspace is one organization, and a `workspaces` row adds Cairn's ID and kind. Document grants and guest access are Cairn's own (see `spec.hosted-launch.policy`).
+- Mail. `Mailer` is a service. Its live layer sends through Cloudflare Email Service from a sending subdomain of the configured domain. If that service cannot deliver to an address, a transactional email provider takes its place behind the same service. The test layer records each message.
+
+Sign-up. Better Auth's hook after a user is created makes a personal workspace in one D1 batch: an organization, a `workspaces` row of kind `personal` named `<name>'s workspace`, the user as its owner, and a `usage` row. The hook checks for an existing personal workspace first, so running it again creates nothing. Sign-up asks for no payment details. Under managed billing the new workspace is on the free plan, and with billing off it is self-hosted.
+
+Routes:
+
+| Route                  | Does                                                                                                                                                                                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/me`          | Returns the user; their workspaces, each with role and kind; and `sharedWithMe`, the documents they hold grants on in workspaces where they are not a member, each with its workspace name and nothing else about that workspace. Signed out, it is `401` |
+| `POST /api/workspaces` | Takes `{ name }`, and creates a team workspace with the caller as owner, on the free plan                                                                                                                                                                 |
+
+A personal workspace has exactly one member and cannot invite more. Its PRDs can still have guests.
+
+Tests:
+
+- A magic link sign-up through the test `Mailer` gives `/api/me` with one personal workspace, an owner role and a free entitlement, with no checkout called. Proves prd.launch#v1.
+- `POST /api/workspaces` with "Acme" makes `/api/me` list both workspaces. Proves prd.launch.workspaces#v1, on the API.
+- A second use of a magic link is refused, and so is a use after five minutes.
+- A Google sign-in, stubbed with a confirmed email, joins the magic-link user. An unconfirmed email does not.
+
+### Entitlements {#spec.hosted-launch.entitlements}
+
+- Implements: `prd.launch.plans`
+- Files: `apps/hosted/src/plans.ts`, `apps/hosted/src/entitlements.ts`, `apps/hosted/src/http/entitlements.ts`, `apps/hosted/test/entitlements.test.ts`
+- Depends on: `spec.hosted-launch.worker-and-storage`, `spec.hosted-launch.accounts-and-workspaces`
+
+Plans are configuration, not code. The `PLANS` binding is JSON, decoded through a schema:
+
+```ts
+Plans = { free: Limits; paid: Array<{ name: Slug; priceId: string; limits: Omit<Limits, "members"> }>; graceDays: number }
+```
+
+A paid plan's member limit is the number of seats bought (see `spec.hosted-launch.billing`). With billing off, every workspace is on `self-hosted` and every limit is `null`. The PRD leaves prices, allowances, the free plan's private allowance and guest caps for the product to settle. The test fixtures use `free: { members: 3, prds: 3, privatePrds: 3, publicPrds: null, guestsPerPrd: 5 }`, and nothing in code depends on those numbers.
+
+What counts:
+
+- `members`: workspace members plus pending workspace invitations, so accepting an invitation never fails on the limit.
+- `prds`, `privatePrds` and `publicPrds`: the workspace's documents.
+
+Guests and agents are not counted as members. Inviting a guest never touches `members`. It checks only `guestsPerPrd`, against that document's guests.
+
+Reserving. `reserve(workspace, dimension)` runs `update usage set <dim> = <dim> + 1 where workspace_id = ? and (? is null or <dim> < ?)` and goes ahead only when one row changed. D1 runs writes one at a time, so of two concurrent requests at the limit, one gets the row and the other does not. The caller then writes its own row. If that write fails, it releases the reservation with `- 1`. Moving a document between private and public reserves one dimension and releases the other in one batch.
+
+A reservation that does not fit fails with `limit-reached`. The error names the dimension, the plan, the used count, the allowance and, under managed billing, the upgrade URL. `GET /api/workspaces/:id/entitlements` returns `Entitlements` to members, so the screens explain a limit before a person tries the action (see `spec.hosted-launch.workspace-screens`).
+
+Over the limit. After a downgrade or a lapse, `overLimit` lists every dimension whose usage is above its allowance. The only effect is that new reservations in those dimensions fail. Nothing is deleted, nothing changes visibility, and editing, commenting, history and export work as before. Policy never reads entitlements (see `spec.hosted-launch.policy`).
+
+Tests:
+
+- 20 concurrent creates in a workspace with a limit of 3 make exactly 3 documents and 17 `limit-reached` errors. The usage row says 3.
+- A guest invitation leaves `members` unchanged. Proves prd.launch.plans#v2, on the API.
+- Lowering a workspace with five private PRDs to the fixture's free plan leaves all five present, private, editable and exportable. `overLimit` holds `privatePrds` and `prds`, and a sixth create is refused naming `prds`. Proves prd.launch.plans#v3, on the API.
+
+### Room {#spec.hosted-launch.room}
+
+- Implements: `prd.launch.membership`, `prd.launch.discussion`
+- Files: `apps/hosted/src/room/room.ts`, `apps/hosted/src/room/sockets.ts`, `apps/hosted/src/room/events.ts`, `apps/hosted/src/revocation.ts`, `apps/hosted/src/http/live.ts`, `apps/hosted/src/http/state.ts`, `apps/hosted/test/room.test.ts`
+- Depends on: `spec.hosted-launch.worker-and-storage`, `spec.hosted-launch.policy`
+
+Each PRD's room accepts its writes in order and pushes live updates to the people reading it.
+
+Writes. Every write reaches the room as an RPC from the Worker, after `decide` has allowed it on fresh facts. Each RPC carries the principal, the document's `access_epoch` the Worker decided under, and a `clientId`. A Durable Object runs one turn at a time, so the room's writes are linearized. Each accepted write gets the next `seq` from the room's own counter. No client's clock orders anything.
+
+Idempotency. A table `idempotency(client_id primary key, result, at)` stores each write's result. A retry with the same `clientId` gets the stored result and writes nothing. Progress events are keyed by their `EventId` instead: `events(id primary key, seq, task_id, actor, body, at)`, inserted with `on conflict do nothing`.
+
+Live updates. `GET /api/documents/:id/live` upgrades to a WebSocket once the Worker has allowed `document.read`. The room accepts the socket with the hibernation API. It saves the principal, the access level, the session's expiry and the section being read in the socket's attachment. Each write broadcasts one `RoomMessage` to every socket the write is visible to:
+
+- An anonymous socket gets messages only while the document is public, and the trace in its public form (see `spec.hosted-launch.visibility`).
+- A socket whose session has expired is closed with code 4401 at its next broadcast.
+- `reading` messages go only to sockets with at least `comment` access. An anonymous reader neither sends nor receives presence.
+
+Reconnecting. `GET /api/documents/:id/state` returns the room's `seq`, the current revisions, the threads, the trace hash and the latest approvals. A client fetches it whenever its socket opens, replaces what it holds, and from then on ignores messages whose `seq` it already has. It reconnects with backoff from 1 second to 30 seconds. Missed messages are covered by the fetch, and retried writes by their idempotency keys, so a reconnect loses no committed comment and repeats no event.
+
+Revocation. Removing a membership, a guest grant or an agent's delegation goes through `revoke` in `revocation.ts`:
+
+1. In one D1 batch, delete the membership or grant, or mark the agent revoked. Then increment `access_epoch` on every affected document: all of a workspace's documents for a membership, one document for a grant, and the agent's scope for an agent. Then insert a `pending_revocations` row.
+2. Call each affected room's `revoked({ principals, epoch })`. The room stores `min_epoch` in its own storage, so it survives hibernation. It refuses any write whose epoch is below `min_epoch` with `stale-authorization`, and the Worker then decides that request again once, on fresh facts. It works out the access again from D1 for every socket of those principals. A socket left with no access gets `{ type: "access", access: "none" }` and is closed with code 4403. Any other affected socket gets its new access.
+3. Delete the `pending_revocations` row and return.
+
+The diagram shows a member being removed while they have a tab open:
+
+```mermaid
+sequenceDiagram
+  participant A as Admin browser
+  participant W as Worker
+  participant D as D1
+  participant R as PrdRoom
+  participant T as Removed member tab
+  A->>W: remove member
+  W->>D: delete membership, bump access_epoch, add pending revocation
+  W->>R: revoked with principals and epoch
+  R->>R: store min_epoch, recompute socket access
+  R-->>T: access none, close 4403
+  R-->>W: done
+  W->>D: delete pending revocation
+  W-->>A: 204
+  T->>W: next request
+  W->>D: load facts
+  W-->>T: 404 not-found
+```
+
+A revocation takes effect when its request returns:
+
+- Every HTTP request decided after the D1 batch reads the new facts.
+- Every room write decided before it carries an older epoch and is refused once the room has the new `min_epoch`.
+- A write that the room accepted before then is ordered before the revocation.
+
+If a room call fails, the request still returns, because D1 already denies every new HTTP request. The cron trigger retries each pending row every minute until every room has acknowledged it. Content already delivered to a browser cannot be taken back, and the UI does not claim otherwise.
+
+Tests:
+
+- A removed member's open socket is closed with code 4403 before the removal request returns, and their next fetch is a `404`. Proves prd.launch.membership#v1, for the tab already open.
+- A write decided under the old epoch and delivered after the revocation is refused.
+- Resending 50 events with the same IDs after a dropped socket stores 50.
+- A client that missed three messages while disconnected holds the same state after `state` as a client that stayed connected.
+- A hibernated room wakes with its sockets' attachments and its `min_epoch`.
+- The cron retry clears a pending row whose room call failed once.
+
+### Revisions {#spec.hosted-launch.revisions}
+
+- Implements: `prd.launch.history`, `prd.launch.workspaces`
+- Files: `apps/hosted/src/room/revisions.ts`, `apps/hosted/src/room/migrations/`, `apps/hosted/src/http/revisions.ts`, `apps/hosted/test/revisions.test.ts`
+- Depends on: `spec.hosted-launch.room`, `spec.sections.parsing`
+
+Every accepted PRD or spec edit is a durable revision in the room:
+
+```sql
+create table revisions (id text primary key, kind text not null, number integer not null, parent_id text, author text not null,
+  at text not null, hash text not null, restored_from text, body text, body_key text, bytes integer not null, unique (kind, number));
+create table current (kind text primary key, revision text not null);
+```
+
+Room RPCs:
+
+- `save({ kind, base, markdown, author, clientId, epoch })`. In one turn:
+  1. Return the stored result if the `clientId` has one.
+  2. If `base` is not the current revision of that kind, fail with `stale-revision` and send the current `RevisionBody`, so the person can compare it with their draft. Nothing is written.
+  3. Run `assignSectionIds` on the markdown, with `prd` or `spec`, so every heading has an ID that anchors and links can name.
+  4. If the result's hash equals the current revision's hash, return the current revision. No new revision is made.
+  5. Otherwise insert revision `number + 1` with `parent` set to the current one, move `current`, update `documents.current_*` and `updated_at` in D1, and broadcast `revision`.
+- `listRevisions(kind)`: newest first, without bodies.
+- `readRevision(id)`: one `RevisionBody`.
+- `restore({ revision, base, author, clientId, epoch })`: a save of that revision's markdown with `restoredFrom` set. It is refused as stale like any save. It does not touch grants, threads, events, plan records or approvals.
+
+Bodies over 512 KiB go to R2 (see `spec.hosted-launch.worker-and-storage`). A revision over 5 MiB is `invalid-input`. That size cap is my choice.
+
+HTTP:
+
+| Route                                       | Policy             | Returns                                            |
+| ------------------------------------------- | ------------------ | -------------------------------------------------- |
+| `POST /api/documents/:id/revisions`         | `document.edit`    | `201` with the `RevisionBody`, or `409` stale      |
+| `GET /api/documents/:id/revisions?kind=prd` | `document.history` | The list                                           |
+| `GET /api/documents/:id/revisions/:rev`     | `document.history` | The body; `404` for a revision of another document |
+| `POST /api/documents/:id/restore`           | `document.edit`    | `201` with the new `RevisionBody`, or `409`        |
+
+A public reader gets the current revision through `GET /api/documents/:id` alone. They never get history.
+
+Revisions live in the room's storage, so they survive a restart, a hibernation and a deploy. A deploy changes code, not Durable Object storage.
+
+Tests:
+
+- Creating a document counts as its first save. Importing one and saving it twice lists three revisions, newest first, each with its author's name and time, and the earliest reads back exactly as it was imported. Proves prd.launch.history#v1, on the API.
+- Two clients save against the same base. The second gets `409` with the first's revision, and no revision is written for it. Proves prd.launch.workspaces#v3, on the API.
+- Restoring revision 1 of four adds revision 5 with `restoredFrom` revision 1. Revisions 2 to 4, every thread, every event and every approval are still there. Proves prd.launch.history#v2, on the API.
+- Properties over generated saves: numbers have no gaps, and each revision's parent is the revision that was current before it.
+
+### Document directory {#spec.hosted-launch.document-directory}
+
+- Implements: `prd.launch.workspaces`
+- Files: `apps/hosted/src/http/documents.ts`, `apps/hosted/src/d1/directory.ts`, `apps/hosted/test/documents.test.ts`
+- Depends on: `spec.hosted-launch.revisions`, `spec.hosted-launch.entitlements`, `spec.hosted-launch.accounts-and-workspaces`
+
+A workspace holds any number of independent PRDs. Each has a stable `DocumentId` that does not change when its title does. A PRD with no spec, plan, task or repository is a complete document, and it has comments and sharing.
+
+| Route                                    | Policy                     | Does                                                                                                                                                                                                                                                                                                                             |
+| ---------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/workspaces/:id/documents`     | `workspace.createDocument` | Takes `{ title?, markdown?, clientId }`. It reserves `prds` and `privatePrds`, creates the `documents` row, private and with `memberAccess: "edit"`, and saves revision 1 in the new room. With no markdown, revision 1 is `# <title>`. The title is the one given, else the import's first level 1 heading, else `Untitled PRD` |
+| `GET /api/workspaces/:id/documents?q=`   | `workspace.read`           | The workspace's documents, newest change first, filtered by title, ignoring case, when `q` is given                                                                                                                                                                                                                              |
+| `GET /api/documents/:id`                 | `document.read`            | The `DocumentView`: the current PRD markdown, the caller's access, and whether a plan exists                                                                                                                                                                                                                                     |
+| `PATCH /api/documents/:id`               | `document.edit`            | Takes `{ title }`. Renaming changes the D1 title only. It makes no revision and leaves the markdown's own heading as it is, which is my choice                                                                                                                                                                                   |
+| `GET /api/documents/:id/export?kind=prd` | `document.export`          | The current markdown, or `?revision=` with `document.history`, as `text/markdown` with `Content-Disposition: attachment; filename="<title-slug>.md"`                                                                                                                                                                             |
+
+Importing a file means its bytes are read in the browser and sent as `markdown`. It must be UTF-8 and at most 5 MiB. Workspace find searches titles only, which is my choice: the PRD asks only that a person can find a PRD in the workspace.
+
+Routes in the browser carry the workspace and the document: `/w/<workspaceId>/d/<documentId>-<title-slug>`, followed by the link steps of `spec.contract.links`. The title slug is ignored when the path is read. A wrong slug is replaced with the canonical one, so a renamed PRD's old address still opens it. A `workspaceId` that is not the document's own gives the same `404` as an unknown document. Section and task IDs repeat freely across PRDs, because every lookup is scoped to one document.
+
+Tests:
+
+- Importing a file as a new PRD called "Roadmap" lists it in its workspace. Renaming it changes the list, and its export equals revision 1 byte for byte. `GET` shows `hasPlan: false`, and threads and sharing work on it. Proves prd.launch.workspaces#v2, on the API.
+- Two documents that both have `prd.goal` keep their own sections.
+- An unknown ID and a document in another workspace give identical `404` bodies.
+
+### Members and invitations {#spec.hosted-launch.members-and-invitations}
+
+- Implements: `prd.launch.membership`
+- Files: `apps/hosted/src/http/members.ts`, `apps/hosted/src/http/invitations.ts`, `apps/hosted/src/invitations.ts`, `apps/hosted/test/members.test.ts`
+- Depends on: `spec.hosted-launch.accounts-and-workspaces`, `spec.hosted-launch.entitlements`, `spec.hosted-launch.room`, `spec.hosted-launch.document-directory`
+
+Workspace members:
+
+| Route                                         | Policy                    | Does                                                                                                                                                                       |
+| --------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/workspaces/:id/members`             | `workspace.read`          | Members with role, and pending invitations for admins and owners                                                                                                           |
+| `POST /api/workspaces/:id/invitations`        | `workspace.manageMembers` | Takes `{ email, role }`. It reserves `members` and emails an invitation link                                                                                               |
+| `DELETE /api/workspaces/:id/invitations/:inv` | `workspace.manageMembers` | Revokes a pending invitation and releases its seat                                                                                                                         |
+| `PATCH /api/workspaces/:id/members/:user`     | `workspace.manageMembers` | Changes a role. The last owner can be neither demoted nor removed                                                                                                          |
+| `DELETE /api/workspaces/:id/members/:user`    | `workspace.manageMembers` | Removes the membership and the person's grants in this workspace, revokes their agents for it, and releases the seat, all through `revoke` (see `spec.hosted-launch.room`) |
+
+Removing a member takes away all their access to the workspace's PRDs. To keep one, a manager shares it with them again as a guest. That is my choice.
+
+Guests:
+
+| Route                                    | Policy            | Does                                                                                                                                                                                     |
+| ---------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/documents/:id/invitations`    | `document.manage` | Takes `{ email, access: "read" \| "comment" }`. It checks `guestsPerPrd` and emails a link. An email that belongs to a member is refused: `Already a member. Set their access in Share.` |
+| `PUT /api/documents/:id/grants/:user`    | `document.manage` | Sets a member's or guest's grant. A guest's grant is capped at `comment`                                                                                                                 |
+| `PUT /api/documents/:id/member-access`   | `document.manage` | Sets `memberAccess`                                                                                                                                                                      |
+| `DELETE /api/documents/:id/grants/:user` | `document.manage` | Removes the grant through `revoke`                                                                                                                                                       |
+| `GET /api/documents/:id/access`          | `document.manage` | Who can read, comment, edit or manage, and why: role, member access, grant or public (see `spec.hosted-launch.sharing-dialog`)                                                           |
+
+Invitations are bound to one person and one scope:
+
+- A link holds a 32-byte token, encoded base64url. Only its SHA-256 is stored. It expires after seven days, which is my choice, and it works once.
+- `POST /api/invitations/:token/accept` needs a signed-in user whose confirmed email equals the invitation's email, ignoring case. Anyone else gets `403` `This invitation was sent to another address.`, which does not name the address.
+- Accepting a workspace invitation adds the person with its role. Accepting a document invitation adds a grant on that one document.
+- Knowing a private PRD's address grants nothing.
+
+A guest sees their documents under "Shared with you" (`/api/me`). Every workspace route, and every other document of that workspace, gives them `404`.
+
+Tests:
+
+- An admin invites a colleague by email. The colleague accepts through the test `Mailer` and appears in `members` with the member role. After removal, their next request for any of the workspace's PRDs is a `404`. Proves prd.launch.membership#v1, on the API.
+- An acceptance from the wrong address, a reused token and an expired token are each refused.
+- A guest invited as a commenter on "Roadmap" reads it and comments. `members`, the workspace's documents, its agents, and another private PRD's `GET`, `state` and `live` each give a `404` identical to an unknown ID's. Proves prd.launch.membership#v2.
+- Removing a guest's grant closes their open socket.
+
+### Agent credentials and gate approvals {#spec.hosted-launch.agent-credentials-and-gate-approvals}
+
+- Implements: `prd.launch.membership`, `prd.launch.history`
+- Files: `apps/hosted/src/agents.ts`, `apps/hosted/src/http/agents.ts`, `apps/hosted/src/http/progress.ts`, `apps/hosted/src/http/approvals.ts`, `apps/hosted/src/room/approvals.ts`, `apps/hosted/test/agents.test.ts`
+- Depends on: `spec.hosted-launch.members-and-invitations`, `spec.hosted-launch.room`, `spec.hosted-launch.revisions`
+
+An agent has its own identity, separate from the person it acts for, and its own scoped credential that can be revoked.
+
+- `POST /api/workspaces/:id/agents` (`agent.create`) takes `{ name, scope }` and returns the `Agent` and its token once: `cagt_<agent id without prefix>_<32 random bytes, base64url>`. Only the secret's SHA-256 is stored.
+- `GET /api/workspaces/:id/agents` lists the caller's own agents. Admins and owners see every agent in the workspace.
+- `DELETE /api/workspaces/:id/agents/:agent` sets `revoked_at` and runs `revoke` for the agent's scope.
+- A request carrying the token resolves to an agent principal. The secret is compared in constant time, and `last_used_at` is updated at most once a minute. A revoked or unknown token gets `401 unauthenticated`: `This agent's credential was revoked or is unknown.`
+- An agent's access is checked on every request against its delegating person's current access (see `spec.hosted-launch.policy`). When that person loses access, so does the agent, with nothing more to revoke.
+- Agents never count as members.
+
+Progress. `POST /api/documents/:id/events` (`progress.write`) takes `{ events: Array<{ id: EventId; event: Event }> }`, at most 500 per request.
+
+- The room stores each new ID and broadcasts it. A repeated ID is skipped.
+- The server sets `actor` from the principal: `agent:<agentId>` for an agent, `human:<name>` for a person. An agent's line that claims a `human:` actor is refused with `403`.
+- An agent's `done` on a gated task is stored as what it is. Derivation does not treat it as an approval (see `spec.status.derivation`).
+
+Gate approvals. `POST /api/documents/:id/tasks/:task/approve` (`gate.approve`) takes `{ clientId }`.
+
+- It is refused with `409` unless the latest trace snapshot (see `spec.hosted-launch.cairn-connect`) shows the task `blocked_on_human`.
+- The room records a `GateApproval` with the inputs it applies to: the current PRD and spec revisions, the latest plan record and the task's newest commit in the snapshot. It broadcasts `approval`.
+- An agent gets `403` `Only a person can approve a gate.`, whatever its delegating person could do.
+
+An approval is tied to revision IDs, not to content. An edit, or a restore of an older revision, makes a new revision ID, and an approval of an earlier one never carries over to it. The viewer shows the difference (see `spec.hosted-launch.plan-source`).
+
+Tests:
+
+- An agent acting for a person posts progress to a PRD the person can read. The room holds the events with actor `agent:<id>`.
+- The same agent's approval is refused with `403`.
+- After its credential is revoked, its next post gets `401`. Proves prd.launch.membership#v3, on the API.
+- An agent whose person is removed from the workspace gets `404` on its next post.
+- A document outside its scope gives `404`. An action outside its scope gives `403`.
+- An approval records the revisions current at the time. After a later save, those inputs are not the current revision.
+
+### Visibility {#spec.hosted-launch.visibility}
+
+- Implements: `prd.launch.sharing`
+- Files: `apps/hosted/src/http/visibility.ts`, `apps/hosted/src/http/public.ts`, `apps/hosted/src/render/page.ts`, `apps/hosted/src/d1/search.ts`, `apps/hosted/src/d1/migrations/`, `apps/hosted/src/public-trace.ts`, `apps/hosted/test/visibility.test.ts`
+- Depends on: `spec.hosted-launch.document-directory`, `spec.hosted-launch.revisions`, `spec.hosted-launch.room`, `spec.hosted-launch.entitlements`, `spec.viewer.markdown-rendering`, `spec.contract.trace`
+
+Sharing applies to a whole PRD. A public PRD is public, not a secret link. A private one exists only for the people policy lets in.
+
+Changing visibility is `PATCH /api/documents/:id/visibility` (`document.manage`).
+
+Making a document public:
+
+- The request is `{ visibility: "public", acknowledged: true }`, sent after the dialog's explanation (see `spec.hosted-launch.sharing-dialog`). Without `acknowledged`, the request is refused.
+- It reserves `publicPrds` and releases `privatePrds`.
+- It inserts the document's title and the visible text of its current PRD into the public search table.
+- The room broadcasts `visibility`.
+
+Making a document private:
+
+- It writes `private` in D1 first. It never fails on the private allowance: privacy wins, and the workspace may go over that allowance, which only blocks new private PRDs. That is my choice.
+- It deletes the search row.
+- It runs `revoke` for the anonymous principal, which closes every anonymous socket with code 4410.
+
+A new migration adds `create virtual table public_search using fts5(document_id unindexed, title, body)`. Only public documents are in it. Each accepted save of a public PRD replaces its row. Visible text comes from `mdast-util-from-markdown`, with code fences and HTML comments left out.
+
+Public reading. `GET /w/:ws/d/:doc[-slug]/*` is answered by `render/page.ts`:
+
+- For a document the request may read, it returns the viewer's page.
+- For a public document, the page also holds the server-rendered current PRD in an `<article>` and its threads as a plain list. The markdown is rendered through the viewer's `renderMarkdown` to a string, the same way the docs prerender their pages (see `spec.cli.documentation.docs-site`).
+- Its head holds `<title>`, `meta name=description` (the first paragraph, at most 160 characters), `og:title`, `og:description`, `og:url`, `og:type` `article`, `og:image` (the operator's configured image), `twitter:card` and `link rel=canonical`.
+- For anything else, it returns the same "Not available" page with `<meta name="robots" content="noindex">` and no title, text or count from the document. An authorized private reader gets the page without server-rendered content and with `noindex`, and the viewer loads the rest through the API.
+
+Discovery and indexing:
+
+- `GET /explore`, and `GET /api/public/documents?q=`, list public PRDs, newest change first, with search through the full-text table.
+- `GET /sitemap.xml` lists public PRDs from D1 as it is now.
+- `GET /robots.txt` allows `/w/` and `/explore`.
+
+None of them can list a private PRD, because they read only public rows.
+
+The plan in public. `publicTraceOf(trace)` is what anonymous readers get from a plan snapshot. It keeps the spec, the tasks with their statuses, model and reasoning, and the stacks. It removes:
+
+- commits, keeping only a count;
+- session IDs, files and worktrees;
+- `path:` gate reasons, keeping `required`;
+- event `detail`;
+- every private field of `spec.contract.usage-in-the-trace`.
+
+Code, agent transcripts and repository access are never part of a public PRD.
+
+What the server enforces, and how:
+
+| Surface           | Enforced by                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| Documents, export | `document.read` on every route                                                      |
+| History           | `document.history`, which the public floor never gives                              |
+| Comments          | Served with the document and filtered like it (see `spec.hosted-launch.discussion`) |
+| Search, discovery | Only public rows                                                                    |
+| Previews          | Metadata only for public documents                                                  |
+| Live updates      | Anonymous sockets only while public, closed with 4410 when private                  |
+| Attachments       | None at launch                                                                      |
+
+Tests:
+
+- Signed out, a public PRD's address returns its title, `og:` tags, article text and comment text. It is in `/explore`, the search results and the sitemap.
+- A private PRD's address returns no title or text, and it is in none of those. Proves prd.launch.sharing#v1, on the server.
+- After a public PRD is made private, a signed-out reload is the "Not available" page, it is gone from `/explore` and search, and an anonymous socket is closed with code 4410. Proves prd.launch.sharing#v3, on the server.
+- Property: for every route in the test's list of document routes, an anonymous response for a private document contains neither its title nor any of its section text.
+- An earlier revision of a public PRD gives anonymous readers a `404`.
+
+### Discussion {#spec.hosted-launch.discussion}
+
+- Implements: `prd.launch.discussion`
+- Files: `packages/core/src/anchors.ts`, `apps/hosted/src/room/discussion.ts`, `apps/hosted/src/room/migrations/`, `apps/hosted/src/http/discussion.ts`, `packages/core/test/anchors.test.ts`, `apps/viewer/test/anchors-agree.test.ts`, `apps/hosted/test/discussion.test.ts`
+- Depends on: `spec.hosted-launch.room`, `spec.hosted-launch.revisions`, `spec.hosted-launch.policy`, `spec.viewer.deep-links.resolving-a-link`, `spec.sections.parsing`
+
+Threads, replies and resolution live in the room, which stores them durably:
+
+```sql
+create table threads (root text primary key, anchor text not null, status text not null, resolved_by text, resolved_at text, created_at text not null);
+create table comments (id text primary key, thread text not null, author text not null, body text not null, at text not null,
+  edited_at text, version integer not null default 1);
+```
+
+| Route                                                         | Policy             | Does                                                                                                                                                                                                             |
+| ------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/documents/:id/threads`                             | `document.comment` | Takes `{ anchor, body, clientId }`. The anchor's revision must exist. An anchor on an earlier revision also needs `document.history`. A quote must be found in that revision's section, or it is `invalid-input` |
+| `POST /api/documents/:id/threads/:root/replies`               | `document.comment` | Takes `{ body, clientId }`                                                                                                                                                                                       |
+| `PATCH /api/documents/:id/comments/:note`                     | the author only    | Takes `{ version, body }`. A version that is not the current one gets `stale-comment` with the current comment                                                                                                   |
+| `POST /api/documents/:id/threads/:root/resolve` and `/reopen` | `thread.resolve`   | An agent may resolve its own threads. A person may resolve anyone's                                                                                                                                              |
+| `GET /api/documents/:id/threads`                              | `document.read`    | Every `ThreadView`, open and resolved                                                                                                                                                                            |
+| `GET /api/documents/:id/threads/:root`                        | `document.read`    | One thread                                                                                                                                                                                                       |
+
+Every comment has an authenticated `Author`, set from the principal. Bodies are markdown and are rendered through `renderMarkdown`, which writes no raw HTML. A comment's link is the document's route followed by `/note/<id>`, which the viewer opens on its thread. Two replies sent at once each get their own ID and `seq`, and both are kept. Comments inherit the document's visibility: a public PRD's comments are public, and an anchor creates no rule of its own.
+
+Anchors. `anchorStateOf(current, anchor)` in `packages/core/src/anchors.ts` is pure:
+
+- An anchor on the current revision is attached.
+- Otherwise its section must still exist in the current markdown, and its quote, when it has one, must still be found there. If both hold, it is attached. If not, it is changed, with `section-missing` or `passage-changed`.
+- The text match is the rule `passageOf` uses: the section's visible text joined with one space, whitespace collapsed, and an exact, case-sensitive match. Visible text comes from `mdast-util-from-markdown`, with GFM, in core.
+
+The server fills `original` only for a reader allowed `document.history`. Anyone else, the public reader included, sees that the anchor changed and nothing of the earlier revision's text. A thread is never deleted because its text changed.
+
+Tests:
+
+- A commenter starts a thread on a passage. A teammate replies and resolves it. Each comment's `GET` returns it with its author. Proves prd.launch.discussion#v1, on the API.
+- After the anchored passage is edited, the thread is `changed` with `passage-changed`. A member gets `original` with the quote, and an anonymous reader of the public PRD gets `original: null`. Proves prd.launch.discussion#v2, on the API.
+- Two concurrent replies are both kept. Two edits of one comment from the same version give the second `stale-comment`.
+- An agent resolves its own thread and is refused on a person's.
+- A retried `clientId` returns the same comment.
+- `anchors-agree.test.ts` runs core's `anchorStateOf` and the viewer's `passageOf` on shared fixtures and finds the same answer.
+
+### Links between PRDs {#spec.hosted-launch.links-between-prds}
+
+- Implements: `prd.launch.discussion`
+- Files: `packages/core/src/doc-links.ts`, `apps/hosted/src/d1/links.ts`, `apps/hosted/src/d1/migrations/`, `apps/hosted/src/http/links.ts`, `apps/viewer/src/markdown.ts`, `apps/viewer/src/hosted/view/backlinksView.ts`, `packages/core/test/doc-links.test.ts`, `apps/hosted/test/links.test.ts`, `apps/viewer/test/hosted/links.scene.test.ts`
+- Depends on: `spec.hosted-launch.revisions`, `spec.hosted-launch.visibility`, `spec.hosted-launch.policy`, `spec.viewer.markdown-rendering`
+
+A PRD links to another PRD with an ordinary markdown link whose href is `doc:<DocumentId>` or `doc:<DocumentId>#<SectionId>`. The editor inserts one from a picker of the PRDs the author can read. Export keeps the href as it is written. The syntax is my choice. A link between PRDs grants no access and implies no task dependency.
+
+- `docLinksOf(markdown)` in core is pure. It returns each `doc:` link outside fences, as `{ target, section }`.
+- On each accepted save of a PRD, the Worker replaces that document's rows in a new table `document_links(source_id, target_id, target_section, primary key (source_id, target_id, target_section))`, built from the new current revision.
+- `GET /api/documents/:id/links` (`document.read`) asks `decide` about every target for the caller. For each one it returns either `{ href, state: "readable", title, sectionTitle, excerpt }`, with the excerpt at most 160 characters, or `{ href, state: "unavailable" }`.
+- `GET /api/documents/:id/backlinks` (`document.read`) returns only the sources the caller can read, with their title and section. Sources the caller cannot read are left out, with no count.
+
+The renderer gets the resolved map through a `docLink` hook. A readable target is a link to the document's route, with its title as a tooltip. An unavailable target keeps the author's link text, followed by a chip reading "No access", with no title, excerpt or status. The public page and `/explore` call the same routes as an anonymous principal. The search table never holds another document's title.
+
+`backlinksView` lists the backlinks under the PRD pane's last section.
+
+Tests:
+
+- On a public PRD that links to a private one, a signed-out reader's `links` gives `unavailable`. The public page's HTML contains neither the private title nor its text.
+- A member who can read both sees the link resolved and the backlink on the private PRD. Proves prd.launch.discussion#v3.
+- `docLinksOf` ignores links in fences.
+
+### Data sources {#spec.hosted-launch.data-sources}
+
+- Implements: `prd.launch.workspaces`, `prd.launch.acceptance`
+- Files: `apps/viewer/src/source.ts`, `apps/viewer/src/load.ts`, `apps/viewer/src/main.ts`, `apps/viewer/vite.config.ts`, `apps/viewer/package.json`, `apps/site/`, `packages/cli/src/serve.ts`, `apps/viewer/test/source.test.ts`, `apps/viewer/test/bundle.test.ts`
+- Depends on: `spec.viewer.model-and-messages`, `spec.server`, `spec.viewer.demo-data`
+
+The viewer's data source is chosen once, when it is built, and is never inferred:
+
+```ts
+Source = { kind: "demo" } | { kind: "local" } | { kind: "hosted" };
+```
+
+- `vite.config.ts` sets `__CAIRN_SOURCE__` from `--mode demo`, `local` or `hosted`. A build without one of these modes fails. `import.meta.env.PROD` is never read to choose a source.
+- Each source has its own loader in `load.ts`:
+  - demo loads `demo-trace.json` once;
+  - local polls `/api/trace` (see `spec.server`);
+  - hosted loads the workspace and document APIs (see `spec.hosted-launch.workspace-screens`).
+- A failed load shows its error above whatever it last loaded, or alone. No loader ever falls back to another source.
+- `demo-trace.json` is imported only behind `__CAIRN_SOURCE__ === "demo"`, so the local and hosted bundles do not contain it.
+- `apps/site` builds `demo`. `cairn serve` serves the `local` build. The hosted Worker serves `hosted`.
+
+Tests:
+
+- A hosted load that fails shows its error and no demo content.
+- A local load against a stub server shows that server's feature name.
+- `bundle.test.ts` builds `local` and `hosted` and finds no line of the demo trace in either.
+
+### Workspace screens {#spec.hosted-launch.workspace-screens}
+
+- Implements: `prd.launch.workspaces`, `prd.launch.history`, `prd.launch`
+- Files: `apps/viewer/src/hosted/route.ts`, `apps/viewer/src/hosted/model.ts`, `apps/viewer/src/hosted/message.ts`, `apps/viewer/src/hosted/update.ts`, `apps/viewer/src/hosted/api.ts`, `apps/viewer/src/hosted/live.ts`, `apps/viewer/src/hosted/view/topbarView.ts`, `apps/viewer/src/hosted/view/switcherView.ts`, `apps/viewer/src/hosted/view/documentListView.ts`, `apps/viewer/src/hosted/view/emptyView.ts`, `apps/viewer/src/hosted/view/editorView.ts`, `apps/viewer/src/hosted/view/historyView.ts`, `apps/viewer/src/hosted/view/signInView.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/main.ts`, `apps/viewer/src/ui/components.css`, `apps/viewer/test/hosted/`
+- Depends on: `spec.hosted-launch.data-sources`, `spec.hosted-launch.document-directory`, `spec.hosted-launch.revisions`, `spec.hosted-launch.accounts-and-workspaces`, `spec.hosted-launch.entitlements`, `spec.hosted-launch.room`, `spec.viewer.reader`, `spec.viewer.design-system`, `spec.viewer.deep-links.opening-a-link`
+
+The hosted build adds these screens around the existing reader. The reader is the per-PRD view. Every screen uses the design system's pieces.
+
+| Route                                          | Screen                                                                                                                                                                    |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                                            | Signed out, the sign-in screen: GitHub, Google and email, as the operator turned them on. Signed in, a redirect to the last workspace, or to the personal workspace       |
+| `/w/<ws>`                                      | The PRD list, with a title filter, "New PRD", "Import markdown" and, for managers, "Members"                                                                              |
+| `/w/<ws>/d/<doc>-<slug>/<link steps>`          | The reader for one PRD, with a document bar holding Edit, History, Share, Export and the comment count. Link steps are read through `linkRoute`, nested under this prefix |
+| `/w/<ws>/d/<doc>/edit`                         | The editor                                                                                                                                                                |
+| `/w/<ws>/d/<doc>/history` and `/history/<rev>` | The history list, and one earlier revision                                                                                                                                |
+| `/shared`                                      | "Shared with you", for guests                                                                                                                                             |
+| `/explore`                                     | Public discovery                                                                                                                                                          |
+
+The switcher is in the top bar. It lists the personal workspace, each team workspace, "Shared with you" and "New team workspace…", which asks for a name and calls `POST /api/workspaces`.
+
+Empty states:
+
+- A workspace with no PRDs shows "Write a PRD" and "Import markdown", one sentence on what a PRD is, and a link to the getting started page.
+- A PRD with no plan shows only the PRD pane, full width, with no status lines. Beside it is a card headed "Connect implementation", with the `cairn connect <this page's address>` command to copy and a link to its docs page.
+- The hosted build never shows the demo's plan.
+
+Limits are explained first. "New PRD", "Import markdown" and "Invite" read the workspace's entitlements. When the next action would not fit, the button opens a note naming the limit, such as `This workspace has 3 of 3 PRDs on Free.`, with "Upgrade" for owners, before any request is sent.
+
+The editor:
+
+- It is a monospace `textarea` with a "Preview" toggle that renders through `renderMarkdown`. It edits the PRD, or the spec when the document has one.
+- The Model holds `draft`, `base` and `isSaving`. The draft is also saved to `localStorage` under `<document>:<kind>:<base>`, at most once a second, so a reload keeps it. A successful save clears it.
+- Save sends `base` with a new `clientId`.
+- A stale save keeps the draft and shows a banner: `Someone saved revision 7 while you were editing. Your draft is still here.` It offers three actions:
+  - "Show their version" opens a read-only copy beside the draft.
+  - "Copy my draft" copies the draft.
+  - "Save over it" takes revision 7 as the base and saves the draft as revision 8, an overwrite the person chose. Revision 7 stays in history.
+- Leaving with an unsaved draft asks first.
+
+History:
+
+- The list shows each revision's number, author, time and "restored from N".
+- Opening one shows it in the reader, read-only, under a banner: `Revision 2 of 5, by Ada, 3 Nov`.
+- "Restore" needs `edit`. It asks with `This adds a new revision with this text. Comments, tasks and sharing do not change.` and then calls `restore`.
+
+Live updates: while a document is open, `live.ts` keeps its socket and applies `RoomMessage`s by `seq`. When the socket opens it fetches `state`. A `revision` message from someone else, while the editor is open, shows `Revision 7 was saved by Ada` and leaves the draft alone. An `access: "none"` message clears the document from the Model and shows "You no longer have access to this PRD.".
+
+Tests are Scene tests with a stub API:
+
+- After sign-up the switcher shows the personal workspace. After "New team workspace…" with "Acme", it shows both, and choosing Acme opens its list. Proves prd.launch.workspaces#v1.
+- Importing "Roadmap" adds it to the list. It can be renamed, opened, edited and exported, and has comments and Share. The reader shows no spec or stacks pane and shows the "Connect implementation" card. Proves prd.launch.workspaces#v2.
+- A save answered with `stale-revision` shows the banner with the current revision's number, and the draft is unchanged in the editor. Proves prd.launch.workspaces#v3.
+- History lists three revisions with author and time, and opening the earliest shows its text. Proves prd.launch.history#v1.
+- Restore puts a new revision at the top, with the others still listed. Proves prd.launch.history#v2.
+- Signing up with no workspace content shows the empty state. Proves prd.launch#v1, on the screen.
+- An `access: "none"` message removes the document's content.
+
+### Workspace settings {#spec.hosted-launch.workspace-settings}
+
+- Implements: `prd.launch.membership`
+- Files: `apps/viewer/src/hosted/view/membersView.ts`, `apps/viewer/src/hosted/view/agentsView.ts`, `apps/viewer/src/hosted/view/invitationView.ts`, `apps/viewer/src/hosted/update.ts`, `apps/viewer/test/hosted/members.scene.test.ts`, `apps/viewer/test/hosted/agents.scene.test.ts`
+- Depends on: `spec.hosted-launch.workspace-screens`, `spec.hosted-launch.members-and-invitations`, `spec.hosted-launch.agent-credentials-and-gate-approvals`
+
+Settings are at `/settings/w/<ws>/members` and `/settings/w/<ws>/agents`.
+
+- Members lists each member with their role, and pending invitations with "Revoke".
+  - Owners and admins see "Invite by email", with a role of member or admin, a role menu on each row, and "Remove". Remove asks `They lose access to this workspace's PRDs at once, including in tabs they have open.`
+  - Members see the list read-only.
+  - Guests never reach the page: the API gives `404`, and the screen shows "Not available".
+- Agents lists the caller's agents, or every agent for admins and owners, each with its delegating person, scope, last use and "Revoke".
+  - "New agent" asks for a name, the PRDs it may act on (from those the person can read) and its actions. It then shows the token once, with `cairn connect agent` instructions and the note `Agents cannot approve gates.`.
+- `/invite/<token>` is the invitation page. Signed out, it asks the person to sign in first. After sign-in it shows what the invitation grants and "Accept". Any refusal is shown in the API's own words.
+
+Tests:
+
+- An admin invites an email, and the invitation shows as pending. After the stubbed acceptance, the colleague shows as a member. "Remove" asks first and then removes the row. Proves prd.launch.membership#v1, on the screen.
+- A new agent's token is shown once and gone after the page is left.
+
+### Sharing dialog {#spec.hosted-launch.sharing-dialog}
+
+- Implements: `prd.launch.sharing`, `prd.launch.membership`
+- Files: `apps/viewer/src/hosted/sharing.ts`, `apps/viewer/src/hosted/view/sharingView.ts`, `apps/viewer/src/hosted/update.ts`, `apps/viewer/test/hosted/sharing.scene.test.ts`
+- Depends on: `spec.hosted-launch.visibility`, `spec.hosted-launch.members-and-invitations`, `spec.hosted-launch.workspace-screens`
+
+"Share" opens a dialog with `role="dialog"` that explains who can do what with this PRD, using `GET /api/documents/:id/access`.
+
+- Everyone in Acme can edit. This line is the member access, with a menu for managers.
+- Each person with a grant, labelled "member" or "guest", with their level and the reason: owner, admin, member access or invited.
+- Pending guest invitations.
+- The visibility: "Private. Only the people above can open it." or "Public. Anyone with the address, and search engines, can read it."
+
+Managers also get "Invite a guest", with an email and "Can read" or "Can comment", plus a level menu and "Remove" on each person. People without `manage` see the explanation read-only.
+
+Making a PRD public is two steps. "Make public…" first shows what becomes public:
+
+- the current text of the PRD;
+- its comments, resolved ones included, and their authors' names;
+- the spec, the tasks and their statuses.
+
+It then says what stays private: earlier revisions, code, agent transcripts and repository access, and the people who have access. Only "Make public" in that step sends `acknowledged: true`.
+
+Making a PRD private is also two steps. "Make private…" says:
+
+- signed-out visitors lose access at the next load;
+- the PRD leaves Cairn's discovery and search at once;
+- copies others have made, and search engines' caches, cannot be recalled at once.
+
+Tests:
+
+- "Make public…" shows the list above, with the line about what stays private, and sends no request until "Make public". Proves prd.launch.sharing#v2.
+- "Make private…" shows the line about external copies and caches, and after confirming, the dialog shows "Private". Proves prd.launch.sharing#v3, on the screen.
+- The guest form offers only "Can read" and "Can comment".
+- A member without `manage` sees no controls.
+
+### Comments in the reader {#spec.hosted-launch.comments-in-the-reader}
+
+- Implements: `prd.launch.discussion`
+- Files: `apps/viewer/src/hosted/discussion.ts`, `apps/viewer/src/hosted/view/threadView.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/view/specPaneView.ts`, `apps/viewer/src/view/detailView.ts`, `apps/viewer/src/detail.ts`, `apps/viewer/src/subscription/selection.ts`, `apps/viewer/src/hosted/update.ts`, `apps/viewer/test/hosted/threads.scene.test.ts`
+- Depends on: `spec.hosted-launch.discussion`, `spec.hosted-launch.workspace-screens`, `spec.viewer.deep-links.copying-a-link`, `spec.viewer.detail-panel`, `spec.viewer.reader`
+
+Starting a thread:
+
+- When a person with `comment` access selects a passage in the PRD or in a card's full section, "Comment" appears beside "Copy link to passage". It uses the `SelectedPassage` that `TrackSelection` already sends.
+- Each heading also has "Comment" for the whole section.
+- Either one opens a composer whose anchor holds the revision being read.
+
+Markers:
+
+- An open thread's passage gets `mark[data-thread]`, with a dotted ink underline.
+- A heading shows `◆ 2` for its open threads.
+- Clicking either opens the thread.
+
+A thread is a new kind of node in the detail panel's trail (see `spec.viewer.detail-panel`), opened by a marker, the comment count or a `/note/<id>` link. The thread view shows:
+
+- Its anchor: the section's title and quote. A changed anchor shows `The text this was about has changed.`, followed by the original quote when `original` is present, or by `It was about an earlier revision you can't open.`
+- Each comment, with:
+  - the author's name and "person" or "agent";
+  - the time;
+  - the body;
+  - "Copy link" to `/note/<id>`;
+  - "Edit" for the author.
+- Reply, Resolve and Reopen, as far as policy allows.
+
+A failed send keeps the composer's text. A `stale-comment` shows the current text beside the person's edit. Signed out, on a public PRD, threads are read-only and end with "Sign in to comment". `thread` messages from the room update the panel and the markers.
+
+Tests:
+
+- A commenter selects a passage and starts a thread. A teammate's reply arrives as a `thread` message, and "Resolve" marks the thread resolved. Each comment's "Copy link" copies its own `/note/<id>`, and opening that link shows the comment with its author. Proves prd.launch.discussion#v1.
+- A thread whose anchor changed shows the note. It shows the original quote for a member and the earlier-revision line for a signed-out reader. Proves prd.launch.discussion#v2.
+
+### `cairn connect` {#spec.hosted-launch.cairn-connect}
+
+- Implements: `prd.launch.membership`, `prd.launch.history`, `prd.launch.acceptance`
+- Files: `packages/cli/src/commands/connect.ts`, `packages/cli/src/hosted-client.ts`, `packages/cli/src/credentials.ts`, `packages/cli/src/connect-sync.ts`, `packages/cli/src/commands/index.ts`, `packages/cli/src/main.ts`, `packages/contract/src/connect.ts`, `packages/cli/test/connect.test.ts`
+- Depends on: `spec.hosted-launch.agent-credentials-and-gate-approvals`, `spec.hosted-launch.revisions`, `spec.hosted-launch.document-directory`, `spec.cli`, `spec.server`, `spec.contract.javascript-entry`, `spec.status.cairn-status-and-cairn-approve`
+
+`cairn connect` maps one repo's `.cairn/` to one hosted PRD.
+
+- `cairn connect <address>` takes a PRD's address as copied from the browser. It reads the origin, the workspace and the document from it.
+  - When the machine holds no session for that origin, it signs in with device authorization: it prints the code and the address and waits.
+  - It writes `.cairn/connect.json`: `{ version: 1, origin, workspaceId, documentId, prd: { revision, hash }, spec: { revision, hash } | null, approvalsSeen: Array<string> }`. It does this through the PRD's current revision, then runs a first sync.
+  - It records the repo's remote URL, when `git remote get-url origin` has one, in `connections`.
+- `cairn connect agent <name> [--actions progress,comment]` creates an agent for this PRD with the person's session and stores its token.
+- Credentials live in `~/.config/cairn/credentials.json`, or `%APPDATA%\cairn\credentials.json` on Windows, with mode 0600. Each origin holds a person's session and named agent tokens. They are never in the repo. `CAIRN_AGENT_TOKEN` in the environment takes the stored agent's place.
+- `cairn connect sync [--watch]` runs four steps. `--watch` runs them again whenever `.cairn/` changes, debounced by one second, and is what an orchestrator leaves running.
+
+1. Documents, for `prd.md` and, once it exists, `spec.md`. A file is changed locally when its hash differs from `connect.json`. It is changed remotely when the hosted current revision differs from `connect.json`.
+   - Neither changed: nothing happens.
+   - Only the local file changed: it saves with `base` set to the recorded revision, and records the result.
+   - Only the remote changed: it writes the hosted markdown to the file atomically, and records it.
+   - Both changed, or a save comes back stale: it leaves the local file as it is, writes the hosted version to `.cairn/prd.hosted.md` (or `spec.hosted.md`), prints `Both .cairn/prd.md and the hosted PRD changed since the last sync. Merge them, then run cairn connect sync.`, and exits 1.
+   - No step overwrites unsynced local text.
+2. Events. Each line of `events.jsonl` has the ID SHA-256 of its bytes. The bridge sends the lines in batches of 500, with the agent's token when there is one and the person's session otherwise. The room skips IDs it has already stored, so resending after a drop or a rewrite of the file adds nothing.
+3. Plan. When `manifest.json` exists, the bridge uploads `buildTrace` with its private fields left out, together with the plan record's inputs (see `spec.hosted-launch.plan-source`). It skips the upload when the trace's hash has not changed. The room broadcasts `trace`.
+4. Approvals. For each hosted `GateApproval` not in `approvalsSeen`, the bridge appends `{ status: "done", actor: "human:<name>", detail: "approved in <origin> against PRD revision <n>" }` with `appendEvent`, then records the approval. The local orchestrator and derivation see the approval as they see one from `cairn approve`.
+
+Refusals:
+
+- A `401` on an agent token prints `This agent's credential was revoked. Run cairn connect agent <name> again.` and exits 1. Local files are unchanged.
+- A `404` prints `This PRD is not available to you.` and exits 1.
+
+Tests run against the hosted Worker in the test pool:
+
+- Each direction of the document step works, and a both-changed sync leaves `prd.md` byte for byte unchanged.
+- 3,000 events sent twice are stored once.
+- An agent's events land in the PRD named in `connect.json`.
+- After the agent is revoked, the next sync exits 1 with the message.
+- An approval made in the room is appended locally exactly once, and `cairn status` then shows the task `done`.
+
+### Plan source {#spec.hosted-launch.plan-source}
+
+- Implements: `prd.launch.history`
+- Files: `packages/contract/src/manifest.ts`, `packages/contract/schema/`, `packages/cli/src/commands/plan.ts`, `apps/hosted/src/room/plan.ts`, `apps/hosted/src/http/plan.ts`, `apps/viewer/src/hosted/view/planSourceView.ts`, `apps/viewer/src/view/detailView.ts`, `apps/hosted/test/plan.test.ts`, `apps/viewer/test/hosted/plan-source.scene.test.ts`
+- Depends on: `spec.hosted-launch.cairn-connect`, `spec.hosted-launch.revisions`, `spec.hosted-launch.agent-credentials-and-gate-approvals`, `spec.hosted-launch.workspace-screens`, `spec.planning.cairn-plan`, `spec.contract.manifest`
+
+A plan says which PRD it was made from:
+
+- `Manifest` gains `source?: { prd: Sha256Hex }`. A manifest without it still decodes.
+- `cairn plan` writes the SHA-256 of `prd.md`'s bytes, as they stood when the plan ran, on every write of the manifest.
+- No task changes, and planning itself is unchanged.
+
+`POST /api/documents/:id/plan` (`plan.write`) takes the trace snapshot and the manifest's hash and source.
+
+- The room stores the snapshot. It also stores a `PlanRecord` whose `prdRevision` is the newest PRD revision whose hash equals `source.prd`, or `null` when no revision has that text. Its `specRevision` is the current spec revision.
+- The match is made once, at upload, so a later restore of the same text does not move it.
+- `GET /api/documents/:id/plan` (`document.read`) returns the latest snapshot, in its public form for anonymous readers, and the latest record.
+
+The viewer:
+
+- Over the spec pane, when the record's `prdRevision` is not the current PRD revision, it shows `Plan made from revision 4. The PRD is now at revision 6.` with a link to revision 4 in history.
+- With `prdRevision: null`, it shows `Plan made from a local draft that was never synced.`
+- When they match, it shows nothing.
+
+The task detail shows each approval with its inputs. An approval whose `prdRevision` is not current reads `Approved against PRD revision 4, before the latest edits.` Nothing replans or restacks. Automatic replanning stays in `prd.v2-diverging-state`.
+
+Tests:
+
+- Uploading a plan made from revision 4 and then saving the PRD twice makes the viewer show revision 4 and that it is not current. Proves prd.launch.history#v3.
+- A manifest without `source` decodes.
+- Restoring revision 4's text as revision 7 leaves the existing record on revision 4, and an approval made against revision 4 is shown as against an earlier revision.
+
+### Billing {#spec.hosted-launch.billing}
+
+- Implements: `prd.launch.plans`
+- Files: `apps/hosted/src/billing/stripe.ts`, `apps/hosted/src/billing/webhooks.ts`, `apps/hosted/src/http/billing.ts`, `apps/hosted/src/d1/migrations/`, `apps/viewer/src/hosted/view/billingView.ts`, `apps/hosted/test/billing.test.ts`, `apps/hosted/test/fixtures/stripe/`, `apps/viewer/test/hosted/billing.scene.test.ts`
+- Depends on: `spec.hosted-launch.entitlements`, `spec.hosted-launch.accounts-and-workspaces`, `spec.hosted-launch.workspace-screens`
+
+The workspace is what is billed. I chose Stripe, since the PRD names no processor. Stripe is used through its `stripe` package with its fetch HTTP client and its asynchronous webhook verification, which run on Workers. Read the package's declarations before writing `stripe.ts`.
+
+A new migration adds:
+
+```sql
+create table subscriptions (workspace_id text primary key, plan text not null, status text not null, customer text, subscription text,
+  seats integer, period_end text, cancel_at_period_end integer not null default 0, grace_ends_at text, stripe_updated integer not null);
+create table billing_events (id text primary key, type text not null, received_at text not null);
+```
+
+| Route                                       | Policy              | Does                                                                                                                                                     |
+| ------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/workspaces/:id/billing/checkout` | `workspace.billing` | Takes `{ plan, seats }`, with seats at least the current member count. It returns a Checkout Session URL in subscription mode, carrying the workspace ID |
+| `POST /api/workspaces/:id/billing/portal`   | `workspace.billing` | Returns a Customer Portal URL, for payment methods, seats, invoices and cancellation                                                                     |
+| `POST /api/billing/webhook`                 | Stripe signature    | Handles events, as below                                                                                                                                 |
+
+Webhooks:
+
+1. Verify the signature.
+2. `insert or ignore` the event's ID into `billing_events`. A duplicate does nothing more.
+3. For a new event, fetch the subscription from Stripe rather than trusting the payload's order, and set the row from it: the plan from the price, the status, the seat count, the period end, `cancel_at_period_end`, and `stripe_updated` from the subscription's own timestamp.
+4. Skip the write when the stored `stripe_updated` is newer.
+
+State is set from the latest object and never incremented, so a duplicate or delayed event cannot add capacity.
+
+How Stripe's status maps to entitlements:
+
+| Stripe                                              | Entitlements                                                                                                          |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `active`, `trialing`                                | `active`, or `canceling` when set to cancel at period end, with the paid plan's limits and `members` set to the seats |
+| `past_due`                                          | `past_due`, keeping the paid limits until `grace_ends_at`: the first failed payment plus `graceDays`                  |
+| `canceled`, `unpaid`, or `past_due` after the grace | `canceled`, with the free plan's limits; `overLimit` as in `spec.hosted-launch.entitlements`                          |
+
+A paid plan's members limit is its seat count. Adding seats happens in the portal. Inviting a member past the seats is refused with `limit-reached` naming `members`, so no seat is ever bought without the person choosing it. No billing event publishes, unpublishes or deletes anything. With billing off, these routes are `404`.
+
+`billingView` at `/settings/w/<ws>/billing` shows:
+
+- the plan, status, seats, limits and usage;
+- the grace date or the over-limit dimensions, with what each one blocks, and `Your PRDs stay as they are, and you can still export every one.`;
+- for owners, "Upgrade", which goes to checkout, and "Manage or cancel billing", which goes to the portal.
+
+Tests run against recorded Stripe fixtures and a stub HTTP client:
+
+- `checkout.session.completed` makes the workspace `team` with five seats. The billing screen shows the plan, its limits, and the manage and cancel actions. Proves prd.launch.plans#v1.
+- A duplicate event and an older event delivered late leave the seats unchanged.
+- `invoice.payment_failed` gives `past_due` with a grace date. When the grace runs out, the limits drop to free. Through both, every private PRD stays private and present, and export works. Proves prd.launch.plans#v3.
+- A Scene test of the "New PRD" note at the limit shows the limit's name before any request is sent. Proves prd.launch.plans#v2, on the screen.
+
+### Self-hosting {#spec.hosted-launch.self-hosting}
+
+- Implements: `prd.launch.plans`, `prd.launch.acceptance`
+- Files: `apps/hosted/alchemy.run.ts`, `apps/hosted/src/config.ts`, `apps/hosted/src/http/admin.ts`, `apps/hosted/src/backup.ts`, `apps/hosted/src/room/backup.ts`, `packages/cli/src/commands/admin.ts`, `packages/cli/src/commands/index.ts`, `apps/docs/pages/11-hosted-getting-started.md`, `apps/docs/pages/12-self-hosting.md`, `apps/docs/pages/13-backup-and-restore.md`, `apps/docs/pages/14-support.md`, `.github/workflows/restore-drill.yml`, `apps/hosted/test/backup.test.ts`
+- Depends on: `spec.hosted-launch.worker-and-storage`, `spec.hosted-launch.billing`, `spec.hosted-launch.discussion`, `spec.hosted-launch.data-sources`, `spec.cli.documentation.pages`
+
+The managed service and a self-hosted team deployment run the same Worker, policy and screens. `config.ts` decodes the deployment's settings through a schema:
+
+| Setting              | Values                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| `CAIRN_DOMAIN`       | The site's domain; the email sender is a subdomain of it                                    |
+| `CAIRN_STAGE`        | A prefix for every Cloudflare resource name                                                 |
+| `CAIRN_AUTH`         | A subset of `github`, `google`, `email`; each needs its own secrets                         |
+| `CAIRN_BILLING`      | `managed` or `off`. `off` needs no Stripe secrets and puts every workspace on `self-hosted` |
+| `CAIRN_SOCIAL_IMAGE` | The `og:image` URL                                                                          |
+| `CAIRN_SUPPORT`      | The support address or URL that the site and the docs show                                  |
+| `OPERATOR_TOKEN`     | A secret for the admin routes                                                               |
+
+An operator runs `alchemy deploy` with these settings in their own Cloudflare account. This needs no subscription to the managed service. A deploy runs the D1 migrations, and each room runs its own migrations when it wakes. Running `cairn` locally is not the team offering, and a Docker or VPS build is not promised.
+
+Backup and restore:
+
+- `GET /api/admin/backup`, with `Authorization: Bearer <OPERATOR_TOKEN>`, streams NDJSON:
+  1. a header with the format version, the app version and the time;
+  2. every D1 row, except sessions and one-time tokens;
+  3. for each document, the room's revisions (bodies inline, R2 bodies fetched), threads, comments, events, plan records, snapshots and approvals;
+  4. a trailer with counts and the SHA-256 of every line before it.
+- `POST /api/admin/restore` takes such a stream into a deployment whose D1 has no workspaces. It refuses any other. It checks the trailer, inserts D1 rows, and loads each room through an `import` RPC. It answers with the counts. IDs are kept, so addresses, links, anchors and approvals still resolve.
+- `cairn admin backup --origin <url> --out <file>` and `cairn admin restore --origin <url> --in <file>` call these routes with `CAIRN_OPERATOR_TOKEN` from the environment.
+- A wrong or missing token gets `404`.
+
+Docs, each page short:
+
+- Hosted getting started: sign up, write or import a first PRD, invite people, share, connect a repo.
+- Self-hosting: what to set up in Cloudflare, the settings above, `alchemy deploy`, and upgrading, which starts with taking a backup.
+- Backup and restore.
+- Support: the operator's support path, and for the managed service its address and the issue tracker.
+
+The restore drill. `restore-drill.yml` runs weekly and before each release:
+
+1. Deploy a throwaway stage and seed it through the API with PRDs, revisions, comments and an anchor that changed.
+2. Back it up.
+3. Deploy a second empty stage, restore into it, and back that up too.
+4. Compare the two backups' body hashes.
+5. Destroy both stages.
+
+The managed service takes customer work only after this drill has passed once. Editing that file is a change to a gated path, so a person approves it.
+
+Tests:
+
+- In the test pool: seed a deployment, back it up, restore into a fresh one, and find the same counts, the same revision bodies, thread anchors and approvals, and the same `GET` responses for each document.
+- A restore into a deployment that is not empty is refused.
+- With billing off, `/api/me`'s workspaces have `self-hosted` entitlements and no limits.
+- The hosted build signed in after the restore lists the restored workspace's PRDs and no demo content. Proves prd.launch.acceptance#v3, together with the drill and the operator run in `spec.hosted-launch.launch-acceptance`.
+
+### Launch acceptance {#spec.hosted-launch.launch-acceptance}
+
+- Implements: `prd.launch.acceptance`
+- Files: `apps/hosted/test/acceptance/launch.test.ts`, `apps/hosted/test/acceptance/isolation.test.ts`, `apps/hosted/test/acceptance/checklist.md`
+- Depends on: `spec.hosted-launch.workspace-screens`, `spec.hosted-launch.workspace-settings`, `spec.hosted-launch.sharing-dialog`, `spec.hosted-launch.comments-in-the-reader`, `spec.hosted-launch.links-between-prds`, `spec.hosted-launch.plan-source`, `spec.hosted-launch.billing`, `spec.hosted-launch.self-hosting`, `spec.hosted-launch.cairn-connect`
+
+These are the hosted release gates. The acceptance tests run at the HTTP and WebSocket level in the Worker test pool. The Scene tests named in each section cover the screens. `checklist.md` is the same walk through, done by a person in a browser on staging before release, with the date and the person recorded.
+
+| Release gate                                                                                                               | Checked by                                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Sign up without checkout; two PRDs read, edited, exported and discussed with no spec                                       | `launch.test.ts` flow 1                                                                                                  |
+| A member collaborates; a guest comments on one PRD and cannot find the other                                               | `launch.test.ts` flow 1, and `spec.hosted-launch.members-and-invitations`                                                |
+| Another workspace's user reads neither, through APIs, links, search or sockets                                             | `isolation.test.ts`                                                                                                      |
+| Public open with share metadata and discovery; private denies, reveals nothing                                             | `launch.test.ts` flow 2                                                                                                  |
+| No silent overwrite; earlier versions and anchors readable; restore keeps tasks                                            | `spec.hosted-launch.revisions`, `spec.hosted-launch.discussion`                                                          |
+| An agent reports into the right PRD; revocation stops it on open connections; no gate approval                             | `spec.hosted-launch.cairn-connect`, `spec.hosted-launch.agent-credentials-and-gate-approvals`, `spec.hosted-launch.room` |
+| Paid plan bought and managed; limits hold under concurrency; duplicate events add nothing; lapses expose and erase nothing | `spec.hosted-launch.billing`, `spec.hosted-launch.entitlements`                                                          |
+| A new operator self-hosts, restores a backup and sees their data                                                           | `spec.hosted-launch.self-hosting`, the restore drill, and the operator run in `checklist.md`                             |
+
+Flow 1, in `launch.test.ts`:
+
+1. A new user signs up by magic link, with no checkout called.
+2. They create a team workspace and two PRDs: one written, one imported.
+3. They read, save, export and start a thread on each, with no plan uploaded.
+4. They invite a guest as a commenter on the first PRD.
+5. The guest comments on it. Their `GET`, search, `state` and `live` for the second PRD each give `404`, and the second PRD is not in their `/api/me`.
+
+Proves prd.launch.acceptance#v1.
+
+Flow 2, in `launch.test.ts`:
+
+1. A public PRD links to a private PRD and has an earlier revision.
+2. A signed-out visitor gets its page with title and `og:` tags, and finds it in `/explore`.
+3. Neither the page nor `links` shows the private PRD's title, the earlier revision, any commit, or any session.
+4. After the PRD is made private, the same visitor's reload is "Not available" and the PRD is not in `/explore`.
+
+Proves prd.launch.acceptance#v2.
+
+`isolation.test.ts` is a property test. For every route in the router's list, a user of another workspace asking for a generated document or thread gets a response identical to the one for an unknown ID. Their socket upgrade is refused.
+
+prd.launch.acceptance#v3 is proved in three ways: the restore test in `spec.hosted-launch.self-hosting`, the restore drill, and an operator who has never deployed Cairn following the self-host guide in their own Cloudflare account. That operator run is recorded in `checklist.md` before release.
