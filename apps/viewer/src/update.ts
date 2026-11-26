@@ -10,10 +10,8 @@ import {
   type Trace,
   type TraceTask,
 } from "@cairn/contract";
+import { Command, UiStruct } from "@effect/ui";
 import { Array, Boolean, Effect, Option, Record, Result, Schema } from "effect";
-import { AsyncData, Command, Dom, Navigation, Url } from "foldkit";
-import type { Update } from "foldkit";
-import { modifyFields } from "foldkit/struct";
 
 import {
   codeScreenOf,
@@ -52,6 +50,7 @@ import {
   sharedLengthOf,
   type Resolution,
 } from "./links.ts";
+import { focusElement, scrollElementIntoView, scrollElementIntoViewAfterPaint } from "./dom.ts";
 import { describeTraceError, isDemoBuild, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
 import { keptReaders, readersOf } from "./readers.ts";
@@ -64,6 +63,8 @@ import {
   SessionData,
   Shown,
   WHOLE_TASK,
+  loadedTraceOf,
+  settledTrace,
   type CodeScreen,
   type Model,
 } from "./model.ts";
@@ -80,15 +81,25 @@ import { Resize, deltaOf, draggedTo, fittedTo, resized, stepOf } from "./panes.t
 import type { Trail } from "./detail.ts";
 import { ScrollTarget, isCardless, isOpenCard, isOpenPrdSection, targetsOf } from "./reader.ts";
 import { Node } from "./trace.ts";
+import { UrlRequest, hrefOfUrl } from "./url.ts";
 
 // UPDATE
+
+/**
+ * What `update` makes of a Message: the next Model, and the Commands to run. `Viewer`'s `update`
+ * sets the Model and runs each Command (`app.ts`).
+ */
+export interface Return {
+  readonly commands?: ReadonlyArray<Command.Issued<Message, never, never, "Effect">>;
+  readonly model: Model;
+}
 
 const nodeEquivalence = Schema.toEquivalence(Node);
 
 const sameNode = Option.makeEquivalence(nodeEquivalence);
 
 /** The trace, once it has loaded; the code view reads tasks and commits from it. */
-const traceOf = (model: Model): Option.Option<Trace> => AsyncData.getData(model.trace);
+const traceOf = (model: Model): Option.Option<Trace> => loadedTraceOf(model.trace);
 
 /** The task the code view is on, and what is shown of it. */
 const shownIn = (model: Model) =>
@@ -101,7 +112,9 @@ const shownIn = (model: Model) =>
 
 /** The model with the fetches its code view needs started. */
 interface Fetches {
-  readonly commands: ReadonlyArray<ReturnType<typeof FetchPatch> | ReturnType<typeof FetchSession>>;
+  readonly commands: ReadonlyArray<
+    ReturnType<typeof FetchPatch.make> | ReturnType<typeof FetchSession.make>
+  >;
   readonly model: Model;
 }
 
@@ -115,8 +128,8 @@ const patchRequested = (model: Model, path: string): Fetches =>
   Option.exists(Record.get(model.patches, path), (data) => !PatchData.guards.Failed(data))
     ? { commands: Array.empty(), model }
     : {
-        commands: [FetchPatch({ path })],
-        model: modifyFields(model, { patches: Record.set(path, PatchData.Loading()) }),
+        commands: [FetchPatch.make({ path })],
+        model: UiStruct.evolve(model, { patches: Record.set(path, PatchData.Loading()) }),
       };
 
 const withPatchRequested = (model: Model): Fetches =>
@@ -137,8 +150,8 @@ const sessionRequested = (model: Model, id: string): Fetches =>
   Option.exists(Record.get(model.sessions, id), (data) => !SessionData.guards.Failed(data))
     ? { commands: Array.empty(), model }
     : {
-        commands: [FetchSession({ id })],
-        model: modifyFields(model, { sessions: Record.set(id, SessionData.Loading()) }),
+        commands: [FetchSession.make({ id })],
+        model: UiStruct.evolve(model, { sessions: Record.set(id, SessionData.Loading()) }),
       };
 
 /** The patch and the session of what the code view shows, each fetched when the model lacks it. */
@@ -174,17 +187,13 @@ const detailPatchPathOf = (model: Model): Option.Option<string> =>
   );
 
 /** The code view with what is shown of a task, when the trace has that task and commit. */
-const codeOn = (
-  model: Model,
-  id: TaskId,
-  maybeSha: Option.Option<Sha>,
-): Update.Return<Model, Message> =>
+const codeOn = (model: Model, id: TaskId, maybeSha: Option.Option<Sha>): Return =>
   Option.match(
     Option.flatMap(traceOf(model), (trace) => codeScreenOf(trace, id, maybeSha)),
     {
       onNone: () => ({ model }),
       onSome: (screen) => {
-        const requested = withCodeRequested(modifyFields(model, { screen: () => screen }));
+        const requested = withCodeRequested(UiStruct.evolve(model, { screen: () => screen }));
         return Array.isReadonlyArrayEmpty(requested.commands)
           ? { model: requested.model }
           : requested;
@@ -196,17 +205,17 @@ const codeOn = (
  * The model with this trail. When the panel is open and its last node changed, focus moves to the
  * panel's heading; a trail that shows the same node, or none, moves no focus.
  */
-const detailTrailed = (model: Model, trail: Trail): Update.Return<Model, Message> => {
-  const trailed = modifyFields(model, { detail: () => trail });
+const detailTrailed = (model: Model, trail: Trail): Return => {
+  const trailed = UiStruct.evolve(model, { detail: () => trail });
   // A task with commits shows its whole diff, so it is fetched unless the model has it.
   const requested = Option.match(detailPatchPathOf(trailed), {
-    onNone: (): Update.Return<Model, Message> => ({ model: trailed }),
+    onNone: (): Return => ({ model: trailed }),
     onSome: (path) => patchRequested(trailed, path),
   });
   return {
     commands: Array.appendAll(
       Option.isSome(nodeShownBy(trail)) && !sameNode(nodeShownBy(trail), nodeShownBy(model.detail))
-        ? [FocusDetailHeading()]
+        ? [FocusDetailHeading.make()]
         : [],
       Option.getOrElse(Option.fromNullishOr(requested.commands), () => []),
     ),
@@ -223,11 +232,11 @@ const isPrdSection = Schema.is(PrdSectionId);
  * the code view and its highlighted turn. A link opens on the reader unless a step opens code.
  */
 const clearedForLink = (model: Model): Model =>
-  modifyFields(model, {
+  UiStruct.evolve(model, {
     detail: () => [],
     maybeHighlightedTurn: () => Option.none(),
     reader: (reader) =>
-      modifyFields(reader, {
+      UiStruct.evolve(reader, {
         maybeFocus: () => Option.none(),
         maybePassage: () => Option.none(),
         maybePinned: () => Option.none(),
@@ -236,21 +245,21 @@ const clearedForLink = (model: Model): Model =>
   });
 
 const pinnedOn = (model: Model, id: PrdSectionId): Model =>
-  modifyFields(model, {
-    reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(id) }),
+  UiStruct.evolve(model, {
+    reader: (reader) => UiStruct.evolve(reader, { maybePinned: () => Option.some(id) }),
   });
 
 const marked = (model: Model, passage: typeof PassageStep.Type): Model =>
-  modifyFields(model, {
-    reader: (reader) => modifyFields(reader, { maybePassage: () => Option.some(passage) }),
+  UiStruct.evolve(model, {
+    reader: (reader) => UiStruct.evolve(reader, { maybePassage: () => Option.some(passage) }),
   });
 
 const trailedOn = (model: Model, node: Node): Model =>
-  modifyFields(model, { detail: (trail) => extendedBy(trail, node) });
+  UiStruct.evolve(model, { detail: (trail) => extendedBy(trail, node) });
 
 /** The code view on one commit of a task, with the task at the end of the trail. */
 const onCommit = (model: Model, task: TraceTask, sha: Sha): Model =>
-  modifyFields(model, {
+  UiStruct.evolve(model, {
     detail: (trail) => endingOn(trail, { id: task.id, kind: "task" }),
     screen: () =>
       Screen.Code({
@@ -265,7 +274,7 @@ const onCommit = (model: Model, task: TraceTask, sha: Sha): Model =>
 const inCode = (model: Model, change: (code: CodeScreen) => CodeScreen): Model =>
   Option.match(Option.liftPredicate(model.screen, Screen.guards.Code), {
     onNone: () => model,
-    onSome: (code) => modifyFields(model, { screen: () => change(code) }),
+    onSome: (code) => UiStruct.evolve(model, { screen: () => change(code) }),
   });
 
 /**
@@ -282,9 +291,9 @@ const specPassageOpened = (trace: Trace, model: Model, passage: typeof PassageSt
   return Array.match(implemented, {
     onEmpty: () => trailedOn(marked(model, passage), { id, kind: "section" }),
     onNonEmpty: (prds) =>
-      modifyFields(marked(model, passage), {
+      UiStruct.evolve(marked(model, passage), {
         reader: (reader) =>
-          modifyFields(reader, {
+          UiStruct.evolve(reader, {
             maybePinned: (maybePinned) =>
               Option.exists(maybePinned, (pinned) => Array.contains(prds, pinned))
                 ? maybePinned
@@ -297,7 +306,7 @@ const specPassageOpened = (trace: Trace, model: Model, passage: typeof PassageSt
 
 /** A turn is highlighted as `ClickedTurn` opening it does. */
 const turnHighlighted = (model: Model, id: string): Model =>
-  modifyFields(model, {
+  UiStruct.evolve(model, {
     maybeHighlightedTurn: () => Option.some(HighlightedTurn.make({ from: "session", id })),
     openedTurns: Record.set(id, true),
   });
@@ -315,7 +324,7 @@ const appliedStep = (trace: Trace, model: Model, step: Step): Model =>
       Option.match(Option.filter(nodeShownBy(model.detail), Node.guards.task), {
         onNone: () => model,
         onSome: ({ id }) =>
-          modifyFields(model, {
+          UiStruct.evolve(model, {
             screen: () =>
               Screen.Code({
                 maybeFile: Option.none(),
@@ -327,13 +336,13 @@ const appliedStep = (trace: Trace, model: Model, step: Step): Model =>
       }),
     file: ({ path }) =>
       inCode(model, (code) =>
-        modifyFields(code, {
+        UiStruct.evolve(code, {
           maybeFile: () => Option.some(path),
           maybeLines: () => Option.none(),
         }),
       ),
     lines: (lines) =>
-      inCode(model, (code) => modifyFields(code, { maybeLines: () => Option.some(lines) })),
+      inCode(model, (code) => UiStruct.evolve(code, { maybeLines: () => Option.some(lines) })),
     note: () => model,
     passage: (passage) =>
       isPrdSection(passage.section)
@@ -344,12 +353,12 @@ const appliedStep = (trace: Trace, model: Model, step: Step): Model =>
         ? pinnedOn(model, id)
         : trailedOn(model, { id: SectionId.make(id), kind: "section" }),
     segment: (focus) =>
-      modifyFields(model, {
-        reader: (reader) => modifyFields(reader, { maybeFocus: () => Option.some(focus) }),
+      UiStruct.evolve(model, {
+        reader: (reader) => UiStruct.evolve(reader, { maybeFocus: () => Option.some(focus) }),
       }),
     stack: (focus) =>
-      modifyFields(model, {
-        reader: (reader) => modifyFields(reader, { maybeFocus: () => Option.some(focus) }),
+      UiStruct.evolve(model, {
+        reader: (reader) => UiStruct.evolve(reader, { maybeFocus: () => Option.some(focus) }),
       }),
     task: ({ id }) => trailedOn(model, { id, kind: "task" }),
     // With no code step before it, a turn opens the code view on its session's newest commit. A
@@ -461,7 +470,7 @@ const waitedPathsOf = (link: Link, resolution: Resolution): ReadonlyArray<string
  * says what did not open. The commands fetch what the steps show and bring into view each step
  * past the ones the old link and the new one share. Before the first trace the link only waits.
  */
-export const openLink = (model: Model, link: Link): Update.Return<Model, Message> =>
+export const openLink = (model: Model, link: Link): Return =>
   openedFrom(model, link, Option.none());
 
 /**
@@ -469,13 +478,11 @@ export const openLink = (model: Model, link: Link): Update.Return<Model, Message
  * resolve: the ones that were waiting for data that has arrived. They were counted as open before
  * their elements were in the page, so the old link and the new one share them.
  */
-const openedFrom = (
-  model: Model,
-  link: Link,
-  maybeArrivedFrom: Option.Option<number>,
-): Update.Return<Model, Message> =>
+const openedFrom = (model: Model, link: Link, maybeArrivedFrom: Option.Option<number>): Return =>
   Option.match(traceOf(model), {
-    onNone: () => ({ model: modifyFields(model, { maybePendingLink: () => Option.some(link) }) }),
+    onNone: () => ({
+      model: UiStruct.evolve(model, { maybePendingLink: () => Option.some(link) }),
+    }),
     onSome: (trace) => {
       const resolution = resolveLink(trace, link, loadedOf(model));
       const steps: ReadonlyArray<Step> = Array.appendAll(
@@ -488,7 +495,7 @@ const openedFrom = (
       const walked: Model = Array.reduce(steps, clearedForLink(model), (current: Model, step) =>
         appliedStep(trace, current, step),
       );
-      const applied = modifyFields(walked, {
+      const applied = UiStruct.evolve(walked, {
         maybeLinkNotice: () => noticeOf(Result.succeed(resolution)),
         maybePendingLink: () => Option.as(resolution.waiting, link),
       });
@@ -510,7 +517,7 @@ const openedFrom = (
       return {
         commands: Array.appendAll(
           requested.commands,
-          Array.isReadonlyArrayNonEmpty(targets) ? [ScrollLinkTargets({ targets })] : [],
+          Array.isReadonlyArrayNonEmpty(targets) ? [ScrollLinkTargets.make({ targets })] : [],
         ),
         model: requested.model,
       };
@@ -523,7 +530,7 @@ const openedFrom = (
  * passage is already in front of the reader. Without a trace, with no selection in that section or
  * with one its prose does not hold, nothing happens.
  */
-const passageLinkCopied = (model: Model, section: SectionId): Update.Return<Model, Message> =>
+const passageLinkCopied = (model: Model, section: SectionId): Return =>
   Option.match(
     Option.flatMap(traceOf(model), (trace) =>
       Option.map(
@@ -537,7 +544,7 @@ const passageLinkCopied = (model: Model, section: SectionId): Update.Return<Mode
     {
       onNone: () => ({ model }),
       onSome: ({ passage, trace }) => {
-        const opened = modifyFields(appliedStep(trace, model, passage), {
+        const opened = UiStruct.evolve(appliedStep(trace, model, passage), {
           maybeCopiedLink: () => Option.none(),
         });
         const link = linkOf(opened);
@@ -545,7 +552,7 @@ const passageLinkCopied = (model: Model, section: SectionId): Update.Return<Mode
           Array.findFirstIndex(link, (step) => step.kind === "passage"),
           { onNone: () => link, onSome: (index) => Array.take(link, index + 1) },
         );
-        return { commands: [CopyLink({ path: pathOfLink(upToPassage) })], model: opened };
+        return { commands: [CopyLink.make({ path: pathOfLink(upToPassage) })], model: opened };
       },
     },
   );
@@ -564,7 +571,7 @@ const linesSelected = (
   maybeLines: Option.Option<typeof LinesStep.Type>,
 ): Model =>
   inCode(model, (code) =>
-    modifyFields(code, {
+    UiStruct.evolve(code, {
       maybeFile: () => Option.some(path),
       maybeLines: () => maybeLines,
     }),
@@ -572,13 +579,13 @@ const linesSelected = (
 
 /** The diff's selection was cleared: the file stays and its lines go. */
 const linesCleared = (model: Model): Model =>
-  inCode(model, (code) => modifyFields(code, { maybeLines: () => Option.none() }));
+  inCode(model, (code) => UiStruct.evolve(code, { maybeLines: () => Option.none() }));
 
 /**
  * A link waiting for its data is resolved again when a patch or a session arrives: `received` is
  * the model with it, and `model` the one before. The steps that were waiting are brought into view.
  */
-const reopened = (model: Model, received: Model): Update.Return<Model, Message> =>
+const reopened = (model: Model, received: Model): Return =>
   Option.match(received.maybePendingLink, {
     onNone: () => ({ model: received }),
     onSome: (link) =>
@@ -594,7 +601,11 @@ const reopened = (model: Model, received: Model): Update.Return<Model, Message> 
 
 /** The messages that bring a pending link its data, which reopen it rather than cancel it. */
 const isLinkData = Schema.is(
-  Schema.Union([Message.ReceivedPatch, Message.ReceivedSession, Message.SettledLoadTrace]),
+  Schema.Union([
+    Message.cases.ReceivedPatch,
+    Message.cases.ReceivedSession,
+    Message.cases.SettledLoadTrace,
+  ]),
 );
 
 /** Whether two screens are the same one of the reader and the code view. */
@@ -610,18 +621,14 @@ const linkEquivalence = Schema.toEquivalence(Link);
  * pin, the passage, the focus, the file, the lines or the turn changed, a late patch or session only
  * fills its cache and never reapplies the link over the newer choice.
  */
-const pendingCancelled = (
-  model: Model,
-  message: Message,
-  result: Update.Return<Model, Message>,
-): Update.Return<Model, Message> =>
+const pendingCancelled = (model: Model, message: Message, result: Return): Return =>
   Option.isSome(result.model.maybePendingLink) &&
   !isLinkData(message) &&
   pendingEquivalence(model.maybePendingLink, result.model.maybePendingLink) &&
   (!isSameScreen(model.screen, result.model.screen) ||
     !linkEquivalence(linkOf(model), linkOf(result.model)))
-    ? modifyFields(result, {
-        model: (current) => modifyFields(current, { maybePendingLink: () => Option.none() }),
+    ? UiStruct.evolve(result, {
+        model: (current) => UiStruct.evolve(current, { maybePendingLink: () => Option.none() }),
       })
     : result;
 
@@ -638,8 +645,8 @@ const resizeByPointer = (resize: Resize, pointerId: number) =>
  * that implements no PRD section has no card to go to, so it opens in the detail panel, the one
  * case where a result opens the panel. Nothing here moves focus: it stays in the search input.
  */
-const selectedInReader = (model: Model, node: Node): Update.Return<Model, Message> => {
-  const selected = modifyFields(model, {
+const selectedInReader = (model: Model, node: Node): Return => {
+  const selected = UiStruct.evolve(model, {
     search: (search) => chosen(search, node),
   });
   return Option.match(
@@ -648,22 +655,27 @@ const selectedInReader = (model: Model, node: Node): Update.Return<Model, Messag
       onNone: () => ({ model: selected }),
       onSome: ({ result, trace }) =>
         isCardless(trace, node)
-          ? { model: modifyFields(selected, { detail: () => openedOn(node) }) }
-          : { commands: [ScrollSearchTargets({ targets: targetsOf(result) })], model: selected },
+          ? { model: UiStruct.evolve(selected, { detail: () => openedOn(node) }) }
+          : {
+              commands: [ScrollSearchTargets.make({ targets: targetsOf(result) })],
+              model: selected,
+            },
     },
   );
 };
 
 /** A result chosen by Enter or a click: it is active; only the reader has results to scroll to. */
-const selectedResult = (model: Model, node: Node): Update.Return<Model, Message> =>
+const selectedResult = (model: Model, node: Node): Return =>
   Screen.guards.Reader(model.screen)
     ? selectedInReader(model, node)
-    : { model: modifyFields(model, { search: (search) => chosen(search, node) }) };
+    : { model: UiStruct.evolve(model, { search: (search) => chosen(search, node) }) };
 
 /** The model with this search, and the list scrolled to its active result so it is not offscreen. */
 const searchedWith = (model: Model, search: SearchState) => ({
-  commands: Array.map(Array.fromOption(search.maybeActive), (node) => ScrollSearchResult({ node })),
-  model: modifyFields(model, { search: () => search }),
+  commands: Array.map(Array.fromOption(search.maybeActive), (node) =>
+    ScrollSearchResult.make({ node }),
+  ),
+  model: UiStruct.evolve(model, { search: () => search }),
 });
 
 /** A pinned section is unpinned by a second click on its status line; any other becomes the pin. */
@@ -673,17 +685,17 @@ const pinToggled = (maybePinned: Option.Option<PrdSectionId>, id: PrdSectionId) 
 /** No buttons held: the pointer is up, whether or not its release was heard. */
 const NO_BUTTONS = 0;
 
-export const update = (model: Model, message: Message): Update.Return<Model, Message> =>
+export const update = (model: Model, message: Message): Return =>
   pendingCancelled(model, message, updated(model, message));
 
 // THE ADDRESS
 
 /** The messages that resolve a waiting link again, so a step that went missing is replaced. */
-const isLinkArrival = Schema.is(Schema.Union([Message.ReceivedPatch, Message.ReceivedSession]));
+const isLinkArrival = Message.isAnyOf(["ReceivedPatch", "ReceivedSession"]);
 
-const isTraceSettled = Schema.is(Message.SettledLoadTrace);
+const isTraceSettled = Message.is("SettledLoadTrace");
 
-const isUrlChange = Schema.is(Message.ChangedUrl);
+const isUrlChange = Message.is("ChangedUrl");
 
 /**
  * A link's history written one entry per step: `replaceUrl` with its first step, then `pushUrl`
@@ -692,7 +704,7 @@ const isUrlChange = Schema.is(Message.ChangedUrl);
 const stepByStep = (link: Link) =>
   Array.map(
     Array.getSomes(Array.map(link, (_, index) => linkRoute.print(Array.take(link, index + 1)))),
-    (path, index) => (index === 0 ? ReplaceUrl({ path }) : PushUrl({ path })),
+    (path, index) => (index === 0 ? ReplaceUrl.make({ path }) : PushUrl.make({ path })),
   );
 
 /**
@@ -711,7 +723,7 @@ const addressWritten = (model: Model, message: Message, next: Model) => {
     Option.isSome(model.maybePendingLink) &&
     Option.isSome(traceOf(next));
   const written = (write: typeof PushUrl | typeof ReplaceUrl) =>
-    Array.fromOption(Option.map(linkRoute.print(link), (path) => write({ path })));
+    Array.fromOption(Option.map(linkRoute.print(link), (path) => write.make({ path })));
   return isUrlChange(message)
     ? []
     : isFirstTrace
@@ -728,8 +740,8 @@ const addressWritten = (model: Model, message: Message, next: Model) => {
  * undoes them one at a time.
  */
 export const withAddress =
-  (inner: (model: Model, message: Message) => Update.Return<Model, Message>) =>
-  (model: Model, message: Message): Update.Return<Model, Message> => {
+  (inner: (model: Model, message: Message) => Return) =>
+  (model: Model, message: Message): Return => {
     const result = inner(model, message);
     return {
       commands: Array.appendAll(
@@ -741,7 +753,7 @@ export const withAddress =
   };
 
 const updated = (model: Model, message: Message) =>
-  Message.match<Update.Return<Model, Message>>(message, {
+  Message.match(message, {
     // Back, Forward or a hash change opens the address's link without writing history. The address
     // of what is already open, such as the viewer's own entry, does nothing, except that it drops a
     // different link still waiting for the first trace. A path that is not a link opens nothing and
@@ -749,7 +761,7 @@ const updated = (model: Model, message: Message) =>
     ChangedUrl: ({ url }) =>
       Result.match(linkRoute.parse(url), {
         onFailure: (error) => ({
-          model: modifyFields(clearedForLink(model), {
+          model: UiStruct.evolve(clearedForLink(model), {
             maybeLinkNotice: () => noticeOf(Result.fail(error)),
             maybePendingLink: () => Option.none(),
           }),
@@ -761,7 +773,7 @@ const updated = (model: Model, message: Message) =>
                   model.maybePendingLink,
                   (pending) => !linkEquivalence(pending, link),
                 )
-                  ? modifyFields(model, { maybePendingLink: () => Option.none() })
+                  ? UiStruct.evolve(model, { maybePendingLink: () => Option.none() })
                   : model,
               }
             : openLink(model, link),
@@ -769,10 +781,10 @@ const updated = (model: Model, message: Message) =>
     // An anchor goes where the browser would take it without routing.
     ClickedLink: ({ request }) => ({
       commands: [
-        LoadUrl({
-          href: Navigation.UrlRequest.match(request, {
+        LoadUrl.make({
+          href: UrlRequest.match(request, {
             External: ({ href }) => href,
-            Internal: ({ url }) => Url.toString(url),
+            Internal: ({ url }) => hrefOfUrl(url),
           }),
         }),
       ],
@@ -780,32 +792,32 @@ const updated = (model: Model, message: Message) =>
     }),
     CompletedNavigation: () => ({ model }),
     // Back to the plan changes only the screen: what the reader holds stayed.
-    ClickedBackToPlan: () => ({ model: modifyFields(model, { screen: () => Screen.Reader() }) }),
+    ClickedBackToPlan: () => ({ model: UiStruct.evolve(model, { screen: () => Screen.Reader() }) }),
     // A card opens or closes alone, to the opposite of what it shows now.
     ClickedCardHeader: ({ id }) => ({
-      model: modifyFields(model, {
+      model: UiStruct.evolve(model, {
         reader: (reader) =>
-          modifyFields(reader, { opened: Record.set(id, !isOpenCard(reader, id)) }),
+          UiStruct.evolve(reader, { opened: Record.set(id, !isOpenCard(reader, id)) }),
       }),
     }),
     // The control sets every card to its density, so the cards opened apart from it are forgotten.
     ClickedDensity: ({ density }) => ({
-      model: modifyFields(model, {
-        reader: (reader) => modifyFields(reader, { density: () => density, opened: () => ({}) }),
+      model: UiStruct.evolve(model, {
+        reader: (reader) => UiStruct.evolve(reader, { density: () => density, opened: () => ({}) }),
       }),
     }),
     // A PRD section opens or closes alone, to the opposite of what it shows now.
     ClickedPrdHeading: ({ id }) => ({
-      model: modifyFields(model, {
+      model: UiStruct.evolve(model, {
         reader: (reader) =>
-          modifyFields(reader, { prdOpened: Record.set(id, !isOpenPrdSection(reader, id)) }),
+          UiStruct.evolve(reader, { prdOpened: Record.set(id, !isOpenPrdSection(reader, id)) }),
       }),
     }),
     // A finished trunk folds or unfolds on its own: it sends no command and is not in the link.
     ClickedSegment: ({ root }) => ({
-      model: modifyFields(model, {
+      model: UiStruct.evolve(model, {
         reader: (reader) =>
-          modifyFields(reader, {
+          UiStruct.evolve(reader, {
             unfolded: Record.set(
               root,
               !Option.getOrElse(Record.get(reader.unfolded, root), () => false),
@@ -815,20 +827,20 @@ const updated = (model: Model, message: Message) =>
     }),
     // Collapsing or expanding every section forgets the sections opened or closed on their own.
     ClickedCondensePrd: () => ({
-      model: modifyFields(model, {
+      model: UiStruct.evolve(model, {
         reader: (reader) =>
-          modifyFields(reader, { isPrdCondensed: Boolean.not, prdOpened: () => ({}) }),
+          UiStruct.evolve(reader, { isPrdCondensed: Boolean.not, prdOpened: () => ({}) }),
       }),
     }),
     // A task row or a chip starts a new trail on that task.
     ClickedTask: ({ id }) => detailTrailed(model, openedOn({ id, kind: "task" })),
     ClickedDetailNode: ({ node }) => detailTrailed(model, extendedBy(model.detail, node)),
     ClickedTrailStep: ({ index }) => detailTrailed(model, cutBackTo(model.detail, index)),
-    ClickedCloseDetail: () => ({ model: modifyFields(model, { detail: () => [] }) }),
+    ClickedCloseDetail: () => ({ model: UiStruct.evolve(model, { detail: () => [] }) }),
     ClickedDismissLinkNotice: () => ({
-      model: modifyFields(model, { maybeLinkNotice: () => Option.none() }),
+      model: UiStruct.evolve(model, { maybeLinkNotice: () => Option.none() }),
     }),
-    ClickedTraceSection: ({ id }) => ({ commands: [ScrollPrdSection({ id })], model }),
+    ClickedTraceSection: ({ id }) => ({ commands: [ScrollPrdSection.make({ id })], model }),
     // "Open code" and a detail panel commit open the code view; a task or commit the trace lacks opens nothing.
     ClickedOpenCode: ({ id, maybeSha }) => codeOn(model, id, maybeSha),
     // The tree selects within the code view; with the reader showing there is no tree to click.
@@ -852,9 +864,9 @@ const updated = (model: Model, message: Message) =>
         {
           onNone: () => model,
           onSome: ({ code }) =>
-            modifyFields(model, {
+            UiStruct.evolve(model, {
               screen: () =>
-                modifyFields(code, {
+                UiStruct.evolve(code, {
                   maybeFile: () => Option.some(path),
                   maybeLines: () => Option.none(),
                 }),
@@ -868,19 +880,19 @@ const updated = (model: Model, message: Message) =>
         onSome: () => codeOn(model, id, Option.none()),
       }),
     ClickedCopyLink: ({ path }) => ({
-      commands: [CopyLink({ path })],
-      model: modifyFields(model, { maybeCopiedLink: () => Option.none() }),
+      commands: [CopyLink.make({ path })],
+      model: UiStruct.evolve(model, { maybeCopiedLink: () => Option.none() }),
     }),
     ClickedCopyPassageLink: ({ section }) => passageLinkCopied(model, section),
-    ClickedSectionId: ({ id }) => ({ commands: [CopySectionId({ id })], model }),
+    ClickedSectionId: ({ id }) => ({ commands: [CopySectionId.make({ id })], model }),
     // Pinning keeps the pane where it is; the pinned section stays current while the PRD scrolls.
     // A PRD passage a link opened belongs to the pin it replaces, so it goes with it.
     ClickedStatusLine: ({ id }) => ({
-      model: modifyFields(model, {
+      model: UiStruct.evolve(model, {
         maybeCopied: () => Option.none(),
         maybeCopiedLink: () => Option.none(),
         reader: (reader) =>
-          modifyFields(reader, {
+          UiStruct.evolve(reader, {
             maybePassage: Option.filter((passage) => !isPrdSection(passage.section)),
             maybePinned: (maybePinned) => pinToggled(maybePinned, id),
           }),
@@ -892,7 +904,7 @@ const updated = (model: Model, message: Message) =>
       return {
         commands: Array.append(
           Option.getOrElse(Option.fromNullishOr(selected.commands), () => []),
-          FocusSearchInput(),
+          FocusSearchInput.make(),
         ),
         model: selected.model,
       };
@@ -904,7 +916,7 @@ const updated = (model: Model, message: Message) =>
         Option.getOrElse(Record.get(model.openedTurns, id), () => false),
       );
       return {
-        model: modifyFields(model, {
+        model: UiStruct.evolve(model, {
           maybeHighlightedTurn: (current) =>
             isOpening
               ? Option.some(HighlightedTurn.make({ from: "session", id }))
@@ -915,27 +927,27 @@ const updated = (model: Model, message: Message) =>
     },
     // A hunk's mark opens its turn in the session pane, scrolls to it and marks the turn's hunks.
     ClickedHunkMark: ({ id }) => ({
-      commands: [ScrollTurn({ id })],
-      model: modifyFields(model, {
+      commands: [ScrollTurn.make({ id })],
+      model: UiStruct.evolve(model, {
         maybeHighlightedTurn: () => Option.some(HighlightedTurn.make({ from: "diff", id })),
         openedTurns: Record.set(id, true),
       }),
     }),
     ClickedMoreOfTurn: ({ id }) => ({
-      model: modifyFields(model, { fullTurns: Record.set(id, true) }),
+      model: UiStruct.evolve(model, { fullTurns: Record.set(id, true) }),
     }),
     ClickedDiffStyle: ({ style }) => ({
-      model: modifyFields(model, { diffStyle: () => style }),
+      model: UiStruct.evolve(model, { diffStyle: () => style }),
     }),
     ClickedModelsSwitch: () => ({
-      model: modifyFields(model, { isShowingModels: Boolean.not }),
+      model: UiStruct.evolve(model, { isShowingModels: Boolean.not }),
     }),
     // The room is unknown once the socket is gone, so nobody is shown and you are no one.
     // A new query makes the first result active, so the list goes back to it.
     ChangedSearchQuery: ({ query }) =>
-      searchedWith(model, queried(model.search, AsyncData.getData(model.trace), query)),
+      searchedWith(model, queried(model.search, loadedTraceOf(model.trace), query)),
     ClosedPresence: () => ({
-      model: modifyFields(model, {
+      model: UiStruct.evolve(model, {
         maybeYou: () => Option.none(),
         participants: () => [],
         readers: () => [],
@@ -943,10 +955,12 @@ const updated = (model: Model, message: Message) =>
       }),
     }),
     ClearedPassageSelection: () => ({
-      model: modifyFields(model, { maybeSelectedPassage: () => Option.none() }),
+      model: UiStruct.evolve(model, { maybeSelectedPassage: () => Option.none() }),
     }),
     SelectedPassage: ({ quote, section }) => ({
-      model: modifyFields(model, { maybeSelectedPassage: () => Option.some({ quote, section }) }),
+      model: UiStruct.evolve(model, {
+        maybeSelectedPassage: () => Option.some({ quote, section }),
+      }),
     }),
     ClearedDiffLines: () => ({ model: linesCleared(model) }),
     SelectedDiffLines: ({ end, path, side, start }) => ({
@@ -954,12 +968,12 @@ const updated = (model: Model, message: Message) =>
     }),
     // A refused copy leaves the button as it was.
     CompletedCopyLink: ({ isCopied, path }) => ({
-      model: modifyFields(model, {
+      model: UiStruct.evolve(model, {
         maybeCopiedLink: () => (isCopied ? Option.some(path) : Option.none()),
       }),
     }),
     CompletedCopySectionId: ({ id, isCopied }) => ({
-      model: modifyFields(model, {
+      model: UiStruct.evolve(model, {
         maybeCopied: () => (isCopied ? Option.some(id) : Option.none()),
       }),
     }),
@@ -976,7 +990,7 @@ const updated = (model: Model, message: Message) =>
         {
           onNone: () => model,
           onSome: (width) =>
-            modifyFields(model, { widths: (widths) => fittedTo(widths, "stacks", width) }),
+            UiStruct.evolve(model, { widths: (widths) => fittedTo(widths, "stacks", width) }),
         },
       ),
     }),
@@ -984,17 +998,17 @@ const updated = (model: Model, message: Message) =>
     CompletedDrawDiagram: () => ({ model }),
     CompletedScrollTurn: () => ({ model }),
     HoveredNode: ({ node }) => ({
-      model: modifyFields(model, { maybeHovered: () => Option.some(node) }),
+      model: UiStruct.evolve(model, { maybeHovered: () => Option.some(node) }),
     }),
-    LeftNode: () => ({ model: modifyFields(model, { maybeHovered: () => Option.none() }) }),
+    LeftNode: () => ({ model: UiStruct.evolve(model, { maybeHovered: () => Option.none() }) }),
     MeasuredWires: ({ measured }) => ({
-      model: modifyFields(model, { maybeMeasuredWires: () => Option.some(measured) }),
+      model: UiStruct.evolve(model, { maybeMeasuredWires: () => Option.some(measured) }),
     }),
     OpenedPresence: () => ({
-      model: modifyFields(model, { presenceConnection: () => PresenceConnection.Connected() }),
+      model: UiStruct.evolve(model, { presenceConnection: () => PresenceConnection.Connected() }),
     }),
     PressedArrowOnDivider: ({ key, pane }) => ({
-      model: modifyFields(model, {
+      model: UiStruct.evolve(model, {
         hasChosenStacksWidth: (hasChosen) => hasChosen || pane === "stacks",
         widths: (widths) => resized(widths, pane, deltaOf(pane, stepOf(key))),
       }),
@@ -1003,7 +1017,7 @@ const updated = (model: Model, message: Message) =>
     PressedDivider: ({ maybeWidth, pane, pointerId, x }) => ({
       model: Resize.guards.Resizing(model.resize)
         ? model
-        : modifyFields(model, {
+        : UiStruct.evolve(model, {
             hasChosenStacksWidth: (hasChosen) => hasChosen || pane === "stacks",
             resize: () =>
               Resize.Resizing({
@@ -1021,14 +1035,14 @@ const updated = (model: Model, message: Message) =>
         onNone: () => model,
         onSome: (resizing) =>
           buttons === NO_BUTTONS
-            ? modifyFields(model, { resize: () => Resize.Idle() })
-            : modifyFields(model, { widths: (widths) => draggedTo(widths, resizing, x) }),
+            ? UiStruct.evolve(model, { resize: () => Resize.Idle() })
+            : UiStruct.evolve(model, { widths: (widths) => draggedTo(widths, resizing, x) }),
       }),
     }),
     ReleasedResizePointer: ({ pointerId }) => ({
       model: Option.match(resizeByPointer(model.resize, pointerId), {
         onNone: () => model,
-        onSome: () => modifyFields(model, { resize: () => Resize.Idle() }),
+        onSome: () => UiStruct.evolve(model, { resize: () => Resize.Idle() }),
       }),
     }),
     // It is the reader's key: on any other screen it does nothing. With the detail panel open it
@@ -1038,11 +1052,11 @@ const updated = (model: Model, message: Message) =>
       Screen.guards.Reader(model.screen)
         ? Array.match(model.detail, {
             onEmpty: () => ({
-              model: modifyFields(model, {
+              model: UiStruct.evolve(model, {
                 maybeCopied: () => Option.none(),
                 maybeCopiedLink: () => Option.none(),
                 reader: (reader) =>
-                  modifyFields(reader, {
+                  UiStruct.evolve(reader, {
                     maybeFocus: () => Option.none(),
                     maybePassage: Option.filter((passage) => !isPrdSection(passage.section)),
                     maybePinned: () => Option.none(),
@@ -1059,13 +1073,13 @@ const updated = (model: Model, message: Message) =>
         onNone: () => ({ model }),
         onSome: (node) => selectedResult(model, node),
       }),
-    PressedSearchEscape: () => ({ model: modifyFields(model, { search: () => NO_SEARCH }) }),
+    PressedSearchEscape: () => ({ model: UiStruct.evolve(model, { search: () => NO_SEARCH }) }),
     // A patch that arrived stays in the model, loaded or failed, so selecting it again draws it
     // without a fetch, or fetches it again after a failure. A link waiting for data is resolved again.
     ReceivedPatch: ({ path, result }) =>
       reopened(
         model,
-        modifyFields(model, {
+        UiStruct.evolve(model, {
           patches: Record.set(
             path,
             Result.match(result, {
@@ -1078,7 +1092,7 @@ const updated = (model: Model, message: Message) =>
     ReceivedSession: ({ id, result }) =>
       reopened(
         model,
-        modifyFields(model, {
+        UiStruct.evolve(model, {
           sessions: Record.set(
             id,
             Result.match(result, {
@@ -1089,7 +1103,7 @@ const updated = (model: Model, message: Message) =>
         }),
       ),
     ReceivedPresence: ({ presence }) => ({
-      model: modifyFields(model, {
+      model: UiStruct.evolve(model, {
         participants: () => presence.participants,
         maybeYou: () => Option.some(presence.you),
         readers: (current) =>
@@ -1098,16 +1112,16 @@ const updated = (model: Model, message: Message) =>
     }),
     // Only the section at the top changes on a scroll.
     ScrolledPrd: ({ id }) => ({
-      model: modifyFields(model, {
-        reader: (reader) => modifyFields(reader, { maybeAtTop: () => Option.some(id) }),
+      model: UiStruct.evolve(model, {
+        reader: (reader) => UiStruct.evolve(reader, { maybeAtTop: () => Option.some(id) }),
       }),
     }),
     // A refreshed trace is searched again: a result that is gone loses its marks and its chain.
     // The first trace opens the link that was waiting for it.
     SettledLoadTrace: ({ result }) => {
-      const settled = modifyFields(model, { trace: AsyncData.settle(result) });
-      const searched = modifyFields(settled, {
-        search: (search) => refreshed(search, AsyncData.getData(settled.trace)),
+      const settled = UiStruct.evolve(model, { trace: settledTrace(result) });
+      const searched = UiStruct.evolve(settled, {
+        search: (search) => refreshed(search, loadedTraceOf(settled.trace)),
       });
       return Option.match(
         Option.filter(model.maybePendingLink, () => Option.isNone(traceOf(model))),
@@ -1119,27 +1133,26 @@ const updated = (model: Model, message: Message) =>
 // COMMAND
 
 /** Moves focus to the heading of the detail panel that just opened or changed its node. */
-export const FocusDetailHeading = Command.define("FocusDetailHeading", {
-  messages: [Message.CompletedFocusDetailHeading],
-  execute: Dom.focus(`#${DETAIL_HEADING_ID}`).pipe(
+export const FocusDetailHeading = Command.make("FocusDetailHeading", { args: {} }, () =>
+  focusElement(`#${DETAIL_HEADING_ID}`).pipe(
     Effect.ignore,
     Effect.as(Message.CompletedFocusDetailHeading()),
   ),
-});
+);
 
 /** The heading of a PRD section in the PRD pane; the document's own title is not one. */
 const prdHeadingSelector = (id: PrdSectionId): string => `[data-section="${id}"]:not([data-title])`;
 
 /** Scrolls the PRD pane so a section's heading is at its top. */
-export const ScrollPrdSection = Command.define("ScrollPrdSection", {
-  args: { id: PrdSectionId },
-  messages: [Message.CompletedScrollPrdSection],
-  execute: ({ id }) =>
-    Dom.scrollIntoView(prdHeadingSelector(id), { block: "start" }).pipe(
+export const ScrollPrdSection = Command.make(
+  "ScrollPrdSection",
+  { args: { id: PrdSectionId } },
+  ({ id }) =>
+    scrollElementIntoView(prdHeadingSelector(id), "start").pipe(
       Effect.ignore,
       Effect.as(Message.CompletedScrollPrdSection()),
     ),
-});
+);
 
 /** Scrolls to each target in turn: the first of its selectors that matches, or none. */
 const scrolledTo = (targets: ReadonlyArray<ScrollTarget>) =>
@@ -1147,7 +1160,7 @@ const scrolledTo = (targets: ReadonlyArray<ScrollTarget>) =>
     targets,
     ({ block, selectors }) =>
       Effect.firstSuccessOf(
-        Array.map(selectors, (selector) => Dom.scrollIntoViewAfterPaint(selector, { block })),
+        Array.map(selectors, (selector) => scrollElementIntoViewAfterPaint(selector, block)),
       ).pipe(Effect.ignore),
     { discard: true },
   );
@@ -1157,29 +1170,27 @@ const scrolledTo = (targets: ReadonlyArray<ScrollTarget>) =>
  * element is not in the page, such as a prose block still to be rendered, falls back to the next
  * selector; one that has none is left alone.
  */
-export const ScrollSearchTargets = Command.define("ScrollSearchTargets", {
-  args: { targets: Schema.Array(ScrollTarget) },
-  messages: [Message.CompletedScrollSearchTargets],
-  execute: ({ targets }) =>
-    scrolledTo(targets).pipe(Effect.as(Message.CompletedScrollSearchTargets())),
-});
+export const ScrollSearchTargets = Command.make(
+  "ScrollSearchTargets",
+  { args: { targets: Schema.Array(ScrollTarget) } },
+  ({ targets }) => scrolledTo(targets).pipe(Effect.as(Message.CompletedScrollSearchTargets())),
+);
 
 /**
  * Brings each step a link opened into view, in the link's order, so a pane that holds several ends
  * on the deepest. A step whose element is not in the page falls back as a search target does.
  */
-export const ScrollLinkTargets = Command.define("ScrollLinkTargets", {
-  args: { targets: Schema.Array(ScrollTarget) },
-  messages: [Message.CompletedScrollLinkTargets],
-  execute: ({ targets }) =>
-    scrolledTo(targets).pipe(Effect.as(Message.CompletedScrollLinkTargets())),
-});
+export const ScrollLinkTargets = Command.make(
+  "ScrollLinkTargets",
+  { args: { targets: Schema.Array(ScrollTarget) } },
+  ({ targets }) => scrolledTo(targets).pipe(Effect.as(Message.CompletedScrollLinkTargets())),
+);
 
 /** Writes a section's ID to the clipboard, and says whether the browser took it. */
-export const CopySectionId = Command.define("CopySectionId", {
-  args: { id: PrdSectionId },
-  messages: [Message.CompletedCopySectionId],
-  execute: ({ id }) =>
+export const CopySectionId = Command.make(
+  "CopySectionId",
+  { args: { id: PrdSectionId } },
+  ({ id }) =>
     Effect.tryPromise({
       catch: () => "The browser refused to copy",
       try: () => navigator.clipboard.writeText(id),
@@ -1189,29 +1200,23 @@ export const CopySectionId = Command.define("CopySectionId", {
         Message.CompletedCopySectionId({ id, isCopied: Result.isSuccess(result) }),
       ),
     ),
-});
+);
 
 /** Writes a link to the clipboard, with the page's origin in front of its path, and says whether the browser took it. */
-export const CopyLink = Command.define("CopyLink", {
-  args: { path: Schema.String },
-  messages: [Message.CompletedCopyLink],
-  execute: ({ path }) =>
-    Effect.tryPromise({
-      catch: () => "The browser refused to copy",
-      try: () => navigator.clipboard.writeText(`${location.origin}${path}`),
-    }).pipe(
-      Effect.result,
-      Effect.map((result) =>
-        Message.CompletedCopyLink({ isCopied: Result.isSuccess(result), path }),
-      ),
-    ),
-});
+export const CopyLink = Command.make("CopyLink", { args: { path: Schema.String } }, ({ path }) =>
+  Effect.tryPromise({
+    catch: () => "The browser refused to copy",
+    try: () => navigator.clipboard.writeText(`${location.origin}${path}`),
+  }).pipe(
+    Effect.result,
+    Effect.map((result) => Message.CompletedCopyLink({ isCopied: Result.isSuccess(result), path })),
+  ),
+);
 
-export const LoadTrace = Command.define("LoadTrace", {
-  messages: [Message.SettledLoadTrace],
-  execute: loadDemoTrace.pipe(
+export const LoadTrace = Command.make("LoadTrace", { args: {} }, () =>
+  loadDemoTrace.pipe(
     Effect.mapError(describeTraceError),
     Effect.result,
     Effect.map((result) => Message.SettledLoadTrace({ result })),
   ),
-});
+);

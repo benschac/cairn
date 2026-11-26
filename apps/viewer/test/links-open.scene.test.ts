@@ -1,7 +1,7 @@
+import { UiStruct } from "@effect/ui";
 import { LinesStep, PrdSectionId, SpecSectionId, Step } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option, Order, Result, Schema, String, pipe } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { stackBoxesOf } from "../src/boxes.ts";
 import { diffPathOf, rangeOf } from "../src/codeView.ts";
@@ -244,10 +244,10 @@ it.effect("the diff mount holds the lines a link selected, as the link writes th
 it.effect("a line on the old side is written with its side", () =>
   Effect.gen(function* () {
     const s = yield* viewerScene(
-      modifyFields(diffOf([{ kind: "file", path: FILE }]), {
+      UiStruct.evolve(diffOf([{ kind: "file", path: FILE }]), {
         screen: (screen) =>
           Screen.guards.Code(screen)
-            ? modifyFields(screen, {
+            ? UiStruct.evolve(screen, {
                 maybeLines: () =>
                   Option.some(decodeLines({ end: 2, kind: "lines", side: "old", start: 2 })),
               })

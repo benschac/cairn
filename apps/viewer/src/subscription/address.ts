@@ -1,22 +1,22 @@
 import { Effect, Option, Queue, Stream, String } from "effect";
-import { Navigation, Url } from "foldkit";
 
 import { Message } from "../message.ts";
+import { UrlRequest, urlFromString, type Url } from "../url.ts";
 import { inPage } from "./page.ts";
 
 /** The main mouse button. */
 const PRIMARY_BUTTON = 0;
 
 /** The page's address, as `ChangedUrl` carries it. */
-const currentUrl = (): Option.Option<Url.Url> => Url.fromString(window.location.href);
+const currentUrl = (): Option.Option<Url> => urlFromString(window.location.href);
 
 /**
- * What a click on an anchor asks for, as Foldkit's `routing` read it: none for a click with
+ * What a click on an anchor asks for, as a browser router reads it: none for a click with
  * another button or a modifier key, one something already handled, an anchor that opens elsewhere
  * or downloads, or a click on no anchor; otherwise the anchor's address, internal when it has the
  * page's origin.
  */
-export const linkRequestOf = (event: MouseEvent): Option.Option<Navigation.UrlRequest> =>
+export const linkRequestOf = (event: MouseEvent): Option.Option<UrlRequest> =>
   Option.liftPredicate(
     event,
     ({ altKey, button, ctrlKey, defaultPrevented, metaKey, shiftKey }) =>
@@ -39,10 +39,10 @@ export const linkRequestOf = (event: MouseEvent): Option.Option<Navigation.UrlRe
     ),
     Option.map((anchor) =>
       Option.match(
-        Option.filter(Url.fromString(anchor.href), () => anchor.origin === location.origin),
+        Option.filter(urlFromString(anchor.href), () => anchor.origin === location.origin),
         {
-          onNone: () => Navigation.UrlRequest.External({ href: anchor.href }),
-          onSome: (url) => Navigation.UrlRequest.Internal({ url }),
+          onNone: () => UrlRequest.External({ href: anchor.href }),
+          onSome: (url) => UrlRequest.Internal({ url }),
         },
       ),
     ),
@@ -79,7 +79,7 @@ const linkClicks = Stream.callback<Message>((queue) =>
 );
 
 /**
- * The viewer owns the address, as Foldkit's `routing` let it: Back, Forward and a fragment
+ * The viewer owns the address: Back, Forward and a fragment
  * followed arrive as `ChangedUrl`, and a click on an anchor as `ClickedLink`, which goes where
  * the browser would take it. The viewer writes history itself (`PushUrl`, `ReplaceUrl`), so no
  * Router stands between it and `window.history`.

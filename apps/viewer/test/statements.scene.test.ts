@@ -1,7 +1,7 @@
+import { UiStruct } from "@effect/ui";
 import { Event, StatementId, TaskId, TraceStatement, type Trace } from "@cairn/contract";
 import { it } from "@effect/vitest";
 import { Array, Effect, Schema } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
 import { Screen, TraceData } from "../src/model.ts";
@@ -56,7 +56,7 @@ const traceWith = (status: "blocked_on_human" | "done", events: ReadonlyArray<Ev
 });
 
 const opened = (trace: Trace) =>
-  modifyFields(loaded, {
+  UiStruct.evolve(loaded, {
     detail: () => [{ id: Schema.decodeSync(TaskId)("t1"), kind: "task" as const }],
     screen: () => Screen.Reader(),
     trace: () => TraceData.Success({ data: trace }),

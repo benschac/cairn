@@ -1,3 +1,5 @@
+import { urlFromString, type Url } from "../src/url.ts";
+import { UiStruct } from "@effect/ui";
 import {
   LinesStep,
   PrdSectionId,
@@ -9,8 +11,6 @@ import {
 import { stacksOf } from "@cairn/core/stacks";
 import { expect, it } from "@effect/vitest";
 import { Array, Option, Record, Result, Schema, String, pipe } from "effect";
-import { Url } from "foldkit";
-import { modifyFields } from "foldkit/struct";
 
 import { commitPathOf, diffPathOf, filesOf, rangeOf, sessionCommitOf } from "../src/codeView.ts";
 import { demoTrace } from "../src/demo.ts";
@@ -103,9 +103,9 @@ const turnSession = Option.getOrThrow(
 
 /** The viewer before its first trace, with a link waiting for it, as `init` leaves it. */
 const waitingFor = (link: Link): Model =>
-  modifyFields(init().model, { maybePendingLink: () => Option.some(link) });
+  UiStruct.evolve(init().model, { maybePendingLink: () => Option.some(link) });
 
-const loaded = modifyFields(init().model, {
+const loaded = UiStruct.evolve(init().model, {
   trace: () => TraceData.Success({ data: demoTrace }),
 });
 
@@ -386,9 +386,9 @@ it("a click on a file drops the lines, and Escape clears the focus with the pin"
 const app = withAddress(update);
 
 /** The address of a link in a window of the viewer. */
-const urlOf = (link: Link): Url.Url =>
+const urlOf = (link: Link): Url =>
   Option.getOrThrow(
-    Url.fromString(`http://localhost:4310${Option.getOrThrow(linkRoute.print(link))}`),
+    urlFromString(`http://localhost:4310${Option.getOrThrow(linkRoute.print(link))}`),
   );
 
 const pathOf = (link: Link) => ({ path: Option.getOrThrow(linkRoute.print(link)) });
@@ -443,7 +443,7 @@ it("Back to the root before the first trace drops the link that was waiting for 
 });
 
 it("an address that is not a link opens the reader under its notice, and writes nothing", () => {
-  const url = Option.getOrThrow(Url.fromString("http://localhost:4310/task/t1/file/x.ts"));
+  const url = Option.getOrThrow(urlFromString("http://localhost:4310/task/t1/file/x.ts"));
   const started = init(url).model;
   expect(started.screen).toEqual(Screen.Reader());
   expect(started.maybePendingLink).toEqual(Option.none());

@@ -1,8 +1,8 @@
+import { UiStruct } from "@effect/ui";
 import { PrdSectionId, TaskId } from "@cairn/contract";
 import { stacksOf } from "@cairn/core/stacks";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, HashSet, Option, Record, Result, Schema } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { patchPathOf } from "../src/codeView.ts";
 import { FetchPatch } from "../src/command.ts";
@@ -36,7 +36,7 @@ import {
   wiresMeasuredAs,
 } from "./fixtures.ts";
 
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 const boxes = stackBoxesOf(demoTrace.tasks, {});
 const boxWith = (id: string) =>
   Option.getOrThrow(Array.findFirst(boxes, (box) => Record.has(box.stack.cells, TaskId.make(id))));
@@ -354,7 +354,7 @@ it.prop(
     const twice = update(once.model, Message.ClickedSegment({ root: id }));
     assert(Array.fromNullishOr(twice.commands)).toEqual([]);
     assert(twice.model.reader.unfolded).toEqual({ [id]: false });
-    assert(modifyFields(twice.model, { reader: () => reading.reader })).toEqual(reading);
+    assert(UiStruct.evolve(twice.model, { reader: () => reading.reader })).toEqual(reading);
   },
 );
 

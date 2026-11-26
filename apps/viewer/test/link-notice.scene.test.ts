@@ -1,10 +1,9 @@
+import { UiSchema, UiStruct } from "@effect/ui";
 import { decodeLink, Step, type Link } from "@cairn/contract";
 import { Html } from "@effect/ui/html";
 import { HtmlScene } from "@effect/ui/html/testing";
 import { it } from "@effect/vitest";
 import { Array, Effect, Option, Result, Schema } from "effect";
-import { defineMessageUnion } from "foldkit/message";
-import { modifyFields } from "foldkit/struct";
 
 import { RenderDiff } from "../src/diff.ts";
 import { diffPathOf, rangeOf, shortSha } from "../src/codeView.ts";
@@ -33,7 +32,7 @@ const noticeFor = (path: string): Option.Option<string> =>
   noticeOf(Result.map(decodeLink(path), (link) => resolveLink(demoTrace, link, NOTHING_LOADED)));
 
 /** A component with nothing but the notice, as the reader and the code view hold it. */
-const NoticeMessage = defineMessageUnion({ ClickedDismissLinkNotice: {} });
+const NoticeMessage = UiSchema.TaggedEnum({ ClickedDismissLinkNotice: {} });
 type NoticeMessage = typeof NoticeMessage.Type;
 
 const NoticeModel = Schema.Struct({ maybeNotice: Schema.Option(Schema.String) });
@@ -131,7 +130,7 @@ const appDismiss = inside(appNotice, dismiss);
 const drawn = (s: ViewerSteps) => s.mounted(RenderDiff, Message.CompletedRenderDiff());
 
 const codeModel = (shown: Shown) =>
-  modifyFields(loaded, {
+  UiStruct.evolve(loaded, {
     screen: () =>
       Screen.Code({
         maybeFile: Option.none(),
@@ -181,7 +180,7 @@ it.effect(
 
 it.effect("a reader with no link opened shows no notice", () =>
   Effect.gen(function* () {
-    const s = yield* viewerScene(modifyFields(loaded, { screen: () => Screen.Reader() }));
+    const s = yield* viewerScene(UiStruct.evolve(loaded, { screen: () => Screen.Reader() }));
     s.pipe(readerMounted).expect(appNotice).toBeAbsent();
   }),
 );

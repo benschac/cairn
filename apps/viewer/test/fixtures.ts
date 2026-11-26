@@ -1,9 +1,9 @@
+import { UiStruct, type Command } from "@effect/ui";
 import { Session } from "@cairn/contract";
 import { stacksOf } from "@cairn/core/stacks";
 import type { View } from "@effect/ui";
-import { Html } from "@effect/ui/html";
 import { HtmlLocator, HtmlScene } from "@effect/ui/html/testing";
-import { Locator } from "@effect/ui/testing";
+import { Locator, type Steps } from "@effect/ui/testing";
 import {
   Array,
   Effect,
@@ -14,12 +14,9 @@ import {
   Schema,
   String,
 } from "effect";
-import type { Html as FoldkitHtml, HtmlBuilder } from "foldkit/html";
-import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
-import { Viewer, viewerBridge } from "../src/app.ts";
-import { makeFoldkitBridge, type FoldkitBridge } from "../src/effect-ui/bridge.ts";
+import { Viewer } from "../src/app.ts";
 import { RenderDiff } from "../src/diff.ts";
 import { PushUrl } from "../src/route.ts";
 import { PressDivider } from "../src/view/dividerView.ts";
@@ -33,7 +30,7 @@ import { TraceData, type Model } from "../src/model.ts";
 import { FocusDetailHeading } from "../src/update.ts";
 
 /** A fresh model holding the demo trace. */
-export const loaded = modifyFields(init().model, {
+export const loaded = UiStruct.evolve(init().model, {
   trace: () => TraceData.Success({ data: demoTrace }),
 });
 
@@ -42,9 +39,9 @@ export const loaded = modifyFields(init().model, {
  * and has no use for the fold.
  */
 export const unfolded = (model: Model): Model =>
-  modifyFields(model, {
+  UiStruct.evolve(model, {
     reader: (reader) =>
-      modifyFields(reader, {
+      UiStruct.evolve(reader, {
         unfolded: () =>
           Record.fromIterableWith(stacksOf(demoTrace.tasks), (stack) => [stack.root, true]),
       }),
@@ -91,7 +88,7 @@ export const sessionWith = (id: string): Session =>
 //
 // A Scene test starts `viewerScene(model)`, drives it with `click` and the other steps, and asserts
 // with `expect(locator)`. A mount or a Command the viewer issues is answered with `mounted` and
-// `resolve` on the bridge's own definitions.
+// `resolve` on its own definitions.
 
 /** A fresh model, as a Story on `Viewer` or a Scene starts when it is not given one. */
 export const ordinary = init().model;
@@ -121,20 +118,18 @@ export const tag = Locator.tag;
 /** A `data-*` attribute selector; without `value`, any value matches. */
 export const data = (name: string, value?: string) => Locator.attr(`data-${name}`, value);
 
-/**
- * A Message from its encoded form. `foldkit/no-child-message-construction-in-root` reads a call
- * like `Message.ScrolledPrd(...)` outside a test file as a parent building a child's Message, so a
- * helper here decodes the Message, which is the same value.
- */
-const messageOf = Schema.decodeSync(Message);
-const scrolledPrdOf = Schema.decodeSync(Message.ScrolledPrd);
-const measuredWiresOf = Schema.decodeSync(Message.MeasuredWires);
+/** A Message from its encoded form, as a stream or a mount delivers it. */
+const completedNavigationOf = Schema.decodeSync(Message.cases.CompletedNavigation);
+const completedFocusDetailHeadingOf = Schema.decodeSync(Message.cases.CompletedFocusDetailHeading);
+const completedRenderDiffOf = Schema.decodeSync(Message.cases.CompletedRenderDiff);
+const scrolledPrdOf = Schema.decodeSync(Message.cases.ScrolledPrd);
+const measuredWiresOf = Schema.decodeSync(Message.cases.MeasuredWires);
 
 /** The reader's PRD pane found `id` at its top, as the mount reports on a page with no layout. */
 export const prdScrolledTo = (id: string) => (s: ViewerSteps) =>
   s.mounted(TrackPrdScroll, scrolledPrdOf({ _tag: "ScrolledPrd", id }));
 
-const stacksScrolledOf = Schema.decodeSync(Message.CompletedScrollStacks);
+const stacksScrolledOf = Schema.decodeSync(Message.cases.CompletedScrollStacks);
 
 /** The stacks pane has no chart to measure. */
 export const stacksScrolled = (s: ViewerSteps) =>
@@ -163,57 +158,16 @@ export const readerMounted = readerMountedAt("prd.goal");
 
 /** The history write a pin or an opened link makes, answered as the page would: it is done. */
 export const pushedUrl = (s: ViewerSteps) =>
-  s.resolve(viewerBridge.commandOf(PushUrl), messageOf({ _tag: "CompletedNavigation" }));
+  s.resolve(PushUrl, completedNavigationOf({ _tag: "CompletedNavigation" }));
 
-/** Answers a Foldkit Command the viewer issued with `message`. */
+/** Answers a Command the viewer issued with `message`. */
 export const resolved =
-  (definition: { readonly name: string }, message: Message) => (s: ViewerSteps) =>
-    s.resolve(viewerBridge.commandOf(definition), message);
+  <D extends Steps.Target>(definition: D, message: Command.Result<D>) =>
+  (s: ViewerSteps) =>
+    s.resolve(definition, message);
 
 /** A RegExp for a text that contains `text`, for `toHaveText`. */
 export const containing = (text: string): RegExp => new RegExp(EffectRegExp.escape(text), "u");
-
-/**
- * A small component that hosts a Foldkit view through the bridge, for a test of a view that has
- * no place in the viewer's own screens: the state is its Model, `update` is a pure function of
- * it, and the Scene starts from a Model as props.
- */
-export const hostFoldkitView = <Msg, ModelOf>(options: {
-  readonly name: string;
-  readonly message: Schema.Codec<Msg, unknown>;
-  readonly model: Schema.Codec<ModelOf, unknown>;
-  readonly mounts?: ReadonlyArray<Parameters<typeof makeFoldkitBridge<Msg>>[0]["mounts"][number]>;
-  /** The bridge the view is built under, when the test asks it for `mountOf`; `mounts` is ignored then. */
-  readonly bridge?: FoldkitBridge<Msg>;
-  readonly update: (model: ModelOf, message: Msg) => ModelOf;
-  readonly view: (model: ModelOf, h: HtmlBuilder<Msg>) => FoldkitHtml;
-}) => {
-  const bridge: FoldkitBridge<Msg> =
-    options.bridge ??
-    makeFoldkitBridge({
-      message: options.message,
-      mounts: options.mounts ?? [],
-    });
-  return Html.component({
-    message: options.message,
-    model: options.model,
-    name: options.name,
-    props: options.model,
-  }).make({
-    init: ($) => $.props,
-    update: ($, message) => options.update($.model, message),
-    view: (h, model) =>
-      Option.getOrElse(
-        Option.fromNullOr(
-          bridge.foldkitView(
-            h,
-            bridge.build((foldkit) => options.view(model, foldkit)),
-          ),
-        ),
-        () => h.span,
-      ),
-  });
-};
 
 /** The elements whose `class` lists `name`. */
 export const withClass = (name: string): Locator.Locator => ({
@@ -260,13 +214,13 @@ export const sent = (message: Message) => (s: ViewerSteps) => s.subscription("ad
 /** The detail panel took focus on its heading; answers the Command that moved it. */
 export const focusedHeading = (s: ViewerSteps) =>
   s.resolve(
-    viewerBridge.commandOf(FocusDetailHeading),
-    messageOf({ _tag: "CompletedFocusDetailHeading" }),
+    FocusDetailHeading,
+    completedFocusDetailHeadingOf({ _tag: "CompletedFocusDetailHeading" }),
   );
 
 /** The diff mount of a loaded patch answers once it has drawn the patch. */
 export const drawnDiff = (s: ViewerSteps) =>
-  s.mounted(RenderDiff, messageOf({ _tag: "CompletedRenderDiff" }));
+  s.mounted(RenderDiff, completedRenderDiffOf({ _tag: "CompletedRenderDiff" }));
 
 /** The detail panel's divider listens for a press from the moment the panel renders. */
 export const detailDividerRunning = (s: ViewerSteps) =>
@@ -318,8 +272,7 @@ export const notContaining = (text: string): RegExp =>
 /**
  * Every Element in a rendered view that has the attribute `name` (with `value`, when given), in
  * document order. They are the view's own node objects, so two renders can be compared by
- * identity: the bridge keeps what a `createLazy` slot reused by handing back the node it
- * converted last time.
+ * identity: `memoView` hands back the node it built last time when a slot's inputs are the same.
  */
 export const nodesWithAttr = (
   view: View.Node<unknown, unknown>,

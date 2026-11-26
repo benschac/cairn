@@ -1,7 +1,7 @@
+import { UiStruct } from "@effect/ui";
 import { TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option, Result, Schema, Struct } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { FetchPatch } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
@@ -26,7 +26,7 @@ import {
   viewerScene,
 } from "./fixtures.ts";
 
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 const taskId = (id: string) => Schema.decodeSync(TaskId)(id);
 const clickedTask = (id: string) => Message.ClickedTask({ id: taskId(id) });
 
@@ -41,7 +41,7 @@ const bare = Option.getOrThrow(
   Array.findFirst(demoTrace.tasks, (each) => Array.isReadonlyArrayEmpty(each.commits)),
 );
 const withBare = (status: "pending" | "done") =>
-  modifyFields(reading, {
+  UiStruct.evolve(reading, {
     trace: () =>
       TraceData.Success({
         data: Struct.evolve(demoTrace, {
@@ -109,7 +109,7 @@ it("a route is requested once across two openings, and not at all when the model
   assert(requested(loadedBack, clickedTask("t6")).paths).toEqual([]);
   // The code view and the panel share what is loaded: a patch the code view loaded is not fetched.
   const viaCode = update(
-    modifyFields(reading, {
+    UiStruct.evolve(reading, {
       patches: () => ({ [wholePath]: PatchData.Loaded({ text: rangePatch }) }),
     }),
     clickedTask("t6"),
@@ -154,7 +154,7 @@ it.effect("a pending task with no commits says it has no code yet, and fetches n
   Effect.gen(function* () {
     assert(requested(withBare("pending"), clickedTask(bare.id)).paths).toEqual([]);
     const s = yield* viewerScene(
-      modifyFields(withBare("pending"), { detail: () => [{ id: bare.id, kind: "task" }] }),
+      UiStruct.evolve(withBare("pending"), { detail: () => [{ id: bare.id, kind: "task" }] }),
     );
     s.pipe(readerMounted, detailDividerRunning)
       .expect(data("detail-code-note"))
@@ -167,7 +167,7 @@ it.effect("a pending task with no commits says it has no code yet, and fetches n
 it.effect("a done task with no commits says no commit carries its trailer", () =>
   Effect.gen(function* () {
     const s = yield* viewerScene(
-      modifyFields(withBare("done"), { detail: () => [{ id: bare.id, kind: "task" }] }),
+      UiStruct.evolve(withBare("done"), { detail: () => [{ id: bare.id, kind: "task" }] }),
     );
     s.pipe(readerMounted, detailDividerRunning)
       .expect(data("detail-code-note"))

@@ -1,3 +1,4 @@
+import { UiStruct } from "@effect/ui";
 import { Presence, PresenceJson, PrdSectionId, ReadingJson } from "@cairn/contract";
 import { assert, it } from "@effect/vitest";
 import {
@@ -13,7 +14,6 @@ import {
   String,
 } from "effect";
 import { TestClock } from "effect/testing";
-import { modifyFields } from "foldkit/struct";
 
 import { Message } from "../src/message.ts";
 import { init } from "../src/init.ts";
@@ -60,7 +60,7 @@ const prd = (id: string) => PrdSectionId.make(id);
 
 it("the window reads the section at the top, then the pinned one, and nothing before a trace is loaded", () => {
   assert.deepStrictEqual(readingOf(init().model), Option.none());
-  const reader = modifyFields(loaded, { screen: () => Screen.Reader() });
+  const reader = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
   const { model: atTop } = update(reader, Message.ScrolledPrd({ id: prd("prd.goal") }));
   assert.deepStrictEqual(readingOf(atTop), Option.some(prd("prd.goal")));
   const { model: pinned } = update(atTop, Message.ClickedStatusLine({ id: prd("prd.viewer") }));

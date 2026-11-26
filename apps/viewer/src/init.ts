@@ -1,20 +1,19 @@
 import { Array, Option, Result } from "effect";
-import type { Update, Url } from "foldkit";
 
-import type { Message } from "./message.ts";
-import { PresenceConnection, Screen, TraceData, type Model } from "./model.ts";
+import { PresenceConnection, Screen, TraceData } from "./model.ts";
 import { noticeOf } from "./links.ts";
 import { isDemoBuild } from "./load.ts";
 import { INITIAL_WIDTHS, Resize } from "./panes.ts";
 import { linkRoute } from "./route.ts";
 import { NO_SEARCH } from "./search.ts";
-import { LoadTrace } from "./update.ts";
+import { LoadTrace, type Return } from "./update.ts";
+import type { Url } from "./url.ts";
 
 /**
  * The viewer as it starts at an address. A link in the address waits for the first trace, which
  * opens it; a path that is not a link opens nothing, under the notice that says why. With no address, as in a test, it starts at `/`.
  */
-export const init = (url?: Url.Url): Update.Return<Model, Message> => {
+export const init = (url?: Url): Return => {
   const opened = Option.match(Option.fromUndefinedOr(url), {
     onNone: () => Result.succeed([]),
     onSome: linkRoute.parse,
@@ -22,7 +21,7 @@ export const init = (url?: Url.Url): Update.Return<Model, Message> => {
   return {
     // Only the demo loads its bundled trace. Under cairn serve the first poll is the first load, so the
     // bundled trace can never arrive after, and replace, a live one.
-    commands: isDemoBuild() ? [LoadTrace()] : [],
+    commands: isDemoBuild() ? [LoadTrace.make()] : [],
     model: {
       diffStyle: "unified",
       detail: [],

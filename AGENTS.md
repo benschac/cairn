@@ -8,7 +8,7 @@ hand in the format `cairn plan` will produce.
 
 ## Before building anything
 
-Ratstack is the reference for this stack: Cloudflare, Alchemy, Foldkit and
+Ratstack is the reference for this stack: Cloudflare, Alchemy, Effect UI and
 Effect, with XState machines and Effect Schema. Take the piece the task needs
 and leave the rest. Do not copy rat-stack.
 
@@ -26,7 +26,7 @@ and docs under `node_modules` instead of trusting memory.
 | Effect UI, `@effect/ui-kit` | `.agent_sources/effect-ui/index.md`, then `apps/viewer/EFFECT-UI.md` for what the viewer's move needs                             |
 | Model-based testing         | `node_modules/xstate/docs/model-based-testing.md`, then the `@xstate/test` README in `node_modules/@xstate/test/README.md`        |
 | Ratstack patterns           | `.agent_sources/ratstack/README.md`: offline `llms.txt` and `llms-full.txt` with line-range indexes                               |
-| Upstream source             | `.agent_sources/github.com/`: full clones of effect, xstate, rat-stack, foldkit, alchemy, ui (gitignored)                         |
+| Upstream source             | `.agent_sources/github.com/`: full clones of effect, xstate, rat-stack, alchemy, ui (gitignored)                                  |
 
 `.agent_sources` is hidden: name its path to `rg` or pass `--hidden`. Do not
 read a whole cached document; search its index and read the line range.
@@ -42,7 +42,7 @@ search the lookup: Effect probably already has it.
   and its `rg` scans over your diff. It covers collections, `Option`,
   `Match`, `Record` and `Struct`, equality and ordering, `Schema`, errors,
   services and layers, scopes, concurrency, `Stream`, time and `Config`,
-  logging, the platform modules, Foldkit, XState and tests. A reviewer runs
+  logging, the platform modules, Effect UI, XState and tests. A reviewer runs
   the same list.
 - Use the core modules (`Array`, `Option`, `Record`, `Struct`, `HashSet`,
   `HashMap`, `Order`, `Match`, `Predicate`, `String`, `Number`, `Schema`)
@@ -134,9 +134,11 @@ that.
 - `packages/core`: the machines. A lifecycle is an XState machine built with
   `setupEffect`, whose context and events are schemas from the contract.
 
-- `apps/viewer`: the Foldkit viewer. A Schema-defined Model, fact-named
-  Messages, one `update` and one `view`. Test it with a Scene from
-  `foldkit/scene`: click what a person clicks and assert on what the view shows.
+- `apps/viewer`: the Effect UI viewer. A Schema-defined Model, fact-named
+  Messages, one `update` and one `view`, as an Effect UI component. Test it with
+  `HtmlScene` or `Story` from `@effect/ui/html/testing`: click what a person clicks
+  and assert on what the view shows. `apps/viewer/EFFECT-UI.md` has the
+  conventions for writing a view.
 - `apps/site`: the Alchemy stack that hosts the demo on Cloudflare. It is
   declared in `alchemy.run.ts` and deploys the viewer to `prdtrace.com`.
   CI deploys the `prod` stage on every push to `main` that passes

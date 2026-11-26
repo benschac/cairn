@@ -1,7 +1,7 @@
+import { UiStruct } from "@effect/ui";
 import { PrdSectionId, Sha, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option, Predicate, Result, String, Struct } from "effect";
-import { modifyFields } from "foldkit/struct";
 import { vi } from "vitest";
 
 import { FetchPatch, FetchSession } from "../src/command.ts";
@@ -58,7 +58,7 @@ const bare = Option.getOrThrow(
 const trace = Struct.evolve(demoTrace, {
   tasks: (tasks) => Array.map(tasks, (t) => (t.id === stacked.id ? stacked : t)),
 });
-const model = modifyFields(loaded, { trace: () => TraceData.Success({ data: trace }) });
+const model = UiStruct.evolve(loaded, { trace: () => TraceData.Success({ data: trace }) });
 
 /** A PRD section a person can pin on the reader. */
 const prdSection = PrdSectionId.make("prd.goal");
@@ -241,7 +241,7 @@ it("opening the code view and going back changes only the screen", () => {
     }),
   );
   assert(appUpdate(there, Message.ClickedBackToPlan()).model).toEqual(
-    modifyFields(pinned, { patches: () => there.patches, sessions: () => there.sessions }),
+    UiStruct.evolve(pinned, { patches: () => there.patches, sessions: () => there.sessions }),
   );
 });
 

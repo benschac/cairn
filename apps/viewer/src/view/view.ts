@@ -1,12 +1,11 @@
 import type { Participant, Trace } from "@cairn/contract";
 import type { Html } from "@effect/ui/html";
 import { Array, Option } from "effect";
-import { AsyncData } from "foldkit";
 
 import { styleText } from "../effect-ui/attributes.ts";
 import { copyLinksOf } from "../links.ts";
 import { Message } from "../message.ts";
-import { PresenceConnection, Screen, type Model } from "../model.ts";
+import { PresenceConnection, Screen, TraceData, loadedTraceOf, type Model } from "../model.ts";
 import { labelOf } from "../readers.ts";
 import { codeView, type CodeMessages } from "./codeView.ts";
 import { readerView } from "./readerView.ts";
@@ -48,16 +47,14 @@ const othersOf = (model: Model): ReadonlyArray<Participant> =>
   );
 
 /**
- * The viewer's whole view: the reader or the code view, in `main`. `Viewer` calls it inside
- * `viewerBridge.render`, so the views under it that are still Foldkit build in one pass. The code
- * view is one of them.
+ * The viewer's whole view: the reader or the code view, in `main`.
  */
 export const view = (h: Html.H<Message>, model: Model) =>
   Screen.match(model.screen, {
     Reader: () => readerScreenView(h, model),
     Code: (code) =>
       h.main(
-        Option.match(AsyncData.getData(model.trace), {
+        Option.match(loadedTraceOf(model.trace), {
           onNone: () => loadingView(h),
           onSome: (trace) =>
             codeView(
@@ -93,13 +90,11 @@ const readerScreenView = (h: Html.H<Message>, model: Model) => {
       }),
     )
     .children(
-      AsyncData.match(model.trace, {
-        onFailure: (error) => alertView(h, error),
-        onIdle: () => loadingView(h),
-        onLoading: () => loadingView(h),
-        onRefreshing: (data) => loaded(data),
-        onStale: ({ data, error }) => [alertView(h, error), loaded(data)],
-        onSuccess: (data) => loaded(data),
+      TraceData.match(model.trace, {
+        Failure: ({ error }) => alertView(h, error),
+        Loading: () => loadingView(h),
+        Stale: ({ data, error }) => [alertView(h, error), loaded(data)],
+        Success: ({ data }) => loaded(data),
       }),
     );
 };

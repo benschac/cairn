@@ -1,7 +1,7 @@
+import { UiStruct } from "@effect/ui";
 import { PrdSectionId, SectionId, TaskId, type TraceTask } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option, Result, Schema } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { patchPathOf } from "../src/codeView.ts";
 import { FetchPatch } from "../src/command.ts";
@@ -35,7 +35,7 @@ import {
 
 const prd = (id: string) => PrdSectionId.make(id);
 
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 
 const statusLine = (id: string) => data("status-line", id);
 const card = (id: string) => data("spec", id);
@@ -165,7 +165,7 @@ it.effect.each<{
         Array.some(task.specSections, (id) => id === SPEC),
       ),
     );
-    const model = modifyFields(reading, {
+    const model = UiStruct.evolve(reading, {
       trace: () =>
         TraceData.Success({
           data: {
@@ -310,7 +310,7 @@ it.effect("a task that names the section but none of its spec sections is in a l
       specSections: donor.specSections,
       title: "A task on the PRD section alone",
     };
-    const withStray = modifyFields(reading, {
+    const withStray = UiStruct.evolve(reading, {
       trace: () =>
         TraceData.Success({ data: { ...demoTrace, tasks: Array.append(demoTrace.tasks, stray) } }),
     });
@@ -394,7 +394,7 @@ it.effect(
 it.effect("a section with no summary shows none, and the others still do", () =>
   Effect.gen(function* () {
     const [first = "", ...others] = implementing("prd.viewer");
-    const bare = modifyFields(reading, {
+    const bare = UiStruct.evolve(reading, {
       trace: () =>
         TraceData.Success({
           data: {

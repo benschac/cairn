@@ -1,10 +1,10 @@
+import { UiStruct } from "@effect/ui";
 import { TaskStatus, type Trace } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { vi } from "vitest";
 import { Array, Effect, Fiber, Option, Ref, Result, Schema, Stream, Struct } from "effect";
 import { TestClock } from "effect/testing";
 import { FetchHttpClient } from "effect/http";
-import { modifyFields } from "foldkit/struct";
 
 import demoTraceJson from "../src/demo-trace.json" with { type: "json" };
 import { demoTrace } from "../src/demo.ts";
@@ -30,7 +30,7 @@ const columns = (s: ViewerSteps) =>
     .toExist()
     .expect(byRole("region", { name: "Stacks" }))
     .toExist();
-const withTrace = (trace: TraceData) => modifyFields(init().model, { trace: () => trace });
+const withTrace = (trace: TraceData) => UiStruct.evolve(init().model, { trace: () => trace });
 
 it("init starts loading", () => {
   assert(init().model.trace).toEqual(TraceData.Loading());

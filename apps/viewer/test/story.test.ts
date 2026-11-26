@@ -4,7 +4,7 @@ import { expect as assert, it } from "@effect/vitest";
 import { Effect, Option, Result, Schema } from "effect";
 import { vi } from "vitest";
 
-import { Viewer, viewerBridge } from "../src/app.ts";
+import { Viewer } from "../src/app.ts";
 import { demoTrace } from "../src/demo.ts";
 import { loadDemoTrace } from "../src/load.ts";
 import { Message } from "../src/message.ts";
@@ -16,11 +16,11 @@ import { ordinary, viewerProps } from "./fixtures.ts";
 const settled = (result: Result.Result<typeof demoTrace, string>) =>
   Message.SettledLoadTrace({ result });
 
-const loadTrace = viewerBridge.commandOf(LoadTrace);
+const loadTrace = LoadTrace;
 
 /**
- * A story on `Viewer`. Its `init` returns the Commands the Foldkit `init` returned, so they are
- * pending on the cursor from the start, as `started` seeded them.
+ * A story on `Viewer`. Its `init` runs the Commands `init.ts` returns, so they are pending on the
+ * cursor from the start, as `started` seeded them.
  */
 const started = Story.make(Viewer, viewerProps);
 

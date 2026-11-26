@@ -1,7 +1,7 @@
+import { type Command, UiStruct } from "@effect/ui";
 import { SectionId, TaskId } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
 import { Array, Option, Schema } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { CLOSED, cutBackTo, extendedBy, nodeShownBy, openedOn, wentBack } from "../src/detail.ts";
 import { Message } from "../src/message.ts";
@@ -12,11 +12,17 @@ import { loaded } from "./fixtures.ts";
 
 const Trail = Schema.Array(Node);
 const Steps = Schema.NonEmptyArray(Node);
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
-const open = (detail: ReadonlyArray<Node>) => modifyFields(reading, { detail: () => detail });
-/** The commands an update asked for; none when it asked for none. */
-const commandsOf = (result: { readonly commands?: ReadonlyArray<unknown> }) =>
-  Option.getOrElse(Option.fromUndefinedOr(result.commands), () => []);
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
+const open = (detail: ReadonlyArray<Node>) => UiStruct.evolve(reading, { detail: () => detail });
+/** The commands an update asked for, by name and args; none when it asked for none. */
+const commandsOf = (result: { readonly commands?: ReadonlyArray<Command.Data> }) =>
+  Array.map(
+    Option.getOrElse(Option.fromUndefinedOr(result.commands), Array.empty),
+    ({ args, name }) => ({
+      args,
+      name,
+    }),
+  );
 const aTask = Schema.decodeSync(TaskId)("t1");
 const aSection = Schema.decodeSync(SectionId)("spec.viewer.reader");
 
@@ -79,7 +85,7 @@ it.prop("closing empties the trail from any depth", { trail: Trail }, ({ trail }
 it("focus goes to the heading when the panel opens or its last node changes, and only then", () => {
   const task = { id: aTask, kind: "task" } as const;
   const section = { id: aSection, kind: "section" } as const;
-  const focus = [FocusDetailHeading()];
+  const focus = commandsOf({ commands: [FocusDetailHeading.make()] });
   expect(commandsOf(update(reading, Message.ClickedTask({ id: aTask })))).toEqual(focus);
   expect(commandsOf(update(open([task]), Message.ClickedDetailNode({ node: section })))).toEqual(
     focus,
@@ -99,7 +105,7 @@ it("focus goes to the heading when the panel opens or its last node changes, and
 
 it("Escape pops the trail only on the reader; on the code view it leaves the panel alone", () => {
   const trail = [{ id: aTask, kind: "task" } as const];
-  const onCode = modifyFields(loaded, {
+  const onCode = UiStruct.evolve(loaded, {
     detail: () => trail,
     screen: () =>
       Screen.Code({

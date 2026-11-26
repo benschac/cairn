@@ -1,10 +1,9 @@
 import { PrdSectionId, PresenceJson, ReadingJson } from "@cairn/contract";
 import { Subscription } from "@effect/ui";
 import { Context, Effect, Filter, MutableRef, Option, Schema, Stream } from "effect";
-import { AsyncData } from "foldkit";
 
 import { Message } from "../message.ts";
-import type { Model } from "../model.ts";
+import { loadedTraceOf, type Model } from "../model.ts";
 import { currentOf, searchedSectionOf } from "../reader.ts";
 import { InPage } from "./page.ts";
 
@@ -21,7 +20,7 @@ const READING_POLL = "100 millis";
  * search result counts. None until the trace is loaded and a section is known.
  */
 export const readingOf = (model: Model): Option.Option<PrdSectionId> =>
-  Option.flatMap(AsyncData.getData(model.trace), (trace) =>
+  Option.flatMap(loadedTraceOf(model.trace), (trace) =>
     currentOf(model.reader, searchedSectionOf(trace, model.search.maybeActive)),
   );
 

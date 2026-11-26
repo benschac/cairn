@@ -1,6 +1,6 @@
+import { UiStruct } from "@effect/ui";
 import { expect as assert, it } from "@effect/vitest";
 import { Effect, MutableRef, Option } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { Message } from "../src/message.ts";
 import { Screen, type Model } from "../src/model.ts";
@@ -21,7 +21,7 @@ import {
   type ViewerSteps,
 } from "./fixtures.ts";
 
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 
 const prdDivider = byRole("separator", { name: "Resize the PRD pane" });
 const specDivider = byRole("separator", { name: "Resize the spec pane" });

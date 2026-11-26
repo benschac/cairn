@@ -85,7 +85,7 @@ const topsOf = (pane: Element): ReadonlyArray<SectionTop> =>
 const topSectionOf = (pane: Element): Option.Option<PrdSectionId> =>
   sectionAtTop(topsOf(pane), pane.getBoundingClientRect().top + TOP_LINE);
 
-type PrdMessage = typeof Message.ScrolledPrd.Type;
+type PrdMessage = typeof Message.cases.ScrolledPrd.Type;
 
 /**
  * Reports the section at the top of the pane once it mounts and then whenever it changes. A

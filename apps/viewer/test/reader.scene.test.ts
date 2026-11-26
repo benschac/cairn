@@ -1,10 +1,9 @@
+import { UiStruct } from "@effect/ui";
 import { PrdSectionId, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Locator } from "@effect/ui/testing";
 import { Array, Effect, Option, Schema } from "effect";
-import { modifyFields } from "foldkit/struct";
 
-import { viewerBridge } from "../src/app.ts";
 import { demoTrace } from "../src/demo.ts";
 import { Message } from "../src/message.ts";
 import { Screen, WHOLE_TASK } from "../src/model.ts";
@@ -29,7 +28,7 @@ const prd = (id: string) => PrdSectionId.make(id);
 const prdIds = Array.map(demoTrace.prd.sections, (section) => section.id);
 
 /** The reader open on the demo trace, as the Plan button leaves it. */
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 
 const heading = (id: string) => data("section", id);
 const statusLine = (id: string) => data("status-line", id);
@@ -239,7 +238,7 @@ it.effect(
       const s = yield* viewerScene(reading);
       s.pipe(readerMounted)
         .click(idButton("prd.viewer"))
-        .expectExact(viewerBridge.commandOf(CopySectionId))
+        .expectExact(CopySectionId)
         .pipe(
           resolved(
             CopySectionId,
@@ -278,13 +277,14 @@ it.prop(
   "a scroll changes only the section at the top",
   { id: Schema.Literals(prdIds) },
   ({ id }) => {
-    const pinned = modifyFields(reading, {
-      reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(prd("prd.goal")) }),
+    const pinned = UiStruct.evolve(reading, {
+      reader: (reader) =>
+        UiStruct.evolve(reader, { maybePinned: () => Option.some(prd("prd.goal")) }),
     });
     // The whole result: the model with only maybeAtTop changed, and no commands.
     assert(update(pinned, Message.ScrolledPrd({ id: prd(id) }))).toStrictEqual({
-      model: modifyFields(pinned, {
-        reader: (reader) => modifyFields(reader, { maybeAtTop: () => Option.some(prd(id)) }),
+      model: UiStruct.evolve(pinned, {
+        reader: (reader) => UiStruct.evolve(reader, { maybeAtTop: () => Option.some(prd(id)) }),
       }),
     });
   },
@@ -295,8 +295,8 @@ it.prop(
   { id: Schema.Literals(prdIds) },
   ({ id }) => {
     const pinned = (screen: Screen) =>
-      modifyFields(loaded, {
-        reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(prd(id)) }),
+      UiStruct.evolve(loaded, {
+        reader: (reader) => UiStruct.evolve(reader, { maybePinned: () => Option.some(prd(id)) }),
         screen: () => screen,
       });
     const onReader = update(pinned(Screen.Reader()), Message.PressedEscape()).model;

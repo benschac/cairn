@@ -63,7 +63,7 @@ export const measureBody = (body: Element): Option.Option<Measured> =>
 
 const sameMeasured = Schema.toEquivalence(Measured);
 
-type WiresMessage = typeof Message.MeasuredWires.Type;
+type WiresMessage = typeof Message.cases.MeasuredWires.Type;
 
 /** A pane and the content inside it, which is what grows when a card opens. */
 const watchedIn = (body: Element): ReadonlyArray<Element> =>

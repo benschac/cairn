@@ -1,9 +1,9 @@
+import { urlFromString } from "../../src/url.ts";
 import { PrdSectionId } from "@cairn/contract";
 import { HtmlPlay } from "@effect/ui/html/testing";
 import { Locator, TestHost } from "@effect/ui/testing";
 import { assert, it } from "@effect/vitest";
 import { Array, Effect, MutableRef, Option, Result } from "effect";
-import { Url } from "foldkit";
 import { vi } from "vitest";
 
 import { Viewer } from "../../src/app.ts";
@@ -51,13 +51,13 @@ const stubPage = Effect.sync(() => {
   vi.stubGlobal("window", { history: { pushState: write, replaceState: write } });
   vi.stubGlobal("location", { origin: "http://localhost:4310" });
   vi.stubGlobal("navigator", { clipboard: { writeText: () => Promise.resolve() } });
-  // Foldkit's DOM Commands wait for a frame before they touch the page; here the frame is now.
+  // The DOM Commands (`src/dom.ts`) wait for a frame before they touch the page; here the frame is now.
   vi.stubGlobal("requestAnimationFrame", (frame: (time: number) => void) => {
     frame(0);
     return 0;
   });
   vi.stubGlobal("cancelAnimationFrame", () => undefined);
-  // Foldkit's focus and scroll Commands look for their element in the page, which has none: each
+  // The focus and scroll Commands look for their element in the page, which has none: each
   // finds nothing and ends with its Message.
   vi.stubGlobal("document", { querySelector: () => null });
   vi.stubGlobal(
@@ -94,7 +94,7 @@ it.effect(
       // Back or Forward to a section's address opens it, and writes nothing.
       play.root.send(
         Message.ChangedUrl({
-          url: Option.getOrThrow(Url.fromString(`http://localhost:4310/section/${linked}`)),
+          url: Option.getOrThrow(urlFromString(`http://localhost:4310/section/${linked}`)),
         }),
       );
       yield* play.expect(statusLine(linked)).toHaveAttribute("aria-pressed", "true");

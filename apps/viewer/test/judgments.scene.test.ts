@@ -1,7 +1,7 @@
+import { UiStruct } from "@effect/ui";
 import { PrdSectionId, TraceJudgment, Verdict, type JudgmentTarget } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option, Order, Schema, Struct } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
 import { TraceData } from "../src/model.ts";
@@ -72,8 +72,8 @@ it.effect(
           ),
       });
       const s = yield* viewerScene(
-        modifyFields(loaded, {
-          reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(prdId) }),
+        UiStruct.evolve(loaded, {
+          reader: (reader) => UiStruct.evolve(reader, { maybePinned: () => Option.some(prdId) }),
           trace: () => TraceData.Success({ data: trace }),
         }),
       );

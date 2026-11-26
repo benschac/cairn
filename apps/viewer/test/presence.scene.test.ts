@@ -1,7 +1,7 @@
+import { UiStruct } from "@effect/ui";
 import { ParticipantId, PrdSectionId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { Message } from "../src/message.ts";
 import { Screen, type Model } from "../src/model.ts";
@@ -17,7 +17,7 @@ import {
 } from "./fixtures.ts";
 
 /** The reader open on the demo trace. */
-const reader = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reader = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 
 const goal = PrdSectionId.make("prd.goal");
 const viewer = PrdSectionId.make("prd.viewer");

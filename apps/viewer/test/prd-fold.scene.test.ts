@@ -1,6 +1,6 @@
+import { UiStruct } from "@effect/ui";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { SectionId } from "@cairn/contract";
 import { demoTrace } from "../src/demo.ts";
@@ -10,7 +10,7 @@ import { isOpenPrdSection } from "../src/reader.ts";
 import { update } from "../src/update.ts";
 import { data, inside, loaded, readerMounted, viewerScene } from "./fixtures.ts";
 
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 
 /** The PRD's sections under its title: each one has a heading in the pane. */
 const BODY = Array.filter(demoTrace.prd.sections, (section) => section.level > 1);
@@ -82,8 +82,8 @@ it.effect("a heading opens or closes its section alone, and the toggle for all f
 it("a heading's click flips what its section shows, whatever the toggle for all says", () => {
   const id = SectionId.make(SECTION);
   Array.forEach([false, true], (isPrdCondensed) => {
-    const before = modifyFields(reading, {
-      reader: (reader) => modifyFields(reader, { isPrdCondensed: () => isPrdCondensed }),
+    const before = UiStruct.evolve(reading, {
+      reader: (reader) => UiStruct.evolve(reader, { isPrdCondensed: () => isPrdCondensed }),
     });
     const after = update(before, Message.ClickedPrdHeading({ id })).model;
     assert(isOpenPrdSection(after.reader, id)).toBe(!isOpenPrdSection(before.reader, id));

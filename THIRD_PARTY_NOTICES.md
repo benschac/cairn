@@ -5,17 +5,16 @@ listed here was written by others, is included in or modifies this repository,
 and stays under its own license. Keep each notice when you copy or move the
 material.
 
-## Foldkit patch
+## Effect UI
 
-[patches/foldkit@0.171.0.patch](patches/foldkit@0.171.0.patch) modifies
-`dist/test/scene.js` of [Foldkit](https://github.com/foldkit/foldkit) 0.171.0,
-and its context lines reproduce parts of that file. Foldkit is distributed
-under this license:
+The viewer is built with [Effect UI](https://github.com/Effect-TS/ui)
+(`@effect/ui` and `@effect/ui-kit`), which is installed from npm and bundled
+into the viewer deployed to prdtrace.com. It is distributed under this license:
 
 ```text
 MIT License
 
-Copyright (c) 2025 Devin Jameson
+Copyright (c) 2023 Effectful Technologies Inc
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

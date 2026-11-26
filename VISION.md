@@ -57,7 +57,7 @@ offline merging can follow without blocking useful collaboration.
 ## Stack and deploy
 
 The primary product is a hosted Cloudflare application, provisioned with
-Alchemy. Effect supplies the core, policy services and CLI; Foldkit supplies the
+Alchemy. Effect supplies the core, policy services and CLI; Effect UI supplies the
 workspace and reader. Shared D1 holds accounts, membership and the PRD directory;
 each PRD's Durable Object owns its revisions, discussion and events, with R2 for
 attachments and large snapshots. The current deployment is still the demo;

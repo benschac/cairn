@@ -1,6 +1,6 @@
+import { UiStruct } from "@effect/ui";
 import { it } from "@effect/vitest";
 import { Array, Effect } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
 import { Screen } from "../src/model.ts";
@@ -18,7 +18,7 @@ import {
   type ViewerSteps,
 } from "./fixtures.ts";
 
-const folded = modifyFields(loaded, { screen: () => Screen.Reader() });
+const folded = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 /** With every finished trunk unfolded, so the chips these scenes look at are drawn. */
 const reading = unfolded(folded);
 

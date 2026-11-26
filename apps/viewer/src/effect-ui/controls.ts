@@ -12,7 +12,7 @@ import type { Attributable } from "./attributes.ts";
  * viewer (EFFECT-UI.md, Verdict 3). The kit waits for the components step.
  */
 
-/** The label's ID, as `@foldkit/ui`'s `Switch.labelId` builds it. */
+/** The label's ID, as the switch's `aria-labelledby` names it. */
 export const switchLabelId = (id: string): string => `${id}-label`;
 
 export interface SwitchConfig<Msg> {
@@ -46,7 +46,7 @@ export const switchView = <Msg>(
     })
     .children(h.span.id(switchLabelId(id)).children(label));
 
-/** The header button's ID and the panel's, as `@foldkit/ui`'s `Disclosure` builds them. */
+/** The header button's ID and the panel's, which `aria-controls` and `aria-labelledby` name. */
 export const disclosureButtonId = (id: string): string => `${id}-button`;
 export const disclosurePanelId = (id: string): string => `${id}-panel`;
 

@@ -1,7 +1,7 @@
+import { UiStruct } from "@effect/ui";
 import { PrdSectionId, SectionId, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option, Result, Schema } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { FetchPatch, FetchSession } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
@@ -29,10 +29,11 @@ import {
   type ViewerSteps,
 } from "./fixtures.ts";
 
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 const task = (id: string): Node => ({ id: Schema.decodeSync(TaskId)(id), kind: "task" });
 const spec = (id: string): Node => ({ id: Schema.decodeSync(SectionId)(id), kind: "section" });
-const opened = (...detail: ReadonlyArray<Node>) => modifyFields(reading, { detail: () => detail });
+const opened = (...detail: ReadonlyArray<Node>) =>
+  UiStruct.evolve(reading, { detail: () => detail });
 
 const escape = (s: ViewerSteps) => s.fireDocument("keydown", { key: "Escape" });
 
@@ -143,14 +144,14 @@ it.effect("the close button empties the trail", () =>
  * The demo trace with t41, which sits on t40, also depending on t39 below it. No task in the
  * manifest has a parent and another dependency, so the test adds one.
  */
-const alsoNeedsT39 = modifyFields(reading, {
+const alsoNeedsT39 = UiStruct.evolve(reading, {
   trace: () =>
     TraceData.Success({
-      data: modifyFields(demoTrace, {
+      data: UiStruct.evolve(demoTrace, {
         tasks: (tasks) =>
           Array.map(tasks, (each) =>
             each.id === "t41"
-              ? modifyFields(each, {
+              ? UiStruct.evolve(each, {
                   dependsOn: (dependsOn) =>
                     Array.append(dependsOn, Schema.decodeSync(TaskId)("t39")),
                 })
@@ -164,7 +165,7 @@ it.effect(
   "a task with a parent and another dependency names both, and the dependency opens as a step",
   () =>
     Effect.gen(function* () {
-      const s = yield* viewerScene(modifyFields(alsoNeedsT39, { detail: () => [task("t41")] }));
+      const s = yield* viewerScene(UiStruct.evolve(alsoNeedsT39, { detail: () => [task("t41")] }));
       s.pipe(readerMounted, detailDividerRunning)
         .expect(data("detail-parent"))
         .toHaveText(containing("on t40"))

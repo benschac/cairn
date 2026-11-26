@@ -51,7 +51,7 @@ without taking on the AGPL; each needs the maintainer's approval first.
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | `@cairn/core`     | The machines: planning, linting, stacks, the room. The orchestration engine.                                              | AGPL-3.0-only                                                               |
 | `@cairn/cli`      | The local process and the presence server.                                                                                | AGPL-3.0-only                                                               |
-| `@cairn/viewer`   | The Foldkit viewer.                                                                                                       | AGPL-3.0-only                                                               |
+| `@cairn/viewer`   | The Effect UI viewer.                                                                                                     | AGPL-3.0-only                                                               |
 | `@cairn/site`     | The Alchemy stack that deploys the demo to prdtrace.com.                                                                  | AGPL-3.0-only                                                               |
 | `@cairn/contract` | The Effect Schemas every package shares: the PRD, spec, manifest and trace formats, and the presence protocol's messages. | **Apache-2.0 candidate**                                                    |
 | `adapters`        | Planned in [VISION.md](VISION.md): the integration interfaces to agents and tools.                                        | **Apache-2.0 candidate** for its interface types; implementations stay AGPL |
@@ -96,17 +96,17 @@ does not collect them yet (see [Follow-up work](#follow-up-work)).
 
 ## Vendored and copied material
 
-| Path                                                                             | What it is                                                               | License                               |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------- |
-| `patches/foldkit@0.171.0.patch`                                                  | A patch to Foldkit's `dist/test/scene.js`                                | MIT, Copyright (c) 2025 Devin Jameson |
-| `.agent_sources/ratstack/source/`                                                | rat-stack skill and principles, read by agents                           | MIT, Copyright (c) 2026 Joel Hooks    |
-| `.agent_sources/ratstack/source/skills/rat-stack-mode/`                          | Same, with a second notice                                               | MIT, Copyright (c) 2026 Lauren Tan    |
-| `.agent_sources/ratstack/guide.txt`, `docs.txt`                                  | Snapshots of ratstack.sh's `llms.txt` and `llms-full.txt`                | Not stated; see open questions        |
-| `.agent_sources/effect/*`, `.agent_sources/xstate*`, `.agent_sources/*/index.md` | Indexes and checklists written for Cairn, pointing at installed packages | Cairn's own; AGPL                     |
+| Path                                                                             | What it is                                                               | License                            |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------- |
+| `.agent_sources/ratstack/source/`                                                | rat-stack skill and principles, read by agents                           | MIT, Copyright (c) 2026 Joel Hooks |
+| `.agent_sources/ratstack/source/skills/rat-stack-mode/`                          | Same, with a second notice                                               | MIT, Copyright (c) 2026 Lauren Tan |
+| `.agent_sources/ratstack/guide.txt`, `docs.txt`                                  | Snapshots of ratstack.sh's `llms.txt` and `llms-full.txt`                | Not stated; see open questions     |
+| `.agent_sources/effect/*`, `.agent_sources/xstate*`, `.agent_sources/*/index.md` | Indexes and checklists written for Cairn, pointing at installed packages | Cairn's own; AGPL                  |
 
 The two rat-stack LICENSE files stay where they are, and
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) now gives Foldkit's notice
-for the patch. No other source file in the repository carries a copyright
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) gives the notice for Effect UI
+(`@effect/ui`, `@effect/ui-kit`; MIT, Copyright (c) 2023 Effectful Technologies Inc),
+which the viewer bundles. No other source file in the repository carries a copyright
 header or SPDX tag, and no fonts or images are committed. The design
 prototypes in `.cairn/design/` and `apps/viewer/public/prototypes/` were
 made for Cairn.

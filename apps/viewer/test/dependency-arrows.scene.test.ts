@@ -1,7 +1,7 @@
+import { UiStruct } from "@effect/ui";
 import { TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, HashSet, Option, Record } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { dependencyLinksOf } from "../src/arrows.ts";
 import { stackBoxesOf, type Box } from "../src/boxes.ts";
@@ -28,7 +28,7 @@ import {
   type ViewerSteps,
 } from "./fixtures.ts";
 
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 const unfoldedReading = unfolded(reading);
 const foldedBoxes = stackBoxesOf(demoTrace.tasks, {});
 

@@ -1,8 +1,8 @@
+import { UiStruct } from "@effect/ui";
 import { PrdSectionId, type TraceTask } from "@cairn/contract";
 import { assert, expect, it } from "@effect/vitest";
 import { vi } from "vitest";
 import { Array, Effect, HashSet, Option, Record, String } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
 import type { Rect } from "../src/geometry.ts";
@@ -32,7 +32,7 @@ import {
   wiresMeasuredAs,
 } from "./fixtures.ts";
 
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 
 /** Three side-by-side panes, tall enough that nothing measured below is out of view. */
 const panes: Panes = {
@@ -151,8 +151,9 @@ it.effect("the elements a curve ends on carry their keys in data-wire", () =>
   Effect.gen(function* () {
     const first = Option.getOrThrow(Array.head(example.cards.cards));
     const s = yield* viewerScene(
-      modifyFields(reading, {
-        reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(example.prd) }),
+      UiStruct.evolve(reading, {
+        reader: (reader) =>
+          UiStruct.evolve(reader, { maybePinned: () => Option.some(example.prd) }),
       }),
     );
     s.pipe(opened(example.prd, everything))
@@ -226,7 +227,7 @@ it.effect("a curve whose end was scrolled out of its pane is dashed, and the res
     const hidden = taskKey(example.task.id);
     const scrolled: Measured = {
       boxes: Record.map(everything.boxes, (box, key) =>
-        key === hidden ? modifyFields(box, { y: () => panes.stacks.y - 500 }) : box,
+        key === hidden ? UiStruct.evolve(box, { y: () => panes.stacks.y - 500 }) : box,
       ),
       panes,
     };
@@ -355,15 +356,14 @@ it.effect(
     }),
 );
 
-// Foldkit's `Lazy.expectAllReused` has no Effect UI equivalent. A lazy slot (the PRD body, each spec
-// card) hands the bridge the VNode of the last render when its inputs are the same, and the bridge
-// hands back the node it converted for it, so a slot was reused when the same node object stands in
-// both renders, and rebuilt when it does not.
+// Effect UI has no test API that shows a lazy view was reused. A memoised slot (the PRD body, each
+// spec card) hands back the node of the last render when its inputs are the same, so a slot was
+// reused when the same node object stands in both renders, and rebuilt when it does not.
 const prdBodies = (view: ViewerSteps["view"]) => nodesWithAttr(view, "class", "prd-body");
 const cardNodes = (view: ViewerSteps["view"]) => nodesWithAttr(view, "data-spec");
 
-const pinned = modifyFields(reading, {
-  reader: (reader) => modifyFields(reader, { maybePinned: () => Option.some(example.prd) }),
+const pinned = UiStruct.evolve(reading, {
+  reader: (reader) => UiStruct.evolve(reader, { maybePinned: () => Option.some(example.prd) }),
 });
 
 /** The pinned section's reader, its mounts answered with nothing measured. */
@@ -379,7 +379,7 @@ it.effect("a measurement renders the wires again and nothing else", () =>
     s.pipe(
       wiresMeasuredAs(everything),
       wiresMeasuredAs({
-        boxes: Record.map(everything.boxes, (box) => modifyFields(box, { y: (y) => y + 1 })),
+        boxes: Record.map(everything.boxes, (box) => UiStruct.evolve(box, { y: (y) => y + 1 })),
         panes,
       }),
     );
@@ -404,8 +404,9 @@ it.effect(
       );
       const reader = Effect.map(
         viewerScene(
-          modifyFields(reading, {
-            reader: (each) => modifyFields(each, { maybePinned: () => Option.some(prd(bare.id)) }),
+          UiStruct.evolve(reading, {
+            reader: (each) =>
+              UiStruct.evolve(each, { maybePinned: () => Option.some(prd(bare.id)) }),
           }),
         ),
         (s) => s.pipe(opened(bare.id, unmeasuredWires)),

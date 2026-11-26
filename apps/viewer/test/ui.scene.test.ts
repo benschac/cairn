@@ -1,11 +1,10 @@
+import { UiSchema, UiStruct } from "@effect/ui";
 import { SectionStatus } from "@cairn/contract";
 import { Html } from "@effect/ui/html";
 import { HtmlScene } from "@effect/ui/html/testing";
 import { Locator } from "@effect/ui/testing";
 import { it } from "@effect/vitest";
 import { Array, Effect, Option, Record, Schema, String, pipe } from "effect";
-import { defineMessageUnion } from "foldkit/message";
-import { modifyFields } from "foldkit/struct";
 import { readFileSync } from "node:fs";
 import { expect as assert } from "vitest";
 
@@ -24,7 +23,7 @@ import { both, byRole, containing, inside, withClass } from "./fixtures.ts";
 const Density = Schema.Literals(["titles", "summary", "full"]);
 type Density = typeof Density.Type;
 
-const Message = defineMessageUnion({
+const Message = UiSchema.TaggedEnum({
   ClickedDensity: { density: Density },
   ClickedModelsSwitch: { isChecked: Schema.Boolean },
   ClickedSpecCard: { isOpen: Schema.Boolean },
@@ -49,9 +48,9 @@ const sentText = (message: Message): string =>
 
 const applied = (model: Model, message: Message): Model =>
   Message.match(message, {
-    ClickedDensity: ({ density }) => modifyFields(model, { density: () => density }),
-    ClickedModelsSwitch: ({ isChecked }) => modifyFields(model, { isChecked: () => isChecked }),
-    ClickedSpecCard: ({ isOpen }) => modifyFields(model, { isOpen: () => isOpen }),
+    ClickedDensity: ({ density }) => UiStruct.evolve(model, { density: () => density }),
+    ClickedModelsSwitch: ({ isChecked }) => UiStruct.evolve(model, { isChecked: () => isChecked }),
+    ClickedSpecCard: ({ isOpen }) => UiStruct.evolve(model, { isOpen: () => isOpen }),
   });
 
 const densities: ReadonlyArray<SegmentedOption<Density>> = [
@@ -110,7 +109,7 @@ const Controls = Html.component({
 }).make({
   init: ($) => $.props,
   update: ($, message) =>
-    modifyFields(applied($.model, message), { sent: () => sentText(message) }),
+    UiStruct.evolve(applied($.model, message), { sent: () => sentText(message) }),
   view,
 });
 
@@ -178,7 +177,7 @@ it.effect.each([false, true])(
   "releasing Space on a switch that is checked: %s sends the opposite, and no other key does",
   (isChecked) =>
     Effect.gen(function* () {
-      const s = yield* start(modifyFields(closed, { isChecked: () => isChecked }));
+      const s = yield* start(UiStruct.evolve(closed, { isChecked: () => isChecked }));
       s.fire(modelsSwitch, "keyup", { key: " " })
         .expectDefaultPrevented(true)
         .expect(sent)

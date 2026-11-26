@@ -4,7 +4,6 @@ import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option, Result, Schema, String, pipe } from "effect";
 
 import { Locator } from "@effect/ui/testing";
-import { viewerBridge } from "../src/app.ts";
 import { diffPathOf, rangeOf } from "../src/codeView.ts";
 import { demoTrace } from "../src/demo.ts";
 import { aloneOf, linkOf, pathOfLink, trailLinkOf, trunkOf } from "../src/links.ts";
@@ -50,7 +49,7 @@ const copyButton = (within: Locator.Locator, path: string) =>
   inside(within, data("copy-link", path));
 
 /** The click asked the clipboard, and nothing else. */
-const copying = (s: ViewerSteps) => s.expectExact(viewerBridge.commandOf(CopyLink));
+const copying = (s: ViewerSteps) => s.expectExact(CopyLink);
 
 // THE PRD
 

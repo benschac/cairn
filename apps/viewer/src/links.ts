@@ -1,3 +1,4 @@
+import { UiSchema, UiStruct } from "@effect/ui";
 import {
   PassageStep,
   PrdSectionId,
@@ -28,9 +29,6 @@ import {
   String,
   pipe,
 } from "effect";
-import { AsyncData } from "foldkit";
-import { defineTaggedUnion } from "foldkit/schema";
-import { modifyFields } from "foldkit/struct";
 
 import {
   commitOf,
@@ -49,6 +47,7 @@ import {
   Screen,
   SessionData,
   Shown,
+  loadedTraceOf,
   type CodeScreen,
   type Model,
   type PassageSelection,
@@ -67,7 +66,7 @@ export const BlockRange = Schema.Struct({ offset: Schema.Int, range: Range });
 export type BlockRange = typeof BlockRange.Type;
 
 /** What a step that opens needs to be shown: nothing more, a passage's marks, or a patch's route. */
-export const Needs = defineTaggedUnion({
+export const Needs = UiSchema.TaggedEnum({
   Nothing: {},
   Passage: { marks: Schema.Array(BlockRange) },
   Patch: { path: Schema.String },
@@ -706,7 +705,7 @@ export const linkOf = (model: Model): Link => {
       return node.kind === "section" && id === node.id;
     }) &&
     Option.exists(
-      Option.flatMap(AsyncData.getData(model.trace), (trace) =>
+      Option.flatMap(loadedTraceOf(model.trace), (trace) =>
         Array.findFirst(trace.spec.sections, (section) => section.id === node.id),
       ),
       (section) => Array.isReadonlyArrayEmpty(section.keys.implements),
@@ -726,7 +725,7 @@ export const linkOf = (model: Model): Link => {
     Option.match(
       Option.all({
         code: Option.liftPredicate(model.screen, Screen.guards.Code),
-        trace: AsyncData.getData(model.trace),
+        trace: loadedTraceOf(model.trace),
       }),
       { onNone: () => [], onSome: ({ code, trace }) => codeStepsOf(model, trace, code) },
     ),
@@ -836,7 +835,7 @@ export interface CopyLinks {
 const turnLinkOf = (model: Model, id: string): Option.Option<Link> =>
   Option.liftPredicate(
     linkOf(
-      modifyFields(model, {
+      UiStruct.evolve(model, {
         maybeHighlightedTurn: () => Option.some(HighlightedTurn.make({ from: "session", id })),
       }),
     ),
@@ -860,7 +859,7 @@ export const copyLinksOf = (model: Model): CopyLinks => {
  */
 export const trailLinkOf = (model: Model, index: number): Link =>
   linkOf(
-    modifyFields(model, {
+    UiStruct.evolve(model, {
       detail: Array.take(index + 1),
       screen: () => Screen.Reader(),
     }),

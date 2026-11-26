@@ -10,7 +10,7 @@ export const sharedTest = {
   testTimeout: 15_000,
   // Test files in one worker share their imports. A viewer scene parses the demo PRD and spec (half a
   // megabyte of markdown) and decodes the demo trace; with a fresh module graph per file every file paid
-  // for that again, and for loading Effect and Foldkit. Sharing them cut the CPU of the viewer's suite
+  // for that again, and for loading Effect and Effect UI. Sharing them cut the CPU of the viewer's suite
   // by 30% and of core's and cli's by a third. Module-level state in src is caches keyed by their input,
   // so a file cannot see another's results, only reuse its work.
   isolate: false,

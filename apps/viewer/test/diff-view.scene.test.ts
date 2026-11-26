@@ -1,8 +1,8 @@
+import { UiStruct } from "@effect/ui";
 import { Sha } from "@cairn/contract";
 import { Locator } from "@effect/ui/testing";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Predicate, Option, Result, String, Struct } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
 import { RenderDiff } from "../src/diff.ts";
@@ -41,7 +41,7 @@ const task = Struct.evolve(base, {
 const trace = Struct.evolve(demoTrace, {
   tasks: (tasks) => Array.map(tasks, (t) => (t.id === task.id ? task : t)),
 });
-const model = modifyFields(loaded, { trace: () => TraceData.Success({ data: trace }) });
+const model = UiStruct.evolve(loaded, { trace: () => TraceData.Success({ data: trace }) });
 const wholePath = `/api/diffs/${sha("0")}/${sha("a")}`;
 
 const after = (...messages: ReadonlyArray<Message>) =>
@@ -180,8 +180,8 @@ it.prop(
   "ClickedDiffStyle sets the style whichever it was, and changes nothing else",
   [DiffStyle, DiffStyle],
   ([from, to]) => {
-    const start = modifyFields(withPatch, { diffStyle: () => from });
+    const start = UiStruct.evolve(withPatch, { diffStyle: () => from });
     const next = appUpdate(start, Message.ClickedDiffStyle({ style: to })).model;
-    assert(next).toEqual(modifyFields(start, { diffStyle: () => to }));
+    assert(next).toEqual(UiStruct.evolve(start, { diffStyle: () => to }));
   },
 );

@@ -13,9 +13,8 @@ import {
   TaskId,
   Trace,
 } from "@cairn/contract";
-import { Option, Schema } from "effect";
-import { AsyncData } from "foldkit";
-import { defineTaggedUnion } from "foldkit/schema";
+import { UiSchema } from "@effect/ui";
+import { Option, Result, Schema } from "effect";
 
 import { Resize, Widths } from "./panes.ts";
 import { SectionReader } from "./readers.ts";
@@ -24,14 +23,44 @@ import { Node } from "./trace.ts";
 import { Measured } from "./wires.ts";
 
 /** The trace as it loads: nothing yet, a failure, the trace, or the last good trace beside a failure. */
-export const TraceData = AsyncData.Schema(Schema.toType(Trace), Schema.String);
-export type TraceData = typeof TraceData.schema.Type;
+export const TraceData = UiSchema.TaggedEnum({
+  Loading: {},
+  Failure: { error: Schema.String },
+  Stale: { data: Schema.toType(Trace), error: Schema.String },
+  Success: { data: Schema.toType(Trace) },
+});
+export type TraceData = typeof TraceData.Type;
+
+/** The trace a `TraceData` holds: the loaded one, or the last good one beside a failure. */
+export const loadedTraceOf = (data: TraceData): Option.Option<Trace> =>
+  TraceData.match(data, {
+    Failure: () => Option.none(),
+    Loading: () => Option.none(),
+    Stale: ({ data: trace }) => Option.some(trace),
+    Success: ({ data: trace }) => Option.some(trace),
+  });
+
+/**
+ * A load's result folded into what was there: a trace is the new `Success`, and a failure keeps
+ * the last good trace beside it as `Stale`, or is a bare `Failure` when there was none.
+ */
+export const settledTrace =
+  (result: Result.Result<Trace, string>) =>
+  (data: TraceData): TraceData =>
+    Result.match(result, {
+      onFailure: (error) =>
+        Option.match(loadedTraceOf(data), {
+          onNone: () => TraceData.Failure({ error }),
+          onSome: (trace) => TraceData.Stale({ data: trace, error }),
+        }),
+      onSuccess: (trace) => TraceData.Success({ data: trace }),
+    });
 
 /**
  * What the code view shows of its task: the whole stacked diff, or one of its commits. The whole
  * diff runs to `maybeHead`, one of the task's commits, which a link can name; none is its newest.
  */
-export const Shown = defineTaggedUnion({
+export const Shown = UiSchema.TaggedEnum({
   OneCommit: { sha: Sha },
   WholeTask: { maybeHead: Schema.Option(Sha) },
 });
@@ -45,7 +74,7 @@ export const DiffStyle = Schema.Literals(["unified", "split"]);
 export type DiffStyle = typeof DiffStyle.Type;
 
 /** A patch route's text as it loads: on its way, refused or unreachable with why, or here. */
-export const PatchData = defineTaggedUnion({
+export const PatchData = UiSchema.TaggedEnum({
   Failed: { message: Schema.String },
   Loaded: { text: Schema.String },
   Loading: {},
@@ -53,7 +82,7 @@ export const PatchData = defineTaggedUnion({
 export type PatchData = typeof PatchData.Type;
 
 /** A session route's `Session` as it loads: on its way, refused or unreachable with why, or here. */
-export const SessionData = defineTaggedUnion({
+export const SessionData = UiSchema.TaggedEnum({
   Failed: { message: Schema.String },
   Loaded: { session: Schema.toType(Session) },
   Loading: {},
@@ -83,7 +112,7 @@ export type PassageSelection = typeof PassageSelection.Type;
  * the file selected in it and the lines a link selected in that file. Everything the reader needs
  * stays in the model while the code view is open.
  */
-export const Screen = defineTaggedUnion({
+export const Screen = UiSchema.TaggedEnum({
   Reader: {},
   Code: {
     maybeFile: Schema.Option(Schema.String),
@@ -131,7 +160,7 @@ export const Reader = Schema.Struct({
 export type Reader = typeof Reader.Type;
 
 /** The presence socket: opening, open, or closed or failed; a closed socket is not reopened. */
-export const PresenceConnection = defineTaggedUnion({
+export const PresenceConnection = UiSchema.TaggedEnum({
   Connected: {},
   Connecting: {},
   Disconnected: {},
@@ -181,7 +210,7 @@ export const Model = Schema.Struct({
   search: SearchState,
   /** The reader or the code view. */
   screen: Screen,
-  trace: TraceData.schema,
+  trace: TraceData,
   /** What a person chose for each pane, in pixels. Not kept across reloads. */
   widths: Widths,
   /**

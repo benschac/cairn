@@ -4,9 +4,6 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "oxlint";
 
 const fromCore = createRequire(new URL("packages/core/package.json", import.meta.url));
-const fromRoot = createRequire(import.meta.url);
-// The Foldkit rules (foldkit/*) at the severities, and with the overrides, of the plugin's preset.
-const foldkit = fromRoot("@foldkit/oxlint-plugin/recommended.json");
 
 export default defineConfig({
   categories: {
@@ -19,15 +16,12 @@ export default defineConfig({
   jsPlugins: [
     fromCore.resolve("@xstate/effect/oxlint"),
     fileURLToPath(new URL("lint/effect-core-plugin.mjs", import.meta.url)),
-    fileURLToPath(import.meta.resolve("@foldkit/oxlint-plugin")),
   ],
   options: {
     typeAware: true,
   },
-  overrides: foldkit.overrides,
   plugins: ["typescript", "unicorn", "oxc", "import", "promise", "vitest"],
   rules: {
-    ...foldkit.rules,
     "core/no-array-spread": "error",
     "core/no-length-check": "error",
     "core/no-native-collection": "error",

@@ -1,5 +1,5 @@
+import { UiSchema } from "@effect/ui";
 import { Match, Number, Option, Schema, Struct } from "effect";
-import { defineTaggedUnion } from "foldkit/schema";
 
 /**
  * The panes with a divider: the PRD, the spec, the stacks and the detail panel. Each keeps the width
@@ -89,7 +89,7 @@ export const stepOf = (key: DividerKey): number => (key === "ArrowLeft" ? -ARROW
  * No resize, or one pane being resized by one pointer: where the pointer was at the press and the
  * pane's width then. Moves and releases from any other pointer are ignored.
  */
-export const Resize = defineTaggedUnion({
+export const Resize = UiSchema.TaggedEnum({
   Idle: {},
   Resizing: { pane: Pane, pointerId: Schema.Int, startWidth: Schema.Finite, startX: Schema.Finite },
 });

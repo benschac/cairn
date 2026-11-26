@@ -1,36 +1,25 @@
 import type { Sha, TaskId, Trace, TraceCommit, TraceTask } from "@cairn/contract";
+import { Route } from "@effect/ui";
 import { Array, Number, Option, Order, Record, Result, Schema, String, pipe } from "effect";
-import { defineRouteUnion, literal, mapTo, slash, string } from "foldkit/route";
 
 import { Screen, Shown, WHOLE_TASK } from "./model.ts";
 import { columnOf, stackLayoutOf } from "./stacks.ts";
 
 /** The server's patch routes the code view reads. */
-const PatchRoute = defineRouteUnion({
-  Commit: { sha: Schema.String },
-  Diff: { base: Schema.String, head: Schema.String },
+const PatchRoute = Route.union({
+  Commit: Route.make("/api/commits/:sha", { params: { sha: Schema.String } }),
+  Diff: Route.make("/api/diffs/:base/:head", {
+    params: { base: Schema.String, head: Schema.String },
+  }),
 });
 
-const commitRouter = pipe(
-  literal("api"),
-  slash(literal("commits")),
-  slash(string("sha")),
-  mapTo(PatchRoute.Commit),
-);
-
-const diffRouter = pipe(
-  literal("api"),
-  slash(literal("diffs")),
-  slash(string("base")),
-  slash(string("head")),
-  mapTo(PatchRoute.Diff),
-);
-
 /** The route of one commit's patch: `/api/commits/<sha>`. */
-export const commitPathOf = (sha: Sha): string => commitRouter({ sha });
+export const commitPathOf = (sha: Sha): string =>
+  PatchRoute.printPath(PatchRoute.Commit({ params: { sha } }));
 
 /** The route of the diff from `base` to `head`: `/api/diffs/<base>/<head>`. */
-export const diffPathOf = (base: Sha, head: Sha): string => diffRouter({ base, head });
+export const diffPathOf = (base: Sha, head: Sha): string =>
+  PatchRoute.printPath(PatchRoute.Diff({ params: { base, head } }));
 
 /** The first seven characters of a SHA. */
 export const shortSha = (sha: string): string => String.takeLeft(sha, 7);

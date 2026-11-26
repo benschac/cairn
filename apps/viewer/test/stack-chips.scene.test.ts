@@ -1,8 +1,8 @@
+import { UiStruct } from "@effect/ui";
 import { PrdSectionId, TaskId } from "@cairn/contract";
 import { labelOf, stacksOf, type Stack } from "@cairn/core/stacks";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Number, Option, Record } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { stackBoxesOf } from "../src/boxes.ts";
 import { demoTrace } from "../src/demo.ts";
@@ -29,7 +29,7 @@ import {
   withClass,
 } from "./fixtures.ts";
 
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 const stacks = stacksOf(demoTrace.tasks);
 const boxes = stackBoxesOf(demoTrace.tasks, {});
 const boxOf = (stack: Stack) =>

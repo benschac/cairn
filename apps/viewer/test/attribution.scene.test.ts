@@ -6,7 +6,7 @@ import { Array, Effect, Option, Record, Result, Schema } from "effect";
 import { patchPathOf } from "../src/codeView.ts";
 import { ScrollTurn } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
-import { Viewer, viewerBridge } from "../src/app.ts";
+import { Viewer } from "../src/app.ts";
 import { RenderDiff } from "../src/diff.ts";
 import { Message } from "../src/message.ts";
 import { PushUrl } from "../src/route.ts";
@@ -88,9 +88,9 @@ it.effect(
       s.given(showing)
         .send(Message.ClickedHunkMark({ id: "c1" }))
         // Opening the turn also writes the address, so the link gains the turn.
-        .expectExact(viewerBridge.commandOf(ScrollTurn), viewerBridge.commandOf(PushUrl))
-        .resolve(viewerBridge.commandOf(ScrollTurn), Message.CompletedScrollTurn())
-        .resolve(viewerBridge.commandOf(PushUrl), Message.CompletedNavigation())
+        .expectExact(ScrollTurn, PushUrl)
+        .resolve(ScrollTurn, Message.CompletedScrollTurn())
+        .resolve(PushUrl, Message.CompletedNavigation())
         .check(({ model }) => {
           assert(model.maybeHighlightedTurn).toEqual(Option.some({ from: "diff", id: "c1" }));
           assert(Record.get(model.openedTurns, "c1")).toEqual(Option.some(true));

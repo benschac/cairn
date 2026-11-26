@@ -1,7 +1,7 @@
+import { UiStruct } from "@effect/ui";
 import { Session } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option, Record, Result, Schema, Struct } from "effect";
-import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
 import { Message } from "../src/message.ts";
@@ -360,7 +360,7 @@ it.effect("a commit with no session says so", () =>
       commits: (commits) =>
         Array.map(commits, (each) => Struct.evolve(each, { session: () => null })),
     });
-    const model = modifyFields(loaded, {
+    const model = UiStruct.evolve(loaded, {
       trace: () =>
         TraceData.Success({
           data: Struct.evolve(demoTrace, {

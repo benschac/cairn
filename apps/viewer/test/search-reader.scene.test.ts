@@ -1,9 +1,8 @@
+import { UiStruct } from "@effect/ui";
 import { PrdSectionId, SectionId, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Effect, Array, HashSet, Option, Record, Schema, String } from "effect";
-import { modifyFields } from "foldkit/struct";
 
-import { viewerBridge } from "../src/app.ts";
 import { FocusSearchInput, ScrollSearchResult } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
 import { Message } from "../src/message.ts";
@@ -34,7 +33,7 @@ import {
   type ViewerSteps,
 } from "./fixtures.ts";
 
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
 /** Stack 13's trunk, t19 and t20, is folded in `reading`; these scenes look at t20's chip. */
 const unfoldedReading = unfolded(reading);
 
@@ -117,7 +116,7 @@ const focusedSearchInput = resolved(FocusSearchInput, Message.CompletedFocusSear
  * pending Command by definition, not by its arguments, so the targets are no longer asserted.
  */
 const scrolledTargets = (s: ViewerSteps) =>
-  s.resolve(viewerBridge.commandOf(ScrollSearchTargets), Message.CompletedScrollSearchTargets());
+  s.resolve(ScrollSearchTargets, Message.CompletedScrollSearchTargets());
 
 const litPaths = inside(data("wire-layer"), both(tag("path"), data("lit")));
 const faintPaths = inside(data("wire-layer"), both(tag("path"), data("dimmed")));
@@ -343,9 +342,9 @@ it.effect(
       const found = proseOf("judgment", isSpec);
       const section = Option.getOrThrow(searchedSectionOf(demoTrace, Option.some(found.node)));
       const offset = Option.getOrThrow(found.maybeOffset);
-      const searching = modifyFields(reading, {
+      const searching = UiStruct.evolve(reading, {
         reader: (reader) =>
-          modifyFields(reader, {
+          UiStruct.evolve(reader, {
             density: () => "titles",
             maybePinned: () => Option.some(section),
           }),
@@ -355,8 +354,8 @@ it.effect(
       const full = data("full-spec", found.node.id);
       // The query has results, none of them active: the card is closed.
       const closed = yield* viewerScene(
-        modifyFields(searching, {
-          search: (search) => modifyFields(search, { maybeActive: () => Option.none() }),
+        UiStruct.evolve(searching, {
+          search: (search) => UiStruct.evolve(search, { maybeActive: () => Option.none() }),
         }),
       );
       closed
@@ -366,8 +365,9 @@ it.effect(
         .expect(full)
         .toBeAbsent();
       const open = yield* viewerScene(
-        modifyFields(searching, {
-          search: (search) => modifyFields(search, { maybeActive: () => Option.some(found.node) }),
+        UiStruct.evolve(searching, {
+          search: (search) =>
+            UiStruct.evolve(search, { maybeActive: () => Option.some(found.node) }),
         }),
       );
       open

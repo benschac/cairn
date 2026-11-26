@@ -166,15 +166,20 @@ The checks that `pnpm check` runs catch most of the first five lines. The rest a
 
 Each unstable module you import must be listed in `allowedUnstableApis` in that project's `tsconfig.json`.
 
-## Foldkit viewer
+## Effect UI viewer
 
 | Smell | Effect API | Check | Read |
 | --- | --- | --- | --- |
 | Model fields typed by hand | A Schema-defined `Model`; Messages as fact-named schemas (`ReceivedPresence`, not `SetPresence`) | | `apps/viewer/src/model.ts` |
-| Side effects in `update` | Return a Foldkit `Command` (`Command.define`, `Command.mapEffect`): an Effect that yields a Message | | `apps/viewer/node_modules/foldkit/dist/command/index.d.ts` |
-| `addEventListener` or a socket in a view | A `Subscription` built with `Subscription.make<Model, Message>()`, its stream from `Stream.fromEventListener` and `Effect.acquireRelease` | | `apps/viewer/src/presence.ts` |
-| A view test that calls `update` or inspects internals | A Scene from `foldkit/scene`: click what a person clicks, assert on what the view shows; feed a Subscription with `Subscription.emit` | | `apps/viewer/test/viewer.scene.test.ts` |
-| Child arrays built with spreads | `Array.appendAll`, `Array.flatten`, `Array.getSomes` for optional children | `core/no-array-spread` | `apps/viewer/src/main.ts` |
+| Side effects in `update` | Return a Command (`Command.make(name, { args }, body)` from `@effect/ui`): an Effect that yields a Message | | `apps/viewer/EFFECT-UI.md`, `.agent_sources/effect-ui/index.md` |
+| `addEventListener` or a socket in a view | A subscription: `Subscription.make(name, deps, build)` with its stream from `Stream.fromEventListener` and `Effect.acquireRelease` | | `apps/viewer/src/presence.ts` |
+| A view that takes the data before `h`, or writes a return type | `fooView(h, data)` returns the builder with no return type, so `memoView` and `h.lazy` can call `fn(h, ...args)` | | `apps/viewer/src/view/linkNoticeView.ts` |
+| An empty array as a child, or a conditional child written as `[]` | A hole: `false`, `null` or `undefined`; `Array.match` with `onEmpty: () => null`; `Option.getOrUndefined` for an optional child | | `apps/viewer/EFFECT-UI.md` "Keys, empty children and lists" |
+| Child arrays built with spreads | `Array.map` into `.children(...)` (an array is flattened), `Array.flatten` for a list of lists, `Array.getSomes` for optional children | `core/no-array-spread` | `apps/viewer/src/view/searchView.ts` |
+| A conditional attribute written with a spread or a ternary builder | `.attr(name, undefined)` leaves the attribute off; an attribute bundle is a function from the builder to the builder | | `apps/viewer/EFFECT-UI.md` "A view function" |
+| A colour, a size or a timing written in a view | The names of `spec.viewer.design-system`: a class, or `.attr("style", styleText({ ... }))` from `effect-ui/attributes.ts` | | `apps/viewer/src/effect-ui/attributes.ts` |
+| Reading a DOM event in a handler | The payload (`({ value }) => Message...`, `({ key }) => ...`); return `undefined` to ignore the event; a gesture that needs more is a mount on the element | | `apps/viewer/EFFECT-UI.md` "Event data" |
+| A view test that calls `update` or inspects internals | `HtmlScene` from `@effect/ui/html/testing`: click what a person clicks, assert on what the view shows; `Story` for the Messages and Commands an update produces | | `apps/viewer/test/` |
 
 ## XState machines
 
