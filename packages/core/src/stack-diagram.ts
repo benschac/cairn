@@ -173,6 +173,40 @@ const markerLinesOf = (lines: ReadonlyArray<string>, marker: string): ReadonlyAr
 };
 
 /**
+ * The stack diagram's markers in `lines`, as indexes: the first closing one that has an opening
+ * one above it, and the nearest opening one. A marker is a line on its own outside a fence.
+ */
+const markersOf = (
+  lines: ReadonlyArray<string>,
+): Option.Option<{ readonly close: number; readonly open: number }> => {
+  const opens = markerLinesOf(lines, STACKS_OPEN);
+  return pipe(
+    markerLinesOf(lines, STACKS_CLOSE),
+    Array.findFirst((close) =>
+      Option.map(
+        Array.findLast(opens, (open) => open < close),
+        (open) => ({ close, open }),
+      ),
+    ),
+  );
+};
+
+/**
+ * `text` without what is between the stack diagram's markers. Code draws that from the manifest
+ * (`withStackDiagram`), so it says nothing a reader of the prose needs, and it changes whenever a
+ * task does. The markers stay, with nothing between them. Text without a pair of markers is
+ * returned as it is.
+ */
+export const withoutStackDiagram = (text: string): string => {
+  const lines = linesOf(text);
+  return Option.match(markersOf(lines), {
+    onNone: () => text,
+    onSome: ({ close, open }) =>
+      Array.join(Array.appendAll(Array.take(lines, open + 1), Array.drop(lines, close)), "\n"),
+  });
+};
+
+/**
  * `spec` with the stack diagram of `manifest` between its markers.
  *
  * What is between the markers is replaced and nothing else changes. The markers are lines on
@@ -184,18 +218,8 @@ const markerLinesOf = (lines: ReadonlyArray<string>, marker: string): ReadonlyAr
  */
 export const withStackDiagram = (spec: string, manifest: DiagramManifest): string => {
   const lines = linesOf(spec);
-  const opens = markerLinesOf(lines, STACKS_OPEN);
   const block = blockOf(manifest);
-  const pair = pipe(
-    markerLinesOf(lines, STACKS_CLOSE),
-    Array.findFirst((close) =>
-      Option.map(
-        Array.findLast(opens, (open) => open < close),
-        (open) => ({ close, open }),
-      ),
-    ),
-  );
-  return Option.match(pair, {
+  return Option.match(markersOf(lines), {
     onNone: () => {
       const section = Array.flatten([
         ["## Stacks {#spec.stacks}", "", `- Context: \`prd.${manifest.feature}\``, ""],

@@ -440,7 +440,8 @@ it.effect(
         expect(asked.tasks).toEqual([{ existing: ["t1"], specSections: ["spec.export"] }]);
         const manifest = yield* manifestOf;
         expect(Array.map(manifest.tasks, (task) => task.id)).toEqual(["t1", "t2"]);
-        // Only the section a person wrote is indexed; every other section keeps its entry.
+        // Only the section a person wrote is indexed; every other section keeps its entry. That
+        // includes the stacks section, though code drew its diagram again with the new task.
         expect(asked.indexed).toEqual(["spec.export"]);
       }),
     ),
@@ -1008,8 +1009,14 @@ it.effect.prop(
     }),
 );
 
+/**
+ * Whether nothing says what the entry of `spec.s<at>` was read from, in the index the test below
+ * builds. `spec.s0` is the second section, after the title, so section `at` is at position `at + 1`.
+ */
+const unread = (at: number) => (at + 1) % 3 === 2;
+
 it.effect.prop(
-  "editedOf names the sections of the index whose body no longer matches what was written",
+  "editedOf names the sections whose body is not the one their entry was read from, and those with nothing that says",
   [Levels, Schema.Array(Schema.Boolean).check(Schema.isMaxLength(8))],
   ([levels, edits]) =>
     Effect.sync(() => {
@@ -1034,9 +1041,10 @@ it.effect.prop(
         tasks: [],
         tests: [],
         title: section.title,
-        // The title is the first section here, so the even ones, `spec.s1`, `spec.s3`…, were written by a
-        // person: their body hash is null and an edit to one is not seen.
-        writtenFrom: { body: at % 2 === 0 ? bodyHashOf(section.body) : null, prd: {} },
+        // By position, the title first: Cairn wrote it and its entry records no `indexedFrom`; a person
+        // wrote it and its entry records one; a person wrote it and nothing says what it was read from.
+        writtenFrom: { body: at % 3 === 0 ? bodyHashOf(section.body) : null, prd: {} },
+        ...(at % 3 === 1 ? { indexedFrom: bodyHashOf(section.body) } : {}),
       });
       const index: SpecIndex = {
         manifest: ".cairn/manifest.json",
@@ -1050,12 +1058,12 @@ it.effect.prop(
       const now = Array.reduce(Array.range(0, Array.length(levels) - 1), spec, (text, at) =>
         edited[at] === true ? String.replace(`Text ${at}.`, `Text ${at}, edited.`)(text) : text,
       );
-      expect(editedOf(now, index)).toEqual(
+      const named = (isNamed: (at: number) => boolean) =>
         Array.filterMap(Array.range(0, Array.length(levels) - 1), (at) =>
-          edited[at] === true && at % 2 === 1 ? Result.succeed(`spec.s${at}`) : Result.failVoid,
-        ),
-      );
-      expect(editedOf(spec, index)).toEqual([]);
+          isNamed(at) ? Result.succeed(`spec.s${at}`) : Result.failVoid,
+        );
+      expect(editedOf(now, index)).toEqual(named((at) => edited[at] === true || unread(at)));
+      expect(editedOf(spec, index)).toEqual(named(unread));
     }),
 );
 
