@@ -10,7 +10,7 @@
   "scripts": {
     "cairn": "node src/main.ts",
     "dev": "node src/main.ts serve",
-    "test": "vitest run --testTimeout 15000",
+    "test": "vitest run",
     "typecheck": "effect-tsgo tsc --noEmit"
   },
   "dependencies": {

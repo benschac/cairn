@@ -7,7 +7,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "test": "vitest run --testTimeout 15000",
+    "test": "vitest run",
     "typecheck": "effect-tsgo tsc --noEmit"
   },
   "dependencies": {
