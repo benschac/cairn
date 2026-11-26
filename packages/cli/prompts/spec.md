@@ -44,6 +44,12 @@ A list item in the PRD can carry an ID too, as in `- Share a saved view by link.
 
 Write `Files` with real paths in the layout you describe, and include the tests that go with the code. Two sections may touch the same file when they must, but each file should have one section that owns it. Prefer a section small enough that its files fit in a single reviewable diff, and split it into sibling sections when they do not.
 
+## Tests and done-when statements
+
+The PRD states what a person sees when a section works in lists that follow a `Done when:` line. Each statement ends with an ID, such as `{#prd.saved-views#v1}`. A statement that begins `Draft:` is a draft: Cairn wrote it and no person has confirmed it. It is passed to you as it is, marked `Draft:`, so write its test as you would for any other, and do not treat it as agreed.
+
+A section writes a test for every statement of the PRD sections and items it implements, except a statement tagged `<!-- human -->`, which a person checks. Each test a section names ends with `(proves <statement IDs>)`, with the IDs of the statements it proves separated by commas, for example `- Saving a view lists it under its name. (proves prd.saved-views#v1)`. Use only statement IDs the PRD gives, written as it gives them. A test that proves no statement has no such ending.
+
 ## Diagrams
 
 Draw a Mermaid diagram in a section when it says more than the prose around it, and only then. Put it in a fenced block tagged `mermaid`, inside the section it explains, with a sentence before it that says what it shows.

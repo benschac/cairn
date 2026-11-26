@@ -58,9 +58,13 @@ export {
   numberStatements,
   settle,
   statementsOf,
+  taskStatementsOf,
+  traceStatementsOf,
   withDrafts,
   type Drafted,
   type Statement,
+  type TaskStatement,
+  type TestedSection,
 } from "./statements.ts";
 export {
   derivedOf,

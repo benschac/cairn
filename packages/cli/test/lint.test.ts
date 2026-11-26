@@ -10,7 +10,8 @@ import { MissingFile } from "../src/workspace.ts";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
-const PRD = "# Product {#prd.product}\n\n## Store {#prd.store}\n";
+const PRD =
+  "# Product {#prd.product}\n\n## Store {#prd.store}\n\nDone when:\n\n- A stored note reads back. {#prd.store#v1}\n";
 const SPEC = "# Spec {#spec.spec}\n\n## Store {#spec.store}\n\n- Implements: `prd.store`\n";
 
 /** A one-task manifest for the plan above, with the task's files, gate, status and commits. */

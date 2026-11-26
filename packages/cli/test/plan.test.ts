@@ -246,6 +246,7 @@ it.effect("a second run does not call Planner.spec and plans from the edited fil
         JUDGING_SKIPPED,
         "Stack 1",
         "  t1  pending  Add capture  sonnet/high  new",
+        ".cairn/manifest.json task-without-statement t1 carries no done-when statement: none of prd.capture has one.",
         "Wrote .cairn/manifest.json",
         "Drew the stack diagram in .cairn/spec.md",
       ]);
