@@ -327,9 +327,11 @@ it.effect(
 
 it.effect.prop(
   "a retried call's second request holds the first prompt and the refused reply, and only the error as its new turn",
-  [Schema.Array(Draft), Schema.NonEmptyString],
-  ([drafts, bad]) =>
-    planning(
+  [Schema.Array(Draft), Schema.String],
+  ([drafts, text]) => {
+    // A reply with text: a blank one is left out of the history (see the test below).
+    const bad = `refused ${text}`;
+    return planning(
       [bad, encodeReply({ drafts })],
       Effect.gen(function* () {
         yield* tasks("prd", "spec");
@@ -346,6 +348,23 @@ it.effect.prop(
         expect(retry).toContain("Your previous reply was refused");
         expect(retry).toContain("Structured output validation failed");
         expect(retry).not.toContain(asked.text);
+      }),
+    );
+  },
+);
+
+it.effect.prop(
+  "a structured reply with no text is retried without an empty assistant turn, which a provider refuses",
+  [Schema.Array(Draft), Schema.Literals(["", " ", "\n"])],
+  ([drafts, blank]) =>
+    planning(
+      [blank, encodeReply({ drafts })],
+      Effect.gen(function* () {
+        yield* tasks("prd", "spec");
+        const [first = [], second = []] = yield* conversations;
+        expect(Array.take(second, Array.length(first))).toEqual(first);
+        expect(Array.length(second)).toBe(Array.length(first) + 1);
+        expect(Array.some(second, ({ role }) => role === "assistant")).toBe(false);
       }),
     ),
 );

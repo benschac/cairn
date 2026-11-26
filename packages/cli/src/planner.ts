@@ -504,15 +504,18 @@ const timed =
 
 /**
  * The turn of a structured reply that did not decode, which `Chat.generateObject` leaves out of
- * its history: the prompt, and the refused reply when the error kept its text.
+ * its history: the prompt, and the refused reply when the error kept its text. A reply with no text
+ * is left out, because a provider such as Anthropic refuses an assistant turn whose text is blank.
  */
 const refusedTurn = (prompt: string, error: AiError.AiError) =>
   Prompt.make(
     Array.prepend(
       Match.value(error.reason).pipe(
-        Match.tag("StructuredOutputError", (reason) => [
-          { content: reason.responseText, role: "assistant" as const },
-        ]),
+        Match.tag("StructuredOutputError", (reason) =>
+          String.isNonEmpty(String.trim(reason.responseText))
+            ? [{ content: reason.responseText, role: "assistant" as const }]
+            : [],
+        ),
         Match.orElse(() => []),
       ),
       { content: prompt, role: "user" as const },
