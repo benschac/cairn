@@ -460,7 +460,14 @@ it.effect(
               String.includes("unmapped-section")(line) && String.includes("prd.alpha ")(line),
           ),
         ).toBe(true);
-        expect(Array.some(linted.lines, (line) => String.includes("prd.beta")(line))).toBe(false);
+        // Beta's statements are in no test's `proves` here, so lint still warns
+        // `unproved-statement` about them; what must be gone is beta's coverage.
+        expect(
+          Array.some(
+            linted.lines,
+            (line) => String.includes("prd.beta")(line) && String.includes("unmapped-")(line),
+          ),
+        ).toBe(false);
       }),
     ),
 );
