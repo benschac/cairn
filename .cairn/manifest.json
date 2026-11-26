@@ -3048,7 +3048,9 @@
       "files": [
         "apps/viewer/src/route.ts",
         "apps/viewer/src/main.ts",
+        "apps/viewer/src/entry.ts",
         "apps/viewer/src/init.ts",
+        "apps/viewer/src/message.ts",
         "apps/viewer/src/update.ts",
         "apps/viewer/test/links-open.test.ts"
       ],

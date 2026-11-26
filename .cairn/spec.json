@@ -26250,6 +26250,7 @@
         "apps/viewer/src/route.ts",
         "apps/viewer/src/links.ts",
         "apps/viewer/src/main.ts",
+        "apps/viewer/src/entry.ts",
         "apps/viewer/src/init.ts",
         "apps/viewer/src/model.ts",
         "apps/viewer/src/message.ts",

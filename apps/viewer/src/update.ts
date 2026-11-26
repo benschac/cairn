@@ -10,7 +10,7 @@ import {
   type TraceTask,
 } from "@cairn/contract";
 import { Array, Boolean, Effect, Match, Option, Record, Result, Schema } from "effect";
-import { AsyncData, Command, Dom } from "foldkit";
+import { AsyncData, Command, Dom, Navigation, Url } from "foldkit";
 import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 
@@ -66,6 +66,7 @@ import {
 import { describeTraceError, isDemoBuild, loadDemoTrace } from "./load.ts";
 import { Message } from "./message.ts";
 import { keptReaders, readersOf } from "./readers.ts";
+import { LoadUrl, PushUrl, ReplaceUrl, linkRoute } from "./route.ts";
 import {
   Drawer,
   HighlightedTurn,
@@ -718,6 +719,74 @@ const NO_BUTTONS = 0;
 export const update = (model: Model, message: Message): Update.Return<Model, Message> =>
   pendingCancelled(model, message, updated(model, message));
 
+// THE ADDRESS
+
+/** The messages that resolve a waiting link again, so a step that went missing is replaced. */
+const isLinkArrival = Schema.is(Schema.Union([Message.ReceivedPatch, Message.ReceivedSession]));
+
+const isTraceSettled = Schema.is(Message.SettledLoadTrace);
+
+const isUrlChange = Schema.is(Message.ChangedUrl);
+
+/**
+ * A link's history written one entry per step: `replaceUrl` with its first step, then `pushUrl`
+ * for each longer prefix, so Back walks a link opened in a new window one step at a time.
+ */
+const stepByStep = (link: Link) =>
+  Array.map(
+    Array.getSomes(Array.map(link, (_, index) => linkRoute.print(Array.take(link, index + 1)))),
+    (path, index) => (index === 0 ? ReplaceUrl({ path }) : PushUrl({ path })),
+  );
+
+/**
+ * What an update writes to the address, from the model before it and after it:
+ *
+ * - A `ChangedUrl` came from the address, so it writes nothing.
+ * - The canvas has no link: while it shows, nothing is written and the address stays as it was.
+ * - The first trace opens the link that waited for it, written one entry per step.
+ * - Leaving the canvas replaces the address with what opened, since the canvas wrote none.
+ * - A patch or session that leaves a waiting link's step missing replaces the address.
+ * - Any other message that changes `linkOf` pushes the new link.
+ */
+const addressWritten = (model: Model, message: Message, next: Model) => {
+  const link = linkOf(next);
+  const isFirstTrace =
+    isTraceSettled(message) &&
+    Option.isNone(traceOf(model)) &&
+    Option.isSome(model.maybePendingLink) &&
+    Option.isSome(traceOf(next));
+  const written = (write: typeof PushUrl | typeof ReplaceUrl) =>
+    Array.fromOption(Option.map(linkRoute.print(link), (path) => write({ path })));
+  return isUrlChange(message) || Screen.guards.Canvas(next.screen)
+    ? []
+    : isFirstTrace
+      ? stepByStep(link)
+      : Screen.guards.Canvas(model.screen)
+        ? written(ReplaceUrl)
+        : linkEquivalence(linkOf(model), link)
+          ? []
+          : written(isLinkArrival(message) ? ReplaceUrl : PushUrl);
+};
+
+/**
+ * Keeps the address bar and the browser history in step with what is open: the application's
+ * update is `withAddress(update)`. Pinning, opening a task or a spec section, moving along the
+ * trail, Escape, opening the code view and selecting in it each become one history entry, so Back
+ * undoes them one at a time.
+ */
+export const withAddress =
+  (inner: (model: Model, message: Message) => Update.Return<Model, Message>) =>
+  (model: Model, message: Message): Update.Return<Model, Message> => {
+    const result = inner(model, message);
+    return {
+      commands: Array.appendAll(
+        Option.getOrElse(Option.fromUndefinedOr(result.commands), () => []),
+        addressWritten(model, message, result.model),
+      ),
+      model: result.model,
+    };
+  };
+
 const updated = (model: Model, message: Message) =>
   Message.match<Update.Return<Model, Message>>(message, {
     // Closing the drawer returns focus to the button of the node it was open on.
@@ -729,6 +798,43 @@ const updated = (model: Model, message: Message) =>
           model: modifyFields(model, { drawer: () => Drawer.Closed() }),
         }),
       }),
+    // Back, Forward or a hash change opens the address's link without writing history. The address
+    // of what is already open, such as the viewer's own entry, does nothing, except that it drops a
+    // different link still waiting for the first trace. A path that is not a link opens nothing and
+    // says why.
+    ChangedUrl: ({ url }) =>
+      Result.match(linkRoute.parse(url), {
+        onFailure: (error) => ({
+          model: modifyFields(clearedForLink(model), {
+            maybeLinkNotice: () => noticeOf(Result.fail(error)),
+            maybePendingLink: () => Option.none(),
+          }),
+        }),
+        onSuccess: (link) =>
+          linkEquivalence(link, linkOf(model))
+            ? {
+                model: Option.exists(
+                  model.maybePendingLink,
+                  (pending) => !linkEquivalence(pending, link),
+                )
+                  ? modifyFields(model, { maybePendingLink: () => Option.none() })
+                  : model,
+              }
+            : openLink(model, link),
+      }),
+    // An anchor goes where the browser would take it without routing.
+    ClickedLink: ({ request }) => ({
+      commands: [
+        LoadUrl({
+          href: Navigation.UrlRequest.match(request, {
+            External: ({ href }) => href,
+            Internal: ({ url }) => Url.toString(url),
+          }),
+        }),
+      ],
+      model,
+    }),
+    CompletedNavigation: () => ({ model }),
     // Back to the canvas changes only the screen: pins, offsets, the drawer and the viewport stayed.
     ClickedBackToCanvas: () => ({ model: modifyFields(model, { screen: () => Screen.Canvas() }) }),
     // A card opens or closes alone, to the opposite of what it shows now.

@@ -9,6 +9,7 @@ import {
 import { stacksOf } from "@cairn/core/stacks";
 import { expect, it } from "@effect/vitest";
 import { Array, Option, Record, Result, Schema, String, pipe } from "effect";
+import { Url } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 
 import { commitPathOf, diffPathOf, filesOf, rangeOf, sessionCommitOf } from "../src/codeView.ts";
@@ -18,7 +19,8 @@ import { linkOf, trunkOf } from "../src/links.ts";
 import { Message } from "../src/message.ts";
 import { HighlightedTurn, Screen, Shown, TraceData, WHOLE_TASK, type Model } from "../src/model.ts";
 import { indexOf } from "../src/search.ts";
-import { openLink, update } from "../src/update.ts";
+import { linkRoute } from "../src/route.ts";
+import { openLink, update, withAddress } from "../src/update.ts";
 import commitPatch from "./fixtures/commit.patch?raw";
 import { sessionWith } from "./fixtures.ts";
 
@@ -376,6 +378,192 @@ it("a click on a file drops the lines, and Escape clears the focus with the pin"
   expect(update(focused.model, Message.PressedEscape()).model.reader.maybeFocus).toEqual(
     Option.none(),
   );
+});
+
+// HISTORY
+
+/** The viewer's update as the application runs it, writing the address. */
+const app = withAddress(update);
+
+/** The address of a link in a window of the viewer. */
+const urlOf = (link: Link): Url.Url =>
+  Option.getOrThrow(
+    Url.fromString(`http://localhost:4310${Option.getOrThrow(linkRoute.print(link))}`),
+  );
+
+const pathOf = (link: Link) => ({ path: Option.getOrThrow(linkRoute.print(link)) });
+
+/** The history an update wrote: each entry replaced, and each pushed, in order. */
+const writtenBy = (result: Returned) => ({
+  pushed: argsOf(result, "PushUrl"),
+  replaced: argsOf(result, "ReplaceUrl"),
+});
+
+const NOTHING_WRITTEN = { pushed: [], replaced: [] };
+
+it("a link opened in a new window opens on the first trace and writes one history entry per step", () => {
+  const link = linkTo(FILE);
+  const started = init(urlOf(link));
+  expect(started.model.maybePendingLink).toEqual(Option.some(link));
+  expect(started.model.screen).toEqual(Screen.Canvas());
+  const opened = app(started.model, firstTrace);
+  const { model } = opened;
+  expect(model.reader.maybePinned).toEqual(Option.some(prdSection));
+  expect(model.reader.maybePassage).toEqual(Option.some(Array.getUnsafe(link, 0)));
+  expect(model.detail).toEqual([
+    { id: specSection, kind: "section" },
+    { id: task.id, kind: "task" },
+  ]);
+  expect(model.screen).toEqual(
+    Screen.Code({
+      maybeFile: Option.some(FILE),
+      maybeLines: Option.some(LINES),
+      shown: Shown.WholeTask({ maybeHead: Option.some(head) }),
+      taskId: task.id,
+    }),
+  );
+  expect(writtenBy(opened)).toEqual({
+    pushed: Array.map([2, 3, 4, 5, 6], (length) => pathOf(Array.take(link, length))),
+    replaced: [pathOf(Array.take(link, 1))],
+  });
+  expect(argsOf(opened, "FetchPatch")).toEqual([{ path: diffPath }]);
+  expect(diffPath).toBe(`/api/diffs/${base}/${head}`);
+  // A later trace writes nothing.
+  expect(writtenBy(app(model, firstTrace))).toEqual(NOTHING_WRITTEN);
+});
+
+it("Back to the root before the first trace drops the link that was waiting for it", () => {
+  const started = init(urlOf(linkTo(FILE))).model;
+  const back = app(started, Message.ChangedUrl({ url: urlOf([]) }));
+  expect(back.model.maybePendingLink).toEqual(Option.none());
+  expect(writtenBy(back)).toEqual(NOTHING_WRITTEN);
+  const loadedLater = app(back.model, firstTrace);
+  expect(loadedLater.model.screen).toEqual(Screen.Canvas());
+  expect(writtenBy(loadedLater)).toEqual(NOTHING_WRITTEN);
+});
+
+it("an address that is not a link opens the reader under its notice, and writes nothing", () => {
+  const url = Option.getOrThrow(Url.fromString("http://localhost:4310/task/t1/file/x.ts"));
+  const started = init(url).model;
+  expect(started.screen).toEqual(Screen.Reader());
+  expect(started.maybePendingLink).toEqual(Option.none());
+  expect(started.maybeLinkNotice).toEqual(
+    Option.some("This address is not a Cairn link: step 1 (file): must follow a diff or a commit."),
+  );
+  expect(writtenBy(app(started, firstTrace))).toEqual(NOTHING_WRITTEN);
+  // Back to such an address says the same and clears what was open.
+  const back = app(app(started, firstTrace).model, Message.ChangedUrl({ url }));
+  expect(back.model.maybeLinkNotice).toEqual(started.maybeLinkNotice);
+  expect(writtenBy(back)).toEqual(NOTHING_WRITTEN);
+});
+
+it("Back walks a link one step at a time without writing history, and a click after pushes", () => {
+  const link = linkTo(FILE);
+  const opened = app(
+    app(init(urlOf(link)).model, firstTrace).model,
+    Message.ReceivedPatch({ path: diffPath, result: Result.succeed(commitPatch) }),
+  ).model;
+  // The viewer's own address does nothing.
+  const echo = app(opened, Message.ChangedUrl({ url: urlOf(link) }));
+  expect(echo.model).toBe(opened);
+  expect(echo.commands).toEqual([]);
+
+  const lengths = [5, 4, 3, 2, 1, 0];
+  const walked = Array.scan(
+    lengths,
+    { model: opened },
+    (current: Returned & { readonly model: Model }, length) =>
+      app(current.model, Message.ChangedUrl({ url: urlOf(Array.take(link, length)) })),
+  );
+  const steps = Array.drop(walked, 1);
+  expect(Array.map(steps, (step) => writtenBy(step))).toEqual(
+    Array.map(lengths, () => NOTHING_WRITTEN),
+  );
+  expect(Array.map(steps, (step) => linkOf(step.model))).toEqual(
+    Array.map(lengths, (length) => Array.take(link, length)),
+  );
+  const screens = Array.map(steps, (step) => step.model.screen);
+  const code = (maybeFile: Option.Option<string>) =>
+    Screen.Code({
+      maybeFile,
+      maybeLines: Option.none(),
+      shown: Shown.WholeTask({ maybeHead: Option.some(head) }),
+      taskId: task.id,
+    });
+  expect(screens).toEqual([
+    code(Option.some(FILE)),
+    code(Option.none()),
+    Screen.Reader(),
+    Screen.Reader(),
+    Screen.Reader(),
+    Screen.Reader(),
+  ]);
+  expect(Array.map(steps, (step) => step.model.detail)).toEqual([
+    [
+      { id: specSection, kind: "section" },
+      { id: task.id, kind: "task" },
+    ],
+    [
+      { id: specSection, kind: "section" },
+      { id: task.id, kind: "task" },
+    ],
+    [
+      { id: specSection, kind: "section" },
+      { id: task.id, kind: "task" },
+    ],
+    [{ id: specSection, kind: "section" }],
+    [],
+    [],
+  ]);
+  expect(Array.map(steps, (step) => step.model.reader.maybePinned)).toEqual([
+    Option.some(prdSection),
+    Option.some(prdSection),
+    Option.some(prdSection),
+    Option.some(prdSection),
+    Option.some(prdSection),
+    Option.none(),
+  ]);
+
+  const empty = Option.getOrThrow(Array.last(steps)).model;
+  const clicked = app(empty, Message.ClickedTask({ id: task.id }));
+  expect(writtenBy(clicked)).toEqual({ pushed: [{ path: `/task/${task.id}` }], replaced: [] });
+});
+
+it("a patch without the link's file shows the notice, drops the file and replaces the address", () => {
+  const link = linkTo("missing/gone.ts");
+  const { model } = app(init(urlOf(link)).model, firstTrace);
+  const arrived = app(
+    model,
+    Message.ReceivedPatch({ path: diffPath, result: Result.succeed(commitPatch) }),
+  );
+  expect(Option.isSome(arrived.model.maybeLinkNotice)).toBe(true);
+  expect(linkOf(arrived.model)).toEqual(Array.take(link, 4));
+  expect(writtenBy(arrived)).toEqual({ pushed: [], replaced: [pathOf(Array.take(link, 4))] });
+  // A patch that changes nothing on screen writes nothing.
+  expect(
+    writtenBy(
+      app(
+        arrived.model,
+        Message.ReceivedPatch({ path: diffPath, result: Result.succeed(commitPatch) }),
+      ),
+    ),
+  ).toEqual(NOTHING_WRITTEN);
+});
+
+it("the canvas writes no link, and leaving it puts what is open in the address", () => {
+  const link = [decodeStep({ id: task.id, kind: "task" })];
+  const opened = app(init(urlOf(link)).model, firstTrace).model;
+  const canvas = app(opened, Message.ClickedScreen({ screen: "Canvas" }));
+  expect(writtenBy(canvas)).toEqual(NOTHING_WRITTEN);
+  const pinned = app(canvas.model, Message.ClickedStatusLine({ id: prdSection }));
+  expect(writtenBy(pinned)).toEqual(NOTHING_WRITTEN);
+  const reader = app(pinned.model, Message.ClickedScreen({ screen: "Reader" }));
+  expect(writtenBy(reader)).toEqual({ pushed: [], replaced: [pathOf(linkOf(reader.model))] });
+  // In the reader the same click is one history entry.
+  expect(writtenBy(app(reader.model, Message.ClickedStatusLine({ id: prdSection })))).toEqual({
+    pushed: [pathOf(link)],
+    replaced: [],
+  });
 });
 
 // CANONICAL LINKS

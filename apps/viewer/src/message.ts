@@ -1,5 +1,6 @@
 import { Presence, PrdSectionId, SectionId, Session, Sha, TaskId, Trace } from "@cairn/contract";
 import { Schema } from "effect";
+import { Navigation, Url } from "foldkit";
 import { defineMessageUnion } from "foldkit/message";
 
 import { ArrowKey, ClientPoint, Movable, PointerId } from "./drag.ts";
@@ -10,6 +11,12 @@ import { Node } from "./trace.ts";
 import { Measured } from "./wires.ts";
 
 export const Message = defineMessageUnion({
+  /** Back, Forward or a hash change moved the address: the link it holds opens. */
+  ChangedUrl: { url: Url.Url },
+  /** A click on an anchor in the page, which Foldkit's routing hands to the viewer. */
+  ClickedLink: { request: Navigation.UrlRequest },
+  /** An address was written to the history, or the page was sent to one. */
+  CompletedNavigation: {},
   /** The code view's "Back to canvas" button. */
   ClickedBackToCanvas: {},
   /** One of the diff style toggle's two buttons. */
