@@ -750,7 +750,7 @@ const unchanged = (input: RefineInput): Refined => ({
 });
 
 /**
- * `refineWith` over `Judge.live`. Without `TYPESAFE_API_KEY` the judge cannot be built, and the
+ * `refineWith` over `Judge.live`. Without `TYPESAFE_API_KEY` or `judge.gatewayTokenEnv` the judge cannot be built, and the
  * input comes back unchanged with no judgments; the `Planner` is never called.
  */
 export const refine = (input: RefineInput, config: Config) =>

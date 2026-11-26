@@ -33,7 +33,7 @@ import { liveDecisionModel } from "./models.ts";
 
 /**
  * Judging failed. With a `target`, the decision model failed on that target's request; without
- * one, the model could not be built, such as when `TYPESAFE_API_KEY` is missing.
+ * one, the model could not be built, such as when `TYPESAFE_API_KEY` is missing and `judge.gatewayTokenEnv` is not set.
  */
 export class JudgeError extends Schema.TaggedError<JudgeError, { readonly brand: unique symbol }>()(
   "JudgeError",
@@ -335,7 +335,8 @@ export class Judge extends Context.Service<
 
   /**
    * `layerWith` over the TypeSafe `DecisionModel` (`liveDecisionModel`). Building it without
-   * `TYPESAFE_API_KEY` fails with a `JudgeError` that names the variable.
+   * `TYPESAFE_API_KEY` and no `judge.gatewayTokenEnv` fails with a `JudgeError` that names the
+   * variable; a `judge.gatewayTokenEnv` variable that is not set fails naming it.
    */
   static readonly live = (config: Config) =>
     Judge.layerWith(config).pipe(

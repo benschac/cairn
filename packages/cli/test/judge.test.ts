@@ -594,6 +594,19 @@ it.effect("a refused question is an unanswered judgment, unsure", () =>
   }).pipe(Effect.provide(judging({ refuse: ["ordered"] }))),
 );
 
+it.effect(
+  "the live judge with judge.gatewayTokenEnv unset in the environment names that variable",
+  () =>
+    Effect.gen(function* () {
+      const config = configOf({
+        judge: { baseUrl: "https://gateway.test", gatewayTokenEnv: "GW_TOKEN" },
+      });
+      const error = yield* Effect.flip(Layer.build(Judge.live(config)).pipe(Effect.scoped));
+      expect(Schema.is(JudgeError)(error)).toBe(true);
+      expect(error.message).toContain("GW_TOKEN");
+    }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnvRecord({})))),
+);
+
 it.effect("the live judge without TYPESAFE_API_KEY fails with a JudgeError that names it", () =>
   Effect.gen(function* () {
     const error = yield* Effect.flip(Layer.build(Judge.live(defaults)).pipe(Effect.scoped));

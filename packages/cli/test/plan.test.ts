@@ -404,6 +404,28 @@ it.effect("prints judging as skipped once, and says nothing when the key is set"
   ),
 );
 
+it.effect("with only judge.gatewayTokenEnv set, judging runs and is not skipped", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run, text } = yield* setup({
+        "config.json":
+          '{"judge":{"baseUrl":"https://gateway.test/typesafe","gatewayTokenEnv":"CAIRN_AI_GATEWAY_TOKEN"}}',
+        "prd.md": PRD,
+      });
+      const { lines, result } = yield* run({ judge: scriptedJudge(), options: { yes: true } });
+      const judged = yield* text("judgments.json");
+      expect(Result.isSuccess(result)).toBe(true);
+      expect(Array.contains(lines, JUDGING_SKIPPED)).toBe(false);
+      expect(judged).toContain("jev-1.14.0");
+    }),
+  ),
+);
+
+it("the skip message names both ways to enable judging", () => {
+  expect(JUDGING_SKIPPED).toContain("TYPESAFE_API_KEY");
+  expect(JUDGING_SKIPPED).toContain("judge.gatewayTokenEnv");
+});
+
 it.effect.prop(
   "any answer but yes writes no manifest",
   [Schema.String.check(Schema.isPattern(/^[^yY\s]/u))],

@@ -334,7 +334,8 @@ Config = {
   }
   judge: {
     model: string // defaults to "jev-1.14.0"
-    baseUrl: string | undefined
+    baseUrl: string | undefined // e.g. a Cloudflare AI Gateway URL; required when gatewayTokenEnv is set
+    gatewayTokenEnv: string | undefined // the environment variable holding an AI Gateway token
     pass: number // defaults to 0.8
     flag: number // defaults to 0.5
     minConfidence: number // defaults to 0.5
@@ -344,7 +345,7 @@ Config = {
 }
 ```
 
-A missing `.cairn/config.json` decodes to the defaults. A config whose `planner.source` is `api` with no `planner.model`, or whose provider is `openai-compatible` with no `planner.baseUrl`, fails to decode with a message naming the field. A config whose `planner.source` is `api` and that sets `planner.gatewayTokenEnv` with no `planner.baseUrl` fails to decode the same way: the token is for the gateway, and a request that goes straight to a provider must not carry it. `planner.gatewayTokenEnv` holds the name of a variable, never the token. `judge.pass` must be greater than `judge.flag`, and all three thresholds lie in `[0, 1]`. `judge.models` defaults to:
+A missing `.cairn/config.json` decodes to the defaults. A config whose `planner.source` is `api` with no `planner.model`, or whose provider is `openai-compatible` with no `planner.baseUrl`, fails to decode with a message naming the field. A config whose `planner.source` is `api` and that sets `planner.gatewayTokenEnv` with no `planner.baseUrl` fails to decode the same way: the token is for the gateway, and a request that goes straight to a provider must not carry it. `planner.gatewayTokenEnv` holds the name of a variable, never the token. A config that sets `judge.gatewayTokenEnv` with no `judge.baseUrl` fails to decode, naming both fields, for the same reason; `judge.gatewayTokenEnv` also holds a variable's name. `judge.pass` must be greater than `judge.flag`, and all three thresholds lie in `[0, 1]`. `judge.models` defaults to:
 
 | Name     | When to use it                                                                     |
 | -------- | ---------------------------------------------------------------------------------- |
@@ -951,9 +952,9 @@ Both sources:
 - Keys are read with `Config.Redacted`, never written and never logged. The `Redactor` adds the value of every key Cairn reads, the gateway token below included, to its secret set, so a key in the shell environment is stripped from session logs like one in `.env`.
 - Layers are built only when a command needs them. A command that calls no model never reads a key or looks for a CLI. `cairn plan` with `source: "api"` and no key for its provider fails before it changes any file.
 - `planner.baseUrl` and `judge.baseUrl` become each client's `apiUrl`. Setting them routes calls through a proxy, such as Cloudflare AI Gateway for logs, caching and spend. Cairn ships no gateway and needs no Cloudflare account.
-- `planner.gatewayTokenEnv` names the variable holding an AI Gateway token. Cloudflare requires authentication on a new gateway, so every request through it carries `cf-aig-authorization: Bearer <token>`. When it is set and `planner.source` is `api`, building the planner layer reads the variable with `Config.Redacted` and the client sends that header on every HTTP request, for every `api` provider. A missing variable fails before any file changes with a `ModelKeyError` naming it. When it is unset no header is sent, and the `cli` source ignores it. The Judge has no such field: TypeSafe is not a gateway provider.
+- `planner.gatewayTokenEnv` names the variable holding an AI Gateway token. Cloudflare requires authentication on a new gateway, so every request through it carries `cf-aig-authorization: Bearer <token>`. When it is set and `planner.source` is `api`, building the planner layer reads the variable with `Config.Redacted` and the client sends that header on every HTTP request, for every `api` provider. A missing variable fails before any file changes with a `ModelKeyError` naming it. When it is unset no header is sent, and the `cli` source ignores it. - `judge.gatewayTokenEnv` does the same for the Judge, and requires `judge.baseUrl` (a config that sets one without the other fails to decode, naming both). When it is set, `decisionModel` reads the variable with `Config.Redacted` and the TypeSafe client sends `cf-aig-authorization: Bearer <token>` on every request. A missing or empty variable fails with a `ModelKeyError` naming it. `TYPESAFE_API_KEY` is then optional: when it is set it is sent as TypeSafe's bearer key, and when it is not no `Authorization` header is sent and the gateway uses the key stored in it (bring your own key). When `judge.gatewayTokenEnv` is unset, `TYPESAFE_API_KEY` is required and no gateway header is sent. Judging is available when `TYPESAFE_API_KEY` is set or `judge.gatewayTokenEnv` is.
 - The Jev model is pinned (`jev-1.14.0`, not `jev-latest`) so the same input gets the same model, and `judgments.json` records it.
-- No test reads a key, touches the network or runs a real CLI. The gateway header is tested with a stub `HttpClient` that records each request: every `api` provider sends it when `planner.gatewayTokenEnv` is set and none sends it when unset, and a missing variable fails naming it. `Planner` and `Judge` tests provide scripted Layers. `cli-model.ts` is tested against a stub executable on a temporary `PATH` that prints a recorded answer: it gets the prompt on stdin and the schema flag, a non-zero exit becomes a `PlannerError` with its stderr, and a missing binary gives the message above.
+- No test reads a key, touches the network or runs a real CLI. The gateway header is tested with a stub `HttpClient` that records each request: every `api` provider sends it when `planner.gatewayTokenEnv` is set and none sends it when unset, and a missing variable fails naming it. The same stub shows that with `judge.gatewayTokenEnv` set and no `TYPESAFE_API_KEY` each judge request carries `cf-aig-authorization`, no `Authorization` and goes to `judge.baseUrl`, that with both set it carries both, and that a missing gateway variable fails naming it. `Planner` and `Judge` tests provide scripted Layers. `cli-model.ts` is tested against a stub executable on a temporary `PATH` that prints a recorded answer: it gets the prompt on stdin and the schema flag, a non-zero exit becomes a `PlannerError` with its stderr, and a missing binary gives the message above.
 
 ## Planning {#spec.planning}
 
@@ -1907,7 +1908,7 @@ Step 1, the spec:
 
 1. Assign missing IDs in `prd.md`.
 2. If `spec.md` is missing, or `--respec` is passed, generate it with `Planner.spec`. If it exists, find what planning again adds (see `spec.planning.again`). If there is nothing to write, go to step 2.
-3. If `TYPESAFE_API_KEY` is set, run the sections checkpoint on what was written (see `spec.judging.checkpoints`). Otherwise print `Judging skipped: TYPESAFE_API_KEY is not set.` once.
+3. If `TYPESAFE_API_KEY` is set or `judge.gatewayTokenEnv` is set, run the sections checkpoint on what was written (see `spec.judging.checkpoints`). Otherwise print `Judging skipped: set TYPESAFE_API_KEY, or judge.gatewayTokenEnv for Cloudflare AI Gateway.` once.
 4. Assign IDs, write `spec.md` and `spec.json`, and print each section written with its line and the PRD sections it implements.
 5. With `--spec`, stop. Otherwise ask `Draft tasks from this spec? [y/N]`. No stops with the spec on disk and prints `Edit .cairn/spec.md, then run cairn plan again.`
 
@@ -2399,7 +2400,7 @@ Properties: raising a probability never turns `pass` into `flag`; lowering confi
 `Judge.judge(inputs, previous)` returns `Judgments`. For each target it hashes the encoded input with SHA-256. A task's hash also covers `judge.models`, its names and descriptions sorted by name, because the descriptions are the `model` question's criteria: any change to the catalog, a description alone included, asks every task again. `inputHashesOf(inputs, judge)` gives every target's hash, so the server's stale check computes the same value. A previous judgment with the same hash and model is kept without a call, for the questions the target still asks. The rest go to `DecisionModel.decideSettled`, one request per target with all its questions, four requests at a time. A task's `model` question is left out of the request when `judge.models` names fewer than two models, since there is nothing to choose between; core's `taskQuestionsWithoutModel` is the task definition without it.
 
 - The TypeSafe client does not retry. `Judge` retries a rate-limit error up to three times, waiting the delay the provider gives.
-- Any other `AiError` fails with a `JudgeError` that names the target. A missing key fails with a `JudgeError` that names `TYPESAFE_API_KEY`, when `Judge.live` is built rather than on the first call, so a caller that goes on without a key catches it where it provides the layer.
+- Any other `AiError` fails with a `JudgeError` that names the target. A missing key, with no `judge.gatewayTokenEnv`, fails with a `JudgeError` that names `TYPESAFE_API_KEY`, and a `judge.gatewayTokenEnv` variable that is not set fails naming it, when `Judge.live` is built rather than on the first call, so a caller that goes on without a key catches it where it provides the layer.
 - The test layer builds a `DecisionModel` with `DecisionModel.make` and a scripted `decide`. Tests count its calls to show that an unchanged target is not asked again.
 
 ### Checkpoints {#spec.judging.checkpoints}
@@ -2420,7 +2421,7 @@ Bounds:
 - Steps 1 and 2 run at most `judge.maxRounds` rounds each. Anything still too large after the last round is reported as `flag`.
 - A split has to cover what it replaces: the replacement sections keep the original's `Implements`, and the new drafts together keep the original's spec sections and files. A split that drops one is discarded, the original is kept, and the judgment says why.
 - Every change is a judgment with `action: "split"` or `action: "routed"`. `cairn plan` prints them before the stack, for example `split  draft "Add the trace store" into 2 tasks (size too_large, confidence 0.83)` and `routed t12 sonnet to haiku (confidence 0.91)`.
-- Without `TYPESAFE_API_KEY`, `refine` returns its input unchanged with no judgments.
+- Without `TYPESAFE_API_KEY` or `judge.gatewayTokenEnv`, `refine` returns its input unchanged with no judgments.
 
 Tests use the scripted `Judge` and `Planner` layers: one `too_large` answer causes one split; a split that drops a spec section is discarded; rounds stop at `judge.maxRounds` even when every answer is `too_large`; a low-confidence `model` answer leaves the planner's model.
 
@@ -2637,7 +2638,7 @@ judge.openai.route: "gateway" | "direct" // required
 - `logging` is required whenever a gateway route is used, because requests carry repository content. Each request sends the per-request logging header Cloudflare documents for that value. Read Cloudflare's docs for the header's name before writing it. Retention is set in the gateway itself, and the docs page says so.
 - The route reported on each attempt is `gateway` or `unified` (see `spec.contract.attempts`).
 - The request body names the configured model unchanged, so the gateway serves the model that was selected.
-- The TypeSafe judge has no gateway route. `cairn plan` prints `judge: typesafe jev-1.14.0, direct` so the route is never implied.
+- TypeSafe's Jev can go through the gateway with `judge.baseUrl` and `judge.gatewayTokenEnv`, with the key stored in the gateway (byok) or sent from `TYPESAFE_API_KEY`. `cairn plan` prints `judge: typesafe jev-1.14.0, gateway` when `judge.gatewayTokenEnv` is set and `judge: typesafe jev-1.14.0, direct` otherwise, so the route is never implied.
 - Secrets: the gateway token and provider keys are read with `Config.Redacted`, added to the `Redactor`'s secret set, and never written to config, logs or `cairn.db`.
 
 OpenAI Decisions through the gateway. A `404`, or a response that does not decode as a Decisions answer, is a `JudgeError`: `The gateway did not serve the Decisions endpoint. Set judge.openai.route to "direct" to call OpenAI directly.` The gateway route for this judge is printed as `experimental` until a person has checked a real response through their gateway. The test fixture recorded from that check is then committed. The docs list the route as supported only once that fixture exists.
