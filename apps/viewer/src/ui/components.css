@@ -1196,6 +1196,42 @@ mark[data-link-passage] {
   padding: 5px 10px;
 }
 
+/* A Copy link button is a small btn: it sits beside what it links to and never competes with it. */
+.btn[data-copy-link] {
+  padding: 1px 6px;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--t-xs);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.btn[data-copy-link]:hover {
+  color: var(--ink);
+}
+
+.prd-pinrow > .btn[data-copy-link] {
+  padding: 1px 6px;
+}
+
+/* On a spec card, under its header and to the right. */
+.card-copy {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 11px 0;
+}
+
+/* In a stack's box, under its number. It is as wide as the box, so its buttons wrap and never widen it. */
+.stack-copy {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  width: 0;
+  min-width: 100%;
+  padding: 2px 0 3px;
+}
+
 /* The spec pane: header bar and stacked cards, constrained to the pane's width. */
 .spec-col {
   display: grid;

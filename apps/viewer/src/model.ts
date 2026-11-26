@@ -169,6 +169,8 @@ export const Model = Schema.Struct({
   isShowingModels: Schema.Boolean,
   /** The section whose ID was just copied; its button reads "copied" until another reader click. */
   maybeCopied: Schema.Option(PrdSectionId),
+  /** The path of the link just copied; the button that copies it reads "copied" until the next reader click. */
+  maybeCopiedLink: Schema.Option(Schema.String),
   /** What the last link that opened left out, or why the address was not a link, until dismissed. */
   maybeLinkNotice: Schema.Option(Schema.String),
   /** A link waiting for the first trace, or for a patch or a session its steps read. */

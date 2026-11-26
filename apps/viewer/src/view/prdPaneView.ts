@@ -33,8 +33,9 @@ import {
   type Rendered,
   type SectionHooks,
 } from "../markdown.ts";
-import { linkedMarksOf } from "../links.ts";
+import { linkedMarksOf, sectionPathOf } from "../links.ts";
 import { blockKeyFor, marksOf, type SearchResult } from "../search.ts";
+import { copyButtonView } from "./copyLinkView.ts";
 import {
   coverageOf,
   countsOf,
@@ -152,30 +153,39 @@ export const TrackPrdScroll = Mount.defineStream("TrackPrdScroll", {
 export const statusLineText = (status: SectionStatus, counts: Counts): string =>
   `${statusWordOf(status)} · ${counts.specs} spec · ${counts.done}/${counts.tasks} tasks`;
 
-/** A coverage note as text, or the status line as a button that pins the section. */
+/**
+ * A coverage note as text, or the status line as a button that pins the section. The pinned
+ * section's row also copies the link up to its step.
+ */
 const statusLineView = (
   trace: Trace,
   id: PrdSectionId,
   status: SectionStatus,
   isPinned: boolean,
+  pinnedPath: string,
+  maybeCopiedLink: Option.Option<string>,
   h: HtmlBuilder<Message>,
 ): Html =>
   Option.match(coverageOf(status), {
     onNone: () =>
       h.div(
         [h.Class("prd-pinrow")],
-        [
-          h.button(
-            [
-              h.Type("button"),
-              h.Class("btn"),
-              h.DataAttribute("status-line", id),
-              h.AriaPressed(`${isPinned}`),
-              h.OnClick(Message.ClickedStatusLine({ id })),
-            ],
-            [dotView(status, h), statusLineText(status, countsOf(trace, id))],
-          ),
-        ],
+        Array.appendAll(
+          [
+            h.button(
+              [
+                h.Type("button"),
+                h.Class("btn"),
+                h.DataAttribute("status-line", id),
+                h.AriaPressed(`${isPinned}`),
+                h.OnClick(Message.ClickedStatusLine({ id })),
+              ],
+              [dotView(status, h), statusLineText(status, countsOf(trace, id))],
+            ),
+          ],
+          // The pinned section's link, up to its step: the passage when one replaced the section.
+          isPinned ? [copyButtonView(maybeCopiedLink, pinnedPath, "Copy link", h)] : [],
+        ),
       ),
     onSome: (note) => h.p([h.Class("prd-covnote"), h.DataAttribute("coverage", status)], [note]),
   });
@@ -287,6 +297,7 @@ const headerView = (
   document: MarkdownDocument,
   maybeTitle: Option.Option<TraceSection>,
   maybeCopied: Option.Option<PrdSectionId>,
+  maybeCopiedLink: Option.Option<string>,
   folded: Folded,
   searchOf: (sectionId: SectionId) => NodeSearch,
   readers: ReadonlyArray<SectionReader>,
@@ -318,10 +329,10 @@ const headerView = (
           ),
           Array.prepend(
             Array.flatMap(Array.fromOption(Option.liftPredicate(section.id, isPrdSection)), (id) =>
-              Array.prepend(
-                readersView(id, readers, h),
+              Array.prependAll(readersView(id, readers, h), [
                 idButtonView(id, Option.contains(maybeCopied, id), searchOf(id), h),
-              ),
+                copyButtonView(maybeCopiedLink, sectionPathOf(id), "Copy link", h),
+              ]),
             ),
             h.h2(
               [h.Class("prd-doc-heading"), h.DataAttribute("prd-title", "")],
@@ -345,7 +356,9 @@ const sectionView = (
   section: TraceSection,
   maybeCurrent: Option.Option<PrdSectionId>,
   maybePinned: Option.Option<PrdSectionId>,
+  pinnedPath: string,
   maybeCopied: Option.Option<PrdSectionId>,
+  maybeCopiedLink: Option.Option<string>,
   folded: Folded,
   searchOf: (sectionId: SectionId) => NodeSearch,
   readers: ReadonlyArray<SectionReader>,
@@ -395,17 +408,25 @@ const sectionView = (
                 Array.prepend(
                   Array.flatMap(Array.fromOption(maybeId), (id) =>
                     Array.map(Array.fromOption(sectionStatusOf(trace, id)), (status) =>
-                      statusLineView(trace, id, status, Option.contains(maybePinned, id), h),
+                      statusLineView(
+                        trace,
+                        id,
+                        status,
+                        Option.contains(maybePinned, id),
+                        pinnedPath,
+                        maybeCopiedLink,
+                        h,
+                      ),
                     ),
                   ),
                   h.div(
                     [h.Class("prd-sh")],
                     Array.prepend(
                       Array.flatMap(Array.fromOption(maybeId), (id) =>
-                        Array.prepend(
-                          readersView(id, readers, h),
+                        Array.prependAll(readersView(id, readers, h), [
                           idButtonView(id, Option.contains(maybeCopied, id), search, h),
-                        ),
+                          copyButtonView(maybeCopiedLink, sectionPathOf(id), "Copy link", h),
+                        ]),
                       ),
                       headingTag(
                         [h.Class("prd-title"), h.DataAttribute("depth", `${section.level}`)],
@@ -460,6 +481,8 @@ const prdBodyView = (
   isPrdCondensed: boolean,
   prdOpened: Record.ReadonlyRecord<string, boolean>,
   maybeCopied: Option.Option<PrdSectionId>,
+  maybeCopiedLink: Option.Option<string>,
+  pinnedPath: string,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
   maybePassage: Option.Option<typeof PassageStep.Type>,
@@ -489,7 +512,9 @@ const prdBodyView = (
           section,
           maybeCurrent,
           maybePinned,
+          pinnedPath,
           maybeCopied,
+          maybeCopiedLink,
           folded,
           searchOf,
           readers,
@@ -497,14 +522,25 @@ const prdBodyView = (
           h,
         ),
       ),
-      headerView(trace, document, maybeTitle, maybeCopied, folded, searchOf, readers, hooks, h),
+      headerView(
+        trace,
+        document,
+        maybeTitle,
+        maybeCopied,
+        maybeCopiedLink,
+        folded,
+        searchOf,
+        readers,
+        hooks,
+        h,
+      ),
     ),
   );
 };
 
 /**
  * One slot: the body is rebuilt only when the trace, the current section, the pin, the folded
- * sections, the copied ID, the search, the passage or the room changes, so a measurement or a hover never renders the document again, and a query
+ * sections, the copied ID or link, the pinned link, the search, the passage or the room changes, so a measurement or a hover never renders the document again, and a query
  * only matches and marks: the parsed document is shared.
  */
 const prdBodyLazy = createLazy();
@@ -520,6 +556,8 @@ export const prdPaneView = (
   isPrdCondensed: boolean,
   prdOpened: Record.ReadonlyRecord<string, boolean>,
   maybeCopied: Option.Option<PrdSectionId>,
+  maybeCopiedLink: Option.Option<string>,
+  pinnedPath: string,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
   maybePassage: Option.Option<typeof PassageStep.Type>,
@@ -547,6 +585,8 @@ export const prdPaneView = (
         isPrdCondensed,
         prdOpened,
         maybeCopied,
+        maybeCopiedLink,
+        pinnedPath,
         results,
         maybeActive,
         maybePassage,

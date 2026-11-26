@@ -62,6 +62,8 @@ export const Message = defineMessageUnion({
   ClickedMoveHandle: {},
   /** The button that puts every moved document and task card back where the layout put it. */
   ClickedResetLayout: {},
+  /** A "Copy link" button: copies the link's path, with the page's origin in front. */
+  ClickedCopyLink: { path: Schema.String },
   /** A PRD heading's section ID, small beside its title: copies the ID. */
   ClickedSectionId: { id: PrdSectionId },
   /** The top bar's "Plan" and "Canvas" buttons. */
@@ -88,6 +90,8 @@ export const Message = defineMessageUnion({
   ClosedPresence: {},
   /** The clipboard took the section's ID, or refused it. */
   CompletedCopySectionId: { id: PrdSectionId, isCopied: Schema.Boolean },
+  /** The clipboard took the link's path, or refused it. */
+  CompletedCopyLink: { path: Schema.String, isCopied: Schema.Boolean },
   CompletedFocusDetailHeading: {},
   CompletedFocusDrawerHeading: {},
   CompletedScrollPrdSection: {},

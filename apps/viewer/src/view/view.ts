@@ -6,6 +6,7 @@ import type { Document, Html, HtmlBuilder } from "foldkit/html";
 import { TOOLBAR_MARGIN, TOOLBAR_WIDTH } from "../canvas.ts";
 import { drawerView, type DrawerMessages } from "../drawer.ts";
 import type { Pin } from "../highlight.ts";
+import { copyLinksOf } from "../links.ts";
 import { Message } from "../message.ts";
 import { Drawer, PresenceConnection, Screen, type Model } from "../model.ts";
 import { codeView, type CodeMessages } from "./codeView.ts";
@@ -191,6 +192,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document =>
               model.diffStyle,
               model,
               model.maybeLinkNotice,
+              copyLinksOf(model),
               h,
               codeMessages,
             ),
