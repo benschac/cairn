@@ -10,6 +10,7 @@ import { TypeSafeClient, TypeSafeDecisionModel } from "@effect/ai-typesafe";
 import {
   Array,
   Config,
+  Context,
   Effect,
   FileSystem,
   Layer,
@@ -96,15 +97,25 @@ export type PlannerCall = typeof PlannerCall.Type;
 /** The calls that may use the cheaper `planner.small` model. */
 const SMALL_CALLS: ReadonlyArray<PlannerCall> = ["index", "splitSection", "splitTask"];
 
+/** Whether `call` is one of the small calls. The Planner has calls this module does not name. */
+export const isSmallCall = (call: string) => Array.contains<string>(SMALL_CALLS, call);
+
+/**
+ * The model of the small calls (`spec.models`). The Planner uses it for them when it is provided,
+ * and the `LanguageModel` when it is not, so a run with no `planner.small` builds one model.
+ */
+export class SmallLanguageModel extends Context.Service<
+  SmallLanguageModel,
+  LanguageModel.LanguageModel
+>()("@cairn/cli/SmallLanguageModel") {}
+
 /**
  * The model name for a call: `planner.small` for the small calls when it is set, and
  * `planner.model` otherwise. None leaves the choice to the CLI.
  */
 export const modelNameFor = (config: CairnConfig, call: PlannerCall) =>
   Option.orElse(
-    Array.contains(SMALL_CALLS, call)
-      ? Option.fromUndefinedOr(config.planner.small)
-      : Option.none(),
+    isSmallCall(call) ? Option.fromUndefinedOr(config.planner.small) : Option.none(),
     () => Option.fromUndefinedOr(config.planner.model),
   );
 
@@ -289,9 +300,28 @@ export const languageModelFor = (
 /** The model for the calls that write: `languageModelFor` for `spec`, which `tasks` shares. */
 export const languageModel = (config: CairnConfig) => languageModelFor(config, "spec");
 
-/** `languageModel` over `fetch`: what the CLI composition root provides. */
-export const liveLanguageModel = (config: CairnConfig) =>
-  languageModel(config).pipe(Layer.provide(FetchHttpClient.layer));
+/**
+ * The models of a plan run: `languageModel`, and `SmallLanguageModel` built from
+ * `languageModelFor` for a small call when `planner.small` is set.
+ */
+export const plannerModels = (
+  config: CairnConfig,
+  environment?: Readonly<Record<string, string>>,
+) =>
+  Layer.merge(
+    languageModelFor(config, "spec", environment),
+    Option.match(Option.fromUndefinedOr(config.planner.small), {
+      onNone: () => Layer.empty,
+      onSome: () =>
+        Layer.effect(SmallLanguageModel, Effect.service(LanguageModel.LanguageModel)).pipe(
+          Layer.provide(languageModelFor(config, "index", environment)),
+        ),
+    }),
+  );
+
+/** `plannerModels` over `fetch`: what the CLI composition root provides. */
+export const livePlannerModels = (config: CairnConfig) =>
+  plannerModels(config).pipe(Layer.provide(FetchHttpClient.layer));
 
 /** The environment variable the Judge's key is read from (`spec.models`). */
 export const TYPESAFE_API_KEY = "TYPESAFE_API_KEY";

@@ -32,6 +32,8 @@ import {
 } from "effect";
 import { AiError, Chat, LanguageModel, Prompt } from "effect/ai";
 
+import { SmallLanguageModel, isSmallCall } from "./models.ts";
+
 /** Why a planner call failed: the model could not be reached, or its reply never decoded. */
 export class PlannerError extends Schema.TaggedError<
   PlannerError,
@@ -654,17 +656,19 @@ export class Planner extends Context.Service<
       Planner,
       Effect.gen(function* () {
         const model = yield* LanguageModel.LanguageModel;
+        const provided = yield* Effect.serviceOption(SmallLanguageModel);
+        const small = Option.getOrElse(provided, () => model);
+        /** Runs a model call with the model of `call`: the small one for a small call. */
+        const using = (call: PlannerError["call"]) =>
+          Effect.provideService(LanguageModel.LanguageModel, isSmallCall(call) ? small : model);
         const prompts = yield* loadPrompts(config.judge.models, config.categories);
         const knownCategories = inCategories(config.categories);
 
         /** One turn of `chat` that asks for text. The turn and the reply join the chat's history. */
         const textIn = (call: PlannerError["call"], chat: Chat.Chat) => (prompt: string) =>
-          timed(call)(
-            prompt,
-            chat
-              .generateText({ prompt })
-              .pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
-          ).pipe(Effect.map((response) => response.text));
+          timed(call)(prompt, chat.generateText({ prompt }).pipe(using(call))).pipe(
+            Effect.map((response) => response.text),
+          );
 
         /** Asks again in `chat` after its last reply was refused; the follow-up carries only why. */
         const againIn = (call: PlannerError["call"], chat: Chat.Chat) => (errors: string) =>
@@ -738,9 +742,7 @@ export class Planner extends Context.Service<
         const draftsFor = (schema: typeof TaskDrafts) => (chat: Chat.Chat) => (prompt: string) =>
           timed("tasks")(
             prompt,
-            chat
-              .generateObject({ objectName: "TaskDrafts", prompt, schema })
-              .pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+            chat.generateObject({ objectName: "TaskDrafts", prompt, schema }).pipe(using("tasks")),
           ).pipe(Effect.map((response) => response.value.drafts));
 
         const tasks = Effect.fn("Planner.tasks")(
@@ -793,7 +795,7 @@ export class Planner extends Context.Service<
                 prompt,
                 schema: SplitDrafts.check(knownCategories),
               })
-              .pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+              .pipe(using("splitTask")),
           ).pipe(Effect.map((response) => response.value.drafts));
 
         const splitTask = Effect.fn("Planner.splitTask")(
@@ -819,7 +821,7 @@ export class Planner extends Context.Service<
                     prompt: text,
                     schema: indexProseOf(section.id),
                   })
-                  .pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+                  .pipe(using("index")),
               ).pipe(Effect.map((response) => response.value));
             return yield* withRetry(chat, prompt, proseFor);
           },
@@ -839,7 +841,7 @@ export class Planner extends Context.Service<
                     prompt: text,
                     schema: statementDraftsOf(targets),
                   })
-                  .pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+                  .pipe(using("statements")),
               ).pipe(Effect.map((response) => response.value.statements));
             return yield* withRetry(chat, prompt, draftsOf);
           },
