@@ -1,20 +1,13 @@
 import { createServer } from "node:http";
 
-import {
-  Cursor,
-  CursorJson,
-  ParticipantId,
-  PrdSectionId,
-  PresenceJson,
-  ReadingJson,
-} from "@cairn/contract";
+import { ParticipantId, PrdSectionId, PresenceJson, ReadingJson } from "@cairn/contract";
 import type { Participant, ParticipantKind, Presence, RoomEvents } from "@cairn/contract";
 import { roomMachine } from "@cairn/core";
 import { NodeHttpServer, NodeSocket } from "@effect/platform-node";
 import { it } from "@effect/vitest";
 import { assertTestCoverage, propertyTest, replayTest } from "@xstate/test";
 import type { TestSut, TestSutSession } from "@xstate/test";
-import { eventsFromSchemas, fromEffectSchema } from "@xstate/test/effect-schema";
+import { eventsFromSchemas } from "@xstate/test/effect-schema";
 import {
   Array,
   type Context,
@@ -52,15 +45,7 @@ const Server = HttpRouter.serve(PresenceRoute, {
 );
 
 const decodePresence = Schema.decodeUnknownEffect(PresenceJson);
-const encodeCursor = Schema.encodeEffect(CursorJson);
 const encodeReading = Schema.encodeEffect(ReadingJson);
-
-// The room keeps cursors on the surface, so a cursor already on it arrives unchanged.
-const OnSurface = Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 }));
-const SurfaceCursor = Cursor.mapFields(() => ({ x: OnSurface, y: OnSurface }));
-// JSON turns -0 into 0, so the model gets the cursor as the wire carries it.
-const onTheWire = Function.flow(Schema.encodeSync(CursorJson), Schema.decodeSync(CursorJson));
-const surfaceCursor = fromEffectSchema(SurfaceCursor).map(onTheWire);
 
 /** A few PRD sections for a participant to read, so two of them often read the same one. */
 const sections = Array.map(["prd.goal", "prd.viewer", "prd.later"], (id) => PrdSectionId.make(id));
@@ -69,10 +54,7 @@ const sections = Array.map(["prd.goal", "prd.viewer", "prd.later"], (id) => PrdS
 const pool = Array.map(["ada", "bo", "cy"], (name) => ParticipantId.make(name));
 
 const arbitraries: Record<string, fc.Arbitrary<unknown>> = {
-  ".cursor": surfaceCursor,
   ".id": fc.constantFrom(...pool),
-  // The server starts every participant without a cursor.
-  ".participant.cursor": fc.constant(Option.none()),
   ".participant.id": fc.constantFrom(...pool),
   // The name travels in a query, so it stays plain.
   ".participant.name": fc.stringMatching(/^[A-Za-z0-9]{1,8}$/),
@@ -89,9 +71,8 @@ type RoomEvent = {
   [Type in keyof typeof RoomEvents]: { readonly type: Type } & (typeof RoomEvents)[Type]["Type"];
 }[keyof typeof RoomEvents];
 
-/** What a participant sees of the room, with cursors as plain data. */
+/** What a participant sees of the room, as plain data. */
 type Seen = ReadonlyArray<{
-  readonly cursor: Cursor | null;
   readonly id: string;
   readonly kind: ParticipantKind;
   readonly name: string;
@@ -99,8 +80,7 @@ type Seen = ReadonlyArray<{
 }>;
 
 const seen = (participants: ReadonlyArray<Participant>, nameOf: (id: string) => string): Seen =>
-  Array.map(participants, ({ cursor, id, kind, name, reading }) => ({
-    cursor: Option.getOrNull(cursor),
+  Array.map(participants, ({ id, kind, name, reading }) => ({
     id: nameOf(id),
     kind,
     name,
@@ -167,16 +147,6 @@ const makeSession = (runWith: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>)
         ),
       ),
       Match.discriminator("type")("left", ({ id }) => close(id)),
-      Match.discriminator("type")("moved", ({ cursor, id }) =>
-        Effect.all([Ref.get(clients), encodeCursor(cursor)]).pipe(
-          Effect.flatMap(([open, json]) =>
-            Option.match(HashMap.get(open, id), {
-              onNone: () => Effect.void,
-              onSome: (client) => client.writer.write(json),
-            }),
-          ),
-        ),
-      ),
       Match.discriminator("type")("read", ({ id, section }) =>
         Effect.all([Ref.get(clients), encodeReading({ reading: section })]).pipe(
           Effect.flatMap(([open, json]) =>

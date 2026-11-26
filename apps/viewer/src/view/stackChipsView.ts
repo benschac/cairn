@@ -26,7 +26,6 @@ import { arrowsView } from "./arrowsView.ts";
 import { copyButtonView } from "./copyLinkView.ts";
 import { modelAttributesOf, modelMarkView } from "./modelView.ts";
 import { fieldView, searchedAttributesOf } from "./nodeView.ts";
-import { branchStartOf } from "./stacksView.ts";
 import { hoverAttributesOf } from "./wiresView.ts";
 
 const isDone = (task: TraceTask): boolean => task.status === "done" || task.status === "landed";
@@ -76,6 +75,10 @@ export const ScrollStacksToBottom = Mount.define("ScrollStacksToBottom", {
     }),
   messages: [Message.CompletedScrollStacks],
 });
+
+/** Where a branch's name starts once its `<feature>/` prefix is left off. */
+export const branchStartOf = (feature: string, branch: string): number =>
+  String.startsWith(`${feature}/`)(branch) ? String.length(feature) + 1 : 0;
 
 /** The text a chip gives on hover and to a screen reader. */
 export const chipTitleOf = (trace: Trace, task: TraceTask): string =>

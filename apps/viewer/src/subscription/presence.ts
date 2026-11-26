@@ -1,20 +1,14 @@
-import { CursorJson, PrdSectionId, PresenceJson, ReadingJson } from "@cairn/contract";
-import type { Cursor } from "@cairn/contract";
+import { PrdSectionId, PresenceJson, ReadingJson } from "@cairn/contract";
 import { Effect, Filter, Option, Schema, Stream } from "effect";
 import { AsyncData, Subscription } from "foldkit";
 
-import { cursorOf, paneViewportOf } from "../canvas.ts";
-import { rectOf } from "../geometry.ts";
 import { Message } from "../message.ts";
 import type { Model } from "../model.ts";
 import { currentOf, searchedSectionOf } from "../reader.ts";
 
 /** The presence in a socket frame; none for a frame that is not text or is not a presence. */
 export const decodePresenceFrame = Schema.decodeUnknownOption(PresenceJson);
-// A cursor is two finite numbers and always encodes, so the encoder cannot fail, as with the
-// viewport attribute in canvas.ts.
-const encodeCursor = Schema.encodeSync(CursorJson);
-
+// A reading is a section ID and always encodes, so the encoder cannot fail.
 const encodeReading = Schema.encodeSync(ReadingJson);
 
 /** How often the reader's current section is looked at to see whether it changed. */
@@ -53,33 +47,6 @@ const connectionChanges = (socket: WebSocket) => {
 };
 
 /**
- * The canvas point under the pointer, read with the viewport the model last gave the pane, so the
- * stream does not restart while someone pans. None while there is no pane or the pointer is off it.
- */
-const cursorAt = (event: PointerEvent): Option.Option<Cursor> =>
-  Option.flatMap(Option.fromNullOr(document.querySelector("[data-canvas]")), (pane) =>
-    cursorOf(
-      { x: event.clientX, y: event.clientY },
-      rectOf(pane.getBoundingClientRect()),
-      paneViewportOf(pane),
-    ),
-  );
-
-const sendCursor = (socket: WebSocket) => (cursor: Cursor) =>
-  Effect.sync(() => {
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(encodeCursor(cursor));
-    }
-  });
-
-const sendCursorMoves = (socket: WebSocket) =>
-  Stream.fromEventListener<PointerEvent>(document, "pointermove").pipe(
-    Stream.filterMap(Filter.fromPredicateOption(cursorAt)),
-    Stream.mapEffect(sendCursor(socket)),
-    Stream.drain,
-  );
-
-/**
  * What this window is reading, as the frames to send the room: the current section once the
  * socket is open, and again each time it changes. The socket outlives a change of section, so the
  * section is read as it stands every poll, and a section already sent is not sent again.
@@ -106,10 +73,7 @@ const presenceMessages = (readReading: () => Option.Option<PrdSectionId>) =>
     Effect.map(openSocket, (socket) =>
       Stream.merge(
         presenceUpdates(socket),
-        Stream.merge(
-          connectionChanges(socket),
-          Stream.merge(sendCursorMoves(socket), sendReadings(socket, readReading)),
-        ),
+        Stream.merge(connectionChanges(socket), sendReadings(socket, readReading)),
       ),
     ),
   );

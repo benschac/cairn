@@ -1,7 +1,13 @@
 import { type Participant, ParticipantId, PrdSectionId } from "@cairn/contract";
-import { Array, Option, Schema } from "effect";
+import { Array, Match, Option, Schema } from "effect";
 
-import { labelOf } from "./view/cursorsView.ts";
+/** How the room names a participant: their name, and "(agent)" after an agent's. */
+export const labelOf = (participant: Participant) =>
+  Match.value(participant.kind).pipe(
+    Match.when("agent", () => `${participant.name} (agent)`),
+    Match.when("human", () => participant.name),
+    Match.exhaustive,
+  );
 
 /** Another participant reading a PRD section, with what the section's chip shows of them. */
 export const SectionReader = Schema.Struct({
@@ -12,8 +18,7 @@ export const SectionReader = Schema.Struct({
 export type SectionReader = typeof SectionReader.Type;
 
 /**
- * The other participants who have a current section, in the room's order. A pointer move changes a
- * participant's cursor and nothing here, so the PRD pane, which draws only this, is not rebuilt by it.
+ * The other participants who have a current section, in the room's order. The PRD pane draws only this.
  */
 export const readersOf = (
   participants: ReadonlyArray<Participant>,

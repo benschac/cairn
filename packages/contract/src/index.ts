@@ -28,22 +28,15 @@ export type TaskEventType = typeof TaskEventType.Type;
 export const ParticipantKind = Schema.Literals(["human", "agent"]);
 export type ParticipantKind = typeof ParticipantKind.Type;
 
-export const Cursor = Schema.Struct({
-  x: Schema.Finite,
-  y: Schema.Finite,
-});
-export type Cursor = typeof Cursor.Type;
-
 /** A participant's id, handed out by the room. */
 export const ParticipantId = Schema.NonEmptyString.pipe(Schema.brand("ParticipantId"));
 export type ParticipantId = typeof ParticipantId.Type;
 
 /**
- * A participant. The wire carries a missing cursor or reading as `null`; decoded, each is an
+ * A participant. The wire carries a missing reading as `null`; decoded, it is an
  * `Option`. `reading` is the PRD section that is current in the participant's window.
  */
 export const Participant = Schema.Struct({
-  cursor: Schema.OptionFromNullOr(Cursor),
   id: ParticipantId,
   kind: ParticipantKind,
   name: Schema.NonEmptyString,
@@ -55,7 +48,6 @@ export type Participant = typeof Participant.Type;
 export const RoomEvents = {
   joined: Schema.Struct({ participant: Schema.toType(Participant) }),
   left: Schema.Struct({ id: ParticipantId }),
-  moved: Schema.Struct({ cursor: Cursor, id: ParticipantId }),
   read: Schema.Struct({ id: ParticipantId, section: PrdSectionId }),
 };
 
@@ -66,15 +58,14 @@ export const Presence = Schema.Struct({
 export type Presence = typeof Presence.Type;
 
 export const PresenceJson = Schema.fromJsonString(Presence);
-export const CursorJson = Schema.fromJsonString(Cursor);
 
 /** What a client says it is reading: the PRD section that is current in its window. */
 export const Reading = Schema.Struct({ reading: PrdSectionId });
 export type Reading = typeof Reading.Type;
 export const ReadingJson = Schema.fromJsonString(Reading);
 
-/** A frame a client sends the room: where its pointer is, or what it is reading. */
-export const ClientFrameJson = Schema.fromJsonString(Schema.Union([Cursor, Reading]));
+/** A frame a client sends the room: what it is reading. */
+export const ClientFrameJson = ReadingJson;
 
 export * from "./events.ts";
 export * from "./judgments.ts";

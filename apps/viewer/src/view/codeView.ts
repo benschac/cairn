@@ -107,7 +107,10 @@ const barView = (
         ),
         diffStyleToggleView(diffStyle, messages.onDiffStyle, h),
       ),
-      h.button([h.Type("button"), h.Class("btn"), h.OnClick(messages.onBack)], ["Back to canvas"]),
+      h.button(
+        [h.Type("button"), h.Class("btn"), h.OnClick(messages.onBack)],
+        ["Back to the plan"],
+      ),
     ),
   );
 

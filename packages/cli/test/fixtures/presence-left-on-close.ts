@@ -5,7 +5,7 @@ const joined = (kind: "agent" | "human", name: string) =>
   ({
     caseId: '["event-case","joined","default"]',
     event: {
-      participant: { cursor: Option.none(), id: "bo", kind, name, reading: Option.none() },
+      participant: { id: "bo", kind, name, reading: Option.none() },
       type: "joined",
     },
     origin: "generator",
@@ -16,7 +16,7 @@ const joined = (kind: "agent" | "human", name: string) =>
 /**
  * The shrunk failure `propertyTest` printed when the presence server did not leave on a socket
  * close: one participant joined twice, and the first client stayed in the room. It is the
- * `failure.fixture` of that run, with the cursors written as the `Option`s they were.
+ * `failure.fixture` of that run.
  */
 export const leftOnClose = {
   failedAt: 3,

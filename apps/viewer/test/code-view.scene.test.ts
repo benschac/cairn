@@ -1,4 +1,4 @@
-import { Sha, TaskId } from "@cairn/contract";
+import { PrdSectionId, Sha, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Option, Predicate, Result, String, Struct } from "effect";
 import {
@@ -12,7 +12,7 @@ import {
   role,
   scene,
   selector,
-  within,
+  Subscription,
 } from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
 import { vi } from "vitest";
@@ -27,14 +27,7 @@ import { update as appUpdate } from "../src/update.ts";
 import { view as appView } from "../src/view/view.ts";
 import commitPatch from "./fixtures/commit.patch?raw";
 import rangePatch from "./fixtures/range.patch?raw";
-import {
-  canvasEnded,
-  focusedDrawerHeading,
-  loaded,
-  mounted,
-  sessionWith,
-  taskButton,
-} from "./fixtures.ts";
+import { loaded, mounted, readerEnded, sessionWith } from "./fixtures.ts";
 
 const sha = (character: string) => Sha.make(String.repeat(40)(character));
 
@@ -69,14 +62,15 @@ const model = modifyFields(loaded, { trace: () => TraceData.Success({ data: trac
 
 const app = { update: appUpdate, view: appView };
 
-const openCodeButton = role("button", { name: "Open code" });
-const backButton = role("button", { name: "Back to canvas" });
+/** A PRD section a person can pin on the reader. */
+const prdSection = PrdSectionId.make("prd.goal");
+
+const backButton = role("button", { name: "Back to the plan" });
 const treeTask = (id: string) => selector(`[data-tree-task="${id}"]`);
 const treeCommit = (value: string) => selector(`[data-tree-commit="${value}"]`);
 const treeFile = (path: string) => selector(`[data-tree-file="${path}"]`);
 const patch = selector("[data-patch-path]");
 const wholePath = `/api/diffs/${sha("0")}/${sha("b")}`;
-const drawer = role("complementary");
 const commitPath = (value: string) => `/api/commits/${sha(value)}`;
 
 /** The diff mount of a loaded patch answers once it has parsed the patch and drawn it. */
@@ -108,10 +102,8 @@ it("Open code on a task opens its whole diff, and its tree row is the current on
     app,
     given(model),
     mounted,
-    click(taskButton(stacked.id)),
-    focusedDrawerHeading,
-    click(within(drawer, openCodeButton)),
-    ...canvasEnded(),
+    Subscription.emit(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() })),
+    ...readerEnded(),
     fetched(wholePath, Result.succeed(rangePatch)),
     drawn,
     expect(treeTask(stacked.id)).toHaveAttr("aria-current", "true"),
@@ -124,15 +116,13 @@ it("Open code on a task opens its whole diff, and its tree row is the current on
   );
 });
 
-it("a drawer commit opens that commit, and the session pane shows its session", () => {
+it("a commit opens that commit, and the session pane shows its session", () => {
   scene(
     app,
     given(model),
     mounted,
-    click(taskButton(stacked.id)),
-    focusedDrawerHeading,
-    click(within(drawer, role("button", { name: `First ${String.takeLeft(sha("a"), 7)}` }))),
-    ...canvasEnded(),
+    Subscription.emit(Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.some(sha("a")) })),
+    ...readerEnded(),
     fetched(commitPath("a"), Result.succeed(commitPatch)),
     fetchedSession(`${template.session}`),
     drawn,
@@ -193,8 +183,8 @@ it("a task with no commits opens with a middle pane that says so", () => {
   );
 });
 
-it("back to canvas returns the canvas with its pins and drawer as they were", () => {
-  const pinned = after(Message.ClickedNode({ node: { id: stacked.id, kind: "task" } }));
+it("back to the plan returns the reader with its pin as it was", () => {
+  const pinned = after(Message.ClickedStatusLine({ id: prdSection }));
   const there = appUpdate(
     pinned,
     Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.none() }),
@@ -205,14 +195,13 @@ it("back to canvas returns the canvas with its pins and drawer as they were", ()
     expect(selector("[data-code-view]")).toExist(),
     click(backButton),
     mounted,
-    expect(selector(`[data-task="${stacked.id}"]`)).toHaveAttr("data-highlighted", "true"),
-    expect(drawer).toExist(),
+    expect(selector("[data-reader]")).toExist(),
     expect(selector("[data-code-view]")).toBeAbsent(),
   );
 });
 
 it("opening the code view and going back changes only the screen", () => {
-  const pinned = after(Message.ClickedNode({ node: { id: stacked.id, kind: "task" } }));
+  const pinned = after(Message.ClickedStatusLine({ id: prdSection }));
   const there = appUpdate(
     pinned,
     Message.ClickedOpenCode({ id: stacked.id, maybeSha: Option.some(sha("a")) }),
@@ -225,7 +214,7 @@ it("opening the code view and going back changes only the screen", () => {
       taskId: stacked.id,
     }),
   );
-  assert(appUpdate(there, Message.ClickedBackToCanvas()).model).toEqual(
+  assert(appUpdate(there, Message.ClickedBackToPlan()).model).toEqual(
     modifyFields(pinned, { patches: () => there.patches, sessions: () => there.sessions }),
   );
 });
@@ -241,7 +230,7 @@ it("messages that name nothing the trace or the screen holds are ignored", () =>
     [model, Message.ClickedTreeTask({ id: stacked.id })],
     [model, Message.ClickedTreeCommit({ sha: sha("a") })],
     [model, Message.ClickedTreeFile({ path: "src/a.ts" })],
-    [model, Message.ClickedBackToCanvas()],
+    [model, Message.ClickedBackToPlan()],
     [inCode, Message.ClickedTreeCommit({ sha: sha("f") })],
     [inCode, Message.ClickedTreeFile({ path: "docs/c.md" })],
     [inCode, Message.ClickedTreeTask({ id: missing })],

@@ -153,7 +153,7 @@ it("a Mermaid block is an empty placeholder with a mount, not its text", () => {
     given(null),
     Mount.expectExact(DrawDiagram),
     expect(selector("[data-diagram]")).toBeEmpty(),
-    Mount.resolve(DrawDiagram, Message.MeasuredLayout({ positions: {} })),
+    Mount.resolve(DrawDiagram, Message.CompletedDrawDiagram()),
   );
 });
 
@@ -208,8 +208,7 @@ it.effect("the mount puts a diagram's SVG into its element", () =>
   Effect.gen(function* () {
     const { element, mounted, replaced } = standIn();
     const messages = yield* sent(mounted, flowchart);
-    // Nothing to measure outside a layer, so nothing is sent.
-    assert(messages).toEqual([]);
+    assert(messages).toEqual([Message.CompletedDrawDiagram()]);
     assert(element.innerHTML).toMatch(/^<svg /u);
     assert(replaced.nodes).toEqual([]);
   }),

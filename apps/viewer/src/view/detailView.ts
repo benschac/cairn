@@ -1,16 +1,24 @@
-import { SectionId, type Trace, type TraceSection, type TraceTask } from "@cairn/contract";
+import {
+  ProbabilityAnswer,
+  RateAnswer,
+  SectionId,
+  Unanswered,
+  type Trace,
+  type TraceJudgment,
+  type TraceSection,
+  type TraceTask,
+} from "@cairn/contract";
 import { stacksOf } from "@cairn/core/stacks";
-import { Array, Option, Record, Result, String } from "effect";
+import { Array, DateTime, Match, Option, Record, Result, Schema, String } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { DETAIL_HEADING_ID, type Trail } from "../detail.ts";
-import { eventsView, gateView, judgmentsView } from "../drawer.ts";
 import { filesOf, patchPathOf, shortSha } from "../codeView.ts";
 import { trailStepOf, pathOfLink } from "../links.ts";
 import { Message } from "../message.ts";
 import { WHOLE_TASK, type DiffStyle, type PatchData } from "../model.ts";
 import { ranOf, statusWordOf } from "../reader.ts";
-import { Node, nodeKeyOf, sectionTitleOf } from "../trace.ts";
+import { Node, judgmentsOf, nodeKeyOf, sectionTitleOf } from "../trace.ts";
 import { dotView, labelView, tagView } from "../ui/marks.ts";
 import { copyButtonView } from "./copyLinkView.ts";
 import { patchView } from "./diffView.ts";
@@ -20,7 +28,90 @@ import type { Widths } from "../panes.ts";
 /** The content's side padding: more than half the resize handle, which overlaps it. */
 export const DETAIL_PADDING = 16;
 
-// NOTE: the buttons here are native buttons with Type("button"), as the drawer's are.
+// NOTE: the buttons here are native buttons with Type("button"). @foldkit/ui's Button.view adds
+// only Tabindex(0) over that, so it is not a dependency.
+
+const answerText = Match.type<TraceJudgment["answer"]>().pipe(
+  Match.when(Schema.is(ProbabilityAnswer), (answer) => `probability ${answer.probability}`),
+  Match.when(Schema.is(Unanswered), (answer) => `${answer.unanswered}: ${answer.description}`),
+  Match.when(Schema.is(RateAnswer), (answer) =>
+    Option.match(Option.fromUndefinedOr(answer.confidence), {
+      onNone: () => answer.label,
+      onSome: (confidence) => `${answer.label} (confidence ${confidence})`,
+    }),
+  ),
+  Match.exhaustive,
+);
+
+const gateText = (required: boolean): string => (required ? "human required" : "no human gate");
+
+const judgmentView = (judgment: TraceJudgment, h: HtmlBuilder<Message>): Html =>
+  h.li(
+    [
+      h.DataAttribute("drawer-judgment", judgment.question),
+      h.DataAttribute("verdict", judgment.verdict),
+      h.DataAttribute("stale", `${judgment.stale}`),
+    ],
+    [
+      h.strong([], [judgment.question]),
+      ` ${judgment.verdict}${judgment.stale ? " (stale)" : ""}: ${judgment.message} `,
+      h.span([h.DataAttribute("answer", "")], [answerText(judgment.answer)]),
+    ],
+  );
+
+export const judgmentsView = (trace: Trace, node: Node, h: HtmlBuilder<Message>): Html =>
+  h.section(
+    [h.DataAttribute("drawer-part", "judgments")],
+    [
+      h.h3([], ["Judgments"]),
+      h.ul(
+        [],
+        Array.map(judgmentsOf(trace, node), (judgment) => judgmentView(judgment, h)),
+      ),
+    ],
+  );
+
+export const eventsView = (task: TraceTask, h: HtmlBuilder<Message>): Html =>
+  h.section(
+    [h.DataAttribute("drawer-part", "events")],
+    [
+      h.h3([], ["Events"]),
+      h.ol(
+        [],
+        Array.map(task.events, (event) =>
+          h.li(
+            [h.DataAttribute("event", event.status)],
+            [`${event.status} ${DateTime.formatIso(event.ts)} ${event.actor}`],
+          ),
+        ),
+      ),
+    ],
+  );
+
+/** The gate the plan set and the gate in effect, each with its reasons. */
+export const gateView = (task: TraceTask, h: HtmlBuilder<Message>): Html =>
+  h.section(
+    [h.DataAttribute("drawer-part", "gate")],
+    [
+      h.h3([], ["Gate"]),
+      h.div(
+        [h.DataAttribute("gate-source", "humanGate")],
+        [`Planned: ${gateText(task.humanGate.required)}`],
+      ),
+      h.ul(
+        [h.DataAttribute("gate-reasons", "humanGate")],
+        Array.map(task.humanGate.reasons, (reason) => h.li([], [reason])),
+      ),
+      h.div(
+        [h.DataAttribute("gate-source", "effective")],
+        [`Effective: ${gateText(task.gate.required)}`],
+      ),
+      h.ul(
+        [h.DataAttribute("gate-reasons", "effective")],
+        Array.map(task.gate.reasons, (reason) => h.li([], [reason])),
+      ),
+    ],
+  );
 
 const taskNode = (id: TraceTask["id"]): Node => ({ id, kind: "task" });
 const sectionIdOf = (id: string): SectionId => SectionId.make(id);

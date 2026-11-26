@@ -5,7 +5,7 @@ import { modifyFields } from "foldkit/struct";
 
 import { CLOSED, cutBackTo, extendedBy, nodeShownBy, openedOn, wentBack } from "../src/detail.ts";
 import { Message } from "../src/message.ts";
-import { Screen } from "../src/model.ts";
+import { Screen, WHOLE_TASK } from "../src/model.ts";
 import { Node } from "../src/trace.ts";
 import { FocusDetailHeading, update } from "../src/update.ts";
 import { loaded } from "./fixtures.ts";
@@ -97,8 +97,17 @@ it("focus goes to the heading when the panel opens or its last node changes, and
   expect(commandsOf(update(open([task]), Message.ClickedCloseDetail()))).toEqual([]);
 });
 
-it("Escape pops the trail only on the reader; elsewhere it leaves the panel alone", () => {
+it("Escape pops the trail only on the reader; on the code view it leaves the panel alone", () => {
   const trail = [{ id: aTask, kind: "task" } as const];
-  const onCanvas = modifyFields(loaded, { detail: () => trail });
-  expect(update(onCanvas, Message.PressedEscape()).model).toStrictEqual(onCanvas);
+  const onCode = modifyFields(loaded, {
+    detail: () => trail,
+    screen: () =>
+      Screen.Code({
+        maybeFile: Option.none(),
+        maybeLines: Option.none(),
+        shown: WHOLE_TASK,
+        taskId: aTask,
+      }),
+  });
+  expect(update(onCode, Message.PressedEscape()).model).toStrictEqual(onCode);
 });

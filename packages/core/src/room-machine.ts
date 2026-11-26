@@ -27,15 +27,6 @@ export const roomMachine = setupEffect({
             participants: Array.filter(context.participants, ({ id }) => id !== event.id),
           },
         }),
-        moved: ({ context, event }) => ({
-          context: {
-            participants: Array.map(context.participants, (participant) =>
-              participant.id === event.id
-                ? Struct.evolve(participant, { cursor: () => Option.some(event.cursor) })
-                : participant,
-            ),
-          },
-        }),
         read: ({ context, event }) => ({
           context: {
             participants: Array.map(context.participants, (participant) =>

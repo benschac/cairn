@@ -1,4 +1,4 @@
-import { PrdSectionId } from "@cairn/contract";
+import { PrdSectionId, TaskId } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Option, Schema } from "effect";
 import {
@@ -18,7 +18,7 @@ import { modifyFields } from "foldkit/struct";
 
 import { demoTrace } from "../src/demo.ts";
 import { Message } from "../src/message.ts";
-import { Screen } from "../src/model.ts";
+import { Screen, WHOLE_TASK } from "../src/model.ts";
 import { currentOf } from "../src/reader.ts";
 import { escapeMessage } from "../src/subscription/escape.ts";
 import { CopySectionId, update } from "../src/update.ts";
@@ -26,7 +26,7 @@ import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
 import { MeasureWires } from "../src/view/wiresView.ts";
 import { view } from "../src/view/view.ts";
-import { canvasEnded, loaded, mounted, unmeasuredWires } from "./fixtures.ts";
+import { loaded, unmeasuredWires } from "./fixtures.ts";
 
 const prd = (id: string) => PrdSectionId.make(id);
 const prdIds = Array.map(demoTrace.prd.sections, (section) => section.id);
@@ -48,33 +48,6 @@ const heading = (id: string) => selector(`[data-section="${id}"]`);
 const statusLine = (id: string) => selector(`[data-status-line="${id}"]`);
 const idButton = (id: string) => selector(`[data-section-id="${id}"]`);
 const currentHeadings = selector("[data-prd-pane] [data-current]");
-
-it("the Plan button opens the reader, and the Canvas button goes back to the canvas", () => {
-  scene(
-    { update, view },
-    given(loaded),
-    mounted,
-    expect(selector("[data-canvas]")).toExist(),
-    expect(selector("[data-reader]")).toBeAbsent(),
-    expect(role("group", { name: "Screen" })).toExist(),
-    expect(selector("[data-toolbar] button[aria-current='page']")).toHaveText("Canvas"),
-    click(role("button", { name: "Plan" })),
-    ...canvasEnded(),
-    expect(selector("[data-reader]")).toExist(),
-    expect(selector("[data-canvas]")).toBeAbsent(),
-    expect(role("region", { name: "PRD" })).toExist(),
-    expect(role("button", { name: "Plan" })).toHaveAttr("aria-current", "page"),
-    expect(role("button", { name: "Canvas" })).not.toHaveAttr("aria-current"),
-    scrolledTo("prd.goal"),
-    click(role("button", { name: "Canvas" })),
-    Mount.expectEnded(TrackPrdScroll),
-    Mount.expectEnded(ScrollStacksToBottom),
-    Mount.expectEnded(MeasureWires),
-    mounted,
-    expect(selector("[data-canvas]")).toExist(),
-    expect(selector("[data-reader]")).toBeAbsent(),
-  );
-});
 
 it("the top bar names Cairn and the feature, and shows the search and who is here", () => {
   scene(
@@ -283,7 +256,7 @@ it.prop(
 );
 
 it.prop(
-  "Escape unpins on the reader and does nothing on another screen",
+  "Escape unpins on the reader and does nothing on the code view",
   { id: Schema.Literals(prdIds) },
   ({ id }) => {
     const pinned = (screen: Screen) =>
@@ -293,8 +266,15 @@ it.prop(
       });
     const onReader = update(pinned(Screen.Reader()), Message.PressedEscape()).model;
     assert(onReader.reader.maybePinned).toStrictEqual(Option.none());
-    const onCanvas = pinned(Screen.Canvas());
-    assert(update(onCanvas, Message.PressedEscape()).model).toStrictEqual(onCanvas);
+    const onCode = pinned(
+      Screen.Code({
+        maybeFile: Option.none(),
+        maybeLines: Option.none(),
+        shown: WHOLE_TASK,
+        taskId: TaskId.make("t1"),
+      }),
+    );
+    assert(update(onCode, Message.PressedEscape()).model).toStrictEqual(onCode);
   },
 );
 

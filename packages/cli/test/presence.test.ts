@@ -1,13 +1,6 @@
 import { createServer } from "node:http";
 
-import {
-  Cursor,
-  CursorJson,
-  ParticipantKind,
-  PrdSectionId,
-  PresenceJson,
-  ReadingJson,
-} from "@cairn/contract";
+import { ParticipantKind, PrdSectionId, PresenceJson, ReadingJson } from "@cairn/contract";
 import type { Presence } from "@cairn/contract";
 import { NodeHttpServer, NodeSocket } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
@@ -27,13 +20,7 @@ const Server = HttpRouter.serve(PresenceRoute, {
 );
 
 const decodePresence = Schema.decodeUnknownEffect(PresenceJson);
-const encodeCursor = Schema.encodeEffect(CursorJson);
-const decodeCursor = Schema.decodeEffect(CursorJson);
 const encodeReading = Schema.encodeEffect(ReadingJson);
-
-// The room keeps cursors on the surface, so a cursor already on it arrives unchanged.
-const OnSurface = Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 }));
-const SurfaceCursor = Cursor.mapFields(() => ({ x: OnSurface, y: OnSurface }));
 
 const join = Effect.fn("join")(function* (query: string) {
   const url = yield* HttpServer.addressFormattedWith((address) =>
@@ -53,37 +40,31 @@ const join = Effect.fn("join")(function* (query: string) {
       Effect.flatMap(Effect.fromOption),
       Effect.timeout("2 seconds"),
     );
-  // Sends a cursor and returns it as the wire carries it: JSON turns -0 into 0.
-  const moves = (cursor: Cursor) =>
-    encodeCursor(cursor).pipe(Effect.tap(writer.write), Effect.flatMap(decodeCursor));
   // Sends the section this client is reading.
   const reads = (reading: PrdSectionId) =>
     encodeReading({ reading }).pipe(Effect.flatMap(writer.write));
-  return { moves, reads, sees, writer };
+  return { reads, sees, writer };
 });
 
-const someoneMoved = (presence: Presence) =>
-  Array.some(presence.participants, (participant) => Option.isSome(participant.cursor));
-
 it.live.prop(
-  "a participant sees another's kind and cursor past frames that are not cursors, then sees them leave",
-  { cursor: SurfaceCursor, kind: ParticipantKind },
-  ({ cursor, kind }) =>
+  "a participant sees another's kind and reading past frames that are not readings, then sees them leave",
+  { kind: ParticipantKind, section: PrdSectionId },
+  ({ kind, section }) =>
     Effect.gen(function* () {
       const planner = yield* join("name=Planner");
 
       yield* Effect.gen(function* () {
         const other = yield* join(`name=Ada&kind=${kind}`);
-        yield* other.writer.write("not a cursor");
+        yield* other.writer.write("not a reading");
         yield* other.writer.write(new Uint8Array([1, 2, 3]));
-        const sent = yield* other.moves(cursor);
+        yield* other.reads(section);
 
-        const seen = yield* planner.sees(someoneMoved);
+        const seen = yield* planner.sees(someoneReads);
         expect(
           Array.map(seen.participants, (participant) => Struct.omit(participant, ["id"])),
         ).toEqual([
-          { cursor: Option.none(), kind: "human", name: "Planner", reading: Option.none() },
-          { cursor: Option.some(sent), kind, name: "Ada", reading: Option.none() },
+          { kind: "human", name: "Planner", reading: Option.none() },
+          { kind, name: "Ada", reading: Option.some(section) },
         ]);
       }).pipe(Effect.scoped);
 
@@ -91,7 +72,7 @@ it.live.prop(
       expect(Array.map(alone.participants, (participant) => participant.name)).toEqual(["Planner"]);
     }).pipe(Effect.provide(Server)),
   // Each run starts a server and two sockets. The default 100 runs take about 4 s when the whole
-  // check runs beside them, which is the test's limit; 20 still covers both kinds and many cursors.
+  // check runs beside them, which is the test's limit; 20 still covers both kinds and many sections.
   { arbitrary: { runs: 20 } },
 );
 
@@ -101,7 +82,6 @@ it.live("a client without a usable name or kind joins as a numbered human guest"
     const seen = yield* guest.sees((presence) => presence.participants.length === 1);
     expect(seen.participants).toEqual([
       {
-        cursor: Option.none(),
         id: seen.you,
         kind: "human",
         name: `Guest ${String.slice(1)(seen.you)}`,
@@ -131,11 +111,8 @@ it.live.prop(
       yield* ada.reads(first);
       const seen = yield* planner.sees((presence) => Option.isSome(readingOf("Ada")(presence)));
       expect(readingOf("Ada")(seen)).toEqual(Option.some(first));
-      // Only the one who sent it is reading, and nobody's cursor moved.
+      // Only the one who sent it is reading.
       expect(readingOf("Planner")(seen)).toEqual(Option.none());
-      expect(
-        Array.some(seen.participants, (participant) => Option.isSome(participant.cursor)),
-      ).toBe(false);
 
       yield* ada.reads(second);
       const later = yield* planner.sees((presence) =>

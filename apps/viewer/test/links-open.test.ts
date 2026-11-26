@@ -139,7 +139,7 @@ it("the first trace opens a waiting link step by step, and fetches its diff once
   expect(Array.length(argsOf(opened, "ScrollLinkTargets"))).toBe(1);
 
   // A later trace does not open it again.
-  const elsewhere = update(model, Message.ClickedScreen({ screen: "Reader" })).model;
+  const elsewhere = update(model, Message.ClickedBackToPlan()).model;
   expect(update(elsewhere, firstTrace).model.screen).toEqual(Screen.Reader());
 
   // The patch arrives with the file and its lines: everything stays, and nothing is pending.
@@ -234,7 +234,7 @@ it("a turn opens its session's newest commit and highlights the turn while the s
 
 it("a click while a link waits for its patch cancels it, so the late patch leaves the click's screen", () => {
   const { model } = update(waitingFor(linkTo(FILE)), firstTrace);
-  const clicked = update(model, Message.ClickedScreen({ screen: "Reader" })).model;
+  const clicked = update(model, Message.ClickedBackToPlan()).model;
   expect(clicked.maybePendingLink).toEqual(Option.none());
   const arrived = update(
     clicked,
@@ -405,7 +405,7 @@ it("a link opened in a new window opens on the first trace and writes one histor
   const link = linkTo(FILE);
   const started = init(urlOf(link));
   expect(started.model.maybePendingLink).toEqual(Option.some(link));
-  expect(started.model.screen).toEqual(Screen.Canvas());
+  expect(started.model.screen).toEqual(Screen.Reader());
   const opened = app(started.model, firstTrace);
   const { model } = opened;
   expect(model.reader.maybePinned).toEqual(Option.some(prdSection));
@@ -438,7 +438,7 @@ it("Back to the root before the first trace drops the link that was waiting for 
   expect(back.model.maybePendingLink).toEqual(Option.none());
   expect(writtenBy(back)).toEqual(NOTHING_WRITTEN);
   const loadedLater = app(back.model, firstTrace);
-  expect(loadedLater.model.screen).toEqual(Screen.Canvas());
+  expect(loadedLater.model.screen).toEqual(Screen.Reader());
   expect(writtenBy(loadedLater)).toEqual(NOTHING_WRITTEN);
 });
 
@@ -548,22 +548,6 @@ it("a patch without the link's file shows the notice, drops the file and replace
       ),
     ),
   ).toEqual(NOTHING_WRITTEN);
-});
-
-it("the canvas writes no link, and leaving it puts what is open in the address", () => {
-  const link = [decodeStep({ id: task.id, kind: "task" })];
-  const opened = app(init(urlOf(link)).model, firstTrace).model;
-  const canvas = app(opened, Message.ClickedScreen({ screen: "Canvas" }));
-  expect(writtenBy(canvas)).toEqual(NOTHING_WRITTEN);
-  const pinned = app(canvas.model, Message.ClickedStatusLine({ id: prdSection }));
-  expect(writtenBy(pinned)).toEqual(NOTHING_WRITTEN);
-  const reader = app(pinned.model, Message.ClickedScreen({ screen: "Reader" }));
-  expect(writtenBy(reader)).toEqual({ pushed: [], replaced: [pathOf(linkOf(reader.model))] });
-  // In the reader the same click is one history entry.
-  expect(writtenBy(app(reader.model, Message.ClickedStatusLine({ id: prdSection })))).toEqual({
-    pushed: [pathOf(link)],
-    replaced: [],
-  });
 });
 
 // CANONICAL LINKS

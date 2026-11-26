@@ -26,9 +26,9 @@ import { view } from "../src/view/view.ts";
 import { mounted } from "./fixtures.ts";
 
 const columns = [
-  expect(selector('[data-column="prd"]')).toExist(),
-  expect(selector('[data-column="spec"]')).toExist(),
-  expect(selector('[data-column="stacks"]')).toExist(),
+  expect(role("region", { name: "PRD" })).toExist(),
+  expect(role("region", { name: "Spec" })).toExist(),
+  expect(role("region", { name: "Stacks" })).toExist(),
 ];
 const withTrace = (trace: TraceData) => modifyFields(init().model, { trace: () => trace });
 
@@ -63,7 +63,7 @@ it("a fresh model shows loading and no columns", () => {
     { update, view },
     given(init().model),
     expect(selector("[data-loading]")).toExist(),
-    expect(selector("[data-column]")).toBeAbsent(),
+    expect(selector("[data-reader]")).toBeAbsent(),
     expect(role("alert")).toBeAbsent(),
   );
 });
@@ -94,7 +94,7 @@ it("a failed first load shows the alert only", () => {
     { update, view },
     given(withTrace(TraceData.Failure({ error: "boom" }))),
     expect(role("alert")).toHaveText("boom"),
-    expect(selector("[data-column]")).toBeAbsent(),
+    expect(selector("[data-reader]")).toBeAbsent(),
     expect(selector("[data-loading]")).toBeAbsent(),
   );
 });

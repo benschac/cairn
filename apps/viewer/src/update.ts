@@ -10,19 +10,11 @@ import {
   type Trace,
   type TraceTask,
 } from "@cairn/contract";
-import { Array, Boolean, Effect, Match, Option, Record, Result, Schema } from "effect";
+import { Array, Boolean, Effect, Option, Record, Result, Schema } from "effect";
 import { AsyncData, Command, Dom, Navigation, Url } from "foldkit";
 import type { Update } from "foldkit";
 import { modifyFields } from "foldkit/struct";
 
-import {
-  TOOLBAR_MARGIN,
-  TOOLBAR_WIDTH,
-  boundsOf,
-  centerViewport,
-  fitViewport,
-  type Insets,
-} from "./canvas.ts";
 import {
   codeScreenOf,
   filesOf,
@@ -35,13 +27,10 @@ import {
 import {
   FetchPatch,
   FetchSession,
-  FocusDrawerHeading,
-  FocusNode,
   FocusSearchInput,
   ScrollSearchResult,
   ScrollTurn,
 } from "./command.ts";
-import { DragState, canvasDeltaOf, moveBy, nudgeOf } from "./drag.ts";
 import {
   DETAIL_HEADING_ID,
   cutBackTo,
@@ -51,9 +40,6 @@ import {
   openedOn,
   wentBack,
 } from "./detail.ts";
-import { DRAWER_WIDTH } from "./drawer.ts";
-import type { Rect } from "./geometry.ts";
-import { isPinned, pin, togglePin } from "./highlight.ts";
 import {
   Needs,
   linkOf,
@@ -71,7 +57,6 @@ import { Message } from "./message.ts";
 import { keptReaders, readersOf } from "./readers.ts";
 import { LoadUrl, PushUrl, ReplaceUrl, linkRoute } from "./route.ts";
 import {
-  Drawer,
   HighlightedTurn,
   PatchData,
   PresenceConnection,
@@ -79,14 +64,11 @@ import {
   SessionData,
   Shown,
   WHOLE_TASK,
-  selectedNodeOf,
   type CodeScreen,
-  type Destination,
   type Model,
 } from "./model.ts";
 import {
   NO_SEARCH,
-  blockKeyOf,
   chosen,
   moved,
   queried,
@@ -104,8 +86,6 @@ import { Node } from "./trace.ts";
 const nodeEquivalence = Schema.toEquivalence(Node);
 
 const sameNode = Option.makeEquivalence(nodeEquivalence);
-
-const openOn = (node: Node): Drawer => Drawer.Open({ node });
 
 /** The trace, once it has loaded; the code view reads tasks and commits from it. */
 const traceOf = (model: Model): Option.Option<Trace> => AsyncData.getData(model.trace);
@@ -617,9 +597,8 @@ const isLinkData = Schema.is(
   Schema.Union([Message.ReceivedPatch, Message.ReceivedSession, Message.SettledLoadTrace]),
 );
 
-/** Whether two screens are the same one of the canvas, the reader and the code view. */
+/** Whether two screens are the same one of the reader and the code view. */
 const isSameScreen = (self: Screen, that: Screen): boolean =>
-  Screen.guards.Canvas(self) === Screen.guards.Canvas(that) &&
   Screen.guards.Code(self) === Screen.guards.Code(that);
 
 const pendingEquivalence = Option.makeEquivalence(Schema.toEquivalence(Link));
@@ -646,83 +625,11 @@ const pendingCancelled = (
       })
     : result;
 
-/** The drag this pointer is making; none while nothing is dragged or another pointer drags. */
-const dragByPointer = (drag: DragState, pointerId: number) =>
-  Option.filter(
-    Option.liftPredicate(drag, DragState.guards.Dragging),
-    (dragging) => dragging.pointerId === pointerId,
-  );
-
 /** The resize this pointer is making; none while nothing is resized or another pointer resizes. */
 const resizeByPointer = (resize: Resize, pointerId: number) =>
   Option.filter(
     Option.liftPredicate(resize, Resize.guards.Resizing),
     (resizing) => resizing.pointerId === pointerId,
-  );
-
-/** A drag that has just ended is over; any other drag state stays as it is. */
-const idleAfterRelease = (model: Model): Model =>
-  DragState.guards.Released(model.drag)
-    ? modifyFields(model, { drag: () => DragState.Idle() })
-    : model;
-
-/** What covers the pane's edges: the toolbar on the left, and the drawer on the right while it is open. */
-const insetsOf = (drawer: Drawer): Insets => ({
-  left: TOOLBAR_MARGIN + TOOLBAR_WIDTH,
-  right: Drawer.match(drawer, { Closed: () => 0, Open: () => DRAWER_WIDTH }),
-});
-
-/** Where a result is seen, and whether that is as close as it gets: a section stands in for an unmeasured block. */
-interface Seen {
-  readonly isFinal: boolean;
-  readonly rect: Rect;
-}
-
-/**
- * What a result is seen at: its matched prose block once layout has measured it, otherwise the
- * node that owns it, which is not final while the result has a block still to be measured.
- */
-const seenAt = (model: Model, node: Node): Option.Option<Seen> => {
-  const maybeKey = Option.flatMap(resultOf(model.search.results, node), blockKeyOf);
-  return Option.orElse(
-    Option.map(
-      Option.flatMap(maybeKey, (key) => Record.get(model.positions, key)),
-      (rect): Seen => ({ isFinal: true, rect }),
-    ),
-    () =>
-      Option.map(Record.get(model.positions, node.id), (rect): Seen => ({
-        isFinal: Option.isNone(maybeKey),
-        rect,
-      })),
-  );
-};
-
-/**
- * Brings the result waiting to be seen into the middle of what the pane shows, at the zoom it has.
- * It is its matched prose block when that is measured, and the section that owns the block until it
- * is: the canvas moves to the section at once and the result stays waiting, so the block it
- * measures later moves the canvas again. Until layout has measured the node and the pane its size,
- * it keeps waiting; the measurements include a moved card's offset.
- */
-const centeredOnSearch = (model: Model): Model =>
-  Option.match(
-    Option.flatMap(
-      Option.all({ node: model.search.maybeToCenter, pane: model.maybePaneSize }),
-      ({ node, pane }) =>
-        Option.map(seenAt(model, node), ({ isFinal, rect }) => ({
-          isFinal,
-          viewport: centerViewport(rect, model.viewport, pane, insetsOf(model.drawer)),
-        })),
-    ),
-    {
-      onNone: () => model,
-      onSome: ({ isFinal, viewport }) =>
-        modifyFields(model, {
-          search: (search) =>
-            isFinal ? modifyFields(search, { maybeToCenter: () => Option.none() }) : search,
-          viewport: () => viewport,
-        }),
-    },
   );
 
 /**
@@ -733,7 +640,7 @@ const centeredOnSearch = (model: Model): Model =>
  */
 const selectedInReader = (model: Model, node: Node): Update.Return<Model, Message> => {
   const selected = modifyFields(model, {
-    search: (search) => modifyFields(chosen(search, node), { maybeToCenter: () => Option.none() }),
+    search: (search) => chosen(search, node),
   });
   return Option.match(
     Option.all({ result: resultOf(selected.search.results, node), trace: traceOf(model) }),
@@ -747,27 +654,17 @@ const selectedInReader = (model: Model, node: Node): Update.Return<Model, Messag
   );
 };
 
-/** A result chosen by Enter or a click: it is active, and the screen moves to it. */
+/** A result chosen by Enter or a click: it is active; only the reader has results to scroll to. */
 const selectedResult = (model: Model, node: Node): Update.Return<Model, Message> =>
   Screen.guards.Reader(model.screen)
     ? selectedInReader(model, node)
-    : {
-        model: centeredOnSearch(modifyFields(model, { search: (search) => chosen(search, node) })),
-      };
+    : { model: modifyFields(model, { search: (search) => chosen(search, node) }) };
 
 /** The model with this search, and the list scrolled to its active result so it is not offscreen. */
 const searchedWith = (model: Model, search: SearchState) => ({
   commands: Array.map(Array.fromOption(search.maybeActive), (node) => ScrollSearchResult({ node })),
   model: modifyFields(model, { search: () => search }),
 });
-
-/** The screen a "Plan" or "Canvas" button moves to. */
-const screenOf = (destination: Destination): Screen =>
-  Match.value(destination).pipe(
-    Match.when("Canvas", () => Screen.Canvas()),
-    Match.when("Reader", () => Screen.Reader()),
-    Match.exhaustive,
-  );
 
 /** A pinned section is unpinned by a second click on its status line; any other becomes the pin. */
 const pinToggled = (maybePinned: Option.Option<PrdSectionId>, id: PrdSectionId) =>
@@ -802,9 +699,7 @@ const stepByStep = (link: Link) =>
  * What an update writes to the address, from the model before it and after it:
  *
  * - A `ChangedUrl` came from the address, so it writes nothing.
- * - The canvas has no link: while it shows, nothing is written and the address stays as it was.
  * - The first trace opens the link that waited for it, written one entry per step.
- * - Leaving the canvas replaces the address with what opened, since the canvas wrote none.
  * - A patch or session that leaves a waiting link's step missing replaces the address.
  * - Any other message that changes `linkOf` pushes the new link.
  */
@@ -817,15 +712,13 @@ const addressWritten = (model: Model, message: Message, next: Model) => {
     Option.isSome(traceOf(next));
   const written = (write: typeof PushUrl | typeof ReplaceUrl) =>
     Array.fromOption(Option.map(linkRoute.print(link), (path) => write({ path })));
-  return isUrlChange(message) || Screen.guards.Canvas(next.screen)
+  return isUrlChange(message)
     ? []
     : isFirstTrace
       ? stepByStep(link)
-      : Screen.guards.Canvas(model.screen)
-        ? written(ReplaceUrl)
-        : linkEquivalence(linkOf(model), link)
-          ? []
-          : written(isLinkArrival(message) ? ReplaceUrl : PushUrl);
+      : linkEquivalence(linkOf(model), link)
+        ? []
+        : written(isLinkArrival(message) ? ReplaceUrl : PushUrl);
 };
 
 /**
@@ -849,15 +742,6 @@ export const withAddress =
 
 const updated = (model: Model, message: Message) =>
   Message.match<Update.Return<Model, Message>>(message, {
-    // Closing the drawer returns focus to the button of the node it was open on.
-    ClickedCloseDrawer: () =>
-      Drawer.match(model.drawer, {
-        Closed: () => ({ model }),
-        Open: ({ node }) => ({
-          commands: [FocusNode({ node })],
-          model: modifyFields(model, { drawer: () => Drawer.Closed() }),
-        }),
-      }),
     // Back, Forward or a hash change opens the address's link without writing history. The address
     // of what is already open, such as the viewer's own entry, does nothing, except that it drops a
     // different link still waiting for the first trace. A path that is not a link opens nothing and
@@ -895,8 +779,8 @@ const updated = (model: Model, message: Message) =>
       model,
     }),
     CompletedNavigation: () => ({ model }),
-    // Back to the canvas changes only the screen: pins, offsets, the drawer and the viewport stayed.
-    ClickedBackToCanvas: () => ({ model: modifyFields(model, { screen: () => Screen.Canvas() }) }),
+    // Back to the plan changes only the screen: what the reader holds stayed.
+    ClickedBackToPlan: () => ({ model: modifyFields(model, { screen: () => Screen.Reader() }) }),
     // A card opens or closes alone, to the opposite of what it shows now.
     ClickedCardHeader: ({ id }) => ({
       model: modifyFields(model, {
@@ -945,9 +829,9 @@ const updated = (model: Model, message: Message) =>
       model: modifyFields(model, { maybeLinkNotice: () => Option.none() }),
     }),
     ClickedTraceSection: ({ id }) => ({ commands: [ScrollPrdSection({ id })], model }),
-    // "Open code" and a drawer commit open the code view; a task or commit the trace lacks opens nothing.
+    // "Open code" and a detail panel commit open the code view; a task or commit the trace lacks opens nothing.
     ClickedOpenCode: ({ id, maybeSha }) => codeOn(model, id, maybeSha),
-    // The tree selects within the code view; with the canvas showing there is no tree to click.
+    // The tree selects within the code view; with the reader showing there is no tree to click.
     ClickedTreeCommit: ({ sha }) =>
       Option.match(shownIn(model), {
         onNone: () => ({ model }),
@@ -983,51 +867,6 @@ const updated = (model: Model, message: Message) =>
         onNone: () => ({ model }),
         onSome: () => codeOn(model, id, Option.none()),
       }),
-    // A task in a section's drawer opens that task's drawer and pins it; it never closes a drawer
-    // or unpins a task.
-    ClickedClearPins: () => ({ model: modifyFields(model, { pins: () => [] }) }),
-    ClickedDrawerTask: ({ id }) => ({
-      commands: [FocusDrawerHeading()],
-      model: modifyFields(model, {
-        drawer: () => openOn({ id, kind: "task" }),
-        pins: (pins) => pin(pins, { id, kind: "task" }),
-      }),
-    }),
-    // Fit frames every measured node in the pane; until both are known it does nothing.
-    ClickedFit: () =>
-      Option.match(Option.all({ bounds: boundsOf(model.positions), pane: model.maybePaneSize }), {
-        onNone: () => ({ model }),
-        onSome: ({ bounds, pane }) => ({
-          model: modifyFields(model, {
-            viewport: () => fitViewport(bounds, pane.width, pane.height),
-          }),
-        }),
-      }),
-    // Clicking a node pins its chain in the next free colour, opens the node's drawer and moves
-    // focus to its heading. Clicking a pinned node unpins it, and closes the drawer if the drawer
-    // is open on it; a drawer open on another node stays.
-    ClickedNode: ({ node }) =>
-      isPinned(model.pins, node)
-        ? {
-            model: modifyFields(model, {
-              drawer: (drawer) =>
-                Option.exists(selectedNodeOf(drawer), (selected) => nodeEquivalence(selected, node))
-                  ? Drawer.Closed()
-                  : drawer,
-              pins: (pins) => togglePin(pins, node),
-            }),
-          }
-        : {
-            commands: [FocusDrawerHeading()],
-            model: modifyFields(model, {
-              drawer: () => openOn(node),
-              pins: (pins) => togglePin(pins, node),
-            }),
-          },
-    ClickedMoveHandle: () => ({ model }),
-    ClickedScreen: ({ screen }) => ({
-      model: modifyFields(model, { screen: () => screenOf(screen) }),
-    }),
     ClickedCopyLink: ({ path }) => ({
       commands: [CopyLink({ path })],
       model: modifyFields(model, { maybeCopiedLink: () => Option.none() }),
@@ -1047,7 +886,6 @@ const updated = (model: Model, message: Message) =>
           }),
       }),
     }),
-    ClickedResetLayout: () => ({ model: modifyFields(model, { offsets: () => ({}) }) }),
     // A click takes focus from the input, so it goes back: the keyboard stays in search.
     ClickedSearchResult: ({ node }) => {
       const selected = selectedResult(model, node);
@@ -1092,9 +930,6 @@ const updated = (model: Model, message: Message) =>
     ClickedModelsSwitch: () => ({
       model: modifyFields(model, { isShowingModels: Boolean.not }),
     }),
-    ClickedShowAllCurves: () => ({
-      model: modifyFields(model, { isShowingAllCurves: Boolean.not }),
-    }),
     // The room is unknown once the socket is gone, so nobody is shown and you are no one.
     // A new query makes the first result active, so the list goes back to it.
     ChangedSearchQuery: ({ query }) =>
@@ -1129,9 +964,7 @@ const updated = (model: Model, message: Message) =>
       }),
     }),
     CompletedFocusDetailHeading: () => ({ model }),
-    CompletedFocusDrawerHeading: () => ({ model }),
     CompletedScrollPrdSection: () => ({ model }),
-    CompletedFocusNode: () => ({ model }),
     CompletedFocusSearchInput: () => ({ model }),
     CompletedScrollSearchResult: () => ({ model }),
     CompletedScrollSearchTargets: () => ({ model }),
@@ -1148,54 +981,17 @@ const updated = (model: Model, message: Message) =>
       ),
     }),
     CompletedRenderDiff: () => ({ model }),
+    CompletedDrawDiagram: () => ({ model }),
     CompletedScrollTurn: () => ({ model }),
-    FailedPanZoomCanvas: ({ reason }) => ({
-      model: modifyFields(model, { maybePanZoomFailure: () => Option.some(reason) }),
-    }),
     HoveredNode: ({ node }) => ({
       model: modifyFields(model, { maybeHovered: () => Option.some(node) }),
     }),
     LeftNode: () => ({ model: modifyFields(model, { maybeHovered: () => Option.none() }) }),
-    MeasuredLayout: ({ positions }) => ({
-      model: centeredOnSearch(modifyFields(model, { positions: () => positions })),
-    }),
-    // The pointer's move since it was last seen, in canvas units at the current zoom, so the item
-    // stays under the pointer however far the canvas is zoomed.
-    // A move with no button held means the release was missed, for example on a click too quick
-    // for the page listener to start before it; the drag ends there instead of following the
-    // pointer. Its click has already happened, so there is nothing to stop and the drag is idle.
-    MovedDragPointer: ({ buttons, pointer, pointerId }) => ({
-      model: Option.match(dragByPointer(model.drag, pointerId), {
-        onNone: () => model,
-        onSome: (dragging) =>
-          buttons === NO_BUTTONS
-            ? modifyFields(model, { drag: () => DragState.Idle() })
-            : modifyFields(model, {
-                drag: () => DragState.Dragging({ movable: dragging.movable, pointer, pointerId }),
-                offsets: moveBy(
-                  dragging.movable,
-                  canvasDeltaOf(dragging.pointer, pointer, model.viewport.zoom),
-                ),
-              }),
-      }),
-    }),
     MeasuredWires: ({ measured }) => ({
       model: modifyFields(model, { maybeMeasuredWires: () => Option.some(measured) }),
     }),
-    MeasuredPane: ({ size }) => ({
-      model: centeredOnSearch(modifyFields(model, { maybePaneSize: () => Option.some(size) })),
-    }),
     OpenedPresence: () => ({
       model: modifyFields(model, { presenceConnection: () => PresenceConnection.Connected() }),
-    }),
-    // A press ends a released drag. A primary pointer going down also ends a drag still in
-    // progress: it means every earlier pointer is up, so that drag's release was missed. A second
-    // finger is not primary and leaves the drag alone.
-    PressedAfterDrag: ({ isPrimaryPointer }) => ({
-      model:
-        isPrimaryPointer && DragState.guards.Dragging(model.drag)
-          ? modifyFields(model, { drag: () => DragState.Idle() })
-          : idleAfterRelease(model),
     }),
     PressedArrowOnDivider: ({ key, pane }) => ({
       model: modifyFields(model, {
@@ -1203,7 +999,7 @@ const updated = (model: Model, message: Message) =>
         widths: (widths) => resized(widths, pane, deltaOf(pane, stepOf(key))),
       }),
     }),
-    // One resize at a time, as with a drag: a second finger cannot take it over.
+    // One resize at a time: a second finger cannot take it over.
     PressedDivider: ({ maybeWidth, pane, pointerId, x }) => ({
       model: Resize.guards.Resizing(model.resize)
         ? model
@@ -1235,18 +1031,6 @@ const updated = (model: Model, message: Message) =>
         onSome: () => modifyFields(model, { resize: () => Resize.Idle() }),
       }),
     }),
-    PressedArrowOnMoveHandle: ({ key, movable }) => ({
-      model: modifyFields(model, { offsets: moveBy(movable, nudgeOf(key)) }),
-    }),
-    // One drag at a time: a press on another handle while one is in progress is ignored, so a
-    // second finger cannot take the drag over.
-    PressedMoveHandle: ({ movable, pointer, pointerId }) => ({
-      model: DragState.guards.Dragging(model.drag)
-        ? model
-        : modifyFields(model, {
-            drag: () => DragState.Dragging({ movable, pointer, pointerId }),
-          }),
-    }),
     // It is the reader's key: on any other screen it does nothing. With the detail panel open it
     // goes back one step, which closes the panel at the first; otherwise it unpins, which takes a
     // linked PRD passage with the pin, and clears a linked stack's focus.
@@ -1275,11 +1059,7 @@ const updated = (model: Model, message: Message) =>
         onNone: () => ({ model }),
         onSome: (node) => selectedResult(model, node),
       }),
-    // Clearing leaves the pins, the drawer, the documents, the tasks and the viewport as they are.
     PressedSearchEscape: () => ({ model: modifyFields(model, { search: () => NO_SEARCH }) }),
-    PannedOrZoomed: ({ viewport }) => ({
-      model: modifyFields(model, { viewport: () => viewport }),
-    }),
     // A patch that arrived stays in the model, loaded or failed, so selecting it again draws it
     // without a fetch, or fetches it again after a failure. A link waiting for data is resolved again.
     ReceivedPatch: ({ path, result }) =>
@@ -1316,19 +1096,12 @@ const updated = (model: Model, message: Message) =>
           keptReaders(current, readersOf(presence.participants, Option.some(presence.you))),
       }),
     }),
-    ReleasedDragPointer: ({ pointerId }) => ({
-      model: Option.match(dragByPointer(model.drag, pointerId), {
-        onNone: () => model,
-        onSome: () => modifyFields(model, { drag: () => DragState.Released({ pointerId }) }),
-      }),
-    }),
     // Only the section at the top changes on a scroll.
     ScrolledPrd: ({ id }) => ({
       model: modifyFields(model, {
         reader: (reader) => modifyFields(reader, { maybeAtTop: () => Option.some(id) }),
       }),
     }),
-    SuppressedClickAfterDrag: () => ({ model: idleAfterRelease(model) }),
     // A refreshed trace is searched again: a result that is gone loses its marks and its chain.
     // The first trace opens the link that was waiting for it.
     SettledLoadTrace: ({ result }) => {

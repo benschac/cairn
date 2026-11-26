@@ -3,9 +3,7 @@ import { Schema } from "effect";
 import { Navigation, Url } from "foldkit";
 import { defineMessageUnion } from "foldkit/message";
 
-import { ArrowKey, ClientPoint, Movable, PointerId } from "./drag.ts";
-import { Positions, Size, Viewport } from "./geometry.ts";
-import { Density, Destination, DiffStyle } from "./model.ts";
+import { Density, DiffStyle } from "./model.ts";
 import { DividerKey, Pane } from "./panes.ts";
 import { Node } from "./trace.ts";
 import { Measured } from "./wires.ts";
@@ -17,8 +15,8 @@ export const Message = defineMessageUnion({
   ClickedLink: { request: Navigation.UrlRequest },
   /** An address was written to the history, or the page was sent to one. */
   CompletedNavigation: {},
-  /** The code view's "Back to canvas" button. */
-  ClickedBackToCanvas: {},
+  /** The code view's "Back to the plan" button. */
+  ClickedBackToPlan: {},
   /** One of the diff style toggle's two buttons. */
   ClickedDiffStyle: { style: DiffStyle },
   /** A tool turn's line in the session pane: opens it, or closes it again. */
@@ -35,8 +33,6 @@ export const Message = defineMessageUnion({
   ClickedCondensePrd: {},
   /** A PRD section's heading: shows or hides that section's prose alone. */
   ClickedPrdHeading: { id: SectionId },
-  /** The drawer's Close button. */
-  ClickedCloseDrawer: {},
   /** The link notice's "Dismiss" button. */
   ClickedDismissLinkNotice: {},
   /** The detail panel's Close button: empties the trail. */
@@ -47,29 +43,16 @@ export const Message = defineMessageUnion({
   ClickedTrailStep: { index: Schema.Int },
   /** A PRD section a task traces to, in the detail panel: scrolls the PRD pane to its heading. */
   ClickedTraceSection: { id: PrdSectionId },
-  /** A task listed in a section's drawer. */
-  ClickedDrawerTask: { id: TaskId },
-  ClickedFit: {},
   /** The top bar's models and reasoning switch: shows or hides them everywhere. */
   ClickedModelsSwitch: {},
-  /** Clears every pin. */
-  ClickedClearPins: {},
-  /** Anywhere on a node, or its title button: pins or unpins it. */
-  ClickedNode: { node: Node },
-  /** "Open code" on a task in the drawer, or a commit listed there: the code view on that task. */
+  /** "Open code" on a task in the detail panel, or a commit listed there: the code view on that task. */
   ClickedOpenCode: { id: TaskId, maybeSha: Schema.Option(Sha) },
-  /** A click on a move handle, which stops there so it never reaches the node it sits on. */
-  ClickedMoveHandle: {},
-  /** The button that puts every moved document and task card back where the layout put it. */
-  ClickedResetLayout: {},
   /** A "Copy link" button: copies the link's path, with the page's origin in front. */
   ClickedCopyLink: { path: Schema.String },
   /** "Copy link to passage": opens the selected passage of the section as a step and copies its link. */
   ClickedCopyPassageLink: { section: SectionId },
   /** A PRD heading's section ID, small beside its title: copies the ID. */
   ClickedSectionId: { id: PrdSectionId },
-  /** The top bar's "Plan" and "Canvas" buttons. */
-  ClickedScreen: { screen: Destination },
   /** The status line under a PRD heading: pins that section, or unpins it when it is the pinned one. */
   ClickedStatusLine: { id: PrdSectionId },
   /** A result in the search list: it becomes the active result and is brought into view. */
@@ -84,8 +67,6 @@ export const Message = defineMessageUnion({
   ClickedTreeFile: { path: Schema.String },
   /** A task in the code view's tree. */
   ClickedTreeTask: { id: TaskId },
-  /** The toggle that draws every curve, or only the active chain's. */
-  ClickedShowAllCurves: {},
   /** The search input's text changed. */
   ChangedSearchQuery: { query: Schema.String },
   /** The selection left the passage it was in, or has no text. */
@@ -99,9 +80,7 @@ export const Message = defineMessageUnion({
   /** The clipboard took the link's path, or refused it. */
   CompletedCopyLink: { path: Schema.String, isCopied: Schema.Boolean },
   CompletedFocusDetailHeading: {},
-  CompletedFocusDrawerHeading: {},
   CompletedScrollPrdSection: {},
-  CompletedFocusNode: {},
   CompletedFocusSearchInput: {},
   CompletedScrollSearchResult: {},
   /** The reader's panes were scrolled to what a selected search result points at. */
@@ -115,23 +94,13 @@ export const Message = defineMessageUnion({
   CompletedScrollStacks: { maybeChartWidth: Schema.Option(Schema.Finite) },
   /** The diff mount parsed the patch and drew it, or put the reason it could not in the pane. */
   CompletedRenderDiff: {},
+  /** The diagram mount drew the diagram, or put the reason it could not in the pane. */
+  CompletedDrawDiagram: {},
   CompletedScrollTurn: {},
-  /** The canvas mount could not start pan and zoom. */
-  FailedPanZoomCanvas: { reason: Schema.String },
   HoveredNode: { node: Node },
   LeftNode: {},
-  MeasuredLayout: { positions: Positions },
-  /** A pointer moved anywhere on the page while a drag was in progress, with the buttons it held. */
-  MovedDragPointer: { buttons: Schema.Int, pointer: ClientPoint, pointerId: PointerId },
   /** The reader's mount measured every `data-wire` element and the three panes, in window coordinates. */
   MeasuredWires: { measured: Measured },
-  /** The canvas mount measured the pane. */
-  MeasuredPane: { size: Size },
-  /**
-   * A pointer or a key went down during a drag gesture. A primary pointer going down means every
-   * earlier pointer is up, so a drag still in progress missed its release.
-   */
-  PressedAfterDrag: { isPrimaryPointer: Schema.Boolean },
   /** Escape went down on the page and nothing handled it first. */
   PressedEscape: {},
   /** In the search input: down to the next result. */
@@ -148,21 +117,15 @@ export const Message = defineMessageUnion({
   PressedDivider: {
     maybeWidth: Schema.Option(Schema.Finite), // the pane as rendered; none when it could not be read
     pane: Pane,
-    pointerId: PointerId,
+    pointerId: Schema.Int,
     x: Schema.Finite,
   },
   /** A pointer moved anywhere on the page while a divider was being dragged, with the buttons it held. */
-  MovedResizePointer: { buttons: Schema.Int, pointerId: PointerId, x: Schema.Finite },
+  MovedResizePointer: { buttons: Schema.Int, pointerId: Schema.Int, x: Schema.Finite },
   /** A pointer went up or was cancelled anywhere on the page while a divider was being dragged. */
-  ReleasedResizePointer: { pointerId: PointerId },
-  /** An arrow key went down on a move handle. */
-  PressedArrowOnMoveHandle: { key: ArrowKey, movable: Movable },
-  /** The primary button or a touch went down on a move handle. */
-  PressedMoveHandle: { movable: Movable, pointer: ClientPoint, pointerId: PointerId },
+  ReleasedResizePointer: { pointerId: Schema.Int },
   /** The presence socket opened. */
   OpenedPresence: {},
-  /** The canvas mount reports each pan and zoom. */
-  PannedOrZoomed: { viewport: Viewport },
   /** A patch route's text, or why it could not be fetched. */
   ReceivedPatch: { path: Schema.String, result: Schema.Result(Schema.String, Schema.String) },
   /** A session route's `Session`, or why it could not be fetched. */
@@ -171,8 +134,6 @@ export const Message = defineMessageUnion({
     result: Schema.Result(Schema.toType(Session), Schema.String),
   },
   ReceivedPresence: { presence: Presence },
-  /** A pointer went up or was cancelled anywhere on the page while a drag was in progress. */
-  ReleasedDragPointer: { pointerId: PointerId },
   /** Text was selected inside one section's passage: the section and the quote, as a link holds it. */
   SelectedPassage: { section: SectionId, quote: Schema.String },
   /** The diff mount's line selection: the lines of one of the diff's files, on one side. */
@@ -184,8 +145,6 @@ export const Message = defineMessageUnion({
   },
   /** The section at the top of the PRD pane changed. */
   ScrolledPrd: { id: PrdSectionId },
-  /** The click from a drag's release was stopped before it reached any node. */
-  SuppressedClickAfterDrag: {},
   SettledLoadTrace: { result: Schema.Result(Schema.toType(Trace), Schema.String) },
 });
 export type Message = typeof Message.Type;

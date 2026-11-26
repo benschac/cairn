@@ -713,12 +713,10 @@ export const marksOf = (document: SectionPrefix, results: ReadonlyArray<SearchRe
 // SEARCH STATE
 
 /**
- * This window's search: the query, what it finds, the result whose chain is previewed, and the
- * result still to be brought into view once layout has measured it.
+ * This window's search: the query, what it finds, and the result whose chain is previewed.
  */
 export const SearchState = Schema.Struct({
   maybeActive: Schema.Option(Node),
-  maybeToCenter: Schema.Option(Node),
   query: Schema.String,
   results: Schema.Array(SearchResult),
 });
@@ -726,7 +724,6 @@ export type SearchState = typeof SearchState.Type;
 
 export const NO_SEARCH: SearchState = {
   maybeActive: Option.none(),
-  maybeToCenter: Option.none(),
   query: "",
   results: [],
 };
@@ -764,21 +761,17 @@ const derive = (
       Option.filter(maybeKept, (node) => isFound(results, node)),
       () => Option.map(Array.head(results), (first) => first.node),
     ),
-    maybeToCenter: Option.filter(state.maybeToCenter, (node) => isFound(results, node)),
     query,
     results,
   };
 };
 
-/** A new query starts again at its first result, and brings nothing into view. */
+/** A new query starts again at its first result. */
 export const queried = (
   state: SearchState,
   maybeTrace: Option.Option<Trace>,
   query: string,
-): SearchState => ({
-  ...derive(state, maybeTrace, query, Option.none()),
-  maybeToCenter: Option.none(),
-});
+): SearchState => derive(state, maybeTrace, query, Option.none());
 
 /** The same query over a refreshed trace: the active result stays while it is still found. */
 export const refreshed = (state: SearchState, maybeTrace: Option.Option<Trace>): SearchState =>
@@ -799,8 +792,6 @@ export const moved = (state: SearchState, step: -1 | 1): SearchState => ({
   ),
 });
 
-/** A found node becomes the active result and is to be brought into view; any other is ignored. */
+/** A found node becomes the active result; any other is ignored. */
 export const chosen = (state: SearchState, node: Node): SearchState =>
-  isFound(state.results, node)
-    ? { ...state, maybeActive: Option.some(node), maybeToCenter: Option.some(node) }
-    : state;
+  isFound(state.results, node) ? { ...state, maybeActive: Option.some(node) } : state;

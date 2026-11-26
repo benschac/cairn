@@ -5,7 +5,7 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import { focusTaskOf } from "../arrows.ts";
 import { linkOf, passageButtonOf, pathOfLink, trailLinkOf } from "../links.ts";
 import { Message } from "../message.ts";
-import type { Destination, Model } from "../model.ts";
+import type { Model } from "../model.ts";
 import { currentOf, searchedSectionOf } from "../reader.ts";
 import { Resize } from "../panes.ts";
 import { switchView } from "../ui/controls.ts";
@@ -17,36 +17,6 @@ import { searchView } from "./searchView.ts";
 import { specPaneView } from "./specPaneView.ts";
 import { stackChipsView } from "./stackChipsView.ts";
 import { MeasureWires, WIRES_ATTRIBUTE, wiresView } from "./wiresView.ts";
-
-/**
- * The "Plan" and "Canvas" pair, until the canvas is removed: it moves between the two screens, so
- * the reader can be tried on the demo as it is built.
- */
-const SCREENS: ReadonlyArray<{
-  readonly label: string;
-  readonly value: Destination;
-}> = [
-  { label: "Plan", value: "Reader" },
-  { label: "Canvas", value: "Canvas" },
-];
-
-/**
- * The screen you are on is marked `aria-current`, not pressed: a screen is moved to, not toggled,
- * and the canvas counts the pressed buttons for its pinned nodes.
- */
-export const screenSwitchView = (selected: Destination, h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [h.Class("seg"), h.Role("group"), h.AriaLabel("Screen")],
-    Array.map(SCREENS, ({ label, value }) =>
-      h.button(
-        Array.appendAll(
-          [h.Type("button"), h.OnClick(Message.ClickedScreen({ screen: value }))],
-          value === selected ? [h.AriaCurrent("page")] : [],
-        ),
-        [label],
-      ),
-    ),
-  );
 
 const cairnLogoView = (h: HtmlBuilder<Message>): Html =>
   h.svg(
@@ -100,7 +70,6 @@ const topBarView = (trace: Trace, model: Model, presence: string, h: HtmlBuilder
         [cairnLogoView(h), h.h1([h.Style({ "font-size": "var(--t-xl)", margin: "0" })], ["Cairn"])],
       ),
       h.span([h.DataAttribute("feature", "")], [trace.feature]),
-      screenSwitchView("Reader", h),
       searchView(trace, model.search, h),
       switchView(
         {

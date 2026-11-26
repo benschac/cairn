@@ -4,7 +4,6 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import { renderAsync } from "pele/lazy";
 
 import { CODE_BLOCK_CLASS } from "./code.ts";
-import { measureLayer } from "./layout.ts";
 import { Message } from "./message.ts";
 
 /**
@@ -75,30 +74,18 @@ const hostOf = (element: Element): DiagramHost => ({
   width: element.clientWidth,
 });
 
-/** The canvas layer a diagram sits in. */
-const layerOf = (element: Element): Option.Option<Element> =>
-  Option.fromNullOr(element.closest("[data-canvas-layer]"));
-
 /**
  * Draws the diagram into the element once it is in the page, which for a diagram type not loaded
- * yet is a moment after it mounts. Unmounting first interrupts the draw. A diagram changes the height of its
- * column, which moves every section below it, and the layer's ResizeObserver only fires when the
- * layer's own size changes, so this measures the layer itself once the diagram is in.
+ * yet is a moment after it mounts. Unmounting first interrupts the draw. A diagram changes the
+ * height of its pane, which the wires' ResizeObserver sees, so nothing is measured here.
  */
 export const DrawDiagram = Mount.defineStream("DrawDiagram", {
   args: { source: Schema.String },
   execute: ({ element, source }) =>
     Stream.fromEffect(
-      Effect.as(
-        paintDiagram(hostOf(element), source),
-        Array.fromOption(
-          Option.map(layerOf(element), (layer) =>
-            Message.MeasuredLayout({ positions: measureLayer(layer) }),
-          ),
-        ),
-      ),
-    ).pipe(Stream.flattenIterable),
-  messages: [Message.MeasuredLayout],
+      Effect.as(paintDiagram(hostOf(element), source), Message.CompletedDrawDiagram()),
+    ),
+  messages: [Message.CompletedDrawDiagram],
 });
 
 /**
