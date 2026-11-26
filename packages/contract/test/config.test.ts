@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { Array, Exit, Schema, Struct, pipe } from "effect";
 
-import { Config, ConfigJson, defaultConfig } from "../src/index.ts";
+import { Config, ConfigJson, Reasoning, defaultConfig } from "../src/index.ts";
 
 const encode = Schema.encodeSync(Config);
 const decode = Schema.decodeUnknownSync(Config);
@@ -252,6 +252,29 @@ it("the baseUrl rule applies only to an api planner: a cli planner ignores the p
   expect(refused(withPlanner({ provider: "openai-compatible" }))).toBe(false);
   expect(refused(withPlanner({ provider: "openai-compatible", source: "cli" }))).toBe(false);
 });
+
+it.prop(
+  "planner.effort takes a reasoning level for the spec draft, for the tasks draft, or for both",
+  [Reasoning, Reasoning],
+  ([spec, tasks]) => {
+    expect(decode(withPlanner({ effort: { spec, tasks } })).planner.effort).toEqual({
+      spec,
+      tasks,
+    });
+    expect(decode(withPlanner({ effort: { tasks } })).planner.effort).toEqual({ tasks });
+    expect(decode(withPlanner({ effort: {} })).planner.effort).toEqual({});
+  },
+);
+
+it.prop(
+  "an effort that is not a reasoning level is refused, and the default sets none",
+  [notIn(Reasoning.literals)],
+  ([level]) => {
+    expect(refused(withPlanner({ effort: { spec: level } }))).toBe(true);
+    expect(refused(withPlanner({ effort: { tasks: level } }))).toBe(true);
+    expect(defaultConfig.planner.effort).toBeUndefined();
+  },
+);
 
 it.prop("a source outside cli and api is refused", [notIn(["cli", "api"])], ([source]) => {
   expect(refused(withPlanner({ model: "m", source }))).toBe(true);

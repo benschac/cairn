@@ -119,6 +119,20 @@ export const modelNameFor = (config: CairnConfig, call: PlannerCall) =>
     () => Option.fromUndefinedOr(config.planner.model),
   );
 
+/**
+ * How hard the model thinks on a call: `planner.effort.spec` for the two calls that write spec
+ * sections, `spec` on a first plan and `sections` after it, and `planner.effort.tasks` for the
+ * `tasks` call. None for every other call, and for one the config sets no effort for.
+ */
+export const effortFor = (config: Pick<CairnConfig, "planner">, call: string) =>
+  Option.flatMap(Option.fromUndefinedOr(config.planner.effort), (effort) =>
+    Match.value(call).pipe(
+      Match.whenOr("spec", "sections", () => Option.fromUndefinedOr(effort.spec)),
+      Match.when("tasks", () => Option.fromUndefinedOr(effort.tasks)),
+      Match.orElse(() => Option.none()),
+    ),
+  );
+
 /** A layer that fails when it is built. */
 const unavailable = (reason: string) =>
   Layer.effect(LanguageModel.LanguageModel, Effect.fail(new ModelUnavailable({ reason })));

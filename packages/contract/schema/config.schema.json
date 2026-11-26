@@ -45,6 +45,14 @@
       "properties": {
         "baseUrl": { "type": "string" },
         "cli": { "type": "string", "enum": ["claude", "codex"] },
+        "effort": {
+          "type": "object",
+          "properties": {
+            "spec": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] },
+            "tasks": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] }
+          },
+          "additionalProperties": true
+        },
         "gatewayTokenEnv": { "type": "string" },
         "keyEnv": { "type": "string" },
         "model": { "type": "string" },
