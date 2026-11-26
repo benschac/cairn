@@ -3,6 +3,7 @@ import { Array, Option, Record } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { focusTaskOf } from "../arrows.ts";
+import { linkOf, pathOfLink, trailLinkOf } from "../links.ts";
 import { Message } from "../message.ts";
 import type { Destination, Model } from "../model.ts";
 import { currentOf, searchedSectionOf } from "../reader.ts";
@@ -152,6 +153,11 @@ export const readerView = (
 ): Html => {
   const maybeCurrent = currentOf(model.reader, searchedSectionOf(trace, model.search.maybeActive));
   const maybePreview = Option.orElse(model.maybeHovered, () => model.search.maybeActive);
+  // The pinned section's link up to its step: the pin's step is the link's first.
+  const pinnedPath = Option.match(model.reader.maybePinned, {
+    onNone: () => "",
+    onSome: () => pathOfLink(Array.take(linkOf(model), 1)),
+  });
   return h.div(
     [
       h.Class("reader"),
@@ -219,6 +225,8 @@ export const readerView = (
               model.reader.isPrdCondensed,
               model.reader.prdOpened,
               model.maybeCopied,
+              model.maybeCopiedLink,
+              pinnedPath,
               model.search.results,
               model.search.maybeActive,
               model.reader.maybePassage,
@@ -234,6 +242,7 @@ export const readerView = (
               maybePreview,
               model.search.results,
               model.search.maybeActive,
+              model.maybeCopiedLink,
               h,
             ),
             dividerView("spec", model.widths, h),
@@ -249,6 +258,7 @@ export const readerView = (
               model.search.results,
               model.search.maybeActive,
               model.reader.maybeFocus,
+              model.maybeCopiedLink,
               h,
             ),
             dividerView("stacks", model.widths, h),
@@ -266,7 +276,18 @@ export const readerView = (
       Array.match(model.detail, {
         onEmpty: () => [],
         onNonEmpty: (trail) => [
-          detailView(trace, trail, model.widths, model.patches, model.diffStyle, h),
+          detailView(
+            trace,
+            trail,
+            model.widths,
+            model.patches,
+            model.diffStyle,
+            {
+              maybeCopied: model.maybeCopiedLink,
+              trailPaths: Array.map(trail, (_, index) => pathOfLink(trailLinkOf(model, index))),
+            },
+            h,
+          ),
         ],
       }),
     ),

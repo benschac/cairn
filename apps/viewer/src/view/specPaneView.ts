@@ -11,7 +11,7 @@ import { createKeyedLazy, type Html, type HtmlBuilder } from "foldkit/html";
 
 import { diagramView } from "../diagram.ts";
 import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
-import { linkedMarksOf } from "../links.ts";
+import { linkedMarksOf, sectionPathOf } from "../links.ts";
 import { documentOf, renderSection, type Rendered } from "../markdown.ts";
 import { Message } from "../message.ts";
 import type { Density, Reader } from "../model.ts";
@@ -28,6 +28,7 @@ import {
 import { disclosureView, segmentedView } from "../ui/controls.ts";
 import { dotView, gateView, labelView, tagView } from "../ui/marks.ts";
 import { hoverChainOf, isSpecDimmed, isTaskDimmed, rowKey, specKey, strayKey } from "../wires.ts";
+import { copyButtonView } from "./copyLinkView.ts";
 import { modelChipView, modelSquareView } from "./modelView.ts";
 import { fieldView, matchView, searchedAttributesOf, titleView } from "./nodeView.ts";
 import { hoverAttributesOf } from "./wiresView.ts";
@@ -188,6 +189,7 @@ const cardView = (
   maybeHovered: Option.Option<Node>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
+  maybeCopiedLink: Option.Option<string>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const tasks = tasksOf(trace, section);
@@ -263,6 +265,11 @@ const cardView = (
                     : [],
                   [h.span([h.Class("card-arrow"), h.AriaHidden(true)], ["›"])],
                 ]),
+              ),
+              // Beside the header, not in it: a button holds no button.
+              h.div(
+                [h.Class("card-copy")],
+                [copyButtonView(maybeCopiedLink, sectionPathOf(section.id), "Copy link", h)],
               ),
             ],
             Array.appendAll(
@@ -351,7 +358,7 @@ const straysView = (
 
 /**
  * One slot per card, keyed by its section: a card is rebuilt only when the trace, the density, the
- * cards opened on their own, the hovered node or the search changes, so a measurement never
+ * cards opened on their own, the hovered node, the copied link or the search changes, so a measurement never
  * renders markdown.
  */
 const cardLazy = createKeyedLazy();
@@ -389,6 +396,7 @@ export const specPaneView = (
   maybeHovered: Option.Option<Node>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
+  maybeCopiedLink: Option.Option<string>,
   h: HtmlBuilder<Message>,
 ): Html =>
   Option.match(maybeCurrent, {
@@ -433,6 +441,7 @@ export const specPaneView = (
                     maybeHovered,
                     results,
                     maybeActive,
+                    maybeCopiedLink,
                     h,
                   ]),
                 ),

@@ -1,16 +1,18 @@
 import { SectionId, type Trace, type TraceSection, type TraceTask } from "@cairn/contract";
 import { stacksOf } from "@cairn/core/stacks";
-import { Array, Option, Record, String } from "effect";
+import { Array, Option, Record, Result, String } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { DETAIL_HEADING_ID, type Trail } from "../detail.ts";
 import { eventsView, gateView, judgmentsView } from "../drawer.ts";
 import { filesOf, patchPathOf, shortSha } from "../codeView.ts";
+import { trailStepOf, pathOfLink } from "../links.ts";
 import { Message } from "../message.ts";
 import { WHOLE_TASK, type DiffStyle, type PatchData } from "../model.ts";
 import { ranOf, statusWordOf } from "../reader.ts";
 import { Node, nodeKeyOf, sectionTitleOf } from "../trace.ts";
 import { dotView, labelView, tagView } from "../ui/marks.ts";
+import { copyButtonView } from "./copyLinkView.ts";
 import { patchView } from "./diffView.ts";
 import { dividerView, handleWidthOf } from "./dividerView.ts";
 import type { Widths } from "../panes.ts";
@@ -54,8 +56,17 @@ const stepLabelOf = (trace: Trace, node: Node): string =>
     task: ({ id }) => id,
   });
 
+/**
+ * What the panel's Copy link buttons need: the path last copied, and for each step of the trail the
+ * link up to that step.
+ */
+export interface DetailCopy {
+  readonly maybeCopied: Option.Option<string>;
+  readonly trailPaths: ReadonlyArray<string>;
+}
+
 /** The trail across the panel's top, with the button that closes the panel. */
-const trailView = (trace: Trace, trail: Trail, h: HtmlBuilder<Message>): Html =>
+const trailView = (trace: Trace, trail: Trail, copy: DetailCopy, h: HtmlBuilder<Message>): Html =>
   h.div(
     [
       h.Style({
@@ -72,18 +83,23 @@ const trailView = (trace: Trace, trail: Trail, h: HtmlBuilder<Message>): Html =>
           h.DataAttribute("detail-trail", ""),
           h.Style({ display: "flex", "flex-wrap": "wrap", gap: "6px", "min-width": "0" }),
         ],
-        Array.map(trail, (node, index) =>
-          h.button(
-            Array.appendAll(
-              [
-                h.Type("button"),
-                h.Class("btn"),
-                h.DataAttribute("trail-step", `${index}`),
-                h.OnClick(Message.ClickedTrailStep({ index })),
-              ],
-              index === Array.length(trail) - 1 ? [h.AriaCurrent("step")] : [],
+        Array.flatMap(trail, (node, index) =>
+          Array.prepend(
+            Array.map(Array.fromOption(Array.get(copy.trailPaths, index)), (path) =>
+              copyButtonView(copy.maybeCopied, path, "Copy link", h),
             ),
-            [stepLabelOf(trace, node)],
+            h.button(
+              Array.appendAll(
+                [
+                  h.Type("button"),
+                  h.Class("btn"),
+                  h.DataAttribute("trail-step", `${index}`),
+                  h.OnClick(Message.ClickedTrailStep({ index })),
+                ],
+                index === Array.length(trail) - 1 ? [h.AriaCurrent("step")] : [],
+              ),
+              [stepLabelOf(trace, node)],
+            ),
           ),
         ),
       ),
@@ -431,6 +447,27 @@ const sectionView = (trace: Trace, id: string, h: HtmlBuilder<Message>): Readonl
   ]);
 };
 
+/** The panel's heading, then a Copy link for its task or spec section alone, then the rest. */
+const withHeadingCopy = (
+  body: ReadonlyArray<Html>,
+  node: Node,
+  maybeCopied: Option.Option<string>,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<Html> =>
+  Array.matchLeft(body, {
+    onEmpty: () => [],
+    onNonEmpty: (heading, rest) =>
+      Array.prepend(
+        Array.prependAll(
+          rest,
+          Array.map(Array.fromOption(Result.getSuccess(trailStepOf(node))), (step) =>
+            copyButtonView(maybeCopied, pathOfLink([step]), "Copy link", h),
+          ),
+        ),
+        heading,
+      ),
+  });
+
 /** What the last node of the trail shows. A task the trace does not have shows its ID and nothing else. */
 const bodyOf = (
   trace: Trace,
@@ -463,6 +500,7 @@ export const detailView = (
   widths: Widths,
   patches: Record.ReadonlyRecord<string, PatchData>,
   diffStyle: DiffStyle,
+  copy: DetailCopy,
   h: HtmlBuilder<Message>,
 ): Html => {
   const node = Array.lastNonEmpty(trail);
@@ -509,7 +547,10 @@ export const detailView = (
             padding: `12px ${DETAIL_PADDING}px`,
           }),
         ],
-        Array.prepend(bodyOf(trace, node, patches, diffStyle, h), trailView(trace, trail, h)),
+        Array.prepend(
+          withHeadingCopy(bodyOf(trace, node, patches, diffStyle, h), node, copy.maybeCopied, h),
+          trailView(trace, trail, copy, h),
+        ),
       ),
     ],
   );

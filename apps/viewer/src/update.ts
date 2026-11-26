@@ -968,12 +968,17 @@ const updated = (model: Model, message: Message) =>
     ClickedScreen: ({ screen }) => ({
       model: modifyFields(model, { screen: () => screenOf(screen) }),
     }),
+    ClickedCopyLink: ({ path }) => ({
+      commands: [CopyLink({ path })],
+      model: modifyFields(model, { maybeCopiedLink: () => Option.none() }),
+    }),
     ClickedSectionId: ({ id }) => ({ commands: [CopySectionId({ id })], model }),
     // Pinning keeps the pane where it is; the pinned section stays current while the PRD scrolls.
     // A PRD passage a link opened belongs to the pin it replaces, so it goes with it.
     ClickedStatusLine: ({ id }) => ({
       model: modifyFields(model, {
         maybeCopied: () => Option.none(),
+        maybeCopiedLink: () => Option.none(),
         reader: (reader) =>
           modifyFields(reader, {
             maybePassage: Option.filter((passage) => !isPrdSection(passage.section)),
@@ -1042,6 +1047,11 @@ const updated = (model: Model, message: Message) =>
       }),
     }),
     // A refused copy leaves the button as it was.
+    CompletedCopyLink: ({ isCopied, path }) => ({
+      model: modifyFields(model, {
+        maybeCopiedLink: () => (isCopied ? Option.some(path) : Option.none()),
+      }),
+    }),
     CompletedCopySectionId: ({ id, isCopied }) => ({
       model: modifyFields(model, {
         maybeCopied: () => (isCopied ? Option.some(id) : Option.none()),
@@ -1175,6 +1185,7 @@ const updated = (model: Model, message: Message) =>
             onEmpty: () => ({
               model: modifyFields(model, {
                 maybeCopied: () => Option.none(),
+                maybeCopiedLink: () => Option.none(),
                 reader: (reader) =>
                   modifyFields(reader, {
                     maybeFocus: () => Option.none(),
@@ -1332,6 +1343,22 @@ export const CopySectionId = Command.define("CopySectionId", {
       Effect.result,
       Effect.map((result) =>
         Message.CompletedCopySectionId({ id, isCopied: Result.isSuccess(result) }),
+      ),
+    ),
+});
+
+/** Writes a link to the clipboard, with the page's origin in front of its path, and says whether the browser took it. */
+export const CopyLink = Command.define("CopyLink", {
+  args: { path: Schema.String },
+  messages: [Message.CompletedCopyLink],
+  execute: ({ path }) =>
+    Effect.tryPromise({
+      catch: () => "The browser refused to copy",
+      try: () => navigator.clipboard.writeText(`${location.origin}${path}`),
+    }).pipe(
+      Effect.result,
+      Effect.map((result) =>
+        Message.CompletedCopyLink({ isCopied: Result.isSuccess(result), path }),
       ),
     ),
 });

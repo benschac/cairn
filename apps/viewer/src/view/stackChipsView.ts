@@ -6,6 +6,7 @@ import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
 import { STACKS_LIST_KEY, dependencyLinksOf, stackArrowsOf } from "../arrows.ts";
 import { stackBoxesOf, trunkLabelOf, type Box, type BoxCell, type Trunk } from "../boxes.ts";
+import { pathOfLink } from "../links.ts";
 import { Message } from "../message.ts";
 import type { Focus } from "../model.ts";
 import { currentTasksOf, planCountsOf, ranOf } from "../reader.ts";
@@ -22,6 +23,7 @@ import {
   type Measured,
 } from "../wires.ts";
 import { arrowsView } from "./arrowsView.ts";
+import { copyButtonView } from "./copyLinkView.ts";
 import { modelAttributesOf, modelMarkView } from "./modelView.ts";
 import { fieldView, searchedAttributesOf } from "./nodeView.ts";
 import { branchStartOf } from "./stacksView.ts";
@@ -234,6 +236,39 @@ const segmentView = (
   );
 };
 
+/**
+ * The box's Copy link buttons, in its corner: the stack, and its finished trunk when it has one,
+ * which is when the trunk holds two or more tasks.
+ */
+const stackCopyView = (
+  box: Box,
+  maybeCopiedLink: Option.Option<string>,
+  h: HtmlBuilder<Message>,
+): Html =>
+  h.div(
+    [h.Class("stack-copy")],
+    Array.appendAll(
+      [
+        copyButtonView(
+          maybeCopiedLink,
+          pathOfLink([{ kind: "stack", root: box.stack.root }]),
+          "Copy link",
+          h,
+        ),
+      ],
+      Option.isSome(box.maybeTrunk)
+        ? [
+            copyButtonView(
+              maybeCopiedLink,
+              pathOfLink([{ kind: "segment", root: box.stack.root }]),
+              "Copy link to finished trunk",
+              h,
+            ),
+          ]
+        : [],
+    ),
+  );
+
 const stackView = (
   trace: Trace,
   box: Box,
@@ -246,6 +281,7 @@ const stackView = (
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
   maybeLinkFocus: Option.Option<Focus>,
+  maybeCopiedLink: Option.Option<string>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const { stack } = box;
@@ -334,6 +370,7 @@ const stackView = (
         ),
       ),
       [h.div([h.Class("label"), h.DataAttribute("stack-label", "")], [`${stack.number}`])],
+      [stackCopyView(box, maybeCopiedLink, h)],
     ]),
   );
 };
@@ -425,6 +462,7 @@ export const stackChipsView = (
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
   maybeLinkFocus: Option.Option<Focus>,
+  maybeCopiedLink: Option.Option<string>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const current = currentTasksOf(trace, maybeCurrent);
@@ -474,6 +512,7 @@ export const stackChipsView = (
                   results,
                   maybeActive,
                   maybeLinkFocus,
+                  maybeCopiedLink,
                   h,
                 ),
               ),

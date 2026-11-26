@@ -2,6 +2,8 @@ import {
   PrdSectionId,
   SpecSectionId,
   Step,
+  encodeLink,
+  type SectionId,
   type PassageStep,
   type Link,
   type LinkError,
@@ -28,6 +30,7 @@ import {
 } from "effect";
 import { AsyncData } from "foldkit";
 import { defineTaggedUnion } from "foldkit/schema";
+import { modifyFields } from "foldkit/struct";
 
 import {
   commitOf,
@@ -42,6 +45,7 @@ import {
 import { describePatchNotParsed, parsePatch } from "./diff.ts";
 import { isDemoBuild } from "./load.ts";
 import {
+  HighlightedTurn,
   Screen,
   SessionData,
   Shown,
@@ -628,7 +632,7 @@ export const loadedOf = (model: Model): Loaded => ({
 });
 
 /** A trail node as a step: a spec section or a task. A PRD section is the pin's, not the trail's. */
-const trailStepOf = (node: Node): Result.Result<Step, void> =>
+export const trailStepOf = (node: Node): Result.Result<Step, void> =>
   Node.match(node, {
     section: ({ id }) => (isSpecSection(id) ? Result.succeed(sectionStep(id)) : Result.failVoid),
     task: ({ id }) => Result.succeed<Step>({ id, kind: "task" }),
@@ -735,6 +739,85 @@ export const sharedLengthOf = (self: Link, that: Link): number =>
   Option.getOrElse(
     Array.findFirstIndex(Array.zip(self, that), ([one, other]) => !stepEquivalence(one, other)),
     () => Number.min(Array.length(self), Array.length(that)),
+  );
+
+// COPYING
+
+/** The steps that only mean something after the step before them. */
+const DEPENDENT: ReadonlyArray<Step["kind"]> = ["diff", "file", "lines"];
+
+/**
+ * The shortest link that opens the step at `index` by itself, or none when the link has no such
+ * step. A section, passage, task, stack, segment, commit, turn or note is its own step. A diff is
+ * its task and itself, a file is the diff or commit before it with its own steps, and lines are
+ * those and the file. Pure.
+ */
+export const aloneOf = (link: Link, index: number): Option.Option<Link> =>
+  Option.flatMap(Array.get(link, index), (step): Option.Option<Link> =>
+    Array.contains(DEPENDENT, step.kind)
+      ? Option.map(aloneOf(link, index - 1), (before) => Array.append(before, step))
+      : Option.some([step]),
+  );
+
+/** A link as the path a button copies. A list of steps that breaks the ordering rules copies `/`. */
+export const pathOfLink = (link: Link): string => Result.getOrElse(encodeLink(link), () => "/");
+
+const decodeSectionId = Schema.decodeUnknownOption(Schema.Union([PrdSectionId, SpecSectionId]));
+
+/**
+ * The path of a section alone: what a heading's or a card's Copy link copies. An id that is not a
+ * PRD or spec section's has no link, so it copies the root.
+ */
+export const sectionPathOf = (id: SectionId): string =>
+  Option.match(decodeSectionId(id), {
+    onNone: () => "/",
+    onSome: (valid) => pathOfLink([sectionStep(valid)]),
+  });
+
+/**
+ * The paths the code view's buttons copy: the whole link, the link's last step alone, and the link
+ * up to a turn, which is its own for each turn. `maybeCopied` is the path last written to the
+ * clipboard, which reads "copied" in the button that holds it.
+ */
+export interface CopyLinks {
+  readonly maybeAlone: Option.Option<string>;
+  readonly maybeCopied: Option.Option<string>;
+  readonly maybeTurn: (id: string) => Option.Option<string>;
+  readonly maybeWhole: Option.Option<string>;
+}
+
+/** The link up to the turn `id`, when the code view has a session to hold it. */
+const turnLinkOf = (model: Model, id: string): Option.Option<Link> =>
+  Option.liftPredicate(
+    linkOf(
+      modifyFields(model, {
+        maybeHighlightedTurn: () => Option.some(HighlightedTurn.make({ from: "session", id })),
+      }),
+    ),
+    (link) => Option.exists(Array.last(link), (step) => step.kind === "turn" && step.turn === id),
+  );
+
+/** What the code view's copy buttons give for the model's link. */
+export const copyLinksOf = (model: Model): CopyLinks => {
+  const link = linkOf(model);
+  return {
+    maybeAlone: Option.map(aloneOf(link, Array.length(link) - 1), pathOfLink),
+    maybeCopied: model.maybeCopiedLink,
+    maybeTurn: (id) => Option.map(turnLinkOf(model, id), pathOfLink),
+    maybeWhole: Option.map(Option.liftPredicate(link, Array.isReadonlyArrayNonEmpty), pathOfLink),
+  };
+};
+
+/**
+ * The link up to the trail's step at `index`: what comes before the trail (the pin, a passage, a
+ * focus) and the trail cut after that step. The code view is not part of it.
+ */
+export const trailLinkOf = (model: Model, index: number): Link =>
+  linkOf(
+    modifyFields(model, {
+      detail: Array.take(index + 1),
+      screen: () => Screen.Reader(),
+    }),
   );
 
 // BRINGING A STEP INTO VIEW

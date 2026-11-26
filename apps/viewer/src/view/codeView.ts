@@ -10,8 +10,10 @@ import {
   shownCommitOf,
   taskOf,
 } from "../codeView.ts";
+import type { CopyLinks } from "../links.ts";
 import type { Message } from "../message.ts";
 import { Shown, type CodeScreen, type DiffStyle, type PatchData } from "../model.ts";
+import { copyButtonView } from "./copyLinkView.ts";
 import { linkNoticeView } from "./linkNoticeView.ts";
 import { diffStyleToggleView, patchView, type DiffMarks } from "./diffView.ts";
 import {
@@ -77,6 +79,7 @@ const barView = (
   task: Option.Option<TraceTask>,
   code: CodeScreen,
   diffStyle: DiffStyle,
+  copy: CopyLinks,
   h: HtmlBuilder<Message>,
   messages: CodeMessages,
 ): Html =>
@@ -84,13 +87,24 @@ const barView = (
     [h.Class("topbar"), h.DataAttribute("code-bar", "")],
     Array.prepend(
       Array.append(
-        Option.match(task, {
-          onNone: () => [h.span([h.Role("alert")], [`No task ${code.taskId} in the trace.`])],
-          onSome: (found) => [
-            h.h1([], [`${found.id} ${found.branch}`]),
-            h.span([h.DataAttribute("shown", "")], [shownText(found, code.shown)]),
-          ],
-        }),
+        Array.appendAll(
+          Option.match(task, {
+            onNone: () => [h.span([h.Role("alert")], [`No task ${code.taskId} in the trace.`])],
+            onSome: (found) => [
+              h.h1([], [`${found.id} ${found.branch}`]),
+              h.span([h.DataAttribute("shown", "")], [shownText(found, code.shown)]),
+            ],
+          }),
+          // The whole path, and the last step on its own: the lines, the file, the diff or the commit.
+          Array.flatten([
+            Array.map(Array.fromOption(copy.maybeWhole), (path) =>
+              copyButtonView(copy.maybeCopied, path, "Copy link", h),
+            ),
+            Array.map(Array.fromOption(copy.maybeAlone), (path) =>
+              copyButtonView(copy.maybeCopied, path, "Copy alone", h),
+            ),
+          ]),
+        ),
         diffStyleToggleView(diffStyle, messages.onDiffStyle, h),
       ),
       h.button([h.Type("button"), h.Class("btn"), h.OnClick(messages.onBack)], ["Back to canvas"]),
@@ -155,6 +169,7 @@ const sessionPane = (
   task: Option.Option<TraceTask>,
   code: CodeScreen,
   state: SessionState,
+  copy: CopyLinks,
   h: HtmlBuilder<Message>,
   messages: SessionMessages,
 ): Html =>
@@ -171,7 +186,8 @@ const sessionPane = (
         Option.flatMap(task, (found) => shownCommitOf(found, code.shown)),
         {
           onNone: () => h.p([], ["No session: there is no commit."]),
-          onSome: (commit) => sessionView(Option.fromNullOr(commit.session), state, h, messages),
+          onSome: (commit) =>
+            sessionView(Option.fromNullOr(commit.session), state, copy, h, messages),
         },
       ),
     ],
@@ -188,6 +204,7 @@ export const codeView = (
   diffStyle: DiffStyle,
   state: SessionState,
   maybeNotice: Option.Option<string>,
+  copy: CopyLinks,
   h: HtmlBuilder<Message>,
   messages: CodeMessages,
 ): Html => {
@@ -200,7 +217,7 @@ export const codeView = (
           onNone: () => [],
           onSome: (text) => [linkNoticeView(text, h, { onDismiss: messages.onDismissNotice })],
         }),
-        barView(task, code, diffStyle, h, messages),
+        barView(task, code, diffStyle, copy, h, messages),
       ),
       [
         h.div(
@@ -208,7 +225,7 @@ export const codeView = (
           [
             treeView(trace, code, h, messages),
             diffPane(task, code, patches, diffStyle, marksOf(task, code, state), h),
-            sessionPane(task, code, state, h, messages),
+            sessionPane(task, code, state, copy, h, messages),
           ],
         ),
       ],

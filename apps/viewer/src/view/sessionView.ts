@@ -2,10 +2,12 @@ import type { FileEdit, Session, ToolTurn, Turn } from "@cairn/contract";
 import { Array, Match, Number, Option, Order, Record, String } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
+import type { CopyLinks } from "../links.ts";
 import { isDemoBuild } from "../load.ts";
 import { renderMarkdown, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
 import { SessionData, type HighlightedTurn } from "../model.ts";
+import { copyButtonView } from "./copyLinkView.ts";
 
 /** The message constructors the session pane needs. */
 export interface SessionMessages {
@@ -166,6 +168,7 @@ const openedToolView = (
 const toolView = (
   turn: ToolTurn,
   state: SessionState,
+  copy: CopyLinks,
   h: HtmlBuilder<Message>,
   messages: SessionMessages,
 ): Html => {
@@ -182,7 +185,15 @@ const toolView = (
       showIf(isActive, () => h.DataAttribute("active", "")),
     ),
     Array.prepend(
-      isOpen ? openedToolView(turn, isFull, h, messages) : [],
+      Array.appendAll(
+        // An opened turn copies the link up to it, beside its line and not inside the button.
+        isOpen
+          ? Array.map(Array.fromOption(copy.maybeTurn(turn.id)), (path) =>
+              copyButtonView(copy.maybeCopied, path, "Copy link", h),
+            )
+          : [],
+        isOpen ? openedToolView(turn, isFull, h, messages) : [],
+      ),
       h.button(
         [
           h.Type("button"),
@@ -224,6 +235,7 @@ const proseView = (
 const turnView = (
   turn: Turn,
   state: SessionState,
+  copy: CopyLinks,
   h: HtmlBuilder<Message>,
   messages: SessionMessages,
 ): Html =>
@@ -232,13 +244,14 @@ const turnView = (
     Match.discriminatorsExhaustive("kind")({
       prompt: (prompt) => proseView(prompt, h),
       reply: (reply) => proseView(reply, h),
-      tool: (tool) => toolView(tool, state, h, messages),
+      tool: (tool) => toolView(tool, state, copy, h, messages),
     }),
   );
 
 const sessionBodyView = (
   session: Session,
   state: SessionState,
+  copy: CopyLinks,
   h: HtmlBuilder<Message>,
   messages: SessionMessages,
 ): Html =>
@@ -251,7 +264,7 @@ const sessionBodyView = (
           ? noteView("Cairn cannot read that agent's log yet.", h)
           : h.ol(
               [h.DataAttribute("turns", "")],
-              Array.map(session.turns, (turn) => turnView(turn, state, h, messages)),
+              Array.map(session.turns, (turn) => turnView(turn, state, copy, h, messages)),
             ),
       ],
       showIf(Number.isGreaterThan(session.skipped, 0), () =>
@@ -273,6 +286,7 @@ const noteOfSession = (id: string, note: Html, h: HtmlBuilder<Message>): Html =>
 export const sessionView = (
   maybeId: Option.Option<string>,
   state: SessionState,
+  copy: CopyLinks,
   h: HtmlBuilder<Message>,
   messages: SessionMessages,
 ): Html =>
@@ -286,7 +300,7 @@ export const sessionView = (
             onSome: (data) =>
               SessionData.match(data, {
                 Failed: ({ message }) => noteOfSession(id, noteView(message, h, true), h),
-                Loaded: ({ session }) => sessionBodyView(session, state, h, messages),
+                Loaded: ({ session }) => sessionBodyView(session, state, copy, h, messages),
                 Loading: () => noteOfSession(id, noteView(`Loading session ${id}.`, h), h),
               }),
           }),

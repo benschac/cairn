@@ -34,6 +34,7 @@ export const init = (url?: Url.Url): Update.Return<Model, Message> => {
       isShowingAllCurves: false,
       isShowingModels: true,
       maybeCopied: Option.none(),
+      maybeCopiedLink: Option.none(),
       maybeLinkNotice: Result.match(opened, {
         onFailure: (error) => noticeOf(Result.fail(error)),
         onSuccess: () => Option.none(),

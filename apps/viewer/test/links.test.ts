@@ -1,4 +1,4 @@
-import { Link, PrdSectionId, Quote, Step, type Trace } from "@cairn/contract";
+import { decodeLink, Link, PrdSectionId, Quote, Step, type Trace } from "@cairn/contract";
 import { stacksOf } from "@cairn/core/stacks";
 import { expect, it } from "@effect/vitest";
 import { Array, Option, Record, Result, Schema, String, Struct, pipe } from "effect";
@@ -6,9 +6,11 @@ import { Array, Option, Record, Result, Schema, String, Struct, pipe } from "eff
 import { commitPathOf, diffPathOf, rangeOf } from "../src/codeView.ts";
 import { demoTrace } from "../src/demo.ts";
 import {
+  aloneOf,
   isStopping,
   Needs,
   passageOf,
+  pathOfLink,
   resolveLink,
   trunkOf,
   type BlockRange,
@@ -310,6 +312,70 @@ it.prop(
     );
   },
 );
+
+// COPYING
+
+it.prop(
+  "aloneOf gives a well-formed link that ends with the step it was asked for and survives its path",
+  [Choices],
+  ([choices]) => {
+    const link = linkOf(choices);
+    Array.forEach(link, (step, index) => {
+      const alone = Option.getOrThrow(aloneOf(link, index));
+      expect(isLink(alone)).toBe(true);
+      expect(Array.last(alone)).toEqual(Option.some(step));
+      expect(Array.length(alone)).toBeLessThanOrEqual(index + 1);
+      expect(Result.getOrUndefined(decodeLink(pathOfLink(alone)))).toEqual(alone);
+    });
+    expect(aloneOf(link, Array.length(link))).toEqual(Option.none());
+    expect(aloneOf(link, -1)).toEqual(Option.none());
+  },
+);
+
+it.prop(
+  "on the demo trace, the alone link opens the step the whole link opened",
+  [Choices, Received],
+  ([choices, received]) => {
+    const link = linkOf(choices);
+    const loaded = loadedOf(received);
+    const resolution = resolveLink(demoTrace, link, loaded);
+    Array.forEach(resolution.resolved, ({ index, step }) => {
+      const alone = Option.getOrThrow(aloneOf(link, index));
+      const last = Option.getOrThrow(Array.last(resolveLink(demoTrace, alone, loaded).resolved));
+      expect(last.step).toEqual(step);
+      expect(last.index).toBe(Array.length(alone) - 1);
+    });
+  },
+);
+
+it("a diff, a file and lines each carry what they need, and the rest stand alone", () => {
+  const link = Array.map(
+    [
+      { id: "prd.viewer", kind: "section" },
+      { id: "t1", kind: "task" },
+      { head: fakeSha(1), kind: "diff" },
+      { kind: "file", path: "a.ts" },
+      { end: 4, kind: "lines", side: "new", start: 4 },
+      { kind: "stack", root: "t1" },
+    ],
+    (step) => decodeStep(step),
+  );
+  expect(
+    Array.map(Array.range(0, 5), (index) => Option.map(aloneOf(link, index), pathOfLink)),
+  ).toEqual(
+    Array.map(
+      [
+        "/section/prd.viewer",
+        "/task/t1",
+        `/task/t1/diff/${fakeSha(1)}`,
+        `/task/t1/diff/${fakeSha(1)}/file/a.ts`,
+        `/task/t1/diff/${fakeSha(1)}/file/a.ts/lines/n4`,
+        "/stack/t1",
+      ],
+      Option.some,
+    ),
+  );
+});
 
 // EXAMPLES
 

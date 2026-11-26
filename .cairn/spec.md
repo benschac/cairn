@@ -5151,7 +5151,7 @@ Tests, in `links-open.test.ts`, run on `update` with no render loop:
 #### Copying a link {#spec.viewer.deep-links.copying-a-link}
 
 - Implements: `prd.deep-links.composing`, `prd.deep-links.targets`
-- Files: `apps/viewer/src/links.ts`, `apps/viewer/src/view/copyLinkView.ts`, `apps/viewer/src/subscription/selection.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/view/specPaneView.ts`, `apps/viewer/src/view/detailView.ts`, `apps/viewer/src/view/stackChipsView.ts`, `apps/viewer/src/view/codeView.ts`, `apps/viewer/src/view/diffView.ts`, `apps/viewer/src/view/sessionView.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/ui/components.css`, `apps/viewer/test/links.test.ts`, `apps/viewer/test/copy-link.scene.test.ts`
+- Files: `apps/viewer/src/links.ts`, `apps/viewer/src/view/copyLinkView.ts`, `apps/viewer/src/subscription/selection.ts`, `apps/viewer/src/view/prdPaneView.ts`, `apps/viewer/src/view/specPaneView.ts`, `apps/viewer/src/view/detailView.ts`, `apps/viewer/src/view/stackChipsView.ts`, `apps/viewer/src/view/codeView.ts`, `apps/viewer/src/view/diffView.ts`, `apps/viewer/src/view/sessionView.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/view/view.ts`, `apps/viewer/src/init.ts`, `apps/viewer/src/model.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/ui/components.css`, `apps/viewer/test/links.test.ts`, `apps/viewer/test/copy-link.scene.test.ts`
 - Depends on: `spec.viewer.deep-links.opening-a-link`, `spec.viewer.design-system`
 
 Copying the address bar copies the link. The buttons below give the same text without going there.
