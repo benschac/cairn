@@ -1263,6 +1263,7 @@ mark[data-search-match] {
 }
 
 .stacks-list {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1288,6 +1289,13 @@ mark[data-search-match] {
   column-gap: 12px;
   row-gap: 0;
   align-items: center;
+}
+
+/* The arrows are an SVG under the chips, labels and segments, over the boxes. */
+.stack-grid > *,
+.stack > .segment {
+  position: relative;
+  z-index: 1;
 }
 
 /* A fork's label sits in the gap row under its child and takes no width of its own. */

@@ -240,6 +240,7 @@ export const readerView = (
               maybeCurrent,
               model.isShowingModels,
               model.reader.unfolded,
+              model.maybeMeasuredWires,
               Array.last(model.detail),
               maybePreview,
               model.search.results,
