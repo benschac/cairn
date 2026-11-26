@@ -2,5 +2,8 @@
   "judge": {
     "baseUrl": "https://gateway.ai.cloudflare.com/v1/7b49bcb425fb43ec7d6de8ec032aa793/cairnsite-planner-prod-u4kgqgluqgxue4jc/custom-typesafe/v1",
     "gatewayTokenEnv": "CAIRN_AI_GATEWAY_TOKEN"
+  },
+  "planner": {
+    "small": "sonnet"
   }
 }
