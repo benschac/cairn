@@ -4780,6 +4780,122 @@
       "status": "pending",
       "commits": [],
       "sessions": []
+    },
+    {
+      "id": "t189",
+      "title": "Work out each stack box's cells, finished trunk and fork labels",
+      "prdSections": ["prd.viewer.stacks"],
+      "specSections": ["spec.viewer.stacks.boxes"],
+      "files": [
+        "packages/core/src/stacks.ts",
+        "apps/viewer/src/boxes.ts",
+        "apps/viewer/test/boxes.test.ts",
+        "apps/viewer/test/stacks.test.ts"
+      ],
+      "branch": "cairn-mvp/189-work-out-each-stack-box-s-cells-finished-trunk-and-fork-labels",
+      "parent": null,
+      "dependsOn": ["t109", "t120"],
+      "worktree": "wt-55",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t190",
+      "title": "Fold finished trunks and label forks in the stacks pane",
+      "prdSections": ["prd.viewer.stacks"],
+      "specSections": ["spec.viewer.stacks.box-view"],
+      "files": [
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/init.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/reader.ts",
+        "apps/viewer/src/links.ts",
+        "apps/viewer/src/wires.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/view/wiresView.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/stack-chips.scene.test.ts",
+        "apps/viewer/test/stack-fold.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/190-fold-finished-trunks-and-label-forks-in-the-stacks-pane",
+      "parent": "t189",
+      "dependsOn": ["t189"],
+      "worktree": "wt-55",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t191",
+      "title": "Draw solid parent arrows inside the stack boxes",
+      "prdSections": ["prd.viewer.stacks"],
+      "specSections": ["spec.viewer.stacks.arrows"],
+      "files": [
+        "apps/viewer/src/arrows.ts",
+        "apps/viewer/src/view/arrowsView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/arrows.test.ts",
+        "apps/viewer/test/arrows.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/191-draw-solid-parent-arrows-inside-the-stack-boxes",
+      "parent": "t190",
+      "dependsOn": ["t190"],
+      "worktree": "wt-55",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
+    },
+    {
+      "id": "t192",
+      "title": "Draw dashed dependency arrows for the task in focus",
+      "prdSections": ["prd.viewer.stacks"],
+      "specSections": ["spec.viewer.stacks.dependencies"],
+      "files": [
+        "apps/viewer/src/arrows.ts",
+        "apps/viewer/src/view/arrowsView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/arrows.test.ts",
+        "apps/viewer/test/stacks.test.ts",
+        "apps/viewer/test/dependency-arrows.scene.test.ts"
+      ],
+      "branch": "cairn-mvp/192-draw-dashed-dependency-arrows-for-the-task-in-focus",
+      "parent": "t191",
+      "dependsOn": ["t191"],
+      "worktree": "wt-55",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": []
     }
   ]
 }
