@@ -1,4 +1,17 @@
 export { EventOrder, GitCommit, derive, type Derived, type DerivedTask } from "./derive.ts";
+export {
+  changesOf,
+  historyOf,
+  pairKey,
+  scoreOf,
+  togetherOf,
+  type ChangedFiles,
+  type History,
+  type Reason,
+  type ReasonKind,
+  type Score,
+  type ScoreConfig,
+} from "./conflicts.ts";
 export { drawsOf, mermaidBlocksOf, withoutMermaidBlocks, type MermaidBlock } from "./diagrams.ts";
 export {
   SectionJudgingInput,

@@ -49,6 +49,32 @@ it('{"version":1} decodes to the full defaults', () => {
   });
 });
 
+it("the conflicts block defaults to the generated and additive patterns, 0.5, 500 and 3", () => {
+  expect(defaultConfig.conflicts).toStrictEqual({
+    additive: ["**/index.ts"],
+    generated: ["pnpm-lock.yaml", "**/demo-trace.json", "packages/contract/schema/**"],
+    high: 0.5,
+    history: 500,
+    hotspot: 3,
+  });
+  expect(decode({ conflicts: { high: 0.7 }, version: 1 }).conflicts).toStrictEqual({
+    ...defaultConfig.conflicts,
+    high: 0.7,
+  });
+});
+
+/** Whether a config whose \`conflicts\` block is \`conflicts\` is refused. */
+const refusedWith = (conflicts: Record<string, unknown>) => refused({ conflicts, version: 1 });
+
+it("a conflicts block whose threshold is outside [0, 1], or whose counts are too small, is refused", () => {
+  expect(refusedWith({ high: 1.1 })).toBe(true);
+  expect(refusedWith({ high: -0.1 })).toBe(true);
+  expect(refusedWith({ history: 0 })).toBe(true);
+  expect(refusedWith({ history: 1.5 })).toBe(true);
+  expect(refusedWith({ hotspot: 1 })).toBe(true);
+  expect(refusedWith({ history: 1, hotspot: 2, high: 1 })).toBe(false);
+});
+
 it("the default categories are the PRD's eight, each with a description", () => {
   expect(Array.map(defaultConfig.categories, ({ name }) => name)).toEqual([
     "mechanical",
