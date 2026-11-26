@@ -39741,7 +39741,7 @@
       "level": 2,
       "line": 6890,
       "parent": "spec.cairn-mvp-spec",
-      "children": ["spec.refactors.service-factories"],
+      "children": ["spec.refactors.service-factories", "spec.refactors.optional-services"],
       "human": false,
       "implements": [],
       "files": [],
@@ -39815,6 +39815,63 @@
         "body": null,
         "prd": {
           "prd.refactors.service-factories": "bff65eb890a363ffb25347fe784e8a6d6a3d0ada0d6c9763e232e74b32c05128"
+        }
+      }
+    },
+    {
+      "id": "spec.refactors.optional-services",
+      "title": "Optional services",
+      "level": 3,
+      "line": 6912,
+      "parent": "spec.refactors",
+      "children": [],
+      "human": false,
+      "implements": ["prd.refactors.optional-services"],
+      "files": [
+        "packages/cli/src/judge.ts",
+        "packages/cli/src/commands/plan.ts",
+        ".agent_sources/effect/checklist.md"
+      ],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Asks for the Judge with Effect.serviceOption in cairn plan and provides it only when it is configured, so the provided layer is the only switch for judging.",
+      "requirements": [
+        {
+          "id": "spec.refactors.optional-services#r1",
+          "level": "must",
+          "text": "`Judge.whenConfigured(config)` is `Judge.live(config)` when `TYPESAFE_API_KEY` or `judge.gatewayTokenEnv` is set, and `Layer.empty` otherwise; `cairn plan` provides it."
+        },
+        {
+          "id": "spec.refactors.optional-services#r2",
+          "level": "must",
+          "text": "The judging checkpoints of `cairn plan` take the judge with `Effect.serviceOption(Judge)`, and without one print `JUDGING_SKIPPED` once and leave their input unjudged."
+        },
+        {
+          "id": "spec.refactors.optional-services#r3",
+          "level": "must",
+          "text": "`unusedJudge` is removed and `plan` does not require `Judge`."
+        },
+        {
+          "id": "spec.refactors.optional-services#r4",
+          "level": "must",
+          "text": "The Effect checklist has a services row for `Effect.serviceOption` and the choice of layer at the entry."
+        }
+      ],
+      "artifacts": [],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.refactors.optional-services#d1",
+          "text": "`unusedPlanner` and the `yield* Judge` of `cairn judge` stay.",
+          "why": "Those runs cannot do without the service, so it stays a requirement the type checker enforces."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.refactors.optional-services": "102ddbb1e305481bfe26da2f57bdf060d8f08368954bbe3e2b5b77c9d1ccdb22"
         }
       }
     }

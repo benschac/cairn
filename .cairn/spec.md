@@ -6908,3 +6908,16 @@ The fixtures in `packages/cli/test/fixtures/`, each with its return type named:
 The checklist's services row names the factory and its annotation, and its tests row names the fixtures.
 
 Tests: the refactor changes no behaviour, so the tests it touches pass as they did. Making `Recorder`'s `record` drop what it is given, or `stubPlanner`'s unscripted `index` die, fails them.
+
+### Optional services {#spec.refactors.optional-services}
+
+- Implements: `prd.refactors.optional-services`
+- Files: `packages/cli/src/judge.ts`, `packages/cli/src/commands/plan.ts`, `.agent_sources/effect/checklist.md`
+
+`Judge.whenConfigured(config)` is `Judge.live(config)` when `judgingAvailable(config)` holds and `Layer.empty` otherwise. `cairn plan` provides it beside the planner, so the environment is read once, at the entry. Each checkpoint calls `judging(told)`, which takes the judge with `Effect.serviceOption(Judge)`: `refined` provides the one it found to `refineWith`, and `stackJudged` calls it. With none, the first checkpoint prints `JUDGING_SKIPPED` and each returns its input unjudged. `unusedJudge` is removed and `Judge` leaves the requirements of `plan`, so a test that judges nothing provides no judge, and the plan tests no longer set `TYPESAFE_API_KEY` to turn judging on.
+
+`unusedPlanner` stays: a run that calls the planner cannot do without it, and the stand-in fails by name so that a wrong `needsPlanner` shows. `cairn judge` keeps `yield* Judge`.
+
+The checklist's services row names `Effect.serviceOption` and the choice of layer at the entry.
+
+Tests: `judge.test.ts` builds `Judge.whenConfigured` with no key, with `TYPESAFE_API_KEY`, and with only a gateway token, and checks whether the context holds a `Judge`; building `Judge.live` every time fails it. In `plan.test.ts` a plan without a judge prints the skip line once, and one with a scripted judge prints none and writes `judgments.json`; a `judging` that never finds the judge fails that test and every plan test that judges.

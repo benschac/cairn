@@ -1289,3 +1289,12 @@ Cairn chooses its models from strings. `.cairn/config.json` names a `planner.sou
 - `--source`, `--provider` and `--model` replace `config.json` fields for one run. For a model that `config.ts` provides they are refused, and the message names the file.
 - Cairn reads no key itself. The key stays in the person's environment, and the layer reads it when it is built.
 - The Effect checklist in `.agent_sources` carries the pattern, so a reviewer asks for a layer where a diff adds a string that picks an implementation.
+
+### Optional services {#prd.refactors.optional-services}
+
+Some services are optional. `cairn plan` judges its drafts when a decision model is configured, and plans without judging when none is. Cairn decides that twice: the command reads `TYPESAFE_API_KEY` and `judge.gatewayTokenEnv` to choose between the live judge and a stand-in whose every call fails, and each judging checkpoint reads the same two settings again to decide whether to call it. Instead, code that can do without a service asks for it with `Effect.serviceOption`, which answers whether the service was provided rather than requiring it, and the layers that are provided are the configuration: no flag, no registry, no list of enabled services to keep in step with what is built. The pattern comes from Harry Solovay's talk [Advanced Effect Design Patterns](https://youtu.be/_tSGby_q890?t=671) at Effect Miami 3, from 11:11.
+
+- `cairn plan` provides a `Judge` only when a key or a gateway token is configured, and its checkpoints ask for one. Without one, the plan says once that judging was skipped, as it does now.
+- A service the code cannot do without stays a requirement the type checker enforces: the planner of a run that calls it, and the judge of `cairn judge`.
+- The adapters still to come take the same shape. A commit's session is read by the reader for the agent that wrote it, asked for by that agent's name; a commit whose agent has no reader provided shows its diff alone and says why, and no list of supported agents goes in `config.json`.
+- The Effect checklist in `.agent_sources` carries the pattern, so a reviewer asks for it where a diff adds a flag that says whether a service is there, or a stand-in service whose calls all fail.
