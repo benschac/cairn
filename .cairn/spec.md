@@ -426,6 +426,7 @@ IndexedSection = {
   writtenFrom: {
     body: string | null // hash of the section's body as the planner wrote it; null for a section a person wrote
     prd: Record<PrdSectionId, string> // hash of each PRD section it implements, as it was then
+    spec?: Record<SpecSectionId, string> // hash of each spec section it depends on, as it was then and without the stack diagram; absent in an entry made before it was recorded
   }
   indexedFrom?: string // hash of the body Planner.index extracted the fields below from; absent in an entry made before it was recorded
   summary: string
@@ -2224,7 +2225,7 @@ Tests use the scripted `Planner` and `Judge` in a temporary repository: answerin
 - New spec sections go where the planner says: under the existing section it names, after that section's last child. A section it places nowhere goes at the end of the spec, before `spec.acceptance` when there is one.
 - A rewritten section keeps its ID and its place.
 - Existing tasks pass through `stackOf` untouched. After the write, every task that was in the manifest is equal to what it was, field for field.
-- `staleSections` and `staleTasks` are the lint rules `stale-section` and `stale-task`, so `cairn lint` and the plan output report them the same way. A person settles one by editing the spec section, which makes it theirs, or by accepting it: `cairn plan --accept <section>` records the current hashes in `writtenFrom` and changes nothing else.
+- `staleSections` and `staleTasks` are the lint rules `stale-section` and `stale-task`, so `cairn lint` and the plan output report them the same way. A person settles one by editing the spec section, which makes it theirs, or by accepting it: `cairn plan --accept <section>` records the current hashes of the PRD sections it implements and of the spec sections it depends on in `writtenFrom` and changes nothing else.
 
 Tests: properties over generated plans with an added PRD section, that every existing task is unchanged and every new ID is higher than every old one; that a section a person edited is never in `rewritable`; that a section with a task is never in `rewritable`; and that `replanOf` of a plan just written is empty. One example in a temporary repository adds a section to a PRD and finds new spec sections, new tasks and an unchanged old manifest.
 

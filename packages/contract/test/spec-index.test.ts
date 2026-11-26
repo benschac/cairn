@@ -102,6 +102,24 @@ it("writtenFrom takes a hash or null for the body, and refuses what is not a SHA
   expect(refusedSection({ writtenFrom: { prd: {} } })).toBe(true);
 });
 
+it("writtenFrom takes the hash of each spec section depended on, or none, and refuses what is not a hash", () => {
+  expect(refusedSection({ writtenFrom: { body: null, prd: {} } })).toBe(false);
+  expect(refusedSection({ writtenFrom: { body: null, prd: {}, spec: {} } })).toBe(false);
+  expect(
+    refusedSection({ writtenFrom: { body: null, prd: {}, spec: { "spec.format": HASH } } }),
+  ).toBe(false);
+  expect(
+    refusedSection({ writtenFrom: { body: null, prd: {}, spec: { "spec.format": "ABC" } } }),
+  ).toBe(true);
+  expect(refusedSection({ writtenFrom: { body: null, prd: {}, spec: null } })).toBe(true);
+  // An ID of the other document is left out, as it is from `prd`.
+  const decoded = Schema.decodeUnknownSync(IndexedSection)({
+    ...section,
+    writtenFrom: { body: null, prd: {}, spec: { "prd.goal": HASH, "spec.format": HASH } },
+  });
+  expect(decoded.writtenFrom).toEqual({ body: null, prd: {}, spec: { "spec.format": HASH } });
+});
+
 it("refuses a level or line below 1", () => {
   expect(refusedSection({ level: 0 })).toBe(true);
   expect(refusedSection({ line: 0 })).toBe(true);

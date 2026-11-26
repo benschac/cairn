@@ -29,6 +29,7 @@ import type { Item } from "./items.ts";
 import { chainOf, parentsOf } from "./rollup.ts";
 import type { Parents } from "./rollup.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
+import { withoutStackDiagram } from "./stack-diagram.ts";
 
 /**
  * The hash `writtenFrom` records for a section's body (see `spec.contract.spec-index`): the
@@ -40,6 +41,13 @@ export const bodyHashOf = (body: string): BodyHash =>
       .update(pipe(String.split(body, "\n"), Array.map(String.trimEnd), Array.join("\n")))
       .digest("hex"),
   );
+
+/**
+ * The hash of what is read of a section's body: the body without the stack diagram, which code
+ * draws from the manifest and which changes whenever a task does. It is what `indexedFrom` and
+ * `writtenFrom.spec` record.
+ */
+export const readHashOf = (body: string): BodyHash => bodyHashOf(withoutStackDiagram(body));
 
 /** A section with the IDs of the headings above it. */
 interface Placed {
