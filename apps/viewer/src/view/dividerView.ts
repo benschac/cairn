@@ -1,8 +1,10 @@
-import { Match, Option, Predicate } from "effect";
+import { Mount as UiMount } from "@effect/ui";
+import { Filter, Match, Option, Predicate, Schema, Stream } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
+import type { HostMount } from "../effect-ui/bridge.ts";
 import { Message } from "../message.ts";
-import { dividerKeyOf, limitsOf, type Pane, type Widths } from "../panes.ts";
+import { Pane, dividerKeyOf, limitsOf, type Widths } from "../panes.ts";
 
 /** The main mouse button, and the button a touch or a pen contact reports. */
 const PRIMARY_BUTTON = 0;
@@ -95,6 +97,46 @@ export const pressOnDivider =
           }),
         )
       : Option.none();
+
+/**
+ * A press on a divider under Effect UI. Its handlers get a payload with no `pointerId` and no
+ * target element, and the resize follows one pointer from the pane it reads, so the press is a
+ * mount that listens on the divider itself.
+ */
+export const PressDivider = UiMount.makeStream(
+  "PressDivider",
+  { args: { pane: Pane } },
+  (node: HTMLElement, { pane }) =>
+    Stream.fromEventListener<PointerEvent>(node, "pointerdown").pipe(
+      Stream.filterMap(
+        Filter.fromPredicateOption((event) =>
+          pressOnDivider(pane)(
+            event.pointerType,
+            event.button,
+            event.screenX,
+            event.screenY,
+            event.timeStamp,
+            event.clientX,
+            event.clientY,
+            event.pointerId,
+            event.target,
+          ),
+        ),
+      ),
+    ),
+);
+
+const decodePane = Schema.decodeUnknownSync(Pane);
+
+/**
+ * The bridge puts `PressDivider` on each divider, which `data-divider` names, in place of its
+ * Foldkit `pointerdown` handler.
+ */
+export const dividerHostMount: HostMount<Message> = {
+  attribute: "data-divider",
+  events: ["pointerdown"],
+  mount: (pane) => PressDivider({ pane: decodePane(pane) }),
+};
 
 /**
  * The handle between two panes, or on the detail panel's left edge. It is a vertical separator that

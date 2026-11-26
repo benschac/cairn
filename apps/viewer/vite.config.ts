@@ -1,4 +1,3 @@
-import { foldkit } from "@foldkit/vite-plugin";
 import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
 
@@ -12,7 +11,6 @@ export default defineConfig(({ mode }) => {
     "/presence": { target: `ws://localhost:${port}`, ws: true },
   };
   return {
-    plugins: [foldkit()],
     preview: { proxy },
     server: {
       allowedHosts: [".trycloudflare.com"],

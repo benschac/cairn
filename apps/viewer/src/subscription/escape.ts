@@ -1,8 +1,7 @@
-import { Filter, Option, Stream } from "effect";
-import { Subscription } from "foldkit";
+import { HtmlSubscription } from "@effect/ui/html";
+import { Option } from "effect";
 
 import { Message } from "../message.ts";
-import type { Model } from "../model.ts";
 
 /**
  * Escape, unless something handled it first: the search input prevents the default of a key it
@@ -17,12 +16,7 @@ export const escapeMessage = (event: {
     ({ defaultPrevented, key }) => key === "Escape" && !defaultPrevented,
   ).pipe(Option.map(() => Message.PressedEscape()));
 
-const escapes = Stream.suspend(() =>
-  Stream.fromEventListener<KeyboardEvent>(document, "keydown").pipe(
-    Stream.filterMap(Filter.fromPredicateOption(escapeMessage)),
-  ),
+/** The page's Escape, from the document Effect UI's host listens to. */
+export const escapeSubscription = HtmlSubscription.onDocument("keydown", (event) =>
+  Option.getOrUndefined(escapeMessage(event)),
 );
-
-export const subscriptions = Subscription.make<Model, Message>()(() => ({
-  escape: Subscription.persistentEntry(escapes),
-}));

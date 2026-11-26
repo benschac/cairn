@@ -1,4 +1,6 @@
-import { Runtime } from "foldkit";
+import { BrowserHost } from "@effect/ui/html";
+import { Effect, Layer, Option } from "effect";
+import { Url } from "foldkit";
 
 // oxlint-disable-next-line import/no-unassigned-import -- a stylesheet is imported for its effect on the page
 import "./ui/tokens.css";
@@ -7,27 +9,18 @@ import "./ui/base.css";
 // oxlint-disable-next-line import/no-unassigned-import -- a stylesheet is imported for its effect on the page
 import "./ui/components.css";
 
-import { init } from "./init.ts";
-import { Message } from "./message.ts";
-import { Model } from "./model.ts";
-import { subscriptions } from "./subscription/index.ts";
-import { update, withAddress } from "./update.ts";
-import { view } from "./view/view.ts";
+import { Viewer } from "./app.ts";
+import { InPage } from "./subscription/page.ts";
 
-Runtime.run(
-  Runtime.makeApplication({
-    Model,
-    container: document.getElementById("root"),
-    devTools: { Message },
-    init,
-    // The viewer owns the address: Back, Forward and a hash change arrive as ChangedUrl, and a
-    // click on an anchor goes where the browser would take it.
-    routing: {
-      onUrlChange: (url) => Message.ChangedUrl({ url }),
-      onUrlRequest: (request) => Message.ClickedLink({ request }),
-    },
-    subscriptions,
-    update: withAddress(update),
-    view,
-  }),
+const root = Option.getOrThrowWith(
+  Option.fromNullOr(document.getElementById("root")),
+  () => new Error("The page has no #root to mount the viewer in"),
 );
+
+// The viewer mounts for as long as the Layer is built. It owns the address, so it opens at the
+// page's URL and needs no Router; its subscriptions listen to this page.
+Layer.launch(
+  BrowserHost.mount(Viewer, { maybeUrl: Url.fromString(window.location.href) }, root).pipe(
+    Layer.provide(Layer.succeed(InPage, true)),
+  ),
+).pipe(Effect.runFork);

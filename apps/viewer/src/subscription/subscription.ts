@@ -1,15 +1,27 @@
-import { Subscription } from "foldkit";
+import { Subscription } from "@effect/ui";
 
-import { subscriptions as escapeSubscriptions } from "./escape.ts";
-import { subscriptions as presenceSubscriptions } from "./presence.ts";
-import { subscriptions as resizeSubscriptions } from "./resize.ts";
-import { subscriptions as selectionSubscriptions } from "./selection.ts";
-import { subscriptions as traceSubscriptions } from "./trace.ts";
+import type { Message } from "../message.ts";
+import type { Model } from "../model.ts";
+import { addressMessages } from "./address.ts";
+import { escapeSubscription } from "./escape.ts";
+import { presenceSubscription } from "./presence.ts";
+import { resizeSubscription } from "./resize.ts";
+import { selectionSubscription } from "./selection.ts";
+import { traceSubscription } from "./trace.ts";
 
-export const subscriptions = Subscription.aggregate(
-  presenceSubscriptions,
-  escapeSubscriptions,
-  resizeSubscriptions,
-  selectionSubscriptions,
-  traceSubscriptions,
-);
+/** The address: Back, Forward and a fragment followed, and a click on an anchor. */
+const addressSubscription = Subscription.make("address", addressMessages);
+
+/** Every stream the viewer listens to, for its Model now. */
+export const subscriptions = ({
+  model,
+}: {
+  readonly model: Model;
+}): ReadonlyArray<Subscription.Subscription<Message>> => [
+  addressSubscription,
+  presenceSubscription(model),
+  escapeSubscription,
+  resizeSubscription(model),
+  selectionSubscription,
+  traceSubscription,
+];

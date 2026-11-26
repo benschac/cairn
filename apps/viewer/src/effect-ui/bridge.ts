@@ -1,9 +1,11 @@
-import { Mount as UiMount, View } from "@effect/ui";
+import { Command as UiCommand, Mount as UiMount, View } from "@effect/ui";
 import type { Html as UiHtml } from "@effect/ui/html";
 import {
   Array,
   Context,
+  Effect,
   Function,
+  MutableHashMap,
   MutableRef,
   Option,
   Predicate,
@@ -55,7 +57,37 @@ export interface FoldkitBridgeOptions<Msg> {
    * the bridge finds the definition here by name and runs it on the element Effect UI mounts.
    */
   readonly mounts: ReadonlyArray<FoldkitMount<Msg>>;
+  /**
+   * Effect UI mounts for Foldkit elements, for a handler that reads what an Effect UI payload does
+   * not carry, such as a pointer's `pointerId`. An element that has the attribute gets the mount,
+   * made from the attribute's value, in place of its Foldkit handlers for the mount's events.
+   */
+  readonly hostMounts?: ReadonlyArray<HostMount<Msg>> | undefined;
 }
+
+/** An Effect UI mount the bridge puts on each Foldkit element that has `attribute`. */
+export interface HostMount<Msg> {
+  /** The attribute that marks the element; its value is what the mount is made from. */
+  readonly attribute: string;
+  /** The events the mount listens for itself: the bridge drops the element's Foldkit handlers for them. */
+  readonly events: ReadonlyArray<string>;
+  readonly mount: (value: string) => View.Mount<Msg>;
+}
+
+/** A Foldkit Command, as `update` returns it: its name, its args, and the Effect whose result is a Message. */
+export interface FoldkitCommand<Msg> {
+  readonly name: string;
+  readonly args?: Record.ReadonlyRecord<string, unknown> | undefined;
+  readonly effect: Effect.Effect<Msg>;
+}
+
+/** The args of the Effect UI Command a Foldkit Command runs as: the Foldkit Command itself. */
+export interface BridgedCommandArgs<Msg> {
+  readonly command: FoldkitCommand<Msg>;
+}
+
+/** The Effect UI Command definition one Foldkit Command name becomes. */
+export type BridgedCommand<Msg> = UiCommand.Factory<BridgedCommandArgs<Msg>, Msg>;
 
 /** The args an Effect UI mount made from a Foldkit Mount carries: the Foldkit Mount's own args. */
 export interface BridgedMountArgs {
@@ -76,6 +108,13 @@ export interface FoldkitBridge<Msg> {
   readonly foldkitView: (h: UiHtml.H<Msg>, html: Html) => View.Node<Msg> | null;
   /** The Effect UI mount a Foldkit Mount definition becomes, for a Scene's `expectMount`. */
   readonly mountOf: (definition: FoldkitMount<Msg>) => BridgedMount<Msg>;
+  /**
+   * A Foldkit Command as an Effect UI Command, for `$.run`: the definition named after it, issued
+   * with the Foldkit Command as its args, whose body runs the Foldkit Command's Effect.
+   */
+  readonly command: (command: FoldkitCommand<Msg>) => ReturnType<BridgedCommand<Msg>["make"]>;
+  /** The Effect UI Command definition a Foldkit Command definition runs as, for a Story's `resolve`. */
+  readonly commandOf: (definition: { readonly name: string }) => BridgedCommand<Msg>;
 }
 
 // --- dispatch ------------------------------------------------------------------------------
@@ -326,6 +365,13 @@ const mergedText = <Msg>(children: ReadonlyArray<View.Node<Msg>>): ReadonlyArray
 const isVNode = (value: unknown): value is VNode =>
   Predicate.hasProperty(value, "sel") || Predicate.hasProperty(value, "text");
 
+/** A Foldkit Command: a name and an Effect. Its Effect's result is a Message, as `update` typed it. */
+const isFoldkitCommand = <Msg>(value: unknown): value is FoldkitCommand<Msg> =>
+  Predicate.hasProperty(value, "name") &&
+  Predicate.isString(value.name) &&
+  Predicate.hasProperty(value, "effect") &&
+  Effect.isEffect(value.effect);
+
 /**
  * Builds a bridge for one program. Make it once, at module level: the Effect UI mounts it makes
  * from the Foldkit ones keep their identity from one render to the next.
@@ -344,6 +390,32 @@ export const makeFoldkitBridge = <Msg>(options: FoldkitBridgeOptions<Msg>): Fold
       ),
     ]),
   );
+
+  // Declared args compare by identity, which is right: each Foldkit Command value is new.
+  const commandArgs = { command: Schema.declare(isFoldkitCommand<Msg>) };
+
+  // One Effect UI definition per Foldkit Command name, made the first time a Command of that name
+  // runs, so the message log and a Story name each Command as Foldkit did.
+  const commandDefinitions = MutableHashMap.empty<string, BridgedCommand<Msg>>();
+
+  const commandNamed = (name: string): BridgedCommand<Msg> =>
+    Option.getOrElse(MutableHashMap.get(commandDefinitions, name), () => {
+      const definition = UiCommand.make(
+        name,
+        { args: commandArgs },
+        ({ command }) => command.effect,
+      );
+      MutableHashMap.set(commandDefinitions, name, definition);
+      return definition;
+    });
+
+  const hostMounts = Option.getOrElse(Option.fromUndefinedOr(options.hostMounts), Array.empty);
+
+  /** The host mount an element's attributes ask for, with the value it is made from. */
+  const hostMountOf = (attrs: Record.ReadonlyRecord<string, string>) =>
+    Array.findFirst(hostMounts, (hostMount) =>
+      Option.map(Record.get(attrs, hostMount.attribute), (value) => ({ hostMount, value })),
+    );
 
   const mountNamed = (name: string): BridgedMount<Msg> =>
     Option.getOrThrowWith(
@@ -400,7 +472,12 @@ export const makeFoldkitBridge = <Msg>(options: FoldkitBridgeOptions<Msg>): Fold
     }
     const data = recordOf(vnode.data);
     const { attrs, props } = fieldsOf(data);
-    const on = recordOf(data["on"]);
+    const maybeHost = hostMountOf(attrs);
+    const on = Record.filter(
+      recordOf(data["on"]),
+      (_, type) =>
+        !Option.exists(maybeHost, ({ hostMount }) => Array.contains(hostMount.events, type)),
+    );
     const children = Predicate.isUndefined(vnode.children)
       ? Array.map(Array.fromNullishOr(vnode.text), View.text)
       : Array.getSomes(
@@ -423,7 +500,10 @@ export const makeFoldkitBridge = <Msg>(options: FoldkitBridgeOptions<Msg>): Fold
         ),
       ),
       handlers: handlersOf(vnode, on),
-      mount: mountFor(data[FOLDKIT_MOUNT_KEY]),
+      mount: Option.match(maybeHost, {
+        onNone: () => mountFor(data[FOLDKIT_MOUNT_KEY]),
+        onSome: ({ hostMount, value }) => hostMount.mount(value),
+      }),
       props,
       refKey: undefined,
       tag: vnode.sel,
@@ -449,5 +529,7 @@ export const makeFoldkitBridge = <Msg>(options: FoldkitBridgeOptions<Msg>): Fold
     },
     foldkitView: (_h, html) => (html === null ? null : nodeOf(html)),
     mountOf: (definition) => mountNamed(definition.name),
+    command: (command) => commandNamed(command.name).make({ command }),
+    commandOf: (definition) => commandNamed(definition.name),
   };
 };

@@ -1,10 +1,10 @@
 import { Stream } from "effect";
 import { FetchHttpClient } from "effect/http";
-import { Subscription } from "foldkit";
+import { Subscription } from "@effect/ui";
 
 import { isDemoBuild, pollTrace, TRACE_POLL_INTERVAL } from "../load.ts";
 import { Message } from "../message.ts";
-import type { Model } from "../model.ts";
+import { inPage } from "./page.ts";
 
 /**
  * Under `cairn serve` the trace is polled for as long as the page lives. The demo build has no
@@ -18,6 +18,7 @@ export const traceMessages = (isDemo: boolean) =>
         Stream.provide(FetchHttpClient.layer),
       );
 
-export const subscriptions = Subscription.make<Model, Message>()(() => ({
-  trace: Subscription.persistentEntry(Stream.suspend(() => traceMessages(isDemoBuild()))),
-}));
+export const traceSubscription = Subscription.make(
+  "trace",
+  inPage(Stream.suspend(() => traceMessages(isDemoBuild()))),
+);

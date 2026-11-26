@@ -1,9 +1,10 @@
 import { SectionId } from "@cairn/contract";
 import { Effect, MutableRef, Option, Queue, Schema, Stream, String } from "effect";
-import { Subscription } from "foldkit";
+import { Subscription } from "@effect/ui";
 
 import { Message } from "../message.ts";
-import { PassageSelection, type Model } from "../model.ts";
+import { PassageSelection } from "../model.ts";
+import { inPage } from "./page.ts";
 
 /** The attribute that marks an element whose text can be linked to; its value is the section ID. */
 export const PASSAGE_ATTRIBUTE = "data-passage";
@@ -112,8 +113,7 @@ const trackSelection = (queue: Queue.Enqueue<Message>) =>
     );
   });
 
-export const subscriptions = Subscription.make<Model, Message>()(() => ({
-  selection: Subscription.persistentEntry(
-    Stream.callback<Message>((queue) => trackSelection(queue)),
-  ),
-}));
+export const selectionSubscription = Subscription.make(
+  "selection",
+  inPage(Stream.callback<Message>((queue) => trackSelection(queue))),
+);
