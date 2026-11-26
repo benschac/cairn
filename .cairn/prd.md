@@ -297,6 +297,7 @@ A spec explains some things better with a picture, and the plan keeps its pictur
 - The stack diagram in the spec is drawn by code from `manifest.json`, never by a model or by hand. Each write of the manifest draws it again, and `cairn lint` fails when the two disagree.
 - The planner draws a Mermaid diagram in a spec section where one says more than prose: the states of a machine, the messages between two processes, the path data takes. The planner prompt says when a diagram earns its place.
 - Every Mermaid block in the PRD and the spec has to draw. `cairn plan` sends a block that does not draw back to the planner once and then leaves it out with a warning; `cairn lint` reports one a person wrote.
+- A block that does not draw goes back to the planner as a follow-up turn in the same conversation, so the planner sees what it drew and the parser's error, not the whole prompt again.
 
 ### Who writes the plan {#prd.planning.writers}
 
@@ -1298,3 +1299,12 @@ Some services are optional. `cairn plan` judges its drafts when a decision model
 - A service the code cannot do without stays a requirement the type checker enforces: the planner of a run that calls it, and the judge of `cairn judge`.
 - The adapters still to come take the same shape. A commit's session is read by the reader for the agent that wrote it, asked for by that agent's name; a commit whose agent has no reader provided shows its diff alone and says why, and no list of supported agents goes in `config.json`.
 - The Effect checklist in `.agent_sources` carries the pattern, so a reviewer asks for it where a diff adds a flag that says whether a service is there, or a stand-in service whose calls all fail.
+
+### Branching conversations {#prd.refactors.branching-conversations}
+
+Every planner call is one-shot. A retry fills `retry.md` and sends it around the whole original prompt again, and the splits of a round run concurrently and each sends the spec again. Instead, a chat is a service whose history lives in a `Ref`, and `branch` gives one effect its own copy of it: it reads the history, builds a new chat from it with `Chat.fromPrompt`, and provides that chat with `Effect.provideServiceEffect`, so the code that uses the chat never knows. Concurrent calls never interleave their turns, each sees the shared opening and only its own turns, and the outer chat keeps just the opening. The pattern comes from Harry Solovay's talk [Advanced Effect Design Patterns](https://youtu.be/_tSGby_q890) at Effect Miami 3, in its chapter "Branching conversations".
+
+- Each planner call holds its own conversation. A retry is a follow-up turn that carries only the error, not the prompt again.
+- The splits of one round branch from a trunk that opens with the spec, so the spec is sent once and each split adds only its own turns.
+- State that must add up across branches, such as a budget or a running total, stays one `Ref` and is never branched.
+- The Effect checklist in `.agent_sources` carries the pattern, so a reviewer asks for it where a diff re-sends a prompt that a conversation already holds, or shares one history between calls that run at once.

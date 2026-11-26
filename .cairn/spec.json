@@ -4982,7 +4982,7 @@
         {
           "id": "spec.planning.planner-service#r6",
           "level": "must",
-          "text": "splitTask(draft, spec, reason) returns two or more TaskDrafts that together cover the draft's spec sections and files."
+          "text": "splitTask(draft, reason) returns two or more TaskDrafts that together cover the draft's spec sections and files, asking in a Chat that splitTrunk(spec) opened with the spec."
         },
         {
           "id": "spec.planning.planner-service#r7",
@@ -4992,7 +4992,7 @@
         {
           "id": "spec.planning.planner-service#r8",
           "level": "must",
-          "text": "A failed decode retries once with the error in the prompt, then fails with a PlannerError."
+          "text": "A failed decode asks once more in the same conversation, with the error as the follow-up turn, then fails with a PlannerError."
         },
         {
           "id": "spec.planning.planner-service#r9",
@@ -5155,7 +5155,7 @@
         "body": null,
         "prd": {
           "prd.cli": "b2e8689bc863745d998817d4ce776ba834a1103fbaae43dece28651b8af1c4e1",
-          "prd.planning.diagrams": "75c706d23d9228079313b96159b3824539206bfaadd8b5427cf1d7f8befb600a"
+          "prd.planning.diagrams": "0594474593a2effe19ef8ed278dc71b252ecb79585227249e84cc212ee486c0a"
         }
       }
     },
@@ -5688,7 +5688,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.planning.diagrams": "75c706d23d9228079313b96159b3824539206bfaadd8b5427cf1d7f8befb600a"
+          "prd.planning.diagrams": "0594474593a2effe19ef8ed278dc71b252ecb79585227249e84cc212ee486c0a"
         }
       }
     },
@@ -8411,7 +8411,7 @@
         "prd": {
           "prd.section-ids": "cd9d46193fb94372cca90f6306c650143e22974ddc6a9059e9632b56a362c171",
           "prd.cli": "b2e8689bc863745d998817d4ce776ba834a1103fbaae43dece28651b8af1c4e1",
-          "prd.planning.diagrams": "75c706d23d9228079313b96159b3824539206bfaadd8b5427cf1d7f8befb600a"
+          "prd.planning.diagrams": "0594474593a2effe19ef8ed278dc71b252ecb79585227249e84cc212ee486c0a"
         }
       }
     },
@@ -39741,7 +39741,11 @@
       "level": 2,
       "line": 6890,
       "parent": "spec.cairn-mvp-spec",
-      "children": ["spec.refactors.service-factories", "spec.refactors.optional-services"],
+      "children": [
+        "spec.refactors.service-factories",
+        "spec.refactors.optional-services",
+        "spec.refactors.branching-conversations"
+      ],
       "human": false,
       "implements": [],
       "files": [],
@@ -39872,6 +39876,80 @@
         "body": null,
         "prd": {
           "prd.refactors.optional-services": "102ddbb1e305481bfe26da2f57bdf060d8f08368954bbe3e2b5b77c9d1ccdb22"
+        }
+      }
+    },
+    {
+      "id": "spec.refactors.branching-conversations",
+      "title": "Branching conversations",
+      "level": 3,
+      "line": 6925,
+      "parent": "spec.refactors",
+      "children": [],
+      "human": false,
+      "implements": ["prd.refactors.branching-conversations"],
+      "files": [
+        "packages/cli/src/chat.ts",
+        "packages/cli/src/planner.ts",
+        "packages/cli/src/refine.ts",
+        "packages/cli/src/cli-model.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/prompts/retry.md",
+        "packages/cli/prompts/split-task.md",
+        "packages/cli/prompts/split-task-opening.md",
+        "packages/cli/tsconfig.json",
+        ".agent_sources/effect/checklist.md"
+      ],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Gives each planner call its own Chat so a retry is a follow-up turn carrying only the error, and runs the splits of a refine round as branches of one trunk chat that holds the spec, with chat.ts's branch providing a copy of the current Chat through Effect.provideServiceEffect.",
+      "requirements": [
+        {
+          "id": "spec.refactors.branching-conversations#r1",
+          "level": "must",
+          "text": "`branch` in `chat.ts` runs an effect with a new `Chat` made by `Chat.fromPrompt` from the current chat's history, provided with `Effect.provideServiceEffect`."
+        },
+        {
+          "id": "spec.refactors.branching-conversations#r2",
+          "level": "must",
+          "text": "Each `Planner` call opens its own `Chat`, and a retry is a follow-up turn of it that carries only the error; `retry.md` holds only the error."
+        },
+        {
+          "id": "spec.refactors.branching-conversations#r3",
+          "level": "must",
+          "text": "`withRetry` adds the prompt and the refused reply to the chat's history before asking again, because `Chat.generateObject` records nothing when decoding fails."
+        },
+        {
+          "id": "spec.refactors.branching-conversations#r4",
+          "level": "must",
+          "text": "`Planner.splitTrunk(spec)` opens a chat with `split-task-opening.md` as one system message, and `refine.draftRounds` provides it once per round and runs each `splitTask(draft, reason)` in a `branch` of it."
+        },
+        {
+          "id": "spec.refactors.branching-conversations#r5",
+          "level": "must",
+          "text": "The `cli` source keeps assistant turns when it flattens a prompt, marked `Your previous reply:`."
+        },
+        {
+          "id": "spec.refactors.branching-conversations#r6",
+          "level": "must",
+          "text": "`effect/ai/Chat` is in the cli package's `allowedUnstableApis`, and the Effect checklist has a services row for branching a stateful service."
+        }
+      ],
+      "artifacts": [],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.refactors.branching-conversations#d1",
+          "text": "The judgments and `refineWith`'s `stack` `Ref` are not branched.",
+          "why": "The judge holds no conversation, and the stack judgments are read and replaced by every round, so they stay one `Ref`."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.refactors.branching-conversations": "bfa077d7efdef37d8612329e704b10ffc1870e49143e9464184328e4a8e37acc"
         }
       }
     }
