@@ -40,7 +40,7 @@ import type { Reply } from "./fixtures/scripted-language-model.ts";
  * the model was given from `Script`.
  */
 const planningIn = <A, E>(
-  config: Pick<Config, "categories" | "judge">,
+  config: Pick<Config, "categories" | "judge" | "planner">,
   replies: ReadonlyArray<string | Reply>,
   program: Effect.Effect<A, E, Planner | Script>,
 ) =>

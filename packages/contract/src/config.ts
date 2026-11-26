@@ -1,6 +1,6 @@
 import { Array, Effect, Number, Predicate, Schema } from "effect";
 
-import { Slug } from "./manifest.ts";
+import { Reasoning, Slug } from "./manifest.ts";
 
 /** The task categories the PRD names (`prd.outcomes.categories`), and what each is for. */
 const CATEGORIES = Array.map(
@@ -73,12 +73,20 @@ const JUDGE_MODELS = {
  * The planner's fields (`spec.contract.config`). `source` picks the agent CLI on the person's
  * machine or an API key. `cli` is read when `source` is "cli", and `provider` when it is "api".
  * `model` has no default: undefined leaves the choice to the CLI. `gatewayTokenEnv` names the
- * variable holding an AI Gateway token, never the token itself.
+ * variable holding an AI Gateway token, never the token itself. `effort` is how hard the model
+ * thinks when it writes spec sections (`spec`) and when it drafts tasks (`tasks`); the claude CLI
+ * reads it, and a call with none runs at the CLI's own level.
  */
 const PlannerFields = Schema.Struct({
   baseUrl: Schema.optionalKey(Schema.String),
   cli: Schema.Literals(["claude", "codex"]).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed("claude" as const)),
+  ),
+  effort: Schema.optionalKey(
+    Schema.Struct({
+      spec: Schema.optionalKey(Reasoning),
+      tasks: Schema.optionalKey(Reasoning),
+    }),
   ),
   gatewayTokenEnv: Schema.optionalKey(Schema.String),
   keyEnv: Schema.optionalKey(Schema.String),
