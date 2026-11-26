@@ -1,21 +1,11 @@
 import { Config as CairnConfig } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import {
-  Array,
-  ConfigProvider,
-  Context,
-  Effect,
-  Layer,
-  Option,
-  Predicate,
-  Ref,
-  Schema,
-} from "effect";
+import { Array, ConfigProvider, Effect, Layer, Option, Predicate, Ref, Schema } from "effect";
 import { Decision, DecisionModel } from "effect/ai";
-import { Headers, HttpClient, HttpClientResponse } from "effect/http";
-import type { HttpClientRequest } from "effect/http";
+import { Headers, HttpClientResponse } from "effect/http";
 
 import { ModelKeyError, TYPESAFE_API_KEY, decisionModel } from "../src/models.ts";
+import { Wire } from "./fixtures/recording-client.ts";
 
 /**
  * Nothing here reads a real key or touches the network. Configuration comes from a
@@ -23,34 +13,18 @@ import { ModelKeyError, TYPESAFE_API_KEY, decisionModel } from "../src/models.ts
  */
 const FAKE_KEY = "test-key";
 
-class Wire extends Context.Service<
-  Wire,
-  { readonly requests: Effect.Effect<ReadonlyArray<HttpClientRequest.HttpClientRequest>> }
->()("@cairn/cli/test/models/Wire") {}
-
 /** An `HttpClient` that records each request and answers it with a TypeSafe answer. */
-const wire = Layer.unwrap(
-  Effect.gen(function* () {
-    const seen = yield* Ref.make<ReadonlyArray<HttpClientRequest.HttpClientRequest>>([]);
-    const client = HttpClient.make((request) =>
-      Ref.update(seen, Array.append(request)).pipe(
-        Effect.as(
-          HttpClientResponse.fromWeb(
-            request,
-            Response.json({
-              answers: { urgent: { noul: 0.9, type: "noul" } },
-              model: "jev-1.14.0",
-              usage: { input_tokens: 1, output_tokens: 1 },
-            }),
-          ),
-        ),
-      ),
-    );
-    return Layer.mergeAll(
-      Layer.succeed(HttpClient.HttpClient, client),
-      Layer.succeed(Wire, Wire.of({ requests: Ref.get(seen) })),
-    );
-  }),
+const wire = Wire.layer((request) =>
+  Effect.succeed(
+    HttpClientResponse.fromWeb(
+      request,
+      Response.json({
+        answers: { urgent: { noul: 0.9, type: "noul" } },
+        model: "jev-1.14.0",
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+    ),
+  ),
 );
 
 const environment = (env: Record<string, string>) =>

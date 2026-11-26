@@ -4,7 +4,6 @@ import { expect, it } from "@effect/vitest";
 import {
   Array,
   ConfigProvider,
-  Context,
   Effect,
   FileSystem,
   Layer,
@@ -17,8 +16,7 @@ import {
   Struct,
 } from "effect";
 import { LanguageModel } from "effect/ai";
-import { Headers, HttpClient, HttpClientError, HttpClientResponse } from "effect/http";
-import type { HttpClientRequest } from "effect/http";
+import { Headers, HttpClientError, HttpClientResponse } from "effect/http";
 import { systemError } from "effect/PlatformError";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -35,6 +33,8 @@ import {
   plannerKeyVariable,
 } from "../src/models.ts";
 import { Planner, PlannerError, PromptError, fillPrompt, loadPrompts } from "../src/planner.ts";
+import { Wire } from "./fixtures/recording-client.ts";
+import type { Answer } from "./fixtures/recording-client.ts";
 import { scripted } from "./fixtures/scripted-language-model.ts";
 
 /**
@@ -44,31 +44,6 @@ import { scripted } from "./fixtures/scripted-language-model.ts";
  * obviously fake value, and the model's host is a stub `HttpClient`.
  */
 const FAKE_KEY = "test-key";
-
-/** What a stub `HttpClient` saw. */
-class Wire extends Context.Service<
-  Wire,
-  { readonly requests: Effect.Effect<ReadonlyArray<HttpClientRequest.HttpClientRequest>> }
->()("@cairn/cli/test/Wire") {}
-
-type Answer = (
-  request: HttpClientRequest.HttpClientRequest,
-) => Effect.Effect<HttpClientResponse.HttpClientResponse, HttpClientError.HttpClientError>;
-
-/** An `HttpClient` that records each request and answers it with `answer`. */
-const wire = (answer: Answer) =>
-  Layer.unwrap(
-    Effect.gen(function* () {
-      const seen = yield* Ref.make<ReadonlyArray<HttpClientRequest.HttpClientRequest>>([]);
-      const client = HttpClient.make((request) =>
-        Ref.update(seen, Array.append(request)).pipe(Effect.andThen(answer(request))),
-      );
-      return Layer.mergeAll(
-        Layer.succeed(HttpClient.HttpClient, client),
-        Layer.succeed(Wire, Wire.of({ requests: Ref.get(seen) })),
-      );
-    }),
-  );
 
 const CANNED = "A canned reply";
 
@@ -138,7 +113,7 @@ const livePlanner = (config: CairnConfig, env: Layer.Layer<never>, answer: Answe
   Planner.layerWith(config).pipe(
     Layer.provide(languageModel(config).pipe(Layer.provide(env))),
     Layer.provide(NodeServices.layer),
-    Layer.provideMerge(wire(answer)),
+    Layer.provideMerge(Wire.layer(answer)),
   );
 
 const spec = (prd: string) => Planner.use((planner) => planner.spec(prd));
@@ -172,7 +147,7 @@ it.effect("a missing key fails the layer with a ModelKeyError that names ANTHROP
     expect(failure.variable).toBe("ANTHROPIC_API_KEY");
     expect(failure.message).toContain("ANTHROPIC_API_KEY");
     expect(failure.toString()).toContain("ANTHROPIC_API_KEY");
-  }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer))),
+  }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
 );
 
 it.effect("a key set to nothing counts as missing", () =>
@@ -183,7 +158,7 @@ it.effect("a key set to nothing counts as missing", () =>
       ).pipe(Effect.scoped),
     ).pipe(Effect.flatMap(only(Schema.is(ModelKeyError))));
     expect(failure.variable).toBe("ANTHROPIC_API_KEY");
-  }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer))),
+  }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
 );
 
 it.effect("the key is read when the layer is built, and nothing else is read", () =>
@@ -205,7 +180,7 @@ it.effect("the key is read when the layer is built, and nothing else is read", (
     expect(beforeBuilding).toEqual([]);
     expect(afterPlanner).toEqual([]);
     expect(afterModel).toEqual([[ANTHROPIC_API_KEY]]);
-  }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer))),
+  }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
 );
 
 const MODEL = Schema.String.check(Schema.isPattern(/^[a-z][a-z0-9.-]{0,30}$/u));
@@ -306,7 +281,7 @@ it.effect.prop(
       ).pipe(Effect.flatMap(only(Schema.is(ModelKeyError))));
       expect(failure.message).toContain(variable);
       expect(failure.message).not.toContain(ANTHROPIC_API_KEY);
-    }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer)));
+    }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer)));
   },
 );
 
@@ -374,7 +349,7 @@ it.effect.prop(
       const reads = yield* keys.reads;
       expect(programs).toEqual([cli]);
       expect(reads).toEqual([]);
-    }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer)));
+    }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer)));
   },
 );
 
@@ -541,7 +516,7 @@ it.effect.prop(
       const wired = yield* Wire;
       const requests = yield* wired.requests;
       expect(requests).toEqual([]);
-    }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer))),
+    }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
 );
 
 it.effect.prop(
@@ -557,7 +532,7 @@ it.effect.prop(
       expect(failure.variable).toBe(
         provider === "openai" ? "OPENAI_API_KEY" : "OPENROUTER_API_KEY",
       );
-    }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer))),
+    }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
 );
 
 it.effect("openai-compatible builds its layer and calls without a key", () =>
@@ -606,7 +581,7 @@ it.effect.prop(
       expect(request.model).toBe(
         Array.contains(["index", "splitSection", "splitTask"], call) ? "small-model" : "big-model",
       );
-    }).pipe(Effect.provide(wire(replies))),
+    }).pipe(Effect.provide(Wire.layer(replies))),
 );
 
 it.effect("a config that picks api with no model fails the layer instead of calling a model", () =>
@@ -617,7 +592,7 @@ it.effect("a config that picks api with no model fails the layer instead of call
       Layer.build(languageModel(config).pipe(Layer.provide(withKey))).pipe(Effect.scoped),
     ).pipe(Effect.flatMap(only(Schema.is(ModelUnavailable))));
     expect(failure.message).toContain("planner.model");
-  }).pipe(Effect.provide(Layer.mergeAll(wire(replies), NodeServices.layer))),
+  }).pipe(Effect.provide(Layer.mergeAll(Wire.layer(replies), NodeServices.layer))),
 );
 
 /** The prompt files, filled from fixed values that hold no placeholder of their own. */
