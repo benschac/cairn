@@ -17,6 +17,7 @@ import {
   FileSystem,
   Layer,
   Logger,
+  Option,
   Path,
   Predicate,
   Record,
@@ -24,10 +25,11 @@ import {
   String,
   Struct,
 } from "effect";
+import { Chat } from "effect/ai";
 import { TestClock, TestConsole } from "effect/testing";
 
 import { IndexProse, Planner, PlannerError, StatementDrafts, TaskDrafts } from "../src/planner.ts";
-import { Script, scripted, unreachable } from "./fixtures/scripted-language-model.ts";
+import { Script, scripted, turnsOf, unreachable } from "./fixtures/scripted-language-model.ts";
 import type { Reply } from "./fixtures/scripted-language-model.ts";
 
 /**
@@ -68,6 +70,8 @@ const Draft = TaskDraft.mapFields(
 
 const encodeReply = Schema.encodeSync(Schema.fromJsonString(TaskDrafts));
 const prompts = Script.use((script) => script.prompts);
+/** Each request the model was given, as its messages' roles and texts. */
+const conversations = Script.use((script) => Effect.map(script.requests, Array.map(turnsOf)));
 
 /** The fixture of a file next to this test, and the repository's own `.cairn` files. */
 const read = Effect.fn("read")(function* (url: string) {
@@ -99,6 +103,8 @@ const draftsOf = (manifest: Manifest) => {
 };
 
 const isPlannerError = Schema.is(PlannerError);
+
+const fence = (body: string) => `\`\`\`mermaid\n${body}\n\`\`\``;
 
 const spec = (prd: string) => Planner.use((planner) => planner.spec(prd));
 const tasks = (prd: string, specText: string) =>
@@ -169,7 +175,13 @@ it.effect.prop(
       [bad, good],
       Effect.gen(function* () {
         yield* tasks("prd", "spec");
-        const [first = "", second = ""] = yield* prompts;
+        const [, second = []] = yield* conversations;
+        const [first = ""] = yield* prompts;
+        // A retry is a follow-up turn of the same chat: the line counts the turn it sent.
+        const retry = Option.getOrElse(
+          Option.map(Array.last(second), Struct.get("text")),
+          () => "",
+        );
         const lines = yield* TestConsole.errorLines;
         expect(lines).toEqual([
           {
@@ -182,7 +194,7 @@ it.effect.prop(
           {
             call: "tasks",
             outcome: "ok",
-            promptChars: String.length(second),
+            promptChars: String.length(retry),
             replyChars: String.length(good),
             seconds: 0,
           },
@@ -313,6 +325,55 @@ it.effect(
     ),
 );
 
+it.effect.prop(
+  "a retried call's second request holds the first prompt and the refused reply, and only the error as its new turn",
+  [Schema.Array(Draft), Schema.NonEmptyString],
+  ([drafts, bad]) =>
+    planning(
+      [bad, encodeReply({ drafts })],
+      Effect.gen(function* () {
+        yield* tasks("prd", "spec");
+        const [first = [], second = []] = yield* conversations;
+        const [asked = { role: "user", text: "" }] = first;
+        expect(Array.take(second, Array.length(first) + 1)).toEqual(
+          Array.append(first, { role: "assistant", text: bad }),
+        );
+        expect(Array.length(second)).toBe(Array.length(first) + 2);
+        const retry = Option.getOrElse(
+          Option.map(Array.last(second), Struct.get("text")),
+          () => "",
+        );
+        expect(retry).toContain("Your previous reply was refused");
+        expect(retry).toContain("Structured output validation failed");
+        expect(retry).not.toContain(asked.text);
+      }),
+    ),
+);
+
+it.effect(
+  "a Mermaid block that does not draw goes back in the same chat, after the first prompt and reply, with only its error",
+  () => {
+    const undrawn = `## A {#spec.a}\n\n${fence("flowchart TD\n  a --")}\n`;
+    return planning(
+      [undrawn, `## A {#spec.a}\n\n${fence("flowchart TD\n  a --> b")}\n`],
+      Effect.gen(function* () {
+        yield* spec("prd");
+        const [first = [], second = []] = yield* conversations;
+        const [asked = { role: "user", text: "" }] = first;
+        expect(Array.length(first)).toBe(1);
+        expect(Array.take(second, 2)).toEqual([asked, { role: "assistant", text: undrawn }]);
+        const retry = Option.getOrElse(
+          Option.map(Array.get(second, 2), Struct.get("text")),
+          () => "",
+        );
+        expect(Array.length(second)).toBe(3);
+        expect(retry).toContain("does not draw");
+        expect(retry).not.toContain(asked.text);
+      }),
+    );
+  },
+);
+
 it.effect("the retry prompt holds the decode error of the first reply", () =>
   planning(
     ['{"drafts":[{"title":"No other fields"}]}', encodeReply({ drafts: [] })],
@@ -369,8 +430,13 @@ it.effect("a failure on the retry is a PlannerError too", () =>
 
 const splitSection = (section: string, reason: string) =>
   Planner.use((planner) => planner.splitSection(section, reason));
+/** A split asked in the trunk `splitTrunk` opens with `specText`, as `refine` asks one. */
 const splitTask = (draft: TaskDraft, specText: string, reason: string) =>
-  Planner.use((planner) => planner.splitTask(draft, specText, reason));
+  Planner.use((planner) =>
+    planner
+      .splitTask(draft, reason)
+      .pipe(Effect.provideServiceEffect(Chat.Chat, planner.splitTrunk(specText))),
+  );
 const indexOf = (id: SpecSectionId, title: string, body: string) =>
   Planner.use((planner) => planner.index({ body, id, title }));
 
@@ -569,8 +635,6 @@ const sections = (
   prdSections: ReadonlyArray<PrdSectionId>,
   rewrite: ReadonlyArray<SpecSectionId>,
 ) => Planner.use((planner) => planner.sections(prd, specText, prdSections, rewrite));
-
-const fence = (body: string) => `\`\`\`mermaid\n${body}\n\`\`\``;
 
 it.effect.prop(
   "sections returns the model's markdown, and the prompt holds the PRD, the spec and the IDs",

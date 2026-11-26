@@ -1,5 +1,3 @@
-{{prompt}}
-
 Your previous reply was refused. Here is why:
 
 {{error}}

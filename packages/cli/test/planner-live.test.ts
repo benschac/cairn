@@ -599,7 +599,9 @@ it.effect("a config that picks api with no model fails the layer instead of call
 const rendered = Effect.gen(function* () {
   const prompts = yield* loadPrompts(defaultConfig.judge.models, defaultConfig.categories);
   return {
-    retry: yield* prompts.retry("the first prompt", "the decode error"),
+    retry: yield* prompts.retry("the decode error"),
+    splitOpening: yield* prompts.splitOpening("the spec"),
+    splitTask: yield* prompts.splitTask("the draft", "the reason"),
     spec: yield* prompts.spec("the prd"),
     tasks: yield* prompts.tasks("the prd", "the spec", [], []),
   };
@@ -655,12 +657,17 @@ it.effect("the spec prompt says when to draw a Mermaid diagram and when not to",
   }),
 );
 
-it.effect("the retry prompt holds the first prompt and the decode error", () =>
-  Effect.gen(function* () {
-    const { retry } = yield* rendered;
-    expect(retry).toContain("the first prompt");
-    expect(retry).toContain("the decode error");
-  }),
+it.effect(
+  "the retry prompt holds the decode error, and the split prompt only the draft and the reason",
+  () =>
+    Effect.gen(function* () {
+      const { retry, splitOpening, splitTask } = yield* rendered;
+      expect(retry).toContain("the decode error");
+      expect(splitOpening).toContain("the spec");
+      expect(splitTask).toContain("the draft");
+      expect(splitTask).toContain("the reason");
+      expect(splitTask).not.toContain("the spec");
+    }),
 );
 
 it.effect.prop(

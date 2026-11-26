@@ -111,16 +111,28 @@ const failure = (method: string, reason: AiError.AiErrorReason) =>
 const withStderr = (description: string, stderr: string) =>
   String.isNonEmpty(stderr) ? `${description}\n${stderr}` : description;
 
-/** What a message says. The planner sends system and user messages; the others say nothing here. */
+/** The text parts of a message, one after another. */
+const textOf = (parts: ReadonlyArray<Prompt.UserMessagePart | Prompt.AssistantMessagePart>) =>
+  Array.join(
+    Array.filterMap(parts, (part) =>
+      part.type === "text" ? Result.succeed(part.text) : Result.failVoid,
+    ),
+    "",
+  );
+
+/**
+ * What a message says. The planner sends system and user messages, and when it asks again in the
+ * same chat, the model's refused reply as an assistant message, marked so the CLI can tell its own
+ * reply from the instructions around it. Tool messages say nothing here.
+ */
 const said = Match.type<Prompt.Message>().pipe(
   Match.when({ role: "system" }, (message) => message.content),
-  Match.when({ role: "user" }, (message) =>
-    Array.join(
-      Array.filterMap(message.content, (part) =>
-        part.type === "text" ? Result.succeed(part.text) : Result.failVoid,
-      ),
-      "",
-    ),
+  Match.when({ role: "user" }, (message) => textOf(message.content)),
+  Match.when({ role: "assistant" }, (message) =>
+    Option.match(Option.liftPredicate(textOf(message.content), String.isNonEmpty), {
+      onNone: () => "",
+      onSome: (text) => `Your previous reply:\n\n${text}`,
+    }),
   ),
   Match.orElse(() => ""),
 );

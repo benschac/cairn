@@ -28,7 +28,9 @@ import {
   Struct,
   pipe,
 } from "effect";
+import { Chat } from "effect/ai";
 
+import { branch } from "./chat.ts";
 import { Judge } from "./judge.ts";
 import type { JudgeError } from "./judge.ts";
 import { Planner } from "./planner.ts";
@@ -614,6 +616,9 @@ export const refineWith = Effect.fn("refineWith")(function* (
           title: draft.title,
         })),
       );
+      // Every split of the round shares one opening, the spec, in a trunk chat, and asks in a
+      // branch of it, so the splits running at once never share a history and the trunk keeps
+      // only the opening.
       const outcomes = yield* Effect.forEach(
         fresh,
         ({ draft }) => {
@@ -628,7 +633,7 @@ export const refineWith = Effect.fn("refineWith")(function* (
                     own: notedSize(own, "none", `not split: round ${round} is judge.maxRounds`),
                     split: Option.none<ReadonlyArray<TaskDraft>>(),
                   })
-                : Effect.map(planner.splitTask(draft, spec, size.message), (replacements) => ({
+                : Effect.map(branch(planner.splitTask(draft, size.message)), (replacements) => ({
                     draft,
                     own,
                     split: Option.some(replacements),
@@ -636,7 +641,7 @@ export const refineWith = Effect.fn("refineWith")(function* (
           });
         },
         { concurrency: CONCURRENT_SPLITS },
-      );
+      ).pipe(Effect.provideServiceEffect(Chat.Chat, planner.splitTrunk(spec)));
       // Every split of the round is settled before any draft is rewired, so a replacement that
       // depends on another draft split in this round is pointed at that draft's replacements.
       const settled = Array.map(outcomes, ({ draft, own, split }) =>

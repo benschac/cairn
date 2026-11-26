@@ -30,6 +30,7 @@
           "effect/cli/Flag",
           "effect/cli/TerminalCapabilities",
           "effect/ai/AiError",
+          "effect/ai/Chat",
           "effect/ai/Decision",
           "effect/ai/DecisionModel",
           "effect/ai/AnthropicStructuredOutput",

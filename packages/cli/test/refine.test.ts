@@ -1,6 +1,7 @@
 import { Config as CairnConfig, PrdSectionId, SpecSectionId, TaskDraft } from "@cairn/contract";
 import type { Judgment } from "@cairn/contract";
 import { sectionIdsOf, sectionsOf } from "@cairn/core";
+import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import {
   Array,
@@ -25,9 +26,14 @@ import { DecisionModel } from "effect/ai";
 import type { Decision } from "effect/ai";
 
 import { Judge } from "../src/judge.ts";
-import { Planner } from "../src/planner.ts";
+import { Planner, SplitDrafts } from "../src/planner.ts";
 import { refine, refineWith } from "../src/refine.ts";
 import type { RefineInput } from "../src/refine.ts";
+import {
+  Script as ModelScript,
+  scripted as scriptedModel,
+  turnsOf,
+} from "./fixtures/scripted-language-model.ts";
 import { stubPlanner } from "./fixtures/stub-planner.ts";
 
 /**
@@ -380,6 +386,59 @@ it.effect("rounds stop at judge.maxRounds even when every answer is too_large", 
       ),
     );
   }),
+);
+
+/**
+ * The real `Planner` over a scripted model that answers every split with `replies`, in place of
+ * the stub: what the model was sent is read back from the model's script.
+ */
+const plannerOver = (replies: ReadonlyArray<string>) =>
+  Planner.layerWith(defaults).pipe(
+    Layer.provide(NodeServices.layer),
+    Layer.provideMerge(scriptedModel(Array.map(replies, (reply) => Effect.succeed(reply)))),
+  );
+
+const encodeSplit = Schema.encodeSync(Schema.fromJsonString(SplitDrafts));
+
+it.effect(
+  "two drafts split in one round each see the spec as the opening and only their own request",
+  () =>
+    Effect.gen(function* () {
+      yield* refineWith(
+        Struct.evolve(base, { drafts: () => [draft("Refine"), draft("Plan")] }),
+        defaults,
+      );
+      const requests = yield* ModelScript.use((script) => script.requests);
+      const conversations = Array.map(requests, turnsOf);
+      expect(Array.length(conversations)).toBe(2);
+      const asked = Array.map(conversations, (turns) => {
+        expect(Array.map(turns, Struct.get("role"))).toEqual(["system", "user"]);
+        const [opening = { text: "" }, own = { text: "" }] = turns;
+        expect(opening.text).toContain(SPEC);
+        expect(own.text).not.toContain(SPEC);
+        return own.text;
+      });
+      // One request names "Refine" and the other "Plan", and neither names both.
+      expect(
+        Array.map(asked, (text) => [
+          String.includes('"title": "Refine"')(text),
+          String.includes('"title": "Plan"')(text),
+        ]),
+      ).toEqual(
+        expect.arrayContaining([
+          [true, false],
+          [false, true],
+        ]),
+      );
+    }).pipe(
+      // The real planner is merged last, so it takes the place of the stub `testing` provides.
+      Effect.provide(
+        Layer.merge(
+          testing({ answer: tooLarge((title) => title === "Refine" || title === "Plan") }),
+          plannerOver(Array.replicate(encodeSplit({ drafts: halves(draft("Split")) }), 2)),
+        ),
+      ),
+    ),
 );
 
 /** A confidence in `[0, 1]`, as the decision model gives one. */

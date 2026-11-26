@@ -1261,6 +1261,8 @@ const unusedPlanner = Layer.succeed(
       ),
     splitTask: () =>
       Effect.fail(new PlannerError({ call: "splitTask", reason: "No planner call was expected." })),
+    splitTrunk: () =>
+      Effect.fail(new PlannerError({ call: "splitTask", reason: "No planner call was expected." })),
     index: () =>
       Effect.fail(new PlannerError({ call: "index", reason: "No planner call was expected." })),
     statements: () =>

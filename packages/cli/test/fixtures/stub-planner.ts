@@ -1,4 +1,5 @@
 import { Context, Effect, Option } from "effect";
+import { Chat } from "effect/ai";
 
 import { Planner } from "../../src/planner.ts";
 
@@ -13,7 +14,7 @@ const scriptedOr = <A>(given: A | undefined, unscripted: A) =>
 
 /**
  * A planner that answers the calls in `calls` and leaves the rest unscripted: `index` and
- * `statements` answer with nothing, and any other call dies.
+ * `statements` answer with nothing, `splitTrunk` opens an empty chat, and any other call dies.
  */
 export const stubPlanner = (calls: Partial<Calls>): Calls =>
   Planner.of({
@@ -24,6 +25,7 @@ export const stubPlanner = (calls: Partial<Calls>): Calls =>
     spec: scriptedOr(calls.spec, unexpected("spec")),
     splitSection: scriptedOr(calls.splitSection, unexpected("splitSection")),
     splitTask: scriptedOr(calls.splitTask, unexpected("splitTask")),
+    splitTrunk: scriptedOr(calls.splitTrunk, () => Chat.empty),
     statements: scriptedOr(calls.statements, () => Effect.succeed([])),
     tasks: scriptedOr(calls.tasks, unexpected("tasks")),
   });

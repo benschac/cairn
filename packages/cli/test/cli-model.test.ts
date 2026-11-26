@@ -398,6 +398,8 @@ it.effect(
       const first = yield* recorded(codex, "codex", "stdin.1");
       const second = yield* recorded(codex, "codex", "stdin.2");
       expect(second).toContain(first);
+      // The refused reply is in the second prompt, so the CLI sees what it is asked to fix.
+      expect(second).toContain("Your previous reply:\n\nSure, here are the tasks.");
       expect(second).toContain("Your previous reply was refused");
       expect(second).toContain("Structured output validation failed");
 
@@ -410,6 +412,8 @@ it.effect(
       expect(Array.map(again, (d) => d.title)).toEqual(["Add a"]);
       const claudeRuns = yield* runsOf(claude, "claude");
       expect(claudeRuns).toBe(2);
+      const claudeSecond = yield* recorded(claude, "claude", "stdin.2");
+      expect(claudeSecond).toContain("Your previous reply:\n\nSure!");
 
       // Two bad answers: a PlannerError after exactly two runs, not a third.
       const bad = yield* claudeSaying("Still prose.");

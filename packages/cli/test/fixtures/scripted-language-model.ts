@@ -23,23 +23,30 @@ const exhausted = (call: number) =>
     }),
   });
 
-/** What a message says. The planner sends system and user messages; the others say nothing here. */
+/** The text parts of a message, one after another. */
+const textPartsOf = (parts: ReadonlyArray<Prompt.UserMessagePart | Prompt.AssistantMessagePart>) =>
+  Array.join(
+    Array.getSomes(
+      Array.map(parts, (part) => (part.type === "text" ? Option.some(part.text) : Option.none())),
+    ),
+    "",
+  );
+
+/**
+ * What a message says. The planner sends system and user messages, and a chat sends the model's
+ * earlier replies back as assistant messages; tool messages say nothing here.
+ */
 const said = Match.type<Prompt.Message>().pipe(
   Match.when({ role: "system" }, (message) => message.content),
-  Match.when({ role: "user" }, (message) =>
-    Array.join(
-      Array.getSomes(
-        Array.map(message.content, (part) =>
-          part.type === "text" ? Option.some(part.text) : Option.none(),
-        ),
-      ),
-      "",
-    ),
-  ),
-  Match.when({ role: "assistant" }, () => ""),
+  Match.when({ role: "user" }, (message) => textPartsOf(message.content)),
+  Match.when({ role: "assistant" }, (message) => textPartsOf(message.content)),
   Match.when({ role: "tool" }, () => ""),
   Match.exhaustive,
 );
+
+/** Each message of a prompt as its role and what it says, so a test can read a conversation. */
+export const turnsOf = (prompt: Prompt.Prompt) =>
+  Array.map(prompt.content, (message) => ({ role: message.role, text: said(message) }));
 
 /** The text of every message in a prompt, one after another. */
 const textOf = (prompt: Prompt.Prompt) => Array.join(Array.map(prompt.content, said), "\n");
@@ -48,23 +55,29 @@ const textOf = (prompt: Prompt.Prompt) => Array.join(Array.map(prompt.content, s
 export class Script extends Context.Service<
   Script,
   {
-    readonly next: (prompt: string) => Effect.Effect<string, AiError.AiError>;
-    /** The prompts the model was given, in order. */
+    readonly next: (prompt: Prompt.Prompt) => Effect.Effect<string, AiError.AiError>;
+    /** The prompts the model was given, in order, each as the text of its messages. */
     readonly prompts: Effect.Effect<ReadonlyArray<string>>;
+    /** The prompts the model was given, in order, with their messages and roles. */
+    readonly requests: Effect.Effect<ReadonlyArray<Prompt.Prompt>>;
   }
 >()("@cairn/cli/test/Script") {
   static readonly layer = (replies: ReadonlyArray<Reply>) =>
     Layer.effect(
       Script,
       Effect.gen(function* () {
-        const prompts = yield* Ref.make<ReadonlyArray<string>>([]);
-        const next = (prompt: string) =>
-          Ref.modify(prompts, (seen) => [Array.length(seen), Array.append(seen, prompt)]).pipe(
+        const requests = yield* Ref.make<ReadonlyArray<Prompt.Prompt>>([]);
+        const next = (prompt: Prompt.Prompt) =>
+          Ref.modify(requests, (seen) => [Array.length(seen), Array.append(seen, prompt)]).pipe(
             Effect.flatMap((call) =>
               Array.get(replies, call).pipe(Option.getOrElse(() => Effect.fail(exhausted(call)))),
             ),
           );
-        return Script.of({ next, prompts: Ref.get(prompts) });
+        return Script.of({
+          next,
+          prompts: Effect.map(Ref.get(requests), Array.map(textOf)),
+          requests: Ref.get(requests),
+        });
       }),
     );
 }
@@ -81,9 +94,7 @@ export const scripted = (replies: ReadonlyArray<Reply>) =>
       const script = yield* Script;
       return yield* LanguageModel.make({
         generateText: (options) =>
-          script
-            .next(textOf(options.prompt))
-            .pipe(Effect.map((text) => [{ text, type: "text" as const }])),
+          script.next(options.prompt).pipe(Effect.map((text) => [{ text, type: "text" as const }])),
         streamText: () => Stream.empty,
       });
     }),

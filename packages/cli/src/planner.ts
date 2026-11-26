@@ -18,18 +18,20 @@ import {
   FileSystem,
   HashSet,
   Layer,
+  Match,
   Number,
   Option,
   Order,
   Path,
   Predicate,
   Record,
+  Ref,
   Result,
   Schema,
   String,
   Struct,
 } from "effect";
-import { AiError, LanguageModel } from "effect/ai";
+import { AiError, Chat, LanguageModel, Prompt } from "effect/ai";
 
 /** Why a planner call failed: the model could not be reached, or its reply never decoded. */
 export class PlannerError extends Schema.TaggedError<
@@ -301,8 +303,11 @@ const readText = Effect.fn("readText")(
 
 /** The prompts, each a function of what its call knows. */
 export interface Prompts {
-  /** Asks again after a reply failed to decode, with the decode error in the prompt. */
-  readonly retry: (prompt: string, error: string) => Effect.Effect<string, PromptError>;
+  /**
+   * The follow-up turn that asks again after a reply was refused. It goes in the same chat as the
+   * first prompt and the refused reply, so it carries only the error.
+   */
+  readonly retry: (error: string) => Effect.Effect<string, PromptError>;
   readonly spec: (prd: string) => Effect.Effect<string, PromptError>;
   readonly sections: (
     prd: string,
@@ -318,12 +323,10 @@ export interface Prompts {
     existing: ReadonlyArray<ManifestTask>,
     part?: PartIds,
   ) => Effect.Effect<string, PromptError>;
-  /** `draft` is the draft as JSON. */
-  readonly splitTask: (
-    draft: string,
-    spec: string,
-    reason: string,
-  ) => Effect.Effect<string, PromptError>;
+  /** The system message every `splitTask` of a round shares: the spec, the categories and the models. */
+  readonly splitOpening: (spec: string) => Effect.Effect<string, PromptError>;
+  /** One split's turn after `splitOpening`. `draft` is the draft as JSON. */
+  readonly splitTask: (draft: string, reason: string) => Effect.Effect<string, PromptError>;
   readonly splitSection: (section: string, reason: string) => Effect.Effect<string, PromptError>;
   readonly index: (section: IndexTarget) => Effect.Effect<string, PromptError>;
   readonly statements: (
@@ -402,6 +405,7 @@ export const loadPrompts = Effect.fn("loadPrompts")(function* (
     partTasks,
     example,
     splitSection,
+    splitOpening,
     splitTask,
     index,
     statements,
@@ -415,6 +419,7 @@ export const loadPrompts = Effect.fn("loadPrompts")(function* (
       readText("part-tasks", promptUrl("part-tasks")),
       readText("spec example", exampleUrl),
       readText("split-section", promptUrl("split-section")),
+      readText("split-task-opening", promptUrl("split-task-opening")),
       readText("split-task", promptUrl("split-task")),
       readText("index", promptUrl("index")),
       readText("statements", promptUrl("statements")),
@@ -422,7 +427,7 @@ export const loadPrompts = Effect.fn("loadPrompts")(function* (
     { concurrency: "unbounded" },
   );
   return {
-    retry: (prompt, error) => fillPrompt("retry", retry, { error, prompt }),
+    retry: (error) => fillPrompt("retry", retry, { error }),
     spec: (prd) => fillPrompt("spec", spec, { example, prd }),
     sections: (prd, specText, prdSections, rewrite, part?: PartIds) =>
       Effect.gen(function* () {
@@ -446,14 +451,13 @@ export const loadPrompts = Effect.fn("loadPrompts")(function* (
           spec: specText,
         });
       }),
-    splitTask: (draft, specText, reason) =>
-      fillPrompt("split-task", splitTask, {
+    splitOpening: (specText) =>
+      fillPrompt("split-task-opening", splitOpening, {
         categories: categoryTable(categories),
-        draft,
         models: modelTable(models),
-        reason,
         spec: specText,
       }),
+    splitTask: (draft, reason) => fillPrompt("split-task", splitTask, { draft, reason }),
     splitSection: (section, reason) =>
       fillPrompt("split-section", splitSection, { reason, section }),
     index: (section) =>
@@ -476,9 +480,9 @@ const failed =
     Schema.is(PlannerError)(error) ? error : new PlannerError({ call, reason: error.message });
 
 /**
- * Logs one line when a model call ends: which call it was, how long it took, the sizes of its
- * prompt and reply in characters, and whether it failed. A retry is a model call of its own, so it
- * has its own line. The line goes where the program's logger sends it: stderr for `cairn`.
+ * Logs one line when a model call ends: which call it was, how long it took, the sizes in
+ * characters of the turn it sent and of the reply, and whether it failed. A retry is a model call
+ * of its own, a follow-up turn of the same chat, so it has its own line. The line goes where the program's logger sends it: stderr for `cairn`.
  */
 const timed =
   (call: PlannerError["call"]) =>
@@ -497,6 +501,23 @@ const timed =
       ),
       Effect.flatMap(([, reply]) => Effect.fromResult(reply)),
     );
+
+/**
+ * The turn of a structured reply that did not decode, which `Chat.generateObject` leaves out of
+ * its history: the prompt, and the refused reply when the error kept its text.
+ */
+const refusedTurn = (prompt: string, error: AiError.AiError) =>
+  Prompt.make(
+    Array.prepend(
+      Match.value(error.reason).pipe(
+        Match.tag("StructuredOutputError", (reason) => [
+          { content: reason.responseText, role: "assistant" as const },
+        ]),
+        Match.orElse(() => []),
+      ),
+      { content: prompt, role: "user" as const },
+    ),
+  );
 
 /** The Mermaid blocks of `markdown` that do not draw, each with its parser error and the section it is in. */
 const undrawnIn = (markdown: string) => {
@@ -598,12 +619,22 @@ export class Planner extends Context.Service<
     ) => Effect.Effect<ReadonlyArray<TaskDraft>, PlannerError>;
     /** Markdown for two or more sections that replace `section`, because of `reason`. */
     readonly splitSection: (section: string, reason: string) => Effect.Effect<string, PlannerError>;
-    /** Two or more drafts that together cover `draft`, because of `reason`. */
+    /**
+     * The conversation the `splitTask` calls of one round share: it opens with `spec`, the
+     * categories and the models as one system message, and holds nothing else. Each split runs in
+     * a `branch` of it (`chat.ts`), so concurrent splits never see each other's turns and the
+     * trunk keeps only the opening.
+     */
+    readonly splitTrunk: (spec: string) => Effect.Effect<Chat.Chat, PlannerError>;
+    /**
+     * Two or more drafts that together cover `draft`, because of `reason`, asked as the next turn
+     * of the provided `Chat`, which `splitTrunk` opened with the spec. A retry is a turn of that
+     * chat too, so give each split its own `branch` of the trunk.
+     */
     readonly splitTask: (
       draft: TaskDraft,
-      spec: string,
       reason: string,
-    ) => Effect.Effect<ReadonlyArray<TaskDraft>, PlannerError>;
+    ) => Effect.Effect<ReadonlyArray<TaskDraft>, PlannerError, Chat.Chat>;
     /** The prose fields of the section's entry in `spec.json`. */
     readonly index: (section: IndexTarget) => Effect.Effect<IndexProse, PlannerError>;
     /**
@@ -630,33 +661,35 @@ export class Planner extends Context.Service<
         const prompts = yield* loadPrompts(config.judge.models, config.categories);
         const knownCategories = inCategories(config.categories);
 
-        const textFor = (call: PlannerError["call"]) => (prompt: string) =>
+        /** One turn of `chat` that asks for text. The turn and the reply join the chat's history. */
+        const textIn = (call: PlannerError["call"], chat: Chat.Chat) => (prompt: string) =>
           timed(call)(
             prompt,
-            LanguageModel.generateText({ prompt }).pipe(
-              Effect.provideService(LanguageModel.LanguageModel, model),
-            ),
+            chat
+              .generateText({ prompt })
+              .pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
           ).pipe(Effect.map((response) => response.text));
+
+        /** Asks again in `chat` after its last reply was refused; the follow-up carries only why. */
+        const againIn = (call: PlannerError["call"], chat: Chat.Chat) => (errors: string) =>
+          prompts.retry(errors).pipe(Effect.flatMap(textIn(call, chat)));
 
         const spec = Effect.fn("Planner.spec")(
           function* (prd: string) {
+            const chat = yield* Chat.empty;
             const prompt = yield* prompts.spec(prd);
-            const reply = yield* textFor("spec")(prompt);
-            return yield* drawnOf(reply, (errors) =>
-              prompts.retry(prompt, errors).pipe(Effect.flatMap(textFor("spec"))),
-            );
+            const reply = yield* textIn("spec", chat)(prompt);
+            return yield* drawnOf(reply, againIn("spec", chat));
           },
           Effect.mapError(failed("spec")),
         );
 
-        const drawnFor = (prompt: string) =>
-          textFor("sections")(prompt).pipe(
-            Effect.flatMap((reply) =>
-              drawnOf(reply, (errors) =>
-                prompts.retry(prompt, errors).pipe(Effect.flatMap(textFor("sections"))),
-              ),
-            ),
-          );
+        /** A `sections` turn of `chat`, whose Mermaid blocks that do not draw go back once in the same chat. */
+        const drawnIn = (chat: Chat.Chat) => (prompt: string) =>
+          textIn(
+            "sections",
+            chat,
+          )(prompt).pipe(Effect.flatMap((reply) => drawnOf(reply, againIn("sections", chat))));
 
         const sections = Effect.fn("Planner.sections")(
           function* (
@@ -666,8 +699,9 @@ export class Planner extends Context.Service<
             rewrite: ReadonlyArray<SpecSectionId>,
             part?: PartIds,
           ) {
+            const chat = yield* Chat.empty;
             const prompt = yield* prompts.sections(prd, specText, prdSections, rewrite, part);
-            const written = yield* drawnFor(prompt);
+            const written = yield* drawnIn(chat)(prompt);
             const outsideIn = (markdown: string) =>
               Option.match(Option.fromUndefinedOr(part), {
                 onNone: () => Array.empty<string>(),
@@ -677,8 +711,8 @@ export class Planner extends Context.Service<
             if (!Array.isReadonlyArrayNonEmpty(outside)) {
               return written;
             }
-            const again = yield* prompts.retry(prompt, Array.join(outside, "\n"));
-            const second = yield* drawnFor(again);
+            const again = yield* prompts.retry(Array.join(outside, "\n"));
+            const second = yield* drawnIn(chat)(again);
             const left = outsideIn(second);
             return Array.isReadonlyArrayNonEmpty(left)
               ? yield* new PlannerError({ call: "sections", reason: Array.join(left, "\n") })
@@ -689,27 +723,28 @@ export class Planner extends Context.Service<
 
         // `generateObject` decodes the reply through its schema, so a reply that does not decode
         // fails with a decode failure we can tell from a transport one. That lets each call
-        // decide to retry once, with the decode error in the prompt.
+        // decide to ask once more, in the same chat, with the decode error as the follow-up turn.
+        // A chat adds a turn to its history only when the reply decodes, so the turn and the
+        // refused reply are added here first, and the model sees what it is asked to fix.
         const withRetry = <A>(
+          chat: Chat.Chat,
           prompt: string,
-          ask: (prompt: string) => Effect.Effect<A, AiError.AiError>,
+          ask: (chat: Chat.Chat) => (prompt: string) => Effect.Effect<A, AiError.AiError>,
         ) =>
-          ask(prompt).pipe(
+          ask(chat)(prompt).pipe(
             Effect.catchIf(isDecodeFailure, (error) =>
-              prompts
-                .retry(prompt, error.message)
-                .pipe(Effect.flatMap((retryPrompt) => ask(retryPrompt))),
+              Ref.update(chat.history, (history) =>
+                Prompt.concat(history, refusedTurn(prompt, error)),
+              ).pipe(Effect.andThen(prompts.retry(error.message)), Effect.flatMap(ask(chat))),
             ),
           );
 
-        const draftsFor = (schema: typeof TaskDrafts) => (prompt: string) =>
+        const draftsFor = (schema: typeof TaskDrafts) => (chat: Chat.Chat) => (prompt: string) =>
           timed("tasks")(
             prompt,
-            LanguageModel.generateObject({
-              objectName: "TaskDrafts",
-              prompt,
-              schema,
-            }).pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+            chat
+              .generateObject({ objectName: "TaskDrafts", prompt, schema })
+              .pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
           ).pipe(Effect.map((response) => response.value.drafts));
 
         const tasks = Effect.fn("Planner.tasks")(
@@ -720,8 +755,10 @@ export class Planner extends Context.Service<
             existing: ReadonlyArray<ManifestTask>,
             part?: PartIds,
           ) {
+            const chat = yield* Chat.empty;
             const prompt = yield* prompts.tasks(prd, specText, specSections, existing, part);
             return yield* withRetry(
+              chat,
               prompt,
               draftsFor(
                 Option.match(Option.fromUndefinedOr(part), {
@@ -736,66 +773,93 @@ export class Planner extends Context.Service<
 
         const splitSection = Effect.fn("Planner.splitSection")(
           function* (section: string, reason: string) {
+            const chat = yield* Chat.empty;
             const prompt = yield* prompts.splitSection(section, reason);
-            return yield* textFor("splitSection")(prompt);
+            return yield* textIn("splitSection", chat)(prompt);
           },
           Effect.mapError(failed("splitSection")),
         );
 
-        const splitDraftsFor = (prompt: string) =>
+        const splitTrunk = Effect.fn("Planner.splitTrunk")(
+          function* (specText: string) {
+            const opening = yield* prompts.splitOpening(specText);
+            return yield* Chat.fromPrompt([{ content: opening, role: "system" }]);
+          },
+          Effect.mapError(failed("splitTask")),
+        );
+
+        const splitDraftsFor = (chat: Chat.Chat) => (prompt: string) =>
           timed("splitTask")(
             prompt,
-            LanguageModel.generateObject({
-              objectName: "SplitDrafts",
-              prompt,
-              schema: SplitDrafts.check(knownCategories),
-            }).pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+            chat
+              .generateObject({
+                objectName: "SplitDrafts",
+                prompt,
+                schema: SplitDrafts.check(knownCategories),
+              })
+              .pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
           ).pipe(Effect.map((response) => response.value.drafts));
 
         const splitTask = Effect.fn("Planner.splitTask")(
-          function* (draft: TaskDraft, specText: string, reason: string) {
+          function* (draft: TaskDraft, reason: string) {
+            const chat = yield* Chat.Chat;
             const draftJson = yield* Schema.encodeEffect(DraftJson)(draft);
-            const prompt = yield* prompts.splitTask(draftJson, specText, reason);
-            return yield* withRetry(prompt, splitDraftsFor);
+            const prompt = yield* prompts.splitTask(draftJson, reason);
+            return yield* withRetry(chat, prompt, splitDraftsFor);
           },
           Effect.mapError(failed("splitTask")),
         );
 
         const index = Effect.fn("Planner.index")(
           function* (section: IndexTarget) {
+            const chat = yield* Chat.empty;
             const prompt = yield* prompts.index(section);
-            const proseFor = (text: string) =>
+            const proseFor = (own: Chat.Chat) => (text: string) =>
               timed("index")(
                 text,
-                LanguageModel.generateObject({
-                  objectName: "IndexProse",
-                  prompt: text,
-                  schema: indexProseOf(section.id),
-                }).pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+                own
+                  .generateObject({
+                    objectName: "IndexProse",
+                    prompt: text,
+                    schema: indexProseOf(section.id),
+                  })
+                  .pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
               ).pipe(Effect.map((response) => response.value));
-            return yield* withRetry(prompt, proseFor);
+            return yield* withRetry(chat, prompt, proseFor);
           },
           Effect.mapError(failed("index")),
         );
 
         const statements = Effect.fn("Planner.statements")(
           function* (prd: string, targets: ReadonlyArray<PrdSectionId>) {
+            const chat = yield* Chat.empty;
             const prompt = yield* prompts.statements(prd, targets);
-            const draftsOf = (text: string) =>
+            const draftsOf = (own: Chat.Chat) => (text: string) =>
               timed("statements")(
                 text,
-                LanguageModel.generateObject({
-                  objectName: "StatementDrafts",
-                  prompt: text,
-                  schema: statementDraftsOf(targets),
-                }).pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
+                own
+                  .generateObject({
+                    objectName: "StatementDrafts",
+                    prompt: text,
+                    schema: statementDraftsOf(targets),
+                  })
+                  .pipe(Effect.provideService(LanguageModel.LanguageModel, model)),
               ).pipe(Effect.map((response) => response.value.statements));
-            return yield* withRetry(prompt, draftsOf);
+            return yield* withRetry(chat, prompt, draftsOf);
           },
           Effect.mapError(failed("statements")),
         );
 
-        return Planner.of({ index, sections, spec, splitSection, splitTask, statements, tasks });
+        return Planner.of({
+          index,
+          sections,
+          spec,
+          splitSection,
+          splitTask,
+          splitTrunk,
+          statements,
+          tasks,
+        });
       }),
     );
 
