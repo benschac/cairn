@@ -1,6 +1,6 @@
 # effect core API index
 
-Generated from the type declarations of the installed `effect@4.1.5` by `scripts/effect-api/index-effect-core.ts`. Do not edit it; `pnpm check:effect-api` fails when it is stale.
+Generated from the type declarations of the installed `effect@4.1.6` by `scripts/effect-api/index-effect-core.ts`. Do not edit it; `pnpm check:effect-api` fails when it is stale.
 
 Each row is one export of `import { <Module> } from 'effect'`. Its JSDoc, examples, and signature are lines Start to End of `node_modules/effect/dist/<Module>.d.ts`.
 
@@ -444,164 +444,164 @@ For a native pattern and its Effect replacement, start with [native-to-effect.md
 | Cause | annotations | 1946 | 1980 | Reads the merged annotations from all reasons in a `Cause`. |
 | Cause | StackTrace | 1981 | 2005 | Context annotation used to store the stack frame captured at the point of failure. |
 | Cause | InterruptorStackTrace | 2006 | 2030 | Context annotation used to store the stack frame captured at the point of interruption. |
-| Channel | TypeId | 35 | 42 | String literal type used as the unique brand for `Channel` values. |
-| Channel | TypeId | 43 | 51 | Runtime identifier stored on `Channel` values and used by `isChannel` to recognize them. |
-| Channel | isChannel | 52 | 69 | Checks whether a value is a `Channel`. |
-| Channel | Channel | 70 | 129 | A `Channel` is a nexus of I/O operations, which supports both reading and writing. |
-| Channel | ChannelUnify | 130 | 147 | Type-level unification support for `Channel` values. |
-| Channel | ChannelUnifyIgnore | 148 | 167 | Marker used by `Unify` while resolving `Channel` values. |
-| Channel | Variance | 168 | 184 | Phantom variance marker for the type parameters of `Channel`. |
-| Channel | VarianceStruct | 185 | 207 | Structural encoding used by `Variance` to record each `Channel` type parameter's variance. |
-| Channel | fromTransform | 208 | 226 | Creates a `Channel` from a transformation function that operates on upstream pulls. |
-| Channel | transformPull | 227 | 252 | Transforms a Channel by applying a function to its Pull implementation. |
-| Channel | fromPull | 253 | 276 | Creates a `Channel` from an `Effect` that produces a `Pull`. |
-| Channel | fromTransformBracket | 277 | 293 | Creates a `Channel` from a transformation function that operates on upstream pulls, but also provides a forked scope that closes when the... |
-| Channel | toTransform | 294 | 312 | Converts a `Channel` back to its underlying transformation function. |
-| Channel | DefaultChunkSize | 313 | 328 | The default chunk size used by channels for batching operations. |
-| Channel | callback | 329 | 355 | Creates a `Channel` that interacts with a callback function using a queue. |
-| Channel | callbackArray | 356 | 379 | Creates a `Channel` that interacts with a callback function using a queue, emitting arrays. |
-| Channel | suspend | 380 | 396 | Creates a `Channel` that lazily evaluates to another channel. |
-| Channel | acquireUseRelease | 397 | 425 | Acquires a resource, uses it to build a `Channel`, and guarantees that `release` runs with the channel's `Exit` when the channel complete... |
-| Channel | acquireRelease | 426 | 510 | Acquires a resource, emits the acquired value as a single channel element, and registers `release` in the channel scope. |
-| Channel | fromIterator | 511 | 528 | Creates a `Channel` from an iterator. |
-| Channel | fromArray | 529 | 545 | Creates a `Channel` that emits all elements from an array. |
-| Channel | fromChunk | 546 | 563 | Creates a `Channel` that emits all elements from a chunk. |
-| Channel | fromIteratorArray | 564 | 616 | Creates a `Channel` from an iterator that emits arrays of elements. |
-| Channel | fromIterable | 617 | 634 | Creates a `Channel` that emits all elements from an iterable. |
-| Channel | fromIterableArray | 635 | 657 | Creates a `Channel` that emits arrays of elements from an iterable. |
-| Channel | succeed | 658 | 674 | Creates a `Channel` that emits a single value and then ends. |
-| Channel | end | 675 | 691 | Creates a `Channel` that immediately ends with the specified value. |
-| Channel | endSync | 692 | 699 | Creates a `Channel` that immediately ends with the lazily evaluated value. |
-| Channel | sync | 700 | 721 | Creates a `Channel` that emits a single value computed by a lazy evaluation. |
-| Channel | empty | 722 | 748 | Represents a `Channel` that emits no elements. |
-| Channel | never | 749 | 777 | Represents a `Channel` that never completes. |
-| Channel | fail | 778 | 794 | Constructs a channel that fails immediately with the specified error. |
-| Channel | failSync | 795 | 824 | Constructs a channel that fails immediately with the specified lazily evaluated error. |
-| Channel | failCause | 825 | 847 | Constructs a channel that fails immediately with the specified `Cause`. |
-| Channel | failCauseSync | 848 | 874 | Constructs a channel that fails immediately with the specified lazily evaluated `Cause`. |
-| Channel | die | 875 | 892 | Constructs a channel that fails immediately with the specified defect. |
-| Channel | fromEffect | 893 | 911 | Uses an effect to write a single value to the channel. |
-| Channel | fromEffectDone | 912 | 924 | Creates a channel that evaluates an effect and uses its successful value as the channel's done value without emitting any output elements. |
-| Channel | fromEffectDrain | 925 | 932 | Uses an effect and discards its result. |
-| Channel | fromEffectTake | 933 | 946 | Creates a channel from an effect that produces a `Take`. |
-| Channel | fromQueue | 947 | 969 | Creates a channel from a queue. |
-| Channel | fromQueueArray | 970 | 992 | Creates a channel from a queue that emits arrays of elements. |
-| Channel | identity | 993 | 1001 | Creates a channel that forwards upstream input elements, input errors, and the upstream done value unchanged. |
-| Channel | fromSubscription | 1002 | 1049 | Creates a channel from a PubSub subscription. |
-| Channel | fromSubscriptionArray | 1050 | 1161 | Creates a channel from a PubSub subscription that outputs arrays of values. |
-| Channel | fromPubSub | 1162 | 1264 | Creates a channel from a PubSub that outputs individual values. |
-| Channel | fromPubSubArray | 1265 | 1404 | Creates a channel from a PubSub that outputs arrays of values. |
-| Channel | fromPubSubTake | 1405 | 1417 | Subscribes to a `PubSub` of `Take` values and exposes them as a channel. |
-| Channel | fromSchedule | 1418 | 1425 | Creates a Channel from a Schedule. |
-| Channel | fromReadableStream | 1426 | 1461 | Creates a channel from a lazily supplied Web `ReadableStream`. |
-| Channel | fromWritableStream | 1462 | 1498 | Creates a channel that writes upstream values to a lazily supplied Web `WritableStream`. |
-| Channel | fromTransformStream | 1499 | 1534 | Creates a channel backed by a Web `TransformStream`, writing upstream values while emitting transformed values from its readable side. |
-| Channel | fromAsyncIterable | 1535 | 1551 | Creates a channel that pulls values from an `AsyncIterable`. |
-| Channel | fromAsyncIterableArray | 1552 | 1569 | Creates a channel from an `AsyncIterable`, emitting each yielded value as a single-element non-empty array. |
-| Channel | map | 1570 | 1696 | Maps the output of this channel using the specified function. |
-| Channel | mapDone | 1697 | 1721 | Maps the done value of this channel using the specified function. |
-| Channel | mapDoneEffect | 1722 | 1761 | Maps the done value of this channel using the specified effectful function. |
-| Channel | mapEffect | 1762 | 1870 | Maps each output element with an effectful function, preserving the source channel's done value. |
-| Channel | mapInput | 1871 | 1898 | Returns a new channel which is the same as this one but applies the given function to the input channel’s input elements. |
-| Channel | mapInputError | 1899 | 1926 | Returns a new channel which is the same as this one but applies the given function to the input errors. |
-| Channel | tap | 1927 | 2042 | Applies a side effect function to each output element of the channel, returning a new channel that emits the same elements. |
-| Channel | flatMap | 2043 | 2163 | Maps each output element to a channel and flattens the child channel outputs. |
-| Channel | concatWith | 2164 | 2242 | Concatenates this channel with another channel created from the terminal value of this channel. |
-| Channel | concat | 2243 | 2327 | Concatenates this channel with another channel, so that the second channel starts emitting values after the first channel has completed. |
-| Channel | combine | 2328 | 2385 | Combines two channels with a stateful pull function. |
-| Channel | orElseIfEmpty | 2386 | 2431 | Runs a fallback channel if this channel completes without emitting any output elements. |
-| Channel | flatten | 2432 | 2461 | Flattens a channel of channels. |
-| Channel | flattenArray | 2462 | 2491 | Flattens a channel that outputs arrays into a channel that outputs individual elements. |
-| Channel | flattenTake | 2492 | 2505 | Flattens a channel that emits `Take` values into a channel that emits the `Take` outputs directly. |
-| Channel | drain | 2506 | 2528 | Creates a new channel that consumes all output from the source channel but emits nothing, preserving only the completion value. |
-| Channel | repeat | 2529 | 2553 | Repeats this channel according to the provided schedule. |
-| Channel | forever | 2554 | 2561 | Repeats this channel forever. |
-| Channel | schedule | 2562 | 2610 | Runs a schedule step for each output element while preserving the emitted elements. |
-| Channel | filter | 2611 | 2761 | Filters the output elements of a channel using a predicate function. |
-| Channel | filterMap | 2762 | 2831 | Filters and maps output elements using a `Filter`. |
-| Channel | filterEffect | 2832 | 2889 | Filters output elements with an effectful predicate. |
-| Channel | filterMapEffect | 2890 | 2962 | Filters and maps output elements using an effectful `Filter`. |
-| Channel | filterArray | 2963 | 3153 | Filters arrays of elements emitted by a channel, applying the filter to each element within the arrays and only emitting non-empty filter... |
-| Channel | filterMapArray | 3154 | 3196 | Filters and maps each element inside emitted non-empty arrays using a `Filter`. |
-| Channel | filterArrayEffect | 3197 | 3257 | Filters each element inside emitted non-empty arrays with an effectful predicate. |
-| Channel | filterMapArrayEffect | 3258 | 3318 | Filters and maps each element inside emitted non-empty arrays using an effectful `Filter`. |
-| Channel | mapAccum | 3319 | 3443 | Maps over a channel statefully with an accumulator, where each element can produce multiple output values. |
-| Channel | scan | 3444 | 3540 | Transforms a channel statefully by scanning over its output with an accumulator function. |
-| Channel | scanEffect | 3541 | 3694 | Transforms a channel statefully by scanning over its output with an effectful accumulator function. |
-| Channel | catchCause | 3695 | 3809 | Catches any cause of failure from the channel and allows recovery by creating a new channel based on the caught cause. |
-| Channel | catchDefect | 3810 | 3900 | Recovers from defects using the provided function. |
-| Channel | tapCause | 3901 | 3958 | Runs an effect with the full failure `Cause` when the channel fails, then fails the returned channel with the original cause. |
-| Channel | catchCauseIf | 3959 | 4031 | Catches causes of failure that match a specific filter, allowing conditional error recovery based on the type of failure. |
-| Channel | catchCauseFilter | 4032 | 4104 | Recovers from channel failures whose full `Cause` is selected by a `Filter`. |
-| Channel | catch | 4105 | 4124 | Recovers from typed channel errors by running a fallback channel. |
-| Channel | tapError | 4125 | 4167 | Runs an effect when the channel fails with a typed error, then preserves the original channel failure. |
-| Channel | catchIf | 4168 | 4318 | Recovers from typed channel errors that match a predicate or refinement. |
-| Channel | catchFilter | 4319 | 4406 | Recovers from typed channel errors selected by a `Filter`. |
-| Channel | catchTag | 4407 | 4467 | Recovers from tagged channel errors whose `_tag` matches one or more tags. |
-| Channel | catchReason | 4468 | 4594 | Catches a specific reason within a tagged error. |
-| Channel | catchReasons | 4595 | 4669 | Catches multiple reasons within a tagged error using an object of handlers. |
-| Channel | unwrapReason | 4670 | 4766 | Promotes nested reason errors into the channel error, replacing the parent error. |
-| Channel | mapError | 4767 | 4806 | Transforms the typed errors of a channel using the specified function. |
-| Channel | orDie | 4807 | 4834 | Converts all errors in the channel to defects (unrecoverable failures). |
-| Channel | ignore | 4835 | 4864 | Ignores all errors in the channel, converting them to an empty channel. |
-| Channel | ignoreCause | 4865 | 4892 | Ignores all errors in the channel including defects, converting them to an empty channel. |
-| Channel | retry | 4893 | 4938 | Returns a new channel that retries this channel according to the specified schedule whenever it fails. |
-| Channel | switchMap | 4939 | 5053 | Maps each output element to a channel and emits values from the most recent active child channels. |
-| Channel | mergeAll | 5054 | 5176 | Merges multiple channels with specified concurrency and buffering options. |
-| Channel | HaltStrategy | 5177 | 5193 | Represents strategies for halting merged channels when one completes or fails. |
-| Channel | merge | 5194 | 5273 | Returns a new channel, which is the merge of this channel and the specified channel. |
-| Channel | mergeEffect | 5274 | 5331 | Runs an effect concurrently with a channel while emitting only the channel's output elements. |
-| Channel | splitLines | 5332 | 5359 | Splits upstream string chunks into lines, recognizing `\n`, `\r\n`, and standalone `\r` as line terminators. |
-| Channel | decodeText | 5360 | 5374 | Decodes incoming `Uint8Array` chunks into strings using `TextDecoder`. |
-| Channel | encodeText | 5375 | 5386 | Encodes incoming string chunks into `Uint8Array` values using `TextEncoder`. |
-| Channel | pipeTo | 5387 | 5477 | Returns a new channel that pipes the output of this channel into the specified channel. |
-| Channel | pipeToOrFail | 5478 | 5568 | Returns a new channel that pipes the output of this channel into the specified channel and preserves this channel's failures without prov... |
-| Channel | unwrap | 5569 | 5597 | Constructs a `Channel` from a scoped effect that will result in a `Channel` if successful. |
-| Channel | scoped | 5598 | 5606 | Runs a channel with a scope provided for the duration of the channel execution, removing the channel's `Scope` requirement. |
-| Channel | embedInput | 5607 | 5709 | Runs an input handler against the upstream pull while the wrapped channel runs without receiving upstream input directly. |
-| Channel | buffer | 5710 | 5801 | Buffers individual output elements in a queue with the configured `capacity` so a faster producer can progress independently of a slower ... |
-| Channel | bufferArray | 5802 | 5899 | Buffers array output elements in a queue with the configured `capacity` so a faster producer can progress independently of a slower consu... |
-| Channel | interruptWhen | 5900 | 5957 | Interrupts a channel when another effect completes. |
-| Channel | haltWhen | 5958 | 6003 | Stops a channel when the specified effect completes or fails. |
-| Channel | onError | 6004 | 6043 | Attaches a finalizer that runs only when the channel exits with failure. |
-| Channel | onExit | 6044 | 6134 | Returns a channel with an exit-aware finalizer that is guaranteed to run once the channel begins execution, whether it succeeds or fails. |
-| Channel | onStart | 6135 | 6174 | Runs an effect before the channel starts. |
-| Channel | onFirst | 6175 | 6232 | Runs an effect the first time the channel emits an output element. |
-| Channel | onEnd | 6233 | 6275 | Runs an effect when the channel completes successfully. |
-| Channel | ensuring | 6276 | 6366 | Returns a channel with a finalizer effect that is guaranteed to run once the channel begins execution, whether it succeeds or fails. |
-| Channel | contextWith | 6367 | 6374 | Creates a channel from the specified services. |
-| Channel | provideContext | 6375 | 6402 | Provides a `Context` to the channel, removing the corresponding service requirements from the returned channel. |
-| Channel | provideService | 6403 | 6430 | Provides a concrete service for a context key, removing that service requirement from the returned channel. |
-| Channel | provideServiceEffect | 6431 | 6485 | Provides a service to the channel after obtaining it from an effect. |
-| Channel | provide | 6486 | 6535 | Provides a `Layer` or `Context` to the channel, removing the corresponding service requirements. |
-| Channel | updateContext | 6536 | 6578 | Transforms the current context before running the channel. |
-| Channel | updateService | 6579 | 6618 | Updates a service in the current context before running the channel. |
-| Channel | withSpan | 6619 | 6658 | Runs the channel inside a tracing span with the specified name and options. |
-| Channel | Do | 6659 | 6666 | The starting channel for Do notation, emitting an empty object. |
-| Channel | let | 6667 | 6683 | Adds a computed field to each object emitted by a channel. |
-| Channel | bind | 6684 | 6739 | Adds a field to each object emitted by a channel by running another channel derived from that object. |
-| Channel | bindTo | 6740 | 6795 | Wraps each output element in an object under the specified field name. |
-| Channel | runCount | 6796 | 6821 | Runs a channel and counts the number of elements it outputs. |
-| Channel | runDrain | 6822 | 6848 | Runs a channel and discards all output elements, returning only the final result. |
-| Channel | runForEach | 6849 | 6942 | Runs a channel and applies an effect to each output element. |
-| Channel | runForEachWhile | 6943 | 6985 | Runs a channel and applies an effectful predicate to each output element until the predicate returns `false`. |
-| Channel | mkUint8Array | 6986 | 7012 | Concatenates a channel's `Uint8Array` chunks into a single `Uint8Array`. |
-| Channel | runCollect | 7013 | 7038 | Runs a channel and collects all output elements into an array. |
-| Channel | runHead | 7039 | 7052 | Runs a channel until the first output element is available, returning it in an `Option`. |
-| Channel | runLast | 7053 | 7066 | Runs a channel to completion and returns the last output element in an `Option`. |
-| Channel | runFold | 7067 | 7145 | Runs a channel and folds over all output elements with an accumulator. |
-| Channel | runFoldEffect | 7146 | 7203 | Runs a channel and effectfully folds all output elements with an accumulator. |
-| Channel | toPull | 7204 | 7236 | Converts a channel to a scoped `Pull` for low-level consumption. |
-| Channel | toPullScoped | 7237 | 7265 | Converts a channel to a Pull within an existing scope. |
-| Channel | runIntoQueue | 7266 | 7308 | Runs a channel and offers each output element into a queue. |
-| Channel | runIntoQueueArray | 7309 | 7354 | Runs a channel that emits non-empty arrays and offers each array element into a queue. |
-| Channel | toQueue | 7355 | 7470 | Creates a scoped queue and forks the channel to feed it for concurrent consumption. |
-| Channel | toQueueArray | 7471 | 7523 | Creates a scoped queue and forks an array-emitting channel to feed it. |
-| Channel | toPubSub | 7524 | 7581 | Converts a channel to a PubSub for concurrent consumption. |
-| Channel | runIntoPubSub | 7582 | 7625 | Runs a channel and publishes each output element to a `PubSub`. |
-| Channel | toPubSubArray | 7626 | 7689 | Converts an array-emitting channel to a scoped `PubSub` for concurrent consumption. |
-| Channel | runIntoPubSubArray | 7690 | 7739 | Runs an array-emitting channel and publishes each array element to a `PubSub`. |
-| Channel | toPubSubTake | 7740 | 7800 | Converts a channel to a scoped `PubSub` of `Take` values. |
+| Channel | TypeId | 52 | 59 | String literal type used as the unique brand for `Channel` values. |
+| Channel | TypeId | 60 | 68 | Runtime identifier stored on `Channel` values and used by `isChannel` to recognize them. |
+| Channel | isChannel | 69 | 86 | Checks whether a value is a `Channel`. |
+| Channel | Channel | 87 | 146 | A `Channel` is a nexus of I/O operations, which supports both reading and writing. |
+| Channel | ChannelUnify | 147 | 164 | Type-level unification support for `Channel` values. |
+| Channel | ChannelUnifyIgnore | 165 | 184 | Marker used by `Unify` while resolving `Channel` values. |
+| Channel | Variance | 185 | 201 | Phantom variance marker for the type parameters of `Channel`. |
+| Channel | VarianceStruct | 202 | 224 | Structural encoding used by `Variance` to record each `Channel` type parameter's variance. |
+| Channel | fromTransform | 225 | 243 | Creates a `Channel` from a transformation function that operates on upstream pulls. |
+| Channel | transformPull | 244 | 269 | Transforms a Channel by applying a function to its Pull implementation. |
+| Channel | fromPull | 270 | 293 | Creates a `Channel` from an `Effect` that produces a `Pull`. |
+| Channel | fromTransformBracket | 294 | 310 | Creates a `Channel` from a transformation function that operates on upstream pulls, but also provides a forked scope that closes when the... |
+| Channel | toTransform | 311 | 329 | Converts a `Channel` back to its underlying transformation function. |
+| Channel | DefaultChunkSize | 330 | 345 | The default chunk size used by channels for batching operations. |
+| Channel | callback | 346 | 378 | Creates a `Channel` that interacts with a callback function using a queue. |
+| Channel | callbackArray | 379 | 408 | Creates a `Channel` that interacts with a callback function using a queue, emitting arrays. |
+| Channel | suspend | 409 | 425 | Creates a `Channel` that lazily evaluates to another channel. |
+| Channel | acquireUseRelease | 426 | 458 | Acquires a resource, uses it to build a `Channel`, and guarantees that `release` runs with the channel's `Exit` when the channel complete... |
+| Channel | acquireRelease | 459 | 552 | Acquires a resource, emits the acquired value as a single channel element, and registers `release` in the channel scope. |
+| Channel | fromIterator | 553 | 570 | Creates a `Channel` from an iterator. |
+| Channel | fromArray | 571 | 587 | Creates a `Channel` that emits all elements from an array. |
+| Channel | fromChunk | 588 | 605 | Creates a `Channel` that emits all elements from a chunk. |
+| Channel | fromIteratorArray | 606 | 658 | Creates a `Channel` from an iterator that emits arrays of elements. |
+| Channel | fromIterable | 659 | 676 | Creates a `Channel` that emits all elements from an iterable. |
+| Channel | fromIterableArray | 677 | 699 | Creates a `Channel` that emits arrays of elements from an iterable. |
+| Channel | succeed | 700 | 716 | Creates a `Channel` that emits a single value and then ends. |
+| Channel | end | 717 | 733 | Creates a `Channel` that immediately ends with the specified value. |
+| Channel | endSync | 734 | 741 | Creates a `Channel` that immediately ends with the lazily evaluated value. |
+| Channel | sync | 742 | 763 | Creates a `Channel` that emits a single value computed by a lazy evaluation. |
+| Channel | empty | 764 | 790 | Represents a `Channel` that emits no elements. |
+| Channel | never | 791 | 819 | Represents a `Channel` that never completes. |
+| Channel | fail | 820 | 836 | Constructs a channel that fails immediately with the specified error. |
+| Channel | failSync | 837 | 866 | Constructs a channel that fails immediately with the specified lazily evaluated error. |
+| Channel | failCause | 867 | 889 | Constructs a channel that fails immediately with the specified `Cause`. |
+| Channel | failCauseSync | 890 | 916 | Constructs a channel that fails immediately with the specified lazily evaluated `Cause`. |
+| Channel | die | 917 | 934 | Constructs a channel that fails immediately with the specified defect. |
+| Channel | fromEffect | 935 | 953 | Uses an effect to write a single value to the channel. |
+| Channel | fromEffectDone | 954 | 966 | Creates a channel that evaluates an effect and uses its successful value as the channel's done value without emitting any output elements. |
+| Channel | fromEffectDrain | 967 | 974 | Uses an effect and discards its result. |
+| Channel | fromEffectTake | 975 | 988 | Creates a channel from an effect that produces a `Take`. |
+| Channel | fromQueue | 989 | 1011 | Creates a channel from a queue. |
+| Channel | fromQueueArray | 1012 | 1034 | Creates a channel from a queue that emits arrays of elements. |
+| Channel | identity | 1035 | 1043 | Creates a channel that forwards upstream input elements, input errors, and the upstream done value unchanged. |
+| Channel | fromSubscription | 1044 | 1091 | Creates a channel from a PubSub subscription. |
+| Channel | fromSubscriptionArray | 1092 | 1203 | Creates a channel from a PubSub subscription that outputs arrays of values. |
+| Channel | fromPubSub | 1204 | 1306 | Creates a channel from a PubSub that outputs individual values. |
+| Channel | fromPubSubArray | 1307 | 1446 | Creates a channel from a PubSub that outputs arrays of values. |
+| Channel | fromPubSubTake | 1447 | 1459 | Subscribes to a `PubSub` of `Take` values and exposes them as a channel. |
+| Channel | fromSchedule | 1460 | 1467 | Creates a Channel from a Schedule. |
+| Channel | fromReadableStream | 1468 | 1503 | Creates a channel from a lazily supplied Web `ReadableStream`. |
+| Channel | fromWritableStream | 1504 | 1540 | Creates a channel that writes upstream values to a lazily supplied Web `WritableStream`. |
+| Channel | fromTransformStream | 1541 | 1576 | Creates a channel backed by a Web `TransformStream`, writing upstream values while emitting transformed values from its readable side. |
+| Channel | fromAsyncIterable | 1577 | 1593 | Creates a channel that pulls values from an `AsyncIterable`. |
+| Channel | fromAsyncIterableArray | 1594 | 1611 | Creates a channel from an `AsyncIterable`, emitting each yielded value as a single-element non-empty array. |
+| Channel | map | 1612 | 1738 | Maps the output of this channel using the specified function. |
+| Channel | mapDone | 1739 | 1763 | Maps the done value of this channel using the specified function. |
+| Channel | mapDoneEffect | 1764 | 1803 | Maps the done value of this channel using the specified effectful function. |
+| Channel | mapEffect | 1804 | 1912 | Maps each output element with an effectful function, preserving the source channel's done value. |
+| Channel | mapInput | 1913 | 1940 | Returns a new channel which is the same as this one but applies the given function to the input channel’s input elements. |
+| Channel | mapInputError | 1941 | 1968 | Returns a new channel which is the same as this one but applies the given function to the input errors. |
+| Channel | tap | 1969 | 2084 | Applies a side effect function to each output element of the channel, returning a new channel that emits the same elements. |
+| Channel | flatMap | 2085 | 2205 | Maps each output element to a channel and flattens the child channel outputs. |
+| Channel | concatWith | 2206 | 2284 | Concatenates this channel with another channel created from the terminal value of this channel. |
+| Channel | concat | 2285 | 2369 | Concatenates this channel with another channel, so that the second channel starts emitting values after the first channel has completed. |
+| Channel | combine | 2370 | 2427 | Combines two channels with a stateful pull function. |
+| Channel | orElseIfEmpty | 2428 | 2473 | Runs a fallback channel if this channel completes without emitting any output elements. |
+| Channel | flatten | 2474 | 2503 | Flattens a channel of channels. |
+| Channel | flattenArray | 2504 | 2533 | Flattens a channel that outputs arrays into a channel that outputs individual elements. |
+| Channel | flattenTake | 2534 | 2547 | Flattens a channel that emits `Take` values into a channel that emits the `Take` outputs directly. |
+| Channel | drain | 2548 | 2570 | Creates a new channel that consumes all output from the source channel but emits nothing, preserving only the completion value. |
+| Channel | repeat | 2571 | 2595 | Repeats this channel according to the provided schedule. |
+| Channel | forever | 2596 | 2603 | Repeats this channel forever. |
+| Channel | schedule | 2604 | 2652 | Runs a schedule step for each output element while preserving the emitted elements. |
+| Channel | filter | 2653 | 2803 | Filters the output elements of a channel using a predicate function. |
+| Channel | filterMap | 2804 | 2873 | Filters and maps output elements using a `Filter`. |
+| Channel | filterEffect | 2874 | 2931 | Filters output elements with an effectful predicate. |
+| Channel | filterMapEffect | 2932 | 3004 | Filters and maps output elements using an effectful `Filter`. |
+| Channel | filterArray | 3005 | 3195 | Filters arrays of elements emitted by a channel, applying the filter to each element within the arrays and only emitting non-empty filter... |
+| Channel | filterMapArray | 3196 | 3238 | Filters and maps each element inside emitted non-empty arrays using a `Filter`. |
+| Channel | filterArrayEffect | 3239 | 3299 | Filters each element inside emitted non-empty arrays with an effectful predicate. |
+| Channel | filterMapArrayEffect | 3300 | 3360 | Filters and maps each element inside emitted non-empty arrays using an effectful `Filter`. |
+| Channel | mapAccum | 3361 | 3485 | Maps over a channel statefully with an accumulator, where each element can produce multiple output values. |
+| Channel | scan | 3486 | 3582 | Transforms a channel statefully by scanning over its output with an accumulator function. |
+| Channel | scanEffect | 3583 | 3736 | Transforms a channel statefully by scanning over its output with an effectful accumulator function. |
+| Channel | catchCause | 3737 | 3851 | Catches any cause of failure from the channel and allows recovery by creating a new channel based on the caught cause. |
+| Channel | catchDefect | 3852 | 3942 | Recovers from defects using the provided function. |
+| Channel | tapCause | 3943 | 4000 | Runs an effect with the full failure `Cause` when the channel fails, then fails the returned channel with the original cause. |
+| Channel | catchCauseIf | 4001 | 4073 | Catches causes of failure that match a specific filter, allowing conditional error recovery based on the type of failure. |
+| Channel | catchCauseFilter | 4074 | 4146 | Recovers from channel failures whose full `Cause` is selected by a `Filter`. |
+| Channel | catch | 4147 | 4166 | Recovers from typed channel errors by running a fallback channel. |
+| Channel | tapError | 4167 | 4209 | Runs an effect when the channel fails with a typed error, then preserves the original channel failure. |
+| Channel | catchIf | 4210 | 4360 | Recovers from typed channel errors that match a predicate or refinement. |
+| Channel | catchFilter | 4361 | 4448 | Recovers from typed channel errors selected by a `Filter`. |
+| Channel | catchTag | 4449 | 4509 | Recovers from tagged channel errors whose `_tag` matches one or more tags. |
+| Channel | catchReason | 4510 | 4636 | Catches a specific reason within a tagged error. |
+| Channel | catchReasons | 4637 | 4711 | Catches multiple reasons within a tagged error using an object of handlers. |
+| Channel | unwrapReason | 4712 | 4808 | Promotes nested reason errors into the channel error, replacing the parent error. |
+| Channel | mapError | 4809 | 4848 | Transforms the typed errors of a channel using the specified function. |
+| Channel | orDie | 4849 | 4876 | Converts all errors in the channel to defects (unrecoverable failures). |
+| Channel | ignore | 4877 | 4906 | Ignores all errors in the channel, converting them to an empty channel. |
+| Channel | ignoreCause | 4907 | 4934 | Ignores all errors in the channel including defects, converting them to an empty channel. |
+| Channel | retry | 4935 | 4980 | Returns a new channel that retries this channel according to the specified schedule whenever it fails. |
+| Channel | switchMap | 4981 | 5095 | Maps each output element to a channel and emits values from the most recent active child channels. |
+| Channel | mergeAll | 5096 | 5218 | Merges multiple channels with specified concurrency and buffering options. |
+| Channel | HaltStrategy | 5219 | 5235 | Represents strategies for halting merged channels when one completes or fails. |
+| Channel | merge | 5236 | 5315 | Returns a new channel, which is the merge of this channel and the specified channel. |
+| Channel | mergeEffect | 5316 | 5373 | Runs an effect concurrently with a channel while emitting only the channel's output elements. |
+| Channel | splitLines | 5374 | 5401 | Splits upstream string chunks into lines, recognizing `\n`, `\r\n`, and standalone `\r` as line terminators. |
+| Channel | decodeText | 5402 | 5416 | Decodes incoming `Uint8Array` chunks into strings using `TextDecoder`. |
+| Channel | encodeText | 5417 | 5428 | Encodes incoming string chunks into `Uint8Array` values using `TextEncoder`. |
+| Channel | pipeTo | 5429 | 5519 | Returns a new channel that pipes the output of this channel into the specified channel. |
+| Channel | pipeToOrFail | 5520 | 5610 | Returns a new channel that pipes the output of this channel into the specified channel and preserves this channel's failures without prov... |
+| Channel | unwrap | 5611 | 5644 | Constructs a `Channel` from a scoped effect that will result in a `Channel` if successful. |
+| Channel | scoped | 5645 | 5661 | Runs a channel with a scope provided for the duration of the channel execution, removing the channel's `Scope` requirement. |
+| Channel | embedInput | 5662 | 5764 | Runs an input handler against the upstream pull while the wrapped channel runs without receiving upstream input directly. |
+| Channel | buffer | 5765 | 5856 | Buffers individual output elements in a queue with the configured `capacity` so a faster producer can progress independently of a slower ... |
+| Channel | bufferArray | 5857 | 5954 | Buffers array output elements in a queue with the configured `capacity` so a faster producer can progress independently of a slower consu... |
+| Channel | interruptWhen | 5955 | 6012 | Interrupts a channel when another effect completes. |
+| Channel | haltWhen | 6013 | 6058 | Stops a channel when the specified effect completes or fails. |
+| Channel | onError | 6059 | 6098 | Attaches a finalizer that runs only when the channel exits with failure. |
+| Channel | onExit | 6099 | 6207 | Returns a channel with an exit-aware finalizer that is guaranteed to run once the channel begins execution, whether it succeeds or fails. |
+| Channel | onStart | 6208 | 6247 | Runs an effect before the channel starts. |
+| Channel | onFirst | 6248 | 6305 | Runs an effect the first time the channel emits an output element. |
+| Channel | onEnd | 6306 | 6348 | Runs an effect when the channel completes successfully. |
+| Channel | ensuring | 6349 | 6457 | Returns a channel with a finalizer effect that is guaranteed to run once the channel begins execution, whether it succeeds or fails. |
+| Channel | contextWith | 6458 | 6465 | Creates a channel from the specified services. |
+| Channel | provideContext | 6466 | 6493 | Provides a `Context` to the channel, removing the corresponding service requirements from the returned channel. |
+| Channel | provideService | 6494 | 6521 | Provides a concrete service for a context key, removing that service requirement from the returned channel. |
+| Channel | provideServiceEffect | 6522 | 6576 | Provides a service to the channel after obtaining it from an effect. |
+| Channel | provide | 6577 | 6626 | Provides a `Layer` or `Context` to the channel, removing the corresponding service requirements. |
+| Channel | updateContext | 6627 | 6669 | Transforms the current context before running the channel. |
+| Channel | updateService | 6670 | 6709 | Updates a service in the current context before running the channel. |
+| Channel | withSpan | 6710 | 6749 | Runs the channel inside a tracing span with the specified name and options. |
+| Channel | Do | 6750 | 6757 | The starting channel for Do notation, emitting an empty object. |
+| Channel | let | 6758 | 6774 | Adds a computed field to each object emitted by a channel. |
+| Channel | bind | 6775 | 6830 | Adds a field to each object emitted by a channel by running another channel derived from that object. |
+| Channel | bindTo | 6831 | 6886 | Wraps each output element in an object under the specified field name. |
+| Channel | runCount | 6887 | 6912 | Runs a channel and counts the number of elements it outputs. |
+| Channel | runDrain | 6913 | 6939 | Runs a channel and discards all output elements, returning only the final result. |
+| Channel | runForEach | 6940 | 7033 | Runs a channel and applies an effect to each output element. |
+| Channel | runForEachWhile | 7034 | 7076 | Runs a channel and applies an effectful predicate to each output element until the predicate returns `false`. |
+| Channel | mkUint8Array | 7077 | 7103 | Concatenates a channel's `Uint8Array` chunks into a single `Uint8Array`. |
+| Channel | runCollect | 7104 | 7129 | Runs a channel and collects all output elements into an array. |
+| Channel | runHead | 7130 | 7143 | Runs a channel until the first output element is available, returning it in an `Option`. |
+| Channel | runLast | 7144 | 7157 | Runs a channel to completion and returns the last output element in an `Option`. |
+| Channel | runFold | 7158 | 7236 | Runs a channel and folds over all output elements with an accumulator. |
+| Channel | runFoldEffect | 7237 | 7294 | Runs a channel and effectfully folds all output elements with an accumulator. |
+| Channel | toPull | 7295 | 7328 | Converts a channel to a scoped `Pull` for low-level consumption. |
+| Channel | toPullScoped | 7329 | 7362 | Converts a channel to a Pull within an existing scope. |
+| Channel | runIntoQueue | 7363 | 7405 | Runs a channel and offers each output element into a queue. |
+| Channel | runIntoQueueArray | 7406 | 7451 | Runs a channel that emits non-empty arrays and offers each array element into a queue. |
+| Channel | toQueue | 7452 | 7567 | Creates a scoped queue and forks the channel to feed it for concurrent consumption. |
+| Channel | toQueueArray | 7568 | 7620 | Creates a scoped queue and forks an array-emitting channel to feed it. |
+| Channel | toPubSub | 7621 | 7678 | Converts a channel to a PubSub for concurrent consumption. |
+| Channel | runIntoPubSub | 7679 | 7722 | Runs a channel and publishes each output element to a `PubSub`. |
+| Channel | toPubSubArray | 7723 | 7786 | Converts an array-emitting channel to a scoped `PubSub` for concurrent consumption. |
+| Channel | runIntoPubSubArray | 7787 | 7836 | Runs an array-emitting channel and publishes each array element to a `PubSub`. |
+| Channel | toPubSubTake | 7837 | 7897 | Converts a channel to a scoped `PubSub` of `Take` values. |
 | ChannelSchema | encode | 15 | 36 | Creates a channel that encodes non-empty chunks of schema values into the schema's encoded representation. |
 | ChannelSchema | encodeUnknown | 37 | 52 | Creates an `encode` channel variant whose encoded output chunks are typed as `unknown`. |
 | ChannelSchema | decode | 53 | 74 | Creates a channel that decodes non-empty chunks from the schema's encoded representation into schema values. |
@@ -712,7 +712,7 @@ For a native pattern and its Effect replacement, start with [native-to-effect.md
 | Codegen | propertyKey | 145 | 152 | Formats an object property key, using a computed key for __proto__. |
 | Codegen | docComment | 153 | 160 | Formats text as a JSDoc comment and escapes embedded comment terminators. |
 | Codegen | Scope | 161 | 170 | A declaration scope belonging to one generated module. |
-| Codegen | Module | 171 | 295 | A mutable builder for a TypeScript module, with shared names, imports, and declaration ordering. |
+| Codegen | Module | 171 | 300 | A mutable builder for a TypeScript module, with shared names, imports, and declaration ordering. |
 | Combiner | Combiner | 14 | 51 | Represents a strategy for combining two values of the same type `A`. |
 | Combiner | make | 52 | 80 | Creates a `Combiner` from a binary function. |
 | Combiner | flip | 81 | 109 | Reverses the argument order of a combiner's `combine` method. |
@@ -1101,185 +1101,185 @@ For a native pattern and its Effect replacement, start with [native-to-effect.md
 | Effect | catch | 4372 | 4408 | Handles all errors in an effect by providing a fallback effect. |
 | Effect | catchTag | 4409 | 4574 | Catches and handles specific errors by their `_tag` field, which is used as a discriminator. |
 | Effect | catchTags | 4575 | 4780 | Handles multiple errors in a single block of code using their `_tag` field. |
-| Effect | catchReason | 4781 | 4952 | Catches a specific reason within a tagged error. |
-| Effect | catchReasons | 4953 | 5110 | Catches multiple reasons within a tagged error using an object of handlers. |
-| Effect | TagsWithReason | 5111 | 5134 | Type helper that keeps only error tags whose tagged error contains a tagged `reason` field. |
-| Effect | unwrapReason | 5135 | 5243 | Promotes nested reason errors into the Effect error channel, replacing the parent error. |
-| Effect | catchCause | 5244 | 5403 | Runs a recovery effect with the full cause of failure. |
-| Effect | catchDefect | 5404 | 5557 | Recovers from defects using a provided recovery function. |
-| Effect | catchIf | 5558 | 5818 | Recovers from specific errors using a `Predicate` or `Refinement`. |
-| Effect | catchFilter | 5819 | 5915 | Recovers from specific errors using a `Filter`. |
-| Effect | catchNoSuchElement | 5916 | 5951 | Catches `NoSuchElementError` failures and converts them to `Option.none`. |
-| Effect | catchCauseIf | 5952 | 6096 | Recovers from specific failures based on a predicate. |
-| Effect | catchCauseFilter | 6097 | 6178 | Recovers from specific failures based on a `Filter`. |
-| Effect | mapError | 6179 | 6311 | Transforms the failure value of an effect without changing its success value. |
-| Effect | mapBoth | 6312 | 6456 | Applies transformations to both the success and error channels of an effect. |
-| Effect | orDie | 6457 | 6489 | Converts typed failures from the error channel into defects, removing the error type from the returned effect. |
-| Effect | tapError | 6490 | 6592 | Runs an effectful operation when the source effect fails, while preserving the original failure when the operation succeeds. |
-| Effect | tapErrorTag | 6593 | 6710 | Runs an effectful handler when a failure's `_tag` matches. |
-| Effect | tapCause | 6711 | 6837 | Runs an effectful operation with the full `Cause` when the source effect fails. |
-| Effect | tapCauseIf | 6838 | 6952 | Executes a side effect conditionally when a failed effect's cause matches a predicate. |
-| Effect | tapCauseFilter | 6953 | 7037 | Executes a side effect conditionally when a failed effect's cause passes a filter. |
-| Effect | tapDefect | 7038 | 7146 | Runs an effectful operation when the source effect dies with a defect. |
-| Effect | eventually | 7147 | 7181 | Retries an effect until it succeeds, discarding failures. |
-| Effect | Retry | 7182 | 7229 | Type helpers for retrying effects. |
-| Effect | retry | 7230 | 7629 | Retries typed failures from an effect according to a retry policy. |
-| Effect | retryOrElse | 7630 | 7825 | Retries a failing effect and runs a fallback effect if retries are exhausted. |
-| Effect | sandbox | 7826 | 7860 | Exposes an effect's full failure cause in the error channel as `Cause<E>`. |
-| Effect | ignore | 7861 | 7923 | Discards both the success and failure values of an effect. |
-| Effect | ignoreCause | 7924 | 7964 | Ignores the effect's failure cause, including defects and interruptions. |
-| Effect | withExecutionPlan | 7965 | 8210 | Applies an `ExecutionPlan` to an effect, retrying with step-provided resources until it succeeds or the plan is exhausted. |
-| Effect | withErrorReporting | 8211 | 8229 | Runs an effect and reports any errors to the configured `ErrorReporter`s. |
-| Effect | orElseSucceed | 8230 | 8359 | Recovers from a typed failure by producing a fallback success value. |
-| Effect | firstSuccessOf | 8360 | 8404 | Runs a sequence of effects and returns the result of the first successful one. |
-| Effect | timeout | 8405 | 8555 | Adds a time limit to an effect, triggering a timeout if the effect exceeds the duration. |
-| Effect | timeoutOption | 8556 | 8703 | Runs an effect with a time limit and represents only the timeout case as `Option.none`. |
-| Effect | timeoutOrElse | 8704 | 8854 | Applies a timeout to an effect, lazily evaluating `orElse` after interrupting the source and waiting for its cleanup if the timeout is re... |
-| Effect | delay | 8855 | 8921 | Delays the start of an effect by the specified duration using the context's `Clock`. |
-| Effect | sleep | 8922 | 8946 | Returns an effect that suspends the current fiber for the specified duration using the context's `Clock`, without blocking a JavaScript t... |
-| Effect | timed | 8947 | 8972 | Returns the runtime duration of an effect together with its result. |
-| Effect | raceAll | 8973 | 9026 | Runs multiple effects concurrently and returns the first successful result. |
-| Effect | raceAllFirst | 9027 | 9074 | Runs multiple effects concurrently and completes with the first effect to finish, whether it succeeds or fails. |
-| Effect | race | 9075 | 9225 | Races two effects and returns the first successful result. |
-| Effect | raceFirst | 9226 | 9400 | Races two effects and returns the result of the first one to complete, whether it succeeds or fails. |
-| Effect | filter | 9401 | 9587 | Filters elements of an iterable using a predicate, refinement, or effectful predicate. |
-| Effect | filterMap | 9588 | 9651 | Filters and maps elements of an iterable with a `Filter`. |
-| Effect | filterMapEffect | 9652 | 9734 | Filters and maps elements of an iterable effectfully with a `FilterEffect`. |
-| Effect | filterOrElse | 9735 | 9925 | Filters an effect, providing an alternative effect if the predicate fails. |
-| Effect | filterMapOrElse | 9926 | 9992 | Filters an effect with a `Filter`, providing an alternative effect on failure. |
-| Effect | filterOrFail | 9993 | 10281 | Filters an effect, failing with a custom error if the predicate fails. |
-| Effect | filterMapOrFail | 10282 | 10392 | Filters and maps an effect with a `Filter`, failing when the filter fails. |
-| Effect | when | 10393 | 10507 | Runs an effect conditionally based on the result of an effectful boolean condition. |
-| Effect | match | 10508 | 10688 | Handles both success and failure cases of an effect without performing side effects. |
-| Effect | matchEager | 10689 | 10836 | Handles both success and failure cases of an effect without performing side effects, with eager evaluation for resolved effects. |
-| Effect | matchCause | 10837 | 10963 | Handles failures by matching the cause of failure. |
-| Effect | matchCauseEager | 10964 | 11078 | Handles failures by matching the cause of failure with eager evaluation. |
-| Effect | matchCauseEffectEager | 11079 | 11163 | Handles success or failure eagerly with effectful handlers when the effect is already resolved. |
-| Effect | matchCauseEffect | 11164 | 11362 | Handles failures with access to the cause and allows performing side effects. |
-| Effect | matchEffect | 11363 | 11543 | Handles both success and failure by running effectful handlers. |
-| Effect | isFailure | 11544 | 11570 | Determines whether an effect fails. |
-| Effect | isSuccess | 11571 | 11600 | Returns whether an effect completes successfully. |
-| Effect | context | 11601 | 11653 | Returns the complete context. |
-| Effect | contextWith | 11654 | 11712 | Transforms the current context using the provided function. |
-| Effect | provide | 11713 | 11966 | Provides dependencies to an effect using layers or a context. |
-| Effect | provideContext | 11967 | 12102 | Provides a context to an effect, fulfilling its service requirements. |
-| Effect | setContext | 12103 | 12232 | Runs an effect with the provided context as its complete environment. |
-| Effect | service | 12233 | 12262 | Accesses a service from the context. |
-| Effect | serviceOption | 12263 | 12308 | Optionally accesses a service from the environment. |
-| Effect | updateContext | 12309 | 12441 | Provides part of the required context while leaving the rest unchanged. |
-| Effect | updateService | 12442 | 12553 | Runs an effect with a service implementation transformed by the provided function. |
-| Effect | updateServiceScoped | 12554 | 12616 | Updates a service for the lifetime of the current scope and restores its previous value when the scope closes. |
-| Effect | provideService | 12617 | 12816 | Provides one concrete service implementation to an effect. |
-| Effect | provideServiceEffect | 12817 | 12988 | Provides one service to an effect using an effectful acquisition. |
-| Effect | scope | 12989 | 13019 | Returns the current scope for resource management. |
-| Effect | scoped | 13020 | 13059 | Runs an effect with a scope that closes when the effect completes. |
-| Effect | scopedWith | 13060 | 13101 | Creates a scoped effect by providing access to the scope. |
-| Effect | acquireRelease | 13102 | 13171 | Constructs a scoped resource from an acquisition effect and a release finalizer. |
-| Effect | acquireDisposable | 13172 | 13221 | Acquires a scoped resource that implements JavaScript disposal protocols. |
-| Effect | acquireUseRelease | 13222 | 13301 | Runs resource acquisition, usage, and release as one bracketed effect. |
-| Effect | addFinalizer | 13302 | 13350 | Adds a finalizer to the current scope. |
-| Effect | ensuring | 13351 | 13471 | Returns an effect that, if this effect _starts_ execution, then the specified `finalizer` is guaranteed to be executed, whether this effe... |
-| Effect | onError | 13472 | 13559 | Runs the specified effect if this effect fails, providing the error to the effect if it exists. |
-| Effect | onErrorIf | 13560 | 13662 | Runs the finalizer only when this effect fails and the `Cause` matches the provided predicate. |
-| Effect | onErrorFilter | 13663 | 13729 | Runs the finalizer only when this effect fails and the cause matches the provided `Filter`. |
-| Effect | onExitPrimitive | 13730 | 13752 | Runs an optional finalizer with the effect's `Exit` value when the effect completes. |
-| Effect | onExit | 13753 | 13876 | Ensures that a cleanup function runs whether this effect succeeds, fails, or is interrupted. |
-| Effect | onExitIf | 13877 | 13973 | Runs the cleanup effect only when the `Exit` satisfies the provided predicate. |
-| Effect | onExitFilter | 13974 | 14049 | Runs the cleanup effect only when the `Exit` matches the provided `Filter`. |
-| Effect | cached | 14050 | 14106 | Returns an effect that lazily computes a result and caches it for subsequent evaluations. |
-| Effect | cachedWithTTL | 14107 | 14537 | Returns an effect that caches its result for a fixed duration or a duration computed from its `Exit`, known as "timeToLive" (TTL). |
-| Effect | cachedInvalidateWithTTL | 14538 | 14838 | Creates a cached effect result for a fixed duration or a duration computed from its `Exit` and allows manual invalidation before expiration. |
-| Effect | interrupt | 14839 | 14862 | Fails with an `Interrupt` reason that names the current fiber. |
-| Effect | interruptible | 14863 | 14888 | Runs an effect in an interruptible region. |
-| Effect | onInterrupt | 14889 | 14979 | Runs the specified finalizer effect if this effect is interrupted. |
-| Effect | uninterruptible | 14980 | 15010 | Runs an effect in an uninterruptible region. |
-| Effect | uninterruptibleMask | 15011 | 15051 | Disables interruption and provides a restore function to restore the interruptible state within the effect. |
-| Effect | interruptibleMask | 15052 | 15091 | Runs an effect in an interruptible region while providing `restore` for locally restoring the previous interruptibility. |
-| Effect | abortSignal | 15092 | 15117 | Creates an AbortSignal that is managed by the provided scope. |
-| Effect | Repeat | 15118 | 15161 | Type helpers for repeating effects. |
-| Effect | forever | 15162 | 15184 | Repeats this effect forever (until the first error). |
-| Effect | repeat | 15185 | 15773 | Repeats an effect based on a specified schedule or until the first failure. |
-| Effect | repeatOrElse | 15774 | 15960 | Repeats an effect according to a schedule and runs a fallback effect if repetition fails before the schedule completes. |
-| Effect | replicate | 15961 | 16021 | Returns an array of `n` identical effects. |
-| Effect | replicateEffect | 16022 | 16194 | Performs this effect `n` times and collects results with `Effect.all` semantics. |
-| Effect | schedule | 16195 | 16327 | Runs an effect repeatedly according to a schedule and returns the schedule's final output. |
-| Effect | scheduleFrom | 16328 | 16454 | Runs an effect repeatedly according to a schedule that is initialized with a specific schedule input. |
-| Effect | tracer | 16455 | 16475 | Returns the current tracer from the context. |
-| Effect | withTracer | 16476 | 16539 | Provides a tracer to an effect. |
-| Effect | withTracerEnabled | 16540 | 16618 | Enables or disables tracing for spans created by the given effect. |
-| Effect | withTracerTiming | 16619 | 16682 | Enables or disables tracer timing for the given Effect. |
-| Effect | annotateSpans | 16683 | 16823 | Adds an annotation to each span in this effect. |
-| Effect | annotateCurrentSpan | 16824 | 16899 | Adds an annotation to the current span if available. |
-| Effect | currentSpan | 16900 | 16926 | Returns the currently active local tracing span. |
-| Effect | currentParentSpan | 16927 | 16956 | Returns the current parent span from the effect context. |
-| Effect | spanAnnotations | 16957 | 16982 | Returns the tracing span annotations currently carried in the effect context. |
-| Effect | spanLinks | 16983 | 17009 | Returns the tracing span links currently carried in the effect context. |
-| Effect | linkSpans | 17010 | 17157 | Adds a link with the provided span to all spans in this effect. |
-| Effect | makeSpan | 17158 | 17184 | Creates a new tracing span and returns it without managing its lifetime. |
-| Effect | makeSpanScoped | 17185 | 17214 | Create a new span for tracing, and automatically close it when the Scope finalizes. |
-| Effect | useSpan | 17215 | 17293 | Create a new span for tracing, and automatically close it when the effect completes. |
-| Effect | withSpan | 17294 | 17357 | Wraps the effect with a child span for tracing. |
-| Effect | withSpanScoped | 17358 | 17439 | Wraps the effect with a scoped child span for tracing. |
-| Effect | withParentSpan | 17440 | 17506 | Adds the provided span to the current span stack. |
-| Effect | request | 17507 | 17636 | Executes a request using the provided resolver. |
-| Effect | requestUnsafe | 17637 | 17659 | Registers a request with a resolver and delivers the exit value via `onExit`. |
-| Effect | forkChild | 17660 | 17722 | Forks this effect into a child fiber and returns its handle. |
-| Effect | forkIn | 17723 | 17894 | Forks the effect in the specified scope. |
-| Effect | forkScoped | 17895 | 17957 | Forks the fiber in a `Scope`, interrupting it when the scope is closed. |
-| Effect | forkDetach | 17958 | 18008 | Forks the effect into a new fiber with no parent and no scope, so its lifetime is independent of the forking fiber. |
-| Effect | awaitAllChildren | 18009 | 18036 | Waits for all child fibers forked by this effect to complete before this effect completes. |
-| Effect | fiber | 18037 | 18059 | Accesses the fiber currently executing the effect. |
-| Effect | fiberId | 18060 | 18076 | Accesses the current fiber id executing the effect. |
-| Effect | RunOptions | 18077 | 18106 | Configuration options for running Effect programs, providing control over interruption and scheduling behavior. |
-| Effect | runFork | 18107 | 18145 | Runs an effect in the background, returning a fiber that can be observed or interrupted. |
-| Effect | runForkWith | 18146 | 18193 | Runs an effect in the background with the provided services. |
-| Effect | runCallbackWith | 18194 | 18245 | Forks an effect with the provided services, registers `onExit` as a fiber observer, and returns an interruptor. |
-| Effect | runCallback | 18246 | 18289 | Runs an effect asynchronously, registering `onExit` as a fiber observer and returning an interruptor. |
-| Effect | runPromise | 18290 | 18328 | Executes an effect and returns the result as a `Promise`. |
-| Effect | runPromiseWith | 18329 | 18364 | Executes an effect as a Promise with the provided services. |
-| Effect | runPromiseExit | 18365 | 18398 | Runs an effect and returns a `Promise` that resolves to an `Exit`, which represents the outcome (success or failure) of the effect. |
-| Effect | runPromiseExitWith | 18399 | 18439 | Runs an effect and returns a Promise of Exit with provided services. |
-| Effect | runSync | 18440 | 18498 | Executes an effect synchronously and returns its success value. |
-| Effect | runSyncWith | 18499 | 18535 | Executes an effect synchronously with provided services. |
-| Effect | runSyncExit | 18536 | 18584 | Runs an effect synchronously and captures the outcome safely as an `Exit` type, which represents the outcome (success or failure) of the ... |
-| Effect | runSyncExitWith | 18585 | 18629 | Runs an effect synchronously with provided services, returning an Exit result safely. |
-| Effect | fn | 18630 | 19418 | Type helpers for functions built with `Effect.fn` and `Effect.fnUntraced`. |
-| Effect | fnUntraced | 19419 | 19516 | Creates an Effect-returning function without tracing. |
-| Effect | fn | 19517 | 19642 | Creates a reusable traced function from an Effect body. |
-| Effect | clockWith | 19643 | 19665 | Retrieves the `Clock` service from the context and provides it to the specified effectful function. |
-| Effect | logWithLevel | 19666 | 19700 | Creates a logger function that logs at the specified level. |
-| Effect | log | 19701 | 19728 | Logs one or more messages using the default log level. |
-| Effect | logFatal | 19729 | 19754 | Logs one or more messages at the FATAL level. |
-| Effect | logWarning | 19755 | 19779 | Logs one or more messages at the WARNING level. |
-| Effect | logError | 19780 | 19804 | Logs one or more messages at the ERROR level. |
-| Effect | logInfo | 19805 | 19829 | Logs one or more messages at the INFO level. |
-| Effect | logDebug | 19830 | 19858 | Logs one or more messages at the DEBUG level. |
-| Effect | logTrace | 19859 | 19887 | Logs one or more messages at the TRACE level. |
-| Effect | withLogger | 19888 | 19981 | Adds a logger to the set of loggers which will output logs for this effect. |
-| Effect | annotateLogs | 19982 | 20167 | Adds an annotation to each log line in this effect. |
-| Effect | annotateLogsScoped | 20168 | 20291 | Adds log annotations to the current scope. |
-| Effect | withLogSpan | 20292 | 20403 | Adds a span to each log line in this effect. |
-| Effect | track | 20404 | 20644 | Updates a metric after each effect execution, optionally mapping its `Exit` to the metric's input. |
-| Effect | trackSuccesses | 20645 | 20880 | Updates the provided `Metric` every time the wrapped `Effect` succeeds with a value. |
-| Effect | trackErrors | 20881 | 21126 | Updates the provided `Metric` every time the wrapped `Effect` fails with an |
-| Effect | trackDefects | 21127 | 21377 | Updates the provided `Metric` every time the wrapped `Effect` fails with an |
-| Effect | trackDuration | 21378 | 21608 | Updates the provided `Metric` with the `Duration` of time (in nanoseconds) that the wrapped `Effect` took to complete. |
-| Effect | TransactionRetryReason | 21609 | 21622 | Why the current transaction attempt started after a previous attempt did not commit. |
-| Effect | TransactionMeta | 21623 | 21660 | Journal and attempt metadata for an Effect transaction. |
-| Effect | Transaction | 21661 | 21691 | Service that holds the current transaction state. |
-| Effect | tx | 21692 | 21739 | Defines a transaction boundary. |
-| Effect | txRetry | 21740 | 21777 | Retries the current transaction by signaling that it must be retried. |
-| Effect | Effectify | 21778 | 22001 | Type helpers for converting callback-based functions into `Effect` functions. |
-| Effect | effectify | 22002 | 22218 | Converts an error-first callback API into a function that returns an `Effect`. |
-| Effect | satisfiesSuccessType | 22219 | 22249 | Ensures that an effect's success type extends a given type `A`. |
-| Effect | satisfiesErrorType | 22250 | 22282 | Ensures that an effect's error type extends a given type `E`. |
-| Effect | satisfiesServicesType | 22283 | 22312 | Ensures that an effect's requirements type extends a given type `R`. |
-| Effect | mapEager | 22313 | 22415 | Applies `map` eagerly when an effect is already resolved. |
-| Effect | mapErrorEager | 22416 | 22557 | Applies `mapError` eagerly when an effect is already resolved. |
-| Effect | mapBothEager | 22558 | 22702 | Applies `mapBoth` eagerly when an effect is already resolved. |
-| Effect | flatMapEager | 22703 | 22817 | Applies `flatMap` eagerly when an effect is already resolved. |
-| Effect | catchEager | 22818 | 22998 | Applies `catch` eagerly when an effect is already resolved. |
-| Effect | fnUntracedEager | 22999 | 23029 | Creates untraced function effects with eager evaluation optimization. |
+| Effect | catchReason | 4781 | 4961 | Catches a specific reason within a tagged error. |
+| Effect | catchReasons | 4962 | 5215 | Catches multiple reasons within a tagged error using an object of handlers. |
+| Effect | TagsWithReason | 5216 | 5239 | Type helper that keeps only error tags whose tagged error contains a tagged `reason` field. |
+| Effect | unwrapReason | 5240 | 5348 | Promotes nested reason errors into the Effect error channel, replacing the parent error. |
+| Effect | catchCause | 5349 | 5508 | Runs a recovery effect with the full cause of failure. |
+| Effect | catchDefect | 5509 | 5662 | Recovers from defects using a provided recovery function. |
+| Effect | catchIf | 5663 | 5923 | Recovers from specific errors using a `Predicate` or `Refinement`. |
+| Effect | catchFilter | 5924 | 6020 | Recovers from specific errors using a `Filter`. |
+| Effect | catchNoSuchElement | 6021 | 6056 | Catches `NoSuchElementError` failures and converts them to `Option.none`. |
+| Effect | catchCauseIf | 6057 | 6201 | Recovers from specific failures based on a predicate. |
+| Effect | catchCauseFilter | 6202 | 6283 | Recovers from specific failures based on a `Filter`. |
+| Effect | mapError | 6284 | 6416 | Transforms the failure value of an effect without changing its success value. |
+| Effect | mapBoth | 6417 | 6561 | Applies transformations to both the success and error channels of an effect. |
+| Effect | orDie | 6562 | 6594 | Converts typed failures from the error channel into defects, removing the error type from the returned effect. |
+| Effect | tapError | 6595 | 6697 | Runs an effectful operation when the source effect fails, while preserving the original failure when the operation succeeds. |
+| Effect | tapErrorTag | 6698 | 6815 | Runs an effectful handler when a failure's `_tag` matches. |
+| Effect | tapCause | 6816 | 6942 | Runs an effectful operation with the full `Cause` when the source effect fails. |
+| Effect | tapCauseIf | 6943 | 7057 | Executes a side effect conditionally when a failed effect's cause matches a predicate. |
+| Effect | tapCauseFilter | 7058 | 7142 | Executes a side effect conditionally when a failed effect's cause passes a filter. |
+| Effect | tapDefect | 7143 | 7251 | Runs an effectful operation when the source effect dies with a defect. |
+| Effect | eventually | 7252 | 7286 | Retries an effect until it succeeds, discarding failures. |
+| Effect | Retry | 7287 | 7334 | Type helpers for retrying effects. |
+| Effect | retry | 7335 | 7734 | Retries typed failures from an effect according to a retry policy. |
+| Effect | retryOrElse | 7735 | 7930 | Retries a failing effect and runs a fallback effect if retries are exhausted. |
+| Effect | sandbox | 7931 | 7965 | Exposes an effect's full failure cause in the error channel as `Cause<E>`. |
+| Effect | ignore | 7966 | 8028 | Discards both the success and failure values of an effect. |
+| Effect | ignoreCause | 8029 | 8069 | Ignores the effect's failure cause, including defects and interruptions. |
+| Effect | withExecutionPlan | 8070 | 8315 | Applies an `ExecutionPlan` to an effect, retrying with step-provided resources until it succeeds or the plan is exhausted. |
+| Effect | withErrorReporting | 8316 | 8334 | Runs an effect and reports any errors to the configured `ErrorReporter`s. |
+| Effect | orElseSucceed | 8335 | 8464 | Recovers from a typed failure by producing a fallback success value. |
+| Effect | firstSuccessOf | 8465 | 8509 | Runs a sequence of effects and returns the result of the first successful one. |
+| Effect | timeout | 8510 | 8660 | Adds a time limit to an effect, triggering a timeout if the effect exceeds the duration. |
+| Effect | timeoutOption | 8661 | 8808 | Runs an effect with a time limit and represents only the timeout case as `Option.none`. |
+| Effect | timeoutOrElse | 8809 | 8959 | Applies a timeout to an effect, lazily evaluating `orElse` after interrupting the source and waiting for its cleanup if the timeout is re... |
+| Effect | delay | 8960 | 9026 | Delays the start of an effect by the specified duration using the context's `Clock`. |
+| Effect | sleep | 9027 | 9051 | Returns an effect that suspends the current fiber for the specified duration using the context's `Clock`, without blocking a JavaScript t... |
+| Effect | timed | 9052 | 9077 | Returns the runtime duration of an effect together with its result. |
+| Effect | raceAll | 9078 | 9131 | Runs multiple effects concurrently and returns the first successful result. |
+| Effect | raceAllFirst | 9132 | 9179 | Runs multiple effects concurrently and completes with the first effect to finish, whether it succeeds or fails. |
+| Effect | race | 9180 | 9330 | Races two effects and returns the first successful result. |
+| Effect | raceFirst | 9331 | 9505 | Races two effects and returns the result of the first one to complete, whether it succeeds or fails. |
+| Effect | filter | 9506 | 9692 | Filters elements of an iterable using a predicate, refinement, or effectful predicate. |
+| Effect | filterMap | 9693 | 9756 | Filters and maps elements of an iterable with a `Filter`. |
+| Effect | filterMapEffect | 9757 | 9839 | Filters and maps elements of an iterable effectfully with a `FilterEffect`. |
+| Effect | filterOrElse | 9840 | 10030 | Filters an effect, providing an alternative effect if the predicate fails. |
+| Effect | filterMapOrElse | 10031 | 10097 | Filters an effect with a `Filter`, providing an alternative effect on failure. |
+| Effect | filterOrFail | 10098 | 10386 | Filters an effect, failing with a custom error if the predicate fails. |
+| Effect | filterMapOrFail | 10387 | 10497 | Filters and maps an effect with a `Filter`, failing when the filter fails. |
+| Effect | when | 10498 | 10612 | Runs an effect conditionally based on the result of an effectful boolean condition. |
+| Effect | match | 10613 | 10793 | Handles both success and failure cases of an effect without performing side effects. |
+| Effect | matchEager | 10794 | 10941 | Handles both success and failure cases of an effect without performing side effects, with eager evaluation for resolved effects. |
+| Effect | matchCause | 10942 | 11068 | Handles failures by matching the cause of failure. |
+| Effect | matchCauseEager | 11069 | 11183 | Handles failures by matching the cause of failure with eager evaluation. |
+| Effect | matchCauseEffectEager | 11184 | 11268 | Handles success or failure eagerly with effectful handlers when the effect is already resolved. |
+| Effect | matchCauseEffect | 11269 | 11467 | Handles failures with access to the cause and allows performing side effects. |
+| Effect | matchEffect | 11468 | 11648 | Handles both success and failure by running effectful handlers. |
+| Effect | isFailure | 11649 | 11675 | Determines whether an effect fails. |
+| Effect | isSuccess | 11676 | 11705 | Returns whether an effect completes successfully. |
+| Effect | context | 11706 | 11758 | Returns the complete context. |
+| Effect | contextWith | 11759 | 11817 | Transforms the current context using the provided function. |
+| Effect | provide | 11818 | 12071 | Provides dependencies to an effect using layers or a context. |
+| Effect | provideContext | 12072 | 12207 | Provides a context to an effect, fulfilling its service requirements. |
+| Effect | setContext | 12208 | 12337 | Runs an effect with the provided context as its complete environment. |
+| Effect | service | 12338 | 12367 | Accesses a service from the context. |
+| Effect | serviceOption | 12368 | 12413 | Optionally accesses a service from the environment. |
+| Effect | updateContext | 12414 | 12546 | Provides part of the required context while leaving the rest unchanged. |
+| Effect | updateService | 12547 | 12658 | Runs an effect with a service implementation transformed by the provided function. |
+| Effect | updateServiceScoped | 12659 | 12721 | Updates a service for the lifetime of the current scope and restores its previous value when the scope closes. |
+| Effect | provideService | 12722 | 12921 | Provides one concrete service implementation to an effect. |
+| Effect | provideServiceEffect | 12922 | 13093 | Provides one service to an effect using an effectful acquisition. |
+| Effect | scope | 13094 | 13124 | Returns the current scope for resource management. |
+| Effect | scoped | 13125 | 13164 | Runs an effect with a scope that closes when the effect completes. |
+| Effect | scopedWith | 13165 | 13206 | Creates a scoped effect by providing access to the scope. |
+| Effect | acquireRelease | 13207 | 13276 | Constructs a scoped resource from an acquisition effect and a release finalizer. |
+| Effect | acquireDisposable | 13277 | 13326 | Acquires a scoped resource that implements JavaScript disposal protocols. |
+| Effect | acquireUseRelease | 13327 | 13406 | Runs resource acquisition, usage, and release as one bracketed effect. |
+| Effect | addFinalizer | 13407 | 13455 | Adds a finalizer to the current scope. |
+| Effect | ensuring | 13456 | 13576 | Returns an effect that, if this effect _starts_ execution, then the specified `finalizer` is guaranteed to be executed, whether this effe... |
+| Effect | onError | 13577 | 13664 | Runs the specified effect if this effect fails, providing the error to the effect if it exists. |
+| Effect | onErrorIf | 13665 | 13767 | Runs the finalizer only when this effect fails and the `Cause` matches the provided predicate. |
+| Effect | onErrorFilter | 13768 | 13834 | Runs the finalizer only when this effect fails and the cause matches the provided `Filter`. |
+| Effect | onExitPrimitive | 13835 | 13857 | Runs an optional finalizer with the effect's `Exit` value when the effect completes. |
+| Effect | onExit | 13858 | 13981 | Ensures that a cleanup function runs whether this effect succeeds, fails, or is interrupted. |
+| Effect | onExitIf | 13982 | 14078 | Runs the cleanup effect only when the `Exit` satisfies the provided predicate. |
+| Effect | onExitFilter | 14079 | 14154 | Runs the cleanup effect only when the `Exit` matches the provided `Filter`. |
+| Effect | cached | 14155 | 14211 | Returns an effect that lazily computes a result and caches it for subsequent evaluations. |
+| Effect | cachedWithTTL | 14212 | 14642 | Returns an effect that caches its result for a fixed duration or a duration computed from its `Exit`, known as "timeToLive" (TTL). |
+| Effect | cachedInvalidateWithTTL | 14643 | 14943 | Creates a cached effect result for a fixed duration or a duration computed from its `Exit` and allows manual invalidation before expiration. |
+| Effect | interrupt | 14944 | 14967 | Fails with an `Interrupt` reason that names the current fiber. |
+| Effect | interruptible | 14968 | 14993 | Runs an effect in an interruptible region. |
+| Effect | onInterrupt | 14994 | 15084 | Runs the specified finalizer effect if this effect is interrupted. |
+| Effect | uninterruptible | 15085 | 15115 | Runs an effect in an uninterruptible region. |
+| Effect | uninterruptibleMask | 15116 | 15156 | Disables interruption and provides a restore function to restore the interruptible state within the effect. |
+| Effect | interruptibleMask | 15157 | 15196 | Runs an effect in an interruptible region while providing `restore` for locally restoring the previous interruptibility. |
+| Effect | abortSignal | 15197 | 15222 | Creates an AbortSignal that is managed by the provided scope. |
+| Effect | Repeat | 15223 | 15266 | Type helpers for repeating effects. |
+| Effect | forever | 15267 | 15289 | Repeats this effect forever (until the first error). |
+| Effect | repeat | 15290 | 15878 | Repeats an effect based on a specified schedule or until the first failure. |
+| Effect | repeatOrElse | 15879 | 16065 | Repeats an effect according to a schedule and runs a fallback effect if repetition fails before the schedule completes. |
+| Effect | replicate | 16066 | 16126 | Returns an array of `n` identical effects. |
+| Effect | replicateEffect | 16127 | 16299 | Performs this effect `n` times and collects results with `Effect.all` semantics. |
+| Effect | schedule | 16300 | 16432 | Runs an effect repeatedly according to a schedule and returns the schedule's final output. |
+| Effect | scheduleFrom | 16433 | 16559 | Runs an effect repeatedly according to a schedule that is initialized with a specific schedule input. |
+| Effect | tracer | 16560 | 16580 | Returns the current tracer from the context. |
+| Effect | withTracer | 16581 | 16644 | Provides a tracer to an effect. |
+| Effect | withTracerEnabled | 16645 | 16723 | Enables or disables tracing for spans created by the given effect. |
+| Effect | withTracerTiming | 16724 | 16787 | Enables or disables tracer timing for the given Effect. |
+| Effect | annotateSpans | 16788 | 16928 | Adds an annotation to each span in this effect. |
+| Effect | annotateCurrentSpan | 16929 | 17019 | Adds an annotation to the current span if available. |
+| Effect | currentSpan | 17020 | 17047 | Returns the currently active local tracing span. |
+| Effect | currentParentSpan | 17048 | 17077 | Returns the current parent span from the effect context. |
+| Effect | spanAnnotations | 17078 | 17103 | Returns the tracing span annotations currently carried in the effect context. |
+| Effect | spanLinks | 17104 | 17130 | Returns the tracing span links currently carried in the effect context. |
+| Effect | linkSpans | 17131 | 17278 | Adds a link with the provided span to all spans in this effect. |
+| Effect | makeSpan | 17279 | 17305 | Creates a new tracing span and returns it without managing its lifetime. |
+| Effect | makeSpanScoped | 17306 | 17335 | Create a new span for tracing, and automatically close it when the Scope finalizes. |
+| Effect | useSpan | 17336 | 17414 | Create a new span for tracing, and automatically close it when the effect completes. |
+| Effect | withSpan | 17415 | 17478 | Wraps the effect with a child span for tracing. |
+| Effect | withSpanScoped | 17479 | 17560 | Wraps the effect with a scoped child span for tracing. |
+| Effect | withParentSpan | 17561 | 17627 | Adds the provided span to the current span stack. |
+| Effect | request | 17628 | 17757 | Executes a request using the provided resolver. |
+| Effect | requestUnsafe | 17758 | 17780 | Registers a request with a resolver and delivers the exit value via `onExit`. |
+| Effect | forkChild | 17781 | 17843 | Forks this effect into a child fiber and returns its handle. |
+| Effect | forkIn | 17844 | 18015 | Forks the effect in the specified scope. |
+| Effect | forkScoped | 18016 | 18078 | Forks the fiber in a `Scope`, interrupting it when the scope is closed. |
+| Effect | forkDetach | 18079 | 18129 | Forks the effect into a new fiber with no parent and no scope, so its lifetime is independent of the forking fiber. |
+| Effect | awaitAllChildren | 18130 | 18157 | Waits for all child fibers forked by this effect to complete before this effect completes. |
+| Effect | fiber | 18158 | 18180 | Accesses the fiber currently executing the effect. |
+| Effect | fiberId | 18181 | 18197 | Accesses the current fiber id executing the effect. |
+| Effect | RunOptions | 18198 | 18227 | Configuration options for running Effect programs, providing control over interruption and scheduling behavior. |
+| Effect | runFork | 18228 | 18266 | Runs an effect in the background, returning a fiber that can be observed or interrupted. |
+| Effect | runForkWith | 18267 | 18314 | Runs an effect in the background with the provided services. |
+| Effect | runCallbackWith | 18315 | 18366 | Forks an effect with the provided services, registers `onExit` as a fiber observer, and returns an interruptor. |
+| Effect | runCallback | 18367 | 18410 | Runs an effect asynchronously, registering `onExit` as a fiber observer and returning an interruptor. |
+| Effect | runPromise | 18411 | 18449 | Executes an effect and returns the result as a `Promise`. |
+| Effect | runPromiseWith | 18450 | 18485 | Executes an effect as a Promise with the provided services. |
+| Effect | runPromiseExit | 18486 | 18519 | Runs an effect and returns a `Promise` that resolves to an `Exit`, which represents the outcome (success or failure) of the effect. |
+| Effect | runPromiseExitWith | 18520 | 18560 | Runs an effect and returns a Promise of Exit with provided services. |
+| Effect | runSync | 18561 | 18619 | Executes an effect synchronously and returns its success value. |
+| Effect | runSyncWith | 18620 | 18656 | Executes an effect synchronously with provided services. |
+| Effect | runSyncExit | 18657 | 18705 | Runs an effect synchronously and captures the outcome safely as an `Exit` type, which represents the outcome (success or failure) of the ... |
+| Effect | runSyncExitWith | 18706 | 18750 | Runs an effect synchronously with provided services, returning an Exit result safely. |
+| Effect | fn | 18751 | 19539 | Type helpers for functions built with `Effect.fn` and `Effect.fnUntraced`. |
+| Effect | fnUntraced | 19540 | 19637 | Creates an Effect-returning function without tracing. |
+| Effect | fn | 19638 | 19763 | Creates a reusable traced function from an Effect body. |
+| Effect | clockWith | 19764 | 19786 | Retrieves the `Clock` service from the context and provides it to the specified effectful function. |
+| Effect | logWithLevel | 19787 | 19821 | Creates a logger function that logs at the specified level. |
+| Effect | log | 19822 | 19849 | Logs one or more messages using the default log level. |
+| Effect | logFatal | 19850 | 19875 | Logs one or more messages at the FATAL level. |
+| Effect | logWarning | 19876 | 19900 | Logs one or more messages at the WARNING level. |
+| Effect | logError | 19901 | 19925 | Logs one or more messages at the ERROR level. |
+| Effect | logInfo | 19926 | 19950 | Logs one or more messages at the INFO level. |
+| Effect | logDebug | 19951 | 19979 | Logs one or more messages at the DEBUG level. |
+| Effect | logTrace | 19980 | 20008 | Logs one or more messages at the TRACE level. |
+| Effect | withLogger | 20009 | 20102 | Adds a logger to the set of loggers which will output logs for this effect. |
+| Effect | annotateLogs | 20103 | 20288 | Adds an annotation to each log line in this effect. |
+| Effect | annotateLogsScoped | 20289 | 20412 | Adds log annotations to the current scope. |
+| Effect | withLogSpan | 20413 | 20524 | Adds a span to each log line in this effect. |
+| Effect | track | 20525 | 20765 | Updates a metric after each effect execution, optionally mapping its `Exit` to the metric's input. |
+| Effect | trackSuccesses | 20766 | 21001 | Updates the provided `Metric` every time the wrapped `Effect` succeeds with a value. |
+| Effect | trackErrors | 21002 | 21247 | Updates the provided `Metric` every time the wrapped `Effect` fails with an |
+| Effect | trackDefects | 21248 | 21498 | Updates the provided `Metric` every time the wrapped `Effect` fails with an |
+| Effect | trackDuration | 21499 | 21729 | Updates the provided `Metric` with the `Duration` of time (in nanoseconds) that the wrapped `Effect` took to complete. |
+| Effect | TransactionRetryReason | 21730 | 21743 | Why the current transaction attempt started after a previous attempt did not commit. |
+| Effect | TransactionMeta | 21744 | 21781 | Journal and attempt metadata for an Effect transaction. |
+| Effect | Transaction | 21782 | 21812 | Service that holds the current transaction state. |
+| Effect | tx | 21813 | 21860 | Defines a transaction boundary. |
+| Effect | txRetry | 21861 | 21898 | Retries the current transaction by signaling that it must be retried. |
+| Effect | Effectify | 21899 | 22122 | Type helpers for converting callback-based functions into `Effect` functions. |
+| Effect | effectify | 22123 | 22339 | Converts an error-first callback API into a function that returns an `Effect`. |
+| Effect | satisfiesSuccessType | 22340 | 22370 | Ensures that an effect's success type extends a given type `A`. |
+| Effect | satisfiesErrorType | 22371 | 22403 | Ensures that an effect's error type extends a given type `E`. |
+| Effect | satisfiesServicesType | 22404 | 22433 | Ensures that an effect's requirements type extends a given type `R`. |
+| Effect | mapEager | 22434 | 22536 | Applies `map` eagerly when an effect is already resolved. |
+| Effect | mapErrorEager | 22537 | 22678 | Applies `mapError` eagerly when an effect is already resolved. |
+| Effect | mapBothEager | 22679 | 22823 | Applies `mapBoth` eagerly when an effect is already resolved. |
+| Effect | flatMapEager | 22824 | 22938 | Applies `flatMap` eagerly when an effect is already resolved. |
+| Effect | catchEager | 22939 | 23119 | Applies `catch` eagerly when an effect is already resolved. |
+| Effect | fnUntracedEager | 23120 | 23150 | Creates untraced function effects with eager evaluation optimization. |
 | Effectable | Prototype | 12 | 61 | Create a low-level `Effect` prototype. |
 | Effectable | Mixin | 62 | 109 | Returns a subclass of the provided class that inserts the Effect prototype into the inheritance chain. |
 | Equal | symbol | 15 | 54 | Defines the unique string identifier for the `Equal` interface. |
@@ -1928,26 +1928,26 @@ For a native pattern and its Effect replacement, start with [native-to-effect.md
 | Logger | isLogger | 88 | 107 | Returns `true` if the specified value is a `Logger`, otherwise returns `false`. |
 | Logger | CurrentLoggers | 108 | 142 | Context reference containing the active loggers for the current fiber. |
 | Logger | LogToStderr | 143 | 165 | Context reference that routes the built-in default logger and TTY pretty console logger to stderr. |
-| Logger | map | 166 | 200 | Transforms the output of a `Logger` using the provided function. |
-| Logger | withConsoleLog | 201 | 235 | Returns a new `Logger` that writes all output of the specified `Logger` to the console using `console.log`. |
-| Logger | withConsoleError | 236 | 270 | Returns a new `Logger` that writes all output of the specified `Logger` to the console using `console.error`. |
-| Logger | withLeveledConsole | 271 | 319 | Returns a new `Logger` that writes all output of the specified `Logger` to the console. |
-| Logger | make | 320 | 350 | Creates a new `Logger` from a log function. |
-| Logger | defaultLogger | 351 | 366 | The default logging implementation used by the Effect runtime. |
-| Logger | formatSimple | 367 | 401 | A `Logger` which outputs logs as a string. |
-| Logger | formatLogFmt | 402 | 436 | A `Logger` which outputs logs using the [logfmt](https://brandur.org/logfmt) style. |
-| Logger | formatStructured | 437 | 479 | A `Logger` which outputs logs using a structured format. |
-| Logger | formatJson | 480 | 514 | A `Logger` which outputs logs using a structured format serialized as JSON on a single line. |
-| Logger | batched | 515 | 558 | Creates a scoped logger that batches the output of another logger. |
-| Logger | consolePretty | 559 | 612 | A `Logger` which outputs logs in a "pretty" format and writes them to the console. |
-| Logger | consolePrettyBrowser | 613 | 646 | A `Logger` which outputs logs in a "pretty" format and writes them to the console. |
-| Logger | consolePrettyTty | 647 | 696 | A `Logger` which outputs logs in a "pretty" format and writes them to the console. |
-| Logger | consoleLogFmt | 697 | 718 | A `Logger` which outputs logs using the [logfmt](https://brandur.org/logfmt) style and writes them to the console. |
-| Logger | consoleStructured | 719 | 743 | A `Logger` which outputs logs using a structured format and writes them to the console. |
-| Logger | consoleJson | 744 | 766 | A `Logger` which outputs logs using a structured format serialized as JSON on a single line and writes them to the console. |
-| Logger | tracerLogger | 767 | 796 | A `Logger` which includes log messages as tracer span events. |
-| Logger | layer | 797 | 830 | Creates a `Layer` which will overwrite the current set of loggers with the specified array of `loggers`. |
-| Logger | toFile | 831 | 906 | Creates a scoped logger that writes string logger output to a file. |
+| Logger | map | 166 | 204 | Transforms the output of a `Logger` using the provided function. |
+| Logger | withConsoleLog | 205 | 243 | Returns a new `Logger` that writes all output of the specified `Logger` to the console using `console.log`. |
+| Logger | withConsoleError | 244 | 282 | Returns a new `Logger` that writes all output of the specified `Logger` to the console using `console.error`. |
+| Logger | withLeveledConsole | 283 | 332 | Returns a new `Logger` that writes all output of the specified `Logger` to the console. |
+| Logger | make | 333 | 369 | Creates a new `Logger` from a log function. |
+| Logger | defaultLogger | 370 | 385 | The default logging implementation used by the Effect runtime. |
+| Logger | formatSimple | 386 | 420 | A `Logger` which outputs logs as a string. |
+| Logger | formatLogFmt | 421 | 455 | A `Logger` which outputs logs using the [logfmt](https://brandur.org/logfmt) style. |
+| Logger | formatStructured | 456 | 498 | A `Logger` which outputs logs using a structured format. |
+| Logger | formatJson | 499 | 533 | A `Logger` which outputs logs using a structured format serialized as JSON on a single line. |
+| Logger | batched | 534 | 579 | Creates a scoped logger that batches the output of another logger. |
+| Logger | consolePretty | 580 | 633 | A `Logger` which outputs logs in a "pretty" format and writes them to the console. |
+| Logger | consolePrettyBrowser | 634 | 667 | A `Logger` which outputs logs in a "pretty" format and writes them to the console. |
+| Logger | consolePrettyTty | 668 | 717 | A `Logger` which outputs logs in a "pretty" format and writes them to the console. |
+| Logger | consoleLogFmt | 718 | 739 | A `Logger` which outputs logs using the [logfmt](https://brandur.org/logfmt) style and writes them to the console. |
+| Logger | consoleStructured | 740 | 764 | A `Logger` which outputs logs using a structured format and writes them to the console. |
+| Logger | consoleJson | 765 | 787 | A `Logger` which outputs logs using a structured format serialized as JSON on a single line and writes them to the console. |
+| Logger | tracerLogger | 788 | 819 | A `Logger` which includes log messages as tracer span events. |
+| Logger | layer | 820 | 853 | Creates a `Layer` which will overwrite the current set of loggers with the specified array of `loggers`. |
+| Logger | toFile | 854 | 930 | Creates a scoped logger that writes string logger output to a file. |
 | ManagedRuntime | isManagedRuntime | 21 | 44 | Checks whether the provided argument is a `ManagedRuntime`. |
 | ManagedRuntime | ManagedRuntime | 45 | 81 | Type helpers associated with `ManagedRuntime`. |
 | ManagedRuntime | ManagedRuntime | 82 | 214 | A runtime built from a layer that can execute effects requiring that layer's services. |
@@ -3418,77 +3418,79 @@ For a native pattern and its Effect replacement, start with [native-to-effect.md
 | Schema | RetryAfter | 11277 | 11290 | Schema for parsed `Retry-After` header values. |
 | Schema | RetryAfterFromString | 11291 | 11300 | Type-level representation of {@link RetryAfterFromString}. |
 | Schema | RetryAfterFromString | 11301 | 11325 | Schema for `Retry-After` header values, decoded with `Headers.parseRetryAfter`. |
-| Schema | UrlParams | 11326 | 11335 | Type-level representation of {@link UrlParams}. |
-| Schema | UrlParams | 11336 | 11347 | Schema for HTTP URL parameters. |
-| Schema | JsonFromUrlParamsField | 11348 | 11357 | Type-level representation of {@link JsonFromUrlParamsField}. |
-| Schema | JsonFromUrlParamsField | 11358 | 11388 | Extracts a JSON value from the first occurrence of the given `field` in URL parameters. |
-| Schema | RecordFromUrlParams | 11389 | 11398 | Type-level representation of {@link RecordFromUrlParams}. |
-| Schema | RecordFromUrlParams | 11399 | 11431 | Schema that decodes URL parameters into a record of string values. |
-| Schema | OptionFromOptionalKey | 11432 | 11441 | Type-level representation returned by {@link OptionFromOptionalKey}. |
-| Schema | OptionFromOptionalKey | 11442 | 11454 | Decodes an optional value `A` to a required `Option<A>` value. |
-| Schema | OptionFromOptional | 11455 | 11464 | Type-level representation returned by {@link OptionFromOptional}. |
-| Schema | OptionFromOptional | 11465 | 11479 | Decodes an optional or `undefined` value `A` to a required `Option<A>` value. |
-| Schema | OptionFromOptionalNullOr | 11480 | 11489 | Type-level representation returned by {@link OptionFromOptionalNullOr}. |
-| Schema | OptionFromOptionalNullOr | 11490 | 11507 | Decodes an optional or `null` or `undefined` value `A` to a required `Option<A>` value. |
-| Schema | Redacted | 11508 | 11518 | Type-level representation returned by {@link Redacted}. |
-| Schema | Redacted | 11519 | 11543 | Schema for `Redacted` values, which hide their contents from inspection. |
-| Schema | RedactedFromValue | 11544 | 11553 | Type-level representation returned by {@link RedactedFromValue}. |
-| Schema | RedactedFromValue | 11554 | 11567 | Decodes a value and wraps it in `Redacted<A>`. |
-| Schema | Result | 11568 | 11579 | Type-level representation returned by {@link Result}. |
-| Schema | ResultIso | 11580 | 11598 | Iso representation used for `Result` schemas. |
-| Schema | Result | 11599 | 11606 | Schema for `Result<A, E>` values. |
-| Schema | SemVer | 11607 | 11616 | Type-level representation of {@link SemVer}. |
-| Schema | SemVer | 11617 | 11630 | Schema for `SemVer` values. |
-| Schema | SemVerFromString | 11631 | 11640 | Type-level representation of {@link SemVerFromString}. |
-| Schema | SemVerFromString | 11641 | 11655 | Schema that parses a Semantic Versioning 2.0.0 string into a `SemVer`. |
-| Schema | SemVerRange | 11656 | 11665 | Type-level representation of {@link SemVerRange}. |
-| Schema | SemVerRange | 11666 | 11678 | Schema for `SemVerRange` values. |
-| Schema | SemVerRangeFromString | 11679 | 11688 | Type-level representation of {@link SemVerRangeFromString}. |
-| Schema | SemVerRangeFromString | 11689 | 11702 | Schema that parses an npm-style version range string into a `SemVerRange`. |
-| Schema | Class | 11703 | 11777 | Type-level representation returned by {@link Class}. |
-| Schema | Class | 11778 | 11935 | Creates a schema-backed class whose constructor validates input against a {@link Struct} schema. |
-| Schema | TaggedClass | 11936 | 12007 | Defines a schema-backed class with an automatically populated `_tag` field. |
-| Schema | Error | 12008 | 12065 | Creates a schema-backed error class that can be used as a typed, yieldable error in Effect programs. |
-| Schema | TaggedError | 12066 | 12135 | Defines a schema-backed yieldable error class with an automatically populated `_tag` field. |
-| Schema | overrideToFormatter | 12136 | 12149 | Attaches a custom formatter used by `toFormatter`. |
-| Schema | toFormatter | 12150 | 12167 | Derives a string formatter from the decoded type side of a schema. |
-| Schema | overrideToEquivalence | 12168 | 12181 | Overrides the equivalence derivation for a schema by supplying a custom `Equivalence`. |
-| Schema | toEquivalence | 12182 | 12206 | Derives an `Equivalence` from the decoded type side of a schema. |
-| Schema | toRepresentation | 12207 | 12229 | Derives an intermediate `SchemaRepresentation.Document` from the encoded side of a schema. |
-| Schema | ToJsonSchemaOptions | 12230 | 12315 | Options for reference allocation and JSON Schema generation in {@link toJsonSchemaDocument}. |
-| Schema | toJsonSchemaDocument | 12316 | 12388 | Returns a JSON Schema document using draft 2020-12. |
-| Schema | toCodecJson | 12389 | 12405 | Type-level representation returned by {@link toCodecJson}. |
-| Schema | toCodecJson | 12406 | 12458 | Derives a canonical JSON codec from a schema. |
-| Schema | toCodecIso | 12459 | 12497 | Derives an isomorphism codec from a schema. |
-| Schema | StringTree | 12498 | 12506 | A {@link Tree} of `string \| undefined` nodes. |
-| Schema | toCodecStringTree | 12507 | 12523 | Type-level representation returned by {@link toCodecStringTree}. |
-| Schema | toCodecStringTree | 12524 | 12568 | Converts a schema to the StringTree canonical codec, where every leaf value becomes a string while preserving the original structure. |
-| Schema | toCodecArrayFromSingle | 12569 | 12584 | Type-level representation returned by {@link toCodecArrayFromSingle}. |
-| Schema | toCodecArrayFromSingle | 12585 | 12625 | Allows array schemas to decode from either an array input or a single value input. |
-| Schema | toCodecGoJson | 12626 | 12642 | Type-level representation returned by {@link toCodecGoJson}. |
-| Schema | toCodecGoJson | 12643 | 12799 | Derives a JSON codec, like {@link toCodecJson}, that also accepts the `null` values Go's `encoding/json` writes for nil pointers, slices,... |
-| Schema | toEncoderXml | 12800 | 12813 | Derives an XML encoder from a codec. |
-| Schema | toIso | 12814 | 12835 | Derives an `Iso` optic from a schema that isomorphically converts between the schema's `Type` and its `Iso` (intermediate / serialized fo... |
-| Schema | toIsoSource | 12836 | 12843 | Returns an identity `Iso` over the schema's source (`Type`) side. |
-| Schema | toIsoFocus | 12844 | 12851 | Returns an identity `Iso` over the schema's focus (`Iso`) side. |
-| Schema | overrideToCodecIso | 12852 | 12868 | Type-level representation returned by {@link overrideToCodecIso}. |
-| Schema | overrideToCodecIso | 12869 | 12890 | Overrides a schema's derived ISO codec with an explicit target codec. |
-| Schema | toDifferJsonPatch | 12891 | 12913 | Derives a JSON Patch differ from a codec. |
-| Schema | Tree | 12914 | 12922 | Recursive tree type whose leaves are `Node` values and whose branches are readonly arrays or string-keyed records of child trees. |
-| Schema | TreeRecord | 12923 | 12933 | A record node in a {@link Tree}: an object mapping string keys to child `Tree` nodes. |
-| Schema | Tree | 12934 | 12943 | Creates a recursive schema for a {@link Tree} of values described by `node`. |
-| Schema | Json | 12944 | 12954 | Recursive TypeScript type for any valid immutable JSON value: `null`, `number`, `boolean`, `string`, a readonly array of `Json` values, o... |
-| Schema | JsonArray | 12955 | 12963 | A readonly array of {@link Json} values. |
-| Schema | JsonObject | 12964 | 12973 | A readonly record whose values are {@link Json} values. |
-| Schema | Json | 12974 | 12989 | Schema that accepts and validates any immutable JSON-compatible value. |
-| Schema | JsonObject | 12990 | 13011 | Schema for readonly string-keyed records whose values are JSON-compatible. |
-| Schema | MutableJson | 13012 | 13020 | Recursive TypeScript type for mutable JSON values: `null`, `number`, `boolean`, `string`, mutable arrays, or mutable string-keyed records. |
-| Schema | MutableJsonArray | 13021 | 13029 | A mutable array of {@link MutableJson} values. |
-| Schema | MutableJsonObject | 13030 | 13039 | A mutable record whose values are {@link MutableJson} values. |
-| Schema | MutableJson | 13040 | 13048 | Schema that accepts any mutable JSON-compatible value. |
-| Schema | resolveAnnotations | 13049 | 13059 | Resolves the typed annotations from a schema. |
-| Schema | resolveAnnotationsKey | 13060 | 13087 | Resolves the context (key-level) annotations from a schema. |
-| Schema | Annotations | 13088 | 13560 | The `Annotations` namespace groups all annotation interfaces used to attach metadata to schemas. |
+| Schema | LinkHeaderFromString | 11326 | 11339 | Type-level representation of {@link LinkHeaderFromString}. |
+| Schema | LinkHeaderFromString | 11340 | 11366 | Schema for `Link` header values (RFC 8288), decoded with `Headers.parseLink` and encoded with `Headers.formatLink`. |
+| Schema | UrlParams | 11367 | 11376 | Type-level representation of {@link UrlParams}. |
+| Schema | UrlParams | 11377 | 11388 | Schema for HTTP URL parameters. |
+| Schema | JsonFromUrlParamsField | 11389 | 11398 | Type-level representation of {@link JsonFromUrlParamsField}. |
+| Schema | JsonFromUrlParamsField | 11399 | 11429 | Extracts a JSON value from the first occurrence of the given `field` in URL parameters. |
+| Schema | RecordFromUrlParams | 11430 | 11439 | Type-level representation of {@link RecordFromUrlParams}. |
+| Schema | RecordFromUrlParams | 11440 | 11472 | Schema that decodes URL parameters into a record of string values. |
+| Schema | OptionFromOptionalKey | 11473 | 11482 | Type-level representation returned by {@link OptionFromOptionalKey}. |
+| Schema | OptionFromOptionalKey | 11483 | 11495 | Decodes an optional value `A` to a required `Option<A>` value. |
+| Schema | OptionFromOptional | 11496 | 11505 | Type-level representation returned by {@link OptionFromOptional}. |
+| Schema | OptionFromOptional | 11506 | 11520 | Decodes an optional or `undefined` value `A` to a required `Option<A>` value. |
+| Schema | OptionFromOptionalNullOr | 11521 | 11530 | Type-level representation returned by {@link OptionFromOptionalNullOr}. |
+| Schema | OptionFromOptionalNullOr | 11531 | 11548 | Decodes an optional or `null` or `undefined` value `A` to a required `Option<A>` value. |
+| Schema | Redacted | 11549 | 11559 | Type-level representation returned by {@link Redacted}. |
+| Schema | Redacted | 11560 | 11584 | Schema for `Redacted` values, which hide their contents from inspection. |
+| Schema | RedactedFromValue | 11585 | 11594 | Type-level representation returned by {@link RedactedFromValue}. |
+| Schema | RedactedFromValue | 11595 | 11608 | Decodes a value and wraps it in `Redacted<A>`. |
+| Schema | Result | 11609 | 11620 | Type-level representation returned by {@link Result}. |
+| Schema | ResultIso | 11621 | 11639 | Iso representation used for `Result` schemas. |
+| Schema | Result | 11640 | 11647 | Schema for `Result<A, E>` values. |
+| Schema | SemVer | 11648 | 11657 | Type-level representation of {@link SemVer}. |
+| Schema | SemVer | 11658 | 11671 | Schema for `SemVer` values. |
+| Schema | SemVerFromString | 11672 | 11681 | Type-level representation of {@link SemVerFromString}. |
+| Schema | SemVerFromString | 11682 | 11696 | Schema that parses a Semantic Versioning 2.0.0 string into a `SemVer`. |
+| Schema | SemVerRange | 11697 | 11706 | Type-level representation of {@link SemVerRange}. |
+| Schema | SemVerRange | 11707 | 11719 | Schema for `SemVerRange` values. |
+| Schema | SemVerRangeFromString | 11720 | 11729 | Type-level representation of {@link SemVerRangeFromString}. |
+| Schema | SemVerRangeFromString | 11730 | 11743 | Schema that parses an npm-style version range string into a `SemVerRange`. |
+| Schema | Class | 11744 | 11818 | Type-level representation returned by {@link Class}. |
+| Schema | Class | 11819 | 11976 | Creates a schema-backed class whose constructor validates input against a {@link Struct} schema. |
+| Schema | TaggedClass | 11977 | 12048 | Defines a schema-backed class with an automatically populated `_tag` field. |
+| Schema | Error | 12049 | 12106 | Creates a schema-backed error class that can be used as a typed, yieldable error in Effect programs. |
+| Schema | TaggedError | 12107 | 12176 | Defines a schema-backed yieldable error class with an automatically populated `_tag` field. |
+| Schema | overrideToFormatter | 12177 | 12190 | Attaches a custom formatter used by `toFormatter`. |
+| Schema | toFormatter | 12191 | 12208 | Derives a string formatter from the decoded type side of a schema. |
+| Schema | overrideToEquivalence | 12209 | 12222 | Overrides the equivalence derivation for a schema by supplying a custom `Equivalence`. |
+| Schema | toEquivalence | 12223 | 12247 | Derives an `Equivalence` from the decoded type side of a schema. |
+| Schema | toRepresentation | 12248 | 12270 | Derives an intermediate `SchemaRepresentation.Document` from the encoded side of a schema. |
+| Schema | ToJsonSchemaOptions | 12271 | 12356 | Options for reference allocation and JSON Schema generation in {@link toJsonSchemaDocument}. |
+| Schema | toJsonSchemaDocument | 12357 | 12429 | Returns a JSON Schema document using draft 2020-12. |
+| Schema | toCodecJson | 12430 | 12446 | Type-level representation returned by {@link toCodecJson}. |
+| Schema | toCodecJson | 12447 | 12499 | Derives a canonical JSON codec from a schema. |
+| Schema | toCodecIso | 12500 | 12538 | Derives an isomorphism codec from a schema. |
+| Schema | StringTree | 12539 | 12547 | A {@link Tree} of `string \| undefined` nodes. |
+| Schema | toCodecStringTree | 12548 | 12564 | Type-level representation returned by {@link toCodecStringTree}. |
+| Schema | toCodecStringTree | 12565 | 12609 | Converts a schema to the StringTree canonical codec, where every leaf value becomes a string while preserving the original structure. |
+| Schema | toCodecArrayFromSingle | 12610 | 12625 | Type-level representation returned by {@link toCodecArrayFromSingle}. |
+| Schema | toCodecArrayFromSingle | 12626 | 12666 | Allows array schemas to decode from either an array input or a single value input. |
+| Schema | toCodecGoJson | 12667 | 12683 | Type-level representation returned by {@link toCodecGoJson}. |
+| Schema | toCodecGoJson | 12684 | 12840 | Derives a JSON codec, like {@link toCodecJson}, that also accepts the `null` values Go's `encoding/json` writes for nil pointers, slices,... |
+| Schema | toEncoderXml | 12841 | 12854 | Derives an XML encoder from a codec. |
+| Schema | toIso | 12855 | 12876 | Derives an `Iso` optic from a schema that isomorphically converts between the schema's `Type` and its `Iso` (intermediate / serialized fo... |
+| Schema | toIsoSource | 12877 | 12884 | Returns an identity `Iso` over the schema's source (`Type`) side. |
+| Schema | toIsoFocus | 12885 | 12892 | Returns an identity `Iso` over the schema's focus (`Iso`) side. |
+| Schema | overrideToCodecIso | 12893 | 12909 | Type-level representation returned by {@link overrideToCodecIso}. |
+| Schema | overrideToCodecIso | 12910 | 12931 | Overrides a schema's derived ISO codec with an explicit target codec. |
+| Schema | toDifferJsonPatch | 12932 | 12954 | Derives a JSON Patch differ from a codec. |
+| Schema | Tree | 12955 | 12963 | Recursive tree type whose leaves are `Node` values and whose branches are readonly arrays or string-keyed records of child trees. |
+| Schema | TreeRecord | 12964 | 12974 | A record node in a {@link Tree}: an object mapping string keys to child `Tree` nodes. |
+| Schema | Tree | 12975 | 12984 | Creates a recursive schema for a {@link Tree} of values described by `node`. |
+| Schema | Json | 12985 | 12995 | Recursive TypeScript type for any valid immutable JSON value: `null`, `number`, `boolean`, `string`, a readonly array of `Json` values, o... |
+| Schema | JsonArray | 12996 | 13004 | A readonly array of {@link Json} values. |
+| Schema | JsonObject | 13005 | 13014 | A readonly record whose values are {@link Json} values. |
+| Schema | Json | 13015 | 13030 | Schema that accepts and validates any immutable JSON-compatible value. |
+| Schema | JsonObject | 13031 | 13052 | Schema for readonly string-keyed records whose values are JSON-compatible. |
+| Schema | MutableJson | 13053 | 13061 | Recursive TypeScript type for mutable JSON values: `null`, `number`, `boolean`, `string`, mutable arrays, or mutable string-keyed records. |
+| Schema | MutableJsonArray | 13062 | 13070 | A mutable array of {@link MutableJson} values. |
+| Schema | MutableJsonObject | 13071 | 13080 | A mutable record whose values are {@link MutableJson} values. |
+| Schema | MutableJson | 13081 | 13089 | Schema that accepts any mutable JSON-compatible value. |
+| Schema | resolveAnnotations | 13090 | 13100 | Resolves the typed annotations from a schema. |
+| Schema | resolveAnnotationsKey | 13101 | 13128 | Resolves the context (key-level) annotations from a schema. |
+| Schema | Annotations | 13129 | 13601 | The `Annotations` namespace groups all annotation interfaces used to attach metadata to schemas. |
 | SchemaAST | AST | 20 | 38 | Discriminated union of all AST node types. |
 | SchemaAST | isAST | 39 | 52 | Returns `true` if the value is an {@link AST} node (any variant). |
 | SchemaAST | isDeclaration | 53 | 67 | Narrows an {@link AST} to {@link Declaration}. |
@@ -4117,255 +4119,255 @@ For a native pattern and its Effect replacement, start with [native-to-effect.md
 | Stdio | Stdio | 93 | 108 | Service tag for process standard I/O. |
 | Stdio | make | 109 | 130 | Creates a `Stdio` service implementation from the provided fields and attaches the `Stdio` type identifier. |
 | Stdio | layerTest | 131 | 152 | Creates a test layer for `Stdio`. |
-| Stream | TypeId | 42 | 49 | String literal type used as the unique brand for `Stream` values. |
-| Stream | TypeId | 50 | 65 | Runtime identifier stored on `Stream` values and used by `isStream` to recognize them. |
-| Stream | Stream | 66 | 99 | A `Stream<A, E, R>` describes a program that can emit many `A` values, fail with `E`, and require `R`. |
-| Stream | StreamUnify | 100 | 111 | Type-level unification hook for Stream within the Effect type system. |
-| Stream | StreamUnifyIgnore | 112 | 121 | Type-level marker that excludes Stream from unification. |
-| Stream | StreamTypeLambda | 122 | 143 | Type lambda for Stream used in higher-kinded type operations. |
-| Stream | Variance | 144 | 158 | Type-level variance marker for `Stream`. |
-| Stream | VarianceStruct | 159 | 175 | Structural encoding used by `Variance` to record each `Stream` type parameter's variance. |
-| Stream | Success | 176 | 193 | Extract the success type from a Stream type. |
-| Stream | Error | 194 | 211 | Extract the error type from a Stream type. |
-| Stream | Services | 212 | 233 | Extract the services type from a Stream type. |
-| Stream | isStream | 234 | 250 | Checks whether a value is a Stream. |
-| Stream | DefaultChunkSize | 251 | 266 | The default chunk size used by Stream constructors and combinators. |
-| Stream | HaltStrategy | 267 | 274 | Describes how merged streams decide when to halt. |
-| Stream | fromChannel | 275 | 292 | Creates a stream from a array-emitting `Channel`. |
-| Stream | fromEffect | 293 | 309 | Creates a stream from an effect. |
-| Stream | service | 310 | 340 | Accesses a service from the context and emits it as a single element. |
-| Stream | serviceOption | 341 | 382 | Optionally accesses a service from the context and emits the result as a single element. |
-| Stream | fromEffectDrain | 383 | 404 | Creates a stream that runs the effect and emits no elements. |
-| Stream | fromEffectRepeat | 405 | 422 | Creates a stream from an effect producing a value of type `A` which repeats forever. |
-| Stream | fromEffectSchedule | 423 | 440 | Creates a stream from an effect producing a value of type `A`, which is repeated using the specified schedule. |
-| Stream | tick | 441 | 457 | Creates a stream that emits `void` immediately once, then emits another `void` after each specified interval. |
-| Stream | fromPull | 458 | 487 | Creates a stream from a pull effect, such as one produced by `Stream.toPull`. |
-| Stream | transformPull | 488 | 507 | Derives a stream by transforming its pull effect. |
-| Stream | transformPullBracket | 508 | 541 | Transforms a stream by effectfully transforming its pull effect. |
-| Stream | toChannel | 542 | 559 | Creates a channel from a stream. |
-| Stream | callback | 560 | 598 | Creates a stream from a callback that can emit values into a queue. |
-| Stream | empty | 599 | 614 | Creates an empty stream. |
-| Stream | succeed | 615 | 630 | Creates a single-valued pure stream. |
-| Stream | make | 631 | 648 | Creates a stream from a sequence of values. |
-| Stream | sync | 649 | 668 | Creates a stream that synchronously evaluates a function and emits the result as a single value. |
-| Stream | suspend | 669 | 688 | Creates a lazily constructed stream. |
-| Stream | fail | 689 | 704 | Terminates with the specified error. |
-| Stream | failSync | 705 | 722 | Terminates with the specified lazily evaluated error. |
-| Stream | failCause | 723 | 742 | Creates a stream that fails with the specified `Cause`. |
-| Stream | die | 743 | 761 | The stream that dies with the specified defect. |
-| Stream | failCauseSync | 762 | 781 | The stream that always fails with the specified lazily evaluated `Cause`. |
-| Stream | fromIteratorSucceed | 782 | 816 | Creates a stream that consumes values from an iterator. |
-| Stream | fromIterable | 817 | 848 | Creates a new `Stream` from an iterable collection of values. |
-| Stream | fromIterableEffect | 849 | 889 | Creates a stream from an effect producing an iterable of values. |
-| Stream | fromIterableEffectRepeat | 890 | 913 | Creates a stream by repeatedly running an effect that yields an iterable of values. |
-| Stream | fromArray | 914 | 935 | Creates a stream from an array of values. |
-| Stream | fromArrayEffect | 936 | 962 | Creates a stream from an effect that produces an array of values. |
-| Stream | fromArrays | 963 | 984 | Creates a stream from an arbitrary number of arrays. |
-| Stream | fromQueue | 985 | 1017 | Creates a stream that pulls values from a `Queue.Dequeue`. |
-| Stream | fromPubSub | 1018 | 1050 | Creates a stream from a subscription to a `PubSub`. |
-| Stream | fromPubSubTake | 1051 | 1083 | Creates a stream from a PubSub of `Take` values. |
-| Stream | fromReadableStream | 1084 | 1130 | Creates a stream from a lazily supplied Web `ReadableStream`. |
-| Stream | fromAsyncIterable | 1131 | 1159 | Creates a stream from an AsyncIterable. |
-| Stream | fromSchedule | 1160 | 1183 | Creates a stream that emits each output of a schedule that does not require input, for as long as the schedule continues. |
-| Stream | fromSubscription | 1184 | 1217 | Creates a stream from a PubSub subscription. |
-| Stream | EventListener | 1218 | 1235 | Interface representing an event listener target. |
-| Stream | fromEventListener | 1236 | 1279 | Creates a stream from an event listener. |
-| Stream | unfold | 1280 | 1307 | Creates a stream by repeatedly applying an effectful step function to a state. |
-| Stream | paginate | 1308 | 1341 | Creates a stream by repeatedly evaluating an effectful page function. |
-| Stream | iterate | 1342 | 1364 | Creates an infinite stream by repeatedly applying a function to a seed value. |
-| Stream | range | 1365 | 1391 | Constructs a stream from a range of integers, including both endpoints. |
-| Stream | never | 1392 | 1412 | The stream that never produces any value or fails with any error. |
-| Stream | unwrap | 1413 | 1436 | Creates a stream produced from an `Effect`. |
-| Stream | scoped | 1437 | 1467 | Runs a stream that requires `Scope` in a managed scope, ensuring its finalizers are run when the stream completes. |
-| Stream | map | 1468 | 1519 | Transforms the elements of this stream using the supplied function. |
-| Stream | as | 1520 | 1598 | Replaces every element of the stream with the provided constant value. |
-| Stream | mapBoth | 1599 | 1728 | Maps both the failure and success channels of a stream. |
-| Stream | mapArray | 1729 | 1804 | Transforms each emitted chunk using the provided function, which receives the chunk and its index. |
-| Stream | mapEffect | 1805 | 1928 | Maps over elements of the stream with the specified effectful function. |
-| Stream | flattenEffect | 1929 | 1965 | Flattens a stream of `Effect` values into a stream of their results. |
-| Stream | mapArrayEffect | 1966 | 2062 | Maps over non-empty array chunks emitted by the stream effectfully. |
-| Stream | result | 2063 | 2095 | Lifts failures and successes into a `Result`, yielding a stream that cannot fail. |
-| Stream | tap | 2096 | 2187 | Runs the provided effect for each element while preserving the elements. |
-| Stream | tapBoth | 2188 | 2289 | Returns a stream that effectfully "peeks" at elements and failures. |
-| Stream | tapSink | 2290 | 2380 | Runs a sink for all stream elements while still emitting them downstream. |
-| Stream | flatMap | 2381 | 2480 | Maps each element to a stream and flattens the resulting streams. |
-| Stream | switchMap | 2481 | 2562 | Switches to the latest stream produced by the mapping function, interrupting the previous stream when a new element arrives. |
-| Stream | flatten | 2563 | 2605 | Flattens a stream of streams into a single stream. |
-| Stream | flattenArray | 2606 | 2628 | Flattens a stream of non-empty arrays into a stream of elements. |
-| Stream | drain | 2629 | 2649 | Converts this stream to one that runs its effects but emits no elements. |
-| Stream | drainFork | 2650 | 2740 | Runs the provided stream in the background while this stream runs, interrupting it when this stream completes and failing if the backgrou... |
-| Stream | repeat | 2741 | 2816 | Repeats the entire stream according to the provided schedule. |
-| Stream | schedule | 2817 | 2892 | Schedules the stream's elements according to the provided schedule. |
-| Stream | timeout | 2893 | 2968 | Ends the stream if it does not produce a value within the specified duration. |
-| Stream | timeoutOrElse | 2969 | 3053 | Switches to a fallback stream if this stream does not emit a value within the specified duration. |
-| Stream | repeatElements | 3054 | 3129 | Repeats each element of the stream according to the provided schedule, including the original emission. |
-| Stream | forever | 3130 | 3155 | Repeats this stream forever. |
-| Stream | flattenIterable | 3156 | 3177 | Flattens the iterables emitted by this stream into the stream's structure. |
-| Stream | flattenTake | 3178 | 3205 | Unwraps `Take` values, emitting elements from non-empty arrays and ending or failing when the `Exit` signals completion. |
-| Stream | concat | 3206 | 3272 | Concatenates two streams, emitting all elements from the first stream followed by all elements from the second stream. |
-| Stream | prepend | 3273 | 3348 | Prepends the values from the provided iterable before the stream's elements. |
-| Stream | merge | 3349 | 3440 | Merges two streams, emitting elements from both as they arrive. |
-| Stream | mergeEffect | 3441 | 3552 | Merges this stream with a background effect, keeping the stream's elements. |
-| Stream | mergeResult | 3553 | 3676 | Merges this stream and the specified stream together, tagging values from the left stream as `Result.succeed` and values from the right s... |
-| Stream | mergeLeft | 3677 | 3779 | Merges two streams while emitting only the values from the left stream. |
-| Stream | mergeRight | 3780 | 3897 | Merges this stream and the specified stream together, emitting only the values from the right stream while the left stream runs for its e... |
-| Stream | mergeAll | 3898 | 4030 | Merges a collection of streams, running up to the specified number concurrently. |
-| Stream | cross | 4031 | 4115 | Creates the cartesian product of two streams, running the `right` stream for each element in the `left` stream. |
-| Stream | crossWith | 4116 | 4206 | Creates a cartesian product of elements from two streams using a function. |
-| Stream | zipWith | 4207 | 4285 | Zips two streams point-wise with a combining function, ending when either stream ends. |
-| Stream | zipWithArray | 4286 | 4399 | Zips two streams by applying a function to non-empty arrays of elements. |
-| Stream | zip | 4400 | 4481 | Zips this stream with another point-wise and emits tuples of elements from both streams. |
-| Stream | zipLeft | 4482 | 4569 | Zips this stream with another point-wise and keeps only the values from the left stream. |
-| Stream | zipRight | 4570 | 4642 | Zips this stream with another point-wise, keeping only right values and ending when either stream ends. |
-| Stream | zipFlatten | 4643 | 4742 | Zips this stream with another point-wise and emits tuples of elements from both streams, flattening the left tuple. |
-| Stream | zipWithIndex | 4743 | 4766 | Zips this stream together with the index of elements. |
-| Stream | zipWithNext | 4767 | 4788 | Zips each element with the next element, pairing the final element with `Option.none()`. |
-| Stream | zipWithPrevious | 4789 | 4811 | Zips each element with its previous element, starting with `None`. |
-| Stream | zipWithPreviousAndNext | 4812 | 4835 | Zips each element with its previous and next values. |
-| Stream | zipLatestAll | 4836 | 4874 | Zips multiple streams so that when a value is emitted by any stream, it is combined with the latest values from the other streams to prod... |
-| Stream | zipLatest | 4875 | 4980 | Combines two streams by emitting each new element with the latest value from the other stream. |
-| Stream | zipLatestWith | 4981 | 5098 | Combines the latest values from both streams whenever either emits, using the provided function. |
-| Stream | raceAll | 5099 | 5129 | Runs all streams concurrently until one stream emits its first value, then mirrors that winning stream and interrupts the rest. |
-| Stream | race | 5130 | 5229 | Runs both streams concurrently until one stream emits its first value, then mirrors that winning stream and interrupts the other. |
-| Stream | filter | 5230 | 5350 | Filters a stream to the elements that satisfy a predicate. |
-| Stream | filterMap | 5351 | 5414 | Filters and maps stream elements in one pass using a `Filter`. |
-| Stream | filterEffect | 5415 | 5484 | Filters elements in a single pass effectfully. |
-| Stream | filterMapEffect | 5485 | 5551 | Filters and maps elements in one pass effectfully using a `FilterEffect`. |
-| Stream | partitionQueue | 5552 | 5667 | Partitions a stream using a `Filter` and exposes passing and failing values as scoped queues. |
-| Stream | partitionEffect | 5668 | 5752 | Splits a stream with an effectful `Filter`, returning scoped streams for filter successes and failures. |
-| Stream | partition | 5753 | 5868 | Splits a stream into scoped passing and failing substreams using a `Filter`. |
-| Stream | when | 5869 | 5941 | Returns the specified stream if the given condition is satisfied, otherwise returns an empty stream. |
-| Stream | peel | 5942 | 6038 | Runs a sink to peel off enough elements to produce a value and returns that value with the remaining stream in a scope. |
-| Stream | buffer | 6039 | 6145 | Buffers up to `capacity` elements so a faster producer can progress independently of a slower consumer. |
-| Stream | bufferArray | 6146 | 6252 | Allows a faster producer to progress independently of a slower consumer by buffering up to `capacity` chunks in a queue. |
-| Stream | catchCause | 6253 | 6349 | Switches over to the stream produced by the provided function in case this one fails. |
-| Stream | catchDefect | 6350 | 6443 | Recovers from defects using the provided function. |
-| Stream | tapCause | 6444 | 6534 | Runs an effect when the stream fails without changing its values or error, unless the tap effect itself fails. |
-| Stream | catch | 6535 | 6572 | Switches over to the stream produced by the provided function if this one fails. |
-| Stream | tapError | 6573 | 6660 | Peeks at errors effectfully without changing the stream unless the tap fails. |
-| Stream | tapErrorTag | 6661 | 6781 | Peeks at errors with a matching `_tag` effectfully without changing the stream unless the tap fails. |
-| Stream | tapDefect | 6782 | 6881 | Peeks at defects effectfully without changing the stream unless the tap fails. |
-| Stream | catchIf | 6882 | 7087 | Recovers from errors that match a predicate by switching to a recovery stream. |
-| Stream | catchFilter | 7088 | 7178 | Recovers from errors that match a `Filter` by switching to a recovery stream. |
-| Stream | catchTag | 7179 | 7302 | Recovers from failures whose `_tag` matches the provided value by switching to the stream returned by `f`. |
-| Stream | catchTags | 7303 | 7478 | Switches to a recovery stream based on matching `_tag` handlers. |
-| Stream | catchReason | 7479 | 7650 | Catches a specific reason within a tagged error. |
-| Stream | catchReasons | 7651 | 7814 | Catches multiple reasons within a tagged error using an object of handlers. |
-| Stream | unwrapReason | 7815 | 7950 | Promotes nested reason errors into the stream error channel, replacing the parent error. |
-| Stream | mapError | 7951 | 8041 | Transforms the errors emitted by this stream using `f`. |
-| Stream | catchCauseIf | 8042 | 8129 | Recovers from stream failures by filtering the `Cause` and switching to a recovery stream. |
-| Stream | catchCauseFilter | 8130 | 8205 | Recovers from stream failures by filtering the `Cause` and switching to a recovery stream. |
-| Stream | orElseIfEmpty | 8206 | 8278 | Switches to a fallback stream if this stream is empty. |
-| Stream | orElseSucceed | 8279 | 8372 | Returns a stream that emits a fallback value when this stream fails. |
-| Stream | orDie | 8373 | 8397 | Turns typed failures into defects, making the stream infallible. |
-| Stream | ignore | 8398 | 8463 | Ignores failures and ends the stream on error. |
-| Stream | ignoreCause | 8464 | 8504 | Ignores the stream's failure cause, including defects, and ends the stream. |
-| Stream | retry | 8505 | 8628 | Retries the stream according to the given schedule when it fails. |
-| Stream | withExecutionPlan | 8629 | 8798 | Applies an `ExecutionPlan` to a stream, retrying with step-provided resources until it succeeds or the plan is exhausted. |
-| Stream | take | 8799 | 8886 | Takes the first `n` elements from this stream. |
-| Stream | limitBytes | 8887 | 8965 | Emits byte chunks until the configured limit would be exceeded, then drops the crossing chunk and switches to a fallback stream. |
-| Stream | takeRight | 8966 | 9053 | Keeps the last `n` elements from this stream. |
-| Stream | takeUntil | 9054 | 9163 | Takes elements until the predicate matches. |
-| Stream | takeUntilEffect | 9164 | 9255 | Takes stream elements until an effectful predicate returns `true`. |
-| Stream | takeWhile | 9256 | 9381 | Takes the longest initial prefix of elements that satisfy the predicate. |
-| Stream | takeWhileFilter | 9382 | 9448 | Takes the longest initial prefix accepted by a `Filter` and emits the filter's success values. |
-| Stream | takeWhileEffect | 9449 | 9536 | Takes elements from the stream while the effectful predicate is `true`. |
-| Stream | drop | 9537 | 9624 | Drops the first `n` elements from this stream. |
-| Stream | dropUntil | 9625 | 9694 | Drops elements until the specified predicate evaluates to `true`, then drops that matching element. |
-| Stream | dropUntilEffect | 9695 | 9785 | Drops all elements of the stream until the specified effectful predicate evaluates to `true`. |
-| Stream | dropWhile | 9786 | 9858 | Drops elements from the stream while the specified predicate evaluates to `true`. |
-| Stream | dropWhileFilter | 9859 | 9928 | Drops elements while the filter succeeds. |
-| Stream | dropWhileEffect | 9929 | 10001 | Drops elements while the specified effectful predicate evaluates to `true`. |
-| Stream | dropRight | 10002 | 10092 | Drops the last specified number of elements from this stream. |
-| Stream | chunks | 10093 | 10117 | Exposes the underlying chunks as a stream of non-empty arrays. |
-| Stream | rechunk | 10118 | 10208 | Groups the stream into arrays of the specified size, preserving element order. |
-| Stream | sliding | 10209 | 10293 | Emits a sliding window of `n` elements. |
-| Stream | slidingSize | 10294 | 10381 | Emits sliding windows of `chunkSize` elements, advancing by `stepSize`. |
-| Stream | split | 10382 | 10522 | Splits the stream into non-empty groups whenever the predicate matches. |
-| Stream | combine | 10523 | 10634 | Combines elements from this stream and the specified stream by repeatedly applying a stateful function that can pull from either side. |
-| Stream | combineArray | 10635 | 10767 | Combines two streams chunk-by-chunk with a stateful pull function. |
-| Stream | mapAccum | 10768 | 10856 | Maps elements statefully, emitting zero or more outputs per input. |
-| Stream | mapAccumArray | 10857 | 10957 | Maps over non-empty chunk arrays statefully, emitting zero or more values per chunk. |
-| Stream | mapAccumEffect | 10958 | 11079 | Maps each element statefully and effectfully, emitting zero or more output values per input. |
-| Stream | mapAccumArrayEffect | 11080 | 11207 | Maps each non-empty input chunk statefully and effectfully, emitting zero or more output values per chunk. |
-| Stream | scan | 11208 | 11280 | Accumulates state across the stream, emitting the initial state and each updated state. |
-| Stream | scanEffect | 11281 | 11350 | Accumulates state effectfully and emits the initial state plus each accumulated state. |
-| Stream | debounce | 11351 | 11417 | Drops earlier elements within the debounce window and emits only the latest element after the pause. |
-| Stream | throttleEffect | 11418 | 11562 | Rate-limits stream chunks with an effectful cost function. |
-| Stream | throttle | 11563 | 11710 | Rate-limits stream chunks with a synchronous cost function. |
-| Stream | grouped | 11711 | 11801 | Partitions the stream into non-empty arrays of the specified size. |
-| Stream | groupedWithin | 11802 | 11895 | Partitions the stream into arrays, emitting when the chunk size is reached or the duration passes. |
-| Stream | groupBy | 11896 | 12001 | Groups elements into keyed substreams using an effectful classifier. |
-| Stream | groupByKey | 12002 | 12101 | Groups elements by a key and emits a stream per key. |
-| Stream | groupAdjacentBy | 12102 | 12171 | Groups consecutive elements that have equal keys into non-empty arrays. |
-| Stream | transduce | 12172 | 12244 | Applies a sink transducer to the stream and emits each sink result. |
-| Stream | aggregate | 12245 | 12335 | Aggregates elements using the provided sink and emits each sink result as a stream element. |
-| Stream | aggregateWithin | 12336 | 12462 | Aggregates elements with a sink, emitting each result when the sink completes or the schedule triggers. |
-| Stream | broadcastN | 12463 | 12604 | Creates a fixed-size tuple of streams that each emit the same elements as the source stream. |
-| Stream | broadcast | 12605 | 12727 | Creates a PubSub-backed stream that multicasts the source to all subscribers. |
-| Stream | share | 12728 | 12893 | Returns a new Stream that multicasts the original stream, subscribing when the first consumer starts. |
-| Stream | pipeThroughChannel | 12894 | 13002 | Pipes this stream through a channel that consumes and emits chunked elements. |
-| Stream | pipeThroughChannelOrFail | 13003 | 13111 | Pipes values through the provided channel while preserving this stream's failures alongside any channel failures. |
-| Stream | pipeThrough | 13112 | 13199 | Pipes the stream through `Sink.toChannel`, emitting only the sink leftovers. |
-| Stream | collect | 13200 | 13222 | Collects all elements into an array and emits it as a single element. |
-| Stream | accumulate | 13223 | 13248 | Accumulates elements into a growing array, emitting the cumulative array for each input chunk. |
-| Stream | changes | 13249 | 13273 | Emits only elements that differ from the previous one. |
-| Stream | changesWith | 13274 | 13349 | Returns a stream that only emits elements that are not equal to the previously emitted element, as determined by the specified predicate. |
-| Stream | changesWithEffect | 13350 | 13434 | Emits only elements that differ from the previous element, using an effectful equality check. |
-| Stream | decodeText | 13435 | 13470 | Decodes Uint8Array chunks into strings using TextDecoder with an optional encoding. |
-| Stream | encodeText | 13471 | 13494 | Encodes a stream of strings into UTF-8 `Uint8Array` chunks. |
-| Stream | splitLines | 13495 | 13515 | Splits a stream of strings into lines, handling `\n`, `\r`, and `\r\n` delimiters across chunks. |
-| Stream | intersperse | 13516 | 13582 | Inserts the provided element between emitted elements. |
-| Stream | intersperseAffixes | 13583 | 13678 | Adds a start value, middle value, and end value around stream elements. |
-| Stream | interleave | 13679 | 13763 | Interleaves this stream with the specified stream by alternating pulls from each stream; when one ends, the remaining values from the oth... |
-| Stream | interleaveWith | 13764 | 13863 | Interleaves two streams deterministically by following a boolean decider stream. |
-| Stream | interruptWhen | 13864 | 13981 | Interrupts the evaluation of this stream when the provided effect completes. |
-| Stream | haltWhen | 13982 | 14108 | Stops a stream after the current pull when an effect completes. |
-| Stream | onExit | 14109 | 14193 | Runs the provided finalizer when the stream exits, passing the exit value. |
-| Stream | onError | 14194 | 14290 | Runs the provided effect when the stream fails, passing the failure cause. |
-| Stream | onStart | 14291 | 14372 | Runs the provided effect before this stream starts. |
-| Stream | onFirst | 14373 | 14442 | Runs the provided effect with the first element emitted by the stream. |
-| Stream | onEnd | 14443 | 14521 | Runs the provided effect when the stream ends successfully. |
-| Stream | ensuring | 14522 | 14603 | Executes the provided finalizer after this stream's finalizers run. |
-| Stream | provide | 14604 | 14704 | Provides a layer or context to the stream, removing the corresponding service requirements. |
-| Stream | provideContext | 14705 | 14813 | Provides multiple services to the stream using a context. |
-| Stream | provideService | 14814 | 14928 | Provides the stream with a single required service, eliminating that requirement from its environment. |
-| Stream | provideServiceEffect | 14929 | 15037 | Provides a service to the stream using an effect, removing the requirement and adding the effect's error and environment. |
-| Stream | updateContext | 15038 | 15161 | Transforms the stream's required services by mapping the current context to a new one. |
-| Stream | updateService | 15162 | 15243 | Updates a single service in the stream environment by applying a function. |
-| Stream | withSpan | 15244 | 15313 | Wraps the stream with a new span for tracing. |
-| Stream | Do | 15314 | 15340 | Provides the entry point for do-notation style stream composition. |
-| Stream | let | 15341 | 15371 | Adds a computed field to the current Do-notation record. |
-| Stream | bind | 15372 | 15447 | Binds the result of a stream to a field in the do-notation record. |
-| Stream | bindEffect | 15448 | 15534 | Binds an Effect-produced value into the do-notation record for each stream element. |
-| Stream | bindTo | 15535 | 15593 | Maps each element into a record keyed by the provided name. |
-| Stream | run | 15594 | 15648 | Runs a stream with a sink and returns the sink result. |
-| Stream | runCollect | 15649 | 15671 | Runs the stream and collects all elements into an array. |
-| Stream | runCount | 15672 | 15694 | Runs the stream and returns the number of elements emitted. |
-| Stream | runSum | 15695 | 15715 | Runs the stream and returns the numeric sum of its elements. |
-| Stream | runFold | 15716 | 15791 | Runs the stream and folds elements using a pure reducer. |
-| Stream | runFoldEffect | 15792 | 15882 | Runs the stream and folds elements using an effectful reducer. |
-| Stream | runHead | 15883 | 15903 | Runs the stream and returns the first element as an `Option`. |
-| Stream | runLast | 15904 | 15929 | Runs the stream and returns the last element as an `Option`. |
-| Stream | runForEach | 15930 | 16002 | Runs the provided effectful callback for each element of the stream. |
-| Stream | runForEachWhile | 16003 | 16093 | Runs the stream, applying the effectful predicate to each element and stopping when it returns `false`. |
-| Stream | runForEachArray | 16094 | 16172 | Consumes the stream in chunks, passing each non-empty array to the callback. |
-| Stream | runDrain | 16173 | 16198 | Runs the stream for its effects, discarding emitted elements. |
-| Stream | toPull | 16199 | 16229 | Returns a scoped pull for manually consuming the stream's output chunks. |
-| Stream | mkString | 16230 | 16251 | Concatenates all emitted strings into a single string. |
-| Stream | mkArrayBuffer | 16252 | 16280 | Concatenates the stream's `Uint8Array` chunks into a single `ArrayBuffer`. |
-| Stream | mkUint8Array | 16281 | 16307 | Concatenates the stream's `Uint8Array` chunks into a single `Uint8Array`. |
-| Stream | toReadableStreamWith | 16308 | 16407 | Converts the stream to a `ReadableStream` using the provided services. |
-| Stream | toReadableStream | 16408 | 16478 | Converts a stream to a `ReadableStream`. |
-| Stream | toReadableStreamEffect | 16479 | 16579 | Creates an Effect that builds a ReadableStream from the stream. |
-| Stream | toAsyncIterableWith | 16580 | 16652 | Converts the stream to an `AsyncIterable` using the provided services. |
-| Stream | toAsyncIterableEffect | 16653 | 16680 | Creates an effect that yields an `AsyncIterable` using the current services. |
-| Stream | toAsyncIterable | 16681 | 16698 | Converts a stream to an `AsyncIterable` for `for await...of` consumption. |
-| Stream | runIntoPubSub | 16699 | 16805 | Runs the stream, publishing elements into the provided PubSub. |
-| Stream | toPubSub | 16806 | 16914 | Converts a stream to a PubSub of emitted values for concurrent consumption. |
-| Stream | toPubSubTake | 16915 | 17028 | Converts a stream to a PubSub of `Take` values for concurrent consumption. |
-| Stream | toQueue | 17029 | 17123 | Creates a scoped dequeue that is fed by the stream for concurrent consumption. |
-| Stream | runIntoQueue | 17124 | 17227 | Runs the stream, offering each element to the provided queue and ending it with `Cause.Done` when the stream completes. |
+| Stream | TypeId | 62 | 69 | String literal type used as the unique brand for `Stream` values. |
+| Stream | TypeId | 70 | 85 | Runtime identifier stored on `Stream` values and used by `isStream` to recognize them. |
+| Stream | Stream | 86 | 119 | A `Stream<A, E, R>` describes a program that can emit many `A` values, fail with `E`, and require `R`. |
+| Stream | StreamUnify | 120 | 131 | Type-level unification hook for Stream within the Effect type system. |
+| Stream | StreamUnifyIgnore | 132 | 141 | Type-level marker that excludes Stream from unification. |
+| Stream | StreamTypeLambda | 142 | 163 | Type lambda for Stream used in higher-kinded type operations. |
+| Stream | Variance | 164 | 178 | Type-level variance marker for `Stream`. |
+| Stream | VarianceStruct | 179 | 195 | Structural encoding used by `Variance` to record each `Stream` type parameter's variance. |
+| Stream | Success | 196 | 213 | Extract the success type from a Stream type. |
+| Stream | Error | 214 | 231 | Extract the error type from a Stream type. |
+| Stream | Services | 232 | 253 | Extract the services type from a Stream type. |
+| Stream | isStream | 254 | 270 | Checks whether a value is a Stream. |
+| Stream | DefaultChunkSize | 271 | 286 | The default chunk size used by Stream constructors and combinators. |
+| Stream | HaltStrategy | 287 | 294 | Describes how merged streams decide when to halt. |
+| Stream | fromChannel | 295 | 312 | Creates a stream from a array-emitting `Channel`. |
+| Stream | fromEffect | 313 | 329 | Creates a stream from an effect. |
+| Stream | service | 330 | 360 | Accesses a service from the context and emits it as a single element. |
+| Stream | serviceOption | 361 | 402 | Optionally accesses a service from the context and emits the result as a single element. |
+| Stream | fromEffectDrain | 403 | 424 | Creates a stream that runs the effect and emits no elements. |
+| Stream | fromEffectRepeat | 425 | 442 | Creates a stream from an effect producing a value of type `A` which repeats forever. |
+| Stream | fromEffectSchedule | 443 | 460 | Creates a stream from an effect producing a value of type `A`, which is repeated using the specified schedule. |
+| Stream | tick | 461 | 477 | Creates a stream that emits `void` immediately once, then emits another `void` after each specified interval. |
+| Stream | fromPull | 478 | 507 | Creates a stream from a pull effect, such as one produced by `Stream.toPull`. |
+| Stream | transformPull | 508 | 527 | Derives a stream by transforming its pull effect. |
+| Stream | transformPullBracket | 528 | 561 | Transforms a stream by effectfully transforming its pull effect. |
+| Stream | toChannel | 562 | 579 | Creates a channel from a stream. |
+| Stream | callback | 580 | 647 | Creates a stream from a callback that can emit values into a queue. |
+| Stream | empty | 648 | 663 | Creates an empty stream. |
+| Stream | succeed | 664 | 679 | Creates a single-valued pure stream. |
+| Stream | make | 680 | 697 | Creates a stream from a sequence of values. |
+| Stream | sync | 698 | 717 | Creates a stream that synchronously evaluates a function and emits the result as a single value. |
+| Stream | suspend | 718 | 737 | Creates a lazily constructed stream. |
+| Stream | fail | 738 | 753 | Terminates with the specified error. |
+| Stream | failSync | 754 | 771 | Terminates with the specified lazily evaluated error. |
+| Stream | failCause | 772 | 791 | Creates a stream that fails with the specified `Cause`. |
+| Stream | die | 792 | 810 | The stream that dies with the specified defect. |
+| Stream | failCauseSync | 811 | 830 | The stream that always fails with the specified lazily evaluated `Cause`. |
+| Stream | fromIteratorSucceed | 831 | 865 | Creates a stream that consumes values from an iterator. |
+| Stream | fromIterable | 866 | 897 | Creates a new `Stream` from an iterable collection of values. |
+| Stream | fromIterableEffect | 898 | 938 | Creates a stream from an effect producing an iterable of values. |
+| Stream | fromIterableEffectRepeat | 939 | 962 | Creates a stream by repeatedly running an effect that yields an iterable of values. |
+| Stream | fromArray | 963 | 984 | Creates a stream from an array of values. |
+| Stream | fromArrayEffect | 985 | 1011 | Creates a stream from an effect that produces an array of values. |
+| Stream | fromArrays | 1012 | 1033 | Creates a stream from an arbitrary number of arrays. |
+| Stream | fromQueue | 1034 | 1066 | Creates a stream that pulls values from a `Queue.Dequeue`. |
+| Stream | fromPubSub | 1067 | 1099 | Creates a stream from a subscription to a `PubSub`. |
+| Stream | fromPubSubTake | 1100 | 1132 | Creates a stream from a PubSub of `Take` values. |
+| Stream | fromReadableStream | 1133 | 1179 | Creates a stream from a lazily supplied Web `ReadableStream`. |
+| Stream | fromAsyncIterable | 1180 | 1208 | Creates a stream from an AsyncIterable. |
+| Stream | fromSchedule | 1209 | 1232 | Creates a stream that emits each output of a schedule that does not require input, for as long as the schedule continues. |
+| Stream | fromSubscription | 1233 | 1266 | Creates a stream from a PubSub subscription. |
+| Stream | EventListener | 1267 | 1284 | Interface representing an event listener target. |
+| Stream | fromEventListener | 1285 | 1328 | Creates a stream from an event listener. |
+| Stream | unfold | 1329 | 1356 | Creates a stream by repeatedly applying an effectful step function to a state. |
+| Stream | paginate | 1357 | 1390 | Creates a stream by repeatedly evaluating an effectful page function. |
+| Stream | iterate | 1391 | 1413 | Creates an infinite stream by repeatedly applying a function to a seed value. |
+| Stream | range | 1414 | 1440 | Constructs a stream from a range of integers, including both endpoints. |
+| Stream | never | 1441 | 1461 | The stream that never produces any value or fails with any error. |
+| Stream | unwrap | 1462 | 1490 | Creates a stream produced from an `Effect`. |
+| Stream | scoped | 1491 | 1529 | Runs a stream that requires `Scope` in a managed scope, ensuring its finalizers are run when the stream completes. |
+| Stream | map | 1530 | 1581 | Transforms the elements of this stream using the supplied function. |
+| Stream | as | 1582 | 1660 | Replaces every element of the stream with the provided constant value. |
+| Stream | mapBoth | 1661 | 1790 | Maps both the failure and success channels of a stream. |
+| Stream | mapArray | 1791 | 1866 | Transforms each emitted chunk using the provided function, which receives the chunk and its index. |
+| Stream | mapEffect | 1867 | 1990 | Maps over elements of the stream with the specified effectful function. |
+| Stream | flattenEffect | 1991 | 2027 | Flattens a stream of `Effect` values into a stream of their results. |
+| Stream | mapArrayEffect | 2028 | 2124 | Maps over non-empty array chunks emitted by the stream effectfully. |
+| Stream | result | 2125 | 2157 | Lifts failures and successes into a `Result`, yielding a stream that cannot fail. |
+| Stream | tap | 2158 | 2249 | Runs the provided effect for each element while preserving the elements. |
+| Stream | tapBoth | 2250 | 2351 | Returns a stream that effectfully "peeks" at elements and failures. |
+| Stream | tapSink | 2352 | 2442 | Runs a sink for all stream elements while still emitting them downstream. |
+| Stream | flatMap | 2443 | 2542 | Maps each element to a stream and flattens the resulting streams. |
+| Stream | switchMap | 2543 | 2624 | Switches to the latest stream produced by the mapping function, interrupting the previous stream when a new element arrives. |
+| Stream | flatten | 2625 | 2667 | Flattens a stream of streams into a single stream. |
+| Stream | flattenArray | 2668 | 2690 | Flattens a stream of non-empty arrays into a stream of elements. |
+| Stream | drain | 2691 | 2711 | Converts this stream to one that runs its effects but emits no elements. |
+| Stream | drainFork | 2712 | 2802 | Runs the provided stream in the background while this stream runs, interrupting it when this stream completes and failing if the backgrou... |
+| Stream | repeat | 2803 | 2878 | Repeats the entire stream according to the provided schedule. |
+| Stream | schedule | 2879 | 2954 | Schedules the stream's elements according to the provided schedule. |
+| Stream | timeout | 2955 | 3030 | Ends the stream if it does not produce a value within the specified duration. |
+| Stream | timeoutOrElse | 3031 | 3115 | Switches to a fallback stream if this stream does not emit a value within the specified duration. |
+| Stream | repeatElements | 3116 | 3191 | Repeats each element of the stream according to the provided schedule, including the original emission. |
+| Stream | forever | 3192 | 3217 | Repeats this stream forever. |
+| Stream | flattenIterable | 3218 | 3239 | Flattens the iterables emitted by this stream into the stream's structure. |
+| Stream | flattenTake | 3240 | 3267 | Unwraps `Take` values, emitting elements from non-empty arrays and ending or failing when the `Exit` signals completion. |
+| Stream | concat | 3268 | 3334 | Concatenates two streams, emitting all elements from the first stream followed by all elements from the second stream. |
+| Stream | prepend | 3335 | 3410 | Prepends the values from the provided iterable before the stream's elements. |
+| Stream | merge | 3411 | 3502 | Merges two streams, emitting elements from both as they arrive. |
+| Stream | mergeEffect | 3503 | 3614 | Merges this stream with a background effect, keeping the stream's elements. |
+| Stream | mergeResult | 3615 | 3738 | Merges this stream and the specified stream together, tagging values from the left stream as `Result.succeed` and values from the right s... |
+| Stream | mergeLeft | 3739 | 3841 | Merges two streams while emitting only the values from the left stream. |
+| Stream | mergeRight | 3842 | 3959 | Merges this stream and the specified stream together, emitting only the values from the right stream while the left stream runs for its e... |
+| Stream | mergeAll | 3960 | 4092 | Merges a collection of streams, running up to the specified number concurrently. |
+| Stream | cross | 4093 | 4177 | Creates the cartesian product of two streams, running the `right` stream for each element in the `left` stream. |
+| Stream | crossWith | 4178 | 4268 | Creates a cartesian product of elements from two streams using a function. |
+| Stream | zipWith | 4269 | 4347 | Zips two streams point-wise with a combining function, ending when either stream ends. |
+| Stream | zipWithArray | 4348 | 4461 | Zips two streams by applying a function to non-empty arrays of elements. |
+| Stream | zip | 4462 | 4543 | Zips this stream with another point-wise and emits tuples of elements from both streams. |
+| Stream | zipLeft | 4544 | 4631 | Zips this stream with another point-wise and keeps only the values from the left stream. |
+| Stream | zipRight | 4632 | 4704 | Zips this stream with another point-wise, keeping only right values and ending when either stream ends. |
+| Stream | zipFlatten | 4705 | 4804 | Zips this stream with another point-wise and emits tuples of elements from both streams, flattening the left tuple. |
+| Stream | zipWithIndex | 4805 | 4828 | Zips this stream together with the index of elements. |
+| Stream | zipWithNext | 4829 | 4850 | Zips each element with the next element, pairing the final element with `Option.none()`. |
+| Stream | zipWithPrevious | 4851 | 4873 | Zips each element with its previous element, starting with `None`. |
+| Stream | zipWithPreviousAndNext | 4874 | 4897 | Zips each element with its previous and next values. |
+| Stream | zipLatestAll | 4898 | 4936 | Zips multiple streams so that when a value is emitted by any stream, it is combined with the latest values from the other streams to prod... |
+| Stream | zipLatest | 4937 | 5042 | Combines two streams by emitting each new element with the latest value from the other stream. |
+| Stream | zipLatestWith | 5043 | 5160 | Combines the latest values from both streams whenever either emits, using the provided function. |
+| Stream | raceAll | 5161 | 5191 | Runs all streams concurrently until one stream emits its first value, then mirrors that winning stream and interrupts the rest. |
+| Stream | race | 5192 | 5291 | Runs both streams concurrently until one stream emits its first value, then mirrors that winning stream and interrupts the other. |
+| Stream | filter | 5292 | 5412 | Filters a stream to the elements that satisfy a predicate. |
+| Stream | filterMap | 5413 | 5476 | Filters and maps stream elements in one pass using a `Filter`. |
+| Stream | filterEffect | 5477 | 5546 | Filters elements in a single pass effectfully. |
+| Stream | filterMapEffect | 5547 | 5613 | Filters and maps elements in one pass effectfully using a `FilterEffect`. |
+| Stream | partitionQueue | 5614 | 5729 | Partitions a stream using a `Filter` and exposes passing and failing values as scoped queues. |
+| Stream | partitionEffect | 5730 | 5814 | Splits a stream with an effectful `Filter`, returning scoped streams for filter successes and failures. |
+| Stream | partition | 5815 | 5930 | Splits a stream into scoped passing and failing substreams using a `Filter`. |
+| Stream | when | 5931 | 6003 | Returns the specified stream if the given condition is satisfied, otherwise returns an empty stream. |
+| Stream | peel | 6004 | 6100 | Runs a sink to peel off enough elements to produce a value and returns that value with the remaining stream in a scope. |
+| Stream | buffer | 6101 | 6207 | Buffers up to `capacity` elements so a faster producer can progress independently of a slower consumer. |
+| Stream | bufferArray | 6208 | 6314 | Allows a faster producer to progress independently of a slower consumer by buffering up to `capacity` chunks in a queue. |
+| Stream | catchCause | 6315 | 6411 | Switches over to the stream produced by the provided function in case this one fails. |
+| Stream | catchDefect | 6412 | 6505 | Recovers from defects using the provided function. |
+| Stream | tapCause | 6506 | 6596 | Runs an effect when the stream fails without changing its values or error, unless the tap effect itself fails. |
+| Stream | catch | 6597 | 6634 | Switches over to the stream produced by the provided function if this one fails. |
+| Stream | tapError | 6635 | 6722 | Peeks at errors effectfully without changing the stream unless the tap fails. |
+| Stream | tapErrorTag | 6723 | 6843 | Peeks at errors with a matching `_tag` effectfully without changing the stream unless the tap fails. |
+| Stream | tapDefect | 6844 | 6943 | Peeks at defects effectfully without changing the stream unless the tap fails. |
+| Stream | catchIf | 6944 | 7149 | Recovers from errors that match a predicate by switching to a recovery stream. |
+| Stream | catchFilter | 7150 | 7240 | Recovers from errors that match a `Filter` by switching to a recovery stream. |
+| Stream | catchTag | 7241 | 7364 | Recovers from failures whose `_tag` matches the provided value by switching to the stream returned by `f`. |
+| Stream | catchTags | 7365 | 7540 | Switches to a recovery stream based on matching `_tag` handlers. |
+| Stream | catchReason | 7541 | 7712 | Catches a specific reason within a tagged error. |
+| Stream | catchReasons | 7713 | 7876 | Catches multiple reasons within a tagged error using an object of handlers. |
+| Stream | unwrapReason | 7877 | 8012 | Promotes nested reason errors into the stream error channel, replacing the parent error. |
+| Stream | mapError | 8013 | 8103 | Transforms the errors emitted by this stream using `f`. |
+| Stream | catchCauseIf | 8104 | 8191 | Recovers from stream failures by filtering the `Cause` and switching to a recovery stream. |
+| Stream | catchCauseFilter | 8192 | 8267 | Recovers from stream failures by filtering the `Cause` and switching to a recovery stream. |
+| Stream | orElseIfEmpty | 8268 | 8340 | Switches to a fallback stream if this stream is empty. |
+| Stream | orElseSucceed | 8341 | 8434 | Returns a stream that emits a fallback value when this stream fails. |
+| Stream | orDie | 8435 | 8459 | Turns typed failures into defects, making the stream infallible. |
+| Stream | ignore | 8460 | 8525 | Ignores failures and ends the stream on error. |
+| Stream | ignoreCause | 8526 | 8566 | Ignores the stream's failure cause, including defects, and ends the stream. |
+| Stream | retry | 8567 | 8690 | Retries the stream according to the given schedule when it fails. |
+| Stream | withExecutionPlan | 8691 | 8860 | Applies an `ExecutionPlan` to a stream, retrying with step-provided resources until it succeeds or the plan is exhausted. |
+| Stream | take | 8861 | 8948 | Takes the first `n` elements from this stream. |
+| Stream | limitBytes | 8949 | 9027 | Emits byte chunks until the configured limit would be exceeded, then drops the crossing chunk and switches to a fallback stream. |
+| Stream | takeRight | 9028 | 9115 | Keeps the last `n` elements from this stream. |
+| Stream | takeUntil | 9116 | 9225 | Takes elements until the predicate matches. |
+| Stream | takeUntilEffect | 9226 | 9317 | Takes stream elements until an effectful predicate returns `true`. |
+| Stream | takeWhile | 9318 | 9443 | Takes the longest initial prefix of elements that satisfy the predicate. |
+| Stream | takeWhileFilter | 9444 | 9510 | Takes the longest initial prefix accepted by a `Filter` and emits the filter's success values. |
+| Stream | takeWhileEffect | 9511 | 9598 | Takes elements from the stream while the effectful predicate is `true`. |
+| Stream | drop | 9599 | 9686 | Drops the first `n` elements from this stream. |
+| Stream | dropUntil | 9687 | 9756 | Drops elements until the specified predicate evaluates to `true`, then drops that matching element. |
+| Stream | dropUntilEffect | 9757 | 9847 | Drops all elements of the stream until the specified effectful predicate evaluates to `true`. |
+| Stream | dropWhile | 9848 | 9920 | Drops elements from the stream while the specified predicate evaluates to `true`. |
+| Stream | dropWhileFilter | 9921 | 9990 | Drops elements while the filter succeeds. |
+| Stream | dropWhileEffect | 9991 | 10063 | Drops elements while the specified effectful predicate evaluates to `true`. |
+| Stream | dropRight | 10064 | 10154 | Drops the last specified number of elements from this stream. |
+| Stream | chunks | 10155 | 10179 | Exposes the underlying chunks as a stream of non-empty arrays. |
+| Stream | rechunk | 10180 | 10270 | Groups the stream into arrays of the specified size, preserving element order. |
+| Stream | sliding | 10271 | 10355 | Emits a sliding window of `n` elements. |
+| Stream | slidingSize | 10356 | 10443 | Emits sliding windows of `chunkSize` elements, advancing by `stepSize`. |
+| Stream | split | 10444 | 10584 | Splits the stream into non-empty groups whenever the predicate matches. |
+| Stream | combine | 10585 | 10696 | Combines elements from this stream and the specified stream by repeatedly applying a stateful function that can pull from either side. |
+| Stream | combineArray | 10697 | 10829 | Combines two streams chunk-by-chunk with a stateful pull function. |
+| Stream | mapAccum | 10830 | 10918 | Maps elements statefully, emitting zero or more outputs per input. |
+| Stream | mapAccumArray | 10919 | 11019 | Maps over non-empty chunk arrays statefully, emitting zero or more values per chunk. |
+| Stream | mapAccumEffect | 11020 | 11141 | Maps each element statefully and effectfully, emitting zero or more output values per input. |
+| Stream | mapAccumArrayEffect | 11142 | 11269 | Maps each non-empty input chunk statefully and effectfully, emitting zero or more output values per chunk. |
+| Stream | scan | 11270 | 11342 | Accumulates state across the stream, emitting the initial state and each updated state. |
+| Stream | scanEffect | 11343 | 11412 | Accumulates state effectfully and emits the initial state plus each accumulated state. |
+| Stream | debounce | 11413 | 11479 | Drops earlier elements within the debounce window and emits only the latest element after the pause. |
+| Stream | throttleEffect | 11480 | 11624 | Rate-limits stream chunks with an effectful cost function. |
+| Stream | throttle | 11625 | 11772 | Rate-limits stream chunks with a synchronous cost function. |
+| Stream | grouped | 11773 | 11863 | Partitions the stream into non-empty arrays of the specified size. |
+| Stream | groupedWithin | 11864 | 11957 | Partitions the stream into arrays, emitting when the chunk size is reached or the duration passes. |
+| Stream | groupBy | 11958 | 12063 | Groups elements into keyed substreams using an effectful classifier. |
+| Stream | groupByKey | 12064 | 12163 | Groups elements by a key and emits a stream per key. |
+| Stream | groupAdjacentBy | 12164 | 12233 | Groups consecutive elements that have equal keys into non-empty arrays. |
+| Stream | transduce | 12234 | 12306 | Applies a sink transducer to the stream and emits each sink result. |
+| Stream | aggregate | 12307 | 12397 | Aggregates elements using the provided sink and emits each sink result as a stream element. |
+| Stream | aggregateWithin | 12398 | 12524 | Aggregates elements with a sink, emitting each result when the sink completes or the schedule triggers. |
+| Stream | broadcastN | 12525 | 12666 | Creates a fixed-size tuple of streams that each emit the same elements as the source stream. |
+| Stream | broadcast | 12667 | 12789 | Creates a PubSub-backed stream that multicasts the source to all subscribers. |
+| Stream | share | 12790 | 12955 | Returns a new Stream that multicasts the original stream, subscribing when the first consumer starts. |
+| Stream | pipeThroughChannel | 12956 | 13064 | Pipes this stream through a channel that consumes and emits chunked elements. |
+| Stream | pipeThroughChannelOrFail | 13065 | 13173 | Pipes values through the provided channel while preserving this stream's failures alongside any channel failures. |
+| Stream | pipeThrough | 13174 | 13261 | Pipes the stream through `Sink.toChannel`, emitting only the sink leftovers. |
+| Stream | collect | 13262 | 13284 | Collects all elements into an array and emits it as a single element. |
+| Stream | accumulate | 13285 | 13310 | Accumulates elements into a growing array, emitting the cumulative array for each input chunk. |
+| Stream | changes | 13311 | 13335 | Emits only elements that differ from the previous one. |
+| Stream | changesWith | 13336 | 13411 | Returns a stream that only emits elements that are not equal to the previously emitted element, as determined by the specified predicate. |
+| Stream | changesWithEffect | 13412 | 13496 | Emits only elements that differ from the previous element, using an effectful equality check. |
+| Stream | decodeText | 13497 | 13532 | Decodes Uint8Array chunks into strings using TextDecoder with an optional encoding. |
+| Stream | encodeText | 13533 | 13556 | Encodes a stream of strings into UTF-8 `Uint8Array` chunks. |
+| Stream | splitLines | 13557 | 13577 | Splits a stream of strings into lines, handling `\n`, `\r`, and `\r\n` delimiters across chunks. |
+| Stream | intersperse | 13578 | 13644 | Inserts the provided element between emitted elements. |
+| Stream | intersperseAffixes | 13645 | 13740 | Adds a start value, middle value, and end value around stream elements. |
+| Stream | interleave | 13741 | 13825 | Interleaves this stream with the specified stream by alternating pulls from each stream; when one ends, the remaining values from the oth... |
+| Stream | interleaveWith | 13826 | 13925 | Interleaves two streams deterministically by following a boolean decider stream. |
+| Stream | interruptWhen | 13926 | 14043 | Interrupts the evaluation of this stream when the provided effect completes. |
+| Stream | haltWhen | 14044 | 14170 | Stops a stream after the current pull when an effect completes. |
+| Stream | onExit | 14171 | 14273 | Runs the provided finalizer when the stream exits, passing the exit value. |
+| Stream | onError | 14274 | 14370 | Runs the provided effect when the stream fails, passing the failure cause. |
+| Stream | onStart | 14371 | 14452 | Runs the provided effect before this stream starts. |
+| Stream | onFirst | 14453 | 14522 | Runs the provided effect with the first element emitted by the stream. |
+| Stream | onEnd | 14523 | 14601 | Runs the provided effect when the stream ends successfully. |
+| Stream | ensuring | 14602 | 14701 | Executes the provided finalizer after this stream's finalizers run. |
+| Stream | provide | 14702 | 14802 | Provides a layer or context to the stream, removing the corresponding service requirements. |
+| Stream | provideContext | 14803 | 14911 | Provides multiple services to the stream using a context. |
+| Stream | provideService | 14912 | 15026 | Provides the stream with a single required service, eliminating that requirement from its environment. |
+| Stream | provideServiceEffect | 15027 | 15135 | Provides a service to the stream using an effect, removing the requirement and adding the effect's error and environment. |
+| Stream | updateContext | 15136 | 15259 | Transforms the stream's required services by mapping the current context to a new one. |
+| Stream | updateService | 15260 | 15341 | Updates a single service in the stream environment by applying a function. |
+| Stream | withSpan | 15342 | 15411 | Wraps the stream with a new span for tracing. |
+| Stream | Do | 15412 | 15438 | Provides the entry point for do-notation style stream composition. |
+| Stream | let | 15439 | 15469 | Adds a computed field to the current Do-notation record. |
+| Stream | bind | 15470 | 15545 | Binds the result of a stream to a field in the do-notation record. |
+| Stream | bindEffect | 15546 | 15632 | Binds an Effect-produced value into the do-notation record for each stream element. |
+| Stream | bindTo | 15633 | 15691 | Maps each element into a record keyed by the provided name. |
+| Stream | run | 15692 | 15746 | Runs a stream with a sink and returns the sink result. |
+| Stream | runCollect | 15747 | 15769 | Runs the stream and collects all elements into an array. |
+| Stream | runCount | 15770 | 15792 | Runs the stream and returns the number of elements emitted. |
+| Stream | runSum | 15793 | 15813 | Runs the stream and returns the numeric sum of its elements. |
+| Stream | runFold | 15814 | 15889 | Runs the stream and folds elements using a pure reducer. |
+| Stream | runFoldEffect | 15890 | 15980 | Runs the stream and folds elements using an effectful reducer. |
+| Stream | runHead | 15981 | 16001 | Runs the stream and returns the first element as an `Option`. |
+| Stream | runLast | 16002 | 16027 | Runs the stream and returns the last element as an `Option`. |
+| Stream | runForEach | 16028 | 16100 | Runs the provided effectful callback for each element of the stream. |
+| Stream | runForEachWhile | 16101 | 16191 | Runs the stream, applying the effectful predicate to each element and stopping when it returns `false`. |
+| Stream | runForEachArray | 16192 | 16270 | Consumes the stream in chunks, passing each non-empty array to the callback. |
+| Stream | runDrain | 16271 | 16296 | Runs the stream for its effects, discarding emitted elements. |
+| Stream | toPull | 16297 | 16328 | Returns a scoped pull for manually consuming the stream's output chunks. |
+| Stream | mkString | 16329 | 16350 | Concatenates all emitted strings into a single string. |
+| Stream | mkArrayBuffer | 16351 | 16379 | Concatenates the stream's `Uint8Array` chunks into a single `ArrayBuffer`. |
+| Stream | mkUint8Array | 16380 | 16406 | Concatenates the stream's `Uint8Array` chunks into a single `Uint8Array`. |
+| Stream | toReadableStreamWith | 16407 | 16506 | Converts the stream to a `ReadableStream` using the provided services. |
+| Stream | toReadableStream | 16507 | 16577 | Converts a stream to a `ReadableStream`. |
+| Stream | toReadableStreamEffect | 16578 | 16678 | Creates an Effect that builds a ReadableStream from the stream. |
+| Stream | toAsyncIterableWith | 16679 | 16751 | Converts the stream to an `AsyncIterable` using the provided services. |
+| Stream | toAsyncIterableEffect | 16752 | 16779 | Creates an effect that yields an `AsyncIterable` using the current services. |
+| Stream | toAsyncIterable | 16780 | 16797 | Converts a stream to an `AsyncIterable` for `for await...of` consumption. |
+| Stream | runIntoPubSub | 16798 | 16904 | Runs the stream, publishing elements into the provided PubSub. |
+| Stream | toPubSub | 16905 | 17025 | Converts a stream to a PubSub of emitted values for concurrent consumption. |
+| Stream | toPubSubTake | 17026 | 17139 | Converts a stream to a PubSub of `Take` values for concurrent consumption. |
+| Stream | toQueue | 17140 | 17246 | Creates a scoped dequeue that is fed by the stream for concurrent consumption. |
+| Stream | runIntoQueue | 17247 | 17350 | Runs the stream, offering each element to the provided queue and ending it with `Cause.Done` when the stream completes. |
 | String | String | 19 | 38 | Exposes the global string constructor. |
 | String | isString | 39 | 55 | Checks whether a value is a `string`. |
 | String | Order | 56 | 74 | Provides an `Order` instance for comparing strings using lexicographic ordering. |
@@ -4539,22 +4541,22 @@ For a native pattern and its Effect replacement, start with [native-to-effect.md
 | Tracer | AnySpan | 96 | 121 | A span value that can participate in tracing, either an Effect-managed `Span` or an `ExternalSpan` propagated from another tracing system. |
 | Tracer | ParentSpanKey | 122 | 144 | Defines the string key for the parent-span context service. |
 | Tracer | ParentSpan | 145 | 169 | Context service containing the `Span` or `ExternalSpan` to use as the parent of newly-created child spans. |
-| Tracer | ExternalSpan | 170 | 203 | Represents a span created outside Effect's tracer, carrying trace and span identifiers, sampling state, and annotations so it can be used... |
-| Tracer | SpanOptions | 204 | 245 | Options accepted by span-creating APIs, combining span metadata such as attributes, links, parent/root selection, kind, sampling, and tra... |
-| Tracer | SpanOptionsNoTrace | 246 | 264 | Span creation options that do not control stack trace capture, including attributes, links, parent or root selection, annotations, span k... |
-| Tracer | TraceOptions | 265 | 275 | Options that control stack trace capture for tracing wrappers. |
-| Tracer | SpanKind | 276 | 309 | OpenTelemetry-style role describing the kind of operation represented by a span: internal work, server handling, client calls, producing,... |
-| Tracer | Span | 310 | 396 | A span created by an Effect tracer. |
-| Tracer | SpanLink | 397 | 442 | A relationship from one span to another span, with attributes describing the relationship. |
-| Tracer | make | 443 | 463 | Creates a `Tracer` value from a tracer implementation object. |
-| Tracer | externalSpan | 464 | 509 | Creates an `ExternalSpan` from trace and span identifiers, defaulting `sampled` to `true` and annotations to an empty context when they a... |
-| Tracer | DisablePropagation | 510 | 540 | Context reference for disabling trace propagation. |
-| Tracer | CurrentTraceLevel | 541 | 560 | Context reference for controlling the current trace level for dynamic filtering. |
-| Tracer | MinimumTraceLevel | 561 | 586 | Context reference for setting the minimum trace level threshold. |
-| Tracer | TracerKey | 587 | 599 | Defines the string key for the active tracer context reference. |
-| Tracer | Tracer | 600 | 624 | Context reference for the active tracer service. |
-| Tracer | nativeTracer | 625 | 639 | The default `Tracer` implementation backing the `Tracer` reference. |
-| Tracer | NativeSpan | 640 | 693 | Default in-memory `Span` implementation used by the native tracer. |
+| Tracer | ExternalSpan | 170 | 211 | Represents a span created outside Effect's tracer, carrying trace and span identifiers, sampling state, and annotations so it can be used... |
+| Tracer | SpanOptions | 212 | 253 | Options accepted by span-creating APIs, combining span metadata such as attributes, links, parent/root selection, kind, sampling, and tra... |
+| Tracer | SpanOptionsNoTrace | 254 | 272 | Span creation options that do not control stack trace capture, including attributes, links, parent or root selection, annotations, span k... |
+| Tracer | TraceOptions | 273 | 283 | Options that control stack trace capture for tracing wrappers. |
+| Tracer | SpanKind | 284 | 317 | OpenTelemetry-style role describing the kind of operation represented by a span: internal work, server handling, client calls, producing,... |
+| Tracer | Span | 318 | 404 | A span created by an Effect tracer. |
+| Tracer | SpanLink | 405 | 450 | A relationship from one span to another span, with attributes describing the relationship. |
+| Tracer | make | 451 | 471 | Creates a `Tracer` value from a tracer implementation object. |
+| Tracer | externalSpan | 472 | 519 | Creates an `ExternalSpan` from trace and span identifiers, defaulting `sampled` to `true` and annotations to an empty context when they a... |
+| Tracer | DisablePropagation | 520 | 550 | Context reference for disabling trace propagation. |
+| Tracer | CurrentTraceLevel | 551 | 570 | Context reference for controlling the current trace level for dynamic filtering. |
+| Tracer | MinimumTraceLevel | 571 | 596 | Context reference for setting the minimum trace level threshold. |
+| Tracer | TracerKey | 597 | 609 | Defines the string key for the active tracer context reference. |
+| Tracer | Tracer | 610 | 634 | Context reference for the active tracer service. |
+| Tracer | nativeTracer | 635 | 649 | The default `Tracer` implementation backing the `Tracer` reference. |
+| Tracer | NativeSpan | 650 | 703 | Default in-memory `Span` implementation used by the native tracer. |
 | Trie | Trie | 20 | 63 | An immutable string-keyed map optimized for prefix lookup. |
 | Trie | empty | 64 | 82 | Creates an empty `Trie`. |
 | Trie | fromIterable | 83 | 106 | Creates a new `Trie` from an iterable collection of key/value pairs (e.g. |

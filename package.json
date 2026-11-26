@@ -31,7 +31,7 @@
   "devDependencies": {
     "@cairn/contract": "workspace:*",
     "@cairn/core": "workspace:*",
-    "@effect/platform-node": "4.1.5",
+    "@effect/platform-node": "4.1.6",
     "@effect/tsgo": "0.73.2",
     "@foldkit/oxlint-plugin": "0.15.4",
     "@types/node": "24.19.2",

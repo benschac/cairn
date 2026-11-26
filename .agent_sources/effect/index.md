@@ -12,18 +12,18 @@ Read [the source guide](../README.md) before applying examples.
 
 | Package | Version | Modules | Exports | Declarations |
 | --- | --- | ---: | ---: | --- |
-| effect | 4.1.5 | 435 | 9554 | `node_modules/effect/dist` |
-| @effect/ai-anthropic | 4.1.5 | 8 | 1817 | `packages/cli/node_modules/@effect/ai-anthropic/dist` |
-| @effect/ai-openai | 4.1.5 | 12 | 7304 | `packages/cli/node_modules/@effect/ai-openai/dist` |
-| @effect/ai-openai-compat | 4.1.5 | 6 | 64 | `packages/cli/node_modules/@effect/ai-openai-compat/dist` |
-| @effect/ai-openrouter | 4.1.5 | 8 | 4915 | `packages/cli/node_modules/@effect/ai-openrouter/dist` |
-| @effect/ai-typesafe | 4.1.5 | 4 | 27 | `packages/cli/node_modules/@effect/ai-typesafe/dist` |
-| @effect/platform-browser | 4.1.5 | 17 | 95 | `apps/viewer/node_modules/@effect/platform-browser/dist` |
-| @effect/platform-node | 4.1.5 | 29 | 69 | `node_modules/@effect/platform-node/dist` |
-| @effect/sql-sqlite-node | 4.1.5 | 2 | 11 | `packages/cli/node_modules/@effect/sql-sqlite-node/dist` |
-| @effect/vitest | 4.1.5 | 1 | 21 | `apps/viewer/node_modules/@effect/vitest/dist` |
+| effect | 4.1.6 | 436 | 9572 | `node_modules/effect/dist` |
+| @effect/ai-anthropic | 4.1.6 | 8 | 1817 | `packages/cli/node_modules/@effect/ai-anthropic/dist` |
+| @effect/ai-openai | 4.1.6 | 12 | 7304 | `packages/cli/node_modules/@effect/ai-openai/dist` |
+| @effect/ai-openai-compat | 4.1.6 | 6 | 64 | `packages/cli/node_modules/@effect/ai-openai-compat/dist` |
+| @effect/ai-openrouter | 4.1.6 | 8 | 4915 | `packages/cli/node_modules/@effect/ai-openrouter/dist` |
+| @effect/ai-typesafe | 4.1.6 | 4 | 27 | `packages/cli/node_modules/@effect/ai-typesafe/dist` |
+| @effect/platform-browser | 4.1.6 | 17 | 95 | `apps/viewer/node_modules/@effect/platform-browser/dist` |
+| @effect/platform-node | 4.1.6 | 30 | 69 | `node_modules/@effect/platform-node/dist` |
+| @effect/sql-sqlite-node | 4.1.6 | 2 | 11 | `packages/cli/node_modules/@effect/sql-sqlite-node/dist` |
+| @effect/vitest | 4.1.6 | 1 | 21 | `apps/viewer/node_modules/@effect/vitest/dist` |
 
-## effect@4.1.5
+## effect@4.1.6
 
 Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/effect/AGENTS.md`, `node_modules/effect/ai-docs`, `node_modules/effect/README.md`.
 
@@ -39,11 +39,11 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/Bytes | 3 | 79 | Joins and compares byte sequences stored in `Uint8Array` values. |
 | effect/Cache | 17 | 2390 | Caches values loaded by an Effect lookup function. |
 | effect/Cause | 75 | 2030 | Records the full reason an `Effect` failed. |
-| effect/Channel | 156 | 7800 | Provides low-level building blocks for streaming data through Effect. |
+| effect/Channel | 156 | 7897 | Provides low-level building blocks for streaming data through Effect. |
 | effect/ChannelSchema | 6 | 251 | Schema adapters for `Channel` boundaries. |
 | effect/Chunk | 81 | 5051 | Stores many values in an immutable ordered collection. |
 | effect/Clock | 6 | 330 | Service and helpers for reading time and sleeping inside Effect programs. |
-| effect/Codegen | 18 | 295 | Builds TypeScript modules with a mutable `Module` builder and structured code fragments. |
+| effect/Codegen | 18 | 300 | Builds TypeScript modules with a mutable `Module` builder and structured code fragments. |
 | effect/Combiner | 9 | 288 | Defines reusable rules for merging two values of the same type. |
 | effect/Config | 36 | 1674 | Descriptions of configuration values that can be read from a `ConfigProvider`. |
 | effect/ConfigProvider | 21 | 1234 | Data sources used by `Config` to load raw configuration values. |
@@ -55,7 +55,7 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/Deferred | 23 | 1720 | One-time coordination cells for Effect programs. |
 | effect/Differ | 1 | 34 | Interfaces for describing changes to a value as patches. |
 | effect/Duration | 60 | 1984 | Represents immutable spans of time. |
-| effect/Effect | 243 | 23029 | Describes workflows that run only when executed by the Effect runtime. |
+| effect/Effect | 243 | 23150 | Describes workflows that run only when executed by the Effect runtime. |
 | effect/Effectable | 3 | 109 | Low-level helpers for making custom values behave like Effects. |
 | effect/Equal | 8 | 329 | Compares values with Effect's structural equality rules. |
 | effect/Equivalence | 16 | 1011 | Defines reusable equality functions for values of the same type. |
@@ -87,7 +87,7 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/LayerMap | 6 | 410 | Caches scoped services selected by key and built from layers. |
 | effect/LayerRef | 4 | 259 | Creates refreshable references to a single layer-built service context. |
 | effect/LogLevel | 11 | 646 | Log-level types and helpers used by Effect logging. |
-| effect/Logger | 25 | 906 | Defines loggers and log-event data for Effect programs. |
+| effect/Logger | 25 | 930 | Defines loggers and log-event data for Effect programs. |
 | effect/ManagedRuntime | 4 | 280 | Runs many effects against services built once from a `Layer`. |
 | effect/Match | 47 | 2557 | Builds pattern matchers for TypeScript values. |
 | effect/Metric | 48 | 3690 | Records and reads measurements from Effect programs. |
@@ -130,7 +130,7 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/Runtime | 10 | 412 | Helpers for turning an `Effect` program into a host application's main entry point. |
 | effect/Schedule | 38 | 1458 | Describes policies for retrying, repeating, and pacing Effect programs. |
 | effect/Scheduler | 6 | 204 | Controls how runnable Effect fiber tasks are dispatched. |
-| effect/Schema | 703 | 13560 | Describes data shapes and how unknown input becomes trusted values. |
+| effect/Schema | 705 | 13601 | Describes data shapes and how unknown input becomes trusted values. |
 | effect/SchemaAST | 104 | 1854 | Represents Effect schemas as runtime trees. |
 | effect/SchemaGetter | 62 | 1883 | Builds one-way conversions used by schemas. |
 | effect/SchemaIssue | 33 | 830 | Describes problems found while decoding, encoding, or checking data with schemas. |
@@ -146,7 +146,7 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/Sink | 79 | 1917 | Consumes values from a `Stream` and produces one final result. |
 | effect/StandardSchema | 6 | 126 | Type definitions from the Standard Schema specification. |
 | effect/Stdio | 6 | 152 | Service contract for command-line arguments and standard input, output, and error output. |
-| effect/Stream | 247 | 17227 | Describes effectful sources that emit values over time. |
+| effect/Stream | 247 | 17350 | Describes effectful sources that emit values over time. |
 | effect/String | 66 | 1709 | Works with TypeScript `string` values. |
 | effect/Struct | 23 | 1657 | Works with plain TypeScript objects, also called structs. |
 | effect/SubscriptionRef | 26 | 1950 | Stores mutable state and publishes changes as a stream. |
@@ -155,7 +155,7 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/Take | 2 | 43 | The `Take` module provides the stored representation of one pull result from a stream-like producer. |
 | effect/Terminal | 8 | 202 | Service definition for interactive terminal capabilities. |
 | effect/TextDiff | 17 | 504 | The `TextDiff` module computes edit scripts for arrays and text, applies and inverts them, groups line differences into hunks, and formats them as unified diffs. |
-| effect/Tracer | 22 | 693 | Defines the low-level tracing model used by Effect. |
+| effect/Tracer | 22 | 703 | Defines the low-level tracing model used by Effect. |
 | effect/Trie | 29 | 1732 | Stores string-keyed values in an immutable prefix tree. |
 | effect/Tuple | 15 | 1201 | Works with fixed-length arrays, also called tuples. |
 | effect/TxChunk | 23 | 1644 | Stores a `Chunk` inside transactional state. |
@@ -189,13 +189,14 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/ai/McpClientError | 15 | 254 | Errors produced by `McpClient` operations and transports. |
 | effect/ai/McpProtocol | 18 | 216 | Defines the MCP protocol implementations that an `McpServer` can support. |
 | effect/ai/McpSchema | 177 | 4678 | Defines schemas for Model Context Protocol messages. |
-| effect/ai/McpServer | 39 | 1369 | Builds Model Context Protocol (MCP) servers with Effect. |
+| effect/ai/McpServer | 40 | 1519 | Builds Model Context Protocol (MCP) servers with Effect. |
 | effect/ai/McpTest | 2 | 130 | In-memory test client for `McpServer` registrations. |
 | effect/ai/Model | 4 | 112 | Wraps an AI model layer with provider and model metadata. |
 | effect/ai/OpenAiStructuredOutput | 1 | 61 | Adapts Effect schemas for OpenAI structured output. |
-| effect/ai/Prompt | 99 | 2056 | Defines prompts sent to AI language models. |
+| effect/ai/Prompt | 99 | 2058 | Defines prompts sent to AI language models. |
 | effect/ai/Response | 111 | 2077 | Defines a shared data model for AI model output. |
 | effect/ai/ResponseIdTracker | 4 | 87 | Track provider response IDs for incremental language model calls. |
+| effect/ai/Skill | 6 | 172 | Standalone Agent Skill value and schema for local agents and MCP servers. |
 | effect/ai/Telemetry | 17 | 576 | Adds OpenTelemetry GenAI attributes to Effect AI spans. |
 | effect/ai/Tokenizer | 3 | 152 | Service for model-specific token counting and prompt truncation. |
 | effect/ai/Tool | 68 | 1776 | Definitions and helpers for tools that AI models can request during a workflow. |
@@ -246,7 +247,7 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/cluster/MachineId | 3 | 51 | Branded integer identifiers for cluster runners. |
 | effect/cluster/Message | 13 | 274 | Defines the message shapes moved through Effect Cluster. |
 | effect/cluster/MessageRetention | 1 | 71 | Deletes a persisted cluster entity's completed requests from message storage once they are older than a retention. |
-| effect/cluster/MessageStorage | 16 | 885 | Stores Effect Cluster messages and replies behind a pluggable backend. |
+| effect/cluster/MessageStorage | 16 | 941 | Stores Effect Cluster messages and replies behind a pluggable backend. |
 | effect/cluster/Reply | 13 | 300 | Defines reply values produced by clustered RPC execution. |
 | effect/cluster/Runner | 2 | 125 | Cluster runner metadata for processes that can host entity shards. |
 | effect/cluster/RunnerAddress | 2 | 105 | Network addresses for locating cluster runners. |
@@ -297,7 +298,7 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/encoding/Sse | 21 | 356 | Parses and renders Server-Sent Events text streams. |
 | effect/encoding/Tar | 13 | 309 | Encodes and decodes tar archives as streams in Effect channels. |
 | effect/encoding/Toml | 1 | 37 | Parses TOML configuration files. |
-| effect/encoding/Xml | 19 | 595 | Decodes and encodes XML 1.0 documents as streams of events in Effect channels. |
+| effect/encoding/Xml | 19 | 624 | Decodes and encodes XML 1.0 documents as streams of events in Effect channels. |
 | effect/encoding/Yaml | 1 | 38 | Parses YAML configuration files. |
 | effect/encoding/Zip | 15 | 413 | Encodes and decodes zip archives as streams in Effect channels. |
 | effect/eventlog/Event | 29 | 326 | Typed event definitions for the unstable event-log system. |
@@ -337,14 +338,14 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/http-api/OpenApi | 40 | 503 | Generates OpenAPI 3.1 documents from declarative `HttpApi` contracts. |
 | effect/http/Cookies | 33 | 765 | Models HTTP cookies and cookie collections for requests and responses. |
 | effect/http/Etag | 7 | 108 | HTTP entity tag values and metadata-based generator layers. |
-| effect/http/FetchHttpClient | 4 | 112 | Fetch-based implementation of the Effect HTTP client service. |
+| effect/http/FetchHttpClient | 4 | 113 | Fetch-based implementation of the Effect HTTP client service. |
 | effect/http/FindMyWay | 6 | 154 | A radix-tree HTTP router used by the unstable HTTP routing modules. |
-| effect/http/Headers | 33 | 665 | Models HTTP headers for the unstable HTTP client and server modules. |
+| effect/http/Headers | 37 | 863 | Models HTTP headers for the unstable HTTP client and server modules. |
 | effect/http/HttpBody | 26 | 421 | Describes HTTP request and response bodies before they reach a platform adapter. |
 | effect/http/HttpClient | 49 | 1963 | Provides the service used to run outgoing HTTP requests. |
-| effect/http/HttpClientError | 12 | 303 | Typed failure model for Effect HTTP client operations. |
-| effect/http/HttpClientRequest | 54 | 1290 | Describes immutable outgoing HTTP client requests. |
-| effect/http/HttpClientResponse | 10 | 242 | Represents responses returned by the Effect HTTP client. |
+| effect/http/HttpClientError | 12 | 304 | Typed failure model for Effect HTTP client operations. |
+| effect/http/HttpClientRequest | 55 | 1336 | Describes immutable outgoing HTTP client requests. |
+| effect/http/HttpClientResponse | 12 | 374 | Represents responses returned by the Effect HTTP client. |
 | effect/http/HttpEffect | 12 | 223 | Runs Effect HTTP server handlers at platform boundaries. |
 | effect/http/HttpIncomingMessage | 9 | 107 | Common model for incoming HTTP messages. |
 | effect/http/HttpMethod | 7 | 103 | Defines supported HTTP method names for the unstable HTTP modules. |
@@ -355,7 +356,7 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/http/HttpServerError | 13 | 259 | Describes failures raised while handling HTTP server requests. |
 | effect/http/HttpServerRequest | 20 | 346 | Provides server-side access to the current incoming HTTP request. |
 | effect/http/HttpServerRespondable | 6 | 75 | Converts supported values into HTTP server responses. |
-| effect/http/HttpServerResponse | 39 | 962 | Describes immutable responses returned by Effect HTTP handlers. |
+| effect/http/HttpServerResponse | 40 | 1080 | Describes immutable responses returned by Effect HTTP handlers. |
 | effect/http/HttpStaticServer | 2 | 96 | Serves static files for Effect HTTP applications. |
 | effect/http/HttpStatus | 2 | 102 | Named HTTP status codes for the unstable HTTP modules. |
 | effect/http/HttpTraceContext | 6 | 95 | HTTP propagation helpers for Effect tracing context. |
@@ -368,7 +369,7 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/http/Template | 7 | 121 | Builds HTTP response text from template literals. |
 | effect/http/Url | 17 | 648 | Parses and edits platform `URL` values. |
 | effect/http/UrlParams | 25 | 635 | Models URL query parameters as ordered string pairs. |
-| effect/jose/JoseError | 14 | 285 | The `JoseError` returned by the `effect/jose` modules, and the reasons it carries. |
+| effect/jose/JoseError | 15 | 335 | The `JoseError` returned by the `effect/jose` modules, and the reasons it carries. |
 | effect/jose/Jwe | 6 | 128 | Compact JSON Web Encryption with a shared key: `dir` key management and A256GCM content encryption. |
 | effect/jose/Jwk | 37 | 597 | JSON Web Keys and the algorithm-bound keys the other `effect/jose` modules use. |
 | effect/jose/Jwks | 9 | 249 | JSON Web Key Sets and the `Jwks` service that resolves verification keys from them. |
@@ -380,14 +381,14 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/net/IpInterface | 22 | 232 | IPv4 and IPv6 interface addresses that preserve host bits alongside a prefix length. |
 | effect/net/IpNetwork | 30 | 341 | Pure, canonical IPv4 and IPv6 network prefixes using CIDR notation. |
 | effect/net/NetAddress | 130 | 1492 | Pure, platform-neutral values for MAC, IP, internet socket, and Unix path addresses. |
-| effect/observability/Otlp | 4 | 146 | Configures OpenTelemetry Protocol (OTLP) HTTP export for Effect telemetry. |
-| effect/observability/OtlpExporter | 3 | 116 | Shared batch exporter for OTLP/HTTP observability modules. |
-| effect/observability/OtlpLogger | 4 | 191 | Exports Effect log entries over OTLP/HTTP. |
+| effect/observability/Otlp | 4 | 165 | Configures OpenTelemetry Protocol (OTLP) HTTP export for Effect telemetry. |
+| effect/observability/OtlpExporter | 3 | 152 | Shared batch exporter for OTLP/HTTP observability modules. |
+| effect/observability/OtlpLogger | 4 | 205 | Exports Effect log entries over OTLP/HTTP. |
 | effect/observability/OtlpMetrics | 5 | 404 | Exports Effect metrics over OTLP/HTTP. |
 | effect/observability/OtlpProxy | 4 | 154 | Proxies OTLP HTTP exports from browsers through an application's own HTTP server to an OpenTelemetry Collector or vendor endpoint. |
 | effect/observability/OtlpResource | 12 | 185 | Builds OTLP resource metadata shared by exported telemetry. |
 | effect/observability/OtlpSerialization | 3 | 55 | Serializes OTLP payloads into HTTP request bodies. |
-| effect/observability/OtlpTracer | 6 | 166 | Exports Effect tracing spans over OTLP/HTTP. |
+| effect/observability/OtlpTracer | 6 | 180 | Exports Effect tracing spans over OTLP/HTTP. |
 | effect/observability/PrometheusMetrics | 6 | 151 | Formats Effect metrics for Prometheus. |
 | effect/persistence/CircuitBreaker | 30 | 957 | Keyed circuit breakers for calls to unreliable dependencies. |
 | effect/persistence/KeyValueStore | 15 | 400 | Provides effectful key/value storage for persistence backends. |
@@ -456,16 +457,16 @@ Declarations: `node_modules/effect/dist/<module>.d.ts`. Guides: `node_modules/ef
 | effect/workers/Worker | 9 | 132 | Client-side worker primitives shared by browser, Node, and Bun adapters. |
 | effect/workers/WorkerError | 9 | 123 | Typed error model for worker APIs. |
 | effect/workers/WorkerRunner | 3 | 52 | Worker-side primitives for worker-like runtimes. |
-| effect/workflow/Activity | 8 | 154 | Defines named effects whose results can be stored by a workflow engine. |
+| effect/workflow/Activity | 8 | 172 | Defines named effects whose results can be stored by a workflow engine. |
 | effect/workflow/DurableClock | 4 | 80 | Durable timers for workflow sleeps. |
 | effect/workflow/DurableDeferred | 18 | 458 | Defines named wait points for durable workflow executions. |
 | effect/workflow/DurableQueue | 7 | 157 | Durable workflow queues delegate work to persisted background workers and resume the waiting workflow with the worker result. |
-| effect/workflow/Workflow | 27 | 483 | Defines typed durable workflows. |
+| effect/workflow/Workflow | 27 | 484 | Defines typed durable workflows. |
 | effect/workflow/WorkflowEngine | 7 | 292 | Defines workflow engine services and an in-memory implementation. |
 | effect/workflow/WorkflowProxy | 4 | 122 | RPC and HTTP API definitions for workflows. |
 | effect/workflow/WorkflowProxyServer | 3 | 49 | Server-side layers for workflow proxy APIs. |
 
-## @effect/ai-anthropic@4.1.5
+## @effect/ai-anthropic@4.1.6
 
 Declarations: `packages/cli/node_modules/@effect/ai-anthropic/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/ai-anthropic/AGENTS.md`, `packages/cli/node_modules/@effect/ai-anthropic/ai-docs`, `packages/cli/node_modules/@effect/ai-anthropic/README.md`.
 
@@ -480,7 +481,7 @@ Declarations: `packages/cli/node_modules/@effect/ai-anthropic/dist/<module>.d.ts
 | @effect/ai-anthropic/AnthropicWorkloadIdentity | 3 | 159 | The `AnthropicWorkloadIdentity` module authenticates `AnthropicClient` with [Workload Identity Federation](https://platform.claude.com/docs/en/manage-claude/workload-identity-federation). |
 | @effect/ai-anthropic/Generated | 1678 | 48702 |  |
 
-## @effect/ai-openai@4.1.5
+## @effect/ai-openai@4.1.6
 
 Declarations: `packages/cli/node_modules/@effect/ai-openai/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/ai-openai/AGENTS.md`, `packages/cli/node_modules/@effect/ai-openai/ai-docs`, `packages/cli/node_modules/@effect/ai-openai/README.md`.
 
@@ -499,7 +500,7 @@ Declarations: `packages/cli/node_modules/@effect/ai-openai/dist/<module>.d.ts`. 
 | @effect/ai-openai/OpenAiTool | 10 | 609 | The `OpenAiTool` module defines OpenAI provider tools for Effect AI language model requests. |
 | @effect/ai-openai/OpenAiWorkloadIdentity | 3 | 160 | The `OpenAiWorkloadIdentity` module authenticates `OpenAiClient` with [workload identity federation](https://developers.openai.com/api/docs/guides/workload-identity-federation). |
 
-## @effect/ai-openai-compat@4.1.5
+## @effect/ai-openai-compat@4.1.6
 
 Declarations: `packages/cli/node_modules/@effect/ai-openai-compat/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/ai-openai-compat/AGENTS.md`, `packages/cli/node_modules/@effect/ai-openai-compat/ai-docs`, `packages/cli/node_modules/@effect/ai-openai-compat/README.md`.
 
@@ -512,13 +513,13 @@ Declarations: `packages/cli/node_modules/@effect/ai-openai-compat/dist/<module>.
 | @effect/ai-openai-compat/OpenAiLanguageModel | 5 | 636 | The `OpenAiLanguageModel` module adapts OpenAI-compatible chat completions providers to Effect AI's `LanguageModel` service. |
 | @effect/ai-openai-compat/OpenAiTelemetry | 6 | 158 | The `OpenAiTelemetry` module defines OpenAI-compatible telemetry attributes and a helper for adding them to a tracing span. |
 
-## @effect/ai-openrouter@4.1.5
+## @effect/ai-openrouter@4.1.6
 
 Declarations: `packages/cli/node_modules/@effect/ai-openrouter/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/ai-openrouter/AGENTS.md`, `packages/cli/node_modules/@effect/ai-openrouter/ai-docs`, `packages/cli/node_modules/@effect/ai-openrouter/README.md`.
 
 | Module | Exports | Lines | Summary |
 | --- | ---: | ---: | --- |
-| @effect/ai-openrouter/Generated | 4882 | 84696 | Generated from OpenRouter's MIT-licensed specification. |
+| @effect/ai-openrouter/Generated | 4882 | 84700 | Generated from OpenRouter's MIT-licensed specification. |
 | @effect/ai-openrouter/OpenRouterClient | 7 | 190 | HTTP client for OpenRouter's chat completions and alpha Decisions APIs, with authentication, site ranking headers, typed errors, and chat streaming. |
 | @effect/ai-openrouter/OpenRouterConfig | 3 | 77 | Scoped HTTP client customization for OpenRouter requests. |
 | @effect/ai-openrouter/OpenRouterDecisionModel | 4 | 617 | Decision models backed by OpenRouter's alpha Decisions API. |
@@ -527,7 +528,7 @@ Declarations: `packages/cli/node_modules/@effect/ai-openrouter/dist/<module>.d.t
 | @effect/ai-openrouter/OpenRouterSchema | 7 | 346 | Schemas for OpenRouter's alpha Decisions API. |
 | @effect/ai-openrouter/OpenRouterWorkloadIdentity | 3 | 148 | The `OpenRouterWorkloadIdentity` module authenticates `OpenRouterClient` with [workload identity federation](https://openrouter.ai/docs/guides/overview/auth/workload-identity-federation). |
 
-## @effect/ai-typesafe@4.1.5
+## @effect/ai-typesafe@4.1.6
 
 Declarations: `packages/cli/node_modules/@effect/ai-typesafe/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/ai-typesafe/AGENTS.md`, `packages/cli/node_modules/@effect/ai-typesafe/ai-docs`, `packages/cli/node_modules/@effect/ai-typesafe/README.md`.
 
@@ -538,7 +539,7 @@ Declarations: `packages/cli/node_modules/@effect/ai-typesafe/dist/<module>.d.ts`
 | @effect/ai-typesafe/TypeSafeDecisionModel | 4 | 59 | TypeSafe's System One implementation of DecisionModel. |
 | @effect/ai-typesafe/TypeSafeSchema | 14 | 273 | Codecs for the TypeSafe System One API. |
 
-## @effect/platform-browser@4.1.5
+## @effect/platform-browser@4.1.6
 
 Declarations: `apps/viewer/node_modules/@effect/platform-browser/dist/<module>.d.ts`. Guides: `apps/viewer/node_modules/@effect/platform-browser/AGENTS.md`, `apps/viewer/node_modules/@effect/platform-browser/ai-docs`, `apps/viewer/node_modules/@effect/platform-browser/README.md`.
 
@@ -562,13 +563,14 @@ Declarations: `apps/viewer/node_modules/@effect/platform-browser/dist/<module>.d
 | @effect/platform-browser/IndexedDbVersion | 7 | 107 | Typed IndexedDB schema version definitions. |
 | @effect/platform-browser/Permissions | 7 | 124 | Effect service for the browser Permissions API. |
 
-## @effect/platform-node@4.1.5
+## @effect/platform-node@4.1.6
 
 Declarations: `node_modules/@effect/platform-node/dist/<module>.d.ts`. Guides: `node_modules/@effect/platform-node/AGENTS.md`, `node_modules/@effect/platform-node/ai-docs`, `node_modules/@effect/platform-node/README.md`.
 
 | Module | Exports | Lines | Summary |
 | --- | ---: | ---: | --- |
 | @effect/platform-node/NodeAddressResolver | 0 | 16 | The `NodeAddressResolver` module provides the Node.js `AddressResolver` service for Effect programs. |
+| @effect/platform-node/NodeChildProcessProxy | 0 | 10 | The program of the proxy process started by `NodeChildProcessSpawner.layerProxyProcess`, for applications that start it themselves. |
 | @effect/platform-node/NodeChildProcessSpawner | 0 | 8 | Node.js implementation of `ChildProcessSpawner`. |
 | @effect/platform-node/NodeClusterHttp | 2 | 54 | Node.js HTTP and WebSocket layers for Effect Cluster runners. |
 | @effect/platform-node/NodeClusterSocket | 3 | 85 | Node.js socket layers for Effect Cluster runners. |
@@ -598,7 +600,7 @@ Declarations: `node_modules/@effect/platform-node/dist/<module>.d.ts`. Guides: `
 | @effect/platform-node/NodeWorkerRunner | 1 | 13 | Node.js runtime support for workers that serve Effect worker requests. |
 | @effect/platform-node/Undici | 0 | 31 | Re-export of the Undici HTTP client package used by the Node platform. |
 
-## @effect/sql-sqlite-node@4.1.5
+## @effect/sql-sqlite-node@4.1.6
 
 Declarations: `packages/cli/node_modules/@effect/sql-sqlite-node/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/sql-sqlite-node/AGENTS.md`, `packages/cli/node_modules/@effect/sql-sqlite-node/ai-docs`, `packages/cli/node_modules/@effect/sql-sqlite-node/README.md`.
 
@@ -607,7 +609,7 @@ Declarations: `packages/cli/node_modules/@effect/sql-sqlite-node/dist/<module>.d
 | @effect/sql-sqlite-node/SqliteClient | 9 | 107 | Connects Effect SQL to SQLite on Node.js using `node:sqlite`. |
 | @effect/sql-sqlite-node/SqliteMigrator | 2 | 44 | Runs database migrations for Node.js SQLite projects that use Effect SQL. |
 
-## @effect/vitest@4.1.5
+## @effect/vitest@4.1.6
 
 Declarations: `apps/viewer/node_modules/@effect/vitest/dist/<module>.d.ts`. Guides: `apps/viewer/node_modules/@effect/vitest/AGENTS.md`, `apps/viewer/node_modules/@effect/vitest/ai-docs`, `apps/viewer/node_modules/@effect/vitest/README.md`.
 
