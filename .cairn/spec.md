@@ -6886,3 +6886,25 @@ Proves prd.launch.acceptance#v2.
 `isolation.test.ts` is a property test. For every route in the router's list, a user of another workspace asking for a generated document or thread gets a response identical to the one for an unknown ID. Their socket upgrade is refused.
 
 prd.launch.acceptance#v3 is proved in three ways: the restore test in `spec.hosted-launch.self-hosting`, the restore drill, and an operator who has never deployed Cairn following the self-host guide in their own Cloudflare account. That operator run is recorded in `checklist.md` before release.
+
+## Refactors {#spec.refactors}
+
+### Service factories {#spec.refactors.service-factories}
+
+- Implements: `prd.refactors.service-factories`
+- Files: `packages/cli/test/fixtures/recorder.ts`, `packages/cli/test/fixtures/recording-client.ts`, `packages/cli/test/fixtures/scripted-terminal.ts`, `packages/cli/test/fixtures/stub-planner.ts`, `.agent_sources/effect/checklist.md`
+
+`Recorder<Self, A>()(id)` returns the service class of a recording of `A`: `record`, `seen`, and a static `layer` that provides it empty. Its return type is the `Recorder<Self, Id, A>` interface, which extends `Context.ServiceClass<Self, Id, Recording<A>>` and adds `layer`. A member is one line: `class Wire extends Recorder<Wire, HttpClientRequest>()("@cairn/cli/test/Wire") {}`. Inside, the factory takes a key from `Context.Service` and returns a class that extends it with the static, rather than `Object.assign` on the key, which the checklist rules out. `classSelfMismatch` refuses `class Tag extends Context.Service<Self, ...>()` written inline, and extending the precomputed key passes it.
+
+The fixtures in `packages/cli/test/fixtures/`, each with its return type named:
+
+| Fixture                              | Replaces                                                                                                                    |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `Wire.client(answer)`                | The `Wire` service and recording `HttpClient` written twice, in `models.test.ts` and `planner-live.test.ts`                 |
+| `Events`, a `Recorder` of strings    | The `Ref` service in `ask-statements.test.ts`                                                                               |
+| `scriptedTerminal(answers, display)` | Five copies of a terminal that answers from a list and quits when it runs out                                               |
+| `stubPlanner(calls)`                 | Seven planners written in full; an unscripted `index` or `statements` answers with nothing, and any other call dies by name |
+
+The checklist's services row names the factory and its annotation, and its tests row names the fixtures.
+
+Tests: the refactor changes no behaviour, so the tests it touches pass as they did. Making `Recorder`'s `record` drop what it is given, or `stubPlanner`'s unscripted `index` die, fails them.

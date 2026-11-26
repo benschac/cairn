@@ -1267,3 +1267,14 @@ Done when:
 - State diagrams drawn from the machines themselves.
 - A plan split across several PRD files, with one set of section IDs and one manifest.
 - Several independent plans in one local repo, for a monorepo that holds more than one product. Multiple independent PRDs in a hosted workspace already belong to launch.
+
+## Refactors {#prd.refactors}
+
+Patterns that make the code smaller without changing what it does. Each says where it came from and where it is used, so the next change reaches for it instead of writing the repetition again.
+
+### Service factories {#prd.refactors.service-factories}
+
+When several services share one shape and differ only in a type and an ID, a curried factory wraps `Context.Service` and attaches what every member of the family shares, such as its layer. Each member is then declared in one line, yielded as an ordinary service, and carries its own layer, so the repetition lives in one function instead of every file. The factory's return type is named by an interface, so the signature a reader sees is the one the factory declares. The pattern comes from Harry Solovay's talk [Advanced Effect Design Patterns](https://youtu.be/_tSGby_q890?t=224) at Effect Miami 3.
+
+- Test doubles that several tests build alike, such as a scripted terminal, a stub planner or an HTTP client that records its requests, are written once as shared fixtures.
+- The Effect checklist carries the pattern, so a reviewer asks for it in a diff that repeats a service.

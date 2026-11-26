@@ -31,7 +31,8 @@
         "spec.viewer",
         "spec.testing",
         "spec.acceptance",
-        "spec.hosted-launch"
+        "spec.hosted-launch",
+        "spec.refactors"
       ],
       "human": false,
       "implements": [],
@@ -39726,6 +39727,89 @@
         "body": "2d59cae0deb0dc3cd1411fc9ed1e17c5097c60b8833f39b6f7b7ae5b13c69013",
         "prd": {
           "prd.launch.acceptance": "d21953278a31b4c6851f3077f30045e55d20ff1c202679ab6f932597c377f9a9"
+        }
+      }
+    },
+    {
+      "id": "spec.refactors",
+      "title": "Refactors",
+      "level": 2,
+      "line": 6890,
+      "parent": "spec.cairn-mvp-spec",
+      "children": ["spec.refactors.service-factories"],
+      "human": false,
+      "implements": [],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Groups the refactors that make the code smaller without changing what it does, each with the pattern it uses and where that came from.",
+      "requirements": [],
+      "artifacts": [],
+      "tests": [],
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {}
+      }
+    },
+    {
+      "id": "spec.refactors.service-factories",
+      "title": "Service factories",
+      "level": 3,
+      "line": 6892,
+      "parent": "spec.refactors",
+      "children": [],
+      "human": false,
+      "implements": ["prd.refactors.service-factories"],
+      "files": [
+        "packages/cli/test/fixtures/recorder.ts",
+        "packages/cli/test/fixtures/recording-client.ts",
+        "packages/cli/test/fixtures/scripted-terminal.ts",
+        "packages/cli/test/fixtures/stub-planner.ts",
+        ".agent_sources/effect/checklist.md"
+      ],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Adds the Recorder service factory and the shared test fixtures built beside it, and records the pattern in the Effect checklist.",
+      "requirements": [
+        {
+          "id": "spec.refactors.service-factories#r1",
+          "level": "must",
+          "text": "`Recorder<Self, A>()(id)` returns a service class with `record`, `seen` and a static `layer` that provides it empty, and its return type is the `Recorder<Self, Id, A>` interface that extends `Context.ServiceClass`."
+        },
+        {
+          "id": "spec.refactors.service-factories#r2",
+          "level": "must",
+          "text": "`Wire` and `Events` are declared with `Recorder` in one line each, and `Wire.client(answer)` gives the recording `HttpClient`."
+        },
+        {
+          "id": "spec.refactors.service-factories#r3",
+          "level": "must",
+          "text": "`scriptedTerminal` and `stubPlanner` replace the copies in the plan tests and name their return types; an unscripted planner call dies with its name."
+        },
+        {
+          "id": "spec.refactors.service-factories#r4",
+          "level": "must",
+          "text": "The Effect checklist has a services row for the factory and its annotation and a tests row for the shared fixtures."
+        }
+      ],
+      "artifacts": [],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.refactors.service-factories#d1",
+          "text": "The factory returns a class that extends a precomputed key, instead of `Object.assign` on the key.",
+          "why": "The checklist rules out `Object.assign`, and `classSelfMismatch` refuses the inline `Context.Service` class."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.refactors.service-factories": "bff65eb890a363ffb25347fe784e8a6d6a3d0ada0d6c9763e232e74b32c05128"
         }
       }
     }
