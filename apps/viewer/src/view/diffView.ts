@@ -1,10 +1,12 @@
-import type { Session } from "@cairn/contract";
+import type { LinesStep, Session } from "@cairn/contract";
 import { Array, Option, Record } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
 import {
   DIFF_STYLE_ATTRIBUTE,
   FILE_ATTRIBUTE,
+  LINES_ATTRIBUTE,
+  linesTextOf,
   RenderDiff,
   TURN_ATTRIBUTE,
   TURN_FROM_ATTRIBUTE,
@@ -52,16 +54,30 @@ const fileAttributes = (
   Array.map(Array.fromOption(maybeFile), (file) => h.Attribute(FILE_ATTRIBUTE, file));
 
 /**
- * What the diff marks its hunks with: the session of the commit shown, once it is read, and the
- * turn a person highlighted from either pane.
+ * What the diff marks its hunks with: the session of the commit shown, once it is read, the
+ * turn a person highlighted from either pane, and the lines of the selected file a link names.
  */
 export interface DiffMarks {
+  readonly maybeLines: Option.Option<typeof LinesStep.Type>;
   readonly maybeSession: Option.Option<Session>;
   readonly maybeTurn: Option.Option<HighlightedTurn>;
 }
 
 /** A diff with no session to mark it, such as the one in the detail panel. */
-export const NO_MARKS: DiffMarks = { maybeSession: Option.none(), maybeTurn: Option.none() };
+export const NO_MARKS: DiffMarks = {
+  maybeLines: Option.none(),
+  maybeSession: Option.none(),
+  maybeTurn: Option.none(),
+};
+
+/** The attribute that carries the lines a link names to the mount, when there are some. */
+const linesAttributes = (
+  maybeLines: Option.Option<typeof LinesStep.Type>,
+  h: HtmlBuilder<Message>,
+): ReadonlyArray<ReturnType<HtmlBuilder<Message>["Attribute"]>> =>
+  Array.map(Array.fromOption(maybeLines), (lines) =>
+    h.Attribute(LINES_ATTRIBUTE, linesTextOf(lines)),
+  );
 
 /** The attributes that carry the highlighted turn to the mount, when there is one. */
 const turnAttributes = (
@@ -102,6 +118,7 @@ const diffListView = (
         h.Style({ flex: "1", "min-height": "0", "overflow-y": "auto" }),
       ],
       fileAttributes(maybeFile, h),
+      linesAttributes(marks.maybeLines, h),
       turnAttributes(marks.maybeTurn, h),
     ]),
   );

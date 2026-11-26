@@ -742,6 +742,28 @@ export const sharedLengthOf = (self: Link, that: Link): number =>
 /** The marks a link's passage is drawn with, in the PRD or the spec pane. */
 export const LINK_PASSAGE_SELECTOR = "mark[data-link-passage]";
 
+/**
+ * The ranges the open passage covers in one document's prose blocks, by the block's offset, for
+ * the pane that renders that document. A passage in the other document, or one whose text changed,
+ * marks nothing here. Pure.
+ */
+export const linkedMarksOf = (
+  trace: Trace,
+  maybePassage: Option.Option<typeof PassageStep.Type>,
+  document: "prd" | "spec",
+): Record.ReadonlyRecord<string, ReadonlyArray<Range>> =>
+  Option.match(
+    Option.flatMap(
+      Option.filter(maybePassage, ({ section }) => isPrdSection(section) === (document === "prd")),
+      ({ quote, section }) => passageOf(indexOf(trace), section, quote),
+    ),
+    {
+      onNone: () => ({}),
+      onSome: (blocks) =>
+        Record.fromIterableWith(blocks, ({ offset, range }) => [`${offset}`, [range]]),
+    },
+  );
+
 const STACKS_PANE = "[data-stacks-pane]";
 
 const prdHeadingSelector = (id: string): string =>

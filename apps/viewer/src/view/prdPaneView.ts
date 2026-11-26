@@ -1,5 +1,6 @@
 import {
   PrdSectionId,
+  type PassageStep,
   type SectionId,
   type SectionStatus,
   type Trace,
@@ -32,6 +33,7 @@ import {
   type Rendered,
   type SectionHooks,
 } from "../markdown.ts";
+import { linkedMarksOf } from "../links.ts";
 import { blockKeyFor, marksOf, type SearchResult } from "../search.ts";
 import {
   coverageOf,
@@ -448,7 +450,8 @@ const sectionView = (
  * What the PRD pane holds: the document head, then each section as a monospace header with its
  * copyable ID and status line over its prose. The current section's header has `data-current` and
  * `data-wire`, which the curve to its spec cards starts from. What the search matched is marked in
- * the headings and the prose, and a heading it matched is outlined, as is the active result.
+ * the headings and the prose, and a heading it matched is outlined, as is the active result. A
+ * link's passage is underlined in the prose.
  */
 const prdBodyView = (
   trace: Trace,
@@ -459,6 +462,7 @@ const prdBodyView = (
   maybeCopied: Option.Option<PrdSectionId>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
+  maybePassage: Option.Option<typeof PassageStep.Type>,
   readers: ReadonlyArray<SectionReader>,
   h: HtmlBuilder<Message>,
 ): Html => {
@@ -469,6 +473,7 @@ const prdBodyView = (
   const hooks: SectionHooks<Message> = {
     blockAttributesOf: (offset: number) => [h.DataAttribute("block", blockKeyFor("prd", offset))],
     diagramView: (source, key) => diagramView(h, source, key),
+    linked: linkedMarksOf(trace, maybePassage, "prd"),
     marks: marksOf("prd", results),
     markView: (text: string) => matchView(text, h),
   };
@@ -499,7 +504,7 @@ const prdBodyView = (
 
 /**
  * One slot: the body is rebuilt only when the trace, the current section, the pin, the folded
- * sections, the copied ID, the search or the room changes, so a measurement or a hover never renders the document again, and a query
+ * sections, the copied ID, the search, the passage or the room changes, so a measurement or a hover never renders the document again, and a query
  * only matches and marks: the parsed document is shared.
  */
 const prdBodyLazy = createLazy();
@@ -517,6 +522,7 @@ export const prdPaneView = (
   maybeCopied: Option.Option<PrdSectionId>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
+  maybePassage: Option.Option<typeof PassageStep.Type>,
   readers: ReadonlyArray<SectionReader>,
   h: HtmlBuilder<Message>,
 ): Html =>
@@ -543,6 +549,7 @@ export const prdPaneView = (
         maybeCopied,
         results,
         maybeActive,
+        maybePassage,
         readers,
         h,
       ]),

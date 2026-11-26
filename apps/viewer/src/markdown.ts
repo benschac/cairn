@@ -191,6 +191,11 @@ export interface SectionHooks<Message> {
   readonly textView?: (text: string) => Rendered;
   /** Matched stretches to wrap, split across the inline elements they cross. */
   readonly marks?: Marks;
+  /**
+   * The ranges in each prose block's visible text that a link's passage covers, by the block's
+   * offset. They are drawn as `mark[data-link-passage]`, around any search mark inside them.
+   */
+  readonly linked?: Record.ReadonlyRecord<string, ReadonlyArray<Range>>;
   /** What a matched stretch of text renders as. */
   readonly markView?: (text: string) => Html;
   /** Attributes for a prose block that holds marks, given its offset in the markdown. */
@@ -206,30 +211,62 @@ interface RenderContext<Message> {
   readonly headingOffset: number;
   readonly diagramView: (source: string, key: string) => Html;
   readonly marks: Marks;
+  readonly linked: Record.ReadonlyRecord<string, ReadonlyArray<Range>>;
   readonly textView: (text: string) => Rendered;
   readonly markView: (text: string) => Html;
   readonly blockAttributesOf: (offset: number) => ReadonlyArray<Attribute<Message>>;
 }
 
 /**
- * Where a node starts in its block's visible text, and the block's matched ranges. Without ranges
- * nothing is marked and the offset is never read.
+ * Where a node starts in its block's visible text, the block's matched ranges and the ranges a
+ * link's passage covers. Without either nothing is marked and the offset is never read.
  */
 interface At {
   readonly from: number;
+  readonly linked: ReadonlyArray<Range>;
   readonly ranges: ReadonlyArray<Range>;
 }
 
-const UNMARKED: At = { from: 0, ranges: [] };
+const UNMARKED: At = { from: 0, linked: [], ranges: [] };
 
-/** A text leaf, with the part of the block's ranges that falls in it wrapped in `mark` elements. */
-const leafView = <Message>(context: RenderContext<Message>, text: string, at: At): Rendered => {
-  const inside = withinOf(at.ranges, at.from, at.from + String.length(text));
-  return Array.isReadonlyArrayEmpty(inside)
+const isMarked = (at: At): boolean =>
+  Array.isReadonlyArrayNonEmpty(at.ranges) || Array.isReadonlyArrayNonEmpty(at.linked);
+
+/** Text with the search ranges that fall in it wrapped in `mark` elements. */
+const searchedView = <Message>(
+  context: RenderContext<Message>,
+  text: string,
+  ranges: ReadonlyArray<Range>,
+): Rendered =>
+  Array.isReadonlyArrayEmpty(ranges)
     ? [text]
-    : Array.map(segmentsOf(text, inside), (segment) =>
+    : Array.map(segmentsOf(text, ranges), (segment) =>
         segment.isMatch ? context.markView(segment.text) : segment.text,
       );
+
+/**
+ * A text leaf, with the part of the block's ranges that falls in it wrapped in `mark` elements, and
+ * the part of the link's passage wrapped around those in a `mark[data-link-passage]`, which has no
+ * fill, so a search mark inside it still shows.
+ */
+const leafView = <Message>(context: RenderContext<Message>, text: string, at: At): Rendered => {
+  const to = at.from + String.length(text);
+  const searched = withinOf(at.ranges, at.from, to);
+  const linked = withinOf(at.linked, at.from, to);
+  if (Array.isReadonlyArrayEmpty(linked)) {
+    return searchedView(context, text, searched);
+  }
+  const [, pieces] = Array.mapAccum(segmentsOf(text, linked), 0, (from, segment) => {
+    const end = from + String.length(segment.text);
+    const shown = searchedView(context, segment.text, withinOf(searched, from, end));
+    return [
+      end,
+      segment.isMatch
+        ? [context.h.mark([context.h.DataAttribute("link-passage", "")], shown)]
+        : shown,
+    ];
+  });
+  return Array.flatten(pieces);
 };
 
 /** Renders inline nodes, each told where it starts so its text leaves find their share of the ranges. */
@@ -238,12 +275,12 @@ const renderInline = <Message>(
   nodes: ReadonlyArray<PhrasingContent>,
   at: At = UNMARKED,
 ): Rendered => {
-  if (Array.isReadonlyArrayEmpty(at.ranges)) {
+  if (!isMarked(at)) {
     return Array.flatMap(nodes, (node) => render(context, node));
   }
   const [, rendered] = Array.mapAccum(nodes, at.from, (from, node) => [
     from + String.length(visibleOf(node)),
-    render(context, node, { from, ranges: at.ranges }),
+    render(context, node, { from, linked: at.linked, ranges: at.ranges }),
   ]);
   return Array.flatten(rendered);
 };
@@ -254,18 +291,24 @@ const blockOffsetOf = (node: Paragraph | TableCell): Option.Option<number> =>
     Option.fromNullishOr(position.start.offset),
   );
 
-/** The ranges a search matched in a block, and the attributes that tell the page it holds them. */
+/**
+ * The ranges a search matched in a block and the ranges a link's passage covers, and the attributes
+ * that tell the page the block holds search marks.
+ */
 const blockMarksOf = <Message>(
   context: RenderContext<Message>,
   node: Paragraph | TableCell,
 ): { readonly at: At; readonly attributes: ReadonlyArray<Attribute<Message>> } =>
   Option.match(
-    Option.flatMap(blockOffsetOf(node), (offset) =>
-      Option.map(
-        Option.filter(Record.get(context.marks.blocks, `${offset}`), Array.isReadonlyArrayNonEmpty),
-        (ranges) => ({ at: { from: 0, ranges }, attributes: context.blockAttributesOf(offset) }),
-      ),
-    ),
+    Option.flatMap(blockOffsetOf(node), (offset) => {
+      const ranges = Option.getOrElse(Record.get(context.marks.blocks, `${offset}`), () => []);
+      const linked = Option.getOrElse(Record.get(context.linked, `${offset}`), () => []);
+      const at: At = { from: 0, linked, ranges };
+      return Option.some({
+        at,
+        attributes: Array.isReadonlyArrayNonEmpty(ranges) ? context.blockAttributesOf(offset) : [],
+      });
+    }),
     { onNone: () => ({ at: UNMARKED, attributes: [] }), onSome: (marked) => marked },
   );
 
@@ -353,6 +396,7 @@ const headingView = <Message>(context: RenderContext<Message>, node: Heading): H
   const maybeSectionId = Option.filter(maybeId, isSectionId);
   const title = renderInline(context, children, {
     from: 0,
+    linked: [],
     ranges: Option.getOrElse(
       Option.flatMap(maybeSectionId, (id) => Record.get(context.marks.titles, id)),
       () => [],
@@ -419,9 +463,7 @@ const render = <Message>(
       inlineCode: (node) => [
         h.code(
           isSectionId(node.value) ? [h.Class("ref")] : [],
-          Array.isReadonlyArrayEmpty(at.ranges)
-            ? context.textView(node.value)
-            : leafView(context, node.value, at),
+          isMarked(at) ? leafView(context, node.value, at) : context.textView(node.value),
         ),
       ],
       link: (node) => [
@@ -444,9 +486,7 @@ const render = <Message>(
       strong: (node) => [h.strong([], renderInline(context, node.children, at))],
       table: (node) => [tableView(context, node)],
       text: (node) =>
-        Array.isReadonlyArrayEmpty(at.ranges)
-          ? context.textView(node.value)
-          : leafView(context, node.value, at),
+        isMarked(at) ? leafView(context, node.value, at) : context.textView(node.value),
       thematicBreak: () => [h.hr([])],
     }),
     // Raw HTML, including comments, never reaches the page: those nodes render nothing.
@@ -605,6 +645,7 @@ const contextOf = <Message>(
     diagramView = (source, _key) => codeBlockView(h, source, DIAGRAM_LANGUAGE),
     blockAttributesOf = () => [],
     headingOffset = 0,
+    linked = {},
     marks = NO_MARKS,
     textView = (text) => [text],
     markView = (text) => h.mark([], [text]),
@@ -617,6 +658,7 @@ const contextOf = <Message>(
   diagramView,
   h,
   headingOffset,
+  linked,
   marks,
   markView,
   textView,
@@ -693,6 +735,7 @@ export const renderSectionTitle = <Message>(
         const context = contextOf(h, hooks);
         return renderInline(context, headingOf(heading).children, {
           from: 0,
+          linked: [],
           ranges: Option.getOrElse(Record.get(context.marks.titles, id), () => []),
         });
       },

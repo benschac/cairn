@@ -7,6 +7,7 @@ import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 import { STACKS_LIST_KEY, dependencyLinksOf, stackArrowsOf } from "../arrows.ts";
 import { stackBoxesOf, trunkLabelOf, type Box, type BoxCell, type Trunk } from "../boxes.ts";
 import { Message } from "../message.ts";
+import type { Focus } from "../model.ts";
 import { currentTasksOf, planCountsOf, ranOf } from "../reader.ts";
 import { nodeSearchOf } from "../highlight.ts";
 import type { SearchResult } from "../search.ts";
@@ -106,6 +107,7 @@ const chipView = (
   maybeChain: Option.Option<Chain>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
+  isLinked: boolean,
   h: HtmlBuilder<Message>,
 ): Html => {
   const ran = ranOf(task);
@@ -136,6 +138,7 @@ const chipView = (
       isDone(task) ? [h.DataAttribute("done", "")] : [],
       task.gate.required ? [h.DataAttribute("gated", "")] : [],
       isCurrent ? [h.DataAttribute("current", "")] : [],
+      isLinked ? [h.DataAttribute("linked", "")] : [],
       isLit ? [h.DataAttribute("lit", "")] : [],
       hasCurrent && !isCurrent && !isLit ? [h.DataAttribute("faded", "")] : [],
       isTaskDimmed(maybeChain, task.id) && !isLit ? [h.DataAttribute("dimmed", "")] : [],
@@ -172,7 +175,8 @@ const forkLabelView = (
 
 /**
  * The button under a box's grid that folds and unfolds its trunk. Folded, it stands for the trunk's
- * chips and is marked as a chip is; unfolded, it is a slim bar under the chips.
+ * chips and is marked as a chip is, and as linked when a link focused it; unfolded, it is a slim
+ * bar under the chips.
  */
 const segmentView = (
   box: Box,
@@ -182,6 +186,7 @@ const segmentView = (
   hasCurrent: boolean,
   maybeChain: Option.Option<Chain>,
   maybeSelected: Option.Option<Node>,
+  isLinked: boolean,
   h: HtmlBuilder<Message>,
 ): Html => {
   const range = `${Array.headNonEmpty(trunk.tasks)}–${Array.lastNonEmpty(trunk.tasks)}`;
@@ -221,6 +226,7 @@ const segmentView = (
             hasCurrent && !isCurrent && !isLit ? [h.DataAttribute("faded", "")] : [],
             isSelected ? [h.DataAttribute("selected", "")] : [],
             isDimmed ? [h.DataAttribute("dimmed", "")] : [],
+            isLinked ? [h.DataAttribute("linked", "")] : [],
           ])
         : [],
     ]),
@@ -239,9 +245,19 @@ const stackView = (
   maybeSelected: Option.Option<Node>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
+  maybeLinkFocus: Option.Option<Focus>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const { stack } = box;
+  // A link focused this box, by its stack or by its finished trunk. The box is outlined either
+  // way. A folded trunk is marked as the segment, and an unfolded one as its chips, which then
+  // stand for the segment.
+  const maybeLinked = Option.filter(maybeLinkFocus, (focus) => focus.root === stack.root);
+  const isSegmentLinked = Option.exists(maybeLinked, (focus) => focus.kind === "segment");
+  const linkedTasks = Option.match(box.maybeTrunk, {
+    onNone: () => [],
+    onSome: (trunk) => (isSegmentLinked ? trunk.tasks : []),
+  });
   const label = labelOf(stack);
   const columns = Array.reduce(Record.values(box.cells), 1, (last, cell) =>
     Number.max(last, cell.column + cell.span - 1),
@@ -256,7 +272,10 @@ const stackView = (
         h.AriaLabel(label),
         h.DataAttribute("stack", `${stack.number}`),
       ],
-      holdsCurrent(stack, current) ? [h.DataAttribute("current", "")] : [],
+      Array.flatten([
+        holdsCurrent(stack, current) ? [h.DataAttribute("current", "")] : [],
+        Option.isSome(maybeLinked) ? [h.DataAttribute("linked", "")] : [],
+      ]),
     ),
     Array.flatten([
       [
@@ -293,6 +312,7 @@ const stackView = (
                     maybeChain,
                     results,
                     maybeActive,
+                    Array.contains(linkedTasks, task.id),
                     h,
                   ),
                 ),
@@ -301,7 +321,17 @@ const stackView = (
         ),
       ],
       Array.map(Option.toArray(box.maybeTrunk), (trunk) =>
-        segmentView(box, trunk, current, lit, hasCurrent, maybeChain, maybeSelected, h),
+        segmentView(
+          box,
+          trunk,
+          current,
+          lit,
+          hasCurrent,
+          maybeChain,
+          maybeSelected,
+          isSegmentLinked,
+          h,
+        ),
       ),
       [h.div([h.Class("label"), h.DataAttribute("stack-label", "")], [`${stack.number}`])],
     ]),
@@ -394,6 +424,7 @@ export const stackChipsView = (
   maybeFocus: Option.Option<TaskId>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
+  maybeLinkFocus: Option.Option<Focus>,
   h: HtmlBuilder<Message>,
 ): Html => {
   const current = currentTasksOf(trace, maybeCurrent);
@@ -442,6 +473,7 @@ export const stackChipsView = (
                   maybeSelected,
                   results,
                   maybeActive,
+                  maybeLinkFocus,
                   h,
                 ),
               ),
