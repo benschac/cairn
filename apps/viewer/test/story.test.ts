@@ -94,6 +94,8 @@ it.prop(
         model((next) => assert(next.trace).toEqual(TraceData.Success({ data: demoTrace }))),
       );
     }),
+  // Only the error is generated, and each run compares the whole demo trace twice, so a few runs cover it.
+  { arbitrary: { runs: 25 } },
 );
 
 it("outside the demo build init loads nothing, so the first poll is the first load and the bundled trace cannot replace a live one", () => {

@@ -495,13 +495,16 @@ it.prop(
   },
 );
 
+// The query does not depend on the generated keys, so the search over the demo trace runs once.
+const judgmentQueried = queriedTo(loaded, "judgmnt");
+
 it.prop(
   "the arrow keys keep the active result on the list and stop at its ends",
   {
     downs: Schema.Array(Schema.Boolean),
   },
   ({ downs }) => {
-    const start = queriedTo(loaded, "judgmnt");
+    const start = judgmentQueried;
     const last = Array.length(start.search.results) - 1;
     const final = Array.reduce(
       downs,

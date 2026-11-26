@@ -40,5 +40,5 @@
       }
     ]
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "vitest.config.ts"]
 }
