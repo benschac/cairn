@@ -12,7 +12,7 @@ import { HttpClient } from "effect/http";
 
 import { CliNotFound, layer as cliModel } from "../src/cli-model.ts";
 import type { CliName } from "../src/cli-model.ts";
-import { languageModelFor } from "../src/models.ts";
+import { SmallLanguageModel, languageModelFor, plannerModels } from "../src/models.ts";
 import type { PlannerCall } from "../src/models.ts";
 import { Planner, PlannerError, TaskDrafts } from "../src/planner.ts";
 
@@ -283,6 +283,48 @@ it.effect(
       const big = yield* modelOf("spec");
       expect(small).toEqual(Option.some("small-model"));
       expect(big).toEqual(Option.some("big-model"));
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
+it.effect(
+  "a plan run's models are planner.model, and planner.small for the small calls when it is set",
+  () =>
+    Effect.gen(function* () {
+      const dir = yield* stubbed("claude", { stdout: CLAUDE_STRUCTURED });
+      const environment = { PATH: `${dir}:/usr/bin:/bin` };
+      const modelsOf = Effect.fn("modelsOf")(function* (planner: {
+        readonly model: string;
+        readonly small?: string;
+      }) {
+        const config = yield* Schema.decodeEffect(Config)({ planner });
+        return plannerModels(config, environment).pipe(
+          Layer.provide(Layer.mergeAll(NodeServices.layer, noNetwork)),
+        );
+      });
+      /** The `--model` the stub was given by a call to the small model, when there is one. */
+      const smallModelOf = Effect.gen(function* () {
+        const small = yield* Effect.serviceOption(SmallLanguageModel);
+        return yield* Option.match(small, {
+          onNone: () => Effect.succeed("no small model"),
+          onSome: (model) =>
+            pick("x").pipe(
+              Effect.provideService(LanguageModel.LanguageModel, model),
+              Effect.andThen(argvOf(dir, "claude")),
+              Effect.map((argv) => Option.getOrElse(after(argv, "--model"), () => "no --model")),
+            ),
+        });
+      });
+      const both = yield* modelsOf({ model: "big-model", small: "small-model" });
+      yield* pick("x").pipe(Effect.provide(both));
+      const argv = yield* argvOf(dir, "claude");
+      const small = yield* smallModelOf.pipe(Effect.provide(both));
+      const one = yield* modelsOf({ model: "big-model" });
+      const none = yield* smallModelOf.pipe(Effect.provide(one));
+      expect([after(argv, "--model"), small, none]).toEqual([
+        Option.some("big-model"),
+        "small-model",
+        "no small model",
+      ]);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 

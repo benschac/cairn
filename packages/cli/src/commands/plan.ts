@@ -68,7 +68,7 @@ import {
 import { replaceFile } from "../atomic-write.ts";
 import { Judge, JudgeError } from "../judge.ts";
 import { MainCheckout } from "../main-checkout.ts";
-import { liveLanguageModel } from "../models.ts";
+import { livePlannerModels } from "../models.ts";
 import { Planner, PlannerError } from "../planner.ts";
 import { changeLines, flagsOf, reportLines, targetName } from "../print-judgments.ts";
 import { stackLines, totalsLine } from "../print-stack.ts";
@@ -1387,7 +1387,7 @@ export const planCommand = Command.make(
         needsPlanner(options).pipe(
           Effect.map((needed) =>
             needed
-              ? Planner.layerWith(config).pipe(Layer.provide(liveLanguageModel(config)))
+              ? Planner.layerWith(config).pipe(Layer.provide(livePlannerModels(config)))
               : unusedPlanner,
           ),
         ),

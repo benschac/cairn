@@ -26,8 +26,10 @@ import {
   String,
   Struct,
 } from "effect";
-import { Chat } from "effect/ai";
+import { Chat, LanguageModel } from "effect/ai";
 import { TestClock, TestConsole } from "effect/testing";
+
+import { SmallLanguageModel } from "../src/models.ts";
 
 import { Planner, PlannerError, StatementDrafts, TaskDrafts } from "../src/planner.ts";
 import { Script, scripted, turnsOf, unreachable } from "./fixtures/scripted-language-model.ts";
@@ -61,6 +63,30 @@ const planning = <A, E>(
   replies: ReadonlyArray<string | Reply>,
   program: Effect.Effect<A, E, Planner | Script>,
 ) => planningIn(defaultConfig, replies, program);
+
+/**
+ * Runs `program` against a planner with two models: one that plays `replies`, whose prompts
+ * `Script` reports, and a small one that plays `small`. A model asked for more than its replies
+ * fails the call, so a call that went to the wrong model fails the test.
+ */
+const planningWithSmall = <A, E>(
+  replies: ReadonlyArray<string>,
+  small: ReadonlyArray<string>,
+  program: Effect.Effect<A, E, Planner | Script>,
+) =>
+  program.pipe(
+    Effect.provide(
+      Planner.layerWith(defaultConfig).pipe(
+        Layer.provide(NodeServices.layer),
+        Layer.provide(
+          Layer.effect(SmallLanguageModel, Effect.service(LanguageModel.LanguageModel)).pipe(
+            Layer.provide(scripted(Array.map(small, (reply) => Effect.succeed(reply)))),
+          ),
+        ),
+        Layer.provideMerge(scripted(Array.map(replies, (reply) => Effect.succeed(reply)))),
+      ),
+    ),
+  );
 
 /** A draft whose category is one of the config's defaults, which is what the planner accepts. */
 const Draft = TaskDraft.mapFields(
@@ -474,6 +500,26 @@ it.effect.prop(
         expect(seen).toHaveLength(1);
         expect(first).toContain(section);
         expect(first).toContain(reason);
+      }),
+    ),
+);
+
+it.effect.prop(
+  "a small call asks the small model when one is provided, and the others never ask it",
+  [Schema.String, Schema.String],
+  ([split, written]) =>
+    planningWithSmall(
+      [written],
+      [split],
+      Effect.gen(function* () {
+        // The small model answers the split: the other model's script never sees its prompt.
+        const pieces = yield* splitSection("## Auth", "too large");
+        const before = yield* prompts;
+        // The spec is not a small call. The small model has no reply left, so asking it would fail.
+        const markdown = yield* spec("prd");
+        const after = yield* prompts;
+        expect([pieces, markdown]).toEqual([split, written]);
+        expect([Array.length(before), Array.length(after)]).toEqual([0, 1]);
       }),
     ),
 );
