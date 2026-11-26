@@ -9,7 +9,7 @@
     "./stacks": "./src/stacks.ts"
   },
   "scripts": {
-    "test": "vitest run --testTimeout 15000",
+    "test": "vitest run",
     "typecheck": "effect-tsgo tsc --noEmit"
   },
   "dependencies": {
