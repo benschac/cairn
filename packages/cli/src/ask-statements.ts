@@ -25,9 +25,20 @@ export const DRAFT_QUESTION = "Is this what you meant? [a]ccept, [r]ewrite, [d]e
 /** What it asks for after `r`. */
 export const REWRITE_QUESTION = "Your words:";
 
-/** The warning that ends a run that planned against `count` drafts. */
-export const draftWarning = (count: number) =>
-  `Warning: planned against ${count} draft statement(s). Confirm them in .cairn/prd.md, or run cairn plan again to be asked.`;
+/**
+ * The warning that ends a run that planned against `count` drafts. A part run counts only the
+ * part's (`spec.planning.planning-a-part`).
+ */
+export const draftWarning = (count: number, inPart = false) =>
+  inPart
+    ? `Warning: planned against ${count} draft statement(s) in this part.`
+    : `Warning: planned against ${count} draft statement(s). Confirm them in .cairn/prd.md, or run cairn plan again to be asked.`;
+
+/** The IDs a part run is held to, or none for a run of the whole PRD: a statement counts when its owner is among them. */
+export type Owners = Option.Option<HashSet.HashSet<string>>;
+
+const ownedBy = (owners: Owners) => (owner: string) =>
+  Option.match(owners, { onNone: () => true, onSome: (ids) => HashSet.has(ids, owner) });
 
 const decodePrdSectionId = Schema.decodeUnknownOption(PrdSectionId);
 
@@ -38,14 +49,16 @@ const readOf = (prd: string) => {
   return { items, sections, statements: statementsOf(prd, sections, items) };
 };
 
-/** The number of drafts `prd` still has: statements that begin `Draft:`. */
-export const draftCountOf = (prd: string): number =>
-  Array.length(Array.filter(readOf(prd).statements, ({ draft }) => draft));
+/** The number of drafts `prd` still has: statements that begin `Draft:`, and with `owners`, those they own. */
+export const draftCountOf = (prd: string, owners: Owners = Option.none()): number =>
+  Array.length(
+    Array.filter(readOf(prd).statements, ({ draft, owner }) => draft && ownedBy(owners)(owner)),
+  );
 
 /**
  * The parts of `prd` to draft statements for, in document order: every section but the level 1
  * heading, and every list item, that has an ID and no statement. With `only`, just the sections
- * named there (planning again names the ones nothing covers).
+ * and items named there (planning again names the sections nothing covers, a part run the part).
  */
 export const targetsOf = (
   prd: string,
@@ -53,20 +66,17 @@ export const targetsOf = (
 ): ReadonlyArray<PrdSectionId> => {
   const { items, sections, statements } = readOf(prd);
   const described = HashSet.fromIterable<string>(Array.map(statements, ({ owner }) => owner));
+  const named = ({ id }: { readonly id: string | undefined }) =>
+    Option.match(only, {
+      onNone: () => true,
+      onSome: (ids) => Array.some(ids, (found) => found === id),
+    });
   const candidates = Array.appendAll(
     Array.map(
-      Array.filter(
-        sections,
-        ({ level, id }) =>
-          level > 1 &&
-          Option.match(only, {
-            onNone: () => true,
-            onSome: (ids) => Array.some(ids, (found) => found === id),
-          }),
-      ),
+      Array.filter(sections, (section) => section.level > 1 && named(section)),
       ({ id, line }) => ({ id, line }),
     ),
-    Option.isSome(only) ? [] : Array.map(items, ({ id, line }) => ({ id, line })),
+    Array.map(Array.filter(items, named), ({ id, line }) => ({ id, line })),
   );
   return pipe(
     Array.sort(
@@ -131,11 +141,11 @@ const titleOf = (
     Option.match({ onNone: () => owner, onSome: ({ title }) => title }),
   );
 
-/** The drafts of `prd` that have an ID, in document order. */
-const pendingOf = (prd: string): ReadonlyArray<Pending> => {
+/** The drafts of `prd` that have an ID, in document order; with `owners`, only the ones they own. */
+const pendingOf = (prd: string, owners: Owners): ReadonlyArray<Pending> => {
   const { items, sections, statements } = readOf(prd);
   return Array.filterMap(statements, ({ draft, id, owner, text }) =>
-    draft && id !== undefined
+    draft && id !== undefined && ownedBy(owners)(owner)
       ? Result.succeed({
           id,
           title: titleOf(sections, items, owner),
@@ -181,14 +191,17 @@ const asks = Effect.fn("askStatements.asks")(function* (options: {
  * whether it is what the person meant. `save` writes the PRD after each answer, so an interrupted
  * run keeps what was answered. A run that does not ask (see `asks`) leaves every draft as it is.
  * An empty rewrite, an answer that is none of the four and the end of input leave the draft
- * alone; the end of input also stops the questions. Returns the PRD as it is after the answers.
+ * alone; the end of input also stops the questions. With `owners`, a part run asks only about the
+ * drafts they own, and a draft outside them is not asked about or changed. Returns the PRD as it
+ * is after the answers.
  */
 export const askStatements = Effect.fn("askStatements")(function* <E, R>(
   prd: string,
   options: { readonly dryRun?: boolean | undefined; readonly yes: boolean },
   save: (prd: string) => Effect.Effect<void, E, R>,
+  owners: Owners = Option.none(),
 ) {
-  const pending = pendingOf(prd);
+  const pending = pendingOf(prd, owners);
   if (!Array.isReadonlyArrayNonEmpty(pending) || !(yield* asks(options))) {
     return prd;
   }

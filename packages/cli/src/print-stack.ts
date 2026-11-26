@@ -96,12 +96,17 @@ export interface PlanTotals {
   readonly errors: number;
   readonly flags: number;
   readonly model: string;
+  /** The IDs a part run named; the line says so. None for a run of the whole PRD. */
+  readonly part?: ReadonlyArray<string>;
   readonly sections: number;
   readonly seconds: number;
   readonly source: string;
   readonly tasks: number;
 }
 
-/** The last line of `cairn plan --dry-run` (`spec.planning.dry-run`). */
+const partSuffix = (part: ReadonlyArray<string>) =>
+  Array.isReadonlyArrayNonEmpty(part) ? ` in part ${Array.join(part, ", ")}` : "";
+
+/** The last line of `cairn plan --dry-run` (`spec.planning.dry-run`), which a part run ends with `in part <ids>`. */
 export const totalsLine = (totals: PlanTotals) =>
-  `planned ${totals.sections} sections, ${totals.tasks} tasks, ${totals.errors} lint errors, ${totals.flags} flags in ${totals.seconds}s with ${totals.source} ${totals.agent} ${totals.model}`;
+  `planned ${totals.sections} sections, ${totals.tasks} tasks, ${totals.errors} lint errors, ${totals.flags} flags in ${totals.seconds}s with ${totals.source} ${totals.agent} ${totals.model}${partSuffix(Option.getOrElse(Option.fromUndefinedOr(totals.part), () => []))}`;
