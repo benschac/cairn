@@ -1,14 +1,29 @@
 import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { expect, layer } from "@effect/vitest";
-import { Array, Effect, FileSystem, Layer, Path, Schema, String } from "effect";
-import { HttpClient, HttpRouter } from "effect/http";
+import {
+  Array,
+  Cause,
+  Context,
+  Effect,
+  ErrorReporter,
+  FileSystem,
+  Layer,
+  Logger,
+  Path,
+  Schema,
+  Scope,
+  String,
+} from "effect";
+import { HttpClient, HttpRouter, HttpServerRespondable } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { Manifest, Session, SessionId, TaskId, TraceJson } from "@cairn/contract";
-import { ApiRoutes, Repository } from "../src/api.ts";
+import { ApiRoutes, GitFailed, MalformedParams, Repository, RevisionUnknown } from "../src/api.ts";
 import { Git } from "../src/git.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
+import { ReportedFailures } from "../src/serve.ts";
 import { TraceStore } from "../src/trace-store.ts";
+import { Recorder } from "./fixtures/recorder.ts";
 
 const ZEROS = String.repeat(40)("0");
 
@@ -56,7 +71,29 @@ const TempWorkspace = Layer.unwrap(
   }),
 );
 
+/** Each cause the server logged as an error, printed. */
+class Logged extends Recorder<Logged, string>()("@cairn/cli/test/Logged") {}
+
+// The server's reporter, logging into `Logged` instead of the console.
+const Reporting = ReportedFailures.pipe(
+  Layer.provide(
+    Layer.unwrap(
+      Effect.gen(function* () {
+        const logged = yield* Logged;
+        const context = yield* Effect.context<Scope.Scope>();
+        const run = Effect.runSyncWith(Context.omit(Scope.Scope)(context));
+        return Logger.layer([
+          Logger.make(({ cause, logLevel }) =>
+            logLevel === "Error" ? run(logged.record(Cause.pretty(cause))) : undefined,
+          ),
+        ]);
+      }),
+    ),
+  ),
+);
+
 const Server = HttpRouter.serve(ApiRoutes, { disableListenLog: true, disableLogger: true }).pipe(
+  Layer.provide(Reporting),
   Layer.provide(Layer.mergeAll(TempWorkspace, Git.memory(), TraceStore.layerMemory)),
   Layer.provideMerge(TraceStore.layerMemory),
   Layer.provideMerge(TempWorkspace),
@@ -64,7 +101,19 @@ const Server = HttpRouter.serve(ApiRoutes, { disableListenLog: true, disableLogg
   Layer.provideMerge(NodeHttpServer.layerTest),
   Layer.provideMerge(TempRepository),
   Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(Logged.layer),
 );
+
+/** `request`'s result, and what the server reported while it ran. */
+const reportedDuring = Effect.fn("reportedDuring")(function* <A, E, R>(
+  request: Effect.Effect<A, E, R>,
+) {
+  const logged = yield* Logged;
+  const before = yield* logged.seen;
+  const result = yield* request;
+  const after = yield* logged.seen;
+  return { reported: Array.drop(after, Array.length(before)), result };
+});
 
 const revisions = Effect.gen(function* () {
   const { directory } = yield* Repository;
@@ -106,28 +155,52 @@ layer(Server)("patch routes", (it) => {
     }),
   );
 
-  it.effect("a malformed SHA is 400 and never reaches git", () =>
+  it.effect("a malformed SHA is 400, never reaches git and is not reported", () =>
     Effect.gen(function* () {
-      const short = yield* get("/api/commits/abc123");
-      const upper = yield* get(`/api/commits/${String.repeat(40)("A")}`);
-      const option = yield* get("/api/commits/--output=x");
-      const range = yield* get(`/api/diffs/${ZEROS}/HEAD`);
-      expect(Array.map([short, upper, option, range], ({ response }) => response.status)).toEqual([
-        400, 400, 400, 400,
-      ]);
+      const { reported, result } = yield* reportedDuring(
+        Effect.forEach(
+          [
+            "/api/commits/abc123",
+            `/api/commits/${String.repeat(40)("A")}`,
+            "/api/commits/--output=x",
+            `/api/diffs/${ZEROS}/HEAD`,
+          ],
+          get,
+        ),
+      );
+      expect(Array.map(result, ({ response }) => response.status)).toEqual([400, 400, 400, 400]);
+      expect(reported).toEqual([]);
     }),
   );
 
-  it.effect("a SHA git does not know is 404, for a commit and for either end of a range", () =>
+  it.effect(
+    "a SHA git does not know is 404 with git's message, for a commit and either end of a range",
+    () =>
+      Effect.gen(function* () {
+        const { head } = yield* revisions;
+        const { reported, result } = yield* reportedDuring(
+          Effect.forEach(
+            [`/api/commits/${ZEROS}`, `/api/diffs/${head}/${ZEROS}`, `/api/diffs/${ZEROS}/${head}`],
+            get,
+          ),
+        );
+        expect(Array.map(result, ({ response }) => response.status)).toEqual([404, 404, 404]);
+        expect(result[0]?.text).toContain(ZEROS);
+        expect(result[0]?.response.headers["cache-control"]).toBeUndefined();
+        expect(reported).toEqual([]);
+      }),
+  );
+
+  it.effect("the routes' failures render themselves, and only git's 500 is reported", () =>
     Effect.gen(function* () {
-      const { head } = yield* revisions;
-      const commit = yield* get(`/api/commits/${ZEROS}`);
-      const end = yield* get(`/api/diffs/${head}/${ZEROS}`);
-      const start = yield* get(`/api/diffs/${ZEROS}/${head}`);
-      expect(Array.map([commit, end, start], ({ response }) => response.status)).toEqual([
-        404, 404, 404,
-      ]);
-      expect(commit.response.headers["cache-control"]).toBeUndefined();
+      const failures = [
+        new MalformedParams({ issue: "Expected a SHA" }),
+        new RevisionUnknown({ stderr: "fatal: bad object" }),
+        new GitFailed({ exitCode: 128, stderr: "fatal: not a git repository" }),
+      ];
+      const responses = yield* Effect.forEach(failures, HttpServerRespondable.toResponse);
+      expect(Array.map(responses, ({ status }) => status)).toEqual([400, 404, 500]);
+      expect(Array.map(failures, ErrorReporter.isIgnored)).toEqual([true, true, false]);
     }),
   );
 });
@@ -199,17 +272,18 @@ layer(Server)("trace route", (it) => {
       }),
   );
 
-  it.effect("a missing file is a 500 that names the file", () =>
+  it.effect("a missing file is a 500 that the server reports, naming the file", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const spec = yield* cairnFile("spec.md");
       const original = yield* fs.readFileString(spec);
       yield* fs.remove(spec);
-      const { response, text } = yield* getWith({}).pipe(
-        Effect.ensuring(Effect.orDie(fs.writeFileString(spec, original))),
+      const { reported, result } = yield* reportedDuring(
+        getWith({}).pipe(Effect.ensuring(Effect.orDie(fs.writeFileString(spec, original)))),
       );
-      expect(response.status).toBe(500);
-      expect(text).toContain("spec.md");
+      expect(result.response.status).toBe(500);
+      expect(reported).toHaveLength(1);
+      expect(reported[0]).toContain("spec.md does not exist");
     }),
   );
 });
@@ -270,12 +344,17 @@ layer(Server)("session route", (it) => {
       }),
   );
 
-  it.effect("an id the store does not hold is 404, and one that is not a session id is 400", () =>
-    Effect.gen(function* () {
-      const unknown = yield* get("/api/sessions/s_missing1");
-      const malformed = yield* get("/api/sessions/not-a-session");
-      expect([unknown.response.status, malformed.response.status]).toEqual([404, 400]);
-      expect(unknown.text).toContain("s_missing1");
-    }),
+  it.effect(
+    "an id the store does not hold is 404, one that is not a session id is 400, and neither is reported",
+    () =>
+      Effect.gen(function* () {
+        const { reported, result } = yield* reportedDuring(
+          Effect.forEach(["/api/sessions/s_missing1", "/api/sessions/not-a-session"], get),
+        );
+        const [unknown, malformed] = result;
+        expect([unknown?.response.status, malformed?.response.status]).toEqual([404, 400]);
+        expect(unknown?.text).toContain("s_missing1");
+        expect(reported).toEqual([]);
+      }),
   );
 });

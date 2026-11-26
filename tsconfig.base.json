@@ -50,6 +50,7 @@
           "processEnvInEffect": "error",
           "strictBooleanExpressions": "error",
           "tryCatchInEffectGen": "error",
+          "unstableApiUsage": "off",
           "yieldInCallArgument": "error"
         }
       }

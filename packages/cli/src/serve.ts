@@ -1,7 +1,18 @@
 import { createServer } from "node:http";
 
 import { NodeHttpServer } from "@effect/platform-node";
-import { Array, Config, Context, Effect, FileSystem, Layer, Path, String } from "effect";
+import {
+  Array,
+  Config,
+  Context,
+  Effect,
+  ErrorReporter,
+  FileSystem,
+  Layer,
+  Path,
+  Scope,
+  String,
+} from "effect";
 import { Command } from "effect/cli";
 import { HttpRouter, HttpServerResponse } from "effect/http";
 
@@ -60,6 +71,19 @@ export const ViewerRoutes = HttpRouter.add("GET", "/*", (request) =>
   }).pipe(Effect.orElseSucceed(() => HttpServerResponse.empty({ status: 404 }))),
 );
 
+/**
+ * Logs each failure a route did not owe, a `500` or a defect, as an error with its cause. A failure
+ * the route owes, such as a SHA git does not have, sets `ErrorReporter.ignore` and is not reported.
+ * The server calls the reporter outside any fiber, so it logs with the services of the layer that
+ * built it, without that layer's `Scope`.
+ */
+export const ReportedFailures = ErrorReporter.layer([
+  Effect.map(Effect.context<Scope.Scope>(), (context) => {
+    const log = Effect.runSyncWith(Context.omit(Scope.Scope)(context));
+    return ErrorReporter.make(({ cause }) => log(Effect.logError("A route failed", cause)));
+  }),
+]);
+
 /** Every route: presence, the API and the viewer. */
 export const Routes = Layer.mergeAll(PresenceRoute, ApiRoutes, ViewerRoutes);
 
@@ -70,6 +94,7 @@ export const server = HttpRouter.serve(Routes).pipe(
   Layer.provide(TraceStore.layer),
   Layer.provide(Layer.merge(gitLayer(), MainCheckout.layer())),
   Layer.provide(ViewerDirectory.built),
+  Layer.provide(ReportedFailures),
   Layer.provide(NodeHttpServer.layerConfig(createServer, { port })),
 );
 

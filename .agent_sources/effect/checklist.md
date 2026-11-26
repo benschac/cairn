@@ -30,6 +30,7 @@ added | rg 'JSON\.|Date\.|Math\.(random|max|min)|console\.|process\.(env|exit|ar
 added | rg 'class \w+ extends Error|throw |try \{|catch \('                    # errors
 added | rg 'Schema\.(decode|encode)\w*Sync|as unknown as|as any|: any\b'       # boundaries and casts
 added | rg 'Effect\.context\b|run(Fork|Promise|Sync|Callback)With|provideContext'  # stored effects: what context they carry
+added | rg 'status: [1-5][0-9]{2}'                                              # a status outside an error's Respondable method: let the error render it
 ```
 
 The checks that `pnpm check` runs catch most of the first five lines. The rest are review items.
@@ -106,6 +107,7 @@ The checks that `pnpm check` runs catch most of the first five lines. The rest a
 | --- | --- | --- | --- |
 | A function that returns `Effect.gen(...)` | `Effect.fn("name")(function* (...) {...}, ...combinators)`, or `Effect.fnUntraced` | `effectFnOpportunity` (advisory) | `packages/cli/src/presence.ts` (`Room.join`), `node_modules/effect/AGENTS.md` |
 | `class X extends Error`, `throw`, `try`/`catch` | `class X extends Schema.TaggedError<X>()("X", { ... }) {}`; `return yield* new X(...)`; `Effect.try({ try, catch })`, `Effect.tryPromise` | `extendsNativeError`, `tryCatchInEffectGen` | `packages/contract/src/trailers.ts`, `scripts/land/land.ts` |
+| A route that catches its errors to build a response with a status: `catchTag` or `matchEffect` into `HttpServerResponse.text(..., { status })`, a catch-all into a `500` | The error renders itself: `implements HttpServerRespondable.Respondable` with `[HttpServerRespondable.symbol]()`, and `override readonly [ErrorReporter.ignore] = true` on a failure the route owes. The handler only fails. Decode parameters into an ignored error of your own: the built-in `400` for a `SchemaError` is still reported. Provide an `ErrorReporter.layer` at the server's root. With `HttpApi`, annotate the error's schema with `HttpApiSchema.status` or `asProblem` | | [errors-that-render-themselves.md](errors-that-render-themselves.md); `packages/cli/src/api.ts` (`MalformedParams`, `RevisionUnknown`, `GitFailed`), `packages/cli/src/serve.ts` (`ReportedFailures`); Harry Solovay, [Advanced Effect Design Patterns](https://youtu.be/_tSGby_q890?t=1210), Effect Miami 3, "Errors that render themselves" |
 | `Effect.catch` with an `if` on `_tag` | `Effect.catchTag("X", f)`, `Effect.catchTag(["X", "Y"], f)`, `Effect.catchTags({ X: f, Y: g })`; `Effect.mapError`, `Effect.tapError`, `Effect.orElseSucceed`, `Effect.ignore` | `catchIfTagToCatchTag` and other `catch*` style diagnostics (advisory) | `scripts/land/land.ts` (`catchTags`), `node_modules/effect/ai-docs/src/01_effect/04_errors/` |
 | `Promise`, `async`, `await`, `new Promise` | `Effect.gen`, `Effect.tryPromise`, `Effect.callback` | `newPromise`, `asyncFunction` (advisory) | `ai-docs/src/01_effect/01_basics/10_creating-effects.ts` |
 | `Effect.runPromise` inside an effect | `yield*` it; a program entry, `NodeRuntime.runMain` | `runEffectInsideEffect` | `scripts/land/land.ts` |

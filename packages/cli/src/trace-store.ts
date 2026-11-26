@@ -1,6 +1,17 @@
 import { SessionId, TaskId } from "@cairn/contract";
 import { SqliteClient, SqliteMigrator } from "@effect/sql-sqlite-node";
-import { Context, DateTime, Effect, Layer, Path, Schema, String, Struct } from "effect";
+import {
+  Context,
+  DateTime,
+  Effect,
+  ErrorReporter,
+  Layer,
+  Path,
+  Schema,
+  String,
+  Struct,
+} from "effect";
+import { HttpServerRespondable, HttpServerResponse } from "effect/http";
 import { SqlClient, SqlSchema } from "effect/sql";
 import type { SqlError } from "effect/sql/SqlError";
 
@@ -44,16 +55,26 @@ const SessionRow = StoredSession.mapFields(
   Struct.assign({ redactions: Schema.fromJsonString(Redactions) }),
 );
 
-/** No session with this id is stored. */
-export class SessionNotFound extends Schema.TaggedError<
-  SessionNotFound,
-  { readonly brand: unique symbol }
->()("SessionNotFound", {
-  id: SessionId,
-}) {
+/**
+ * No session with this id is stored. Served, it is a `404` with its message, an answer the sessions
+ * route owes, so the server does not report it.
+ */
+export class SessionNotFound
+  extends Schema.TaggedError<SessionNotFound, { readonly brand: unique symbol }>()(
+    "SessionNotFound",
+    { id: SessionId },
+  )
+  implements HttpServerRespondable.Respondable
+{
   override get message() {
     return `No session ${this.id} in cairn.db`;
   }
+
+  [HttpServerRespondable.symbol]() {
+    return Effect.succeed(HttpServerResponse.text(this.message, { status: 404 }));
+  }
+
+  override readonly [ErrorReporter.ignore] = true;
 }
 
 /** Why the store could not answer: SQLite failed, or a row does not decode. */

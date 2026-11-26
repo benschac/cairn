@@ -1,8 +1,17 @@
 import { Session, SessionId, Sha, Trace } from "@cairn/contract";
 import { sessionOf, traceOf } from "@cairn/core";
-import { Array, Context, Effect, Layer, Option, Schema, Stream, String } from "effect";
-import { HttpRouter, HttpServerResponse } from "effect/http";
-import type { PlatformError } from "effect/PlatformError";
+import {
+  Array,
+  Context,
+  Effect,
+  ErrorReporter,
+  Layer,
+  Option,
+  Schema,
+  Stream,
+  String,
+} from "effect";
+import { HttpRouter, HttpServerRespondable, HttpServerResponse } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { inputsHashOf, loadTraceInput } from "./load-trace.ts";
@@ -17,18 +26,77 @@ export class Repository extends Context.Service<Repository, { readonly directory
     Layer.succeed(Repository, Repository.of({ directory }));
 }
 
-class GitFailed extends Schema.TaggedError<GitFailed, { readonly brand: unique symbol }>()(
-  "GitFailed",
-  {
+/**
+ * Git failed for a reason other than a revision it does not have: a `500` with git's message, which
+ * the server reports, since the route did not expect it.
+ */
+export class GitFailed
+  extends Schema.TaggedError<GitFailed, { readonly brand: unique symbol }>()("GitFailed", {
     exitCode: Schema.Int,
     stderr: Schema.String,
-  },
-) {}
+  })
+  implements HttpServerRespondable.Respondable
+{
+  [HttpServerRespondable.symbol]() {
+    return Effect.succeed(HttpServerResponse.text(this.stderr, { status: 500 }));
+  }
+}
+
+/**
+ * Git does not have a revision the route was asked for: a `404` with git's message. The route owes
+ * that answer, so the server does not report it.
+ */
+export class RevisionUnknown
+  extends Schema.TaggedError<RevisionUnknown, { readonly brand: unique symbol }>()(
+    "RevisionUnknown",
+    { stderr: Schema.String },
+  )
+  implements HttpServerRespondable.Respondable
+{
+  [HttpServerRespondable.symbol]() {
+    return Effect.succeed(HttpServerResponse.text(this.stderr, { status: 404 }));
+  }
+
+  override readonly [ErrorReporter.ignore] = true;
+}
+
+/**
+ * A path parameter that does not decode: a `400` that says what did not decode. The router's own
+ * `400` for a `SchemaError` is still reported, so a route decodes its parameters through `paramsOf`.
+ */
+export class MalformedParams
+  extends Schema.TaggedError<MalformedParams, { readonly brand: unique symbol }>()(
+    "MalformedParams",
+    { issue: Schema.String },
+  )
+  implements HttpServerRespondable.Respondable
+{
+  [HttpServerRespondable.symbol]() {
+    return Effect.succeed(HttpServerResponse.text(this.issue, { status: 400 }));
+  }
+
+  override readonly [ErrorReporter.ignore] = true;
+}
+
+/** The route's parameters decoded through `schema`, failing with `MalformedParams`. */
+const paramsOf = <
+  A,
+  I extends Readonly<Record<string, string | ReadonlyArray<string> | undefined>>,
+  RD,
+>(
+  schema: Schema.ConstraintCodec<A, I, RD, unknown>,
+) =>
+  HttpRouter.schemaParams(schema).pipe(
+    Effect.mapError((error) => new MalformedParams({ issue: error.message })),
+  );
 
 /** How git words a revision it does not have. */
 const UNKNOWN_REVISION = /bad object|bad revision|unknown revision|not a valid object name/iu;
 
-/** Runs git with an argument list, never a shell, and returns its stdout. A non-zero exit fails with git's stderr. */
+/**
+ * Runs git with an argument list, never a shell, and returns its stdout. A non-zero exit fails with
+ * git's stderr: `RevisionUnknown` when git does not have a revision, `GitFailed` otherwise.
+ */
 const git = Effect.fn("git")(function* (args: ReadonlyArray<string>) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const { directory } = yield* Repository;
@@ -43,9 +111,13 @@ const git = Effect.fn("git")(function* (args: ReadonlyArray<string>) {
         ],
         { concurrency: "unbounded" },
       );
-      return exitCode === 0
-        ? stdout
-        : yield* new GitFailed({ exitCode, stderr: String.trim(stderr) });
+      if (exitCode === 0) {
+        return stdout;
+      }
+      const message = String.trim(stderr);
+      return Option.isSome(String.match(UNKNOWN_REVISION)(message))
+        ? yield* new RevisionUnknown({ stderr: message })
+        : yield* new GitFailed({ exitCode, stderr: message });
     }),
   );
 });
@@ -59,44 +131,22 @@ const patch = (body: string) =>
     headers: { "cache-control": "max-age=31536000, immutable" },
   });
 
-const plain = (status: number, body: string) => HttpServerResponse.text(body, { status });
-
-/** Turns a failed read into the status the route owes: a bad SHA is 400, one git lacks is 404, the rest 500. */
-const refuse = <R>(
-  read: Effect.Effect<
-    HttpServerResponse.HttpServerResponse,
-    GitFailed | Schema.SchemaError | PlatformError,
-    R
-  >,
-) =>
-  read.pipe(
-    Effect.catchTags({
-      GitFailed: (failure) =>
-        Effect.succeed(
-          Option.isSome(String.match(UNKNOWN_REVISION)(failure.stderr))
-            ? plain(404, failure.stderr)
-            : plain(500, failure.stderr),
-        ),
-      SchemaError: (failure) => Effect.succeed(plain(400, failure.message)),
-      PlatformError: (failure) => Effect.succeed(plain(500, failure.message)),
-    }),
-  );
-
+/**
+ * `GET /api/commits/:sha` (see `spec.patch-routes`). The route only fails, and each failure renders
+ * itself: a SHA that does not decode is `MalformedParams`, git's are `RevisionUnknown` and `GitFailed`.
+ */
 export const CommitRoute = HttpRouter.add("GET", "/api/commits/:sha", () =>
-  refuse(
-    HttpRouter.schemaParams(Commit).pipe(
-      Effect.flatMap(({ sha }) => git(["show", "--patch", sha])),
-      Effect.map(patch),
-    ),
+  paramsOf(Commit).pipe(
+    Effect.flatMap(({ sha }) => git(["show", "--patch", sha])),
+    Effect.map(patch),
   ),
 );
 
+/** `GET /api/diffs/:base/:head` (see `spec.patch-routes`), failing as `CommitRoute` does. */
 export const DiffRoute = HttpRouter.add("GET", "/api/diffs/:base/:head", () =>
-  refuse(
-    HttpRouter.schemaParams(Range).pipe(
-      Effect.flatMap(({ base, head }) => git(["diff", "--patch", base, head])),
-      Effect.map(patch),
-    ),
+  paramsOf(Range).pipe(
+    Effect.flatMap(({ base, head }) => git(["diff", "--patch", base, head])),
+    Effect.map(patch),
   ),
 );
 
@@ -113,7 +163,8 @@ const encodeTrace = HttpServerResponse.schemaJson(Trace);
 
 /**
  * `GET /api/trace` (see `spec.server`): the Trace as JSON with an `ETag` from a hash of its inputs.
- * A request whose `If-None-Match` names that tag gets `304` without the Trace being built.
+ * A request whose `If-None-Match` names that tag gets `304` without the Trace being built. A
+ * `.cairn/` file or git that fails is a `500` the server reports.
  */
 export const TraceRoute = HttpRouter.add("GET", "/api/trace", (request) =>
   Effect.gen(function* () {
@@ -127,38 +178,33 @@ export const TraceRoute = HttpRouter.add("GET", "/api/trace", (request) =>
     return fresh
       ? HttpServerResponse.empty({ headers, status: 304 })
       : yield* encodeTrace(traceOf(input), { headers });
-  }).pipe(Effect.catch((failure) => Effect.succeed(plain(500, failure.message)))),
+  }),
 );
 
 const SessionParams = Schema.Struct({ id: SessionId });
 
 const encodeSession = HttpServerResponse.schemaJson(Session);
 
-/** The stored session read by `sessionOf`. Notes are not stored yet (see `spec.sessions.trace-store`), so they are empty. */
+/**
+ * The stored session read by `sessionOf`. Notes are not stored yet (see `spec.sessions.trace-store`),
+ * so they are empty. A stored row that does not decode is a defect here: left a `SchemaError`, it
+ * would render as the `400` of a malformed request.
+ */
 const sessionResponse = Effect.fn("sessionResponse")(function* (id: SessionId) {
   const store = yield* TraceStore;
-  const { log, redactions, taskId } = yield* store.get(id);
+  const { log, redactions, taskId } = yield* store
+    .get(id)
+    .pipe(Effect.catchTag("SchemaError", (error) => Effect.die(error)));
   return yield* encodeSession(sessionOf(log, { id, notes: [], redactions, taskId }));
 });
 
 /**
  * `GET /api/sessions/:id` (see `spec.server`): the `Session` as JSON. An id that is not a
- * `SessionId` is `400` and never reaches the store, one the store does not hold is `404`, and a
- * store that cannot answer is `500`.
+ * `SessionId` is `MalformedParams` and never reaches the store, `SessionNotFound` renders its
+ * `404`, and a store that cannot answer is a `500` the server reports.
  */
 export const SessionRoute = HttpRouter.add("GET", "/api/sessions/:id", () =>
-  HttpRouter.schemaParams(SessionParams).pipe(
-    Effect.matchEffect({
-      onFailure: (failure) => Effect.succeed(plain(400, failure.message)),
-      onSuccess: ({ id }) =>
-        sessionResponse(id).pipe(
-          Effect.catchTag("SessionNotFound", (failure) =>
-            Effect.succeed(plain(404, failure.message)),
-          ),
-          Effect.catch((failure) => Effect.succeed(plain(500, failure.message))),
-        ),
-    }),
-  ),
+  paramsOf(SessionParams).pipe(Effect.flatMap(({ id }) => sessionResponse(id))),
 );
 
 export const ApiRoutes = Layer.mergeAll(CommitRoute, DiffRoute, TraceRoute, SessionRoute);
