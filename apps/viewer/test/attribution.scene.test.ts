@@ -78,8 +78,7 @@ const showing = after(
 const list = data("patch-path");
 const turn = (id: string) => both(tag("li"), data("turn", id));
 const turnButton = (id: string) => inside(turn(id), both(tag("button"), attr("aria-expanded")));
-const drawn = (s: ViewerSteps) =>
-  s.mounted(viewerBridge.mountOf(RenderDiff), Message.CompletedRenderDiff());
+const drawn = (s: ViewerSteps) => s.mounted(RenderDiff, Message.CompletedRenderDiff());
 
 it.effect(
   "ClickedHunkMark opens the turn, marks it from the diff side and scrolls the session to it",
@@ -123,11 +122,7 @@ it.effect(
 it.effect("the diff mount is given the session, so it can mark each hunk with its turns", () =>
   Effect.gen(function* () {
     const s = yield* viewerScene(showing);
-    s.expectMount(
-      viewerBridge.mountOf(RenderDiff)({
-        args: RenderDiff({ session: Option.some(session), text: commitPatch }).args,
-      }),
-    )
+    s.expectMount(RenderDiff({ session: Option.some(session), text: commitPatch }))
       .pipe(drawn)
       .expect(list)
       .toHaveAttribute("data-turn", false);

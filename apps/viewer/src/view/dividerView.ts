@@ -1,9 +1,8 @@
 import { Mount as UiMount } from "@effect/ui";
 import type { Html } from "@effect/ui/html";
-import { Filter, Match, Option, Predicate, Schema, Stream } from "effect";
+import { Filter, Match, Option, Predicate, Stream } from "effect";
 
 import { styleText } from "../effect-ui/attributes.ts";
-import type { HostMount } from "../effect-ui/bridge.ts";
 import { Message } from "../message.ts";
 import { Pane, dividerKeyOf, limitsOf, type Widths } from "../panes.ts";
 
@@ -127,18 +126,6 @@ export const PressDivider = UiMount.makeStream(
       ),
     ),
 );
-
-const decodePane = Schema.decodeUnknownSync(Pane);
-
-/**
- * The bridge puts `PressDivider` on each divider still drawn by Foldkit (`foldkit/dividerView.ts`,
- * in the detail panel), which `data-divider` names, in place of its Foldkit `pointerdown` handler.
- */
-export const dividerHostMount: HostMount<Message> = {
-  attribute: "data-divider",
-  events: ["pointerdown"],
-  mount: (pane) => PressDivider({ pane: decodePane(pane) }),
-};
 
 /**
  * The handle between two panes, or on the detail panel's left edge. It is a vertical separator that

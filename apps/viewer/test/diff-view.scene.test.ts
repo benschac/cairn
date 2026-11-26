@@ -1,15 +1,14 @@
 import { Sha } from "@cairn/contract";
+import { Locator } from "@effect/ui/testing";
 import { expect as assert, it } from "@effect/vitest";
-import { Array, Effect, Option, Result, String, Struct } from "effect";
+import { Array, Effect, Predicate, Option, Result, String, Struct } from "effect";
 import { modifyFields } from "foldkit/struct";
 
-import { viewerBridge } from "../src/app.ts";
 import { demoTrace } from "../src/demo.ts";
 import { RenderDiff } from "../src/diff.ts";
 import { Message } from "../src/message.ts";
 import { DiffStyle, TraceData } from "../src/model.ts";
 import { update as appUpdate } from "../src/update.ts";
-import { patchView } from "../src/view/diffView.ts";
 import rangePatch from "./fixtures/range.patch?raw";
 import {
   both,
@@ -62,11 +61,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const s = yield* viewerScene(withPatch);
-      s.expectMount(
-        viewerBridge.mountOf(RenderDiff)({
-          args: RenderDiff({ session: Option.none(), text: rangePatch }).args,
-        }),
-      )
+      s.expectMount(RenderDiff({ session: Option.none(), text: rangePatch }))
         .expect(list)
         .toHaveAttribute("data-patch-path", wholePath)
         .expect(list)
@@ -79,12 +74,24 @@ it.effect(
     }),
 );
 
-it("the list is keyed by the patch's route path, so another patch is a new list", () => {
-  const body = viewerBridge.build((h) =>
-    patchView(withPatch.patches, wholePath, "unified", Option.none(), h),
-  );
-  assert(Option.map(Option.fromNullOr(body), ({ key }) => key)).toEqual(Option.some(wholePath));
+/** The elements an Effect UI view gave this key. */
+const keyedBy = (key: string): Locator.Locator => ({
+  all: (root) =>
+    Array.filter(
+      Locator.elements(root),
+      (node) => Predicate.hasProperty(node, "elementKey") && node.elementKey === key,
+    ),
+  description: `key ${key}`,
 });
+
+it.effect("the list is keyed by the patch's route path, so another patch is a new list", () =>
+  Effect.gen(function* () {
+    const s = yield* viewerScene(withPatch);
+    s.expect(both(list, keyedBy(wholePath)))
+      .toExist()
+      .pipe(drawnDiff);
+  }),
+);
 
 it.effect("a patch that has not loaded is a note with the same path attribute, and no mount", () =>
   Effect.gen(function* () {

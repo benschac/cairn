@@ -4,7 +4,6 @@ import { Array, Option } from "effect";
 import { AsyncData } from "foldkit";
 
 import { styleText } from "../effect-ui/attributes.ts";
-import { viewerBridge } from "../effect-ui/viewerBridge.ts";
 import { copyLinksOf } from "../links.ts";
 import { Message } from "../message.ts";
 import { PresenceConnection, Screen, type Model } from "../model.ts";
@@ -61,18 +60,16 @@ export const view = (h: Html.H<Message>, model: Model) =>
         Option.match(AsyncData.getData(model.trace), {
           onNone: () => loadingView(h),
           onSome: (trace) =>
-            viewerBridge.bridged(h, (foldkit) =>
-              codeView(
-                trace,
-                code,
-                model.patches,
-                model.diffStyle,
-                model,
-                model.maybeLinkNotice,
-                copyLinksOf(model),
-                foldkit,
-                codeMessages,
-              ),
+            codeView(
+              h,
+              trace,
+              code,
+              model.patches,
+              model.diffStyle,
+              model,
+              model.maybeLinkNotice,
+              copyLinksOf(model),
+              codeMessages,
             ),
         }),
       ),

@@ -9,28 +9,28 @@ import {
   type TraceTask,
 } from "@cairn/contract";
 import { stacksOf } from "@cairn/core/stacks";
+import type { View } from "@effect/ui";
+import type { Html } from "@effect/ui/html";
 import { Array, DateTime, Match, Option, Record, Result, Schema, String } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
 
 import { DETAIL_HEADING_ID, type Trail } from "../detail.ts";
 import { filesOf, patchPathOf, shortSha } from "../codeView.ts";
+import { styleText } from "../effect-ui/attributes.ts";
 import { trailStepOf, pathOfLink } from "../links.ts";
 import { Message } from "../message.ts";
 import { WHOLE_TASK, type DiffStyle, type PatchData } from "../model.ts";
 import { ranOf, statusWordOf } from "../reader.ts";
 import { Node, judgmentsOf, nodeKeyOf, sectionTitleOf } from "../trace.ts";
-import { dotView, labelView, tagView } from "../foldkit/marks.ts";
-import { copyButtonView } from "../foldkit/copyLinkView.ts";
+import { dotView, labelView, tagView } from "../ui/marks.ts";
+import { copyButtonView } from "./copyLinkView.ts";
 import { patchView } from "./diffView.ts";
-import { dividerView } from "../foldkit/dividerView.ts";
-import { handleWidthOf } from "./dividerView.ts";
+import { dividerView, handleWidthOf } from "./dividerView.ts";
 import type { Widths } from "../panes.ts";
 
 /** The content's side padding: more than half the resize handle, which overlaps it. */
 export const DETAIL_PADDING = 16;
 
-// NOTE: the buttons here are native buttons with Type("button"). @foldkit/ui's Button.view adds
-// only Tabindex(0) over that, so it is not a dependency.
+// NOTE: the buttons here are native buttons with type="button".
 
 const answerText = Match.type<TraceJudgment["answer"]>().pipe(
   Match.when(Schema.is(ProbabilityAnswer), (answer) => `probability ${answer.probability}`),
@@ -46,100 +46,77 @@ const answerText = Match.type<TraceJudgment["answer"]>().pipe(
 
 const gateText = (required: boolean): string => (required ? "human required" : "no human gate");
 
-const judgmentView = (judgment: TraceJudgment, h: HtmlBuilder<Message>): Html =>
-  h.li(
-    [
-      h.DataAttribute("drawer-judgment", judgment.question),
-      h.DataAttribute("verdict", judgment.verdict),
-      h.DataAttribute("stale", `${judgment.stale}`),
-    ],
-    [
-      h.strong([], [judgment.question]),
+const judgmentView = (h: Html.H<Message>, judgment: TraceJudgment) =>
+  h.li
+    .attr("data-drawer-judgment", judgment.question)
+    .attr("data-verdict", judgment.verdict)
+    .attr("data-stale", `${judgment.stale}`)
+    .children(
+      h.strong(judgment.question),
       ` ${judgment.verdict}${judgment.stale ? " (stale)" : ""}: ${judgment.message} `,
-      h.span([h.DataAttribute("answer", "")], [answerText(judgment.answer)]),
-    ],
-  );
+      h.span.attr("data-answer", "").children(answerText(judgment.answer)),
+    );
 
-export const judgmentsView = (trace: Trace, node: Node, h: HtmlBuilder<Message>): Html =>
-  h.section(
-    [h.DataAttribute("drawer-part", "judgments")],
-    [
-      h.h3([], ["Judgments"]),
-      h.ul(
-        [],
-        Array.map(judgmentsOf(trace, node), (judgment) => judgmentView(judgment, h)),
-      ),
-    ],
-  );
+export const judgmentsView = (h: Html.H<Message>, trace: Trace, node: Node) =>
+  h.section
+    .attr("data-drawer-part", "judgments")
+    .children(
+      h.h3("Judgments"),
+      h.ul(Array.map(judgmentsOf(trace, node), (judgment) => judgmentView(h, judgment))),
+    );
 
-export const eventsView = (task: TraceTask, h: HtmlBuilder<Message>): Html =>
-  h.section(
-    [h.DataAttribute("drawer-part", "events")],
-    [
-      h.h3([], ["Events"]),
+export const eventsView = (h: Html.H<Message>, task: TraceTask) =>
+  h.section
+    .attr("data-drawer-part", "events")
+    .children(
+      h.h3("Events"),
       h.ol(
-        [],
         Array.map(task.events, (event) =>
-          h.li(
-            [h.DataAttribute("event", event.status)],
-            [`${event.status} ${DateTime.formatIso(event.ts)} ${event.actor}`],
-          ),
+          h.li
+            .attr("data-event", event.status)
+            .children(`${event.status} ${DateTime.formatIso(event.ts)} ${event.actor}`),
         ),
       ),
-    ],
-  );
+    );
 
 /** The gate the plan set and the gate in effect, each with its reasons. */
-export const gateView = (task: TraceTask, h: HtmlBuilder<Message>): Html =>
-  h.section(
-    [h.DataAttribute("drawer-part", "gate")],
-    [
-      h.h3([], ["Gate"]),
-      h.div(
-        [h.DataAttribute("gate-source", "humanGate")],
-        [`Planned: ${gateText(task.humanGate.required)}`],
-      ),
-      h.ul(
-        [h.DataAttribute("gate-reasons", "humanGate")],
-        Array.map(task.humanGate.reasons, (reason) => h.li([], [reason])),
-      ),
-      h.div(
-        [h.DataAttribute("gate-source", "effective")],
-        [`Effective: ${gateText(task.gate.required)}`],
-      ),
-      h.ul(
-        [h.DataAttribute("gate-reasons", "effective")],
-        Array.map(task.gate.reasons, (reason) => h.li([], [reason])),
-      ),
-    ],
-  );
+export const gateView = (h: Html.H<Message>, task: TraceTask) =>
+  h.section
+    .attr("data-drawer-part", "gate")
+    .children(
+      h.h3("Gate"),
+      h.div
+        .attr("data-gate-source", "humanGate")
+        .children(`Planned: ${gateText(task.humanGate.required)}`),
+      h.ul
+        .attr("data-gate-reasons", "humanGate")
+        .children(Array.map(task.humanGate.reasons, (reason) => h.li(reason))),
+      h.div
+        .attr("data-gate-source", "effective")
+        .children(`Effective: ${gateText(task.gate.required)}`),
+      h.ul
+        .attr("data-gate-reasons", "effective")
+        .children(Array.map(task.gate.reasons, (reason) => h.li(reason))),
+    );
 
 const taskNode = (id: TraceTask["id"]): Node => ({ id, kind: "task" });
 const sectionIdOf = (id: string): SectionId => SectionId.make(id);
 const sectionNode = (id: string): Node => ({ id: sectionIdOf(id), kind: "section" });
 
 /** A button that adds a node to the trail. */
-const addButton = (label: string, node: Node, h: HtmlBuilder<Message>): Html =>
-  h.button(
-    [
-      h.Type("button"),
-      h.Class("btn"),
-      h.DataAttribute("detail-add", nodeKeyOf(node)),
-      h.OnClick(Message.ClickedDetailNode({ node })),
-    ],
-    [label],
-  );
+const addButton = (h: Html.H<Message>, label: string, node: Node) =>
+  h.button
+    .attr("type", "button")
+    .class("btn")
+    .attr("data-detail-add", nodeKeyOf(node))
+    .on("click", Message.ClickedDetailNode({ node }))
+    .children(label);
 
-const partView = (
-  part: string,
-  heading: string,
-  body: ReadonlyArray<Html>,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.section(
-    [h.DataAttribute("detail-part", part), h.Style({ "margin-top": "16px" })],
-    Array.prepend(body, labelView(heading, h)),
-  );
+const partView = (h: Html.H<Message>, part: string, heading: string, body: View.Input<Message>) =>
+  h.section
+    .attr("data-detail-part", part)
+    .attr("style", styleText({ "margin-top": "16px" }))
+    .children(labelView(h, heading), body);
 
 /** What a trail step reads: a task by its ID, a spec section by its title. */
 const stepLabelOf = (trace: Trace, node: Node): string =>
@@ -158,97 +135,77 @@ export interface DetailCopy {
 }
 
 /** The trail across the panel's top, with the button that closes the panel. */
-const trailView = (trace: Trace, trail: Trail, copy: DetailCopy, h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [
-      h.Style({
+const trailView = (h: Html.H<Message>, trace: Trace, trail: Trail, copy: DetailCopy) =>
+  h.div
+    .attr(
+      "style",
+      styleText({
         "align-items": "center",
         display: "flex",
         gap: "6px",
         "justify-content": "space-between",
       }),
-    ],
-    [
-      h.nav(
-        [
-          h.AriaLabel("Trail"),
-          h.DataAttribute("detail-trail", ""),
-          h.Style({ display: "flex", "flex-wrap": "wrap", gap: "6px", "min-width": "0" }),
-        ],
-        Array.flatMap(trail, (node, index) =>
-          Array.prepend(
-            Array.map(Array.fromOption(Array.get(copy.trailPaths, index)), (path) =>
-              copyButtonView(copy.maybeCopied, path, "Copy link", h),
-            ),
-            h.button(
-              Array.appendAll(
-                [
-                  h.Type("button"),
-                  h.Class("btn"),
-                  h.DataAttribute("trail-step", `${index}`),
-                  h.OnClick(Message.ClickedTrailStep({ index })),
-                ],
-                index === Array.length(trail) - 1 ? [h.AriaCurrent("step")] : [],
+    )
+    .children(
+      h.nav
+        .attr("aria-label", "Trail")
+        .attr("data-detail-trail", "")
+        .attr(
+          "style",
+          styleText({ display: "flex", "flex-wrap": "wrap", gap: "6px", "min-width": "0" }),
+        )
+        .children(
+          Array.flatMap(trail, (node, index) =>
+            Array.prepend(
+              Array.map(Array.fromOption(Array.get(copy.trailPaths, index)), (path) =>
+                copyButtonView(h, copy.maybeCopied, path, "Copy link"),
               ),
-              [stepLabelOf(trace, node)],
+              h.button
+                .attr("type", "button")
+                .class("btn")
+                .attr("data-trail-step", `${index}`)
+                .on("click", Message.ClickedTrailStep({ index }))
+                .attr("aria-current", index === Array.length(trail) - 1 ? "step" : undefined)
+                .children(stepLabelOf(trace, node)),
             ),
           ),
         ),
-      ),
-      h.button(
-        [
-          h.Type("button"),
-          h.Class("btn"),
-          h.DataAttribute("detail-close", ""),
-          h.OnClick(Message.ClickedCloseDetail()),
-        ],
-        ["Close"],
-      ),
-    ],
-  );
+      h.button
+        .attr("type", "button")
+        .class("btn")
+        .attr("data-detail-close", "")
+        .on("click", Message.ClickedCloseDetail())
+        .children("Close"),
+    );
 
-const headingView = (title: string, h: HtmlBuilder<Message>): Html =>
-  // Tabindex(-1): the heading takes focus when the panel opens or its node changes, but is not a tab stop.
-  h.h2([h.Id(DETAIL_HEADING_ID), h.Tabindex(-1)], [title]);
+// The heading takes focus when the panel opens or its node changes, but is not a tab stop.
+const headingView = (h: Html.H<Message>, title: string) =>
+  h.h2.id(DETAIL_HEADING_ID).attr("tabindex", "-1").children(title);
 
-const commitsView = (task: TraceTask, h: HtmlBuilder<Message>): Html =>
-  partView(
-    "commits",
-    "Commits",
-    [
-      h.ul(
-        [],
-        Array.map(task.commits, (commit) =>
-          h.li(
-            [],
-            [
-              h.button(
-                [
-                  h.Type("button"),
-                  h.Class("btn"),
-                  h.DataAttribute("detail-commit", commit.sha),
-                  h.OnClick(
-                    Message.ClickedOpenCode({ id: task.id, maybeSha: Option.some(commit.sha) }),
-                  ),
-                ],
-                [`${commit.subject} ${shortSha(commit.sha)}`],
-              ),
-            ],
-          ),
+const commitsView = (h: Html.H<Message>, task: TraceTask) =>
+  partView(h, "commits", "Commits", [
+    h.ul(
+      Array.map(task.commits, (commit) =>
+        h.li(
+          h.button
+            .attr("type", "button")
+            .class("btn")
+            .attr("data-detail-commit", commit.sha)
+            .on(
+              "click",
+              Message.ClickedOpenCode({ id: task.id, maybeSha: Option.some(commit.sha) }),
+            )
+            .children(`${commit.subject} ${shortSha(commit.sha)}`),
         ),
       ),
-      h.button(
-        [
-          h.Type("button"),
-          h.Class("btn"),
-          h.DataAttribute("detail-open-code", ""),
-          h.OnClick(Message.ClickedOpenCode({ id: task.id, maybeSha: Option.none() })),
-        ],
-        ["Open in code view"],
-      ),
-    ],
-    h,
-  );
+    ),
+    h.button
+      .attr("type", "button")
+      .class("btn")
+      .attr("data-detail-open-code", "")
+      .on("click", Message.ClickedOpenCode({ id: task.id, maybeSha: Option.none() }))
+      .children("Open in code view"),
+  ]);
 
 const codeNoteOf = (task: TraceTask): string =>
   task.status === "done" || task.status === "landed"
@@ -263,70 +220,60 @@ const countText = (count: number, noun: string): string =>
  * so it sits in a region of 60% of the window's height, under the commit and file counts.
  */
 const codePartView = (
+  h: Html.H<Message>,
   task: TraceTask,
   patches: Record.ReadonlyRecord<string, PatchData>,
   diffStyle: DiffStyle,
-  h: HtmlBuilder<Message>,
-): Html =>
+) =>
   partView(
+    h,
     "code",
     "Code",
     Array.match(task.commits, {
-      onEmpty: () => [h.p([h.DataAttribute("detail-code-note", "")], [codeNoteOf(task)])],
+      onEmpty: () => [h.p.attr("data-detail-code-note", "").children(codeNoteOf(task))],
       onNonEmpty: (commits) => [
-        h.p(
-          [h.DataAttribute("detail-code-summary", "")],
-          [
+        h.p
+          .attr("data-detail-code-summary", "")
+          .children(
             `${countText(Array.length(commits), "commit")} · ${countText(Array.length(filesOf(task, WHOLE_TASK)), "file")} changed`,
-          ],
-        ),
+          ),
         Option.match(patchPathOf(task, WHOLE_TASK), {
-          onNone: () => h.p([], ["This task has no diff to show."]),
+          onNone: () => h.p("This task has no diff to show."),
           onSome: (path) =>
-            h.div(
-              [
-                h.DataAttribute("detail-code", ""),
-                h.Style({ display: "flex", "flex-direction": "column", height: "60vh" }),
-              ],
-              [patchView(patches, path, diffStyle, Option.none(), h)],
-            ),
+            h.div
+              .attr("data-detail-code", "")
+              .attr(
+                "style",
+                styleText({ display: "flex", "flex-direction": "column", height: "60vh" }),
+              )
+              .children(patchView(h, patches, path, diffStyle, Option.none())),
         }),
       ],
     }),
-    h,
   );
 
-const tracesView = (trace: Trace, task: TraceTask, h: HtmlBuilder<Message>): Html =>
+const tracesView = (h: Html.H<Message>, trace: Trace, task: TraceTask) =>
   partView(
+    h,
     "traces",
     "Traces to",
-    [
-      h.ul(
-        [],
-        Array.appendAll(
-          Array.map(task.prdSections, (id) =>
-            h.li(
-              [],
-              [
-                h.button(
-                  [
-                    h.Type("button"),
-                    h.Class("btn"),
-                    h.DataAttribute("detail-prd", id),
-                    h.OnClick(Message.ClickedTraceSection({ id })),
-                  ],
-                  [sectionTitleOf(trace, sectionIdOf(id))],
-                ),
-              ],
-            ),
-          ),
-          Array.map(task.specSections, (id) =>
-            h.li([], [addButton(sectionTitleOf(trace, sectionIdOf(id)), sectionNode(id), h)]),
+    h.ul(
+      Array.appendAll(
+        Array.map(task.prdSections, (id) =>
+          h.li(
+            h.button
+              .attr("type", "button")
+              .class("btn")
+              .attr("data-detail-prd", id)
+              .on("click", Message.ClickedTraceSection({ id }))
+              .children(sectionTitleOf(trace, sectionIdOf(id))),
           ),
         ),
+        Array.map(task.specSections, (id) =>
+          h.li(addButton(h, sectionTitleOf(trace, sectionIdOf(id)), sectionNode(id))),
+        ),
       ),
-    ],
-    h,
+    ),
   );
 
 /**
@@ -345,11 +292,7 @@ const approvedByHuman = (task: TraceTask): boolean =>
  * The statements the task carries, found in the PRD by ID. While the task waits on a human they
  * are a checklist with the human-tagged ones first; once a human approved, those show as settled.
  */
-const doneWhenView = (
-  trace: Trace,
-  task: TraceTask,
-  h: HtmlBuilder<Message>,
-): ReadonlyArray<Html> => {
+const doneWhenView = (h: Html.H<Message>, trace: Trace, task: TraceTask) => {
   const carried = Array.flatMap(task.statements, (id) =>
     Array.fromOption(Array.findFirst(trace.prd.statements, (statement) => statement.id === id)),
   );
@@ -365,33 +308,25 @@ const doneWhenView = (
     onEmpty: () => [],
     onNonEmpty: (statements) => [
       partView(
+        h,
         "done-when",
         "Done when",
-        [
-          h.ul(
-            [],
-            Array.map(statements, (statement) => {
-              const settled = statement.human && approved;
-              return h.keyed("li")(
-                statement.id,
-                Array.appendAll(
-                  [h.DataAttribute("done-when-statement", statement.id)],
-                  settled ? [h.DataAttribute("settled", "")] : [],
-                ),
-                Array.appendAll(
-                  Array.appendAll(
-                    reviewing || settled ? [settled ? "[x] " : "[ ] "] : [],
-                    statement.draft
-                      ? [h.span([h.Class("chip"), h.DataAttribute("draft", "")], ["Draft"]), " "]
-                      : [],
-                  ),
-                  [statement.text],
-                ),
+        h.ul(
+          Array.map(statements, (statement) => {
+            const settled = statement.human && approved;
+            return h.li
+              .key(statement.id)
+              .attr("data-done-when-statement", statement.id)
+              .attr("data-settled", settled ? "" : undefined)
+              .children(
+                reviewing || settled ? (settled ? "[x] " : "[ ] ") : undefined,
+                statement.draft
+                  ? [h.span.class("chip").attr("data-draft", "").children("Draft"), " "]
+                  : undefined,
+                statement.text,
               );
-            }),
-          ),
-        ],
-        h,
+          }),
+        ),
       ),
     ],
   });
@@ -411,141 +346,138 @@ const stackNumberOf = (trace: Trace, task: TraceTask): Option.Option<number> =>
   );
 
 const taskView = (
+  h: Html.H<Message>,
   trace: Trace,
   task: TraceTask,
   patches: Record.ReadonlyRecord<string, PatchData>,
   diffStyle: DiffStyle,
-  h: HtmlBuilder<Message>,
-): ReadonlyArray<Html> => {
+): View.Children<Message, never> => {
   const ran = ranOf(task);
+  const others = Array.filter(task.dependsOn, (id) => id !== task.parent);
   return Array.flatten([
     [
-      headingView(`${task.id} ${task.title}`, h),
-      h.p(
-        [h.DataAttribute("detail-part", "where")],
-        Array.appendAll(
-          [tagView("task", task.id, h), ` ${task.branch}`],
-          Array.map(Array.fromOption(stackNumberOf(trace, task)), (number) => ` · Stack ${number}`),
-        ),
+      headingView(h, `${task.id} ${task.title}`),
+      h.p.attr("data-detail-part", "where").children(
+        tagView(h, "task", task.id),
+        ` ${task.branch}`,
+        Array.map(Array.fromOption(stackNumberOf(trace, task)), (number) => ` · Stack ${number}`),
       ),
-      h.div(
-        [h.DataAttribute("detail-part", "facts")],
-        Array.appendAll(
-          [
-            h.p([], [dotView(task.status, h), ` ${statusWordOf(task.status)}`]),
-            h.p(
-              [h.DataAttribute("detail-ran", "")],
-              [`${ran.ran ? "ran on" : "planned for"} ${ran.model} · ${ran.reasoning}`],
-            ),
-            h.p([h.DataAttribute("detail-parent", "")], [parentText(task)]),
-          ],
-          Array.match(
-            Array.filter(task.dependsOn, (id) => id !== task.parent),
-            {
-              onEmpty: () => [],
-              onNonEmpty: (others) => [
-                h.p(
-                  [h.DataAttribute("detail-depends", "")],
-                  Array.prepend(
-                    Array.map(others, (id) => addButton(id, taskNode(id), h)),
-                    "Depends on ",
-                  ),
-                ),
-              ],
-            },
+      h.div.attr("data-detail-part", "facts").children(
+        h.p(dotView(h, task.status), ` ${statusWordOf(task.status)}`),
+        h.p
+          .attr("data-detail-ran", "")
+          .children(`${ran.ran ? "ran on" : "planned for"} ${ran.model} · ${ran.reasoning}`),
+        h.p.attr("data-detail-parent", "").children(parentText(task)),
+        Array.isReadonlyArrayNonEmpty(others) &&
+          h.p.attr("data-detail-depends", "").children(
+            "Depends on ",
+            Array.map(others, (id) => addButton(h, id, taskNode(id))),
           ),
-        ),
       ),
     ],
-    doneWhenView(trace, task, h),
-    task.gate.required ? [gateView(task, h)] : [],
+    doneWhenView(h, trace, task),
     [
-      commitsView(task, h),
-      codePartView(task, patches, diffStyle, h),
-      tracesView(trace, task, h),
+      task.gate.required && gateView(h, task),
+      commitsView(h, task),
+      codePartView(h, task, patches, diffStyle),
+      tracesView(h, trace, task),
       partView(
+        h,
         "files",
         "Files the plan expects",
-        [
-          h.ul(
-            [],
-            Array.map(task.files, (file) => h.li([], [h.code([], [file])])),
-          ),
-        ],
-        h,
+        h.ul(Array.map(task.files, (file) => h.li(h.code(file)))),
       ),
-      eventsView(task, h),
-      judgmentsView(trace, taskNode(task.id), h),
+      eventsView(h, task),
+      judgmentsView(h, trace, taskNode(task.id)),
     ],
   ]);
 };
 
-const keysView = (section: TraceSection, h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [
-      h.DataAttribute("detail-part", "keys"),
-      h.Style({ display: "flex", "flex-wrap": "wrap", gap: "6px" }),
-    ],
-    Array.flatMap(
-      [
-        ["Implements", section.keys.implements],
-        ["Files", section.keys.files],
-        ["Depends on", section.keys.dependsOn],
-        ["Defers", section.keys.defers],
-        ["Context", section.keys.context],
-      ] as const,
-      ([key, values]) =>
-        Array.map(values, (value) =>
-          h.span([h.Class("chip"), h.DataAttribute("detail-key", key)], [`${key}: ${value}`]),
-        ),
-    ),
-  );
+const keysView = (h: Html.H<Message>, section: TraceSection) =>
+  h.div
+    .attr("data-detail-part", "keys")
+    .attr("style", styleText({ display: "flex", "flex-wrap": "wrap", gap: "6px" }))
+    .children(
+      Array.flatMap(
+        [
+          ["Implements", section.keys.implements],
+          ["Files", section.keys.files],
+          ["Depends on", section.keys.dependsOn],
+          ["Defers", section.keys.defers],
+          ["Context", section.keys.context],
+        ] as const,
+        ([key, values]) =>
+          Array.map(values, (value) =>
+            h.span.class("chip").attr("data-detail-key", key).children(`${key}: ${value}`),
+          ),
+      ),
+    );
 
-const sectionView = (trace: Trace, id: string, h: HtmlBuilder<Message>): ReadonlyArray<Html> => {
+const sectionView = (
+  h: Html.H<Message>,
+  trace: Trace,
+  id: string,
+): View.Children<Message, never> => {
   const maybeSection = Array.findFirst(trace.spec.sections, (section) => section.id === id);
   const tasks = Array.filter(trace.tasks, (task) =>
     Array.some(task.specSections, (each) => each === id),
   );
   return Array.flatten([
-    [headingView(sectionTitleOf(trace, sectionIdOf(id)), h), h.p([], [tagView("spec", id, h)])],
+    [headingView(h, sectionTitleOf(trace, sectionIdOf(id))), h.p(tagView(h, "spec", id))],
     Array.flatMap(Array.fromOption(maybeSection), (section) =>
       Array.appendAll(
         Array.map(Array.fromNullishOr(section.summary), (summary) =>
-          h.p([h.DataAttribute("detail-part", "summary")], [summary]),
+          h.p.attr("data-detail-part", "summary").children(summary),
         ),
-        [keysView(section, h)],
+        [keysView(h, section)],
       ),
     ),
     [
       partView(
+        h,
         "tasks",
         "Tasks",
-        [
-          h.ul(
-            [],
-            Array.map(tasks, (task) =>
-              h.keyed("li")(
-                task.id,
-                [],
-                [addButton(`${task.id} ${task.title}`, taskNode(task.id), h)],
-              ),
-            ),
+        h.ul(
+          Array.map(tasks, (task) =>
+            h.li.key(task.id).children(addButton(h, `${task.id} ${task.title}`, taskNode(task.id))),
           ),
-        ],
-        h,
+        ),
       ),
-      judgmentsView(trace, sectionNode(id), h),
+      judgmentsView(h, trace, sectionNode(id)),
     ],
   ]);
 };
 
-/** The panel's heading, then a Copy link for its task or spec section alone, then the rest. */
+/** What the last node of the trail shows. A task the trace does not have shows its ID and nothing else. */
+const bodyOf = (
+  h: Html.H<Message>,
+  trace: Trace,
+  node: Node,
+  patches: Record.ReadonlyRecord<string, PatchData>,
+  diffStyle: DiffStyle,
+): View.Children<Message, never> =>
+  Node.match(node, {
+    section: ({ id }) => sectionView(h, trace, id),
+    task: ({ id }) =>
+      Option.match(
+        Array.findFirst(trace.tasks, (task) => task.id === id),
+        {
+          onNone: () => [headingView(h, id)],
+          onSome: (task) => taskView(h, trace, task, patches, diffStyle),
+        },
+      ),
+  });
+
+/**
+ * The panel's body: the heading, then a Copy link for its task or spec section alone, then the
+ * rest.
+ */
 const withHeadingCopy = (
-  body: ReadonlyArray<Html>,
+  h: Html.H<Message>,
+  body: View.Children<Message, never>,
   node: Node,
   maybeCopied: Option.Option<string>,
-  h: HtmlBuilder<Message>,
-): ReadonlyArray<Html> =>
+): View.Children<Message, never> =>
   Array.matchLeft(body, {
     onEmpty: () => [],
     onNonEmpty: (heading, rest) =>
@@ -553,30 +485,10 @@ const withHeadingCopy = (
         Array.prependAll(
           rest,
           Array.map(Array.fromOption(Result.getSuccess(trailStepOf(node))), (step) =>
-            copyButtonView(maybeCopied, pathOfLink([step]), "Copy link", h),
+            copyButtonView(h, maybeCopied, pathOfLink([step]), "Copy link"),
           ),
         ),
         heading,
-      ),
-  });
-
-/** What the last node of the trail shows. A task the trace does not have shows its ID and nothing else. */
-const bodyOf = (
-  trace: Trace,
-  node: Node,
-  patches: Record.ReadonlyRecord<string, PatchData>,
-  diffStyle: DiffStyle,
-  h: HtmlBuilder<Message>,
-): ReadonlyArray<Html> =>
-  Node.match(node, {
-    section: ({ id }) => sectionView(trace, id, h),
-    task: ({ id }) =>
-      Option.match(
-        Array.findFirst(trace.tasks, (task) => task.id === id),
-        {
-          onNone: () => [headingView(id, h)],
-          onSome: (task) => taskView(trace, task, patches, diffStyle, h),
-        },
       ),
   });
 
@@ -587,22 +499,23 @@ const bodyOf = (
  * state carries from one step to another.
  */
 export const detailView = (
+  h: Html.H<Message>,
   trace: Trace,
   trail: Trail & Array.NonEmptyReadonlyArray<Node>,
   widths: Widths,
   patches: Record.ReadonlyRecord<string, PatchData>,
   diffStyle: DiffStyle,
   copy: DetailCopy,
-  h: HtmlBuilder<Message>,
-): Html => {
+) => {
   const node = Array.lastNonEmpty(trail);
-  return h.aside(
-    [
-      h.AriaLabelledBy(DETAIL_HEADING_ID),
-      h.Class("panel"),
-      h.DataAttribute("detail", node.kind),
-      h.DataAttribute("detail-id", node.id),
-      h.Style({
+  return h.aside
+    .attr("aria-labelledby", DETAIL_HEADING_ID)
+    .class("panel")
+    .attr("data-detail", node.kind)
+    .attr("data-detail-id", node.id)
+    .attr(
+      "style",
+      styleText({
         bottom: "0",
         "box-sizing": "border-box",
         "max-width": "100vw",
@@ -612,38 +525,37 @@ export const detailView = (
         width: `${widths.detail}px`,
         "z-index": "10",
       }),
-    ],
-    [
+    )
+    .children(
       // The handle is centred on the panel's left edge, and is narrower than the content's padding.
-      h.div(
-        [
-          h.DataAttribute("detail-handle", ""),
-          h.Style({
+      h.div
+        .attr("data-detail-handle", "")
+        .attr(
+          "style",
+          styleText({
             bottom: "0",
             display: "grid",
             left: `-${handleWidthOf("detail") / 2}px`,
             position: "absolute",
             top: "0",
           }),
-        ],
-        [dividerView("detail", widths, h)],
-      ),
-      h.keyed("div")(
-        nodeKeyOf(node),
-        [
-          h.DataAttribute("detail-content", ""),
-          h.Style({
+        )
+        .children(dividerView(h, "detail", widths)),
+      h.div
+        .key(nodeKeyOf(node))
+        .attr("data-detail-content", "")
+        .attr(
+          "style",
+          styleText({
             "box-sizing": "border-box",
             height: "100%",
             "overflow-y": "auto",
             padding: `12px ${DETAIL_PADDING}px`,
           }),
-        ],
-        Array.prepend(
-          withHeadingCopy(bodyOf(trace, node, patches, diffStyle, h), node, copy.maybeCopied, h),
-          trailView(trace, trail, copy, h),
+        )
+        .children(
+          trailView(h, trace, trail, copy),
+          withHeadingCopy(h, bodyOf(h, trace, node, patches, diffStyle), node, copy.maybeCopied),
         ),
-      ),
-    ],
-  );
+    );
 };

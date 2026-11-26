@@ -24,7 +24,6 @@ import {
   withClass,
   type ViewerSteps,
 } from "./fixtures.ts";
-import { viewerBridge } from "../src/app.ts";
 const decodeStep = Schema.decodeUnknownSync(Step);
 const decodeLines = Schema.decodeUnknownSync(LinesStep);
 const isPrdSection = Schema.is(PrdSectionId);
@@ -224,8 +223,7 @@ const diffOf = (steps: ReadonlyArray<unknown>) =>
   ).model;
 
 /** The diff mount answering, as the page's diff renderer does. */
-const drawn = (s: ViewerSteps) =>
-  s.mounted(viewerBridge.mountOf(RenderDiff), Message.CompletedRenderDiff());
+const drawn = (s: ViewerSteps) => s.mounted(RenderDiff, Message.CompletedRenderDiff());
 
 it.effect("the diff mount holds the lines a link selected, as the link writes them", () =>
   Effect.gen(function* () {

@@ -4,7 +4,6 @@ import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, HashSet, Option, Record, Result, Schema } from "effect";
 import { modifyFields } from "foldkit/struct";
 
-import { viewerBridge } from "../src/app.ts";
 import { patchPathOf } from "../src/codeView.ts";
 import { FetchPatch } from "../src/command.ts";
 import { stackBoxesOf } from "../src/boxes.ts";
@@ -295,7 +294,7 @@ it.effect("opening a task inside the folded trunk selects the segment", () =>
         forEachStep(Option.toArray(patchPathOf(task, WHOLE_TASK)), (step, path) =>
           step
             .pipe(resolved(FetchPatch, Message.ReceivedPatch({ path, result: Result.succeed("") })))
-            .mounted(viewerBridge.mountOf(RenderDiff), Message.CompletedRenderDiff()),
+            .mounted(RenderDiff, Message.CompletedRenderDiff()),
         ),
       )
       .expect(segment(root))

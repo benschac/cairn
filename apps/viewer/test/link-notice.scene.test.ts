@@ -6,7 +6,6 @@ import { Array, Effect, Option, Result, Schema } from "effect";
 import { defineMessageUnion } from "foldkit/message";
 import { modifyFields } from "foldkit/struct";
 
-import { viewerBridge } from "../src/app.ts";
 import { RenderDiff } from "../src/diff.ts";
 import { diffPathOf, rangeOf, shortSha } from "../src/codeView.ts";
 import { demoTrace } from "../src/demo.ts";
@@ -129,8 +128,7 @@ const appNotice = data("link-notice");
 const appDismiss = inside(appNotice, dismiss);
 
 /** The diff mount of a loaded patch answers once it has drawn it. */
-const drawn = (s: ViewerSteps) =>
-  s.mounted(viewerBridge.mountOf(RenderDiff), Message.CompletedRenderDiff());
+const drawn = (s: ViewerSteps) => s.mounted(RenderDiff, Message.CompletedRenderDiff());
 
 const codeModel = (shown: Shown) =>
   modifyFields(loaded, {

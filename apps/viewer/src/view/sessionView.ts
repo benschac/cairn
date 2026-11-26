@@ -1,13 +1,16 @@
 import type { FileEdit, Session, ToolTurn, Turn } from "@cairn/contract";
+import type { View } from "@effect/ui";
+import type { Html } from "@effect/ui/html";
 import { Array, Match, Number, Option, Order, Record, String } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
+import type { HtmlBuilder } from "foldkit/html";
 
+import { viewerBridge } from "../effect-ui/viewerBridge.ts";
 import type { CopyLinks } from "../links.ts";
 import { isDemoBuild } from "../load.ts";
 import { renderMarkdown, type Rendered } from "../markdown.ts";
 import type { Message } from "../message.ts";
 import { SessionData, type HighlightedTurn } from "../model.ts";
-import { copyButtonView } from "../foldkit/copyLinkView.ts";
+import { copyButtonView } from "./copyLinkView.ts";
 
 /** The message constructors the session pane needs. */
 export interface SessionMessages {
@@ -45,22 +48,29 @@ export const turnElementIdOf = (id: string): string => `turn-${id}`;
 /** `[REDACTED:<kind>]`. Split on it, the kinds are the odd entries. */
 const REDACTION = /\[REDACTED:([^\]\s]+)\]/gu;
 
+/** Whether the part of redacted text at this index, split on `REDACTION`, is a kind. */
+const isKindAt = (index: number): boolean => Number.remainder(index, 2) === 1;
+
 /** Text with each `[REDACTED:<kind>]` drawn as a chip naming the kind. */
-const withChips = (text: string, h: HtmlBuilder<Message>): Rendered =>
-  Array.map(String.split(text, REDACTION), (part, index): Html | string =>
-    Number.remainder(index, 2) === 1
+const withChips = <Msg>(h: Html.H<Msg>, text: string): View.Children<Msg, never> =>
+  Array.map(String.split(text, REDACTION), (part, index) =>
+    isKindAt(index)
+      ? h.span.class("chip").attr("data-redacted", part).children(`redacted: ${part}`)
+      : part,
+  );
+
+/** The same chips for the markdown a prompt or a reply renders, which is still Foldkit. */
+const foldkitChips = (text: string, h: HtmlBuilder<Message>): Rendered =>
+  Array.map(String.split(text, REDACTION), (part, index) =>
+    isKindAt(index)
       ? h.span([h.Class("chip"), h.DataAttribute("redacted", part)], [`redacted: ${part}`])
       : part,
   );
 
-/** The view when the condition holds, as a list that is empty when it does not. */
-const showIf = <A>(condition: boolean, view: () => A): ReadonlyArray<A> =>
-  condition ? [view()] : [];
+const noteView = (h: Html.H<Message>, text: string, isAlert = false) =>
+  h.p.attr("role", isAlert ? "alert" : undefined).children(text);
 
-const noteView = (text: string, h: HtmlBuilder<Message>, isAlert = false): Html =>
-  h.p(isAlert ? [h.Role("alert")] : [], [text]);
-
-const redactionsView = (session: Session, h: HtmlBuilder<Message>): Html =>
+const redactionsView = (h: Html.H<Message>, session: Session) =>
   Array.match(
     Array.sort(
       Record.toEntries(
@@ -69,40 +79,37 @@ const redactionsView = (session: Session, h: HtmlBuilder<Message>): Html =>
       Order.mapInput(Order.String, ([kind]: readonly [string, number]) => kind),
     ),
     {
-      onEmpty: () => h.p([h.DataAttribute("redactions", "")], ["Nothing was redacted."]),
+      onEmpty: () => h.p.attr("data-redactions", "").children("Nothing was redacted."),
       onNonEmpty: (entries) =>
-        h.ul(
-          [h.DataAttribute("redactions", "")],
-          Array.map(entries, ([kind, count]) =>
-            h.li([h.DataAttribute("redaction-kind", kind)], [`${kind}: ${count} redacted`]),
+        h.ul
+          .attr("data-redactions", "")
+          .children(
+            Array.map(entries, ([kind, count]) =>
+              h.li.attr("data-redaction-kind", kind).children(`${kind}: ${count} redacted`),
+            ),
           ),
-        ),
     },
   );
 
-const notesView = (session: Session, h: HtmlBuilder<Message>): Html =>
-  h.ul(
-    [h.DataAttribute("notes", "")],
-    Array.map(session.notes, (note) =>
-      h.li(
-        [h.DataAttribute("note-kind", note.kind)],
-        Array.appendAll(
-          [h.strong([], [`${note.kind} by ${note.author}`]), " "],
-          withChips(note.body, h),
-        ),
+const notesView = (h: Html.H<Message>, session: Session) =>
+  h.ul
+    .attr("data-notes", "")
+    .children(
+      Array.map(session.notes, (note) =>
+        h.li
+          .attr("data-note-kind", note.kind)
+          .children(h.strong(`${note.kind} by ${note.author}`), " ", withChips(h, note.body)),
       ),
-    ),
-  );
+    );
 
-const headerView = (session: Session, h: HtmlBuilder<Message>): Html =>
-  h.div(
-    [h.DataAttribute("session-header", "")],
-    Array.flatten([
-      [h.h3([], [`Session ${session.id}`])],
-      showIf(Array.isReadonlyArrayNonEmpty(session.notes), () => notesView(session, h)),
-      [redactionsView(session, h)],
-    ]),
-  );
+const headerView = (h: Html.H<Message>, session: Session) =>
+  h.div
+    .attr("data-session-header", "")
+    .children(
+      h.h3(`Session ${session.id}`),
+      Array.isReadonlyArrayNonEmpty(session.notes) && notesView(h, session),
+      redactionsView(h, session),
+    );
 
 /** The text cut at the limit, and how many lines it left out. */
 const cutOf = (
@@ -117,191 +124,158 @@ const cutOf = (
   };
 };
 
-const preView = (
-  label: string,
-  text: string,
-  isFull: boolean,
-  h: HtmlBuilder<Message>,
-): { readonly hidden: number; readonly view: Html } => {
+const preView = (h: Html.H<Message>, label: string, text: string, isFull: boolean) => {
   const { hidden, shown } = cutOf(text, isFull);
   return {
     hidden,
-    view: h.div(
-      [h.DataAttribute("turn-part", label)],
-      [h.strong([], [label]), h.pre([], withChips(shown, h))],
-    ),
+    view: h.div.attr("data-turn-part", label).children(h.strong(label), h.pre(withChips(h, shown))),
   };
 };
 
-const editsView = (edits: ReadonlyArray<FileEdit>, h: HtmlBuilder<Message>): Html =>
-  h.ul(
-    [h.DataAttribute("turn-edits", "")],
-    Array.map(edits, (edit) => h.li([], [edit.path])),
-  );
+const editsView = (h: Html.H<Message>, edits: ReadonlyArray<FileEdit>) =>
+  h.ul.attr("data-turn-edits", "").children(Array.map(edits, (edit) => h.li(edit.path)));
 
 /** An opened tool turn: the files it wrote, its input and output, and the button for what was cut. */
 const openedToolView = (
+  h: Html.H<Message>,
   turn: ToolTurn,
   isFull: boolean,
-  h: HtmlBuilder<Message>,
   messages: SessionMessages,
-): ReadonlyArray<Html> => {
-  const input = preView("Input", turn.input, isFull, h);
-  const output = preView("Output", turn.output, isFull, h);
-  return Array.flatten([
-    showIf(Array.isReadonlyArrayNonEmpty(turn.edits), () => editsView(turn.edits, h)),
-    [input.view, output.view],
-    showIf(Number.isGreaterThan(input.hidden + output.hidden, 0), () =>
-      h.button(
-        [
-          h.Type("button"),
-          h.Class("btn"),
-          h.DataAttribute("more-of-turn", turn.id),
-          h.OnClick(messages.onMoreOfTurn(turn.id)),
-        ],
-        [`Show the rest (${input.hidden + output.hidden} more lines)`],
-      ),
-    ),
-  ]);
+): View.Children<Message, never> => {
+  const input = preView(h, "Input", turn.input, isFull);
+  const output = preView(h, "Output", turn.output, isFull);
+  return [
+    Array.isReadonlyArrayNonEmpty(turn.edits) && editsView(h, turn.edits),
+    input.view,
+    output.view,
+    Number.isGreaterThan(input.hidden + output.hidden, 0) &&
+      h.button
+        .attr("type", "button")
+        .class("btn")
+        .attr("data-more-of-turn", turn.id)
+        .on("click", messages.onMoreOfTurn(turn.id))
+        .children(`Show the rest (${input.hidden + output.hidden} more lines)`),
+  ];
 };
 
 const toolView = (
+  h: Html.H<Message>,
   turn: ToolTurn,
   state: SessionState,
   copy: CopyLinks,
-  h: HtmlBuilder<Message>,
   messages: SessionMessages,
-): Html => {
+) => {
   const isOpen = Option.getOrElse(Record.get(state.openedTurns, turn.id), () => false);
   const isFull = Option.getOrElse(Record.get(state.fullTurns, turn.id), () => false);
   const isActive = Option.exists(state.maybeHighlightedTurn, ({ id }) => id === turn.id);
-  return h.li(
-    Array.appendAll(
-      [
-        h.Id(turnElementIdOf(turn.id)),
-        h.DataAttribute("turn", turn.id),
-        h.DataAttribute("kind", "tool"),
-      ],
-      showIf(isActive, () => h.DataAttribute("active", "")),
-    ),
-    Array.prepend(
-      Array.appendAll(
-        // An opened turn copies the link up to it, beside its line and not inside the button.
-        isOpen
-          ? Array.map(Array.fromOption(copy.maybeTurn(turn.id)), (path) =>
-              copyButtonView(copy.maybeCopied, path, "Copy link", h),
-            )
-          : [],
-        isOpen ? openedToolView(turn, isFull, h, messages) : [],
-      ),
-      h.button(
-        [
-          h.Type("button"),
-          h.Class("btn"),
-          h.AriaExpanded(isOpen),
-          h.OnClick(messages.onTurn(turn.id)),
-        ],
-        Array.flatten([
-          [h.span([h.DataAttribute("tool-name", "")], [turn.name])],
+  return h.li
+    .id(turnElementIdOf(turn.id))
+    .attr("data-turn", turn.id)
+    .attr("data-kind", "tool")
+    .attr("data-active", isActive ? "" : undefined)
+    .children(
+      h.button
+        .attr("type", "button")
+        .class("btn")
+        .attr("aria-expanded", `${isOpen}`)
+        .on("click", messages.onTurn(turn.id))
+        .children(
+          h.span.attr("data-tool-name", "").children(turn.name),
           Array.map(Array.fromNullishOr(turn.target), (target) =>
-            h.span([h.DataAttribute("tool-target", "")], Array.prepend(withChips(target, h), " ")),
+            h.span.attr("data-tool-target", "").children(" ", withChips(h, target)),
           ),
-          showIf(turn.failed, () => h.span([h.DataAttribute("mark", "failed")], [" failed"])),
-          showIf(Array.isReadonlyArrayNonEmpty(turn.edits), () =>
-            h.span([h.DataAttribute("mark", "edits")], [" wrote edits"]),
-          ),
-        ]),
-      ),
-    ),
-  );
+          turn.failed && h.span.attr("data-mark", "failed").children(" failed"),
+          Array.isReadonlyArrayNonEmpty(turn.edits) &&
+            h.span.attr("data-mark", "edits").children(" wrote edits"),
+        ),
+      // An opened turn copies the link up to it, beside its line and not inside the button.
+      isOpen &&
+        Array.map(Array.fromOption(copy.maybeTurn(turn.id)), (path) =>
+          copyButtonView(h, copy.maybeCopied, path, "Copy link"),
+        ),
+      isOpen && openedToolView(h, turn, isFull, messages),
+    );
 };
 
 const proseView = (
+  h: Html.H<Message>,
   turn: Extract<Turn, { readonly kind: "prompt" | "reply" }>,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.li(
-    [
-      h.Id(turnElementIdOf(turn.id)),
-      h.DataAttribute("turn", turn.id),
-      h.DataAttribute("kind", turn.kind),
-    ],
-    [
-      h.strong([h.DataAttribute("turn-label", "")], [turn.kind === "prompt" ? "Prompt" : "Reply"]),
-      renderMarkdown(turn.text, h, { textView: (text) => withChips(text, h) }),
-    ],
-  );
+) =>
+  h.li
+    .id(turnElementIdOf(turn.id))
+    .attr("data-turn", turn.id)
+    .attr("data-kind", turn.kind)
+    .children(
+      h.strong.attr("data-turn-label", "").children(turn.kind === "prompt" ? "Prompt" : "Reply"),
+      // Markdown stays Foldkit until its own part moves; it renders through the bridge.
+      viewerBridge.bridged(h, (foldkit) =>
+        renderMarkdown(turn.text, foldkit, { textView: (text) => foldkitChips(text, foldkit) }),
+      ),
+    );
 
 const turnView = (
+  h: Html.H<Message>,
   turn: Turn,
   state: SessionState,
   copy: CopyLinks,
-  h: HtmlBuilder<Message>,
   messages: SessionMessages,
-): Html =>
+) =>
   Match.value(turn).pipe(
-    Match.withReturnType<Html>(),
     Match.discriminatorsExhaustive("kind")({
-      prompt: (prompt) => proseView(prompt, h),
-      reply: (reply) => proseView(reply, h),
-      tool: (tool) => toolView(tool, state, copy, h, messages),
+      prompt: (prompt) => proseView(h, prompt),
+      reply: (reply) => proseView(h, reply),
+      tool: (tool) => toolView(h, tool, state, copy, messages),
     }),
   );
 
 const sessionBodyView = (
+  h: Html.H<Message>,
   session: Session,
   state: SessionState,
   copy: CopyLinks,
-  h: HtmlBuilder<Message>,
   messages: SessionMessages,
-): Html =>
-  h.div(
-    [h.DataAttribute("session-id", session.id)],
-    Array.flatten([
-      [headerView(session, h)],
-      [
-        session.format === "unknown"
-          ? noteView("Cairn cannot read that agent's log yet.", h)
-          : h.ol(
-              [h.DataAttribute("turns", "")],
-              Array.map(session.turns, (turn) => turnView(turn, state, copy, h, messages)),
-            ),
-      ],
-      showIf(Number.isGreaterThan(session.skipped, 0), () =>
-        h.p(
-          [h.DataAttribute("skipped", "")],
-          [`Cairn skipped ${session.skipped} lines it could not read.`],
-        ),
-      ),
-    ]),
-  );
+) =>
+  h.div
+    .attr("data-session-id", session.id)
+    .children(
+      headerView(h, session),
+      session.format === "unknown"
+        ? noteView(h, "Cairn cannot read that agent's log yet.")
+        : h.ol
+            .attr("data-turns", "")
+            .children(Array.map(session.turns, (turn) => turnView(h, turn, state, copy, messages))),
+      Number.isGreaterThan(session.skipped, 0) &&
+        h.p
+          .attr("data-skipped", "")
+          .children(`Cairn skipped ${session.skipped} lines it could not read.`),
+    );
 
-const noteOfSession = (id: string, note: Html, h: HtmlBuilder<Message>): Html =>
-  h.div([h.DataAttribute("session-id", id)], [note]);
+const noteOfSession = (h: Html.H<Message>, id: string, note: View.Input<Message>) =>
+  h.div.attr("data-session-id", id).children(note);
 
 /**
  * The session pane's body for a commit: its session, or why there is none. `maybeId` is the
  * commit's `Cairn-Session`, which is none when the commit has no session.
  */
 export const sessionView = (
+  h: Html.H<Message>,
   maybeId: Option.Option<string>,
   state: SessionState,
   copy: CopyLinks,
-  h: HtmlBuilder<Message>,
   messages: SessionMessages,
-): Html =>
+) =>
   Option.match(maybeId, {
-    onNone: () => noteView("No session was recorded for this commit.", h),
+    onNone: () => noteView(h, "No session was recorded for this commit."),
     onSome: (id) =>
       isDemoBuild()
-        ? noteOfSession(id, noteView(`Session ${id} needs "cairn serve".`, h), h)
+        ? noteOfSession(h, id, noteView(h, `Session ${id} needs "cairn serve".`))
         : Option.match(Record.get(state.sessions, id), {
-            onNone: () => noteOfSession(id, noteView(`Loading session ${id}.`, h), h),
+            onNone: () => noteOfSession(h, id, noteView(h, `Loading session ${id}.`)),
             onSome: (data) =>
               SessionData.match(data, {
-                Failed: ({ message }) => noteOfSession(id, noteView(message, h, true), h),
-                Loaded: ({ session }) => sessionBodyView(session, state, copy, h, messages),
-                Loading: () => noteOfSession(id, noteView(`Loading session ${id}.`, h), h),
+                Failed: ({ message }) => noteOfSession(h, id, noteView(h, message, true)),
+                Loaded: ({ session }) => sessionBodyView(h, session, state, copy, messages),
+                Loading: () => noteOfSession(h, id, noteView(h, `Loading session ${id}.`)),
               }),
           }),
   });

@@ -1,6 +1,6 @@
 import type { Trace, TraceTask } from "@cairn/contract";
+import type { Html } from "@effect/ui/html";
 import { Array, Option, Record } from "effect";
-import type { Html, HtmlBuilder } from "foldkit/html";
 
 import {
   commitsTo,
@@ -10,11 +10,12 @@ import {
   shownCommitOf,
   taskOf,
 } from "../codeView.ts";
+import { styleText } from "../effect-ui/attributes.ts";
 import type { CopyLinks } from "../links.ts";
 import type { Message } from "../message.ts";
 import { Shown, type CodeScreen, type DiffStyle, type PatchData } from "../model.ts";
-import { copyButtonView } from "../foldkit/copyLinkView.ts";
-import { linkNoticeView } from "../foldkit/linkNoticeView.ts";
+import { copyButtonView } from "./copyLinkView.ts";
+import { linkNoticeView } from "./linkNoticeView.ts";
 import { diffStyleToggleView, patchView, type DiffMarks } from "./diffView.ts";
 import {
   loadedSessionOf,
@@ -76,43 +77,38 @@ const shownText = (task: TraceTask, shown: Shown): string =>
   });
 
 const barView = (
+  h: Html.H<Message>,
   task: Option.Option<TraceTask>,
   code: CodeScreen,
   diffStyle: DiffStyle,
   copy: CopyLinks,
-  h: HtmlBuilder<Message>,
   messages: CodeMessages,
-): Html =>
-  h.header(
-    [h.Class("topbar"), h.DataAttribute("code-bar", "")],
-    Array.prepend(
-      Array.append(
-        Array.appendAll(
-          Option.match(task, {
-            onNone: () => [h.span([h.Role("alert")], [`No task ${code.taskId} in the trace.`])],
-            onSome: (found) => [
-              h.h1([], [`${found.id} ${found.branch}`]),
-              h.span([h.DataAttribute("shown", "")], [shownText(found, code.shown)]),
-            ],
-          }),
-          // The whole path, and the last step on its own: the lines, the file, the diff or the commit.
-          Array.flatten([
-            Array.map(Array.fromOption(copy.maybeWhole), (path) =>
-              copyButtonView(copy.maybeCopied, path, "Copy link", h),
-            ),
-            Array.map(Array.fromOption(copy.maybeAlone), (path) =>
-              copyButtonView(copy.maybeCopied, path, "Copy alone", h),
-            ),
-          ]),
-        ),
-        diffStyleToggleView(diffStyle, messages.onDiffStyle, h),
+) =>
+  h.header
+    .class("topbar")
+    .attr("data-code-bar", "")
+    .children(
+      h.button
+        .attr("type", "button")
+        .class("btn")
+        .on("click", messages.onBack)
+        .children("Back to the plan"),
+      Option.match(task, {
+        onNone: () => h.span.attr("role", "alert").children(`No task ${code.taskId} in the trace.`),
+        onSome: (found) => [
+          h.h1(`${found.id} ${found.branch}`),
+          h.span.attr("data-shown", "").children(shownText(found, code.shown)),
+        ],
+      }),
+      // The whole path, and the last step on its own: the lines, the file, the diff or the commit.
+      Array.map(Array.fromOption(copy.maybeWhole), (path) =>
+        copyButtonView(h, copy.maybeCopied, path, "Copy link"),
       ),
-      h.button(
-        [h.Type("button"), h.Class("btn"), h.OnClick(messages.onBack)],
-        ["Back to the plan"],
+      Array.map(Array.fromOption(copy.maybeAlone), (path) =>
+        copyButtonView(h, copy.maybeCopied, path, "Copy alone"),
       ),
-    ),
-  );
+      diffStyleToggleView(h, diffStyle, messages.onDiffStyle),
+    );
 
 /** The session the right pane shows, once it is read, and the turn highlighted in it. */
 const marksOf = (
@@ -133,106 +129,93 @@ const marksOf = (
 
 /** The middle pane: where the diff for what is shown will be drawn, or why there is none. */
 const diffPane = (
+  h: Html.H<Message>,
   task: Option.Option<TraceTask>,
   code: CodeScreen,
-  patches: Record<string, PatchData>,
+  patches: Record.ReadonlyRecord<string, PatchData>,
   diffStyle: DiffStyle,
   marks: DiffMarks,
-  h: HtmlBuilder<Message>,
-): Html =>
-  h.section(
-    [
-      h.Class("code-pane"),
-      h.AriaLabel("Diff"),
-      h.DataAttribute("code-pane", "diff"),
-      h.Style(diffPaneStyle),
-    ],
-    [
+) =>
+  h.section
+    .class("code-pane")
+    .attr("aria-label", "Diff")
+    .attr("data-code-pane", "diff")
+    .attr("style", styleText(diffPaneStyle))
+    .children(
       Option.match(task, {
-        onNone: () => h.p([], ["This task is not in the trace."]),
+        onNone: () => h.p("This task is not in the trace."),
         onSome: (found) =>
           Option.match(patchPathOf(found, code.shown), {
             onNone: () =>
               h.p(
-                [],
-                [
-                  Array.isReadonlyArrayEmpty(found.commits)
-                    ? "This task has no commits."
-                    : "This task has no diff to show.",
-                ],
+                Array.isReadonlyArrayEmpty(found.commits)
+                  ? "This task has no commits."
+                  : "This task has no diff to show.",
               ),
-            onSome: (path) => patchView(patches, path, diffStyle, code.maybeFile, h, marks),
+            onSome: (path) => patchView(h, patches, path, diffStyle, code.maybeFile, marks),
           }),
       }),
-    ],
-  );
+    );
 
 /** The right pane: the session of the selected commit, or of a whole task's latest commit. */
 const sessionPane = (
+  h: Html.H<Message>,
   task: Option.Option<TraceTask>,
   code: CodeScreen,
   state: SessionState,
   copy: CopyLinks,
-  h: HtmlBuilder<Message>,
   messages: SessionMessages,
-): Html =>
-  h.aside(
-    [
-      h.Class("code-pane"),
-      h.AriaLabel("Session"),
-      h.DataAttribute("code-pane", "session"),
-      // The width is the pane's own; the scroll stays with it.
-      h.Style({ "overflow-y": "auto", width: SESSION_WIDTH }),
-    ],
-    [
+) =>
+  h.aside
+    .class("code-pane")
+    .attr("aria-label", "Session")
+    .attr("data-code-pane", "session")
+    // The width is the pane's own; the scroll stays with it.
+    .attr("style", styleText({ "overflow-y": "auto", width: SESSION_WIDTH }))
+    .children(
       Option.match(
         Option.flatMap(task, (found) => shownCommitOf(found, code.shown)),
         {
-          onNone: () => h.p([], ["No session: there is no commit."]),
+          onNone: () => h.p("No session: there is no commit."),
           onSome: (commit) =>
-            sessionView(Option.fromNullOr(commit.session), state, copy, h, messages),
+            sessionView(h, Option.fromNullOr(commit.session), state, copy, messages),
         },
       ),
-    ],
-  );
+    );
 
 /**
  * The code view: the whole window under a top bar, in three panes. The tree and the session each
  * scroll on their own; the diff takes the rest.
  */
 export const codeView = (
+  h: Html.H<Message>,
   trace: Trace,
   code: CodeScreen,
-  patches: Record<string, PatchData>,
+  patches: Record.ReadonlyRecord<string, PatchData>,
   diffStyle: DiffStyle,
   state: SessionState,
   maybeNotice: Option.Option<string>,
   copy: CopyLinks,
-  h: HtmlBuilder<Message>,
   messages: CodeMessages,
-): Html => {
+) => {
   const task = taskOf(trace, code.taskId);
-  return h.div(
-    [h.Class("code-screen"), h.DataAttribute("code-view", code.taskId)],
-    Array.appendAll(
-      Array.prepend(
-        Option.match(maybeNotice, {
-          onNone: () => [],
-          onSome: (text) => [linkNoticeView(text, h, { onDismiss: messages.onDismissNotice })],
-        }),
-        barView(task, code, diffStyle, copy, h, messages),
-      ),
-      [
-        h.keyed("div")(
-          "code-body",
-          [h.Class("code-body")],
-          [
-            treeView(trace, code, h, messages),
-            diffPane(task, code, patches, diffStyle, marksOf(task, code, state), h),
-            sessionPane(task, code, state, copy, h, messages),
-          ],
+  return h.div
+    .class("code-screen")
+    .attr("data-code-view", code.taskId)
+    .children(
+      barView(h, task, code, diffStyle, copy, messages),
+      Option.getOrUndefined(
+        Option.map(maybeNotice, (text) =>
+          linkNoticeView(h, text, { onDismiss: messages.onDismissNotice }),
         ),
-      ],
-    ),
-  );
+      ),
+      h.div
+        .key("code-body")
+        .class("code-body")
+        .children(
+          treeView(h, trace, code, messages),
+          diffPane(h, task, code, patches, diffStyle, marksOf(task, code, state)),
+          sessionPane(h, task, code, state, copy, messages),
+        ),
+    );
 };

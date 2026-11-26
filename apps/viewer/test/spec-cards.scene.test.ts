@@ -3,7 +3,6 @@ import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, Option, Result, Schema } from "effect";
 import { modifyFields } from "foldkit/struct";
 
-import { viewerBridge } from "../src/app.ts";
 import { patchPathOf } from "../src/codeView.ts";
 import { FetchPatch } from "../src/command.ts";
 import { demoTrace } from "../src/demo.ts";
@@ -139,7 +138,7 @@ it.effect(
               .pipe(
                 resolved(FetchPatch, Message.ReceivedPatch({ path, result: Result.succeed("") })),
               )
-              .mounted(viewerBridge.mountOf(RenderDiff), Message.CompletedRenderDiff()),
+              .mounted(RenderDiff, Message.CompletedRenderDiff()),
           ),
         );
       const model = update(reading, Message.ClickedTask({ id: task.id })).model;

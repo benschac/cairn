@@ -24,7 +24,7 @@ import {
   Stream,
   String,
 } from "effect";
-import { Mount } from "foldkit";
+import { Mount } from "@effect/ui";
 
 import {
   attributionOf,
@@ -620,17 +620,8 @@ const drawFiles = (
   );
 
 /**
- * What the diff mount sends: that it has drawn, each click on a hunk's turn, and the lines a
- * person selects or clears.
- */
-type DiffMessage =
-  | typeof Message.CompletedRenderDiff.Type
-  | typeof Message.ClickedHunkMark.Type
-  | typeof Message.SelectedDiffLines.Type
-  | typeof Message.ClearedDiffLines.Type;
-
-/**
- * Parses the patch and draws its files into the element with the library's `CodeView`, a
+ * What it sends: that it has drawn, each click on a hunk's turn, and the lines a person selects or
+ * clears. Parses the patch and draws its files into the element with the library's `CodeView`, a
  * virtualized list that owns the DOM inside the element, then watches the element's attributes
  * (see `watchAttributes`). With the commit's session, each hunk carries a mark naming the turns
  * that wrote it (see `attributionOf`), and a click on one of them is sent as `ClickedHunkMark`.
@@ -639,10 +630,11 @@ type DiffMessage =
  * or the session arriving, is another element and its own list. A patch that does not parse, or
  * has no files, says so in the element.
  */
-export const RenderDiff = Mount.defineStream("RenderDiff", {
-  args: { session: Schema.Option(Schema.toType(Session)), text: Schema.String },
-  execute: ({ element, session, text }) =>
-    Stream.callback<DiffMessage>((queue) =>
+export const RenderDiff = Mount.makeStream(
+  "RenderDiff",
+  { args: { session: Schema.Option(Schema.toType(Session)), text: Schema.String } },
+  (element: Element, { session, text }) =>
+    Stream.callback<Message>((queue) =>
       Effect.gen(function* () {
         yield* Result.match(parsePatch(text), {
           onFailure: (error) =>
@@ -679,10 +671,4 @@ export const RenderDiff = Mount.defineStream("RenderDiff", {
         Queue.offerUnsafe(queue, Message.CompletedRenderDiff());
       }),
     ),
-  messages: [
-    Message.CompletedRenderDiff,
-    Message.ClickedHunkMark,
-    Message.SelectedDiffLines,
-    Message.ClearedDiffLines,
-  ],
-});
+);
