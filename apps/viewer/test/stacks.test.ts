@@ -5,6 +5,7 @@ import { Array, Hash, HashSet, Number, Option, Order, Record, Schema, String, pi
 
 import manifestJson from "../../../.cairn/manifest.json" with { type: "json" };
 import specMarkdown from "../../../.cairn/spec.md?raw";
+import { boxOf } from "../src/boxes.ts";
 
 const id = (n: number): TaskId => TaskId.make(`t${n}`);
 const ghost = TaskId.make("ghost");
@@ -253,6 +254,29 @@ it("a fork puts the first child by number in its parent's column and the others 
   });
 });
 
+it("columns are numbered depth first, so a fork's children sit in one unbroken run under it", () => {
+  // t1 forks into t2 and t5; t2 forks into t3 and t9. By the id of a column's first task, t9 would
+  // come after t5 and cut t2's columns in two.
+  const [stack] = stacksOf([
+    task(1, null, []),
+    task(2, 1, []),
+    task(5, 1, []),
+    task(3, 2, []),
+    task(9, 2, []),
+    task(6, 9, []),
+  ]);
+  expect(Option.map(Option.fromUndefinedOr(stack), (found) => found.cells)).toEqual(
+    Option.some({
+      t1: { column: 1, row: 1 },
+      t2: { column: 1, row: 2 },
+      t3: { column: 1, row: 3 },
+      t5: { column: 3, row: 2 },
+      t6: { column: 2, row: 4 },
+      t9: { column: 2, row: 3 },
+    }),
+  );
+});
+
 it("a stack that waits on two others sits one level above the higher of them", () => {
   const stacks = stacksOf([
     task(1, null, []),
@@ -281,16 +305,37 @@ it("an empty plan has no stacks", () => {
   expect(stacksOf([])).toEqual([]);
 });
 
-/** The subgraph labels of the stack diagram in spec.planning.stack-order, each with its tasks. */
-const diagramStacks = (
-  markdown: string,
-): ReadonlyArray<readonly [string, ReadonlyArray<string>]> => {
+/** The text of the stack diagram in spec.planning.stack-order. */
+const diagramOf = (markdown: string): string => {
   const [, afterHeading] = String.split(markdown, "{#spec.planning.stack-order}");
   const [, afterFence] = String.split(
     Option.getOrThrow(Option.fromUndefinedOr(afterHeading)),
     "```mermaid\n",
   );
   const [diagram] = String.split(Option.getOrThrow(Option.fromUndefinedOr(afterFence)), "```");
+  return Option.getOrThrow(Option.fromUndefinedOr(diagram));
+};
+
+/** The solid arrows between tasks in the diagram, as `t45 --> t46`, without those from `main`. */
+const keyId = (key: string): string => Option.getOrThrow(Array.last(String.split(key, ":")));
+
+const diagramArrows = (markdown: string): ReadonlyArray<string> =>
+  Array.sort(
+    Array.getSomes(
+      Array.map(String.split(diagramOf(markdown), "\n"), (line) =>
+        Option.map(String.match(/^\s*(t\d+ --> t\d+)$/u)(line), (match) =>
+          Option.getOrThrow(Array.get(match, 1)),
+        ),
+      ),
+    ),
+    Order.String,
+  );
+
+/** The subgraph labels of the stack diagram in spec.planning.stack-order, each with its tasks. */
+const diagramStacks = (
+  markdown: string,
+): ReadonlyArray<readonly [string, ReadonlyArray<string>]> => {
+  const diagram = diagramOf(markdown);
   const [, stacks] = Array.mapAccum(
     String.split(diagram, "\n"),
     Option.none<readonly [string, ReadonlyArray<string>]>(),
@@ -333,6 +378,19 @@ it("the spec's stack diagram draws the stacks stacksOf finds in the manifest", (
       (stack) => [labelOf(stack), Array.sort(Record.keys(stack.cells), Order.String)] as const,
     ),
   );
+});
+
+it("the parent arrows of every box, unfolded, are the solid arrows between tasks in the diagram", () => {
+  const manifest = Schema.decodeUnknownSync(Manifest)(manifestJson);
+  const drawn = diagramArrows(specMarkdown);
+  expect(Array.isReadonlyArrayNonEmpty(drawn)).toBe(true);
+  const arrows = Array.flatMap(stacksOf(manifest.tasks), (stack) =>
+    Array.map(
+      boxOf(stack, manifest.tasks, true).arrows,
+      (arrow) => `${keyId(arrow.source)} --> ${keyId(arrow.target)}`,
+    ),
+  );
+  expect(Array.sort(arrows, Order.String)).toEqual(drawn);
 });
 
 it("lays out this repo's manifest", () => {

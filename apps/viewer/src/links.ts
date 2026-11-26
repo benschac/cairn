@@ -132,22 +132,25 @@ export const isStopping = (miss: Miss): boolean => miss.reason !== "passage-chan
 
 const FINISHED: ReadonlyArray<TraceTask["status"]> = ["done", "landed"];
 
-const isFinished = (task: TraceTask): boolean => Array.contains(FINISHED, task.status);
+/** What the finished trunk reads of a task. A `TraceTask` fits. */
+type TrunkTask = Pick<TraceTask, "id" | "parent" | "status">;
+
+const isFinished = (task: TrunkTask): boolean => Array.contains(FINISHED, task.status);
 
 /**
  * The finished trunk of a stack: from its root, the run of `done` or `landed` tasks up to the
  * first fork or the first unfinished task. The task at a fork is the trunk's last. A root that is
  * not finished has no trunk.
  */
-export const trunkOf = (
+export const trunkOf = <Task extends TrunkTask>(
   stack: Stack,
-  tasks: ReadonlyArray<TraceTask>,
-): ReadonlyArray<TraceTask> => {
+  tasks: ReadonlyArray<Task>,
+): ReadonlyArray<Task> => {
   const members = Array.filter(tasks, (task) => Record.has(stack.cells, task.id));
   // The root's own parent may close a cycle, so it is never a child.
-  const childrenOf = (task: TraceTask) =>
+  const childrenOf = (task: Task) =>
     Array.filter(members, (child) => child.parent === task.id && child.id !== stack.root);
-  const runFrom = (task: TraceTask): ReadonlyArray<TraceTask> =>
+  const runFrom = (task: Task): ReadonlyArray<Task> =>
     isFinished(task)
       ? Array.prepend(
           Array.match(childrenOf(task), {

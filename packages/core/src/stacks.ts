@@ -11,7 +11,6 @@ import {
   Schema,
   String,
   Struct,
-  Tuple,
   pipe,
 } from "effect";
 
@@ -66,9 +65,10 @@ const areaOf = (task: StackTask): Option.Option<string> =>
  * cycle, the task with the lowest id is the root. Every other task belongs to its parent's stack.
  * Stacks are numbered from 1 in `TaskIdOrder` of their roots.
  *
- * Inside a stack a task's row is its depth, 1 for the root. The first child by id continues its
- * parent's column and every other child starts a new one; columns are numbered by the id of their
- * first task.
+ * Inside a stack a task's row is its depth, 1 for the root. Columns are numbered depth first: the
+ * root is in column 1, the first child by id continues its parent's column, and each other child,
+ * in id order, starts the column after the last one used by its elder siblings and everything
+ * built on them. So the columns under any task are one unbroken run.
  *
  * A stack waits on another when one of its tasks depends on a task in the other. Its level is 1
  * when it waits on nothing, otherwise one more than the highest level among the stacks it waits
@@ -116,23 +116,49 @@ export const stacksOf = (tasks: ReadonlyArray<StackTask>): ReadonlyArray<Stack> 
       onSome: (parent) => Array.append(lineageOf(parent), task),
     });
 
-  // The first child by id continues its parent's column. `sorted` is in id order, so the first
-  // child in each group is that one.
-  const continuing = Record.map(
+  // `sorted` is in id order, so each group of children is too.
+  const childrenOf = Record.map(
     Array.groupBy(
       Array.getSomes(
         Array.map(sorted, (task) => Option.map(parentOf(task), (parent) => ({ parent, task }))),
       ),
       ({ parent }) => parent.id,
     ),
-    (children) => Array.headNonEmpty(children).task.id,
+    Array.map(({ task }) => task),
   );
-  const headOf = (task: StackTask): StackTask =>
-    Option.match(
-      Option.filter(parentOf(task), (parent) =>
-        Option.contains(Record.get(continuing, parent.id), task.id),
-      ),
-      { onNone: () => task, onSome: headOf },
+
+  /**
+   * Places a task in `column` and its children depth first: the first child continues the column
+   * and each other child starts after the last column its elder siblings used. `next` is the
+   * first column the subtree left free. Parents no longer form a cycle, so this ends.
+   */
+  const placeFrom = (
+    task: StackTask,
+    column: number,
+  ): {
+    readonly columns: ReadonlyArray<readonly [TaskId, number]>;
+    readonly next: number;
+  } =>
+    Array.match(
+      Option.getOrElse(Record.get(childrenOf, task.id), () => Array.empty<StackTask>()),
+      {
+        onEmpty: () => ({ columns: [[task.id, column]], next: column + 1 }),
+        onNonEmpty: (children) =>
+          Array.reduce(
+            children,
+            {
+              columns: [[task.id, column]] as ReadonlyArray<readonly [TaskId, number]>,
+              next: column,
+            },
+            (placed, child) => {
+              const below = placeFrom(child, placed.next);
+              return {
+                columns: Array.appendAll(placed.columns, below.columns),
+                next: below.next,
+              };
+            },
+          ),
+      },
     );
 
   const roots = Array.filter(sorted, (task) => Option.isNone(parentOf(task)));
@@ -172,21 +198,14 @@ export const stacksOf = (tasks: ReadonlyArray<StackTask>): ReadonlyArray<Stack> 
 
   return Array.map(roots, (root, index) => {
     const own = Option.getOrElse(Record.get(members, root.id), () => Array.empty<StackTask>());
-    const columns = pipe(
-      own,
-      Array.map((task) => headOf(task).id),
-      Array.dedupe,
-      (heads) => Array.sort(heads, TaskIdOrder),
-      Array.map((head, at) => Tuple.make(head, at + 1)),
-      Record.fromEntries,
-    );
+    const columns = Record.fromEntries(placeFrom(root, 1).columns);
     return {
       area: areaOf(root),
       cells: Record.fromIterableWith(own, (task) => [
         task.id,
         {
-          // Every head has a column, so the fallback never applies.
-          column: Option.getOrElse(Record.get(columns, headOf(task).id), () => 1),
+          // Every member is placed from its root, so the fallback never applies.
+          column: Option.getOrElse(Record.get(columns, task.id), () => 1),
           row: lineageOf(task).length,
         },
       ]),
