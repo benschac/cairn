@@ -44,9 +44,9 @@ export interface SpecIndexInput {
   /** `spec.json` as it is on disk, if it is. A section it has keeps its entry. */
   readonly previous: Option.Option<SpecIndex>;
   /**
-   * Sections with an entry in `previous` whose body changed, so `Planner.index` reads them again.
-   * A section with no entry is always indexed. The entry cannot say whether the body changed:
-   * `writtenFrom.body` is the body as it was first written, and is null for a person's section.
+   * Sections with an entry in `previous` whose body changed, so `Planner.index` reads them again:
+   * `editedOf` finds them. A section with no entry is always indexed. Each section that is read
+   * records the hash of its body in `indexedFrom`, so it is not read again until the body changes.
    */
   readonly changed: ReadonlyArray<SpecSectionId>;
   /**
@@ -58,15 +58,17 @@ export interface SpecIndexInput {
   /**
    * Sections Cairn edited in place without writing them again, such as one an item was added to the
    * `Implements` of (`spec.planning.again.mapping-items`). Each records the hash of its body now in
-   * `writtenFrom.body` and keeps the rest of its entry, its prose and `writtenFrom.prd` included.
+   * `writtenFrom.body` and keeps the recorded PRD hashes.
    */
   readonly rehashed?: ReadonlyArray<SpecSectionId> | undefined;
 }
 
 /**
- * The sections of `previous` that a person edited since Cairn wrote them: the hash of the body
- * differs from `writtenFrom.body`. These are the `changed` sections of `SpecIndexInput`. The index
- * records no hash for a section a person wrote, so an edit to one is not seen here.
+ * The sections Cairn wrote whose body is no longer the one their prose was read from: its hash
+ * differs from `indexedFrom`. An entry made before `indexedFrom` was recorded has none, and is
+ * compared with `writtenFrom.body`, the body as Cairn wrote it, so it is read once more and then
+ * has one. These are the `changed` sections of `SpecIndexInput`. A section a person wrote has a
+ * null `writtenFrom.body`, and an edit to one is not seen here, as it was not before.
  */
 export const editedOf = (spec: string, previous: SpecIndex): ReadonlyArray<SpecSectionId> => {
   const bodies = Record.fromEntries(
@@ -74,8 +76,13 @@ export const editedOf = (spec: string, previous: SpecIndex): ReadonlyArray<SpecS
   );
   return Array.filterMap(previous.sections, (entry) =>
     Option.exists(
-      Option.flatMap(Option.fromNullOr(entry.writtenFrom.body), (hash) =>
-        Option.map(Record.get(bodies, entry.id), (body) => hash !== bodyHashOf(body)),
+      Option.flatMap(Option.fromNullOr(entry.writtenFrom.body), (written) =>
+        Option.map(
+          Record.get(bodies, entry.id),
+          (body) =>
+            Option.getOrElse(Option.fromUndefinedOr(entry.indexedFrom), () => written) !==
+            bodyHashOf(body),
+        ),
       ),
       (differs) => differs,
     )
@@ -162,14 +169,25 @@ export const specIndexOf = Effect.fn("specIndexOf")(function* (
           onNone: () =>
             planner.index({ body: section.body, id: derived.id, title: section.title }).pipe(
               Effect.flatMap((prose) => knownProofsOf(derived.id, known, prose)),
-              Effect.map((prose): IndexedSection => ({ ...derived, ...prose })),
+              Effect.map((prose): IndexedSection => ({
+                ...derived,
+                ...prose,
+                indexedFrom: bodyHashOf(section.body),
+              })),
             ),
+          // The prose is kept, and so is the hash of the body it was read from, if the entry has one.
           onSome: (entry) =>
             knownProofsOf(
               derived.id,
               known,
               Struct.pick(entry, Struct.keys(IndexProse.fields)),
-            ).pipe(Effect.map((prose): IndexedSection => ({ ...derived, ...prose }))),
+            ).pipe(
+              Effect.map((prose): IndexedSection => ({
+                ...derived,
+                ...prose,
+                ...Struct.pick(entry, ["indexedFrom"]),
+              })),
+            ),
         },
       ),
     { concurrency: CONCURRENCY },

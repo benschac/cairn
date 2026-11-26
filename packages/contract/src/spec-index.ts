@@ -145,6 +145,8 @@ const SectionFields = Entry.Struct({
   human: derived(Schema.Boolean),
   id: derived(SpecSectionId),
   implements: derived(Schema.Array(PrdSectionId)),
+  /** The body whose prose was indexed. Older entries omit the hash. */
+  indexedFrom: derived(Schema.optionalKey(BodyHash)),
   level: derived(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
   line: derived(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
   parent: derived(Schema.NullOr(SpecSectionId)),
