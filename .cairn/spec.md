@@ -2152,7 +2152,7 @@ Step 2, the tasks:
 8. Compute gates, order the stack with the existing tasks, ask the stack questions, and lint the result in memory.
 9. Print what judging changed, then the stack as `cairn status` would with new tasks marked `new`, lint findings and `flag` or `unsure` judgments, and ask `Write manifest.json? [y/N]`.
 10. Refuse to write if lint has errors. Judgments never block the write.
-11. Write `manifest.json`, then `spec.md` with the stack diagram drawn again (see `spec.planning.stack-diagram`) and any split sections, then `spec.json` and `judgments.json`.
+11. Write `manifest.json`, then `spec.md` with the stack diagram drawn again (see `spec.planning.stack-diagram`) and any split sections, then `spec.json` and `judgments.json`. Each goes through `replaceFile`, so each file is whole. The four are not published together: until the last rename a reader can see the new manifest beside the old diagram, which lint's diagram check reports (see `spec.refactors.atomic-writes`).
 
 - `--yes` answers yes to both questions.
 - `--respec` is refused when the manifest has a task that is not `pending`. It replaces the spec and the manifest; re-planning a started stack from nothing is v2's rebase flow.
@@ -2294,7 +2294,7 @@ In `cairn plan`, after IDs are assigned and before the spec step, `ask-statement
 
 1. Draft for the targets and write `prd.md`.
 2. For every draft in the PRD, in document order, print its section's title once, then the draft, then `Is this what you meant? [a]ccept, [r]ewrite, [d]elete, [s]kip:`. A rewrite reads the next line, and an empty line counts as a skip.
-3. Write `prd.md` after each answer, so an interrupted run keeps what was answered.
+3. Write `prd.md` after each answer with `replaceFile`, so an interrupted run keeps what was answered and a Ctrl-C during the write leaves the PRD whole (see `spec.refactors.atomic-writes`).
 
 Some runs ask nothing and leave every draft as it is: `--yes`, `--dry-run` (which also writes the drafts nowhere but memory) and a stdin that is not a terminal. `--spec` still asks.
 
@@ -3828,7 +3828,7 @@ This section adds four operations:
 3. Run the operation with an `OperationContext` service. Its `progress(message, done?, total?)` reports progress, and its `WriteLog` records what was written.
 4. Map every typed error the commands already raise to an `OperationError` in `errorOf`. Each error gets one code, and the existing message becomes `message`. A defect is `internal`. The error declares its own code, not `errorOf`: each error a command can fail with implements `Operational`, a protocol in `operations.ts` whose one method returns the error's `code`, `hint` and `field`, and `errorOf` reads that method. `runOperation` takes the command's effect with `Operational` as its error type, so a command that can fail with an error that declares no code does not compile (see `spec.refactors.errors-that-render-themselves`).
 
-Writes. Every file an operation writes goes through `writeFileAtomic(path, bytes)` in `write-log.ts`. It writes a temporary file in the same directory, renames it into place and then records the path in the `WriteLog`. The commands in this section stop writing through `FileSystem` directly. A file is therefore never left half written, and an operation that fails or is interrupted reports exactly the files it replaced in `changed`.
+Writes. Every file an operation writes goes through `writeFileAtomic(path, bytes)` in `write-log.ts`. It writes the file with `replaceFile`, which stages it in a scoped directory beside the target and renames it into place, and then records the path in the `WriteLog` (see `spec.refactors.atomic-writes`). The commands in this section stop writing through `FileSystem` directly. A file is therefore never left half written, and an operation that fails or is interrupted reports exactly the files it replaced in `changed`.
 
 Operation log. A new migration adds `operations(id text primary key, name text, started_at text, ended_at text, outcome text, changed text)`. `runOperation` writes a row when it starts and closes the row with `ok`, `failed` or `interrupted`. When the process dies, the row stays open. On the next `status` call from either interface, every row that is open or `interrupted` and has not been reported yet becomes a warning, `interrupted-operation`, that names its files. The row is then marked as reported. This is how a disconnect that left files written still gets reported. `init` writes its row once `cairn.db` exists.
 
@@ -4280,6 +4280,7 @@ The terminal, in `terminal.ts`:
   - the one-second tick.
 - The loop folds Messages through `update`, runs Commands, and draws `view` after each batch, at most once per animation-length tick of 16 ms.
 - A listener only offers a Message to the loop's queue or interrupts the main fiber, and runs no effect of its own. Commands run in the loop's fiber. An effect a Node callback has to run is run with the command's services, `Scope` left out, and scoped on its own (see `spec.refactors.carrying-context`).
+- The trace stream it reads watches the `.cairn/` directory, never a single file. Cairn replaces a file by renaming a new one over it, and a watcher on the old file would see nothing after the first write. The `.write-` staging directories that come and go there fall inside the stream's debounce (see `spec.refactors.atomic-writes`).
 
 Leaving:
 
@@ -6694,9 +6695,10 @@ Tests:
 1. Documents, for `prd.md` and, once it exists, `spec.md`. A file is changed locally when its hash differs from `connect.json`. It is changed remotely when the hosted current revision differs from `connect.json`.
    - Neither changed: nothing happens.
    - Only the local file changed: it saves with `base` set to the recorded revision, and records the result.
-   - Only the remote changed: it writes the hosted markdown to the file atomically, and records it.
+   - Only the remote changed: it writes the hosted markdown to the file with `replaceFile`, and records it.
    - Both changed, or a save comes back stale: it leaves the local file as it is, writes the hosted version to `.cairn/prd.hosted.md` (or `spec.hosted.md`), prints `Both .cairn/prd.md and the hosted PRD changed since the last sync. Merge them, then run cairn connect sync.`, and exits 1.
    - No step overwrites unsynced local text.
+   - Every file a sync writes goes through `replaceFile`: the document, `connect.json`, and the conflict copy, which is the latest hosted text and replaces an older copy (see `spec.refactors.atomic-writes`).
 2. Events. Each line of `events.jsonl` has the ID SHA-256 of its bytes. The bridge sends the lines in batches of 500, with the agent's token when there is one and the person's session otherwise. The room skips IDs it has already stored, so resending after a drop or a rewrite of the file adds nothing.
 3. Plan. When `manifest.json` exists, the bridge uploads `buildTrace` with its private fields left out, together with the plan record's inputs (see `spec.hosted-launch.plan-source`). It skips the upload when the trace's hash has not changed. The room broadcasts `trace`.
 4. Approvals. For each hosted `GateApproval` not in `approvalsSeen`, the bridge appends `{ status: "done", actor: "human:<name>", detail: "approved in <origin> against PRD revision <n>" }` with `appendEvent`, then records the approval. The local orchestrator and derivation see the approval as they see one from `cairn approve`.
@@ -6973,3 +6975,41 @@ The routes in `api.ts` only fail, and each failure a caller can cause renders it
 The sections still to build say where it applies to them: `spec.hosted-launch.hosted-contract`, `spec.hosted-launch.policy`, `spec.hosted-launch.worker-and-storage`, `spec.hosted-launch.room`, `spec.hosted-launch.cairn-connect` and `spec.cli.agent-access.operations`.
 
 Tests: `api.test.ts` serves the routes with `ReportedFailures` and a logger that records, and `reportedDuring` returns what was reported while a request ran. A malformed SHA, an unknown SHA and an unknown or malformed session ID keep their statuses and are not reported, and a missing `spec.md` is a `500` whose report names the file. A test renders `MalformedParams`, `RevisionUnknown` and `GitFailed` with `HttpServerRespondable.toResponse` and reads `ErrorReporter.isIgnored` from each. Taking `ErrorReporter.ignore` off `RevisionUnknown`, or logging below the error level, fails them.
+
+### Atomic writes {#spec.refactors.atomic-writes}
+
+- Implements: `prd.refactors.atomic-writes`
+- Files: `packages/cli/src/atomic-write.ts`, `packages/cli/test/atomic-write.test.ts`, `packages/cli/src/commands/ids.ts`, `packages/cli/src/commands/plan.ts`, `packages/cli/src/commands/status.ts`, `packages/cli/src/commands/judge.ts`, `packages/cli/src/commands/init.ts`, `packages/cli/test/init.test.ts`, `packages/cli/test/plan-dry-run.test.ts`, `scripts/gate/gate.ts`, `scripts/gate/gate.test.ts`, `scripts/demo-trace/demo-trace.ts`, `scripts/effect-api/index-effect-core.ts`, `scripts/effect-api/refresh-effect-api.ts`, `scripts/agent-sources/index-xstate-docs.ts`, `scripts/agent-sources/refresh-pattern-sources.ts`, `turbo.json`, `.agent_sources/effect/atomic-writes.md`, `.agent_sources/effect/checklist.md`, `.agent_sources/README.md`
+
+`atomic-write.ts` exports two functions. `replaceFile(target, contents)` stages the file and renames it over the target. `createFile(target, contents)` stages it and links it to the target, and fails with `FileAlreadyExists` when the target is there; the link's `AlreadyExists` is caught with `Effect.catchReason`. Each stages in a directory made by `fs.makeTempDirectoryScoped({ directory, prefix: ".write-" })` inside `Effect.scoped`, where `directory` is the target's own directory. The scope removes the staging directory however the write ends: done, failed or interrupted. `replaceFile` copies the old file's permission bits, `mode & 0o7777`, onto the staged file with `fs.stat` and `fs.chmod` before the rename, and a `NotFound` from `stat` means a new file, which keeps the default mode. Nothing in the CLI calls `createFile` yet; it is there for the work still to come.
+
+The CLI writes move onto `replaceFile`: `cairn ids`'s `prd.md` and `spec.md`; `cairn plan`'s `manifest.json`, `spec.md`, `spec.json`, `judgments.json` and the `prd.md` it saves after each answer about a statement; `cairn status`'s manifest snapshot; and `cairn judge`'s `judgments.json`. `cairn approve` still appends to `events.jsonl`.
+
+`cairn init` checks that `.cairn/` is absent and reads `.gitignore` first, so a `.gitignore` it cannot read fails it before anything is written. It then builds `.cairn/` in a scoped `.init-` directory in the repository root and renames it to `.cairn/`. A rename that fails while `.cairn/` now exists is `AlreadyInitialized`, so an init that loses a race says so. Only after the rename does it read `.gitignore` again, keeping an edit made meanwhile, and write it with `replaceFile`.
+
+The dry run's in-memory `FileSystem` covers the staging calls. `makeTempDirectoryScoped` only returns a name, `chmod` on a staged file does nothing, and `rename` and `link` move what the run wrote. Asked to move or chmod a file the run did not write, it stops with a defect rather than touch the disk. `stat` reads the disk. A dry run still writes nothing.
+
+The scripts import `replaceFile` from `packages/cli/src/atomic-write.ts` by relative path, which is why that file imports only from `effect`, and `turbo.json` lists it in `globalDependencies`. The gate's record of checked commits in git's common directory, the demo trace, the generated agent-source indexes and `sources.json` go through it. `refresh-pattern-sources.ts` still writes the downloaded Ratstack documents, `guide.txt` and `docs.txt`, with `fs.writeFile`: they are bytes whose SHA-256 `sources.json` records, and `replaceFile` takes a string. `scripts/gate/lock.ts` already took its lock by writing a file of its own and linking it into place, which is the create half written by hand.
+
+`.agent_sources/effect/atomic-writes.md` describes the two functions, when to replace and when to create, the traps and how to test a write, and says which scripts use the helper. The checklist gains a Platform row, a scan line and a short section pointing to the note, and the README points to it.
+
+Decisions:
+
+- The staging directory sits beside the target, not in the system's temporary directory, because a rename or a link fails across file systems.
+- The staging directory is scoped, so no path a write made outlives it, rather than a temporary file removed in an `ensuring`.
+- A replace keeps the old file's permission bits, so an executable or private file stays one.
+- `cairn init` stages the whole directory, since `.cairn/` appearing at all is what the next init checks.
+- `cairn init` keeps its check up front. A rename onto an empty `.cairn/` replaces it without an error, and one onto a directory that is not empty fails with `ENOTEMPTY`, which the platform reports as `Unknown`; that failure becomes `AlreadyInitialized` when `.cairn/` exists.
+- `.gitignore` is written only after the rename succeeds, so an init that loses a race never touches it.
+- Appends are left alone. `events.jsonl` has several writers, and a replace would drop a line appended between the copy and the rename.
+- The Ratstack documents stay `fs.writeFile` until `replaceFile` has a form that takes bytes.
+- Nothing calls `fsync`. A write survives a crash of the process, not a power cut.
+
+The sections still to build say where it applies to them: `spec.cli.agent-access.operations`, `spec.cli.terminal-view.cairn-watch` and `spec.hosted-launch.cairn-connect`. `spec.planning.done-when.asking-the-person` and `spec.planning.cairn-plan` say how their writes go.
+
+Tests:
+
+- `atomic-write.test.ts` has a property that a replace keeps the new contents and the old mode. A missing file is created. A write that fails, and one that stalls and is then interrupted, leave the old file and no staging directory. A property checks that `createFile` refuses an existing file and keeps its bytes.
+- `init.test.ts`: an init that fails midway, one interrupted midway and one that cannot read `.gitignore` each leave no `.cairn/` and nothing staged. An init that races another keeps the winner's `.cairn/` and `.gitignore` and fails with `AlreadyInitialized`.
+- `plan-dry-run.test.ts` snapshots the recursive listing under the root as well as the bytes, so a staging directory left on disk fails it.
+- `gate.test.ts`: a second check replaces the record with a new inode and the same mode, and leaves no `.write-` entry in `.git`.

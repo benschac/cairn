@@ -1349,3 +1349,26 @@ A server that picks each status in its handlers, catching one error for a `404` 
   - The presence socket answers with frames, not statuses.
   - The patch routes stay `text/plain`, because the code view shows a failed fetch's body as git wrote it. RFC 9457 problem details, which `effect/http` ships as `ProblemDetails`, would only wrap that text.
 - The Effect checklist in `.agent_sources` carries the pattern, with a note on the API and the traps found while building it, so a reviewer asks for it where a diff chooses a status beside a handler.
+
+### Atomic writes {#prd.refactors.atomic-writes}
+
+A file written in place is seen half written by anyone who reads it while the write runs, and is left half written when the write stops: a Ctrl-C, a crash, a full disk. A file Cairn writes appears all at once or not at all instead. The write goes somewhere private first and is then published with one atomic file-system call: a rename to replace a file, a link to create one only if it is absent. The private place is a directory beside the file, removed whether the write succeeds, fails or is interrupted. The pattern comes from Harry Solovay's talk [Advanced Effect Design Patterns](https://youtu.be/_tSGby_q890?t=1366) at Effect Miami 3, from 22:46, in its chapter "Atomic writes".
+
+- The CLI replaces every file it writes through one function. A second function creates a file only if it is absent, ready for the work still to come; nothing calls it yet.
+  - `cairn ids`'s `prd.md` and `spec.md`, `cairn plan`'s `manifest.json`, `spec.md`, `spec.json` and `judgments.json`, the `prd.md` it saves after each answer about a statement, `cairn status`'s manifest snapshot and `cairn judge`'s `judgments.json`. A Ctrl-C while one of them is written leaves the old file or the new one, never a truncated PRD.
+  - `cairn init` builds `.cairn/` in a private directory and renames it into place, so a failed or interrupted init leaves no partial `.cairn/` that the next init refuses. Of two inits racing, one makes `.cairn/` and the other says it is already there, and only the one that made it adds its line to `.gitignore`.
+  - A dry run of `cairn plan` still writes nothing.
+  - Each of `cairn plan`'s four files is whole, but the four are not published together. Until the last rename a reader can see the new manifest with the old stack diagram in `spec.md`, and lint's diagram check reports it. Staging all four before the first rename would narrow that window, not close it.
+- The scripts' record of checked commits, the demo trace, the generated agent-source indexes and the record of cached Ratstack sources are written the same way. The check lock already took its lock by link.
+- The work still to come takes the pattern:
+  - The agent operations write every file through one function that records what it wrote (see agent access). It is built on the same replace, with a private directory rather than a bare temporary file, so an interrupted operation leaves nothing behind by construction.
+  - `cairn watch` and `cairn serve` watch the `.cairn/` directory, not each file, because a rename replaces the file a watcher held.
+  - `cairn connect sync` writes a document that changed remotely with the same replace, and `connect.json` too. The conflict copy, `prd.hosted.md` or `spec.hosted.md`, is the latest hosted text, so it is replaced the same way rather than created only if absent.
+  - The demo's patches and the docs' reference pages, written at build time.
+  - A form of the replace that takes bytes, for the cached Ratstack documents, which are still written in place because their record holds the hash of their bytes.
+- Where it does not fit, written down here so it is not looked for again:
+  - `events.jsonl` is appended to by several writers. Replacing it would drop a line appended between the copy and the rename.
+  - `cairn.db` holds the sessions, the notes and the operation log, and has SQLite's transactions.
+  - The hosted stores, the room's SQLite, D1 and R2, publish through their own transactions and puts.
+  - The planner's temporary directory, where `codex` reads the schema of its reply, is private already: only the process the planner starts reads it, and only after the write ends.
+- The Effect checklist in `.agent_sources` carries the pattern, with a note on the API, so a reviewer asks for it where a diff writes a file in place that something else reads.
