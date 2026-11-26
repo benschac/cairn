@@ -1644,9 +1644,10 @@ export const needsPlanner = Effect.fn("plan.needsPlanner")(function* (options: P
 });
 
 /**
- * `--accept`: records the current hashes of the PRD sections a spec section implements in its
- * `writtenFrom` in `spec.json`, so the section is no longer out of date. Nothing else changes: not
- * the body hash, which stays what Cairn wrote or null for a person's section, and not another section.
+ * `--accept`: records the current hashes of the PRD sections a spec section implements, and of the
+ * spec sections it depends on, in its `writtenFrom` in `spec.json`, so the section is no longer out
+ * of date. Nothing else changes: not the body hash, which stays what Cairn wrote or null for a
+ * person's section, and not another section.
  */
 const accept = Effect.fn("plan.accept")(function* (section: string) {
   const refuse = (reason: string) => new AcceptRefused({ reason, section });
@@ -1678,7 +1679,7 @@ const accept = Effect.fn("plan.accept")(function* (section: string) {
     ...previous,
     sections: Array.map(previous.sections, (found) =>
       found.id === entry.id
-        ? { ...found, writtenFrom: { body: found.writtenFrom.body, prd: current.writtenFrom.prd } }
+        ? { ...found, writtenFrom: { ...current.writtenFrom, body: found.writtenFrom.body } }
         : found,
     ),
   };
