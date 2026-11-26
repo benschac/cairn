@@ -8,6 +8,7 @@ import {
   sectionsOf,
   statementsOf,
   taskStatementsOf,
+  withoutStackDiagram,
 } from "@cairn/core";
 import {
   Array,
@@ -44,9 +45,10 @@ export interface SpecIndexInput {
   /** `spec.json` as it is on disk, if it is. A section it has keeps its entry. */
   readonly previous: Option.Option<SpecIndex>;
   /**
-   * Sections with an entry in `previous` whose body changed, so `Planner.index` reads them again:
-   * `editedOf` finds them. A section with no entry is always indexed. Each section that is read
-   * records the hash of its body in `indexedFrom`, so it is not read again until the body changes.
+   * Sections with an entry in `previous` that was not read from the body the section has now, so
+   * `Planner.index` reads them again: `editedOf` finds them. A section with no entry is always
+   * indexed. Each section that is read records the hash of its body in `indexedFrom`, so it is not
+   * read again until the body changes.
    */
   readonly changed: ReadonlyArray<SpecSectionId>;
   /**
@@ -64,11 +66,20 @@ export interface SpecIndexInput {
 }
 
 /**
- * The sections Cairn wrote whose body is no longer the one their prose was read from: its hash
- * differs from `indexedFrom`. An entry made before `indexedFrom` was recorded has none, and is
- * compared with `writtenFrom.body`, the body as Cairn wrote it, so it is read once more and then
- * has one. These are the `changed` sections of `SpecIndexInput`. A section a person wrote has a
- * null `writtenFrom.body`, and an edit to one is not seen here, as it was not before.
+ * What `Planner.index` reads of a section: its body without the stack diagram, which code draws
+ * from the manifest. So a section that holds the diagram is not read again each time a task
+ * changes, and the planner is not sent the diagram.
+ */
+const readOf = withoutStackDiagram;
+
+/**
+ * The sections whose entry was read from a body that `spec.md` no longer has: the hash of the body
+ * differs from `indexedFrom`. The stack diagram is not part of what is compared. An entry made
+ * before `indexedFrom` was recorded has none. One for a section Cairn wrote is compared with
+ * `writtenFrom.body`, the body as Cairn wrote it. One for a section a person wrote has a null
+ * `writtenFrom.body` and so nothing to compare: nothing shows that its prose is still what the
+ * body says, and it is named. Either is read once more and then has an `indexedFrom`. These are
+ * the `changed` sections of `SpecIndexInput`.
  */
 export const editedOf = (spec: string, previous: SpecIndex): ReadonlyArray<SpecSectionId> => {
   const bodies = Record.fromEntries(
@@ -76,15 +87,14 @@ export const editedOf = (spec: string, previous: SpecIndex): ReadonlyArray<SpecS
   );
   return Array.filterMap(previous.sections, (entry) =>
     Option.exists(
-      Option.flatMap(Option.fromNullOr(entry.writtenFrom.body), (written) =>
-        Option.map(
-          Record.get(bodies, entry.id),
-          (body) =>
-            Option.getOrElse(Option.fromUndefinedOr(entry.indexedFrom), () => written) !==
-            bodyHashOf(body),
+      Record.get(bodies, entry.id),
+      (body) =>
+        !Option.contains(
+          Option.orElse(Option.fromUndefinedOr(entry.indexedFrom), () =>
+            Option.fromNullOr(entry.writtenFrom.body),
+          ),
+          bodyHashOf(readOf(body)),
         ),
-      ),
-      (differs) => differs,
     )
       ? Result.succeed(entry.id)
       : Result.failVoid,
@@ -167,14 +177,16 @@ export const specIndexOf = Effect.fn("specIndexOf")(function* (
         Option.filter(Record.get(previous, derived.id), () => !HashSet.has(changed, derived.id)),
         {
           onNone: () =>
-            planner.index({ body: section.body, id: derived.id, title: section.title }).pipe(
-              Effect.flatMap((prose) => knownProofsOf(derived.id, known, prose)),
-              Effect.map((prose): IndexedSection => ({
-                ...derived,
-                ...prose,
-                indexedFrom: bodyHashOf(section.body),
-              })),
-            ),
+            planner
+              .index({ body: readOf(section.body), id: derived.id, title: section.title })
+              .pipe(
+                Effect.flatMap((prose) => knownProofsOf(derived.id, known, prose)),
+                Effect.map((prose): IndexedSection => ({
+                  ...derived,
+                  ...prose,
+                  indexedFrom: bodyHashOf(readOf(section.body)),
+                })),
+              ),
           // The prose is kept, and so is the hash of the body it was read from, if the entry has one.
           onSome: (entry) =>
             knownProofsOf(

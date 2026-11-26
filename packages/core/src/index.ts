@@ -59,6 +59,7 @@ export {
   STACKS_OPEN,
   stackDiagramOf,
   withStackDiagram,
+  withoutStackDiagram,
   type DiagramManifest,
   type DiagramTask,
 } from "./stack-diagram.ts";
