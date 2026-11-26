@@ -4,6 +4,7 @@ import { Array, Effect, HashSet, Number, Option, Order, Record, String, pipe } f
 import { Mount } from "foldkit";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
+import { STACKS_LIST_KEY, stackArrowsOf } from "../arrows.ts";
 import { stackBoxesOf, trunkLabelOf, type Box, type BoxCell, type Trunk } from "../boxes.ts";
 import { Message } from "../message.ts";
 import { currentTasksOf, planCountsOf, ranOf } from "../reader.ts";
@@ -11,7 +12,15 @@ import { nodeSearchOf } from "../highlight.ts";
 import type { SearchResult } from "../search.ts";
 import { Node, type Chain } from "../trace.ts";
 import { dotView, labelView } from "../ui/marks.ts";
-import { forkKey, hoverChainOf, isTaskDimmed, segmentKey, taskKey } from "../wires.ts";
+import {
+  forkKey,
+  hoverChainOf,
+  isTaskDimmed,
+  segmentKey,
+  taskKey,
+  type Measured,
+} from "../wires.ts";
+import { arrowsView } from "./arrowsView.ts";
 import { modelAttributesOf, modelMarkView } from "./modelView.ts";
 import { fieldView, searchedAttributesOf } from "./nodeView.ts";
 import { branchStartOf } from "./stacksView.ts";
@@ -369,6 +378,7 @@ export const stackChipsView = (
   maybeCurrent: Option.Option<PrdSectionId>,
   isShowingModels: boolean,
   unfolded: Record.ReadonlyRecord<string, boolean>,
+  maybeMeasured: Option.Option<Measured>,
   maybeSelected: Option.Option<Node>,
   maybeHovered: Option.Option<Node>,
   results: ReadonlyArray<SearchResult>,
@@ -378,8 +388,9 @@ export const stackChipsView = (
   const current = currentTasksOf(trace, maybeCurrent);
   const maybeChain = hoverChainOf(trace, maybeHovered);
   const hasCurrent = Option.isSome(maybeCurrent);
+  const boxes = stackBoxesOf(trace.tasks, unfolded);
   const levels = pipe(
-    Array.groupBy(stackBoxesOf(trace.tasks, unfolded), (box) => `${box.stack.level}`),
+    Array.groupBy(boxes, (box) => `${box.stack.level}`),
     Record.values,
     Array.sortWith((row) => Array.headNonEmpty(row).stack.level, Order.flip(Order.Number)),
   );
@@ -394,29 +405,36 @@ export const stackChipsView = (
     [
       overviewView(trace, current, isShowingModels, h),
       h.div(
-        [h.Class("stacks-list"), h.DataAttribute("stacks", "")],
-        Array.map(levels, (row) =>
-          h.keyed("div")(
-            `level-${Array.headNonEmpty(row).stack.level}`,
-            [
-              h.Class("stacks-level"),
-              h.DataAttribute("level", `${Array.headNonEmpty(row).stack.level}`),
-            ],
-            Array.map(row, (box) =>
-              stackView(
-                trace,
-                box,
-                current,
-                hasCurrent,
-                isShowingModels,
-                maybeChain,
-                maybeSelected,
-                results,
-                maybeActive,
-                h,
+        [
+          h.Class("stacks-list"),
+          h.DataAttribute("stacks", ""),
+          h.DataAttribute("wire", STACKS_LIST_KEY),
+        ],
+        Array.prepend(
+          Array.map(levels, (row) =>
+            h.keyed("div")(
+              `level-${Array.headNonEmpty(row).stack.level}`,
+              [
+                h.Class("stacks-level"),
+                h.DataAttribute("level", `${Array.headNonEmpty(row).stack.level}`),
+              ],
+              Array.map(row, (box) =>
+                stackView(
+                  trace,
+                  box,
+                  current,
+                  hasCurrent,
+                  isShowingModels,
+                  maybeChain,
+                  maybeSelected,
+                  results,
+                  maybeActive,
+                  h,
+                ),
               ),
             ),
           ),
+          arrowsView(stackArrowsOf(boxes, maybeMeasured), maybeChain, h),
         ),
       ),
       h.div(
