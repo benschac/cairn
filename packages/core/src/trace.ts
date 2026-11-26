@@ -9,10 +9,11 @@ import type {
   Trace,
   TraceDocument,
   TraceItem,
+  TraceStatement,
   TraceJudgment,
   TraceSection,
 } from "@cairn/contract";
-import { Array, HashMap, Option, pipe } from "effect";
+import { Array, HashMap, Option, Struct, pipe } from "effect";
 
 import { derive } from "./derive.ts";
 import type { GitCommit } from "./derive.ts";
@@ -21,6 +22,7 @@ import { itemsOf } from "./items.ts";
 import type { Item } from "./items.ts";
 import type { RollupItem } from "./rollup.ts";
 import { sectionsOf } from "./sections.ts";
+import { statementsOf, taskStatementsOf, traceStatementsOf } from "./statements.ts";
 
 export const PRD_PATH = ".cairn/prd.md";
 export const SPEC_PATH = ".cairn/spec.md";
@@ -48,8 +50,8 @@ export interface TraceInput {
   readonly prd: string;
   readonly rollup: Rollup;
   readonly spec: string;
-  /** The sections of `spec.json`; empty when there is no index. */
-  readonly specIndex: ReadonlyArray<Pick<IndexedSection, "id" | "summary">>;
+  /** The sections of `spec.json`; empty when there is no index. `tests` say which statements are proved. */
+  readonly specIndex: ReadonlyArray<Pick<IndexedSection, "id" | "summary" | "tests">>;
 }
 
 /** A section with an ID as the Trace shows it; a heading with no ID yet is left out. */
@@ -98,6 +100,7 @@ const documentOf = (
   items: ReadonlyArray<TraceItem>,
   summaries: HashMap.HashMap<string, string>,
   isSpec: boolean,
+  statements: ReadonlyArray<TraceStatement>,
 ): TraceDocument => ({
   items,
   markdown,
@@ -105,7 +108,7 @@ const documentOf = (
   sections: Array.getSomes(
     Array.map(sections, (section) => traceSectionOf(section, summaries, isSpec)),
   ),
-  statements: [],
+  statements,
 });
 
 /**
@@ -114,7 +117,8 @@ const documentOf = (
  * events and commits (`spec.status.derivation`), the section and item statuses `rollup` gives and
  * the judgments as given. Tasks are in manifest order. A PRD section never has keys or a summary.
  * The PRD's items come from `itemsOf`; only those with an ID under a heading with an ID are listed
- * and rolled up. The spec's items are not read: nothing is built on them, and reading them costs as
+ * and rolled up. Its statements come from `statementsOf`, and each task lists the statements
+ * `taskStatementsOf` says it carries (see `spec.planning.done-when.tracing-statements`). The spec's items are not read: nothing is built on them, and reading them costs as
  * much as its headings.
  */
 export const traceOf = (input: TraceInput): Trace => {
@@ -122,6 +126,7 @@ export const traceOf = (input: TraceInput): Trace => {
   const specSections = sectionsOf(input.spec);
   const prdItems = itemsOf(input.prd, prdSections);
   const prdListed = Array.getSomes(Array.map(prdItems, traceItemOf));
+  const statements = statementsOf(input.prd, prdSections, prdItems);
   const derived = derive(
     input.manifest,
     Array.appendAll(prdSections, specSections),
@@ -137,10 +142,22 @@ export const traceOf = (input: TraceInput): Trace => {
     baseBranch: input.manifest.baseBranch,
     feature: input.manifest.feature,
     judgments: input.judgments,
-    prd: documentOf(PRD_PATH, input.prd, prdSections, prdListed, summaries, false),
+    prd: documentOf(
+      PRD_PATH,
+      input.prd,
+      prdSections,
+      prdListed,
+      summaries,
+      false,
+      traceStatementsOf(statements, input.manifest.tasks, input.specIndex),
+    ),
     sections: input.rollup(prdSections, specSections, derived.tasks, prdListed),
-    spec: documentOf(SPEC_PATH, input.spec, specSections, [], summaries, true),
-    tasks: derived.tasks,
+    spec: documentOf(SPEC_PATH, input.spec, specSections, [], summaries, true, []),
+    tasks: Array.map(derived.tasks, (task) =>
+      Struct.assign(task, {
+        statements: Array.map(taskStatementsOf(task, statements, input.specIndex), ({ id }) => id),
+      }),
+    ),
     version: 1,
     warnings: derived.warnings,
   };

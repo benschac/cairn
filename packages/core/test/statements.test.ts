@@ -1,9 +1,16 @@
-import { ownerOf } from "@cairn/contract";
+import { IndexedSection, ManifestTask, SpecSectionId, ownerOf } from "@cairn/contract";
 import type { StatementId } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, Number, Option, Record, Schema, String, pipe } from "effect";
+import { Array, Number, Option, Record, Result, Schema, String, Struct, pipe } from "effect";
 
-import { assignStatementIds, itemsOf, lint, sectionsOf, statementsOf } from "../src/index.ts";
+import {
+  assignStatementIds,
+  itemsOf,
+  lint,
+  sectionsOf,
+  statementsOf,
+  taskStatementsOf,
+} from "../src/index.ts";
 
 const Words = Schema.Literals([
   "Saving the filters shows the name",
@@ -408,3 +415,124 @@ it.prop(
     );
   },
 );
+
+const PRD_IDS = ["prd.cli", "prd.api", "prd.saved-views"] as const;
+const SPEC_IDS = ["spec.a", "spec.b", "spec.c"] as const;
+const PROVABLE = [
+  "prd.cli#v1",
+  "prd.cli#v2",
+  "prd.api#v1",
+  "prd.saved-views#v1",
+  "prd.saved-views#v3",
+  "prd.elsewhere#v4",
+] as const;
+
+const Tracing = {
+  ...Document,
+  prdSections: Schema.Array(Schema.Literals(PRD_IDS)).check(Schema.isMinLength(1)),
+  specSections: Schema.Array(Schema.Literals(SPEC_IDS)).check(Schema.isMinLength(1)),
+  tests: Schema.Array(
+    Schema.Struct({
+      proves: Schema.Array(Schema.Literals(PROVABLE)),
+      section: Schema.Literals(SPEC_IDS),
+    }),
+  ),
+};
+
+const decodeIndex = Schema.decodeUnknownSync(
+  Schema.Array(Schema.Struct({ id: SpecSectionId, tests: IndexedSection.fields.tests })),
+);
+
+/** An index of the three spec sections, each asking for the generated tests that name it, numbered from 1. */
+const indexOf = (tests: ReadonlyArray<{ proves: readonly string[]; section: string }>) =>
+  decodeIndex(
+    Array.map(SPEC_IDS, (id) => ({
+      id,
+      tests: Array.map(
+        Array.filter(tests, ({ section }) => section === id),
+        ({ proves }, at) => ({ id: `${id}#t${at + 1}`, kind: "example", proves, text: "A test." }),
+      ),
+    })),
+  );
+
+const decodeTask = Schema.decodeUnknownSync(
+  Schema.Struct(Struct.pick(ManifestTask.fields, ["prdSections", "specSections"])),
+);
+
+const taskOf = (prdSections: readonly string[], specSections: readonly string[]) =>
+  decodeTask({ prdSections, specSections });
+
+it.prop(
+  "a task carries exactly the statements of its PRD sections, and each is proved only by tests of its spec sections",
+  Tracing,
+  ({ lines, prdSections, sections, specSections, tests }) => {
+    const statements = read(documentOf({ lines, sections }));
+    const index = indexOf(tests);
+    const task = taskOf(prdSections, specSections);
+    const carried = taskStatementsOf(task, statements, index);
+    expect(Array.map(carried, ({ id }) => id)).toEqual(
+      idsOf(Array.filter(statements, ({ owner }) => Array.some(prdSections, (id) => id === owner))),
+    );
+    Array.forEach(carried, ({ draft, id, provedBy }) => {
+      expect(Array.some(statements, (found) => found.id === id && found.draft === draft)).toBe(
+        true,
+      );
+      Array.forEach(provedBy, (test) => {
+        expect(
+          Option.exists(Array.head(String.split(test, "#t")), (own) =>
+            Array.contains(specSections, own),
+          ),
+        ).toBe(true);
+      });
+      const expected = Array.flatMap(index, (section) =>
+        Array.some(specSections, (named) => named === section.id)
+          ? Array.filterMap(section.tests, (test) =>
+              Array.contains(test.proves, id) ? Result.succeed(test.id) : Result.failVoid,
+            )
+          : [],
+      );
+      expect(provedBy).toEqual(expected);
+    });
+  },
+);
+
+it("a task that names a section does not carry the statements of the items under it", () => {
+  const prd = doc(
+    "# Title {#prd.title}",
+    "",
+    "## A {#prd.a}",
+    "",
+    "Done when:",
+    "",
+    "- The section works. {#prd.a#v1}",
+    "",
+    "Items:",
+    "",
+    "- An item. {#prd.a.item}",
+    "",
+    "  Done when:",
+    "",
+    "  - The item works. {#prd.a.item#v1}",
+  );
+  const index = decodeIndex([
+    {
+      id: "spec.s",
+      tests: [
+        { id: "spec.s#t1", kind: "example", proves: ["prd.a#v1"], text: "Section." },
+        { id: "spec.s#t2", kind: "example", proves: ["prd.a.item#v1"], text: "Item." },
+      ],
+    },
+    {
+      id: "spec.other",
+      tests: [{ id: "spec.other#t1", kind: "example", proves: ["prd.a#v1"], text: "Elsewhere." }],
+    },
+  ]);
+  const statements = read(prd);
+  expect(taskStatementsOf(taskOf(["prd.a"], ["spec.s"]), statements, index)).toEqual([
+    { draft: false, id: "prd.a#v1", provedBy: ["spec.s#t1"] },
+  ]);
+  expect(
+    taskStatementsOf(taskOf(["prd.a.item"], ["spec.s", "spec.other"]), statements, index),
+  ).toEqual([{ draft: false, id: "prd.a.item#v1", provedBy: ["spec.s#t2"] }]);
+  expect(taskStatementsOf(taskOf(["prd.title"], ["spec.s"]), statements, index)).toEqual([]);
+});

@@ -147,12 +147,16 @@ it.prop(
     const levels = levelsOf(raw);
     const ids = Array.map(levels, (_, index) => prdId(index));
     const manifest = manifestOf(Array.map(ids, (prd) => ({ prd, spec: "spec.plan" })));
+    // The PRD has no statements, so every task also gets a `task-without-statement` warning.
     expect(
-      lint(
-        prdOf(levels),
-        drawn(specWith("Implements", ids), manifest),
-        Option.some(manifest),
-        NO_GATES,
+      Array.filter(
+        lint(
+          prdOf(levels),
+          drawn(specWith("Implements", ids), manifest),
+          Option.some(manifest),
+          NO_GATES,
+        ),
+        ({ rule }) => rule !== "task-without-statement",
       ),
     ).toEqual([]);
   },
@@ -366,6 +370,7 @@ it("orders findings by file, then by line, with manifest findings last", () => {
     ["prd.md", Option.some(3), "missing-id"],
     ["spec.md", Option.some(3), "missing-id"],
     ["spec.md", Option.some(3), "unknown-section"],
+    ["manifest.json", Option.none(), "task-without-statement"],
     ["manifest.json", Option.none(), "unknown-section"],
     ["manifest.json", Option.none(), "unknown-section"],
   ]);

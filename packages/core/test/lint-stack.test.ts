@@ -146,7 +146,10 @@ const gateText = (gate: HumanGate) =>
   gate.required ? `required (${Array.join(gate.reasons, ", ")})` : "not required";
 
 it.prop("a manifest stackOf writes passes every rule", [Drafts], ([drafts]) => {
-  expect(lintOf(plannedOf(drafts))).toEqual([]);
+  // The PRD has no statements, so every task also gets a `task-without-statement` warning.
+  expect(
+    Array.filter(lintOf(plannedOf(drafts)), ({ rule }) => rule !== "task-without-statement"),
+  ).toEqual([]);
 });
 
 const Picked = Schema.Struct({

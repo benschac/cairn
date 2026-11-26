@@ -29,7 +29,8 @@ import type { Item } from "./items.ts";
 import { stalenessOf, uncoveredItemsOf, uncoveredOf } from "./replan.ts";
 import { linesOf } from "./section-ids.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
-import { statementsOf } from "./statements.ts";
+import { statementsOf, taskStatementsOf } from "./statements.ts";
+import type { Statement } from "./statements.ts";
 import { parentOf } from "./stack.ts";
 import { derivedOf } from "./spec-index.ts";
 import type { DerivedSection } from "./spec-index.ts";
@@ -49,6 +50,9 @@ export const LintRule = Schema.Literals([
   "gate-mismatch",
   "index-drift",
   "statement-owner",
+  "draft-statement",
+  "unproved-statement",
+  "task-without-statement",
   "no-commits-landed",
   "bad-diagram",
   "diagram-drift",
@@ -81,6 +85,7 @@ const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
   "bad-diagram": "error",
   "bad-parent": "error",
   "diagram-drift": "error",
+  "draft-statement": "warning",
   "duplicate-id": "error",
   "gate-mismatch": "error",
   "index-drift": "warning",
@@ -90,9 +95,11 @@ const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
   "stale-section": "warning",
   "stale-task": "warning",
   "statement-owner": "error",
+  "task-without-statement": "warning",
   "unknown-section": "error",
   "unmapped-item": "error",
   "unmapped-section": "error",
+  "unproved-statement": "warning",
   "worktree-clash": "error",
   "wrong-prefix": "error",
 };
@@ -605,8 +612,8 @@ const stackFindings = (
 };
 
 /** A statement whose ID names a section or item other than the one it sits under. */
-const statementOwners = (prd: string, sections: ReadonlyArray<Section>): ReadonlyArray<Finding> =>
-  Array.filterMap(statementsOf(prd, sections, itemsOf(prd, sections)), (statement) =>
+const statementOwners = (statements: ReadonlyArray<Statement>): ReadonlyArray<Finding> =>
+  Array.filterMap(statements, (statement) =>
     Predicate.isNotUndefined(statement.id) && ownerOf(statement.id) !== statement.owner
       ? Result.succeed(
           findingOf(
@@ -614,6 +621,74 @@ const statementOwners = (prd: string, sections: ReadonlyArray<Section>): Readonl
             "prd.md",
             Option.some(statement.line),
             `The statement ${statement.id} sits under ${statement.owner}, which is not the owner its ID names. Give it an ID of its own.`,
+          ),
+        )
+      : Result.failVoid,
+  );
+
+const statementName = (statement: Statement): string =>
+  Option.match(Option.fromUndefinedOr(statement.id), {
+    onNone: () => `on line ${statement.line}`,
+    onSome: (id) => id,
+  });
+
+/** A statement that is still a draft: Cairn wrote it and no person has confirmed it. */
+const draftStatements = (statements: ReadonlyArray<Statement>): ReadonlyArray<Finding> =>
+  Array.filterMap(statements, (statement) =>
+    statement.draft
+      ? Result.succeed(
+          findingOf(
+            "draft-statement",
+            "prd.md",
+            Option.some(statement.line),
+            `The statement ${statementName(statement)} is a draft. Confirm it in prd.md, or run cairn plan to be asked.`,
+          ),
+        )
+      : Result.failVoid,
+  );
+
+/**
+ * A statement with an ID, not tagged for a person, that is in no test's `proves` in any spec
+ * section that implements its owner.
+ */
+const unprovedStatements = (
+  statements: ReadonlyArray<Statement>,
+  index: SpecIndex,
+): ReadonlyArray<Finding> =>
+  Array.filterMap(statements, (statement) => {
+    const id = statement.id;
+    return Predicate.isUndefined(id) ||
+      statement.human ||
+      Array.some(
+        Array.filter(index.sections, (section) =>
+          Array.contains(section.implements, statement.owner),
+        ),
+        (section) => Array.some(section.tests, (test) => Array.contains(test.proves, id)),
+      )
+      ? Result.failVoid
+      : Result.succeed(
+          findingOf(
+            "unproved-statement",
+            "prd.md",
+            Option.some(statement.line),
+            `The statement ${id} is in no test's proves in a spec section that implements ${statement.owner}.`,
+          ),
+        );
+  });
+
+/** A task none of whose PRD sections has a statement with an ID. */
+const tasksWithoutStatements = (
+  statements: ReadonlyArray<Statement>,
+  tasks: ReadonlyArray<ManifestTask>,
+): ReadonlyArray<Finding> =>
+  Array.filterMap(tasks, (task) =>
+    Array.isReadonlyArrayEmpty(taskStatementsOf(task, statements, []))
+      ? Result.succeed(
+          findingOf(
+            "task-without-statement",
+            "manifest.json",
+            Option.none(),
+            `${task.id} carries no done-when statement: none of ${Array.join(task.prdSections, ", ")} has one.`,
           ),
         )
       : Result.failVoid,
@@ -664,6 +739,7 @@ export const lint = (
   const prdIds = HashSet.fromIterable(Array.map(identifiedOf(prdDocument), ({ id }) => id));
   const specIds = HashSet.fromIterable(Array.map(identifiedOf(specDocument), ({ id }) => id));
   const tasks = Option.match(manifest, { onNone: () => [], onSome: (plan) => plan.tasks });
+  const statements = statementsOf(prd, prdSections, prdDocument.items);
   const findings = Array.flatten([
     missingIds(prdDocument),
     missingIds(specDocument),
@@ -672,7 +748,9 @@ export const lint = (
     wrongPrefixes(specDocument),
     unknownInKeys(specDocument, prdIds, specIds),
     unmapped(prdDocument, specDocument),
-    statementOwners(prd, prdDocument.sections),
+    statementOwners(statements),
+    draftStatements(statements),
+    tasksWithoutStatements(statements, tasks),
     unmappedItems(prdDocument, specDocument),
     badDiagrams("prd.md", prd),
     badDiagrams("spec.md", spec),
@@ -693,6 +771,10 @@ export const lint = (
     Option.match(index, {
       onNone: () => [],
       onSome: (written) => indexDrift(prd, spec, tasks, written),
+    }),
+    Option.match(index, {
+      onNone: () => [],
+      onSome: (written) => unprovedStatements(statements, written),
     }),
     Option.match(index, {
       onNone: () => [],

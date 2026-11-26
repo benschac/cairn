@@ -1,4 +1,4 @@
-import { Event, Manifest, SpecSectionId, Trace, TaskStatus } from "@cairn/contract";
+import { Event, IndexedSection, Manifest, SpecSectionId, Trace, TaskStatus } from "@cairn/contract";
 import type { Actor } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
 import { Array, DateTime, Option, Schema, String, pipe } from "effect";
@@ -182,6 +182,7 @@ it("gives a spec section its summary from the index, and nothing else one", () =
         {
           id: Schema.decodeSync(SpecSectionId)("spec.server"),
           summary: "Serves the trace over HTTP.",
+          tests: [],
         },
       ],
     }),
@@ -266,5 +267,119 @@ it("lists the items that have an ID under a heading that has one, and rolls each
     { id: "prd.viewer.gates", status: "unmapped" },
     { id: "spec.root", status: "pending" },
     { id: "spec.server", status: "pending" },
+  ]);
+});
+
+it("lists the PRD's statements, each task's own and the tests that prove them", () => {
+  const prd = Array.join(
+    [
+      "# Product {#prd.product}",
+      "",
+      "## Viewer {#prd.viewer}",
+      "",
+      "Done when:",
+      "",
+      "- Draft: A task shows its commits. {#prd.viewer#v1}",
+      "- <!-- human --> A person likes the look. {#prd.viewer#v2}",
+      "- Not numbered yet.",
+      "",
+      "Items:",
+      "",
+      "- Show tasks. {#prd.viewer.tasks}",
+      "",
+      "  Done when:",
+      "",
+      "  - A task row shows its status. {#prd.viewer.tasks#v1}",
+      "",
+    ],
+    "\n",
+  );
+  const withItem = Schema.decodeUnknownSync(Manifest)({
+    baseBranch: "main",
+    feature: "cairn-mvp",
+    tasks: [
+      task("t2", null),
+      task("t1", null),
+      { ...task("t3", null), prdSections: ["prd.viewer.tasks"] },
+    ],
+    version: 1,
+  });
+  const decodeSpecTests = Schema.decodeUnknownSync(
+    Schema.Array(Schema.Struct({ id: SpecSectionId, tests: IndexedSection.fields.tests })),
+  );
+  const trace = traceOf(
+    inputOf([], {
+      manifest: withItem,
+      prd,
+      specIndex: Array.map(
+        decodeSpecTests([
+          {
+            id: "spec.server",
+            tests: [
+              {
+                id: "spec.server#t1",
+                kind: "example",
+                proves: ["prd.viewer#v1"],
+                text: "Commits.",
+              },
+              {
+                id: "spec.server#t2",
+                kind: "example",
+                proves: ["prd.viewer.tasks#v1"],
+                text: "Rows.",
+              },
+            ],
+          },
+          {
+            id: "spec.other",
+            tests: [
+              { id: "spec.other#t1", kind: "example", proves: ["prd.viewer#v1"], text: "No." },
+            ],
+          },
+        ]),
+        ({ id, tests }) => ({ id, summary: "", tests }),
+      ),
+    }),
+  );
+  expect(
+    Array.map(trace.prd.statements, ({ draft, human, id, line: at, provedBy, text }) => ({
+      draft,
+      human,
+      id,
+      line: at,
+      provedBy,
+      text,
+    })),
+  ).toEqual([
+    {
+      draft: true,
+      human: false,
+      id: "prd.viewer#v1",
+      line: 7,
+      provedBy: ["spec.server#t1"],
+      text: "A task shows its commits.",
+    },
+    {
+      draft: false,
+      human: true,
+      id: "prd.viewer#v2",
+      line: 8,
+      provedBy: [],
+      text: "A person likes the look.",
+    },
+    {
+      draft: false,
+      human: false,
+      id: "prd.viewer.tasks#v1",
+      line: 17,
+      provedBy: ["spec.server#t2"],
+      text: "A task row shows its status.",
+    },
+  ]);
+  expect(Array.map(trace.spec.statements, ({ id }) => id)).toEqual([]);
+  expect(Array.map(trace.tasks, ({ statements }) => statements)).toEqual([
+    ["prd.viewer#v1", "prd.viewer#v2"],
+    ["prd.viewer#v1", "prd.viewer#v2"],
+    ["prd.viewer.tasks#v1"],
   ]);
 });

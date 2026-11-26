@@ -1,9 +1,29 @@
 import { SpecIndexJson, SpecSectionId } from "@cairn/contract";
-import type { IndexedSection, ManifestTask, SpecIndex } from "@cairn/contract";
-import { bodyHashOf, derivedOf, identifiedOf, sectionsOf } from "@cairn/core";
-import { Array, Effect, HashSet, Option, Record, Result, Schema, String, Struct } from "effect";
+import type { IndexedSection, ManifestTask, SpecIndex, StatementId } from "@cairn/contract";
+import {
+  bodyHashOf,
+  derivedOf,
+  identifiedOf,
+  itemsOf,
+  sectionsOf,
+  statementsOf,
+  taskStatementsOf,
+} from "@cairn/core";
+import {
+  Array,
+  Console,
+  Effect,
+  HashSet,
+  Option,
+  Record,
+  Result,
+  Schema,
+  String,
+  Struct,
+} from "effect";
 
 import { Planner } from "./planner.ts";
+import type { IndexProse } from "./planner.ts";
 import type { PlannerError } from "./planner.ts";
 import { CAIRN_DIRECTORY } from "./workspace.ts";
 
@@ -59,10 +79,41 @@ export const editedOf = (spec: string, previous: SpecIndex): ReadonlyArray<SpecS
 };
 
 /**
+ * `prose` with each test's `proves` cut down to the IDs in `known`, the statements of the PRD.
+ * A model can name a statement the PRD does not have; a warning names the section and the IDs left
+ * out (see `spec.planning.done-when.tracing-statements`).
+ */
+const knownProofsOf = Effect.fn("knownProofsOf")(function* (
+  section: SpecSectionId,
+  known: HashSet.HashSet<StatementId>,
+  prose: IndexProse,
+) {
+  const dropped = Array.dedupe(
+    Array.flatMap(prose.tests, ({ proves }) =>
+      Array.filter(proves, (id) => !HashSet.has(known, id)),
+    ),
+  );
+  yield* Array.isReadonlyArrayNonEmpty(dropped)
+    ? Console.log(
+        `Warning: left out ${Array.join(dropped, ", ")} from the tests of ${section}, which the PRD has no statement for.`,
+      )
+    : Effect.void;
+  return Struct.evolve(prose, {
+    tests: (tests) =>
+      Array.map(tests, (test) =>
+        Struct.evolve(test, {
+          proves: (proves) => Array.filter(proves, (id) => HashSet.has(known, id)),
+        }),
+      ),
+  });
+});
+
+/**
  * `spec.json` for `spec.md` and `manifest.json`. Code fills the derived fields from the files.
  * `Planner.index` fills the prose fields of each section that is new or named in `changed`; any
- * other section keeps the prose of its entry in `previous`. A section that left `spec.md` leaves
- * the index.
+ * other section keeps the prose of its entry in `previous`. A test proves only statements the PRD
+ * has. Each task lists the statements it carries and the tests that prove them. A section that left
+ * `spec.md` leaves the index.
  */
 export const specIndexOf = Effect.fn("specIndexOf")(function* (
   input: SpecIndexInput,
@@ -76,6 +127,11 @@ export const specIndexOf = Effect.fn("specIndexOf")(function* (
     ),
   );
   const changed = HashSet.fromIterable(Array.appendAll(input.changed, input.written));
+  const prdSections = sectionsOf(input.prd);
+  const statements = statementsOf(input.prd, prdSections, itemsOf(input.prd, prdSections));
+  const known = HashSet.fromIterable(
+    Array.getSomes(Array.map(statements, ({ id }) => Option.fromUndefinedOr(id))),
+  );
   const sections = yield* Effect.forEach(
     Array.zip(derivedOf(input), identified),
     ([derived, { section }]) =>
@@ -83,14 +139,14 @@ export const specIndexOf = Effect.fn("specIndexOf")(function* (
         Option.filter(Record.get(previous, derived.id), () => !HashSet.has(changed, derived.id)),
         {
           onNone: () =>
-            planner
-              .index({ body: section.body, id: derived.id, title: section.title })
-              .pipe(Effect.map((prose): IndexedSection => ({ ...derived, ...prose }))),
+            planner.index({ body: section.body, id: derived.id, title: section.title }).pipe(
+              Effect.flatMap((prose) => knownProofsOf(derived.id, known, prose)),
+              Effect.map((prose): IndexedSection => ({ ...derived, ...prose })),
+            ),
           onSome: (entry) =>
-            Effect.succeed<IndexedSection>({
-              ...derived,
-              ...Struct.pick(entry, PROSE_FIELDS),
-            }),
+            knownProofsOf(derived.id, known, Struct.pick(entry, PROSE_FIELDS)).pipe(
+              Effect.map((prose): IndexedSection => ({ ...derived, ...prose })),
+            ),
         },
       ),
     { concurrency: CONCURRENCY },
@@ -100,7 +156,10 @@ export const specIndexOf = Effect.fn("specIndexOf")(function* (
     prd: `${CAIRN_DIRECTORY}/prd.md`,
     sections,
     source: `${CAIRN_DIRECTORY}/spec.md`,
-    tasks: [],
+    tasks: Array.map(input.manifest.tasks, (task) => ({
+      id: task.id,
+      statements: taskStatementsOf(task, statements, sections),
+    })),
     version: 1,
   };
 });

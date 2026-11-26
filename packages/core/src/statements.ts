@@ -1,6 +1,25 @@
 import { PrdSectionId, StatementId, ownerOf } from "@cairn/contract";
-import type { Section } from "@cairn/contract";
-import { Array, Equal, HashMap, Number, Option, Order, Schema, String, pipe } from "effect";
+import type {
+  IndexedSection,
+  IndexedTask,
+  ManifestTask,
+  Section,
+  TestId,
+  TraceStatement,
+} from "@cairn/contract";
+import {
+  Array,
+  Equal,
+  HashMap,
+  Number,
+  Option,
+  Order,
+  Predicate,
+  Result,
+  Schema,
+  String,
+  pipe,
+} from "effect";
 
 import { itemsOf } from "./items.ts";
 import type { Item } from "./items.ts";
@@ -436,5 +455,68 @@ export const settle = (markdown: string, id: StatementId, answer: DraftAnswer): 
         return Array.join(rewritten, "\n");
       },
     }),
+  );
+};
+
+/** What `taskStatementsOf` reads of a task: the sections it implements and builds. */
+export type TracedTask = Pick<ManifestTask, "prdSections" | "specSections">;
+
+/** What it reads of `spec.json`: each section's ID and the tests it asks for. */
+export type TestedSection = Pick<IndexedSection, "id" | "tests">;
+
+/** What a task proves of one statement, as `spec.json` records it. */
+export type TaskStatement = IndexedTask["statements"][number];
+
+/**
+ * The statements `task` carries (see `spec.planning.done-when.tracing-statements`), in document
+ * order. A task carries the statements whose owner is one of its `prdSections`; a task that names
+ * a section does not carry the statements of the items under it, since items have their own tasks.
+ * A statement with no ID cannot be named, so no task carries it. Each statement's `provedBy` lists
+ * the tests, in the task's `specSections` and in the order of `index`, whose `proves` holds it.
+ */
+export const taskStatementsOf = (
+  task: TracedTask,
+  statements: readonly Statement[],
+  index: readonly TestedSection[],
+): readonly TaskStatement[] => {
+  const built = Array.filter(index, ({ id }) => Array.contains(task.specSections, id));
+  return Array.filterMap(statements, ({ draft, id, owner }) =>
+    Predicate.isNotUndefined(id) && Array.contains(task.prdSections, owner)
+      ? Result.succeed({
+          draft,
+          id,
+          provedBy: Array.flatMap(built, ({ tests }) =>
+            Array.filterMap(tests, (test) =>
+              Array.contains(test.proves, id) ? Result.succeed(test.id) : Result.failVoid,
+            ),
+          ),
+        })
+      : Result.failVoid,
+  );
+};
+
+/** The statements of `statements` that have an ID, as the Trace lists them, with the tests that prove each. */
+export const traceStatementsOf = (
+  statements: readonly Statement[],
+  tasks: readonly TracedTask[],
+  index: readonly TestedSection[],
+): readonly TraceStatement[] => {
+  const carried = Array.flatMap(tasks, (task) => taskStatementsOf(task, statements, index));
+  return Array.filterMap(statements, ({ draft, human, id, line, owner, text }) =>
+    Predicate.isUndefined(id)
+      ? Result.failVoid
+      : Result.succeed({
+          draft,
+          human,
+          id,
+          line,
+          owner,
+          provedBy: Array.dedupe(
+            Array.flatMap(carried, (found): readonly TestId[] =>
+              found.id === id ? found.provedBy : [],
+            ),
+          ),
+          text: wordsOf(String.replaceAll(/<!--\s*human\s*-->/gu, "")(text)),
+        }),
   );
 };

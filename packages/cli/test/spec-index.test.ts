@@ -1,8 +1,16 @@
-import { Manifest, SpecIndexJson, SpecSectionId, TaskId } from "@cairn/contract";
+import {
+  Manifest,
+  PrdSectionId,
+  SpecIndexJson,
+  SpecSectionId,
+  SpecTest,
+  TaskId,
+} from "@cairn/contract";
 import { bodyHashOf } from "@cairn/core";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { Array, Effect, FileSystem, Option, Ref, Result, Schema, String } from "effect";
+import { TestConsole } from "effect/testing";
 
 import { Planner, PlannerError } from "../src/planner.ts";
 import type { IndexProse, IndexTarget } from "../src/planner.ts";
@@ -11,6 +19,7 @@ import type { SpecIndexInput } from "../src/spec-index.ts";
 
 const decodeId = Schema.decodeSync(SpecSectionId);
 const decodeTask = Schema.decodeSync(TaskId);
+const decodePrd = Schema.decodeSync(PrdSectionId);
 
 const unused = () => Effect.die("unused");
 
@@ -267,5 +276,87 @@ it.effect.prop(
       const decoded = yield* Schema.decodeEffect(SpecIndexJson)(text);
       expect(String.endsWith("}\n")(text)).toBe(true);
       expect(decoded).toEqual(index);
+    }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect(
+  "a test proves only statements the PRD has, with a warning for the rest, and each task lists what it carries",
+  () =>
+    Effect.gen(function* () {
+      const manifest = yield* manifestOf();
+      const model = manifest.tasks[0];
+      const tasked = {
+        ...manifest,
+        tasks: Array.make(
+          {
+            ...model,
+            id: decodeTask("ta"),
+            prdSections: Array.make(decodePrd("prd.product")),
+            specSections: Array.make(decodeId("spec.s0")),
+          },
+          {
+            ...model,
+            id: decodeTask("tb"),
+            prdSections: Array.make(decodePrd("prd.other")),
+            specSections: Array.make(decodeId("spec.s0")),
+          },
+        ),
+      };
+      const prd = Array.join(
+        [
+          "# Product {#prd.product}",
+          "",
+          "Done when:",
+          "",
+          "- Draft: It shows. {#prd.product#v1}",
+          "- It saves. {#prd.product#v2}",
+          "",
+          "## Other {#prd.other}",
+          "",
+        ],
+        "\n",
+      );
+      const proving = Planner.of({
+        index: () =>
+          Effect.succeed({
+            ...proseFor("spec.s0", 1),
+            tests: Schema.decodeUnknownSync(Schema.Array(SpecTest))([
+              {
+                id: "spec.s0#t1",
+                kind: "example",
+                proves: ["prd.product#v1", "prd.product#v9"],
+                text: "Shows.",
+              },
+              { id: "spec.s0#t2", kind: "example", proves: ["prd.product#v2"], text: "Saves." },
+            ]),
+          }),
+        sections: unused,
+        spec: unused,
+        splitSection: unused,
+        splitTask: unused,
+        statements: unused,
+        tasks: unused,
+      });
+      const index = yield* specIndexOf(
+        inputOf(tasked, "# One {#spec.s0}\n\nText.\n", { prd }),
+      ).pipe(Effect.provideService(Planner, proving));
+      expect(Array.map(index.sections[0]?.tests ?? [], ({ proves }) => proves)).toEqual([
+        ["prd.product#v1"],
+        ["prd.product#v2"],
+      ]);
+      expect(index.tasks).toEqual([
+        {
+          id: "ta",
+          statements: [
+            { draft: true, id: "prd.product#v1", provedBy: ["spec.s0#t1"] },
+            { draft: false, id: "prd.product#v2", provedBy: ["spec.s0#t2"] },
+          ],
+        },
+        { id: "tb", statements: [] },
+      ]);
+      const logged = yield* TestConsole.logLines;
+      expect(logged).toEqual([
+        "Warning: left out prd.product#v9 from the tests of spec.s0, which the PRD has no statement for.",
+      ]);
     }).pipe(Effect.provide(NodeServices.layer)),
 );
