@@ -1,6 +1,6 @@
 import { PrdSectionId, PresenceJson, ReadingJson } from "@cairn/contract";
 import { Subscription } from "@effect/ui";
-import { Context, Effect, Filter, MutableRef, Option, Schema, Stream } from "effect";
+import { Context, Effect, Filter, MutableRef, Option, Schema, Scope, Stream } from "effect";
 
 import { Message } from "../message.ts";
 import { loadedTraceOf, type Model } from "../model.ts";
@@ -103,7 +103,10 @@ export const presenceSubscription = (model: Model) =>
         enter(({ maybeReading }) => MutableRef.set(latest, maybeReading));
         return MutableRef.get(latest);
       };
-      const fiber = Effect.runForkWith(context)(
+      // The fiber runs outside the host's, with the services the host hands `attach`. The host adds
+      // the subscription's Scope to them; the stream opens and closes the socket in a scope of its
+      // own and `close` interrupts the fiber, so that Scope is left out rather than carried along.
+      const fiber = Effect.runForkWith(Context.omit(Scope.Scope)(context))(
         Stream.runForEach(presenceMessages(readReading), (message) =>
           Effect.sync(() => emit(message)),
         ),
