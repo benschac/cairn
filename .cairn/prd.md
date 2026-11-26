@@ -1317,3 +1317,20 @@ Every planner call is one-shot. A retry fills `retry.md` and sends it around the
   - Indexing a section sends only that section. Its calls share no opening, so each has a chat of its own and there is nothing to branch from.
   - The in-memory repository of the git tests and the in-memory `.cairn/` of a dry run keep their state in a `Ref` as a chat does. Each gets a `branch` of its own when a feature forks it: checking a landing order on a copy of the repository (see landing order) and comparing planners in one run (see comparing planners). Until then nothing would call it.
   - Asking about done-when statements is not a fit. A statement the person settles is written into `prd.md`, and the spec step reads it from there, so the spec needs the file, not the conversation that drafted it.
+
+### Carrying context {#prd.refactors.carrying-context}
+
+Some effects are stored at one point and run at another, by code with a different context: a handler kept in a registry, a callback that a library or a runtime calls later, the system under test that `@xstate/test` drives from outside the test's fiber. Such an effect runs with whatever the runner has, so it takes its own context along: `Effect.context` captures it where the effect is stored, and `Effect.provideContext` gives it back where it runs. `Effect.context` is typed by what the effect needs but captures every service of the fiber, the `Scope` of the layer or test that captured it included, and when the context is provided the captured services win over the runner's. So the capture chooses what goes along, with `Context.pick` or `Context.omit`, and each run is scoped before the captured context is provided, so its own `Scope` sits closest to it and releases what it acquired. With the two the other way round, the captured `Scope` shadows the fresh one and whatever a run acquires stays open until the app shuts down. The pattern comes from Harry Solovay's talk [Advanced Effect Design Patterns](https://youtu.be/_tSGby_q890?t=963) at Effect Miami 3, from 16:03, in its chapter "Carrying context".
+
+- Tests that hand their services to code outside their fiber leave the test's `Scope` behind, and a test double built in a layer keeps only the services its calls need.
+- The work still to come stores effects and runs them later, and takes the pattern:
+  - The MCP server's tool registry holds one handler per tool, which the transport calls. Each call runs with the services captured at startup and a `Scope` of its own, so cancelling a call ends the child processes it started (see agent access).
+  - The hosted Worker's request and cron handlers, and the room's socket, alarm and RPC entry points, are called by the Cloudflare runtime outside any fiber. Each call runs with the services built from the bindings and a scope of its own, and a room that wakes from hibernation builds them again.
+  - `cairn watch`'s key, resize and signal listeners (see terminal view), and `cairn connect sync --watch`, which syncs again when a file changes.
+  - The viewer's subscriptions on Effect UI, which the host starts with the context it hands them (see Effect UI).
+  - The adapters still to come, whose runner calls back on an agent's events.
+- Where it already fits, written down here so it is not looked for again:
+  - A handler that needs a scope for each call can keep `Scope` in its requirements and let its caller provide one, as the presence room's `join` does for each socket.
+  - `@xstate/effect` captures the context when it creates an actor and puts a scope of the actor's own in place of the caller's, so the room machine needs nothing more.
+  - The viewer's DOM listeners put a Message on a queue and run no effect, so they carry no context.
+- The Effect checklist in `.agent_sources` carries the pattern, so a reviewer asks for it where a diff captures `Effect.context()` whole, or provides a captured context outside `Effect.scoped`.

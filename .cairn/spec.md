@@ -3963,6 +3963,7 @@ Progress and cancellation:
 - When a request carries a `progressToken`, each `OperationContext.progress` becomes a `notifications/progress` message. In the CLI, progress is a line on stderr.
 - `notifications/cancelled` interrupts the operation's fiber. The fiber's scope ends the planner's child processes. The call returns `cancelled`, with `changed` from the `WriteLog`, and the operation log records it.
 - When stdin closes, or on SIGTERM or SIGINT, the server closes its root scope. That interrupts every running operation, which the operation log records for the next `status`. It also stops anything the server started (see `spec.cli.agent-access.more-tools`) and exits 0.
+- The registry stores each tool's handler when the server starts, and the transport calls it later, outside the fiber that stored it. A handler runs with the services captured at startup, `Scope` left out, and each call is scoped before they are provided, so a call that ends or is cancelled releases what it acquired, the planner's child processes included (see `spec.refactors.carrying-context`).
 
 Tests, in `mcp.test.ts`:
 
@@ -4278,6 +4279,7 @@ The terminal, in `terminal.ts`:
   - the trace stream's fibers and watchers;
   - the one-second tick.
 - The loop folds Messages through `update`, runs Commands, and draws `view` after each batch, at most once per animation-length tick of 16 ms.
+- A listener only offers a Message to the loop's queue or interrupts the main fiber, and runs no effect of its own. Commands run in the loop's fiber. An effect a Node callback has to run is run with the command's services, `Scope` left out, and scoped on its own (see `spec.refactors.carrying-context`).
 
 Leaving:
 
@@ -6056,6 +6058,7 @@ create table pending_revocations (id text primary key, document_ids text not nul
 
 - Large bodies. `blobs.ts` stores a revision body over 512 KiB in R2 at `revisions/<document>/<revision>.md`. R2 is reached only through the room, so the room's policy applies to it. The launch has no attachments.
 - Caching. Every protected response carries `Cache-Control: no-store`. Public responses carry `no-cache` and an `ETag`. No shared cache ever holds document content, so making a document private has nothing to purge.
+- Handlers. The runtime calls the Worker's `fetch` and `scheduled` handlers and the room's entry points outside any fiber. Each builds its services from the bindings once, keeps them as a context without `Scope`, and runs every request, cron tick and room call scoped before that context is provided, so what a call acquires is released when it ends (see `spec.refactors.carrying-context`).
 - Deploy. `alchemy.run.ts` defines the Worker, the `PrdRoom` namespace, the D1 database, the R2 bucket, the email binding, a cron trigger every minute (see `spec.hosted-launch.room`) and the secrets. The secrets are Alchemy config bindings and none is in the repo. The configuration it reads is in `spec.hosted-launch.self-hosting`.
 
 New dependencies: `better-auth`, `@effect/sql-d1`, `@effect/sql-sqlite-do`, `stripe` and the dev dependency `@cloudflare/vitest-pool-workers`, each pinned at the version current on the day it is added. `alchemy` is already in the workspace.
@@ -6149,6 +6152,8 @@ Live updates. `GET /api/documents/:id/live` upgrades to a WebSocket once the Wor
 - An anonymous socket gets messages only while the document is public, and the trace in its public form (see `spec.hosted-launch.visibility`).
 - A socket whose session has expired is closed with code 4401 at its next broadcast.
 - `reading` messages go only to sockets with at least `comment` access. An anonymous reader neither sends nor receives presence.
+
+Entry points. `fetch`, `webSocketMessage`, `webSocketClose`, `alarm` and the RPC methods each run with the services the room built and a `Scope` of their own, as the Worker's handlers do (see `spec.hosted-launch.worker-and-storage`). A room that wakes from hibernation builds its services again before it handles the call that woke it.
 
 Reconnecting. `GET /api/documents/:id/state` returns the room's `seq`, the current revisions, the threads, the trace hash and the latest approvals. A client fetches it whenever its socket opens, replaces what it holds, and from then on ignores messages whose `seq` it already has. It reconnects with backoff from 1 second to 30 seconds. Missed messages are covered by the fetch, and retried writes by their idempotency keys, so a reconnect loses no committed comment and repeats no event.
 
@@ -6679,7 +6684,7 @@ Tests:
   - It records the repo's remote URL, when `git remote get-url origin` has one, in `connections`.
 - `cairn connect agent <name> [--actions progress,comment]` creates an agent for this PRD with the person's session and stores its token.
 - Credentials live in `~/.config/cairn/credentials.json`, or `%APPDATA%\cairn\credentials.json` on Windows, with mode 0600. Each origin holds a person's session and named agent tokens. They are never in the repo. `CAIRN_AGENT_TOKEN` in the environment takes the stored agent's place.
-- `cairn connect sync [--watch]` runs four steps. `--watch` runs them again whenever `.cairn/` changes, debounced by one second, and is what an orchestrator leaves running.
+- `cairn connect sync [--watch]` runs four steps. `--watch` runs them again whenever `.cairn/` changes, debounced by one second, and is what an orchestrator leaves running. The watcher is a stream the command's fiber consumes, not a callback, so each sync inherits the command's services; each is scoped on its own, so what one sync acquires is released before the next (see `spec.refactors.carrying-context`).
 
 1. Documents, for `prd.md` and, once it exists, `spec.md`. A file is changed locally when its hash differs from `connect.json`. It is changed remotely when the hosted current revision differs from `connect.json`.
    - Neither changed: nothing happens.
@@ -6934,3 +6939,16 @@ Tests: `judge.test.ts` builds `Judge.whenConfigured` with no key, with `TYPESAFE
 Not branched, on purpose: the judgments, which go to the `Judge` and hold no conversation, and `refineWith`'s `stack` `Ref` of stack judgments, which every round reads and replaces and so stays one `Ref`. The pattern comes from Harry Solovay's talk [Advanced Effect Design Patterns](https://youtu.be/_tSGby_q890) at Effect Miami 3, in its chapter "Branching conversations".
 
 Tests: `chat.test.ts` runs concurrent branches of a chat and checks that each sees the chat's turns and only its own, and that the chat keeps just its turns; a `branch` that provides the same chat fails it. In `planner.test.ts` a retried call's second request holds the first prompt and the refused reply and only the error as its new turn, and a Mermaid block that does not draw goes back in the same chat after the first prompt and reply with only its error; a `withRetry` that leaves out the refused turn, or a `retry.md` that carries the prompt again, fails them. In `refine.test.ts` two drafts split in one round each see the spec as the opening and only their own request; splitting outside a branch fails it. `planner-live.test.ts` checks that the retry prompt holds the decode error and the split prompt only the draft and the reason, and `cli-model.test.ts` that a second call carries `Your previous reply:` with the refused text; dropping assistant turns again fails it.
+
+### Carrying context {#spec.refactors.carrying-context}
+
+- Implements: `prd.refactors.carrying-context`
+- Files: `packages/core/test/derive.model.test.ts`, `packages/cli/test/presence.model.test.ts`, `packages/cli/test/git.test.ts`, `packages/cli/test/fixtures/scripted-terminal.ts`, `packages/cli/test/scripted-terminal.test.ts`, `apps/viewer/test/load.test.ts`, `apps/viewer/src/subscription/presence.ts`, `.agent_sources/effect/checklist.md`, `.agent_sources/effect/native-to-effect.md`
+
+`it.effect` and `it.live` run each test in `Effect.scoped`, so `Effect.context()` in a test holds the test's `Scope`. The model-based tests of derivation and presence hand their services to the `sut` that `@xstate/test` drives through promises, and the trace poll's test to the stub `fetch` that `FetchHttpClient` calls. Each takes `Effect.context().pipe(Effect.map(Context.omit(Scope.Scope)))` instead, so an effect run later acquires in a scope of its own. `GitWrites` in `git.test.ts` runs `git` on each call after its layer is built, and keeps only the spawner with `Context.pick(ChildProcessSpawner.ChildProcessSpawner)`. `scriptedTerminal` is generic in what its `display` needs, so its capture cannot be narrowed by type; each call runs `Effect.scoped` before `Effect.provideContext`.
+
+The checklist's "Resources and scopes" table gains a row for an effect stored and run elsewhere, and its scan a line for `Effect.context`, `run*With` and `provideContext`. `native-to-effect.md` gains a row for running an effect from a callback.
+
+The sections still to build say where it applies to them: `spec.cli.agent-access.mcp-server`, `spec.hosted-launch.worker-and-storage`, `spec.hosted-launch.room`, `spec.cli.terminal-view.cairn-watch` and `spec.hosted-launch.cairn-connect`. The viewer's presence subscription on Effect UI, in `apps/viewer/src/subscription/presence.ts`, runs its socket stream with `Effect.runForkWith` and the context the host hands it, and leaves the host's `Scope` out in the same way.
+
+Tests: the refactor changes no behaviour, so the tests it touches pass as they did. `scripted-terminal.test.ts` has a `display` that acquires and releases, and checks that each call releases before the next; providing the captured context without `Effect.scoped` releases them only when the layer closes, and fails it.
