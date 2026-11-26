@@ -328,6 +328,7 @@ Config = {
     provider: "anthropic" | "openai" | "openrouter" | "openai-compatible" // defaults to "anthropic"; read when source is "api"
     model: string | undefined // undefined leaves the choice to the CLI; required when source is "api"
     small: string | undefined // the model for index and the two splits; defaults to model
+    effort: { spec: Reasoning | undefined, tasks: Reasoning | undefined } | undefined // how hard the model thinks writing spec sections and drafting tasks; read by the claude CLI
     keyEnv: string | undefined // the environment variable holding the key; defaults per provider
     baseUrl: string | undefined // e.g. a Cloudflare AI Gateway URL; required for "openai-compatible"
     gatewayTokenEnv: string | undefined // the environment variable holding an AI Gateway token; read when source is "api"
@@ -931,7 +932,7 @@ Current support: the Claude CLI source, the Codex CLI source and the four API pr
 | `claude`      | `claude -p --safe-mode --tools "" --output-format json`, prompt on stdin | `--json-schema` with the call's JSON Schema   |
 | `codex`       | `codex exec`, prompt on stdin                                            | The schema flag `codex exec --help` documents |
 
-- `--model` is passed only when `planner.model` or `planner.small` is set.
+- `--model` is passed only when `planner.model` or `planner.small` is set. `--effort` is passed to claude only for a call `planner.effort` gives a level: `effort.spec` for the `spec` and `sections` calls and `effort.tasks` for the `tasks` call. Every other call, and codex, run at the CLI's own level.
 - The CLI runs with no tools, in a temporary directory, so it cannot read or change the repository. Everything it needs is in the prompt, so claude runs in safe mode: the person's CLAUDE.md, skills, plugins, hooks and MCP servers are not loaded, and are not sent to the model with every call.
 - The command runs through `ChildProcess` from `effect/unstable/process`. A non-zero exit, or output that is not the expected JSON, is a `PlannerError` carrying the CLI's stderr.
 - Read `claude --help` and `codex exec --help` on the machine before writing the flags; both CLIs change often. A flag the installed CLI does not have fails with a message naming the CLI's version.
@@ -951,7 +952,7 @@ The `api` source. `planner.provider` picks the layer:
 
 Both sources:
 
-- `languageModelFor(call)` gives the `Planner` its model per call: `planner.small` for `index`, `splitSection` and `splitTask` when it is set, and `planner.model` otherwise.
+- `languageModelFor(call)` gives the `Planner` its model per call: `planner.small` for `index`, `splitSection` and `splitTask` when it is set, and `planner.model` otherwise. `effortFor(config, call)` gives the call's `planner.effort` level, which the `Planner` provides to that call as the CLI model's `Effort` reference. The `api` source does not read it. A lower level is faster and plans in less detail: on this repository's PRD, `tasks` drafted 17 tasks at `high` and 8 at `low`.
 - Keys are read with `Config.Redacted`, never written and never logged. The `Redactor` adds the value of every key Cairn reads, the gateway token below included, to its secret set, so a key in the shell environment is stripped from session logs like one in `.env`.
 - Layers are built only when a command needs them. A command that calls no model never reads a key or looks for a CLI. `cairn plan` with `source: "api"` and no key for its provider fails before it changes any file.
 - `planner.baseUrl` and `judge.baseUrl` become each client's `apiUrl`. Setting them routes calls through a proxy, such as Cloudflare AI Gateway for logs, caching and spend. Cairn ships no gateway and needs no Cloudflare account.

@@ -1,5 +1,7 @@
+import type { Reasoning } from "@cairn/contract";
 import {
   Array,
+  Context,
   Effect,
   FileSystem,
   Layer,
@@ -68,7 +70,8 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
  * whose refresh token rotates), and codex's built-in `list_mcp_resources`, which answers with an
  * empty list because no server is configured. Neither acts on the machine.
  *
- * `--model` is passed only when a model is configured.
+ * `--model` is passed only when a model is configured, and claude's `--effort` only for a call
+ * that runs with an `Effort`.
  */
 
 /** The agent CLIs the planner can run (`planner.cli`). */
@@ -95,6 +98,18 @@ export class CliNotFound extends Schema.TaggedError<
     return `${this.cli} was not found. Install ${productOf(this.cli)}, or set planner.cli or planner.source in .cairn/config.json.`;
   }
 }
+
+/**
+ * How hard the model thinks on a call (`planner.effort`). Provide it around one call and claude
+ * runs that call with `--effort`. None, the default, passes no flag, so the CLI uses its own
+ * level. Codex is not given it.
+ */
+export const Effort = Context.Reference<Option.Option<Reasoning>>(
+  "@cairn/cli/CliLanguageModel/Effort",
+  {
+    defaultValue: () => Option.none(),
+  },
+);
 
 export interface CliModelOptions {
   readonly cli: CliName;
@@ -330,13 +345,18 @@ export const layer = (options: CliModelOptions) =>
         );
 
       /** The arguments for `cli`; codex needs the schema in a file, which goes in `directory`. */
-      const argumentsFor = (directory: string, schema: Option.Option<string>) =>
+      const argumentsFor = (
+        directory: string,
+        schema: Option.Option<string>,
+        effort: Option.Option<Reasoning>,
+      ) =>
         Match.value(cli).pipe(
           Match.when("claude", () =>
             Effect.succeed(
               Array.flatten([
                 ["-p", "--safe-mode", "--tools", "", "--output-format", "json"],
                 optionally("--model", model),
+                optionally("--effort", effort),
                 optionally("--json-schema", schema),
               ]),
             ),
@@ -377,7 +397,8 @@ export const layer = (options: CliModelOptions) =>
             // Its own empty directory, so a CLI that looks around finds nothing of the repository.
             const directory = yield* fs.makeTempDirectoryScoped({ prefix: "cairn-planner-" });
             const schema = yield* jsonSchemaOf(providerOptions.responseFormat);
-            const args = yield* argumentsFor(directory, schema);
+            const effort = yield* Effort;
+            const args = yield* argumentsFor(directory, schema, effort);
             const handle = yield* spawner.spawn(
               ChildProcess.make(cli, args, {
                 cwd: directory,

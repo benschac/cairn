@@ -1,4 +1,4 @@
-import { Config, defaultConfig } from "@cairn/contract";
+import { Config, Reasoning, defaultConfig } from "@cairn/contract";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import { Array, Effect, FileSystem, Layer, Option, Path, Result, Schema, String } from "effect";
@@ -10,9 +10,9 @@ import {
 } from "effect/ai";
 import { HttpClient } from "effect/http";
 
-import { CliNotFound, layer as cliModel } from "../src/cli-model.ts";
+import { CliNotFound, Effort, layer as cliModel } from "../src/cli-model.ts";
 import type { CliName } from "../src/cli-model.ts";
-import { SmallLanguageModel, languageModelFor, plannerModels } from "../src/models.ts";
+import { SmallLanguageModel, effortFor, languageModelFor, plannerModels } from "../src/models.ts";
 import type { PlannerCall } from "../src/models.ts";
 import { Planner, PlannerError, TaskDrafts } from "../src/planner.ts";
 
@@ -332,6 +332,79 @@ it.effect(
         "small-model",
         "no small model",
       ]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
+it.prop(
+  "planner.effort.spec is the effort of the spec and sections calls, planner.effort.tasks of the tasks call, and no other call has one",
+  [Reasoning, Reasoning],
+  ([spec, tasks]) => {
+    const config = Schema.decodeSync(Config)({ planner: { effort: { spec, tasks } }, version: 1 });
+    const effortOf = (call: string) => effortFor(config, call);
+    expect(Array.map(["spec", "sections", "tasks"], effortOf)).toEqual([
+      Option.some(spec),
+      Option.some(spec),
+      Option.some(tasks),
+    ]);
+    expect(Array.map(["statements", "index", "splitSection", "splitTask"], effortOf)).toEqual(
+      Array.makeBy(4, () => Option.none()),
+    );
+    const onlySpec = Schema.decodeSync(Config)({ planner: { effort: { spec } }, version: 1 });
+    expect(effortFor(onlySpec, "tasks")).toEqual(Option.none());
+    expect(effortFor(defaultConfig, "sections")).toEqual(Option.none());
+  },
+);
+
+it.effect(
+  "claude runs a call with --effort when the plan gives that call an effort, and with no flag when it gives none; codex never gets it",
+  () =>
+    Effect.gen(function* () {
+      const claude = yield* stubbed("claude", { stdout: CLAUDE_STRUCTURED });
+      const asked = Effect.fn("asked")(function* (effort: Option.Option<Reasoning>) {
+        yield* pick("x").pipe(
+          Effect.provideService(Effort, effort),
+          Effect.provide(modelIn(claude, "claude")),
+        );
+        const argv = yield* argvOf(claude, "claude");
+        return after(argv, "--effort");
+      });
+      const medium = yield* asked(Option.some("medium"));
+      const none = yield* asked(Option.none());
+      expect([medium, none]).toEqual([Option.some("medium"), Option.none()]);
+
+      // Through the Planner: the tasks call runs at planner.effort.tasks, and at no effort when
+      // the config sets one for the spec draft only.
+      const drafts = yield* encodedAs(AnthropicStructuredOutput.toCodecAnthropic);
+      const drafting = yield* stubbed("claude", {
+        stdout: `{"is_error":false,"result":"","structured_output":${drafts}}`,
+      });
+      const tasksEffort = Effect.fn("tasksEffort")(function* (effort: {
+        readonly spec?: Reasoning;
+        readonly tasks?: Reasoning;
+      }) {
+        const config = yield* Schema.decodeEffect(Config)({ planner: { effort }, version: 1 });
+        yield* tasks.pipe(
+          Effect.provide(
+            Planner.layerWith(config).pipe(
+              Layer.provide(modelIn(drafting, "claude")),
+              Layer.provide(NodeServices.layer),
+            ),
+          ),
+        );
+        const argv = yield* argvOf(drafting, "claude");
+        return after(argv, "--effort");
+      });
+      const low = yield* tasksEffort({ spec: "medium", tasks: "low" });
+      const unset = yield* tasksEffort({ spec: "medium" });
+      expect([low, unset]).toEqual([Option.some("low"), Option.none()]);
+
+      const codex = yield* stubbed("codex", { stdout: '{"colour":"red"}' });
+      yield* pick("x").pipe(
+        Effect.provideService(Effort, Option.some("medium")),
+        Effect.provide(modelIn(codex, "codex")),
+      );
+      const codexArgv = yield* argvOf(codex, "codex");
+      expect(Array.filter(codexArgv, String.includes("effort"))).toEqual([]);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 

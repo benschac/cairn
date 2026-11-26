@@ -29,10 +29,12 @@ import {
   Result,
   Schema,
   String,
+  flow,
 } from "effect";
 import { AiError, Chat, LanguageModel, Prompt } from "effect/ai";
 
-import { SmallLanguageModel, isSmallCall } from "./models.ts";
+import { Effort } from "./cli-model.ts";
+import { SmallLanguageModel, effortFor, isSmallCall } from "./models.ts";
 
 /** Why a planner call failed: the model could not be reached, or its reply never decoded. */
 export class PlannerError extends Schema.TaggedError<
@@ -671,16 +673,22 @@ export class Planner extends Context.Service<
    * model `config.judge.models`. It reads the prompt files when it is built, so a missing or
    * broken file fails there, before any call.
    */
-  static readonly layerWith = (config: Pick<Config, "categories" | "judge">) =>
+  static readonly layerWith = (config: Pick<Config, "categories" | "judge" | "planner">) =>
     Layer.effect(
       Planner,
       Effect.gen(function* () {
         const model = yield* LanguageModel.LanguageModel;
         const provided = yield* Effect.serviceOption(SmallLanguageModel);
         const small = Option.getOrElse(provided, () => model);
-        /** Runs a model call with the model of `call`: the small one for a small call. */
+        /**
+         * Runs a model call with the model of `call`, the small one for a small call, and at the
+         * effort the config gives that call.
+         */
         const using = (call: PlannerError["call"]) =>
-          Effect.provideService(LanguageModel.LanguageModel, isSmallCall(call) ? small : model);
+          flow(
+            Effect.provideService(LanguageModel.LanguageModel, isSmallCall(call) ? small : model),
+            Effect.provideService(Effort, effortFor(config, call)),
+          );
         const prompts = yield* loadPrompts(config.judge.models, config.categories);
         const knownCategories = inCategories(config.categories);
 
