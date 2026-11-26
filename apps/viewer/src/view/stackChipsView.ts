@@ -4,7 +4,7 @@ import { Array, Effect, HashSet, Number, Option, Order, Record, String, pipe } f
 import { Mount } from "foldkit";
 import type { Attribute, Html, HtmlBuilder } from "foldkit/html";
 
-import { STACKS_LIST_KEY, stackArrowsOf } from "../arrows.ts";
+import { STACKS_LIST_KEY, dependencyLinksOf, stackArrowsOf } from "../arrows.ts";
 import { stackBoxesOf, trunkLabelOf, type Box, type BoxCell, type Trunk } from "../boxes.ts";
 import { Message } from "../message.ts";
 import { currentTasksOf, planCountsOf, ranOf } from "../reader.ts";
@@ -100,6 +100,7 @@ const chipView = (
   cell: BoxCell,
   rows: number,
   current: HashSet.HashSet<string>,
+  lit: HashSet.HashSet<TaskId>,
   hasCurrent: boolean,
   isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
@@ -108,6 +109,7 @@ const chipView = (
   h: HtmlBuilder<Message>,
 ): Html => {
   const ran = ranOf(task);
+  const isLit = HashSet.has(lit, task.id);
   const search = nodeSearchOf(results, maybeActive, { id: task.id, kind: "task" });
   const isCurrent = HashSet.has(current, task.id);
   const title = chipTitleOf(trace, task);
@@ -134,8 +136,9 @@ const chipView = (
       isDone(task) ? [h.DataAttribute("done", "")] : [],
       task.gate.required ? [h.DataAttribute("gated", "")] : [],
       isCurrent ? [h.DataAttribute("current", "")] : [],
-      hasCurrent && !isCurrent ? [h.DataAttribute("faded", "")] : [],
-      isTaskDimmed(maybeChain, task.id) ? [h.DataAttribute("dimmed", "")] : [],
+      isLit ? [h.DataAttribute("lit", "")] : [],
+      hasCurrent && !isCurrent && !isLit ? [h.DataAttribute("faded", "")] : [],
+      isTaskDimmed(maybeChain, task.id) && !isLit ? [h.DataAttribute("dimmed", "")] : [],
     ]),
     Array.appendAll(
       Array.prepend(fieldView(search, "id", task.id, h), dotView(task.status, h)),
@@ -175,6 +178,7 @@ const segmentView = (
   box: Box,
   trunk: Trunk,
   current: HashSet.HashSet<string>,
+  lit: HashSet.HashSet<TaskId>,
   hasCurrent: boolean,
   maybeChain: Option.Option<Chain>,
   maybeSelected: Option.Option<Node>,
@@ -190,9 +194,12 @@ const segmentView = (
       task: ({ id }) => Array.contains(trunk.tasks, id),
     }),
   );
-  const isDimmed = Option.exists(maybeChain, (chain) =>
-    Array.every(trunk.tasks, (id) => !HashSet.has(chain.tasks, id)),
-  );
+  const isLit = Array.some(trunk.tasks, (id) => HashSet.has(lit, id));
+  const isDimmed =
+    !isLit &&
+    Option.exists(maybeChain, (chain) =>
+      Array.every(trunk.tasks, (id) => !HashSet.has(chain.tasks, id)),
+    );
   return h.keyed("button")(
     `segment-${trunk.root}`,
     Array.flatten([
@@ -210,7 +217,8 @@ const segmentView = (
       trunk.isFolded
         ? Array.flatten([
             isCurrent ? [h.DataAttribute("current", "")] : [],
-            hasCurrent && !isCurrent ? [h.DataAttribute("faded", "")] : [],
+            isLit ? [h.DataAttribute("lit", "")] : [],
+            hasCurrent && !isCurrent && !isLit ? [h.DataAttribute("faded", "")] : [],
             isSelected ? [h.DataAttribute("selected", "")] : [],
             isDimmed ? [h.DataAttribute("dimmed", "")] : [],
           ])
@@ -224,6 +232,7 @@ const stackView = (
   trace: Trace,
   box: Box,
   current: HashSet.HashSet<string>,
+  lit: HashSet.HashSet<TaskId>,
   hasCurrent: boolean,
   isShowingModels: boolean,
   maybeChain: Option.Option<Chain>,
@@ -278,6 +287,7 @@ const stackView = (
                     cell,
                     box.rows,
                     current,
+                    lit,
                     hasCurrent,
                     isShowingModels,
                     maybeChain,
@@ -291,7 +301,7 @@ const stackView = (
         ),
       ],
       Array.map(Option.toArray(box.maybeTrunk), (trunk) =>
-        segmentView(box, trunk, current, hasCurrent, maybeChain, maybeSelected, h),
+        segmentView(box, trunk, current, lit, hasCurrent, maybeChain, maybeSelected, h),
       ),
       [h.div([h.Class("label"), h.DataAttribute("stack-label", "")], [`${stack.number}`])],
     ]),
@@ -381,6 +391,7 @@ export const stackChipsView = (
   maybeMeasured: Option.Option<Measured>,
   maybeSelected: Option.Option<Node>,
   maybeHovered: Option.Option<Node>,
+  maybeFocus: Option.Option<TaskId>,
   results: ReadonlyArray<SearchResult>,
   maybeActive: Option.Option<Node>,
   h: HtmlBuilder<Message>,
@@ -389,6 +400,7 @@ export const stackChipsView = (
   const maybeChain = hoverChainOf(trace, maybeHovered);
   const hasCurrent = Option.isSome(maybeCurrent);
   const boxes = stackBoxesOf(trace.tasks, unfolded);
+  const dependencies = dependencyLinksOf(trace, boxes, maybeFocus);
   const levels = pipe(
     Array.groupBy(boxes, (box) => `${box.stack.level}`),
     Record.values,
@@ -423,6 +435,7 @@ export const stackChipsView = (
                   trace,
                   box,
                   current,
+                  dependencies.lit,
                   hasCurrent,
                   isShowingModels,
                   maybeChain,
@@ -434,7 +447,12 @@ export const stackChipsView = (
               ),
             ),
           ),
-          arrowsView(stackArrowsOf(boxes, maybeMeasured), maybeChain, h),
+          arrowsView(
+            stackArrowsOf(boxes, maybeMeasured, dependencies.links),
+            maybeChain,
+            dependencies.lit,
+            h,
+          ),
         ),
       ),
       h.div(

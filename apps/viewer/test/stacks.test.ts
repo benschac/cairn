@@ -1,11 +1,24 @@
 import { Manifest, TaskId } from "@cairn/contract";
 import { StackTask, TaskIdOrder, labelOf, stacksOf, type Stack } from "@cairn/core/stacks";
 import { expect, it } from "@effect/vitest";
-import { Array, Hash, HashSet, Number, Option, Order, Record, Schema, String, pipe } from "effect";
+import {
+  Array,
+  Equal,
+  Hash,
+  HashSet,
+  Number,
+  Option,
+  Order,
+  Record,
+  Schema,
+  String,
+  pipe,
+} from "effect";
 
 import manifestJson from "../../../.cairn/manifest.json" with { type: "json" };
 import specMarkdown from "../../../.cairn/spec.md?raw";
-import { boxOf } from "../src/boxes.ts";
+import { dependencyLinksOf } from "../src/arrows.ts";
+import { boxOf, stackBoxesOf } from "../src/boxes.ts";
 
 const id = (n: number): TaskId => TaskId.make(`t${n}`);
 const ghost = TaskId.make("ghost");
@@ -391,6 +404,47 @@ it("the parent arrows of every box, unfolded, are the solid arrows between tasks
     ),
   );
   expect(Array.sort(arrows, Order.String)).toEqual(drawn);
+});
+
+/** The dashed arrows in the diagram, as `[t45, t68]`. */
+const dashedArrows = (markdown: string): ReadonlyArray<readonly [string, string]> =>
+  Array.getSomes(
+    Array.map(String.split(diagramOf(markdown), "\n"), (line) =>
+      Option.flatMap(String.match(/^\s*(t\d+) -\.-> (t\d+)$/u)(line), (match) =>
+        Option.all([Array.get(match, 1), Array.get(match, 2)]),
+      ),
+    ),
+  );
+
+it("the dependency links of every task in focus, unfolded, are the dashed arrows of the diagram between stacks", () => {
+  const manifest = Schema.decodeUnknownSync(Manifest)(manifestJson);
+  const stacks = stacksOf(manifest.tasks);
+  const stackNumberOf = (name: string): Option.Option<number> =>
+    Option.map(
+      Array.findFirst(stacks, (stack) => Record.has(stack.cells, TaskId.make(name))),
+      (stack) => stack.number,
+    );
+  const drawn = Array.map(
+    Array.filter(
+      dashedArrows(specMarkdown),
+      ([source, target]) => !Equal.equals(stackNumberOf(source), stackNumberOf(target)),
+    ),
+    ([source, target]) => `${source} -.-> ${target}`,
+  );
+  expect(Array.isReadonlyArrayNonEmpty(drawn)).toBe(true);
+  const boxes = stackBoxesOf(
+    manifest.tasks,
+    Record.fromIterableWith(stacks, (stack) => [stack.root, true]),
+  );
+  const links = Array.dedupe(
+    Array.flatMap(manifest.tasks, (each) =>
+      Array.map(
+        dependencyLinksOf(manifest, boxes, Option.some(each.id)).links,
+        (link) => `${keyId(link.source)} -.-> ${keyId(link.target)}`,
+      ),
+    ),
+  );
+  expect(Array.sort(links, Order.String)).toEqual(Array.sort(drawn, Order.String));
 });
 
 it("lays out this repo's manifest", () => {
