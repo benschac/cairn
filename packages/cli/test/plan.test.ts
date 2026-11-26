@@ -20,7 +20,6 @@ import {
   Scope,
   String,
   Struct,
-  Terminal,
 } from "effect";
 import { TestConsole } from "effect/testing";
 
@@ -40,6 +39,7 @@ import { Judge, JudgeError } from "../src/judge.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { targetName } from "../src/print-judgments.ts";
+import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
 import { scriptedJudge } from "./scripted-judge.ts";
 import type { Script } from "./scripted-judge.ts";
 
@@ -106,36 +106,6 @@ const scriptedPlanner = (
     }),
   );
 
-/** A terminal that answers each question with the next of `answers`, then ends its input. */
-const scriptedTerminal = (answers: ReadonlyArray<string>) =>
-  Layer.effect(
-    Terminal.Terminal,
-    Effect.gen(function* () {
-      const seen = yield* Seen;
-      const remaining = yield* Ref.make(answers);
-      return Terminal.make({
-        columns: Effect.succeed(80),
-        display: (text) => Ref.update(seen.shown, Array.append(text)),
-        readInput: Effect.never,
-        readLine: Ref.modify(remaining, (left) =>
-          Array.match(left, {
-            onEmpty: () => [Option.none<string>(), left] as const,
-            onNonEmpty: ([first, ...rest]) => [Option.some(first), rest] as const,
-          }),
-        ).pipe(
-          Effect.flatMap(
-            Option.match({
-              onNone: () => Effect.fail(new Terminal.QuitError({})),
-              onSome: Effect.succeed,
-            }),
-          ),
-        ),
-        rows: Effect.succeed(24),
-        size: Effect.never,
-      });
-    }),
-  );
-
 interface Plan {
   readonly answers?: ReadonlyArray<string>;
   readonly drafts?: ReadonlyArray<TaskDraft>;
@@ -187,7 +157,9 @@ const setup = (files: Readonly<Record<string, string>>) =>
       split = () => [],
     }: Plan = {}) => {
       const services = Layer.mergeAll(
-        scriptedTerminal(answers).pipe(Layer.provideMerge(scriptedPlanner(spec, drafts, split))),
+        scriptedTerminal(answers, (line) =>
+          Seen.use((seen) => Ref.update(seen.shown, Array.append(line))),
+        ).pipe(Layer.provideMerge(scriptedPlanner(spec, drafts, split))),
         MainCheckout.fixed(root),
         ConfigProvider.layer(ConfigProvider.fromEnvRecord(env)),
         judge,

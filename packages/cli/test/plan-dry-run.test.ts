@@ -15,7 +15,6 @@ import {
   Result,
   Schema,
   Scope,
-  Terminal,
 } from "effect";
 import { TestConsole } from "effect/testing";
 
@@ -23,6 +22,7 @@ import { plan, unusedJudge } from "../src/commands/plan.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { totalsLine } from "../src/print-stack.ts";
+import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
 
 const PRD = "# Notes\n\n## Capture\n\nKeep a note.\n";
 
@@ -60,20 +60,6 @@ const scriptedPlanner = (calls: Ref.Ref<number>) =>
     }),
   );
 
-/** A terminal that records what it is asked and answers no. */
-const askedTerminal = (asked: Ref.Ref<ReadonlyArray<string>>) =>
-  Layer.succeed(
-    Terminal.Terminal,
-    Terminal.make({
-      columns: Effect.succeed(80),
-      display: (text) => Ref.update(asked, Array.append(text)),
-      readInput: Effect.never,
-      readLine: Effect.fail(new Terminal.QuitError({})),
-      rows: Effect.succeed(24),
-      size: Effect.never,
-    }),
-  );
-
 const inRepository = <A, E>(
   effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Scope.Scope>,
 ) => Effect.scoped(effect).pipe(Effect.provide(NodeServices.layer));
@@ -105,7 +91,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
           plan({ respec: false, spec: false, yes: false, ...options, dryRun: true }).pipe(
             Effect.provide(
               Layer.mergeAll(
-                askedTerminal(asked),
+                scriptedTerminal([], (line) => Ref.update(asked, Array.append(line))),
                 scriptedPlanner(calls),
                 MainCheckout.fixed(root),
                 ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),

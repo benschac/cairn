@@ -19,7 +19,6 @@ import {
   Schema,
   Scope,
   String,
-  Terminal,
 } from "effect";
 import type { LanguageModel } from "effect/ai";
 import { TerminalCapabilities } from "effect/cli";
@@ -44,6 +43,7 @@ import type { PartIds } from "../src/planner.ts";
 import { totalsLine } from "../src/print-stack.ts";
 import { Script, scripted } from "./fixtures/scripted-language-model.ts";
 import type { Reply } from "./fixtures/scripted-language-model.ts";
+import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
 
 /** A PRD of two features. Beta has a list item that asks for an ID, and every section has a statement. */
 const PRD = `# Notes {#prd.notes}
@@ -265,35 +265,6 @@ const scriptedPlanner = (asked: Ref.Ref<Asked>, fixed: Option.Option<string>) =>
     }),
   );
 
-/** A terminal that answers each question with the next of `answers`, then ends its input, and keeps what it displayed. */
-const scriptedTerminal = (answers: ReadonlyArray<string>, shown: Ref.Ref<ReadonlyArray<string>>) =>
-  Layer.effect(
-    Terminal.Terminal,
-    Effect.gen(function* () {
-      const remaining = yield* Ref.make(answers);
-      return Terminal.make({
-        columns: Effect.succeed(80),
-        display: (text) => Ref.update(shown, Array.append(text)),
-        readInput: Effect.never,
-        readLine: Ref.modify(remaining, (left) =>
-          Array.match(left, {
-            onEmpty: () => [Option.none<string>(), left] as const,
-            onNonEmpty: ([first, ...rest]) => [Option.some(first), rest] as const,
-          }),
-        ).pipe(
-          Effect.flatMap(
-            Option.match({
-              onNone: () => Effect.fail(new Terminal.QuitError({})),
-              onSome: Effect.succeed,
-            }),
-          ),
-        ),
-        rows: Effect.succeed(24),
-        size: Effect.never,
-      });
-    }),
-  );
-
 interface Run {
   readonly answers?: ReadonlyArray<string>;
   /** Set to give the run a key, which turns the judging checkpoints on. */
@@ -360,7 +331,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
         const shown = yield* Ref.make<ReadonlyArray<string>>([]);
         const before = yield* TestConsole.logLines;
         const services = Layer.mergeAll(
-          scriptedTerminal(answers, shown),
+          scriptedTerminal(answers, (line) => Ref.update(shown, Array.append(line))),
           MainCheckout.fixed(root),
           ConfigProvider.layer(ConfigProvider.fromEnvRecord(env)),
           judge,

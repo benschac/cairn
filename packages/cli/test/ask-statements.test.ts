@@ -15,7 +15,6 @@ import {
   Ref,
   Schema,
   Scope,
-  Terminal,
 } from "effect";
 import { TerminalCapabilities } from "effect/cli";
 import { TestConsole } from "effect/testing";
@@ -30,6 +29,7 @@ import { needsPlanner, plan, unusedJudge } from "../src/commands/plan.ts";
 import type { PlanOptions } from "../src/commands/plan.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
+import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
 
 const PRD = "# Notes\n\n## Capture\n\nKeep a note.\n";
 
@@ -85,37 +85,6 @@ const scriptedPlanner = (drafts: Readonly<Record<string, ReadonlyArray<string>>>
     }),
   );
 
-/** A terminal that answers each question with the next of `answers`, then ends its input. */
-const scriptedTerminal = (answers: ReadonlyArray<string>) =>
-  Layer.effect(
-    Terminal.Terminal,
-    Effect.gen(function* () {
-      const events = yield* Events;
-      const note = noteIn(events);
-      const remaining = yield* Ref.make(answers);
-      return Terminal.make({
-        columns: Effect.succeed(80),
-        display: (text) => note(`ask ${text}`),
-        readInput: Effect.never,
-        readLine: Ref.modify(remaining, (left) =>
-          Array.match(left, {
-            onEmpty: () => [Option.none<string>(), left] as const,
-            onNonEmpty: ([first, ...rest]) => [Option.some(first), rest] as const,
-          }),
-        ).pipe(
-          Effect.flatMap(
-            Option.match({
-              onNone: () => Effect.fail(new Terminal.QuitError({})),
-              onSome: Effect.succeed,
-            }),
-          ),
-        ),
-        rows: Effect.succeed(24),
-        size: Effect.never,
-      });
-    }),
-  );
-
 interface Run {
   readonly answers?: ReadonlyArray<string>;
   readonly dryRun?: boolean;
@@ -146,7 +115,9 @@ const setup = (prd: string) =>
     }: Run = {}) => {
       const options: PlanOptions = { dryRun, respec: false, spec: true, yes };
       const services = Layer.mergeAll(
-        scriptedTerminal(answers).pipe(Layer.provideMerge(scriptedPlanner(drafts))),
+        scriptedTerminal(answers, (line) =>
+          Events.use((events) => noteIn(events)(`ask ${line}`)),
+        ).pipe(Layer.provideMerge(scriptedPlanner(drafts))),
         MainCheckout.fixed(root),
         ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
         unusedJudge,
