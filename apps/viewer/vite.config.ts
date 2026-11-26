@@ -1,5 +1,8 @@
 import { foldkit } from "@foldkit/vite-plugin";
-import { defineConfig, loadEnv } from "vite";
+import { loadEnv } from "vite";
+import { defineConfig } from "vitest/config";
+
+import { sharedTest } from "../../vitest.shared.ts";
 
 export default defineConfig(({ mode }) => {
   // The same variable and default as the presence server in packages/cli/src/serve.ts.
@@ -15,5 +18,6 @@ export default defineConfig(({ mode }) => {
       allowedHosts: [".trycloudflare.com"],
       proxy,
     },
+    test: sharedTest,
   };
 });

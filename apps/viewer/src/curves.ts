@@ -1,6 +1,6 @@
 import { SectionId, type TaskId, type Trace } from "@cairn/contract";
 import { Position, getBezierPath } from "@xyflow/system";
-import { Array, Equivalence, HashSet, Match, Option, Record, Schema, String, pipe } from "effect";
+import { Array, HashSet, Match, Option, Record, Schema, pipe } from "effect";
 
 import type { Positions, Rect } from "./geometry.ts";
 import { Node } from "./trace.ts";
@@ -135,9 +135,12 @@ export const curvesOf = (trace: Trace, positions: Positions): ReadonlyArray<Curv
     ]),
   );
 
+  // Links with the same id are the same link, so keying them by id keeps one of each in the order
+  // each id first appears, in one pass. A pairwise dedupe compared every link with every other on
+  // each render, which grew with the square of the plan.
   return pipe(
-    Array.appendAll(implementsLinks, taskLinks),
-    Array.dedupeWith(Equivalence.mapInput(String.Equivalence, idOf)),
+    Record.fromIterableBy(Array.appendAll(implementsLinks, taskLinks), idOf),
+    Record.values,
     Array.map(curveOf(positions)),
     Array.getSomes,
   );

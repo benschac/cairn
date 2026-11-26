@@ -3,7 +3,12 @@
   "extends": ["//"],
   "tasks": {
     "test": {
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.cairn/*.md", "$TURBO_ROOT$/.cairn/*.json"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/vitest.shared.ts",
+        "$TURBO_ROOT$/.cairn/*.md",
+        "$TURBO_ROOT$/.cairn/*.json"
+      ]
     }
   }
 }

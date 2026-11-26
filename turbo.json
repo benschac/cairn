@@ -17,6 +17,7 @@
     },
     "test": {
       "dependsOn": ["^test"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.shared.ts"],
       "outputs": []
     },
     "//#typecheck:root": {

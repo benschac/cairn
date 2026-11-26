@@ -342,17 +342,20 @@ const added = withPrd(
 );
 
 it("a passage is found on the same text after a paragraph is added to another section", () => {
+  // The search index keeps one trace, so everything read from the demo is read before the edited
+  // trace's index is built, instead of rebuilding each in turn.
   const before = Option.getOrThrow(
     passageOf(indexOf(demoTrace), PrdSectionId.make(SECTION), QUOTE),
   );
+  const marked = markedTexts(demoTrace, before);
   const after = Option.getOrThrow(passageOf(indexOf(added), PrdSectionId.make(SECTION), QUOTE));
   // The passage covers the end of one block and the start of the next.
   expect(Array.length(before)).toBe(2);
-  expect(markedTexts(demoTrace, before)).toEqual([
+  expect(marked).toEqual([
     Option.some("It never opens a blank window."),
     Option.some("A passage that no longer"),
   ]);
-  expect(markedTexts(added, after)).toEqual(markedTexts(demoTrace, before));
+  expect(markedTexts(added, after)).toEqual(marked);
   expect(Array.map(after, ({ offset }) => offset)).not.toEqual(
     Array.map(before, ({ offset }) => offset),
   );
