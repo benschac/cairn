@@ -10,8 +10,20 @@ import type { IndexProse } from "@cairn/contract";
 import { bodyHashOf } from "@cairn/core";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Array, Effect, FileSystem, Option, Ref, Result, Schema, String } from "effect";
-import { TestConsole } from "effect/testing";
+import {
+  Array,
+  Duration,
+  Effect,
+  Fiber,
+  FileSystem,
+  Number,
+  Option,
+  Ref,
+  Result,
+  Schema,
+  String,
+} from "effect";
+import { TestClock, TestConsole } from "effect/testing";
 
 import { Planner, PlannerError } from "../src/planner.ts";
 import type { IndexTarget } from "../src/planner.ts";
@@ -246,6 +258,39 @@ it.effect(
       expect(rewritten.calls).toEqual(["spec.s0"]);
       expect(rewritten.index.sections[0]?.writtenFrom.body).toBe(bodyHashOf("\nRewritten.\n"));
     }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("eight sections are indexed at once, and no more", () =>
+  Effect.gen(function* () {
+    const manifest = yield* manifestOf();
+    const flying = yield* Ref.make(0);
+    const most = yield* Ref.make(0);
+    // Each call takes a second, so the calls in flight at once are the ones started together.
+    const slow = Planner.of({
+      index: (target: IndexTarget) =>
+        Ref.updateAndGet(flying, Number.increment).pipe(
+          Effect.flatMap((now) => Ref.update(most, (seen) => Number.max(seen, now))),
+          Effect.andThen(Effect.sleep(Duration.seconds(1))),
+          Effect.andThen(Ref.update(flying, Number.decrement)),
+          Effect.as(proseFor(target.id, 1)),
+        ),
+      sections: unused,
+      spec: unused,
+      splitSection: unused,
+      statements: unused,
+      splitTask: unused,
+      splitTrunk: unused,
+      tasks: unused,
+    });
+    const spec = specOf(Array.makeBy(20, () => 1));
+    const fiber = yield* Effect.forkChild(
+      specIndexOf(inputOf(manifest, spec)).pipe(Effect.provideService(Planner, slow)),
+    );
+    yield* TestClock.adjust(Duration.seconds(20));
+    const index = yield* Fiber.join(fiber);
+    const peak = yield* Ref.get(most);
+    expect([peak, Array.length(index.sections)]).toEqual([8, 20]);
+  }).pipe(Effect.provide(NodeServices.layer)),
 );
 
 it.effect("a failed index call fails the whole index with its PlannerError", () =>

@@ -27,8 +27,11 @@ import { Planner } from "./planner.ts";
 import type { PlannerError } from "./planner.ts";
 import { CAIRN_DIRECTORY } from "./workspace.ts";
 
-/** How many sections are indexed at once. */
-const CONCURRENCY = 4;
+/**
+ * How many sections are indexed at once. Each is one small model call, and with the `cli` source
+ * one process of the agent CLI, which spends most of its time waiting for the model.
+ */
+const CONCURRENCY = 8;
 
 /** What `specIndexOf` reads (see `spec.contract.spec-index`). */
 export interface SpecIndexInput {
