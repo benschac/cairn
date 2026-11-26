@@ -39,6 +39,7 @@ export const init = (url?: Url.Url): Update.Return<Model, Message> => {
         onFailure: (error) => noticeOf(Result.fail(error)),
         onSuccess: () => Option.none(),
       }),
+      maybeSelectedPassage: Option.none(),
       maybePendingLink: Option.filter(Result.getSuccess(opened), Array.isReadonlyArrayNonEmpty),
       maybeHovered: Option.none(),
       maybeMeasuredWires: Option.none(),

@@ -64,6 +64,8 @@ export const Message = defineMessageUnion({
   ClickedResetLayout: {},
   /** A "Copy link" button: copies the link's path, with the page's origin in front. */
   ClickedCopyLink: { path: Schema.String },
+  /** "Copy link to passage": opens the selected passage of the section as a step and copies its link. */
+  ClickedCopyPassageLink: { section: SectionId },
   /** A PRD heading's section ID, small beside its title: copies the ID. */
   ClickedSectionId: { id: PrdSectionId },
   /** The top bar's "Plan" and "Canvas" buttons. */
@@ -86,6 +88,10 @@ export const Message = defineMessageUnion({
   ClickedShowAllCurves: {},
   /** The search input's text changed. */
   ChangedSearchQuery: { query: Schema.String },
+  /** The selection left the passage it was in, or has no text. */
+  ClearedPassageSelection: {},
+  /** The diff's line selection was cleared. */
+  ClearedDiffLines: {},
   /** The presence socket closed or failed. */
   ClosedPresence: {},
   /** The clipboard took the section's ID, or refused it. */
@@ -167,6 +173,15 @@ export const Message = defineMessageUnion({
   ReceivedPresence: { presence: Presence },
   /** A pointer went up or was cancelled anywhere on the page while a drag was in progress. */
   ReleasedDragPointer: { pointerId: PointerId },
+  /** Text was selected inside one section's passage: the section and the quote, as a link holds it. */
+  SelectedPassage: { section: SectionId, quote: Schema.String },
+  /** The diff mount's line selection: the lines of one of the diff's files, on one side. */
+  SelectedDiffLines: {
+    end: Schema.Int,
+    path: Schema.String,
+    side: Schema.Literals(["new", "old"]),
+    start: Schema.Int,
+  },
   /** The section at the top of the PRD pane changed. */
   ScrolledPrd: { id: PrdSectionId },
   /** The click from a drag's release was stopped before it reached any node. */
