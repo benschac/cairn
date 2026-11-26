@@ -79,12 +79,17 @@ const Planner = PlannerFields.pipe(
   Schema.check(gatewayTokenNeedsBaseUrl),
 );
 
+/**
+ * The judge's fields (`spec.contract.config`). `gatewayTokenEnv` names the variable holding a
+ * Cloudflare AI Gateway token, never the token itself.
+ */
 const JudgeFields = Schema.Struct({
   baseUrl: Schema.optionalKey(Schema.String),
   flag: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.5))),
   maxRounds: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(2)),
   ),
+  gatewayTokenEnv: Schema.optionalKey(Schema.String),
   minConfidence: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.5))),
   model: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed("jev-1.14.0"))),
   models: Schema.Record(Schema.String, Schema.String).pipe(
@@ -99,7 +104,18 @@ const passAboveFlag = Schema.makeFilter<{ readonly flag: number; readonly pass: 
     Number.isGreaterThan(flag)(pass) ? undefined : "judge.pass must be greater than judge.flag",
 );
 
-const Judge = JudgeFields.pipe(Schema.check(passAboveFlag));
+/**
+ * `judge.baseUrl` is required when `judge.gatewayTokenEnv` is set: the token is for the gateway,
+ * and a request that goes straight to TypeSafe must not carry it.
+ */
+const judgeGatewayNeedsBaseUrl = Schema.makeFilter<typeof JudgeFields.Type>(
+  ({ baseUrl, gatewayTokenEnv }) =>
+    Predicate.isNotUndefined(gatewayTokenEnv) && Predicate.isUndefined(baseUrl)
+      ? "judge.baseUrl is required when judge.gatewayTokenEnv is set"
+      : undefined,
+);
+
+const Judge = JudgeFields.pipe(Schema.check(passAboveFlag), Schema.check(judgeGatewayNeedsBaseUrl));
 
 /**
  * `.cairn/config.json`. Every field has a default, so `{}` decodes to the defaults, and a

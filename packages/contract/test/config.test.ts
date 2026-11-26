@@ -170,6 +170,31 @@ it.prop(
   },
 );
 
+it.prop(
+  "judge.gatewayTokenEnv with no judge.baseUrl is refused, and the refusal names both fields",
+  [Schema.NonEmptyString],
+  ([gatewayTokenEnv]) => {
+    const input = { judge: { gatewayTokenEnv }, version: 1 };
+    expect(refused(input)).toBe(true);
+    expect(refusal(input)).toContain("judge.baseUrl");
+    expect(refusal(input)).toContain("judge.gatewayTokenEnv");
+  },
+);
+
+it.prop(
+  "judge.gatewayTokenEnv with a judge.baseUrl is accepted, and keeps the variable's name",
+  [Schema.NonEmptyString, Schema.NonEmptyString],
+  ([baseUrl, gatewayTokenEnv]) => {
+    const input = { judge: { baseUrl, gatewayTokenEnv }, version: 1 };
+    expect(refused(input)).toBe(false);
+    expect(decode(input).judge.gatewayTokenEnv).toBe(gatewayTokenEnv);
+  },
+);
+
+it("the default judge has no gatewayTokenEnv", () => {
+  expect(defaultConfig.judge.gatewayTokenEnv).toBeUndefined();
+});
+
 it("a cli planner ignores planner.gatewayTokenEnv, and the default has none", () => {
   expect(refused(withPlanner({ gatewayTokenEnv: "TOKEN", source: "cli" }))).toBe(false);
   expect(defaultConfig.planner.gatewayTokenEnv).toBeUndefined();

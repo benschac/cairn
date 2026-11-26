@@ -134,17 +134,15 @@ const missingGatewayToken = (variable: string) =>
 /** The header Cloudflare AI Gateway reads its token from. */
 const GATEWAY_HEADER = "cf-aig-authorization";
 
+/** Wraps a client so it sends the gateway token on every request. */
+const withGatewayHeader = (token: Redacted.Redacted) =>
+  HttpClient.mapRequest(
+    HttpClientRequest.setHeader(GATEWAY_HEADER, `Bearer ${Redacted.value(token)}`),
+  );
+
 /** An `HttpClient` that sends the gateway token on every request of the client it wraps. */
 const gatewayClient = (token: Redacted.Redacted) =>
-  Layer.effect(
-    HttpClient.HttpClient,
-    Effect.map(
-      HttpClient.HttpClient,
-      HttpClient.mapRequest(
-        HttpClientRequest.setHeader(GATEWAY_HEADER, `Bearer ${Redacted.value(token)}`),
-      ),
-    ),
-  );
+  Layer.effect(HttpClient.HttpClient, Effect.map(HttpClient.HttpClient, withGatewayHeader(token)));
 
 /**
  * `planner.gatewayTokenEnv` (`spec.models`): when it is set, `layer` gets an `HttpClient` that adds
@@ -298,31 +296,67 @@ export const liveLanguageModel = (config: CairnConfig) =>
 /** The environment variable the Judge's key is read from (`spec.models`). */
 export const TYPESAFE_API_KEY = "TYPESAFE_API_KEY";
 
+const missingJudgeKey = new ModelKeyError({
+  reason: `${TYPESAFE_API_KEY} is not set, or could not be read. The judge needs it to call its model: set it in your environment, or set judge.gatewayTokenEnv and judge.baseUrl in .cairn/config.json to call TypeSafe through Cloudflare AI Gateway with a key stored there.`,
+  variable: TYPESAFE_API_KEY,
+});
+
+const missingJudgeGatewayToken = (variable: string) =>
+  new ModelKeyError({
+    reason: `${variable} is not set, or could not be read. judge.gatewayTokenEnv names it as the AI Gateway token: set it in your environment, or remove judge.gatewayTokenEnv from .cairn/config.json.`,
+    variable,
+  });
+
+/** Whether the judge can be built from the config and the environment (`spec.judging.checkpoints`). */
+export const judgingAvailable = (config: CairnConfig) =>
+  Config.String(TYPESAFE_API_KEY).pipe(
+    Config.option,
+    Effect.map(
+      (key) =>
+        Option.isSome(key) || Option.isSome(Option.fromUndefinedOr(config.judge.gatewayTokenEnv)),
+    ),
+  );
+
+/**
+ * The TypeSafe client of `config`, its settings read from the environment when the layer is built.
+ * Without `judge.gatewayTokenEnv`, `TYPESAFE_API_KEY` is required and sent as TypeSafe's bearer key.
+ * With it, the gateway token goes in `cf-aig-authorization` on every request, and
+ * `TYPESAFE_API_KEY` is optional: sent when set, and otherwise left to the key stored in the gateway.
+ */
+const typeSafeClient = (config: CairnConfig) =>
+  Layer.unwrap(
+    Option.match(Option.fromUndefinedOr(config.judge.gatewayTokenEnv), {
+      onNone: () =>
+        Config.Redacted(TYPESAFE_API_KEY).pipe(
+          Effect.mapError(() => missingJudgeKey),
+          Effect.map((apiKey) => TypeSafeClient.layer({ apiKey, apiUrl: config.judge.baseUrl })),
+        ),
+      onSome: (variable) =>
+        Effect.gen(function* () {
+          const token = yield* Config.Redacted(variable).pipe(
+            Effect.mapError(() => missingJudgeGatewayToken(variable)),
+          );
+          const apiKey = yield* Config.Redacted(TYPESAFE_API_KEY).pipe(Config.option);
+          return TypeSafeClient.layer({
+            apiKey: Option.getOrUndefined(apiKey),
+            apiUrl: config.judge.baseUrl,
+            transformClient: withGatewayHeader(token),
+          });
+        }),
+    }),
+  );
+
 /**
  * The `DecisionModel` the Judge uses: `TypeSafeDecisionModel.model(judge.model)` over a TypeSafe
  * client, with `judge.model` passed as written (it defaults to the pinned `jev-1.14.0`, never
- * `jev-latest`). The client reads `TYPESAFE_API_KEY` with `Config.Redacted` when this layer is
- * built, so a command that never provides it never reads the key, and building it without the key
- * fails with a `ModelKeyError`. `judge.baseUrl`, when set, is the client's `apiUrl`, which routes
- * calls through a proxy; TypeSafe's own host is the default.
+ * `jev-latest`). The client reads its key with `Config.Redacted` when this layer is built, so a
+ * command that never provides it never reads one, and building it without the key fails with a
+ * `ModelKeyError` naming the variable. `judge.baseUrl`, when set, is the client's `apiUrl`, which
+ * routes calls through a proxy; TypeSafe's own host is the default. `judge.gatewayTokenEnv` sends a
+ * Cloudflare AI Gateway token with every request (see `typeSafeClient`).
  */
 export const decisionModel = (config: CairnConfig) =>
-  TypeSafeDecisionModel.model(config.judge.model).pipe(
-    Layer.provide(
-      Layer.unwrap(
-        Config.Redacted(TYPESAFE_API_KEY).pipe(
-          Effect.mapError(
-            () =>
-              new ModelKeyError({
-                reason: `${TYPESAFE_API_KEY} is not set, or could not be read. The judge needs it to call its model: set it in your environment.`,
-                variable: TYPESAFE_API_KEY,
-              }),
-          ),
-          Effect.map((apiKey) => TypeSafeClient.layer({ apiKey, apiUrl: config.judge.baseUrl })),
-        ),
-      ),
-    ),
-  );
+  TypeSafeDecisionModel.model(config.judge.model).pipe(Layer.provide(typeSafeClient(config)));
 
 /** `decisionModel` over `fetch`: what the CLI composition root provides. */
 export const liveDecisionModel = (config: CairnConfig) =>

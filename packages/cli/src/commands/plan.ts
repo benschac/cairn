@@ -35,7 +35,6 @@ import {
 import type { Finding, Part, Replan } from "@cairn/core";
 import {
   Array,
-  Config,
   Console,
   Duration,
   Effect,
@@ -67,7 +66,7 @@ import {
 } from "../ask-statements.ts";
 import { Judge, JudgeError } from "../judge.ts";
 import { MainCheckout } from "../main-checkout.ts";
-import { liveLanguageModel } from "../models.ts";
+import { judgingAvailable, liveLanguageModel } from "../models.ts";
 import { Planner, PlannerError } from "../planner.ts";
 import { changeLines, flagsOf, reportLines, targetName } from "../print-judgments.ts";
 import { stackLines, totalsLine } from "../print-stack.ts";
@@ -130,7 +129,8 @@ export class PartRefused extends Schema.TaggedError<
   }
 }
 
-export const JUDGING_SKIPPED = "Judging skipped: TYPESAFE_API_KEY is not set.";
+export const JUDGING_SKIPPED =
+  "Judging skipped: set TYPESAFE_API_KEY, or judge.gatewayTokenEnv for Cloudflare AI Gateway.";
 export const UP_TO_DATE = "The plan is up to date.";
 export const PART_UP_TO_DATE = "This part is up to date.";
 export const NOT_PLANNED_YET = "Not planned yet:";
@@ -263,15 +263,16 @@ const confirm = Effect.fn("plan.confirm")(function* (question: string, yes: bool
 
 /**
  * Whether the judging checkpoints (`spec.judging.checkpoints`) run: they do when
- * `TYPESAFE_API_KEY` is set. Without it, the first call prints once that judging was skipped.
+ * `TYPESAFE_API_KEY` is set or `judge.gatewayTokenEnv` is. Without either, the first call prints
+ * once that judging was skipped.
  */
-const judging = Effect.fn("plan.judging")(function* (told: Ref.Ref<boolean>) {
-  const key = yield* Config.String("TYPESAFE_API_KEY").pipe(Config.option);
+const judging = Effect.fn("plan.judging")(function* (config: CairnConfig, told: Ref.Ref<boolean>) {
+  const available = yield* judgingAvailable(config);
   const already = yield* Ref.getAndSet(told, true);
-  if (Option.isNone(key) && !already) {
+  if (!available && !already) {
     yield* Console.log(JUDGING_SKIPPED);
   }
-  return Option.isSome(key);
+  return available;
 });
 
 /** A judge that failed does not stop the plan: it says so, and the planner's work stands as it was. */
@@ -487,7 +488,7 @@ const writeCairn = Effect.fn("plan.write")(function* (name: string, content: str
  */
 const refined = Effect.fn("plan.refined")(function* ({ config, told }: Inputs, input: RefineInput) {
   const unjudged: Refined = { drafts: input.drafts, judgments: [], spec: input.spec };
-  if (!(yield* judging(told))) {
+  if (!(yield* judging(config, told))) {
     return unjudged;
   }
   return yield* refineWith(input, config).pipe(Effect.catchTag("JudgeError", failedAs(unjudged)));
@@ -504,7 +505,7 @@ const stackJudged = Effect.fn("plan.stackJudged")(function* (
   spec: string,
   manifest: Manifest,
 ) {
-  if (!(yield* judging(told))) {
+  if (!(yield* judging(config, told))) {
     return [];
   }
   const judge = yield* Judge;
@@ -1261,7 +1262,7 @@ const unusedPlanner = Layer.succeed(
   }),
 );
 
-/** The judge of a run with no `TYPESAFE_API_KEY`, which never asks for one: any call fails. */
+/** The judge of a run with no judging credentials, which never asks for one: any call fails. */
 export const unusedJudge = Layer.succeed(
   Judge,
   Judge.of({
@@ -1342,11 +1343,11 @@ export const planCommand = Command.make(
           ),
         ),
       );
-      // The judge is built only when the key is set; without it the checkpoints are skipped.
+      // The judge is built only when a key or a gateway token is configured; without one the
+      // checkpoints are skipped.
       const judge = Layer.unwrap(
-        Config.String("TYPESAFE_API_KEY").pipe(
-          Config.option,
-          Effect.map(Option.match({ onNone: () => unusedJudge, onSome: () => Judge.live(config) })),
+        judgingAvailable(config).pipe(
+          Effect.map((available) => (available ? Judge.live(config) : unusedJudge)),
         ),
       );
       yield* plan(options).pipe(Effect.provide(Layer.mergeAll(planner, judge)));
