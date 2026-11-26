@@ -4,6 +4,7 @@
     "gatewayTokenEnv": "CAIRN_AI_GATEWAY_TOKEN"
   },
   "planner": {
+    "effort": { "spec": "medium" },
     "small": "sonnet"
   }
 }
