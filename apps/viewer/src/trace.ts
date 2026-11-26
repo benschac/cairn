@@ -52,6 +52,13 @@ export const chainOf = (trace: Trace, node: Node): Chain => {
     section.id,
     section.keys.implements,
   ]);
+  // A list item is shown inside its section, so a chain that reaches an item lights that section.
+  const sectionOfItem: Links = Record.fromIterableWith(trace.prd.items, (item) => [
+    item.id,
+    [item.section],
+  ]);
+  const shownAs = (id: string): ReadonlyArray<string> =>
+    Option.getOrElse(Record.get(sectionOfItem, id), () => [id]);
   const prdSectionsImplementedBy = (id: string): ReadonlyArray<string> =>
     Option.getOrElse(Record.get(implementsOf, id), () => []);
 
@@ -62,9 +69,12 @@ export const chainOf = (trace: Trace, node: Node): Chain => {
         onNone: emptyChain,
         onSome: (task) => ({
           prd: HashSet.fromIterable(
-            Array.appendAll(
-              task.prdSections,
-              Array.flatMap(task.specSections, prdSectionsImplementedBy),
+            Array.flatMap(
+              Array.appendAll(
+                task.prdSections,
+                Array.flatMap(task.specSections, prdSectionsImplementedBy),
+              ),
+              shownAs,
             ),
           ),
           spec: HashSet.fromIterable(task.specSections),
