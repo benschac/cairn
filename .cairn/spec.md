@@ -1535,6 +1535,13 @@ flowchart BT
     direction BT
     t188["t188 · 188-add-cairn-watch-with-a-read-only-terminal-loop<br/>Add cairn watch with a read-only terminal loop<br/>wt-53"]
   end
+  subgraph s115["Stack 115 · viewer"]
+    direction BT
+    t189["t189 · 189-work-out-each-stack-box-s-cells-finished-trunk-and-fork-labels<br/>Work out each stack box's cells, finished trunk and fork labels<br/>wt-55"]
+    t190["t190 · 190-fold-finished-trunks-and-label-forks-in-the-stacks-pane<br/>Fold finished trunks and label forks in the stacks pane<br/>wt-55"]
+    t191["t191 · 191-draw-solid-parent-arrows-inside-the-stack-boxes<br/>Draw solid parent arrows inside the stack boxes<br/>wt-55"]
+    t192["t192 · 192-draw-dashed-dependency-arrows-for-the-task-in-focus<br/>Draw dashed dependency arrows for the task in focus<br/>wt-55"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -1883,8 +1890,13 @@ flowchart BT
   t186 -.-> t187
   t185 -.-> t188
   t187 -.-> t188
+  t109 -.-> t189
+  t120 -.-> t189
+  t189 --> t190
+  t190 --> t191
+  t191 --> t192
   class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122,t138,t139,t140,t142,t144,t145,t148,t149,t150,t152,t154,t155,t158,t171,t175,t176,t179 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t172,t173,t174,t177,t178,t180,t181,t182,t183,t184,t185,t186,t187,t188 sonnet
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t172,t173,t174,t177,t178,t180,t181,t182,t183,t184,t185,t186,t187,t188,t189,t190,t191,t192 sonnet
   class t11,t24,t27,t44,t56,t66,t102,t107 haiku
   class t1,t2,t3,t81,t97,t126,t144,t147,t153,t155,t162,t175,t176 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
@@ -4429,7 +4441,7 @@ Stack = {
 
 - Membership: a root is a task whose `parent` is `null`, names no task, or would close a cycle. Every other task belongs to its parent's stack, so each task is in exactly one stack.
 - Number and label: stacks are numbered from 1 in `TaskIdOrder` of their roots. The area is the second segment of the root's first spec section ID. The label is `Stack N · area`, or `Stack N` for a root with no spec section.
-- Cells: a task's row is its depth, 1 for the root and one more than its parent's for every other task, so a chain has no gaps. Columns inside a box follow the old column rule: the first child by ID continues its parent's column, every other child starts a new one, and columns are numbered by the ID of their first task.
+- Cells: a task's row is its depth, 1 for the root and one more than its parent's for every other task, so a chain has no gaps. Columns inside a box are numbered depth first: the root is in column 1, the first child by ID continues its parent's column, and each other child, in ID order, starts the column after the last one used by its elder siblings and everything built on them. So the columns under any task are one unbroken run, and a task at a fork can sit centred under its children (see `spec.viewer.stacks.boxes`).
 - Level: a stack waits on another when one of its tasks depends on a task in the other. Its level is 1 when it waits on nothing, otherwise one more than the highest level among the stacks it waits on. A dependency that names no task, or that would close a cycle between stacks, is ignored.
 
 `stackChipsView` draws every stack, whatever the current section is:
@@ -4439,13 +4451,128 @@ Stack = {
 - A task is a chip: a native button with `data-task` holding its ID and `data-wire` holding `task:<id>`, showing a status dot and the ID. Its `title` and `aria-label` give the ID, the title, the branch without its `<feature>/` prefix, the worktree (`main checkout` for `null`) and the status. A gated chip has a `--blocked` border (see `spec.viewer.design-system`). The model's colour and the reasoning mark are in `spec.viewer.models`. It sends `ClickedTask`.
 - A chip whose task is in the current section's chain has `data-current`, an ink border and a hard shadow, and so does its box. Every other chip is at 45% opacity and still takes focus, hover and clicks.
 - Over the diagram, held to the top of the pane: "N of M stacks hold this section · X of Y tasks done", from the stacks with a current chip and `planCountsOf`, and a legend for done, pending, in this section, a human gate and "read up from main".
-- No curve is drawn inside the pane. A chip sits directly on its parent, and the detail panel names the other tasks a task depends on (see `spec.viewer.detail-panel`).
+- Inside each box a solid arrow runs from each parent up to each of its children, a finished trunk folds into one segment, and each column a fork starts is labelled at its foot (see `spec.viewer.stacks.boxes`, `spec.viewer.stacks.box-view` and `spec.viewer.stacks.arrows`). A task's dependencies on other stacks are dashed arrows, drawn only for the task in focus (see `spec.viewer.stacks.dependencies`).
 
 The canvas's task cards, with their branch, title, worktree and model band, and `stacksView` that draws them, go with the canvas (see `spec.viewer.canvas-removal`).
 
 Tests: properties in `stacks.test.ts` that every task is in exactly one stack; a child shares its parent's stack and sits one row above it; no two tasks in a box share a cell; a stack's level is above every stack it waits on, cycles aside; numbers follow root IDs; and the input order does not change the result. One test reads the Mermaid block from `.cairn/spec.md` and checks that `stacksOf` on `.cairn/manifest.json` gives the same labels with the same tasks in each, so a manifest change that is not redrawn fails `pnpm check`. A Scene test on the demo trace finds the boxes and their labels, a child chip in the row above its parent in the same box, the base branch bar, a gated chip, and for a pinned section its chips marked current and the count over the diagram.
 
-Considered and left out: `@dagrejs/dagre` with compound nodes, which is how Mermaid lays out the diagram. It needs every node's size before it runs and returns absolute positions, so the view would place every chip by hand and measure twice. The rule above is short enough to compute directly, and CSS sizes the boxes. Also left out: curves between chips for dependencies across stacks. The rows already say what waits on what.
+Considered and left out: `@dagrejs/dagre` with compound nodes, which is how Mermaid lays out the diagram. It needs every node's size before it runs and returns absolute positions, so the view would place every chip by hand and measure twice. The rule above is short enough to compute directly, and CSS sizes the boxes.
+
+#### Boxes, forks and finished trunks {#spec.viewer.stacks.boxes}
+
+- Implements: `prd.viewer.stacks`
+- Files: `packages/core/src/stacks.ts`, `apps/viewer/src/boxes.ts`, `apps/viewer/test/boxes.test.ts`, `apps/viewer/test/stacks.test.ts`
+- Depends on: `spec.viewer.stacks`, `spec.viewer.deep-links.resolving-a-link`
+
+What a box draws is worked out before it is drawn. `boxOf(stack, tasks, isUnfolded)` in `boxes.ts` is pure:
+
+```ts
+Box = {
+  stack: Stack
+  maybeTrunk: Option<Trunk> // a finished trunk of two or more tasks
+  cells: Record<TaskId, BoxCell> // the tasks drawn as chips
+  forkLabels: Record<TaskId, string> // a fork's child, to the label at its foot
+  arrows: ReadonlyArray<ArrowLink> // one per parent link drawn, each of kind "parent"
+  rows: number // the chip rows the box holds
+}
+Trunk = { root: TaskId; tasks: NonEmptyReadonlyArray<TaskId>; isFolded: boolean }
+BoxCell = { column: number; span: number; row: number } // row 1 is the bottom
+ArrowLink = { source: string; target: string; kind: "parent" | "dependency" } // data-wire keys
+```
+
+- Columns. `stacksOf` in `packages/core/src/stacks.ts` numbers a box's columns depth first, as `spec.viewer.stacks` gives the rule, so the columns under any task are one unbroken run. The old rule, by the ID of a column's first task, breaks that run in Stack 8 of this repo, where t55 sits between t106 and its child t115.
+- Span. A task's `span` is the number of columns used by it and everything built on it in the box, so a task at a fork spans its children's columns and is drawn centred under them.
+- Trunk. The trunk is `trunkOf(stack, tasks)` from `links.ts` (see `spec.viewer.deep-links.resolving-a-link`) when it holds two or more tasks. A trunk of one task stays a chip, and a box without a trunk is the same folded or not. A trunk is folded unless `isUnfolded`.
+- Folded, the trunk's tasks have no cell, and every other task's row drops by the trunk's length. The children of the trunk's last task are then in row 1, standing on the segment under the grid. Unfolded, every task keeps the row `stacksOf` gave it.
+- Fork labels. A fork is a task with two or more children in the box. Each child of a fork is labelled with the last `.`-separated part of its first spec section, `fuzzy-matching` for `spec.viewer.fuzzy-matching`, and has no label when it has no spec section. A fork inside a folded trunk can only be the trunk's last task, so its children keep their labels.
+- Keys. `endKeyOf(box)(id)` is `segment:<root>` for a task inside a folded trunk and `task:<id>` for any other. A parent arrow's source is the parent's `endKeyOf`. Its target is `fork:<id>` for a labelled child, so the arrow ends at the foot of the label, and `task:<id>` otherwise. Parent links inside a folded trunk draw no arrow.
+- `trunkLabelOf(stack, trunk)` is the first and last IDs joined by an en dash, the stack's area and the count: `t45–t52 · viewer · 8 done`, or `t45–t52 · 8 done` for a stack with no area.
+
+Tests:
+
+- Properties in `boxes.test.ts` over plans generated from the `StackTask` schema with a status for each task:
+  - unfolded, every task of the stack has a cell, in the row `stacksOf` gave it; folded, exactly the trunk's tasks have none;
+  - no two cells in one row share a column, counting every column of each span, folded or not;
+  - a task's columns cover each of its children's, and the columns under any task are one unbroken run;
+  - there is one arrow per parent link whose child has a cell, and a child of a folded trunk's last task has the segment as its arrow's source;
+  - every arrow's ends are keys of a cell, a fork label or the segment;
+  - a trunk never holds one task.
+- Examples on the demo trace. Folded, Stack 24's trunk is t45 to t52, and `trunkLabelOf` is `t45–t52 · viewer · 8 done`. Row 1 holds t69, t71 and t75, labelled `stacks`, `fuzzy-matching` and `code-view`. t54 spans two columns, and its children t67 and t81 are labelled `server` and `demo-data`. In Stack 13, unfolded, t20 has the children t25 and t111.
+- The diagram test in `stacks.test.ts` also checks that the parent arrows of every box, unfolded, are the solid arrows between tasks in the spec's diagram, so a parent that is not redrawn fails `pnpm check`.
+
+#### Drawing a box {#spec.viewer.stacks.box-view}
+
+- Implements: `prd.viewer.stacks`
+- Files: `apps/viewer/src/view/stackChipsView.ts`, `apps/viewer/src/model.ts`, `apps/viewer/src/init.ts`, `apps/viewer/src/message.ts`, `apps/viewer/src/update.ts`, `apps/viewer/src/reader.ts`, `apps/viewer/src/links.ts`, `apps/viewer/src/wires.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/view/wiresView.ts`, `apps/viewer/src/ui/components.css`, `apps/viewer/test/stack-chips.scene.test.ts`, `apps/viewer/test/stack-fold.scene.test.ts`
+- Depends on: `spec.viewer.stacks.boxes`
+
+`stackView` draws `boxOf(stack, trace.tasks, isUnfolded)`.
+
+- Grid. Each chip row is two grid rows: the chips' row and, under it, a gap row `--stack-gap` (22px) tall that the arrows into the row above cross. In a box of `rows` rows, a chip in row `r` is in grid row `2 × (rows − r) + 1` and in the grid columns `column / span <span>`, centred in them. Columns are at least a chip wide, with 12px between them.
+- Fork labels. A labelled child's label is a `span` with `data-fork-label` and `data-wire` holding `fork:<id>`, in the gap row under the child's chip and across its columns, in the `label` style.
+- Segment. A box with a trunk has a native button under its grid, as wide as the box, with `data-segment` holding the root, `data-holds` holding the trunk's IDs separated by spaces, `data-wire` holding `segment:<root>` and `aria-expanded`. Folded, it shows a done dot and `trunkLabelOf`, and its `title` and `aria-label` add "click to unfold". Unfolded, it is a slim bar under the chips reading `Fold t45–t52`. Either way it sends `ClickedSegment({ root })`.
+- Model. `reader.unfolded` is `Record<TaskId, boolean>` by root, empty at first, so every trunk starts folded. `ClickedSegment` flips its root. Folding belongs to the window: it sends no command and no presence message, and it is not in the URL.
+- A folded segment stands out the way a chip does. It has `data-current` when it holds a task of the current section, `data-faded` when a section is current and it holds none, `data-selected` with an ink outline when it holds the task open in the detail panel, and `data-dimmed` when a node is hovered and the hovered chain holds none of its tasks.
+- Finding a folded task. A folded task has no chip, so wherever the reader looks for a task's chip it finds the segment. `linksOf` takes the key function, and a curve from a task row ends on `endKeyOf` of its task. The scrolls that look for `[data-task="<id>"]` in the stacks pane, a search result's in `reader.ts` and a link step's in `links.ts`, also match `[data-holds~="<id>"]`.
+- The body's `data-wires` attribute also lists the unfolded roots, so `MeasureWires` measures again after a fold changes the pane.
+
+Tests: Scene tests on the demo trace.
+
+- Stack 24 shows one segment reading `t45–t52 · viewer · 8 done`, with no chips for t45 to t52, and t69, t71 and t75 in the row above it, labelled `stacks`, `fuzzy-matching` and `code-view`. t67 and t81 are labelled `server` and `demo-data`.
+- Clicking the segment shows the eight chips and `Fold t45–t52`, and clicking that folds the trunk again.
+- A box whose trunk is one task has no segment.
+- A pinned section with a task inside a folded trunk marks the segment current.
+- Existing scenes that click a task inside a folded trunk unfold it first.
+
+#### Parent arrows {#spec.viewer.stacks.arrows}
+
+- Implements: `prd.viewer.stacks`
+- Files: `apps/viewer/src/arrows.ts`, `apps/viewer/src/view/arrowsView.ts`, `apps/viewer/src/view/stackChipsView.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/ui/components.css`, `apps/viewer/test/arrows.test.ts`, `apps/viewer/test/arrows.scene.test.ts`
+- Depends on: `spec.viewer.stacks.box-view`, `spec.viewer.curves`
+
+The arrows are measured by `MeasureWires` (see `spec.viewer.curves`). Every chip, fork label and segment carries a `data-wire` key, so `MeasuredWires` already holds their rectangles. The stacks list carries `data-wire="stacks:list"`, the origin the arrows are drawn from. There is no second mount.
+
+`arrowsOf(links, boxes, origin)` in `arrows.ts` is pure. For each link with both ends measured, in link order, it returns an `Arrow` with its keys, its kind, its `from` and `to` points and its SVG path, in coordinates relative to `origin`.
+
+- Ends. When the target is above the source, the arrow leaves the middle of the source's top edge and arrives at the middle of the target's bottom edge. When the target is below, it runs from bottom to top. When the two overlap in height, it joins the middle of their facing sides.
+- Path. A cubic bezier whose control points carry on in each end's direction, `max(8, half the distance along that direction)` out from it. A marker draws the head at `to`.
+
+`arrowsView(arrows, h)` is an SVG placed over `.stacks-list`, which is `position: relative`. It is the list's size, with `overflow: visible`, `pointer-events: none` and `aria-hidden`, and sits under the chips. Each arrow's path has `data-arrow` holding its kind, `data-arrow-source` and `data-arrow-target`. A parent arrow is a solid 1.4px `--ink` line at 0.55 opacity with a filled head. It is drawn whatever is hovered or current, and is dimmed with its child's chip. Arrows are drawn from the last `MeasuredWires`, and before the first there are none.
+
+Tests:
+
+- Properties in `arrows.test.ts`:
+  - every arrow starts on an edge of its source's rectangle and ends on an edge of its target's, relative to the origin;
+  - a link with an end not measured gives no arrow;
+  - arrows come in link order;
+  - moving every rectangle and the origin by one offset gives the same arrows.
+- A Scene test sends `MeasuredWires` with rectangles for Stack 24, folded. It finds parent arrows from `segment:t45` to `fork:t69`, `fork:t71` and `fork:t75` and one into every other chip of the box, and no dependency arrow. Unfolded, it finds an arrow from `task:t45` to `task:t46`.
+
+#### Dependency arrows {#spec.viewer.stacks.dependencies}
+
+- Implements: `prd.viewer.stacks`
+- Files: `apps/viewer/src/arrows.ts`, `apps/viewer/src/view/arrowsView.ts`, `apps/viewer/src/view/stackChipsView.ts`, `apps/viewer/src/view/readerView.ts`, `apps/viewer/src/ui/components.css`, `apps/viewer/test/arrows.test.ts`, `apps/viewer/test/stacks.test.ts`, `apps/viewer/test/dependency-arrows.scene.test.ts`
+- Depends on: `spec.viewer.stacks.arrows`, `spec.viewer.detail-panel`
+
+A task's dependencies on other stacks are drawn only while it is in focus.
+
+- Focus. `focusTaskOf(model)` is the hovered node when it is a task, which a chip sends on pointer enter and on keyboard focus. Otherwise it is the last node of the detail trail when that is a task, and otherwise none.
+- `dependencyLinksOf(trace, boxes, maybeFocus)` in `arrows.ts` is pure and returns `{ links, lit }`. With no focus it returns neither. For a focus F, there is one link from each task F depends on in another stack to F, and one from F to each task in another stack that depends on F. Each end goes through its box's `endKeyOf`, so an arrow to or from a folded task ends on its segment. `lit` holds the tasks at the other ends. A dependency inside one stack, or on an ID that names no task, draws nothing. The dependencies are the trace's `dependsOn`, the edges `stackDiagramOf` draws dashed.
+- View. `arrowsOf` lays them out with the parent arrows. A dependency arrow is dashed (`4 3`), 1.6px `--ink` at full opacity, and drawn above the parent arrows. A lit chip, and a segment holding a lit task, has `data-lit` and an ink outline, and is not dimmed or faded while it is lit.
+
+Tests:
+
+- Properties in `arrows.test.ts`:
+  - no focus gives no links;
+  - every link has the focus's end at one of its ends;
+  - no link joins two tasks of one stack.
+- The diagram test in `stacks.test.ts` also checks that the links `dependencyLinksOf` gives over every task in focus, unfolded and without repeats, are the dashed arrows of the spec's diagram.
+- Scene tests on the demo trace with measured rectangles:
+  - With Stack 24 unfolded, hovering t52 draws one dashed arrow from `task:t52` to `task:t68` and lights t68, and leaving it draws none.
+  - With the trunk folded, hovering t68 draws its arrow from `segment:t45` and lights the segment.
+  - Opening t68 in the detail panel with nothing hovered draws the same arrows. Focusing its chip from the keyboard does too.
+  - With no task hovered or open, no dashed arrow is drawn.
 
 ### Models and reasoning {#spec.viewer.models}
 
@@ -4792,7 +4919,7 @@ Opening. `openLink(model, link)` resolves the link and clears what a link holds:
 - PRD passage: pins its section and marks the passage.
 - Spec passage: if the pinned section is not one it implements, it pins the first PRD section it implements. It then opens its card in `opened` and marks the passage. A spec section that implements no PRD section opens in the detail panel, as search does.
 - Task: starts or extends the trail.
-- Stack or segment: sets the focus. The box gets `data-linked` and an ink outline, and for a segment so do its trunk's chips.
+- Stack or segment: sets the focus. The box gets `data-linked` and an ink outline, and for a segment so does the segment while it is folded, or its trunk's chips while it is unfolded (see `spec.viewer.stacks.box-view`).
 - Diff: opens the code view on the trail's last task at `head`.
 - Commit: opens the code view on that commit, after adding its task to the trail when the trail's last task is a different one.
 - File: selects the file.

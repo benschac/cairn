@@ -1431,7 +1431,7 @@
       "id": "spec.contract.judgments",
       "title": "Judgments",
       "level": 3,
-      "line": 355,
+      "line": 356,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1505,7 +1505,7 @@
       "id": "spec.contract.spec-index",
       "title": "Spec index",
       "level": 3,
-      "line": 390,
+      "line": 391,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1622,7 +1622,7 @@
       "id": "spec.contract.javascript-entry",
       "title": "JavaScript entry",
       "level": 3,
-      "line": 442,
+      "line": 443,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1797,7 +1797,7 @@
       "id": "spec.contract.links",
       "title": "Links",
       "level": 3,
-      "line": 457,
+      "line": 458,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -2204,7 +2204,7 @@
       "id": "spec.contract.items-and-statements",
       "title": "Items and statements",
       "level": 3,
-      "line": 523,
+      "line": 524,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -2576,7 +2576,7 @@
       "id": "spec.contract.relation-kinds",
       "title": "Relation kinds",
       "level": 3,
-      "line": 579,
+      "line": 580,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -2847,7 +2847,7 @@
       "id": "spec.contract.attempts",
       "title": "Attempts",
       "level": 3,
-      "line": 623,
+      "line": 624,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -3367,7 +3367,7 @@
       "id": "spec.contract.usage-in-the-trace",
       "title": "Usage in the trace",
       "level": 3,
-      "line": 714,
+      "line": 715,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -3767,7 +3767,7 @@
       "id": "spec.sections",
       "title": "Sections",
       "level": 2,
-      "line": 778,
+      "line": 779,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.sections.parsing",
@@ -3796,7 +3796,7 @@
       "id": "spec.sections.parsing",
       "title": "Parsing",
       "level": 3,
-      "line": 780,
+      "line": 781,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -3937,7 +3937,7 @@
       "id": "spec.sections.cairn-ids",
       "title": "`cairn ids`",
       "level": 3,
-      "line": 802,
+      "line": 803,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -4001,7 +4001,7 @@
       "id": "spec.sections.list-items",
       "title": "List items",
       "level": 3,
-      "line": 810,
+      "line": 811,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -4281,7 +4281,7 @@
       "id": "spec.sections.item-coverage",
       "title": "Item coverage",
       "level": 3,
-      "line": 849,
+      "line": 850,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -4493,7 +4493,7 @@
       "id": "spec.gates",
       "title": "Gates",
       "level": 2,
-      "line": 884,
+      "line": 885,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.gates.path-matching", "spec.gates.detection"],
       "human": false,
@@ -4517,7 +4517,7 @@
       "id": "spec.gates.path-matching",
       "title": "Path matching",
       "level": 3,
-      "line": 886,
+      "line": 887,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -4573,7 +4573,7 @@
       "id": "spec.gates.detection",
       "title": "Detection",
       "level": 3,
-      "line": 895,
+      "line": 896,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -4634,7 +4634,7 @@
       "id": "spec.models",
       "title": "Models",
       "level": 2,
-      "line": 908,
+      "line": 909,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4879,7 +4879,7 @@
       "id": "spec.planning",
       "title": "Planning",
       "level": 2,
-      "line": 958,
+      "line": 959,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.planning.planner-service",
@@ -4915,7 +4915,7 @@
       "id": "spec.planning.planner-service",
       "title": "Planner service",
       "level": 3,
-      "line": 960,
+      "line": 961,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5136,7 +5136,7 @@
       "id": "spec.planning.stack-order",
       "title": "Stack order",
       "level": 3,
-      "line": 983,
+      "line": 984,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5264,7 +5264,7 @@
       "id": "spec.planning.cairn-plan",
       "title": "`cairn plan`",
       "level": 3,
-      "line": 1898,
+      "line": 1911,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5426,7 +5426,7 @@
       "id": "spec.planning.again",
       "title": "Planning again",
       "level": 3,
-      "line": 1929,
+      "line": 1942,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5549,7 +5549,7 @@
       "id": "spec.planning.stack-diagram",
       "title": "Stack diagram",
       "level": 3,
-      "line": 1952,
+      "line": 1965,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5657,7 +5657,7 @@
       "id": "spec.planning.dry-run",
       "title": "Dry runs",
       "level": 3,
-      "line": 1969,
+      "line": 1982,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5749,7 +5749,7 @@
       "id": "spec.planning.done-when",
       "title": "Done when",
       "level": 3,
-      "line": 1981,
+      "line": 1994,
       "parent": "spec.planning",
       "children": [
         "spec.planning.done-when.statements",
@@ -5837,7 +5837,7 @@
       "id": "spec.planning.done-when.statements",
       "title": "Statements",
       "level": 4,
-      "line": 1995,
+      "line": 2008,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6055,7 +6055,7 @@
       "id": "spec.planning.done-when.asking-the-person",
       "title": "Asking the person",
       "level": 4,
-      "line": 2030,
+      "line": 2043,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6361,7 +6361,7 @@
       "id": "spec.planning.done-when.tracing-statements",
       "title": "Tracing statements",
       "level": 4,
-      "line": 2076,
+      "line": 2089,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6641,7 +6641,7 @@
       "id": "spec.planning.done-when.statements-in-briefs-and-reviews",
       "title": "Statements in briefs and reviews",
       "level": 4,
-      "line": 2110,
+      "line": 2123,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6803,7 +6803,7 @@
       "id": "spec.planning.task-categories",
       "title": "Task categories",
       "level": 3,
-      "line": 2138,
+      "line": 2151,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -7034,7 +7034,7 @@
       "id": "spec.planning.conflict-scores",
       "title": "Conflict scores",
       "level": 3,
-      "line": 2163,
+      "line": 2176,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -7316,7 +7316,7 @@
       "id": "spec.planning.conflict-ordering",
       "title": "Conflict ordering",
       "level": 3,
-      "line": 2205,
+      "line": 2218,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -7625,7 +7625,7 @@
       "id": "spec.planning.planning-a-part",
       "title": "Planning a part",
       "level": 3,
-      "line": 2243,
+      "line": 2256,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -8202,7 +8202,7 @@
       "id": "spec.lint",
       "title": "Lint",
       "level": 2,
-      "line": 2321,
+      "line": 2334,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -8482,7 +8482,7 @@
       "id": "spec.judging",
       "title": "Judging",
       "level": 2,
-      "line": 2349,
+      "line": 2362,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.judging.questions",
@@ -8536,7 +8536,7 @@
       "id": "spec.judging.questions",
       "title": "Questions",
       "level": 3,
-      "line": 2355,
+      "line": 2368,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8643,7 +8643,7 @@
       "id": "spec.judging.verdicts",
       "title": "Verdicts",
       "level": 3,
-      "line": 2379,
+      "line": 2392,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8757,7 +8757,7 @@
       "id": "spec.judging.judge-service",
       "title": "Judge service",
       "level": 3,
-      "line": 2394,
+      "line": 2407,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8856,7 +8856,7 @@
       "id": "spec.judging.checkpoints",
       "title": "Checkpoints",
       "level": 3,
-      "line": 2405,
+      "line": 2418,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8962,7 +8962,7 @@
       "id": "spec.judging.cairn-judge",
       "title": "`cairn judge`",
       "level": 3,
-      "line": 2427,
+      "line": 2440,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -9039,7 +9039,7 @@
       "id": "spec.judging.model-catalog",
       "title": "Model catalog",
       "level": 3,
-      "line": 2438,
+      "line": 2451,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -9549,7 +9549,7 @@
       "id": "spec.judging.openai-decisions",
       "title": "OpenAI Decisions",
       "level": 3,
-      "line": 2525,
+      "line": 2538,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -9960,7 +9960,7 @@
       "id": "spec.judging.comparing-decision-providers",
       "title": "Comparing decision providers",
       "level": 3,
-      "line": 2573,
+      "line": 2586,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -10236,7 +10236,7 @@
       "id": "spec.judging.cloudflare-ai-gateway",
       "title": "Cloudflare AI Gateway",
       "level": 3,
-      "line": 2607,
+      "line": 2620,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -10637,7 +10637,7 @@
       "id": "spec.judging.routing-from-history",
       "title": "Routing from history",
       "level": 3,
-      "line": 2654,
+      "line": 2667,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -11030,7 +11030,7 @@
       "id": "spec.status",
       "title": "Status",
       "level": 2,
-      "line": 2712,
+      "line": 2725,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.status.task-machine",
@@ -11067,7 +11067,7 @@
       "id": "spec.status.task-machine",
       "title": "Task machine",
       "level": 3,
-      "line": 2714,
+      "line": 2727,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11156,7 +11156,7 @@
       "id": "spec.status.derivation",
       "title": "Derivation",
       "level": 3,
-      "line": 2722,
+      "line": 2735,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11269,7 +11269,7 @@
       "id": "spec.status.section-rollup",
       "title": "Section rollup",
       "level": 3,
-      "line": 2743,
+      "line": 2756,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11356,7 +11356,7 @@
       "id": "spec.status.cairn-status-and-cairn-approve",
       "title": "`cairn status` and `cairn approve`",
       "level": 3,
-      "line": 2759,
+      "line": 2772,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11460,7 +11460,7 @@
       "id": "spec.status.trailer-check",
       "title": "Trailer check",
       "level": 3,
-      "line": 2771,
+      "line": 2784,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11532,7 +11532,7 @@
       "id": "spec.status.attempts",
       "title": "Attempts",
       "level": 3,
-      "line": 2779,
+      "line": 2792,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11907,7 +11907,7 @@
       "id": "spec.status.outcome-metrics",
       "title": "Outcome metrics",
       "level": 3,
-      "line": 2818,
+      "line": 2831,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12172,7 +12172,7 @@
       "id": "spec.status.cairn-stats",
       "title": "`cairn stats`",
       "level": 3,
-      "line": 2859,
+      "line": 2872,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12390,7 +12390,7 @@
       "id": "spec.status.relation-index",
       "title": "Relation index",
       "level": 3,
-      "line": 2900,
+      "line": 2913,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12702,7 +12702,7 @@
       "id": "spec.status.section-links",
       "title": "Section links",
       "level": 3,
-      "line": 2948,
+      "line": 2961,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12862,7 +12862,7 @@
       "id": "spec.status.answers-from-the-index",
       "title": "Answers from the index",
       "level": 3,
-      "line": 2968,
+      "line": 2981,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -13109,7 +13109,7 @@
       "id": "spec.status.conflict-record",
       "title": "Conflict record",
       "level": 3,
-      "line": 2988,
+      "line": 3001,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -13212,7 +13212,7 @@
       "id": "spec.sessions",
       "title": "Sessions",
       "level": 2,
-      "line": 3018,
+      "line": 3031,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.sessions.trace-store",
@@ -13245,7 +13245,7 @@
       "id": "spec.sessions.trace-store",
       "title": "Trace store",
       "level": 3,
-      "line": 3020,
+      "line": 3033,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -13409,7 +13409,7 @@
       "id": "spec.sessions.redaction",
       "title": "Redaction",
       "level": 3,
-      "line": 3051,
+      "line": 3064,
       "parent": "spec.sessions",
       "children": [],
       "human": true,
@@ -13533,7 +13533,7 @@
       "id": "spec.sessions.cairn-session",
       "title": "`cairn session`",
       "level": 3,
-      "line": 3070,
+      "line": 3083,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -13599,7 +13599,7 @@
       "id": "spec.sessions.reading",
       "title": "Reading a session",
       "level": 3,
-      "line": 3080,
+      "line": 3093,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -13671,7 +13671,7 @@
       "id": "spec.sessions.usage-records",
       "title": "Usage records",
       "level": 3,
-      "line": 3105,
+      "line": 3118,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -14141,7 +14141,7 @@
       "id": "spec.sessions.api-equivalent-cost",
       "title": "API-equivalent cost",
       "level": 3,
-      "line": 3167,
+      "line": 3180,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -14380,7 +14380,7 @@
       "id": "spec.sessions.subscription-allowance",
       "title": "Subscription allowance",
       "level": 3,
-      "line": 3193,
+      "line": 3206,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -14687,7 +14687,7 @@
       "id": "spec.sessions.notes",
       "title": "Notes",
       "level": 3,
-      "line": 3244,
+      "line": 3257,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -15065,7 +15065,7 @@
       "id": "spec.orchestrator-adapter",
       "title": "Orchestrator adapter",
       "level": 2,
-      "line": 3281,
+      "line": 3294,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.orchestrator-adapter.attempts-and-verification",
@@ -15295,7 +15295,7 @@
       "id": "spec.orchestrator-adapter.attempts-and-verification",
       "title": "Attempts and verification",
       "level": 3,
-      "line": 3299,
+      "line": 3312,
       "parent": "spec.orchestrator-adapter",
       "children": [],
       "human": false,
@@ -15629,7 +15629,7 @@
       "id": "spec.orchestrator-adapter.conflict-aware-running",
       "title": "Conflict-aware running",
       "level": 3,
-      "line": 3322,
+      "line": 3335,
       "parent": "spec.orchestrator-adapter",
       "children": [],
       "human": false,
@@ -15990,7 +15990,7 @@
       "id": "spec.cli",
       "title": "CLI",
       "level": 2,
-      "line": 3381,
+      "line": 3394,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.cli.cairn-link",
@@ -16089,7 +16089,7 @@
       "id": "spec.cli.cairn-link",
       "title": "`cairn link`",
       "level": 3,
-      "line": 3390,
+      "line": 3403,
       "parent": "spec.cli",
       "children": [],
       "human": false,
@@ -16436,7 +16436,7 @@
       "id": "spec.cli.documentation",
       "title": "Documentation",
       "level": 3,
-      "line": 3442,
+      "line": 3455,
       "parent": "spec.cli",
       "children": [
         "spec.cli.documentation.reference-from-code",
@@ -16512,7 +16512,7 @@
       "id": "spec.cli.documentation.reference-from-code",
       "title": "Reference from code",
       "level": 4,
-      "line": 3448,
+      "line": 3461,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -16680,7 +16680,7 @@
       "id": "spec.cli.documentation.docs-site",
       "title": "Docs site",
       "level": 4,
-      "line": 3468,
+      "line": 3481,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -16904,7 +16904,7 @@
       "id": "spec.cli.documentation.pages",
       "title": "Pages",
       "level": 4,
-      "line": 3491,
+      "line": 3504,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -17011,7 +17011,7 @@
       "id": "spec.cli.documentation.the-viewer-on-a-page",
       "title": "The viewer on a page",
       "level": 4,
-      "line": 3513,
+      "line": 3526,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -17123,7 +17123,7 @@
       "id": "spec.cli.agent-access",
       "title": "Agent access",
       "level": 3,
-      "line": 3528,
+      "line": 3541,
       "parent": "spec.cli",
       "children": [
         "spec.cli.agent-access.operations",
@@ -17271,7 +17271,7 @@
       "id": "spec.cli.agent-access.operations",
       "title": "Operations",
       "level": 4,
-      "line": 3542,
+      "line": 3555,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -17803,7 +17803,7 @@
       "id": "spec.cli.agent-access.review-checkpoints",
       "title": "Review checkpoints",
       "level": 4,
-      "line": 3608,
+      "line": 3621,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -18431,7 +18431,7 @@
       "id": "spec.cli.agent-access.mcp-server",
       "title": "MCP server",
       "level": 4,
-      "line": 3692,
+      "line": 3705,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -18926,7 +18926,7 @@
       "id": "spec.cli.agent-access.more-tools",
       "title": "More tools",
       "level": 4,
-      "line": 3747,
+      "line": 3761,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -19310,7 +19310,7 @@
       "id": "spec.cli.agent-access.agent-guide",
       "title": "Agent guide",
       "level": 4,
-      "line": 3775,
+      "line": 3789,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -19540,7 +19540,7 @@
       "id": "spec.cli.terminal-view",
       "title": "Terminal view",
       "level": 3,
-      "line": 3805,
+      "line": 3819,
       "parent": "spec.cli",
       "children": [
         "spec.cli.terminal-view.rendering-library",
@@ -19748,7 +19748,7 @@
       "id": "spec.cli.terminal-view.rendering-library",
       "title": "Rendering library",
       "level": 4,
-      "line": 3842,
+      "line": 3856,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -20089,7 +20089,7 @@
       "id": "spec.cli.terminal-view.shared-derivations",
       "title": "Shared derivations",
       "level": 4,
-      "line": 3886,
+      "line": 3900,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -20260,7 +20260,7 @@
       "id": "spec.cli.terminal-view.trace-stream",
       "title": "Trace stream",
       "level": 4,
-      "line": 3907,
+      "line": 3921,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -20461,7 +20461,7 @@
       "id": "spec.cli.terminal-view.model-update-and-view",
       "title": "Model, update and view",
       "level": 4,
-      "line": 3934,
+      "line": 3949,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -20817,7 +20817,7 @@
       "id": "spec.cli.terminal-view.keys",
       "title": "Keys",
       "level": 4,
-      "line": 3982,
+      "line": 3997,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -21130,7 +21130,7 @@
       "id": "spec.cli.terminal-view.cairn-watch",
       "title": "`cairn watch`",
       "level": 4,
-      "line": 4021,
+      "line": 4036,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -21425,7 +21425,7 @@
       "id": "spec.patch-routes",
       "title": "Patch routes",
       "level": 2,
-      "line": 4066,
+      "line": 4082,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -21519,7 +21519,7 @@
       "id": "spec.server",
       "title": "Server",
       "level": 2,
-      "line": 4087,
+      "line": 4103,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -21683,7 +21683,7 @@
       "id": "spec.viewer",
       "title": "Viewer",
       "level": 2,
-      "line": 4110,
+      "line": 4126,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.viewer.model-and-messages",
@@ -21736,7 +21736,7 @@
       "id": "spec.viewer.model-and-messages",
       "title": "Model and messages",
       "level": 3,
-      "line": 4112,
+      "line": 4128,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -21879,7 +21879,7 @@
       "id": "spec.viewer.markdown-rendering",
       "title": "Markdown rendering",
       "level": 3,
-      "line": 4128,
+      "line": 4144,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -21963,7 +21963,7 @@
       "id": "spec.viewer.design-system",
       "title": "Design system",
       "level": 3,
-      "line": 4137,
+      "line": 4153,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22224,7 +22224,7 @@
       "id": "spec.viewer.reader",
       "title": "Reader",
       "level": 3,
-      "line": 4237,
+      "line": 4253,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22508,7 +22508,7 @@
       "id": "spec.viewer.spec-cards",
       "title": "Spec cards",
       "level": 3,
-      "line": 4289,
+      "line": 4305,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22679,7 +22679,7 @@
       "id": "spec.viewer.fuzzy-matching",
       "title": "Fuzzy matching",
       "level": 3,
-      "line": 4316,
+      "line": 4332,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22737,7 +22737,7 @@
       "id": "spec.viewer.search-interaction",
       "title": "Search controls and chain highlighting",
       "level": 3,
-      "line": 4335,
+      "line": 4351,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22825,7 +22825,7 @@
       "id": "spec.viewer.prose-search",
       "title": "Prose search and inline highlights",
       "level": 3,
-      "line": 4357,
+      "line": 4373,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22895,7 +22895,7 @@
       "id": "spec.viewer.curves",
       "title": "Curves",
       "level": 3,
-      "line": 4379,
+      "line": 4395,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23082,9 +23082,14 @@
       "id": "spec.viewer.stacks",
       "title": "Stacks",
       "level": 3,
-      "line": 4406,
+      "line": 4422,
       "parent": "spec.viewer",
-      "children": [],
+      "children": [
+        "spec.viewer.stacks.boxes",
+        "spec.viewer.stacks.box-view",
+        "spec.viewer.stacks.arrows",
+        "spec.viewer.stacks.dependencies"
+      ],
       "human": false,
       "implements": ["prd.viewer.stacks"],
       "files": [
@@ -23118,7 +23123,7 @@
         {
           "id": "spec.viewer.stacks#r4",
           "level": "must",
-          "text": "A task's row in its box is its depth along parent links, so a chain has no gaps; columns in a box follow the first-child-continues rule and are numbered by the ID of their first task."
+          "text": "A task's row in its box is its depth along parent links, so a chain has no gaps; columns in a box are numbered depth first, the first child by ID continuing its parent's column and each other child starting the column after those its elder siblings use, so the columns under any task are one unbroken run."
         },
         {
           "id": "spec.viewer.stacks#r5",
@@ -23153,7 +23158,7 @@
         {
           "id": "spec.viewer.stacks#r11",
           "level": "must-not",
-          "text": "Draw curves inside the pane: a chip sits on its parent, and the detail panel names a task's other dependencies."
+          "text": "Inside each box a solid arrow runs from each parent to each child, a finished trunk folds into one segment and each fork's columns are labelled; a task's dependencies on other stacks are dashed arrows drawn only for the task in focus."
         }
       ],
       "artifacts": [
@@ -23224,7 +23229,1106 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer.stacks": "f9975808cd61b5f8dfba9ce9107b4bcb4e898eee2618cedc1cbbc782da48f5ea"
+          "prd.viewer.stacks": "b0051f670e2931b9f330fe1c37f71d27cc017f097db617749bef4ce9ee0dee79"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.stacks.boxes",
+      "title": "Boxes, forks and finished trunks",
+      "level": 4,
+      "line": 4462,
+      "parent": "spec.viewer.stacks",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.stacks"],
+      "files": [
+        "packages/core/src/stacks.ts",
+        "apps/viewer/src/boxes.ts",
+        "apps/viewer/test/boxes.test.ts",
+        "apps/viewer/test/stacks.test.ts"
+      ],
+      "dependsOn": ["spec.viewer.stacks", "spec.viewer.deep-links.resolving-a-link"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t189"],
+      "summary": "Defines the pure `boxOf` function that works out what a stack's box draws before it is drawn: depth-first columns, spans centred over forks, a finished trunk that folds into a segment, fork labels from spec sections, and the keys parent arrows run between. It also defines the trunk's label text.",
+      "requirements": [
+        {
+          "id": "spec.viewer.stacks.boxes#r1",
+          "level": "must",
+          "text": "`boxOf(stack, tasks, isUnfolded)` in `apps/viewer/src/boxes.ts` must be pure and must work out what a box draws before the box is drawn."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r2",
+          "level": "must",
+          "text": "`stacksOf` in `packages/core/src/stacks.ts` must number a box's columns depth first, following the rule in `spec.viewer.stacks`, so that the columns under any task form one unbroken run."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r3",
+          "level": "must",
+          "text": "A task's `span` must be the number of columns used by the task and everything built on it in the box, so a task at a fork spans its children's columns and is drawn centred under them."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r4",
+          "level": "must",
+          "text": "A box's trunk must be `trunkOf(stack, tasks)` from `links.ts` when that trunk holds two or more tasks. A trunk of one task stays a chip, so the box has no trunk."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r5",
+          "level": "must",
+          "text": "A box without a trunk must be the same whether it is folded or not."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r6",
+          "level": "must",
+          "text": "A trunk must be folded unless `isUnfolded` is true."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r7",
+          "level": "must",
+          "text": "When the trunk is folded, the trunk's tasks must have no cell and every other task's row must drop by the trunk's length, so the children of the trunk's last task are in row 1, standing on the segment under the grid."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r8",
+          "level": "must",
+          "text": "When the trunk is unfolded, every task must keep the row `stacksOf` gave it."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r9",
+          "level": "must",
+          "text": "A fork is a task with two or more children in the box. Each child of a fork must be labelled with the last `.`-separated part of its first spec section, for example `fuzzy-matching` for `spec.viewer.fuzzy-matching`."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r10",
+          "level": "must-not",
+          "text": "A child of a fork that has no spec section must not have a fork label."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r11",
+          "level": "must",
+          "text": "When a fork is the last task of a folded trunk, its children must keep their fork labels."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r12",
+          "level": "must",
+          "text": "`endKeyOf(box)(id)` must return `segment:<root>` for a task inside a folded trunk and `task:<id>` for any other task."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r13",
+          "level": "must",
+          "text": "A parent arrow's source must be the parent's `endKeyOf` key."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r14",
+          "level": "must",
+          "text": "A parent arrow's target must be `fork:<id>` for a labelled child, so the arrow ends at the foot of the label, and `task:<id>` for any other child."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r15",
+          "level": "must-not",
+          "text": "Parent links between tasks inside a folded trunk must not draw an arrow."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r16",
+          "level": "must",
+          "text": "A box's `arrows` must hold one arrow for each parent link drawn, each of kind `parent`."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#r17",
+          "level": "must",
+          "text": "`trunkLabelOf(stack, trunk)` must return the trunk's first and last IDs joined by an en dash, then the stack's area, then the count of done tasks, separated by ` · `, such as `t45–t52 · viewer · 8 done`, leaving out the area for a stack with none, such as `t45–t52 · 8 done`."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.stacks.boxes#function:box-of",
+          "kind": "function",
+          "name": "boxOf",
+          "location": "apps/viewer/src/boxes.ts",
+          "description": "Pure function that works out the box a stack draws: its trunk, cells, fork labels, parent arrows and row count.",
+          "signature": "boxOf(stack: Stack, tasks, isUnfolded: boolean): Box"
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#type:box",
+          "kind": "type",
+          "name": "Box",
+          "location": "apps/viewer/src/boxes.ts",
+          "description": "What one stack's box draws.",
+          "fields": [
+            {
+              "description": "The stack the box draws.",
+              "name": "stack",
+              "optional": false,
+              "type": "Stack"
+            },
+            {
+              "description": "A finished trunk of two or more tasks, if any.",
+              "name": "maybeTrunk",
+              "optional": false,
+              "type": "Option<Trunk>"
+            },
+            {
+              "description": "The tasks drawn as chips, each with its cell.",
+              "name": "cells",
+              "optional": false,
+              "type": "Record<TaskId, BoxCell>"
+            },
+            {
+              "description": "A fork's child, mapped to the label at its foot.",
+              "name": "forkLabels",
+              "optional": false,
+              "type": "Record<TaskId, string>"
+            },
+            {
+              "description": "One arrow per parent link drawn, each of kind \"parent\".",
+              "name": "arrows",
+              "optional": false,
+              "type": "ReadonlyArray<ArrowLink>"
+            },
+            {
+              "description": "The number of chip rows the box holds.",
+              "name": "rows",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#type:trunk",
+          "kind": "type",
+          "name": "Trunk",
+          "location": "apps/viewer/src/boxes.ts",
+          "description": "A finished trunk of a stack and whether it is folded.",
+          "fields": [
+            {
+              "description": "The trunk's root task.",
+              "name": "root",
+              "optional": false,
+              "type": "TaskId"
+            },
+            {
+              "description": "The trunk's tasks.",
+              "name": "tasks",
+              "optional": false,
+              "type": "NonEmptyReadonlyArray<TaskId>"
+            },
+            {
+              "description": "Whether the trunk is drawn folded into a segment.",
+              "name": "isFolded",
+              "optional": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#type:box-cell",
+          "kind": "type",
+          "name": "BoxCell",
+          "location": "apps/viewer/src/boxes.ts",
+          "description": "Where a task's chip sits in the box grid.",
+          "fields": [
+            {
+              "description": "The chip's first column.",
+              "name": "column",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "description": "The number of columns used by the task and everything built on it in the box.",
+              "name": "span",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "description": "The chip's row, with row 1 at the bottom.",
+              "name": "row",
+              "optional": false,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#type:arrow-link",
+          "kind": "type",
+          "name": "ArrowLink",
+          "location": "apps/viewer/src/boxes.ts",
+          "description": "An arrow between two data-wire keys.",
+          "values": ["parent", "dependency"],
+          "fields": [
+            {
+              "description": "The data-wire key the arrow starts at.",
+              "name": "source",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "description": "The data-wire key the arrow ends at.",
+              "name": "target",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "description": "The kind of link the arrow draws.",
+              "name": "kind",
+              "optional": false,
+              "type": "\"parent\" | \"dependency\""
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#function:stacks-of",
+          "kind": "function",
+          "name": "stacksOf",
+          "location": "packages/core/src/stacks.ts",
+          "description": "Groups tasks into stacks and numbers each box's columns depth first, so the columns under any task are one unbroken run."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#function:trunk-of",
+          "kind": "function",
+          "name": "trunkOf",
+          "location": null,
+          "description": "From `links.ts`, defined in `spec.viewer.deep-links.resolving-a-link`; gives a stack's finished trunk.",
+          "signature": "trunkOf(stack, tasks)"
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#function:end-key-of",
+          "kind": "function",
+          "name": "endKeyOf",
+          "location": null,
+          "description": "Gives a task's arrow-end key in a box: `segment:<root>` inside a folded trunk, `task:<id>` otherwise.",
+          "signature": "endKeyOf(box)(id)"
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#function:trunk-label-of",
+          "kind": "function",
+          "name": "trunkLabelOf",
+          "location": null,
+          "description": "Builds a trunk's label from its first and last IDs, the stack's area and the done count, such as `t45–t52 · viewer · 8 done`.",
+          "signature": "trunkLabelOf(stack, trunk)"
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#file:packages-core-src-stacks-ts",
+          "kind": "file",
+          "name": "packages/core/src/stacks.ts",
+          "location": "packages/core/src/stacks.ts",
+          "description": "Holds `stacksOf`, which numbers box columns depth first."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#file:apps-viewer-src-boxes-ts",
+          "kind": "file",
+          "name": "apps/viewer/src/boxes.ts",
+          "location": "apps/viewer/src/boxes.ts",
+          "description": "Holds `boxOf` and the box types."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#file:apps-viewer-test-boxes-test-ts",
+          "kind": "file",
+          "name": "apps/viewer/test/boxes.test.ts",
+          "location": "apps/viewer/test/boxes.test.ts",
+          "description": "Property and example tests for `boxOf`."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#file:apps-viewer-test-stacks-test-ts",
+          "kind": "file",
+          "name": "apps/viewer/test/stacks.test.ts",
+          "location": "apps/viewer/test/stacks.test.ts",
+          "description": "Holds the diagram test, which also checks each box's parent arrows against the spec's diagram."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.stacks.boxes#t1",
+          "kind": "property",
+          "text": "Over plans generated from the `StackTask` schema with a status for each task: unfolded, every task of the stack has a cell in the row `stacksOf` gave it; folded, exactly the trunk's tasks have no cell."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#t2",
+          "kind": "property",
+          "text": "Over generated plans, no two cells in one row share a column, counting every column of each span, folded or not."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#t3",
+          "kind": "property",
+          "text": "Over generated plans, a task's columns cover each of its children's columns, and the columns under any task are one unbroken run."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#t4",
+          "kind": "property",
+          "text": "Over generated plans, there is one arrow per parent link whose child has a cell, and a child of a folded trunk's last task has the segment as its arrow's source."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#t5",
+          "kind": "property",
+          "text": "Over generated plans, both ends of every arrow are keys of a cell, a fork label or the segment."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#t6",
+          "kind": "property",
+          "text": "Over generated plans, a trunk never holds exactly one task."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#t7",
+          "kind": "example",
+          "text": "On the demo trace, folded, Stack 24's trunk runs from t45 to t52 and `trunkLabelOf` gives `t45–t52 · viewer · 8 done`."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#t8",
+          "kind": "example",
+          "text": "On the demo trace, folded, Stack 24's row 1 holds t69, t71 and t75, labelled `stacks`, `fuzzy-matching` and `code-view`."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#t9",
+          "kind": "example",
+          "text": "On the demo trace, in Stack 24, t54 spans two columns, and its children t67 and t81 are labelled `server` and `demo-data`."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#t10",
+          "kind": "example",
+          "text": "On the demo trace, in Stack 13 unfolded, t20 has the children t25 and t111."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#t11",
+          "kind": "check",
+          "text": "The diagram test in `stacks.test.ts` checks that every box's parent arrows, unfolded, are the solid arrows between tasks in the spec's diagram, so a parent link that is not redrawn fails `pnpm check`."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.stacks.boxes#d1",
+          "text": "Columns are numbered depth first, replacing the old rule that numbered them by the ID of each column's first task.",
+          "why": "The old rule breaks the unbroken run of columns under a task: in Stack 8 of this repo, t55 sits between t106 and its child t115."
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#d2",
+          "text": "Only a trunk of two or more tasks counts as a trunk; a trunk of one task stays a chip.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#d3",
+          "text": "A trunk is folded by default and unfolded only when `isUnfolded` is set.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.stacks.boxes#d4",
+          "text": "A labelled child's parent arrow targets `fork:<id>` rather than the child's task key.",
+          "why": "So the arrow ends at the foot of the fork label."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.stacks": "b0051f670e2931b9f330fe1c37f71d27cc017f097db617749bef4ce9ee0dee79"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.stacks.box-view",
+      "title": "Drawing a box",
+      "level": 4,
+      "line": 4504,
+      "parent": "spec.viewer.stacks",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.stacks"],
+      "files": [
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/init.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/reader.ts",
+        "apps/viewer/src/links.ts",
+        "apps/viewer/src/wires.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/view/wiresView.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/stack-chips.scene.test.ts",
+        "apps/viewer/test/stack-fold.scene.test.ts"
+      ],
+      "dependsOn": ["spec.viewer.stacks.boxes"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t190"],
+      "summary": "Draws a stack's box as a grid of chip rows and gap rows, with fork labels under labelled children and a segment button that folds and unfolds the box's trunk. Folded tasks are found through their segment by links, curves and scrolls, and fold state lives only in the window.",
+      "requirements": [
+        {
+          "id": "spec.viewer.stacks.box-view#r1",
+          "level": "must",
+          "text": "`stackView` draws the box returned by `boxOf(stack, trace.tasks, isUnfolded)`."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r2",
+          "level": "must",
+          "text": "Each chip row of a box is two grid rows: the chips' row and, under it, a gap row `--stack-gap` (22px) tall that the arrows into the row above cross."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r3",
+          "level": "must",
+          "text": "In a box of `rows` rows, a chip in row `r` is placed in grid row `2 × (rows − r) + 1` and in the grid columns `column / span <span>`, centred in them."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r4",
+          "level": "must",
+          "text": "Box grid columns are at least a chip wide, with 12px between them."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r5",
+          "level": "must",
+          "text": "A labelled child's fork label is a `span` with `data-fork-label` and `data-wire` holding `fork:<id>`, placed in the gap row under the child's chip and across its columns, in the `label` style."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r6",
+          "level": "must",
+          "text": "A box with a trunk has a native button under its grid, as wide as the box, with `data-segment` holding the root, `data-holds` holding the trunk's task IDs separated by spaces, `data-wire` holding `segment:<root>`, and `aria-expanded`."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r7",
+          "level": "must",
+          "text": "A folded segment shows a done dot and `trunkLabelOf`, and its `title` and `aria-label` add \"click to unfold\"."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r8",
+          "level": "must",
+          "text": "An unfolded segment is a slim bar under the chips reading `Fold <first>–<last>` (for example `Fold t45–t52`)."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r9",
+          "level": "must",
+          "text": "Clicking the segment, folded or unfolded, sends `ClickedSegment({ root })`."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r10",
+          "level": "must",
+          "text": "`reader.unfolded` is a `Record<TaskId, boolean>` keyed by trunk root and is empty at first, so every trunk starts folded."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r11",
+          "level": "must",
+          "text": "`ClickedSegment` flips the unfolded state of its root."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r12",
+          "level": "must-not",
+          "text": "Folding or unfolding a trunk must not send a command or a presence message."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r13",
+          "level": "must-not",
+          "text": "Fold state must not be stored in the URL."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r14",
+          "level": "must",
+          "text": "A folded segment has `data-current` when it holds a task of the current section."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r15",
+          "level": "must",
+          "text": "A folded segment has `data-faded` when a section is current and the segment holds none of its tasks."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r16",
+          "level": "must",
+          "text": "A folded segment has `data-selected`, drawn with an ink outline, when it holds the task open in the detail panel."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r17",
+          "level": "must",
+          "text": "A folded segment has `data-dimmed` when a node is hovered and the hovered chain holds none of its tasks."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r18",
+          "level": "must",
+          "text": "A folded task has no chip, so wherever the reader looks for a task's chip it finds the segment holding that task instead."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r19",
+          "level": "must",
+          "text": "`linksOf` takes the key function, and a curve from a task row ends on `endKeyOf` of its task."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r20",
+          "level": "must",
+          "text": "The scrolls that look for `[data-task=\"<id>\"]` in the stacks pane, for a search result in `reader.ts` and for a link step in `links.ts`, also match `[data-holds~=\"<id>\"]`."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#r21",
+          "level": "must",
+          "text": "The body's `data-wires` attribute also lists the unfolded roots, so `MeasureWires` measures again after a fold changes the pane."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.stacks.box-view#function:stack-view",
+          "kind": "function",
+          "name": "stackView",
+          "location": null,
+          "description": "View function that draws a stack's box from `boxOf`."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#function:box-of",
+          "kind": "function",
+          "name": "boxOf",
+          "location": null,
+          "description": "Computes a stack's box layout given its tasks and which trunks are unfolded.",
+          "signature": "boxOf(stack, trace.tasks, isUnfolded)"
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#function:trunk-label-of",
+          "kind": "function",
+          "name": "trunkLabelOf",
+          "location": null,
+          "description": "Produces the label a folded segment shows, such as `t45–t52 · viewer · 8 done`."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#function:links-of",
+          "kind": "function",
+          "name": "linksOf",
+          "location": null,
+          "description": "Builds the link curves; takes the key function so a curve to a folded task ends on its segment."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#function:end-key-of",
+          "kind": "function",
+          "name": "endKeyOf",
+          "location": null,
+          "description": "Key function giving the element a curve from a task row ends on: the task's chip, or its segment when folded."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#message:clicked-segment",
+          "kind": "message",
+          "name": "ClickedSegment",
+          "location": null,
+          "description": "Message sent when a segment button is clicked; flips the fold state of its root.",
+          "fields": [
+            {
+              "description": "The root task of the trunk the segment holds.",
+              "name": "root",
+              "optional": false,
+              "type": "TaskId"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#command:measure-wires",
+          "kind": "command",
+          "name": "MeasureWires",
+          "location": null,
+          "description": "Measures the wires again when the body's `data-wires` changes, including after a fold."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#type:reader-unfolded",
+          "kind": "type",
+          "name": "reader.unfolded",
+          "location": null,
+          "description": "Window-local fold state of trunks, keyed by root, empty at first so every trunk starts folded.",
+          "fields": [
+            {
+              "description": "Whether the trunk with this root TaskId is unfolded; type is `Record<TaskId, boolean>`.",
+              "name": "<root>",
+              "optional": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#config-key:stack-gap",
+          "kind": "config-key",
+          "name": "--stack-gap",
+          "location": null,
+          "description": "CSS custom property for the height of the gap row under each chip row, 22px."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.stacks.box-view#t1",
+          "kind": "scene",
+          "text": "On the demo trace, stack 24 shows one segment reading `t45–t52 · viewer · 8 done` with no chips for t45 to t52, t69, t71 and t75 in the row above it labelled `stacks`, `fuzzy-matching` and `code-view`, and t67 and t81 labelled `server` and `demo-data`."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#t2",
+          "kind": "scene",
+          "text": "Clicking the segment shows the eight chips and `Fold t45–t52`, and clicking that folds the trunk again."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#t3",
+          "kind": "scene",
+          "text": "A box whose trunk is one task has no segment."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#t4",
+          "kind": "scene",
+          "text": "A pinned section with a task inside a folded trunk marks the segment current."
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#t5",
+          "kind": "scene",
+          "text": "Existing scenes that click a task inside a folded trunk unfold it first."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.stacks.box-view#d1",
+          "text": "Fold state belongs to the window: folding sends no command and no presence message and is not kept in the URL.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#d2",
+          "text": "Every trunk starts folded, since `reader.unfolded` is empty at first.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.stacks.box-view#d3",
+          "text": "A folded task has no chip of its own; lookups for its chip resolve to the segment that holds it rather than drawing a placeholder.",
+          "why": "A folded task has no chip, so the reader must find it somewhere."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.stacks": "b0051f670e2931b9f330fe1c37f71d27cc017f097db617749bef4ce9ee0dee79"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.stacks.arrows",
+      "title": "Parent arrows",
+      "level": 4,
+      "line": 4528,
+      "parent": "spec.viewer.stacks",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.stacks"],
+      "files": [
+        "apps/viewer/src/arrows.ts",
+        "apps/viewer/src/view/arrowsView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/arrows.test.ts",
+        "apps/viewer/test/arrows.scene.test.ts"
+      ],
+      "dependsOn": ["spec.viewer.stacks.box-view", "spec.viewer.curves"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t191"],
+      "summary": "Draws parent arrows between the chips, fork labels and segments of the stacks list: a pure `arrowsOf` computes each arrow's end points and bezier path from the rectangles `MeasureWires` already measures, and `arrowsView` renders them as an SVG overlay under the chips.",
+      "requirements": [
+        {
+          "id": "spec.viewer.stacks.arrows#r1",
+          "level": "must",
+          "text": "Arrows are measured by `MeasureWires`: every chip, fork label and segment carries a `data-wire` key, so `MeasuredWires` holds their rectangles."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r2",
+          "level": "must",
+          "text": "The stacks list carries `data-wire=\"stacks:list\"`, and its rectangle is the origin the arrows are drawn from."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r3",
+          "level": "must-not",
+          "text": "No second measuring mount is added for the arrows."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r4",
+          "level": "must",
+          "text": "`arrowsOf(links, boxes, origin)` is a pure function."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r5",
+          "level": "must",
+          "text": "For each link with both ends measured, in link order, `arrowsOf` returns an `Arrow` with its keys, its kind, its `from` and `to` points and its SVG path, in coordinates relative to `origin`."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r6",
+          "level": "must",
+          "text": "When the target is above the source, the arrow leaves the middle of the source's top edge and arrives at the middle of the target's bottom edge."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r7",
+          "level": "must",
+          "text": "When the target is below the source, the arrow leaves the middle of the source's bottom edge and arrives at the middle of the target's top edge."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r8",
+          "level": "must",
+          "text": "When source and target overlap in height, the arrow joins the middles of their facing sides."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r9",
+          "level": "must",
+          "text": "An arrow's path is a cubic bezier whose control points carry on in each end's direction, `max(8, half the distance along that direction)` out from that end."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r10",
+          "level": "must",
+          "text": "A marker draws the arrow's head at its `to` point."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r11",
+          "level": "must",
+          "text": "`arrowsView(arrows, h)` renders an SVG placed over `.stacks-list`, which is `position: relative`."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r12",
+          "level": "must",
+          "text": "The arrows SVG is the size of the list, with `overflow: visible`, `pointer-events: none` and `aria-hidden`, and sits under the chips."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r13",
+          "level": "must",
+          "text": "Each arrow's path has `data-arrow` holding its kind, plus `data-arrow-source` and `data-arrow-target`."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r14",
+          "level": "must",
+          "text": "A parent arrow is a solid 1.4px `--ink` line at 0.55 opacity with a filled head."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r15",
+          "level": "must",
+          "text": "A parent arrow is drawn whatever is hovered or current."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r16",
+          "level": "must",
+          "text": "A parent arrow is dimmed together with its child's chip."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#r17",
+          "level": "must",
+          "text": "Arrows are drawn from the last `MeasuredWires`; before the first `MeasuredWires` there are no arrows."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.stacks.arrows#function:arrows-of",
+          "kind": "function",
+          "name": "arrowsOf",
+          "location": "apps/viewer/src/arrows.ts",
+          "description": "Pure function that turns links and measured rectangles into arrows with end points and SVG paths relative to the origin.",
+          "signature": "arrowsOf(links, boxes, origin)"
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#type:arrow",
+          "kind": "type",
+          "name": "Arrow",
+          "location": "apps/viewer/src/arrows.ts",
+          "description": "One arrow between two measured elements, in coordinates relative to the origin.",
+          "fields": [
+            {
+              "description": "The keys of the arrow's source and target.",
+              "name": "keys",
+              "optional": false,
+              "type": "wire keys"
+            },
+            {
+              "description": "The arrow's kind, such as parent.",
+              "name": "kind",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "description": "The point on the source's edge where the arrow starts.",
+              "name": "from",
+              "optional": false,
+              "type": "point"
+            },
+            {
+              "description": "The point on the target's edge where the arrow ends and its head is drawn.",
+              "name": "to",
+              "optional": false,
+              "type": "point"
+            },
+            {
+              "description": "The SVG cubic bezier path of the arrow.",
+              "name": "path",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#function:arrows-view",
+          "kind": "function",
+          "name": "arrowsView",
+          "location": "apps/viewer/src/view/arrowsView.ts",
+          "description": "Renders the arrows as an SVG overlay over `.stacks-list`, under the chips.",
+          "signature": "arrowsView(arrows, h)"
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#message:measured-wires",
+          "kind": "message",
+          "name": "MeasuredWires",
+          "location": null,
+          "description": "Message holding the measured rectangles of every `data-wire` element, from which arrows are drawn."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.stacks.arrows#t1",
+          "kind": "property",
+          "text": "Every arrow starts on an edge of its source's rectangle and ends on an edge of its target's, relative to the origin."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#t2",
+          "kind": "property",
+          "text": "A link with an end not measured gives no arrow."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#t3",
+          "kind": "property",
+          "text": "Arrows come in link order."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#t4",
+          "kind": "property",
+          "text": "Moving every rectangle and the origin by one offset gives the same arrows."
+        },
+        {
+          "id": "spec.viewer.stacks.arrows#t5",
+          "kind": "scene",
+          "text": "Sending `MeasuredWires` with rectangles for Stack 24, folded, yields parent arrows from `segment:t45` to `fork:t69`, `fork:t71` and `fork:t75`, one into every other chip of the box, and no dependency arrow; unfolded, it yields an arrow from `task:t45` to `task:t46`."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.stacks.arrows#d1",
+          "text": "Arrow geometry comes from the rectangles `MeasureWires` already measures via `data-wire` keys, with the stacks list as origin, rather than from a second measuring mount.",
+          "why": null
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.stacks": "b0051f670e2931b9f330fe1c37f71d27cc017f097db617749bef4ce9ee0dee79"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.stacks.dependencies",
+      "title": "Dependency arrows",
+      "level": 4,
+      "line": 4552,
+      "parent": "spec.viewer.stacks",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.stacks"],
+      "files": [
+        "apps/viewer/src/arrows.ts",
+        "apps/viewer/src/view/arrowsView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/ui/components.css",
+        "apps/viewer/test/arrows.test.ts",
+        "apps/viewer/test/stacks.test.ts",
+        "apps/viewer/test/dependency-arrows.scene.test.ts"
+      ],
+      "dependsOn": ["spec.viewer.stacks.arrows", "spec.viewer.detail-panel"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t192"],
+      "summary": "Draws dashed dependency arrows between a focused task (hovered, keyboard-focused or open in the detail panel) and the tasks in other stacks it depends on or that depend on it, and lights the tasks at the other ends.",
+      "requirements": [
+        {
+          "id": "spec.viewer.stacks.dependencies#r1",
+          "level": "must",
+          "text": "A task's dependencies on tasks in other stacks are drawn only while that task is in focus."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r2",
+          "level": "must",
+          "text": "focusTaskOf(model) returns the hovered node when the hovered node is a task."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r3",
+          "level": "must",
+          "text": "A task chip sends hover for its task on pointer enter and on keyboard focus."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r4",
+          "level": "must",
+          "text": "When the hovered node is not a task, focusTaskOf(model) returns the last node of the detail trail if that node is a task, and otherwise returns no focus."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r5",
+          "level": "must",
+          "text": "dependencyLinksOf(trace, boxes, maybeFocus) in arrows.ts is pure and returns an object { links, lit }."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r6",
+          "level": "must",
+          "text": "With no focus, dependencyLinksOf returns no links and no lit tasks."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r7",
+          "level": "must",
+          "text": "For a focus task F, dependencyLinksOf returns one link to F from each task in another stack that F depends on."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r8",
+          "level": "must",
+          "text": "For a focus task F, dependencyLinksOf returns one link from F to each task in another stack that depends on F."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r9",
+          "level": "must",
+          "text": "Each end of a dependency link goes through its box's endKeyOf, so an arrow to or from a folded task ends on the segment holding it."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r10",
+          "level": "must",
+          "text": "The lit set returned by dependencyLinksOf holds the tasks at the other ends of the focus task's links."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r11",
+          "level": "must-not",
+          "text": "A dependency between two tasks in the same stack must not draw a dependency link."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r12",
+          "level": "must-not",
+          "text": "A dependency on an ID that names no task must not draw a dependency link."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r13",
+          "level": "must",
+          "text": "The dependencies used are the trace's dependsOn, the same edges stackDiagramOf draws dashed."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r14",
+          "level": "must",
+          "text": "arrowsOf lays out the dependency arrows together with the parent arrows."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r15",
+          "level": "must",
+          "text": "A dependency arrow is drawn dashed with a dash pattern of 4 3, 1.6px wide, in --ink, at full opacity."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r16",
+          "level": "must",
+          "text": "Dependency arrows are drawn above the parent arrows."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r17",
+          "level": "must",
+          "text": "A lit task chip, and a segment holding a lit task, has the data-lit attribute and an ink outline."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#r18",
+          "level": "must-not",
+          "text": "A lit chip or segment must not be dimmed or faded while it is lit."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.viewer.stacks.dependencies#function:focus-task-of",
+          "kind": "function",
+          "name": "focusTaskOf",
+          "location": null,
+          "description": "Returns the task in focus: the hovered node when it is a task, otherwise the last node of the detail trail when it is a task, otherwise none.",
+          "signature": "focusTaskOf(model)"
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#function:dependency-links-of",
+          "kind": "function",
+          "name": "dependencyLinksOf",
+          "location": "apps/viewer/src/arrows.ts",
+          "description": "Pure function that returns the cross-stack dependency links of the focus task and the tasks at their other ends.",
+          "signature": "dependencyLinksOf(trace, boxes, maybeFocus) => { links, lit }"
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#function:end-key-of",
+          "kind": "function",
+          "name": "endKeyOf",
+          "location": null,
+          "description": "A box's function mapping a task to the key an arrow ends on, which is the task's segment when the task is folded."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#function:stack-diagram-of",
+          "kind": "function",
+          "name": "stackDiagramOf",
+          "location": null,
+          "description": "Builds the stack diagram, drawing the trace's dependsOn edges dashed."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#function:arrows-of",
+          "kind": "function",
+          "name": "arrowsOf",
+          "location": null,
+          "description": "Lays out the dependency arrows together with the parent arrows."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.stacks.dependencies#t1",
+          "kind": "property",
+          "text": "In arrows.test.ts: with no focus, dependencyLinksOf gives no links."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#t2",
+          "kind": "property",
+          "text": "In arrows.test.ts: every link dependencyLinksOf gives has the focus task's end at one of its ends."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#t3",
+          "kind": "property",
+          "text": "In arrows.test.ts: no link dependencyLinksOf gives joins two tasks of the same stack."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#t4",
+          "kind": "example",
+          "text": "The diagram test in stacks.test.ts checks that the links dependencyLinksOf gives over every task in focus, unfolded and without repeats, are exactly the dashed arrows of the spec's diagram."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#t5",
+          "kind": "scene",
+          "text": "On the demo trace with measured rectangles and Stack 24 unfolded, hovering t52 draws one dashed arrow from task:t52 to task:t68 and lights t68; leaving t52 draws no dashed arrow."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#t6",
+          "kind": "scene",
+          "text": "On the demo trace with the trunk folded, hovering t68 draws its dependency arrow from segment:t45 and lights that segment."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#t7",
+          "kind": "scene",
+          "text": "On the demo trace, opening t68 in the detail panel with nothing hovered draws the same dependency arrows as hovering it."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#t8",
+          "kind": "scene",
+          "text": "On the demo trace, focusing t68's chip from the keyboard draws the same dependency arrows as hovering it."
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#t9",
+          "kind": "scene",
+          "text": "On the demo trace, with no task hovered or open in the detail panel, no dashed arrow is drawn."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.stacks.dependencies#d1",
+          "text": "Cross-stack dependency arrows are drawn only for the task in focus, not for all tasks at once.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#d2",
+          "text": "Dependencies inside one stack, and dependencies on IDs that name no task, are left out and draw nothing.",
+          "why": null
+        },
+        {
+          "id": "spec.viewer.stacks.dependencies#d3",
+          "text": "An arrow to or from a folded task ends on the segment holding it, through the box's endKeyOf.",
+          "why": null
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.stacks": "b0051f670e2931b9f330fe1c37f71d27cc017f097db617749bef4ce9ee0dee79"
         }
       }
     },
@@ -23232,7 +24336,7 @@
       "id": "spec.viewer.models",
       "title": "Models and reasoning",
       "level": 3,
-      "line": 4446,
+      "line": 4577,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23355,7 +24459,7 @@
       "id": "spec.viewer.panes",
       "title": "Panes",
       "level": 3,
-      "line": 4466,
+      "line": 4597,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23542,7 +24646,7 @@
       "id": "spec.viewer.presence",
       "title": "Presence in the reader",
       "level": 3,
-      "line": 4487,
+      "line": 4618,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23650,7 +24754,7 @@
       "id": "spec.viewer.detail-panel",
       "title": "Detail panel",
       "level": 3,
-      "line": 4502,
+      "line": 4633,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23795,7 +24899,7 @@
       "id": "spec.viewer.code-view",
       "title": "Code view",
       "level": 3,
-      "line": 4536,
+      "line": 4667,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23900,7 +25004,7 @@
       "id": "spec.viewer.diff-view",
       "title": "Diff view",
       "level": 3,
-      "line": 4563,
+      "line": 4694,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24090,7 +25194,7 @@
       "id": "spec.viewer.session-view",
       "title": "Session pane",
       "level": 3,
-      "line": 4589,
+      "line": 4720,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24156,7 +25260,7 @@
       "id": "spec.viewer.attribution",
       "title": "Hunks and turns",
       "level": 3,
-      "line": 4605,
+      "line": 4736,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24246,7 +25350,7 @@
       "id": "spec.viewer.detail-code",
       "title": "Code in the detail panel",
       "level": 3,
-      "line": 4625,
+      "line": 4756,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24380,7 +25484,7 @@
       "id": "spec.viewer.canvas-removal",
       "title": "Replacing the canvas",
       "level": 3,
-      "line": 4639,
+      "line": 4770,
       "parent": "spec.viewer",
       "children": [],
       "human": true,
@@ -24538,7 +25642,7 @@
       "id": "spec.viewer.demo-data",
       "title": "Demo data",
       "level": 3,
-      "line": 4660,
+      "line": 4791,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24652,7 +25756,7 @@
       "id": "spec.viewer.deep-links",
       "title": "Deep links",
       "level": 3,
-      "line": 4681,
+      "line": 4812,
       "parent": "spec.viewer",
       "children": [
         "spec.viewer.deep-links.resolving-a-link",
@@ -24732,7 +25836,7 @@
       "id": "spec.viewer.deep-links.resolving-a-link",
       "title": "Resolving a link",
       "level": 4,
-      "line": 4693,
+      "line": 4824,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -25174,7 +26278,7 @@
       "id": "spec.viewer.deep-links.opening-a-link",
       "title": "Opening a link",
       "level": 4,
-      "line": 4752,
+      "line": 4883,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -25694,7 +26798,7 @@
       "id": "spec.viewer.deep-links.copying-a-link",
       "title": "Copying a link",
       "level": 4,
-      "line": 4838,
+      "line": 4969,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -26079,7 +27183,7 @@
       "id": "spec.viewer.list-items",
       "title": "List items",
       "level": 3,
-      "line": 4879,
+      "line": 5010,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -26327,7 +27431,7 @@
       "id": "spec.viewer.cost-on-the-graph",
       "title": "Cost on the graph",
       "level": 3,
-      "line": 4905,
+      "line": 5036,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -26609,7 +27713,7 @@
       "id": "spec.viewer.attempts-in-the-detail-panel",
       "title": "Attempts in the detail panel",
       "level": 3,
-      "line": 4943,
+      "line": 5074,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -26746,7 +27850,7 @@
       "id": "spec.viewer.what-depends-on-what",
       "title": "What depends on what",
       "level": 3,
-      "line": 4965,
+      "line": 5096,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -26979,7 +28083,7 @@
       "id": "spec.viewer.command-menu",
       "title": "Command menu",
       "level": 3,
-      "line": 4989,
+      "line": 5120,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -27455,7 +28559,7 @@
       "id": "spec.viewer.notes",
       "title": "Notes",
       "level": 3,
-      "line": 5068,
+      "line": 5199,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -27655,7 +28759,7 @@
       "id": "spec.testing",
       "title": "Testing",
       "level": 2,
-      "line": 5102,
+      "line": 5233,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.testing.model-based",
@@ -27684,7 +28788,7 @@
       "id": "spec.testing.model-based",
       "title": "Model-based tests",
       "level": 3,
-      "line": 5106,
+      "line": 5237,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -27780,7 +28884,7 @@
       "id": "spec.testing.presence-model",
       "title": "Presence against the room machine",
       "level": 3,
-      "line": 5126,
+      "line": 5257,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -27850,7 +28954,7 @@
       "id": "spec.testing.viewer-models",
       "title": "Reader interactions against models",
       "level": 3,
-      "line": 5142,
+      "line": 5273,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -27957,7 +29061,7 @@
       "id": "spec.testing.derivation-model",
       "title": "Derivation against a model of its inputs",
       "level": 3,
-      "line": 5172,
+      "line": 5303,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -28032,7 +29136,7 @@
       "id": "spec.acceptance",
       "title": "Acceptance",
       "level": 2,
-      "line": 5190,
+      "line": 5321,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
