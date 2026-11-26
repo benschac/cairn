@@ -1550,6 +1550,7 @@ flowchart BT
     t196["t196 · 196-decide-hosted-access-with-the-policy-function<br/>Decide hosted access with the policy function<br/>wt-57"]
     t195["t195 · 195-add-the-prdroom-durable-object-with-its-sqlite-and-r2-bodies · GATE<br/>Add the PrdRoom Durable Object with its SQLite and R2 bodies<br/>wt-56"]
     t197["t197 · 197-sign-people-in-and-give-each-a-personal-workspace<br/>Sign people in and give each a personal workspace<br/>wt-58"]
+    t209["t209 · 209-strip-a-trace-to-its-public-form<br/>Strip a trace to its public form<br/>wt-60"]
   end
   subgraph s117["Stack 117 · hosted-launch"]
     direction BT
@@ -1583,30 +1584,26 @@ flowchart BT
   end
   subgraph s123["Stack 123 · hosted-launch"]
     direction BT
-    t209["t209 · 209-strip-a-trace-to-its-public-form<br/>Strip a trace to its public form<br/>wt-60"]
-  end
-  subgraph s124["Stack 124 · hosted-launch"]
-    direction BT
     t211["t211 · 211-store-plan-snapshots-and-their-source-revisions-in-the-room<br/>Store plan snapshots and their source revisions in the room<br/>wt-61"]
     t212["t212 · 212-approve-human-gates-against-recorded-inputs<br/>Approve human gates against recorded inputs<br/>wt-61"]
   end
-  subgraph s125["Stack 125 · hosted-launch"]
+  subgraph s124["Stack 124 · hosted-launch"]
     direction BT
     t213["t213 · 213-match-comment-anchors-against-the-current-revision<br/>Match comment anchors against the current revision<br/>wt-62"]
   end
-  subgraph s126["Stack 126 · hosted-launch"]
+  subgraph s125["Stack 125 · hosted-launch"]
     direction BT
     t214["t214 · 214-store-threads-replies-and-resolution-in-the-room · GATE<br/>Store threads, replies and resolution in the room<br/>wt-62"]
   end
-  subgraph s127["Stack 127 · hosted-launch"]
+  subgraph s126["Stack 126 · hosted-launch"]
     direction BT
     t215["t215 · 215-render-public-prd-pages-with-share-metadata<br/>Render public PRD pages with share metadata<br/>wt-62"]
   end
-  subgraph s128["Stack 128 · hosted-launch"]
+  subgraph s127["Stack 127 · hosted-launch"]
     direction BT
     t216["t216 · 216-choose-the-viewer-s-data-source-at-build-time<br/>Choose the viewer's data source at build time<br/>wt-26"]
   end
-  subgraph s129["Stack 129 · hosted-launch"]
+  subgraph s128["Stack 128 · hosted-launch"]
     direction BT
     t217["t217 · 217-add-the-hosted-app-shell-with-sign-in-routes-and-the-workspace-switcher<br/>Add the hosted app shell with sign-in, routes and the workspace switcher<br/>wt-26"]
     t218["t218 · 218-list-a-workspace-s-prds-with-import-empty-states-and-limit-notes<br/>List a workspace's PRDs with import, empty states and limit notes<br/>wt-26"]
@@ -1619,28 +1616,28 @@ flowchart BT
     t225["t225 · 225-show-links-between-prds-and-backlinks-in-the-reader<br/>Show links between PRDs and backlinks in the reader<br/>wt-26"]
     t229["t229 · 229-add-the-billing-settings-screen<br/>Add the billing settings screen<br/>wt-69"]
   end
-  subgraph s130["Stack 130 · hosted-launch"]
+  subgraph s129["Stack 129 · hosted-launch"]
     direction BT
     t224["t224 · 224-start-read-and-resolve-comment-threads-in-the-reader<br/>Start, read and resolve comment threads in the reader<br/>wt-65"]
   end
-  subgraph s131["Stack 131 · hosted-launch"]
+  subgraph s130["Stack 130 · hosted-launch"]
     direction BT
     t227["t227 · 227-connect-a-repo-to-a-hosted-prd-with-device-sign-in-and-stored-credentials<br/>Connect a repo to a hosted PRD with device sign-in and stored credentials<br/>wt-59"]
   end
-  subgraph s132["Stack 132 · hosted-launch"]
+  subgraph s131["Stack 131 · hosted-launch"]
     direction BT
     t228["t228 · 228-sync-documents-events-plans-and-approvals-with-cairn-connect-sync<br/>Sync documents, events, plans and approvals with cairn connect sync<br/>wt-59"]
   end
-  subgraph s133["Stack 133 · hosted-launch"]
+  subgraph s132["Stack 132 · hosted-launch"]
     direction BT
     t231["t231 · 231-back-up-and-restore-a-deployment-with-cairn-admin<br/>Back up and restore a deployment with cairn admin<br/>wt-58"]
     t232["t232 · 232-run-the-weekly-restore-drill · GATE<br/>Run the weekly restore drill<br/>wt-58"]
   end
-  subgraph s134["Stack 134 · hosted-launch"]
+  subgraph s133["Stack 133 · hosted-launch"]
     direction BT
     t233["t233 · 233-write-the-hosted-self-hosting-backup-and-support-docs-pages<br/>Write the hosted, self-hosting, backup and support docs pages<br/>wt-46"]
   end
-  subgraph s135["Stack 135 · hosted-launch"]
+  subgraph s134["Stack 134 · hosted-launch"]
     direction BT
     t234["t234 · 234-test-the-hosted-launch-acceptance-flows-and-isolation<br/>Test the hosted launch acceptance flows and isolation<br/>wt-69"]
   end
@@ -2020,8 +2017,7 @@ flowchart BT
   t203 -.-> t207
   t204 -.-> t207
   t207 --> t208
-  t156 -.-> t209
-  t194 -.-> t209
+  t194 --> t209
   t30 --> t210
   t202 -.-> t211
   t208 -.-> t211
