@@ -66,7 +66,7 @@ import {
 } from "../ask-statements.ts";
 import { Judge, JudgeError } from "../judge.ts";
 import { MainCheckout } from "../main-checkout.ts";
-import { judgingAvailable, liveLanguageModel } from "../models.ts";
+import { liveLanguageModel } from "../models.ts";
 import { Planner, PlannerError } from "../planner.ts";
 import { changeLines, flagsOf, reportLines, targetName } from "../print-judgments.ts";
 import { stackLines, totalsLine } from "../print-stack.ts";
@@ -262,17 +262,18 @@ const confirm = Effect.fn("plan.confirm")(function* (question: string, yes: bool
 });
 
 /**
- * Whether the judging checkpoints (`spec.judging.checkpoints`) run: they do when
- * `TYPESAFE_API_KEY` is set or `judge.gatewayTokenEnv` is. Without either, the first call prints
- * once that judging was skipped.
+ * The judge of the judging checkpoints (`spec.judging.checkpoints`), when the run was given one.
+ * It is asked for, not required (`spec.refactors.optional-services`): `cairn plan` provides a
+ * `Judge` only when `TYPESAFE_API_KEY` or `judge.gatewayTokenEnv` is set
+ * (`Judge.whenConfigured`). Without one, the first call prints once that judging was skipped.
  */
-const judging = Effect.fn("plan.judging")(function* (config: CairnConfig, told: Ref.Ref<boolean>) {
-  const available = yield* judgingAvailable(config);
+const judging = Effect.fn("plan.judging")(function* (told: Ref.Ref<boolean>) {
+  const judge = yield* Effect.serviceOption(Judge);
   const already = yield* Ref.getAndSet(told, true);
-  if (!available && !already) {
+  if (Option.isNone(judge) && !already) {
     yield* Console.log(JUDGING_SKIPPED);
   }
-  return available;
+  return judge;
 });
 
 /** A judge that failed does not stop the plan: it says so, and the planner's work stands as it was. */
@@ -488,10 +489,15 @@ const writeCairn = Effect.fn("plan.write")(function* (name: string, content: str
  */
 const refined = Effect.fn("plan.refined")(function* ({ config, told }: Inputs, input: RefineInput) {
   const unjudged: Refined = { drafts: input.drafts, judgments: [], spec: input.spec };
-  if (!(yield* judging(config, told))) {
-    return unjudged;
-  }
-  return yield* refineWith(input, config).pipe(Effect.catchTag("JudgeError", failedAs(unjudged)));
+  const maybeJudge = yield* judging(told);
+  return yield* Option.match(maybeJudge, {
+    onNone: () => Effect.succeed(unjudged),
+    onSome: (judge) =>
+      refineWith(input, config).pipe(
+        Effect.provideService(Judge, judge),
+        Effect.catchTag("JudgeError", failedAs(unjudged)),
+      ),
+  });
 });
 
 /**
@@ -505,34 +511,36 @@ const stackJudged = Effect.fn("plan.stackJudged")(function* (
   spec: string,
   manifest: Manifest,
 ) {
-  if (!(yield* judging(config, told))) {
-    return [];
-  }
-  const judge = yield* Judge;
-  const whole = inputsOf(prd, spec, manifest).stack;
-  // A part run asks whether the stack builds the part's PRD sections, not the ones left for later.
-  const stack = Option.match(part, {
-    onNone: () => whole,
-    onSome: (found) => {
-      const ids = idsOfPart(found);
-      return {
-        ...whole,
-        prdSections: Array.filter(whole.prdSections, ({ id }) => HashSet.has(ids, id)),
-      };
+  const none: ReadonlyArray<Judgment> = [];
+  const maybeJudge = yield* judging(told);
+  return yield* Option.match(maybeJudge, {
+    onNone: () => Effect.succeed(none),
+    onSome: (judge) => {
+      const whole = inputsOf(prd, spec, manifest).stack;
+      // A part run asks whether the stack builds the part's PRD sections, not the ones left for later.
+      const stack = Option.match(part, {
+        onNone: () => whole,
+        onSome: (found) => {
+          const ids = idsOfPart(found);
+          return {
+            ...whole,
+            prdSections: Array.filter(whole.prdSections, ({ id }) => HashSet.has(ids, id)),
+          };
+        },
+      });
+      return judge
+        .judge(
+          { sections: [], stack, tasks: [] },
+          { judgments: [], model: config.judge.model, version: 1 },
+        )
+        .pipe(
+          Effect.map(({ judgments }) =>
+            Array.filter(judgments, (judgment) => judgment.target.kind === "stack"),
+          ),
+          Effect.catchTag("JudgeError", failedAs(none)),
+        );
     },
   });
-  const none: ReadonlyArray<Judgment> = [];
-  return yield* judge
-    .judge(
-      { sections: [], stack, tasks: [] },
-      { judgments: [], model: config.judge.model, version: 1 },
-    )
-    .pipe(
-      Effect.map(({ judgments }) =>
-        Array.filter(judgments, (judgment) => judgment.target.kind === "stack"),
-      ),
-      Effect.catchTag("JudgeError", failedAs(none)),
-    );
 });
 
 /** Adds `judgments` to what this run has judged. */
@@ -1262,14 +1270,6 @@ const unusedPlanner = Layer.succeed(
   }),
 );
 
-/** The judge of a run with no judging credentials, which never asks for one: any call fails. */
-export const unusedJudge = Layer.succeed(
-  Judge,
-  Judge.of({
-    judge: () => Effect.fail(new JudgeError({ reason: "No judge call was expected." })),
-  }),
-);
-
 export const planCommand = Command.make(
   "plan",
   {
@@ -1343,14 +1343,11 @@ export const planCommand = Command.make(
           ),
         ),
       );
-      // The judge is built only when a key or a gateway token is configured; without one the
-      // checkpoints are skipped.
-      const judge = Layer.unwrap(
-        judgingAvailable(config).pipe(
-          Effect.map((available) => (available ? Judge.live(config) : unusedJudge)),
-        ),
+      // A Judge is provided only when a key or a gateway token is configured; without one the
+      // checkpoints find none and are skipped.
+      yield* plan(options).pipe(
+        Effect.provide(Layer.mergeAll(planner, Judge.whenConfigured(config))),
       );
-      yield* plan(options).pipe(Effect.provide(Layer.mergeAll(planner, judge)));
     }).pipe(
       // The failures log their own message once; the runtime does not print them again.
       Effect.tapErrorTag(

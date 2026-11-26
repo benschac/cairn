@@ -32,7 +32,6 @@ import {
   RESPEC_TAKES_NO_IDS,
   needsPlanner,
   plan,
-  unusedJudge,
 } from "../src/commands/plan.ts";
 import type { PlanOptions } from "../src/commands/plan.ts";
 import { Judge } from "../src/judge.ts";
@@ -266,10 +265,8 @@ const scriptedPlanner = (asked: Ref.Ref<Asked>, fixed: Option.Option<string>) =>
 
 interface Run {
   readonly answers?: ReadonlyArray<string>;
-  /** Set to give the run a key, which turns the judging checkpoints on. */
-  readonly env?: Readonly<Record<string, string>>;
-  /** The judge of the run: none is `unusedJudge`, which a run without a key never calls. */
-  readonly judge?: Layer.Layer<Judge>;
+  /** The judge of the run: none provides no `Judge`, as `cairn plan` does without a key. */
+  readonly judge?: Layer.Layer<Judge> | typeof Layer.empty;
   readonly options?: Partial<PlanOptions>;
   readonly part?: ReadonlyArray<string>;
   /** What every sections call of the scripted planner answers, whatever it was asked. */
@@ -317,8 +314,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
     );
     const run = ({
       answers = [],
-      env = {},
-      judge = unusedJudge,
+      judge = Layer.empty,
       options = {},
       part = [],
       planner,
@@ -332,7 +328,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
         const services = Layer.mergeAll(
           scriptedTerminal(answers, (line) => Ref.update(shown, Array.append(line))),
           MainCheckout.fixed(root),
-          ConfigProvider.layer(ConfigProvider.fromEnvRecord(env)),
+          ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
           judge,
           Option.getOrElse(Option.fromUndefinedOr(planner), () =>
             scriptedPlanner(asked, Option.fromUndefinedOr(sections)),
@@ -729,7 +725,6 @@ it.effect("the stack question about what is complete lists only the part's PRD s
       const { judge, listed } = yield* recordingJudge;
       const { run } = yield* setup({ "prd.md": PRD });
       const { result } = yield* run({
-        env: { TYPESAFE_API_KEY: "key" },
         judge,
         part: ["prd.beta"],
       });

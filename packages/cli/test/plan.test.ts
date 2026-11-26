@@ -31,7 +31,6 @@ import {
   needsPlanner,
   plan,
   RespecRefused,
-  unusedJudge,
   UP_TO_DATE,
   WRITE_QUESTION,
 } from "../src/commands/plan.ts";
@@ -99,9 +98,8 @@ const scriptedPlanner = (
 interface Plan {
   readonly answers?: ReadonlyArray<string>;
   readonly drafts?: ReadonlyArray<TaskDraft>;
-  readonly env?: Readonly<Record<string, string>>;
-  /** The judge of the run: none is `unusedJudge`, which a run without a key never calls. */
-  readonly judge?: Layer.Layer<Judge>;
+  /** The judge of the run: none provides no `Judge`, as `cairn plan` does without a key. */
+  readonly judge?: Layer.Layer<Judge> | typeof Layer.empty;
   readonly options?: {
     readonly dryRun?: boolean;
     readonly respec?: boolean;
@@ -140,8 +138,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
     const run = ({
       answers = [],
       drafts = DRAFTS,
-      env = {},
-      judge = unusedJudge,
+      judge = Layer.empty,
       options: { dryRun = false, respec = false, spec: stopAfterSpec = false, yes = false } = {},
       spec = SPEC,
       split = () => [],
@@ -151,7 +148,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
           Seen.use((seen) => Ref.update(seen.shown, Array.append(line))),
         ).pipe(Layer.provideMerge(scriptedPlanner(spec, drafts, split))),
         MainCheckout.fixed(root),
-        ConfigProvider.layer(ConfigProvider.fromEnvRecord(env)),
+        ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
         judge,
       );
       return Effect.gen(function* () {
@@ -349,36 +346,18 @@ it.effect("--respec writes the spec and the manifest again when every task is pe
   ),
 );
 
-it.effect("prints judging as skipped once, and says nothing when the key is set", () =>
+it.effect("prints judging as skipped once without a Judge, and says nothing with one", () =>
   inRepository(
     Effect.gen(function* () {
       const first = yield* setup({ "prd.md": PRD });
       const without = yield* first.run({ options: { yes: true } });
       const second = yield* setup({ "prd.md": PRD });
-      const withKey = yield* second.run({
-        env: { TYPESAFE_API_KEY: "key" },
-        options: { yes: true },
-      });
+      const withJudge = yield* second.run({ judge: scriptedJudge(), options: { yes: true } });
+      const judged = yield* second.text("judgments.json");
       expect(Array.filter(without.lines, (line) => line === JUDGING_SKIPPED)).toEqual([
         JUDGING_SKIPPED,
       ]);
-      expect(Array.contains(withKey.lines, JUDGING_SKIPPED)).toBe(false);
-    }),
-  ),
-);
-
-it.effect("with only judge.gatewayTokenEnv set, judging runs and is not skipped", () =>
-  inRepository(
-    Effect.gen(function* () {
-      const { run, text } = yield* setup({
-        "config.json":
-          '{"judge":{"baseUrl":"https://gateway.test/typesafe","gatewayTokenEnv":"CAIRN_AI_GATEWAY_TOKEN"}}',
-        "prd.md": PRD,
-      });
-      const { lines, result } = yield* run({ judge: scriptedJudge(), options: { yes: true } });
-      const judged = yield* text("judgments.json");
-      expect(Result.isSuccess(result)).toBe(true);
-      expect(Array.contains(lines, JUDGING_SKIPPED)).toBe(false);
+      expect(Array.contains(withJudge.lines, JUDGING_SKIPPED)).toBe(false);
       expect(judged).toContain("jev-1.14.0");
     }),
   ),
@@ -436,8 +415,6 @@ it.effect("the model is needed only by a run that calls the planner", () =>
   ),
 );
 
-const KEYED = { TYPESAFE_API_KEY: "key" };
-
 const decodeJudgments = Schema.decodeUnknownEffect(JudgmentsJson);
 
 /** `judgments.json` as decoded, from a way to read a file of `.cairn/` as text. */
@@ -475,7 +452,6 @@ it.effect("with the key set, every section, task and the stack is judged and rec
     Effect.gen(function* () {
       const { run, text } = yield* setup({ "prd.md": PRD });
       const { lines, result } = yield* run({
-        env: KEYED,
         judge: scriptedJudge(),
         options: { yes: true },
       });
@@ -515,7 +491,6 @@ it.effect(
       Effect.gen(function* () {
         const { run, text } = yield* setup({ "prd.md": PRD });
         const { lines, result } = yield* run({
-          env: KEYED,
           judge: scriptedJudge(tooLarge("Add capture")),
           options: { yes: true },
           split: halves,
@@ -561,7 +536,6 @@ it.effect("a confident model answer routes the task, and the plan names the task
     Effect.gen(function* () {
       const { run, text } = yield* setup({ "prd.md": PRD });
       const { lines } = yield* run({
-        env: KEYED,
         judge: scriptedJudge({
           answer: (_, question) =>
             question === "model" ? Option.some({ confidence: 0.9, label: "haiku" }) : Option.none(),
@@ -591,7 +565,6 @@ it.effect(
       Effect.gen(function* () {
         const { read, run } = yield* setup({ "prd.md": PRD });
         const { lines, result } = yield* run({
-          env: KEYED,
           judge: scriptedJudge({
             probability: (title, question) =>
               title === "" && question === "complete" ? Option.some(0.1) : Option.none(),
@@ -615,7 +588,6 @@ it.effect("a dry run counts the flags in its totals and writes nothing", () =>
       const { run, snapshot } = yield* setup({ "prd.md": PRD });
       const before = yield* snapshot;
       const { lines, result } = yield* run({
-        env: KEYED,
         judge: scriptedJudge({
           probability: (title, question) =>
             title === "" && question === "complete" ? Option.some(0.1) : Option.none(),
@@ -635,7 +607,6 @@ it.effect("a judge that fails leaves the planner's work as it was, says so, and 
     Effect.gen(function* () {
       const { read, run } = yield* setup({ "prd.md": PRD });
       const { lines, result } = yield* run({
-        env: KEYED,
         judge: Layer.succeed(
           Judge,
           Judge.of({ judge: () => Effect.fail(new JudgeError({ reason: "the model is down" })) }),
@@ -658,12 +629,12 @@ it.effect("the judgments of the spec step survive the tasks step in judgments.js
   inRepository(
     Effect.gen(function* () {
       const { run, text } = yield* setup({ "prd.md": PRD });
-      yield* run({ env: KEYED, judge: scriptedJudge(), options: { spec: true } });
+      yield* run({ judge: scriptedJudge(), options: { spec: true } });
       const first = yield* judgmentsIn(text);
       expect(Array.dedupe(Array.map(first.judgments, ({ target }) => target.kind))).toEqual([
         "section",
       ]);
-      yield* run({ answers: ["y"], env: KEYED, judge: scriptedJudge() });
+      yield* run({ answers: ["y"], judge: scriptedJudge() });
       const second = yield* judgmentsIn(text);
       expect(
         Array.sort(

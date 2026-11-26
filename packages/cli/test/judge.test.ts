@@ -614,3 +614,28 @@ it.effect("the live judge without TYPESAFE_API_KEY fails with a JudgeError that 
     expect(error.message).toContain("TYPESAFE_API_KEY");
   }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnvRecord({})))),
 );
+
+it.effect("whenConfigured provides a Judge only when a key or a gateway token is configured", () =>
+  Effect.forEach(
+    [
+      { config: defaults, env: {}, provided: false },
+      { config: defaults, env: { TYPESAFE_API_KEY: "key" }, provided: true },
+      {
+        config: configOf({
+          judge: { baseUrl: "https://gateway.test", gatewayTokenEnv: "GW_TOKEN" },
+        }),
+        env: { GW_TOKEN: "token" },
+        provided: true,
+      },
+    ],
+    ({ config, env, provided }) =>
+      Layer.build(Judge.whenConfigured(config)).pipe(
+        Effect.scoped,
+        Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnvRecord(env))),
+        Effect.map((context) =>
+          expect(Option.isSome(Context.getOption(context, Judge))).toBe(provided),
+        ),
+      ),
+    { discard: true },
+  ),
+);

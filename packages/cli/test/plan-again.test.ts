@@ -29,7 +29,6 @@ import {
   ManifestRefused,
   needsPlanner,
   plan,
-  unusedJudge,
   UP_TO_DATE,
   WRITE_QUESTION,
 } from "../src/commands/plan.ts";
@@ -163,9 +162,8 @@ const scriptedPlanner = ({ drafts, sections, spec }: Script) =>
 interface Run {
   readonly answers?: ReadonlyArray<string>;
   readonly drafts?: ReadonlyArray<TaskDraft>;
-  readonly env?: Readonly<Record<string, string>>;
-  /** The judge of the run: none is `unusedJudge`, which a run without a key never calls. */
-  readonly judge?: Layer.Layer<Judge>;
+  /** The judge of the run: none provides no `Judge`, as `cairn plan` does without a key. */
+  readonly judge?: Layer.Layer<Judge> | typeof Layer.empty;
   readonly options?: Partial<PlanOptions>;
   readonly sections?: string;
 }
@@ -206,8 +204,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
     const run = ({
       answers = [],
       drafts = FIRST,
-      env = {},
-      judge = unusedJudge,
+      judge = Layer.empty,
       options: given = {},
       sections = SHARING,
     }: Run = {}) =>
@@ -231,7 +228,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
               Seen.use((seen) => Ref.update(seen.shown, Array.append(line))),
             ).pipe(Layer.provideMerge(scriptedPlanner({ drafts, sections, spec: SPEC }))),
             MainCheckout.fixed(root),
-            ConfigProvider.layer(ConfigProvider.fromEnvRecord(env)),
+            ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
             judge,
           ),
         ),
@@ -854,7 +851,6 @@ it.effect("planning again judges the sections it wrote and no other", () =>
     Effect.gen(function* () {
       const { run, text } = yield* planned;
       yield* run({
-        env: { TYPESAFE_API_KEY: "key" },
         judge: scriptedJudge(),
         options: { spec: true },
       });

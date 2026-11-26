@@ -29,7 +29,7 @@ import {
 } from "effect";
 import { AiError, Decision, DecisionModel } from "effect/ai";
 
-import { liveDecisionModel } from "./models.ts";
+import { judgingAvailable, liveDecisionModel } from "./models.ts";
 
 /**
  * Judging failed. With a `target`, the decision model failed on that target's request; without
@@ -343,6 +343,19 @@ export class Judge extends Context.Service<
       Layer.provide(liveDecisionModel(config)),
       Layer.catchTag("ModelKeyError", (error) =>
         Layer.effect(Judge, Effect.fail(new JudgeError({ reason: error.reason }))),
+      ),
+    );
+
+  /**
+   * `live` when `TYPESAFE_API_KEY` or `judge.gatewayTokenEnv` is set, and no `Judge` at all
+   * otherwise. Which layer is provided is the whole switch (`spec.refactors.optional-services`):
+   * `cairn plan` asks for the judge with `Effect.serviceOption` and skips its checkpoints when
+   * there is none, so it keeps no flag of its own to agree with this one.
+   */
+  static readonly whenConfigured = (config: Config) =>
+    Layer.unwrap(
+      Effect.map(judgingAvailable(config), (available) =>
+        available ? Judge.live(config) : Layer.empty,
       ),
     );
 }
