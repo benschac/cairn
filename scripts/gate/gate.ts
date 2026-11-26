@@ -13,6 +13,7 @@
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import {
   Array,
+  DateTime,
   Effect,
   FileSystem,
   Layer,
@@ -28,6 +29,7 @@ import { Command } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { appendRecord, pushedCommits, RECORD_FILE, recordedCommits } from "./checked.ts";
+import { holdCheckLock, LOCK_FILE } from "./lock.ts";
 
 // Each expected failure logs its own message once (see the commands below), so the runtime is told not to print it again.
 class CheckFailed extends Schema.TaggedError<CheckFailed>()("CheckFailed", {
@@ -78,11 +80,15 @@ const git = Effect.fnUntraced(function* (args: Array<string>) {
   return String.trim(stdout);
 });
 
-const recordPath = Effect.gen(function* () {
-  const path = yield* Path.Path;
-  const common = yield* git(["rev-parse", "--path-format=absolute", "--git-common-dir"]);
-  return path.join(common, RECORD_FILE);
-});
+// A file in git's common directory, which every worktree of the repository shares.
+const commonPath = (name: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const common = yield* git(["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+    return path.join(common, name);
+  });
+
+const recordPath = commonPath(RECORD_FILE);
 
 const readRecord = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
@@ -100,6 +106,11 @@ const snapshot = Effect.all({
 const check = Command.make("check", {}, () =>
   Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    // Held until the check ends, however it ends; HEAD and the tree are read once it is this check's turn.
+    const lock = yield* commonPath(LOCK_FILE);
+    const now = yield* DateTime.now;
+    const worktree = yield* git(["rev-parse", "--show-toplevel"]);
+    yield* holdCheckLock(lock, { pid: process.pid, since: DateTime.formatIso(now), worktree });
     const before = yield* snapshot;
     const exitCode = yield* spawner.exitCode(
       ChildProcess.make("pnpm", ["run", "--silent", "check:tasks"], {
@@ -123,6 +134,7 @@ const check = Command.make("check", {}, () =>
       `Recorded ${short} as checked: it and every commit below it may be pushed.`,
     );
   }).pipe(
+    Effect.scoped,
     // Each expected failure logs its own message once; the runtime prints anything else.
     Effect.tapErrorTag(["CheckFailed", "GitFailed"], (error) => Effect.logError(error.message)),
   ),
