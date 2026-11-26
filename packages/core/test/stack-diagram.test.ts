@@ -10,6 +10,7 @@ import {
   drawsOf,
   stackDiagramOf,
   withStackDiagram,
+  withoutStackDiagram,
   type DiagramManifest,
   type DiagramTask,
 } from "../src/index.ts";
@@ -251,6 +252,37 @@ it.prop(
       `## Stacks {#spec.stacks}\n\n- Context: \`prd.demo\`\n\n${STACKS_OPEN}\n\n`,
     );
     expect(withStackDiagram(once, stacks)).toBe(once);
+  },
+);
+
+it.prop(
+  "withoutStackDiagram leaves the markers with nothing between them, whatever the diagram, and every line outside them",
+  { above: Lines, below: Lines, between: Lines, first: Plan, second: Plan },
+  ({ above, below, between, first, second }) => {
+    const spec = joined(Array.flatten([above, [STACKS_OPEN], between, [STACKS_CLOSE], below]));
+    const bare = joined(Array.flatten([above, [STACKS_OPEN, STACKS_CLOSE], below]));
+    expect(withoutStackDiagram(spec)).toBe(bare);
+    // The same text for any two plans: what is left does not change when a task does.
+    expect(withoutStackDiagram(withStackDiagram(spec, manifestOf(planOf(first))))).toBe(bare);
+    expect(withoutStackDiagram(withStackDiagram(spec, manifestOf(planOf(second))))).toBe(bare);
+    expect(withoutStackDiagram(bare)).toBe(bare);
+  },
+);
+
+it.prop(
+  "withoutStackDiagram returns text without a pair of markers as it is",
+  [Lines],
+  ([lines]) => {
+    const text = joined(lines);
+    expect(withoutStackDiagram(text)).toBe(text);
+    expect(withoutStackDiagram(joined(Array.append(lines, STACKS_CLOSE)))).toBe(
+      joined(Array.append(lines, STACKS_CLOSE)),
+    );
+    // A marker in a fence is not one, as for `withStackDiagram`.
+    const fenced = joined(
+      Array.appendAll(lines, ["```", STACKS_OPEN, "drawn", STACKS_CLOSE, "```"]),
+    );
+    expect(withoutStackDiagram(fenced)).toBe(fenced);
   },
 );
 

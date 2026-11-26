@@ -6,8 +6,8 @@ import {
   SpecTest,
   TaskId,
 } from "@cairn/contract";
-import type { IndexProse } from "@cairn/contract";
-import { bodyHashOf } from "@cairn/core";
+import type { IndexProse, SpecIndex } from "@cairn/contract";
+import { STACKS_CLOSE, STACKS_OPEN, bodyHashOf, sectionsOf } from "@cairn/core";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import {
@@ -23,6 +23,7 @@ import {
   Result,
   Schema,
   String,
+  Struct,
 } from "effect";
 import { TestClock, TestConsole } from "effect/testing";
 
@@ -300,16 +301,90 @@ it.effect.prop(
     }).pipe(Effect.provide(NodeServices.layer)),
 );
 
+it.effect.prop(
+  "a section a person wrote is read again when its body is no longer the one it was indexed from",
+  [Levels, Schema.Array(Schema.Boolean).check(Schema.isMaxLength(8))],
+  ([levels, edits]) =>
+    Effect.gen(function* () {
+      const manifest = yield* manifestOf();
+      const spec = specOf(levels);
+      const ids = Array.map(levels, (_level, at) => decodeId(`spec.s${at}`));
+      // Nothing is in `written`, so a person wrote every section.
+      const first = yield* indexing(inputOf(manifest, spec));
+      const edited = Array.filter(ids, (_id, at) => edits[at] === true);
+      const now = Array.reduce(Array.range(0, Array.length(levels) - 1), spec, (text, at) =>
+        edits[at] === true ? String.replace(`Text ${at}.`, `Text ${at}, edited.`)(text) : text,
+      );
+      const changed = editedOf(now, first.index);
+      const second = yield* indexing(
+        inputOf(manifest, now, { changed, previous: Option.some(first.index) }),
+        2,
+      );
+      expect(Array.map(first.index.sections, (section) => section.writtenFrom.body)).toEqual(
+        Array.map(ids, () => null),
+      );
+      expect(Array.map(first.index.sections, (section) => section.indexedFrom)).toEqual(
+        Array.map(sectionsOf(spec), (section) => bodyHashOf(section.body)),
+      );
+      expect(editedOf(spec, first.index)).toEqual([]);
+      expect(changed).toEqual(edited);
+      expect(Array.sort(second.calls, Order.String)).toEqual(Array.sort(edited, Order.String));
+      expect(editedOf(now, second.index)).toEqual([]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect.prop(
+  "an entry for a section a person wrote that records no indexedFrom is read once, edited or not",
+  [Levels],
+  ([levels]) =>
+    Effect.gen(function* () {
+      const manifest = yield* manifestOf();
+      const spec = specOf(levels);
+      const ids = Array.map(levels, (_level, at) => decodeId(`spec.s${at}`));
+      const first = yield* indexing(inputOf(manifest, spec));
+      // The index as it was before `indexedFrom` was recorded: nothing says what each entry was read from.
+      const before: SpecIndex = Struct.evolve(first.index, {
+        sections: (sections) =>
+          Array.map(sections, (section) => Struct.omit(section, ["indexedFrom"])),
+      });
+      const changed = editedOf(spec, before);
+      const second = yield* indexing(
+        inputOf(manifest, spec, { changed, previous: Option.some(before) }),
+        2,
+      );
+      expect(changed).toEqual(ids);
+      expect(Array.sort(second.calls, Order.String)).toEqual(Array.sort(ids, Order.String));
+      expect(editedOf(spec, second.index)).toEqual([]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+/** A spec of one section that holds `diagram` between the stack diagram's markers. */
+const specWith = (diagram: string) =>
+  `# One {#spec.s0}\n\nAbove.\n\n${STACKS_OPEN}\n${diagram}\n${STACKS_CLOSE}\n\nBelow.\n`;
+
 it.effect(
-  "a section a person wrote records the body it was indexed from, and an edit to it is not seen",
+  "the stack diagram is not read: the planner is not sent it, and drawing it again does not name its section",
   () =>
     Effect.gen(function* () {
       const manifest = yield* manifestOf();
-      const { index } = yield* indexing(inputOf(manifest, "# One {#spec.s0}\n\nMine.\n"));
-      const [entry] = index.sections;
-      expect(entry?.writtenFrom.body).toBeNull();
-      expect(entry?.indexedFrom).toBe(bodyHashOf("\nMine.\n"));
-      expect(editedOf("# One {#spec.s0}\n\nMine, edited.\n", index)).toEqual([]);
+      const calls = yield* Ref.make<ReadonlyArray<string>>([]);
+      const bodies = yield* Ref.make<ReadonlyArray<string>>([]);
+      const index = yield* specIndexOf(inputOf(manifest, specWith("first"))).pipe(
+        Effect.provideService(
+          Planner,
+          Planner.of({
+            ...stubPlanner(calls, 1),
+            index: (target: IndexTarget) =>
+              Ref.update(bodies, Array.append(target.body)).pipe(Effect.as(proseFor(target.id, 1))),
+          }),
+        ),
+      );
+      const sent = yield* Ref.get(bodies);
+      expect(sent).toEqual([`\nAbove.\n\n${STACKS_OPEN}\n${STACKS_CLOSE}\n\nBelow.\n`]);
+      expect(editedOf(specWith("second, and longer"), index)).toEqual([]);
+      expect(
+        editedOf(String.replace("Above.", "Above, edited.")(specWith("first")), index),
+      ).toEqual(["spec.s0"]);
     }).pipe(Effect.provide(NodeServices.layer)),
 );
 
