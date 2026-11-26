@@ -212,6 +212,7 @@ Turn answers into verdicts.
 const specId = (id: string) => SpecSectionId.make(id);
 
 const draft = (title: string): TaskDraft => ({
+  category: "feature",
   dependsOn: [],
   files: ["packages/cli/src/refine.ts", "packages/cli/test/refine.test.ts"],
   model: "sonnet",

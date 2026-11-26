@@ -49,6 +49,28 @@ it('{"version":1} decodes to the full defaults', () => {
   });
 });
 
+it("the default categories are the PRD's eight, each with a description", () => {
+  expect(Array.map(defaultConfig.categories, ({ name }) => name)).toEqual([
+    "mechanical",
+    "feature",
+    "ui",
+    "test",
+    "schema",
+    "refactor",
+    "bugfix",
+    "docs",
+  ]);
+  expect(Array.every(defaultConfig.categories, ({ description }) => description !== "")).toBe(true);
+});
+
+it("a repo's own categories replace the defaults, and a name that is not a slug is refused", () => {
+  const own = [{ description: "Infrastructure", name: "infra" }];
+  expect(decode({ categories: own, version: 1 }).categories).toEqual(own);
+  expect(refused({ categories: [{ description: "x", name: "Not A Slug" }], version: 1 })).toBe(
+    true,
+  );
+});
+
 it("a missing file, read as {}, decodes to the same defaults", () => {
   expect(decode({})).toEqual(defaultConfig);
 });

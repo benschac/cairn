@@ -78,6 +78,7 @@ Share a note.
 
 const draft = (title: string, specSection: string, prd: string, dependsOn: Array<string> = []) =>
   Schema.decodeSync(TaskDraft)({
+    category: "feature",
     dependsOn,
     files: ["src/capture.ts"],
     model: "sonnet",

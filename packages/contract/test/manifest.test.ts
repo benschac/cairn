@@ -28,6 +28,10 @@ it("this repo's .cairn/manifest.json decodes", () => {
   expect(Result.isSuccess(decode(repoManifest))).toBe(true);
 });
 
+it.prop("an old manifest, whose tasks have no category, decodes", [Manifest], ([manifest]) => {
+  expect(refused(manifest, ({ category: _category, ...old }) => old)).toBe(false);
+});
+
 it.prop("a manifest round-trips through JSON", [Manifest], ([manifest]) => {
   const json = Schema.encodeSync(ManifestJson)(manifest);
   expect(Schema.decodeSync(ManifestJson)(json)).toEqual(manifest);

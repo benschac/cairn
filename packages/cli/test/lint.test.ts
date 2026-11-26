@@ -27,6 +27,7 @@ const manifestOf = (task: {
     tasks: [
       {
         branch: "cairn-mvp/01-store",
+        category: "feature",
         commits: task.commits,
         dependsOn: [],
         files: task.files,

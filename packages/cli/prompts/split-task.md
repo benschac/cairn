@@ -19,6 +19,7 @@ Its fields are the same as those of the tasks you write:
 - `specSections`: the IDs of the spec sections the task builds, as they appear in the spec below. At least one.
 - `files`: the files the task creates or changes, tests included.
 - `dependsOn`: the exact titles of the other tasks in your reply that must land before this one, copied character for character. Leave it empty when the task needs no other task of your reply. A task never depends on itself, and the dependencies never form a cycle. A task that needs code another new task writes depends on it.
+- `category`: the kind of work the task is, named as in the list of categories below.
 - `model`: which model should build the task, named as in the table below.
 - `reasoning`: how hard that model should think about it: `low`, `medium`, `high`, `xhigh` or `max`.
 
@@ -27,6 +28,12 @@ Its fields are the same as those of the tasks you write:
 Reply with two or more tasks. Together they build every spec section of the task above and change every file it changes: each spec section appears in the `specSections` of some new task, each file in the `files` of some new task, and each PRD section of the task above in the `prdSections` of some new task. Add nothing the task above did not do. The new tasks that build the same spec section split its files between them, and a file belongs to one task.
 
 The task above may list titles in its `dependsOn`: they are tasks outside your reply, and the first of your tasks to need what they build keeps them. Another task may depend on the task above by its title: it will depend on the last of your tasks, so order them so that the last one is the one that finishes the work.
+
+## Categories
+
+Give every new task exactly one category, copied character for character. A reply with any other category is refused. The categories and what each is for:
+
+{{categories}}
 
 ## Models and reasoning
 

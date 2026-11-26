@@ -1,4 +1,25 @@
-import { Effect, Number, Predicate, Schema } from "effect";
+import { Array, Effect, Number, Predicate, Schema } from "effect";
+
+import { Slug } from "./manifest.ts";
+
+/** The task categories the PRD names (`prd.outcomes.categories`), and what each is for. */
+const CATEGORIES = Array.map(
+  [
+    { description: "Renames, moves and config changes", name: "mechanical" },
+    { description: "New behaviour a person can use", name: "feature" },
+    { description: "Interface and presentation", name: "ui" },
+    { description: "Tests of existing behaviour", name: "test" },
+    { description: "Data shapes, schemas and migrations", name: "schema" },
+    { description: "Restructuring with no change in behaviour", name: "refactor" },
+    { description: "Fixing a defect", name: "bugfix" },
+    { description: "Documentation", name: "docs" },
+  ],
+  ({ description, name }) => ({ description, name: Schema.decodeSync(Slug)(name) }),
+);
+
+/** A category a plan's tasks may have (`spec.planning.task-categories`). */
+export const Category = Schema.Struct({ description: Schema.String, name: Slug });
+export type Category = typeof Category.Type;
 
 /** The high-trust paths the PRD's human gate uses by default (`prd.human-gates`). */
 const HUMAN_PATHS = [
@@ -122,6 +143,9 @@ const Judge = JudgeFields.pipe(Schema.check(passAboveFlag), Schema.check(judgeGa
  * missing file is read as `{}`.
  */
 export const Config = Schema.Struct({
+  categories: Schema.Array(Category).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(CATEGORIES)),
+  ),
   humanPaths: Schema.Array(Schema.String).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(HUMAN_PATHS)),
   ),

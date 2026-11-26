@@ -58,6 +58,7 @@ export type OrderedAfter = typeof OrderedAfter.Type;
 
 export const ManifestTask = Schema.Struct({
   branch: Schema.String.check(Schema.isPattern(BRANCH)),
+  category: Schema.optionalKey(Schema.NonEmptyString),
   commits: Schema.Array(Sha),
   dependsOn: Schema.Array(TaskId),
   files: Schema.Array(Schema.String),

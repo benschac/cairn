@@ -14,10 +14,19 @@ it.prop("a list of drafts round-trips through JSON", [Schema.Array(TaskDraft)], 
 it.prop("a draft refuses each field the model must give", [TaskDraft], ([draft]) => {
   const encoded = encode(draft);
   const refused = Array.map(
-    ["dependsOn", "files", "model", "prdSections", "reasoning", "specSections", "title"] as const,
+    [
+      "category",
+      "dependsOn",
+      "files",
+      "model",
+      "prdSections",
+      "reasoning",
+      "specSections",
+      "title",
+    ] as const,
     (key) => Exit.isFailure(decodeExit(Struct.omit(encoded, [key]))),
   );
-  expect(refused).toEqual(Array.replicate(true, 7));
+  expect(refused).toEqual(Array.replicate(true, 8));
 });
 
 it.prop(
@@ -36,6 +45,7 @@ it.prop(
     );
     const keys = Array.sort(Record.keys(Schema.decodeUnknownSync(TaskDraft)(sent)), Order.String);
     expect(keys).toEqual([
+      "category",
       "dependsOn",
       "files",
       "model",

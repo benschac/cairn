@@ -314,6 +314,7 @@ it.effect(
       const value = yield* Schema.decodeEffect(TaskDrafts)({
         drafts: [
           {
+            category: "feature",
             dependsOn: [],
             files: ["packages/cli/src/a.ts"],
             model: "sonnet",
@@ -352,6 +353,7 @@ it.effect(
 const DRAFTS = {
   drafts: [
     {
+      category: "feature",
       dependsOn: [],
       files: ["packages/cli/src/a.ts"],
       model: "sonnet",

@@ -9,8 +9,15 @@ A task is a draft with these fields:
 - `specSections`: the IDs of the spec sections the task builds. At least one. Each ID must be the ID of a heading in the spec below, for example `spec.models`. The task builds what those sections describe, so the agent will be given their text.
 - `files`: the files the task creates or changes, including its tests. Take them from the `Files` keys of the spec sections the task builds and add what the work obviously needs, such as an index that re-exports a new module. Do not list files that belong to another task.
 - `dependsOn`: the exact titles of the other tasks in your reply that must land before this one, copied character for character, or the ID of a task that is already planned (see below), such as `t12`. Use it when this task needs code that another task writes. Leave it empty when the task can be built from what already exists. A task never depends on itself, and the dependencies never form a cycle. Prefer the fewest dependencies that are true: each one narrows the order in which the tasks can be built.
+- `category`: the kind of work the task is, named as in the list of categories below.
 - `model`: which model should build the task, named as in the table below.
 - `reasoning`: how hard that model should think about it: `low`, `medium`, `high`, `xhigh` or `max`.
+
+## Categories
+
+Give every task exactly one category, the one that fits the work best, copied character for character. A reply with any other category is refused. The categories and what each is for:
+
+{{categories}}
 
 ## Models and reasoning
 

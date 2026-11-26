@@ -58,6 +58,8 @@ export const LintRule = Schema.Literals([
   "diagram-drift",
   "stale-section",
   "stale-task",
+  "unknown-category",
+  "missing-category",
 ]);
 export type LintRule = typeof LintRule.Type;
 
@@ -94,6 +96,8 @@ const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
   "parent-mismatch": "error",
   "stale-section": "warning",
   "stale-task": "warning",
+  "missing-category": "warning",
+  "unknown-category": "error",
   "statement-owner": "error",
   "task-without-statement": "warning",
   "unknown-section": "error",
@@ -372,6 +376,34 @@ const reachableFrom = <A>(edges: (node: A) => ReadonlyArray<A>, start: A): HashS
 
 const taskFinding = (rule: LintRule, message: string): Finding =>
   findingOf(rule, "manifest.json", Option.none(), message);
+
+/** What `lint` reads from the config: the high-trust paths and the task categories. */
+export interface LintConfig extends GateConfig {
+  /** Without it, no task's category is checked. */
+  readonly categories?: ReadonlyArray<{ readonly name: string }>;
+}
+
+/** A task with a category the config lacks, or with none (`spec.planning.task-categories`). */
+const categoryFindings = (
+  tasks: ReadonlyArray<ManifestTask>,
+  categories: ReadonlyArray<{ readonly name: string }>,
+): ReadonlyArray<Finding> => {
+  const known = HashSet.fromIterable(Array.map(categories, ({ name }) => name));
+  return Array.flatMap(tasks, (task) =>
+    Option.match(Option.fromUndefinedOr(task.category), {
+      onNone: () => [taskFinding("missing-category", `${task.id} has no category.`)],
+      onSome: (category) =>
+        HashSet.has(known, category)
+          ? []
+          : [
+              taskFinding(
+                "unknown-category",
+                `${task.id}'s category ${category} is not in config.categories.`,
+              ),
+            ],
+    }),
+  );
+};
 
 const placeOf = (parent: TaskId | null): string =>
   Option.match(Option.fromNullOr(parent), { onNone: () => "the base branch", onSome: (id) => id });
@@ -719,7 +751,7 @@ export const lint = (
   prd: string,
   spec: string,
   manifest: Option.Option<Manifest>,
-  config: GateConfig,
+  config: LintConfig,
   index: Option.Option<SpecIndex> = Option.none(),
 ): ReadonlyArray<Finding> => {
   const prdSections = sectionsOf(prd);
@@ -758,7 +790,7 @@ export const lint = (
     Option.match(manifest, {
       onNone: () => [],
       onSome: (plan) =>
-        Array.appendAll(
+        Array.flatten([
           unknownInTasks(plan, prdIds, specIds),
           stackFindings(
             plan,
@@ -766,7 +798,11 @@ export const lint = (
             prdDocument.items, // the spec's items gate nothing and are read for their IDs only
             config,
           ),
-        ),
+          Option.match(Option.fromUndefinedOr(config.categories), {
+            onNone: () => [],
+            onSome: (categories) => categoryFindings(plan.tasks, categories),
+          }),
+        ]),
     }),
     Option.match(index, {
       onNone: () => [],
