@@ -34,6 +34,34 @@ const HUMAN_PATHS = [
 /** A number in [0, 1], both ends included. */
 const Unit = Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 }));
 
+/** Files a restack rebuilds, so two tasks changing one do not conflict (`prd.conflicts.predicting`). */
+const GENERATED_PATHS = ["pnpm-lock.yaml", "**/demo-trace.json", "packages/contract/schema/**"];
+
+/** Files tasks only add lines to, such as an index of exports, which conflict little. */
+const ADDITIVE_PATHS = ["**/index.ts"];
+
+/**
+ * The conflict scorer's fields (`spec.planning.conflict-scores`). `generated` and `additive` are
+ * path patterns that match as `humanPaths` do; `high` is the score at which a pair counts as
+ * likely to conflict; `history` is the number of commits read from the base branch; `hotspot` is
+ * the number of parallel tasks sharing one file before judging asks about it.
+ */
+const Conflicts = Schema.Struct({
+  additive: Schema.Array(Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<string>>(ADDITIVE_PATHS)),
+  ),
+  generated: Schema.Array(Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<string>>(GENERATED_PATHS)),
+  ),
+  high: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.5))),
+  history: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(500)),
+  ),
+  hotspot: Schema.Int.check(Schema.isGreaterThanOrEqualTo(2)).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(3)),
+  ),
+});
+
 /** A model name the manifest uses, and when to use it (`spec.contract.config`). */
 const JUDGE_MODELS = {
   haiku: "Mechanical changes: a schema field, a rename, a command wired to existing code",
@@ -146,6 +174,7 @@ export const Config = Schema.Struct({
   categories: Schema.Array(Category).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(CATEGORIES)),
   ),
+  conflicts: Conflicts.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
   humanPaths: Schema.Array(Schema.String).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(HUMAN_PATHS)),
   ),
@@ -159,6 +188,9 @@ export const Config = Schema.Struct({
   version: Schema.Literal(1).pipe(Schema.withDecodingDefaultKey(Effect.succeed(1 as const))),
 });
 export type Config = typeof Config.Type;
+
+/** The `conflicts` block of a config. */
+export type ConflictsConfig = Config["conflicts"];
 
 export const ConfigJson = Schema.fromJsonString(Config);
 

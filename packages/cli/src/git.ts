@@ -40,6 +40,9 @@ export type Authored = Pick<GitCommit, "files" | "sections" | "session" | "subje
 /** A commit as one `git log` prints it, before `Git.log` knows its branch and whether the base reaches it. */
 export type Logged = Omit<GitCommit, "branch" | "onBase">;
 
+/** A commit as `Git.history` reads it: the files it changed, and nothing of what it says. */
+export type Changed = Pick<GitCommit, "files" | "sha">;
+
 /** A range `Git.log` reads: a task branch from its parent task's branch, or from `baseBranch`. */
 interface Range {
   readonly branch: string;
@@ -108,6 +111,14 @@ export class Git extends Context.Service<
   Git,
   {
     readonly log: (manifest: Manifest) => Effect.Effect<ReadonlyArray<GitCommit>, GitError>;
+    /**
+     * The files of the last `n` commits `baseBranch` reaches, newest first, for the conflict scores
+     * (see `spec.planning.conflict-scores`). A merge commit has no files.
+     */
+    readonly history: (
+      baseBranch: string,
+      n: number,
+    ) => Effect.Effect<ReadonlyArray<Changed>, GitError>;
     /** `git config user.name`: none when it is unset or empty. */
     readonly userName: Effect.Effect<Option.Option<string>, GitError>;
   }
@@ -191,6 +202,22 @@ export class Git extends Context.Service<
         });
         const git = Git.of({
           userName: Effect.succeed(userName),
+          history: (base, n) =>
+            Effect.flatMap(SynchronizedRef.get(ref), (repo) =>
+              Effect.map(headOf(repo, base), (head) =>
+                Array.take(
+                  Array.map(
+                    // Newest first, as git log prints them.
+                    Array.sort(
+                      Array.fromIterable(ancestorsOf(repo, head)),
+                      Order.flip(Order.String),
+                    ),
+                    (sha): Changed => ({ files: nodeOf(repo, sha).files, sha }),
+                  ),
+                  n,
+                ),
+              ),
+            ),
           log: (manifest) =>
             Effect.flatMap(SynchronizedRef.get(ref), (repo) => {
               const reach = (name: string) =>

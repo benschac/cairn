@@ -212,9 +212,9 @@ interface Named extends Omit<GitCommit, "parents" | "sha"> {
 
 /**
  * Plays `ops` as an orchestrator would: a task's branch starts at its parent's head the first time
- * the task does anything. Returns what `Git.log` reads afterwards, by subject, sorted.
+ * the task does anything. Returns the subject of each commit it made, by sha.
  */
-const play = Effect.fn("play")(function* (ops: ReadonlyArray<Op>) {
+const perform = Effect.fn("perform")(function* (ops: ReadonlyArray<Op>) {
   const history = yield* GitHistory;
   const names = yield* Ref.make(HashMap.empty<Sha, string>());
   const started = yield* Ref.make(HashSet.empty<Task>());
@@ -259,8 +259,13 @@ const play = Effect.fn("play")(function* (ops: ReadonlyArray<Op>) {
     },
     { discard: true },
   );
+  return yield* Ref.get(names);
+});
+
+/** What `Git.log` reads after `ops`, by subject, sorted. */
+const play = Effect.fn("play")(function* (ops: ReadonlyArray<Op>) {
+  const all = yield* perform(ops);
   const log = yield* Git.use((reader) => reader.log(manifest));
-  const all = yield* Ref.get(names);
   const nameOf = (sha: Sha) => Option.getOrElse(HashMap.get(all, sha), () => "Initial commit");
   return Array.sort(
     Array.map(log, (commit): Named =>
@@ -424,6 +429,72 @@ it.effect("a base branch git does not have is an error, in both layers", () =>
   Effect.gen(function* () {
     const missing = Struct.assign(manifest, { baseBranch: "trunk" });
     const read = Git.use((reader) => reader.log(missing)).pipe(Effect.flip);
+    const [fromGit, fromMemory] = yield* Effect.all([
+      read.pipe(Effect.provide(live)),
+      read.pipe(Effect.provide(Git.memory())),
+    ]);
+    expect(Array.map([fromGit, fromMemory], Schema.is(GitError))).toStrictEqual([true, true]);
+    expect(fromGit.exitCode).toBe(128);
+  }),
+);
+
+/** The files of each commit `Git.history` reads from `main` after `ops`, newest first. */
+const filesAfter = (ops: ReadonlyArray<Op>, n: number) =>
+  Effect.andThen(
+    perform(ops),
+    Git.use((reader) => reader.history("main", n)),
+  ).pipe(Effect.map(Array.map(({ files }) => files)));
+
+const filesInBoth = (ops: ReadonlyArray<Op>, n: number) =>
+  Effect.all([
+    filesAfter(ops, n).pipe(Effect.provide(live)),
+    filesAfter(ops, n).pipe(Effect.provide(Git.memory())),
+  ]);
+
+it.effect("history lists the files of the last n commits on the base, newest first", () =>
+  Effect.gen(function* () {
+    const ops: ReadonlyArray<Op> = [
+      commitOn("t1", ["src/b.ts", "db/migrations/café 1.sql"], true),
+      commitOn("t1", ["a.txt"], true),
+      { _tag: "Squash", task: "t1" },
+      commitOn("t1", ["a.txt"], true),
+      { _tag: "Squash", task: "t1" },
+    ];
+    const everything = [["a.txt"], ["a.txt", "db/migrations/café 1.sql", "src/b.ts"], []];
+    const all = yield* filesInBoth(ops, 10);
+    const two = yield* filesInBoth(ops, 2);
+    const one = yield* filesInBoth(ops, 1);
+    expect(all).toStrictEqual([everything, everything]);
+    expect(two).toStrictEqual([Array.take(everything, 2), Array.take(everything, 2)]);
+    expect(one).toStrictEqual([[["a.txt"]], [["a.txt"]]]);
+  }),
+);
+
+it.effect("history reads no commit that only a task branch has", () =>
+  Effect.gen(function* () {
+    const [fromGit, fromMemory] = yield* filesInBoth([commitOn("t1", ["a.txt"], true)], 10);
+    expect(fromGit).toStrictEqual([[]]);
+    expect(fromMemory).toStrictEqual([[]]);
+  }),
+);
+
+it.effect.prop(
+  "the in-memory layer reads the same files from the base that git does",
+  [Schema.Array(Op).check(Schema.isMaxLength(8))],
+  ([ops]) =>
+    Effect.gen(function* () {
+      const [fromGit, fromMemory] = yield* filesInBoth(ops, 100);
+      // Commits made in the same second can come in either order after a merge.
+      const order = Order.mapInput(Order.String, Array.join(","));
+      const sorted = (files: ReadonlyArray<ReadonlyArray<string>>) => Array.sort(files, order);
+      expect(sorted(fromMemory)).toStrictEqual(sorted(fromGit));
+    }),
+  { arbitrary: { runs: 12 }, timeout: 60_000 },
+);
+
+it.effect("history of a base branch git does not have is an error, in both layers", () =>
+  Effect.gen(function* () {
+    const read = Git.use((reader) => reader.history("trunk", 10)).pipe(Effect.flip);
     const [fromGit, fromMemory] = yield* Effect.all([
       read.pipe(Effect.provide(live)),
       read.pipe(Effect.provide(Git.memory())),

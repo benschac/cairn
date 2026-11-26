@@ -3,7 +3,7 @@ import { Array, Effect, HashSet, Layer, Option, Schema, Stream, String } from "e
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { Git, GitError, assemble, rangesOf } from "./git.ts";
-import type { Logged } from "./git.ts";
+import type { Changed, Logged } from "./git.ts";
 
 /** Starts each commit's record, so a subject or a file name cannot split one. */
 const RECORD = "\x1e";
@@ -65,6 +65,11 @@ const decodeRecord = (record: string) =>
       taskId: firstOf(Schema.is(TaskId))(linesOf(tasks)),
     })),
   );
+
+/** One commit of `Git.history`: the sha, a separator, then the changed files as `pathsOf` reads them. */
+const HISTORY_FORMAT = "--format=%x1e%H%x1f";
+
+const HistoryRecord = Schema.Tuple([Sha, Schema.String]);
 
 /** `Git` read by running git in `directory`, which defaults to the working directory. */
 export const layer = (directory = ".") =>
@@ -137,6 +142,28 @@ export const layer = (directory = ".") =>
         );
       });
 
+      const history = Effect.fn("Git.history")(function* (base: string, n: number) {
+        const args = [
+          "log",
+          "-z",
+          "--no-renames",
+          "--name-only",
+          `--max-count=${n}`,
+          HISTORY_FORMAT,
+          base,
+          "--",
+        ];
+        const stdout = yield* run(args);
+        return yield* Effect.forEach(Array.drop(String.split(stdout, RECORD), 1), (record) =>
+          Schema.decodeUnknownEffect(HistoryRecord)(String.split(record, FIELD)).pipe(
+            Effect.map(([sha, files]): Changed => ({ files: pathsOf(files), sha })),
+            Effect.mapError(
+              (error) => new GitError({ args, detail: error.message, exitCode: null }),
+            ),
+          ),
+        );
+      });
+
       const userName = run(["config", "user.name"]).pipe(
         Effect.map((stdout) => Option.liftPredicate(String.trim(stdout), String.isNonEmpty)),
         // git exits 1 for a key that is not set.
@@ -146,6 +173,6 @@ export const layer = (directory = ".") =>
         ),
       );
 
-      return Git.of({ log, userName });
+      return Git.of({ history, log, userName });
     }),
   );
