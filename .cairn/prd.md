@@ -826,7 +826,11 @@ Effect UI is in public preview. It is not on npm, it has no upgrade guide yet, a
 - After the move, the one `update` is split into components that own their state, a pane at a time, so a change in one pane re-renders only that pane.
 - When the move is done, nothing imports `foldkit` or `@foldkit/ui`. The Foldkit patch, the Vite plugin and the lint plugin are gone. AGENTS.md, the Effect checklist and the agent sources point at Effect UI, with its source and docs indexed like Effect's and XState's.
 
-Done when the viewer runs on Effect UI with no Foldkit package installed, `pnpm check` passes with the same Scene tests, and the demo at prdtrace.com looks and behaves as it did before the move.
+Done when:
+
+- Draft: The viewer runs on Effect UI with no Foldkit package installed: nothing in the repo imports `foldkit` or `@foldkit/ui`, and `pnpm check` passes. {#prd.viewer.effect-ui#v1}
+- Draft: Every Scene and Story test that passed before the move passes after it, under the same name, with the same clicks and the same checks. {#prd.viewer.effect-ui#v2}
+- Draft: The demo at prdtrace.com, opened side by side before and after the move, looks and behaves the same. {#prd.viewer.effect-ui#v3}
 
 ## Code view {#prd.code-view}
 

@@ -6044,6 +6044,411 @@
       "commits": [],
       "sessions": [],
       "category": "feature"
+    },
+    {
+      "id": "t236",
+      "title": "Move every Effect package to 4.1.6",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.effect-upgrade"],
+      "files": [
+        "pnpm-workspace.yaml",
+        "package.json",
+        "apps/viewer/package.json",
+        "packages/cli/package.json",
+        "pnpm-lock.yaml",
+        ".agent_sources/effect/"
+      ],
+      "branch": "cairn-mvp/236-move-every-effect-package-to-4-1-6",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-70",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "mechanical"
+    },
+    {
+      "id": "t237",
+      "title": "Try Effect UI on the controls and a Foldkit bridge",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.spike"],
+      "files": [
+        "pnpm-workspace.yaml",
+        "apps/viewer/package.json",
+        "pnpm-lock.yaml",
+        "apps/viewer/src/effect-ui/controls.ts",
+        "apps/viewer/src/effect-ui/bridge.ts",
+        "apps/viewer/test/effect-ui/controls.scene.test.ts",
+        "apps/viewer/test/effect-ui/bridge.test.ts",
+        "apps/viewer/EFFECT-UI.md",
+        ".agent_sources/README.md",
+        ".agent_sources/effect-ui/index.md",
+        "AGENTS.md"
+      ],
+      "branch": "cairn-mvp/237-try-effect-ui-on-the-controls-and-a-foldkit-bridge",
+      "parent": "t236",
+      "dependsOn": ["t236"],
+      "worktree": "wt-70",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": true,
+        "reasons": ["tag:human"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
+    },
+    {
+      "id": "t238",
+      "title": "Host the viewer on Effect UI with its Foldkit views bridged",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.host"],
+      "files": [
+        "apps/viewer/src/entry.ts",
+        "apps/viewer/src/app.ts",
+        "apps/viewer/src/effect-ui/bridge.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/route.ts",
+        "apps/viewer/src/subscription/",
+        "apps/viewer/vite.config.ts",
+        "apps/viewer/package.json",
+        "apps/viewer/test/effect-ui/host.play.test.ts"
+      ],
+      "branch": "cairn-mvp/238-host-the-viewer-on-effect-ui-with-its-foldkit-views-bridged",
+      "parent": null,
+      "dependsOn": ["t97", "t237"],
+      "worktree": "wt-70",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
+    },
+    {
+      "id": "t239",
+      "title": "Run the Scene and Story tests on the Effect UI host",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.scene-tests"],
+      "files": ["apps/viewer/test/", "apps/viewer/src/effect-ui/bridge.ts"],
+      "branch": "cairn-mvp/239-run-the-scene-and-story-tests-on-the-effect-ui-host",
+      "parent": "t238",
+      "dependsOn": ["t238"],
+      "worktree": "wt-70",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "test"
+    },
+    {
+      "id": "t240",
+      "title": "Write the viewer's frame and top bar in Effect UI",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.views"],
+      "files": [
+        "apps/viewer/src/view/view.ts",
+        "apps/viewer/src/view/dividerView.ts",
+        "apps/viewer/src/view/linkNoticeView.ts",
+        "apps/viewer/src/view/copyLinkView.ts",
+        "apps/viewer/src/view/searchView.ts",
+        "apps/viewer/src/ui/controls.ts",
+        "apps/viewer/src/ui/marks.ts",
+        "apps/viewer/src/effect-ui/controls.ts",
+        "apps/viewer/src/app.ts",
+        "apps/viewer/test/"
+      ],
+      "branch": "cairn-mvp/240-write-the-viewer-s-frame-and-top-bar-in-effect-ui",
+      "parent": "t239",
+      "dependsOn": ["t239"],
+      "worktree": "wt-70",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
+    },
+    {
+      "id": "t241",
+      "title": "Write the reader panes in Effect UI",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.views"],
+      "files": [
+        "apps/viewer/src/view/readerView.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/src/view/wiresView.ts",
+        "apps/viewer/test/"
+      ],
+      "branch": "cairn-mvp/241-write-the-reader-panes-in-effect-ui",
+      "parent": "t240",
+      "dependsOn": ["t240"],
+      "worktree": "wt-70",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
+    },
+    {
+      "id": "t242",
+      "title": "Write the stacks pane in Effect UI",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.views"],
+      "files": [
+        "apps/viewer/src/view/stacksView.ts",
+        "apps/viewer/src/view/stackChipsView.ts",
+        "apps/viewer/src/view/arrowsView.ts",
+        "apps/viewer/test/"
+      ],
+      "branch": "cairn-mvp/242-write-the-stacks-pane-in-effect-ui",
+      "parent": "t241",
+      "dependsOn": ["t241"],
+      "worktree": "wt-70",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
+    },
+    {
+      "id": "t243",
+      "title": "Write the task detail, code and diff views in Effect UI",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.views"],
+      "files": [
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/view/codeView.ts",
+        "apps/viewer/src/view/diffView.ts",
+        "apps/viewer/src/view/treeView.ts",
+        "apps/viewer/src/view/sessionView.ts",
+        "apps/viewer/test/"
+      ],
+      "branch": "cairn-mvp/243-write-the-task-detail-code-and-diff-views-in-effect-ui",
+      "parent": "t242",
+      "dependsOn": ["t242"],
+      "worktree": "wt-70",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
+    },
+    {
+      "id": "t244",
+      "title": "Write markdown, code blocks and diagrams in Effect UI",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.views"],
+      "files": [
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/src/code.ts",
+        "apps/viewer/src/diagram.ts",
+        "apps/viewer/test/"
+      ],
+      "branch": "cairn-mvp/244-write-markdown-code-blocks-and-diagrams-in-effect-ui",
+      "parent": "t243",
+      "dependsOn": ["t243"],
+      "worktree": "wt-70",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
+    },
+    {
+      "id": "t245",
+      "title": "Remove Foldkit from the repo",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.foldkit-removal"],
+      "files": [
+        "apps/viewer/package.json",
+        "package.json",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "patches/",
+        "apps/viewer/vite.config.ts",
+        "apps/viewer/src/",
+        "oxlint.config.ts",
+        "lint/effect-core-plugin.test.mjs",
+        "AGENTS.md",
+        ".agent_sources/effect/checklist.md",
+        "THIRD_PARTY_NOTICES.md",
+        "LICENSING.md"
+      ],
+      "branch": "cairn-mvp/245-remove-foldkit-from-the-repo",
+      "parent": "t244",
+      "dependsOn": ["t244"],
+      "worktree": "wt-70",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
+    },
+    {
+      "id": "t246",
+      "title": "Make the PRD pane its own Effect UI component",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.components"],
+      "files": [
+        "apps/viewer/src/app.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/components/prdPane.ts",
+        "apps/viewer/src/view/prdPaneView.ts",
+        "apps/viewer/test/"
+      ],
+      "branch": "cairn-mvp/246-make-the-prd-pane-its-own-effect-ui-component",
+      "parent": "t245",
+      "dependsOn": ["t245"],
+      "worktree": "wt-70",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
+    },
+    {
+      "id": "t247",
+      "title": "Make the spec pane its own Effect UI component",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.components"],
+      "files": [
+        "apps/viewer/src/app.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/components/specPane.ts",
+        "apps/viewer/src/view/specPaneView.ts",
+        "apps/viewer/test/"
+      ],
+      "branch": "cairn-mvp/247-make-the-spec-pane-its-own-effect-ui-component",
+      "parent": "t246",
+      "dependsOn": ["t246"],
+      "worktree": "wt-70",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
+    },
+    {
+      "id": "t248",
+      "title": "Make the stacks pane its own Effect UI component",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.components"],
+      "files": [
+        "apps/viewer/src/app.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/components/stacksPane.ts",
+        "apps/viewer/src/view/stacksView.ts",
+        "apps/viewer/test/"
+      ],
+      "branch": "cairn-mvp/248-make-the-stacks-pane-its-own-effect-ui-component",
+      "parent": "t247",
+      "dependsOn": ["t247"],
+      "worktree": "wt-70",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
+    },
+    {
+      "id": "t249",
+      "title": "Make the task detail and code view their own Effect UI components",
+      "prdSections": ["prd.viewer.effect-ui"],
+      "specSections": ["spec.viewer.effect-ui.components"],
+      "files": [
+        "apps/viewer/src/app.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/components/detail.ts",
+        "apps/viewer/src/components/codeView.ts",
+        "apps/viewer/src/view/detailView.ts",
+        "apps/viewer/src/view/codeView.ts",
+        "apps/viewer/test/"
+      ],
+      "branch": "cairn-mvp/249-make-the-task-detail-and-code-view-their-own-effect-ui-components",
+      "parent": "t248",
+      "dependsOn": ["t248"],
+      "worktree": "wt-70",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "refactor"
     }
   ]
 }

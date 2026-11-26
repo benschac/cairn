@@ -531,7 +531,7 @@
         "body": null,
         "prd": {
           "prd.implementation-in-effect": "1f3ab37662470bcddc111cd7c02492137ad5c6bb0f14856e46a91c01d22ff125",
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b"
         }
       }
     },
@@ -1180,7 +1180,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b",
           "prd.contract-package": "551b4a3a03e1a891237eb95cc13dcf3c857c7fcb1dba44704e24ec579d21d7f1"
         }
       }
@@ -5285,7 +5285,7 @@
       "id": "spec.planning.cairn-plan",
       "title": "`cairn plan`",
       "level": 3,
-      "line": 2091,
+      "line": 2132,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5451,7 +5451,7 @@
       "id": "spec.planning.again",
       "title": "Planning again",
       "level": 3,
-      "line": 2122,
+      "line": 2163,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5578,7 +5578,7 @@
       "id": "spec.planning.stack-diagram",
       "title": "Stack diagram",
       "level": 3,
-      "line": 2145,
+      "line": 2186,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5690,7 +5690,7 @@
       "id": "spec.planning.dry-run",
       "title": "Dry runs",
       "level": 3,
-      "line": 2162,
+      "line": 2203,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5785,7 +5785,7 @@
       "id": "spec.planning.done-when",
       "title": "Done when",
       "level": 3,
-      "line": 2174,
+      "line": 2215,
       "parent": "spec.planning",
       "children": [
         "spec.planning.done-when.statements",
@@ -5873,7 +5873,7 @@
       "id": "spec.planning.done-when.statements",
       "title": "Statements",
       "level": 4,
-      "line": 2188,
+      "line": 2229,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6098,7 +6098,7 @@
       "id": "spec.planning.done-when.asking-the-person",
       "title": "Asking the person",
       "level": 4,
-      "line": 2223,
+      "line": 2264,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6390,7 +6390,7 @@
       "id": "spec.planning.done-when.tracing-statements",
       "title": "Tracing statements",
       "level": 4,
-      "line": 2269,
+      "line": 2310,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6647,7 +6647,7 @@
       "id": "spec.planning.done-when.statements-in-briefs-and-reviews",
       "title": "Statements in briefs and reviews",
       "level": 4,
-      "line": 2303,
+      "line": 2344,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6812,7 +6812,7 @@
       "id": "spec.planning.task-categories",
       "title": "Task categories",
       "level": 3,
-      "line": 2331,
+      "line": 2372,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -7038,7 +7038,7 @@
       "id": "spec.planning.conflict-scores",
       "title": "Conflict scores",
       "level": 3,
-      "line": 2356,
+      "line": 2397,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -7307,7 +7307,7 @@
       "id": "spec.planning.conflict-ordering",
       "title": "Conflict ordering",
       "level": 3,
-      "line": 2398,
+      "line": 2439,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -7622,7 +7622,7 @@
       "id": "spec.planning.planning-a-part",
       "title": "Planning a part",
       "level": 3,
-      "line": 2436,
+      "line": 2477,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -8133,7 +8133,7 @@
       "id": "spec.lint",
       "title": "Lint",
       "level": 2,
-      "line": 2514,
+      "line": 2555,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -8413,7 +8413,7 @@
       "id": "spec.judging",
       "title": "Judging",
       "level": 2,
-      "line": 2542,
+      "line": 2583,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.judging.questions",
@@ -8467,7 +8467,7 @@
       "id": "spec.judging.questions",
       "title": "Questions",
       "level": 3,
-      "line": 2548,
+      "line": 2589,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8574,7 +8574,7 @@
       "id": "spec.judging.verdicts",
       "title": "Verdicts",
       "level": 3,
-      "line": 2572,
+      "line": 2613,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8692,7 +8692,7 @@
       "id": "spec.judging.judge-service",
       "title": "Judge service",
       "level": 3,
-      "line": 2587,
+      "line": 2628,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8792,7 +8792,7 @@
       "id": "spec.judging.checkpoints",
       "title": "Checkpoints",
       "level": 3,
-      "line": 2598,
+      "line": 2639,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8902,7 +8902,7 @@
       "id": "spec.judging.cairn-judge",
       "title": "`cairn judge`",
       "level": 3,
-      "line": 2620,
+      "line": 2661,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8979,7 +8979,7 @@
       "id": "spec.judging.model-catalog",
       "title": "Model catalog",
       "level": 3,
-      "line": 2632,
+      "line": 2673,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -9494,7 +9494,7 @@
       "id": "spec.judging.openai-decisions",
       "title": "OpenAI Decisions",
       "level": 3,
-      "line": 2719,
+      "line": 2760,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -9895,7 +9895,7 @@
       "id": "spec.judging.comparing-decision-providers",
       "title": "Comparing decision providers",
       "level": 3,
-      "line": 2767,
+      "line": 2808,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -10175,7 +10175,7 @@
       "id": "spec.judging.cloudflare-ai-gateway",
       "title": "Cloudflare AI Gateway",
       "level": 3,
-      "line": 2801,
+      "line": 2842,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -10582,7 +10582,7 @@
       "id": "spec.judging.routing-from-history",
       "title": "Routing from history",
       "level": 3,
-      "line": 2848,
+      "line": 2889,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -10937,7 +10937,7 @@
       "id": "spec.status",
       "title": "Status",
       "level": 2,
-      "line": 2906,
+      "line": 2947,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.status.task-machine",
@@ -10974,7 +10974,7 @@
       "id": "spec.status.task-machine",
       "title": "Task machine",
       "level": 3,
-      "line": 2908,
+      "line": 2949,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11063,7 +11063,7 @@
       "id": "spec.status.derivation",
       "title": "Derivation",
       "level": 3,
-      "line": 2916,
+      "line": 2957,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11176,7 +11176,7 @@
       "id": "spec.status.section-rollup",
       "title": "Section rollup",
       "level": 3,
-      "line": 2937,
+      "line": 2978,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11255,7 +11255,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b"
         }
       }
     },
@@ -11263,7 +11263,7 @@
       "id": "spec.status.cairn-status-and-cairn-approve",
       "title": "`cairn status` and `cairn approve`",
       "level": 3,
-      "line": 2953,
+      "line": 2994,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11367,7 +11367,7 @@
       "id": "spec.status.trailer-check",
       "title": "Trailer check",
       "level": 3,
-      "line": 2965,
+      "line": 3006,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11439,7 +11439,7 @@
       "id": "spec.status.attempts",
       "title": "Attempts",
       "level": 3,
-      "line": 2973,
+      "line": 3014,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11802,7 +11802,7 @@
       "id": "spec.status.outcome-metrics",
       "title": "Outcome metrics",
       "level": 3,
-      "line": 3012,
+      "line": 3053,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12072,7 +12072,7 @@
       "id": "spec.status.cairn-stats",
       "title": "`cairn stats`",
       "level": 3,
-      "line": 3053,
+      "line": 3094,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12272,7 +12272,7 @@
       "id": "spec.status.relation-index",
       "title": "Relation index",
       "level": 3,
-      "line": 3094,
+      "line": 3135,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12545,7 +12545,7 @@
       "id": "spec.status.section-links",
       "title": "Section links",
       "level": 3,
-      "line": 3142,
+      "line": 3183,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12709,7 +12709,7 @@
       "id": "spec.status.answers-from-the-index",
       "title": "Answers from the index",
       "level": 3,
-      "line": 3162,
+      "line": 3203,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12959,7 +12959,7 @@
       "id": "spec.status.conflict-record",
       "title": "Conflict record",
       "level": 3,
-      "line": 3182,
+      "line": 3223,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -13097,7 +13097,7 @@
       "id": "spec.sessions",
       "title": "Sessions",
       "level": 2,
-      "line": 3212,
+      "line": 3253,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.sessions.trace-store",
@@ -13130,7 +13130,7 @@
       "id": "spec.sessions.trace-store",
       "title": "Trace store",
       "level": 3,
-      "line": 3214,
+      "line": 3255,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -13294,7 +13294,7 @@
       "id": "spec.sessions.redaction",
       "title": "Redaction",
       "level": 3,
-      "line": 3245,
+      "line": 3286,
       "parent": "spec.sessions",
       "children": [],
       "human": true,
@@ -13419,7 +13419,7 @@
       "id": "spec.sessions.cairn-session",
       "title": "`cairn session`",
       "level": 3,
-      "line": 3264,
+      "line": 3305,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -13485,7 +13485,7 @@
       "id": "spec.sessions.reading",
       "title": "Reading a session",
       "level": 3,
-      "line": 3274,
+      "line": 3315,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -13559,7 +13559,7 @@
       "id": "spec.sessions.usage-records",
       "title": "Usage records",
       "level": 3,
-      "line": 3299,
+      "line": 3340,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -14035,7 +14035,7 @@
       "id": "spec.sessions.api-equivalent-cost",
       "title": "API-equivalent cost",
       "level": 3,
-      "line": 3361,
+      "line": 3402,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -14277,7 +14277,7 @@
       "id": "spec.sessions.subscription-allowance",
       "title": "Subscription allowance",
       "level": 3,
-      "line": 3387,
+      "line": 3428,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -14574,7 +14574,7 @@
       "id": "spec.sessions.notes",
       "title": "Notes",
       "level": 3,
-      "line": 3438,
+      "line": 3479,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -14963,7 +14963,7 @@
       "id": "spec.orchestrator-adapter",
       "title": "Orchestrator adapter",
       "level": 2,
-      "line": 3475,
+      "line": 3516,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.orchestrator-adapter.attempts-and-verification",
@@ -15193,7 +15193,7 @@
       "id": "spec.orchestrator-adapter.attempts-and-verification",
       "title": "Attempts and verification",
       "level": 3,
-      "line": 3493,
+      "line": 3534,
       "parent": "spec.orchestrator-adapter",
       "children": [],
       "human": false,
@@ -15528,7 +15528,7 @@
       "id": "spec.orchestrator-adapter.conflict-aware-running",
       "title": "Conflict-aware running",
       "level": 3,
-      "line": 3516,
+      "line": 3557,
       "parent": "spec.orchestrator-adapter",
       "children": [],
       "human": false,
@@ -15895,7 +15895,7 @@
       "id": "spec.cli",
       "title": "CLI",
       "level": 2,
-      "line": 3575,
+      "line": 3616,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.cli.cairn-link",
@@ -15995,7 +15995,7 @@
       "id": "spec.cli.cairn-link",
       "title": "`cairn link`",
       "level": 3,
-      "line": 3584,
+      "line": 3625,
       "parent": "spec.cli",
       "children": [],
       "human": false,
@@ -16356,7 +16356,7 @@
       "id": "spec.cli.documentation",
       "title": "Documentation",
       "level": 3,
-      "line": 3636,
+      "line": 3677,
       "parent": "spec.cli",
       "children": [
         "spec.cli.documentation.reference-from-code",
@@ -16432,7 +16432,7 @@
       "id": "spec.cli.documentation.reference-from-code",
       "title": "Reference from code",
       "level": 4,
-      "line": 3642,
+      "line": 3683,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -16603,7 +16603,7 @@
       "id": "spec.cli.documentation.docs-site",
       "title": "Docs site",
       "level": 4,
-      "line": 3662,
+      "line": 3703,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -16830,7 +16830,7 @@
       "id": "spec.cli.documentation.pages",
       "title": "Pages",
       "level": 4,
-      "line": 3685,
+      "line": 3726,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -16938,7 +16938,7 @@
       "id": "spec.cli.documentation.the-viewer-on-a-page",
       "title": "The viewer on a page",
       "level": 4,
-      "line": 3707,
+      "line": 3748,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -17052,7 +17052,7 @@
       "id": "spec.cli.agent-access",
       "title": "Agent access",
       "level": 3,
-      "line": 3722,
+      "line": 3763,
       "parent": "spec.cli",
       "children": [
         "spec.cli.agent-access.operations",
@@ -17200,7 +17200,7 @@
       "id": "spec.cli.agent-access.operations",
       "title": "Operations",
       "level": 4,
-      "line": 3736,
+      "line": 3777,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -17731,7 +17731,7 @@
       "id": "spec.cli.agent-access.review-checkpoints",
       "title": "Review checkpoints",
       "level": 4,
-      "line": 3802,
+      "line": 3843,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -18368,7 +18368,7 @@
       "id": "spec.cli.agent-access.mcp-server",
       "title": "MCP server",
       "level": 4,
-      "line": 3886,
+      "line": 3927,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -18828,7 +18828,7 @@
       "id": "spec.cli.agent-access.more-tools",
       "title": "More tools",
       "level": 4,
-      "line": 3943,
+      "line": 3984,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -19193,7 +19193,7 @@
       "id": "spec.cli.agent-access.agent-guide",
       "title": "Agent guide",
       "level": 4,
-      "line": 3971,
+      "line": 4012,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -19426,7 +19426,7 @@
       "id": "spec.cli.terminal-view",
       "title": "Terminal view",
       "level": 3,
-      "line": 4001,
+      "line": 4042,
       "parent": "spec.cli",
       "children": [
         "spec.cli.terminal-view.rendering-library",
@@ -19634,7 +19634,7 @@
       "id": "spec.cli.terminal-view.rendering-library",
       "title": "Rendering library",
       "level": 4,
-      "line": 4038,
+      "line": 4079,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -19979,7 +19979,7 @@
       "id": "spec.cli.terminal-view.shared-derivations",
       "title": "Shared derivations",
       "level": 4,
-      "line": 4082,
+      "line": 4123,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -20155,7 +20155,7 @@
       "id": "spec.cli.terminal-view.trace-stream",
       "title": "Trace stream",
       "level": 4,
-      "line": 4103,
+      "line": 4144,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -20387,7 +20387,7 @@
       "id": "spec.cli.terminal-view.model-update-and-view",
       "title": "Model, update and view",
       "level": 4,
-      "line": 4131,
+      "line": 4172,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -20749,7 +20749,7 @@
       "id": "spec.cli.terminal-view.keys",
       "title": "Keys",
       "level": 4,
-      "line": 4179,
+      "line": 4220,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -21046,7 +21046,7 @@
       "id": "spec.cli.terminal-view.cairn-watch",
       "title": "`cairn watch`",
       "level": 4,
-      "line": 4218,
+      "line": 4259,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -21352,7 +21352,7 @@
       "id": "spec.cli.cairn-doctor",
       "title": "`cairn doctor`",
       "level": 3,
-      "line": 4264,
+      "line": 4305,
       "parent": "spec.cli",
       "children": [],
       "human": false,
@@ -21368,7 +21368,7 @@
       "dependsOn": ["spec.cli", "spec.contract.config", "spec.models"],
       "defers": [],
       "context": [],
-      "tasks": [],
+      "tasks": ["t235"],
       "summary": "Builds the read-only `cairn doctor` command, which runs three checks in order (git, config, planner), prints one plain `ok`/`fail` line per check saying what to fix, and exits 0 only when every check passes.",
       "requirements": [
         {
@@ -21722,7 +21722,7 @@
       "id": "spec.patch-routes",
       "title": "Patch routes",
       "level": 2,
-      "line": 4332,
+      "line": 4373,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -21817,7 +21817,7 @@
       "id": "spec.server",
       "title": "Server",
       "level": 2,
-      "line": 4353,
+      "line": 4394,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -21971,7 +21971,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b",
           "prd.code-view": "c684c9e4bdc527daf0d529aa8f075d878e91f7cc423ef0aa5d1f70e88ce1daa9",
           "prd.cli": "b2e8689bc863745d998817d4ce776ba834a1103fbaae43dece28651b8af1c4e1"
         }
@@ -21981,7 +21981,7 @@
       "id": "spec.viewer",
       "title": "Viewer",
       "level": 2,
-      "line": 4376,
+      "line": 4417,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.viewer.model-and-messages",
@@ -22011,7 +22011,8 @@
         "spec.viewer.attempts-in-the-detail-panel",
         "spec.viewer.what-depends-on-what",
         "spec.viewer.command-menu",
-        "spec.viewer.notes"
+        "spec.viewer.notes",
+        "spec.viewer.effect-ui"
       ],
       "human": false,
       "implements": [],
@@ -22034,7 +22035,7 @@
       "id": "spec.viewer.model-and-messages",
       "title": "Model and messages",
       "level": 3,
-      "line": 4378,
+      "line": 4419,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22169,7 +22170,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b"
         }
       }
     },
@@ -22177,7 +22178,7 @@
       "id": "spec.viewer.markdown-rendering",
       "title": "Markdown rendering",
       "level": 3,
-      "line": 4394,
+      "line": 4435,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22253,7 +22254,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b"
         }
       }
     },
@@ -22261,7 +22262,7 @@
       "id": "spec.viewer.design-system",
       "title": "Design system",
       "level": 3,
-      "line": 4403,
+      "line": 4444,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22519,7 +22520,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b"
         }
       }
     },
@@ -22527,7 +22528,7 @@
       "id": "spec.viewer.reader",
       "title": "Reader",
       "level": 3,
-      "line": 4503,
+      "line": 4544,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22806,7 +22807,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b",
           "prd.viewer.reader": "b1d0ddbef0b30446c3a5458c37b61eb8c07dcec49eb9823a13d0821aef7595d6"
         }
       }
@@ -22815,7 +22816,7 @@
       "id": "spec.viewer.spec-cards",
       "title": "Spec cards",
       "level": 3,
-      "line": 4555,
+      "line": 4596,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22991,7 +22992,7 @@
       "id": "spec.viewer.fuzzy-matching",
       "title": "Fuzzy matching",
       "level": 3,
-      "line": 4582,
+      "line": 4623,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23051,7 +23052,7 @@
       "id": "spec.viewer.search-interaction",
       "title": "Search controls and chain highlighting",
       "level": 3,
-      "line": 4601,
+      "line": 4642,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23142,7 +23143,7 @@
       "id": "spec.viewer.prose-search",
       "title": "Prose search and inline highlights",
       "level": 3,
-      "line": 4623,
+      "line": 4664,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23215,7 +23216,7 @@
       "id": "spec.viewer.curves",
       "title": "Curves",
       "level": 3,
-      "line": 4645,
+      "line": 4686,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23398,7 +23399,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b"
         }
       }
     },
@@ -23406,7 +23407,7 @@
       "id": "spec.viewer.stacks",
       "title": "Stacks",
       "level": 3,
-      "line": 4672,
+      "line": 4713,
       "parent": "spec.viewer",
       "children": [
         "spec.viewer.stacks.boxes",
@@ -23564,7 +23565,7 @@
       "id": "spec.viewer.stacks.boxes",
       "title": "Boxes, forks and finished trunks",
       "level": 4,
-      "line": 4712,
+      "line": 4753,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -23953,7 +23954,7 @@
       "id": "spec.viewer.stacks.box-view",
       "title": "Drawing a box",
       "level": 4,
-      "line": 4754,
+      "line": 4795,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -24222,7 +24223,7 @@
       "id": "spec.viewer.stacks.arrows",
       "title": "Parent arrows",
       "level": 4,
-      "line": 4778,
+      "line": 4819,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -24437,7 +24438,7 @@
       "id": "spec.viewer.stacks.dependencies",
       "title": "Dependency arrows",
       "level": 4,
-      "line": 4802,
+      "line": 4843,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -24663,7 +24664,7 @@
       "id": "spec.viewer.models",
       "title": "Models and reasoning",
       "level": 3,
-      "line": 4827,
+      "line": 4868,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24788,7 +24789,7 @@
       "id": "spec.viewer.panes",
       "title": "Panes",
       "level": 3,
-      "line": 4847,
+      "line": 4888,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24977,7 +24978,7 @@
       "id": "spec.viewer.presence",
       "title": "Presence in the reader",
       "level": 3,
-      "line": 4868,
+      "line": 4909,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25078,7 +25079,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b",
           "prd.v2-multiplayer-on-cloudflare.presence": "51e30f98371b0ea5a05e6dd300745ebb24f87c3e9bb3e2275fa8ee5c395eabef"
         }
       }
@@ -25087,7 +25088,7 @@
       "id": "spec.viewer.detail-panel",
       "title": "Detail panel",
       "level": 3,
-      "line": 4883,
+      "line": 4924,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25225,7 +25226,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b",
           "prd.viewer.task-detail": "aad700d240deb90a0ac013429e9d72ade39399be8f4021ee38bb9bc279b9862d",
           "prd.acceptance-criteria": "6b1c682a06fdee3715beb9d161148094143bc0682040a588cabe180a6904ed5a"
         }
@@ -25235,7 +25236,7 @@
       "id": "spec.viewer.code-view",
       "title": "Code view",
       "level": 3,
-      "line": 4917,
+      "line": 4958,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25341,7 +25342,7 @@
       "id": "spec.viewer.diff-view",
       "title": "Diff view",
       "level": 3,
-      "line": 4944,
+      "line": 4985,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25525,7 +25526,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b",
           "prd.code-view": "c684c9e4bdc527daf0d529aa8f075d878e91f7cc423ef0aa5d1f70e88ce1daa9"
         }
       }
@@ -25534,7 +25535,7 @@
       "id": "spec.viewer.session-view",
       "title": "Session pane",
       "level": 3,
-      "line": 4970,
+      "line": 5011,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25601,7 +25602,7 @@
       "id": "spec.viewer.attribution",
       "title": "Hunks and turns",
       "level": 3,
-      "line": 4986,
+      "line": 5027,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25694,7 +25695,7 @@
       "id": "spec.viewer.detail-code",
       "title": "Code in the detail panel",
       "level": 3,
-      "line": 5006,
+      "line": 5047,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25831,7 +25832,7 @@
       "id": "spec.viewer.canvas-removal",
       "title": "Replacing the canvas",
       "level": 3,
-      "line": 5020,
+      "line": 5061,
       "parent": "spec.viewer",
       "children": [],
       "human": true,
@@ -25983,7 +25984,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932"
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b"
         }
       }
     },
@@ -25991,7 +25992,7 @@
       "id": "spec.viewer.demo-data",
       "title": "Demo data",
       "level": 3,
-      "line": 5041,
+      "line": 5082,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -26098,7 +26099,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.viewer": "6f8b457a3edf95bc6dae3c5a7d25600225fd5aac70d07fe1e399f300bcd8a932",
+          "prd.viewer": "910dbae3ae8801a39ee7f58b44b44f5edfa183d64c28b048d2737478888cf06b",
           "prd.viewer.task-detail": "aad700d240deb90a0ac013429e9d72ade39399be8f4021ee38bb9bc279b9862d"
         }
       }
@@ -26107,7 +26108,7 @@
       "id": "spec.viewer.deep-links",
       "title": "Deep links",
       "level": 3,
-      "line": 5062,
+      "line": 5103,
       "parent": "spec.viewer",
       "children": [
         "spec.viewer.deep-links.resolving-a-link",
@@ -26187,7 +26188,7 @@
       "id": "spec.viewer.deep-links.resolving-a-link",
       "title": "Resolving a link",
       "level": 4,
-      "line": 5074,
+      "line": 5115,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -26612,7 +26613,7 @@
       "id": "spec.viewer.deep-links.opening-a-link",
       "title": "Opening a link",
       "level": 4,
-      "line": 5133,
+      "line": 5174,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -27088,7 +27089,7 @@
       "id": "spec.viewer.deep-links.copying-a-link",
       "title": "Copying a link",
       "level": 4,
-      "line": 5219,
+      "line": 5260,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -27488,7 +27489,7 @@
       "id": "spec.viewer.list-items",
       "title": "List items",
       "level": 3,
-      "line": 5260,
+      "line": 5301,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -27742,7 +27743,7 @@
       "id": "spec.viewer.cost-on-the-graph",
       "title": "Cost on the graph",
       "level": 3,
-      "line": 5286,
+      "line": 5327,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28032,7 +28033,7 @@
       "id": "spec.viewer.attempts-in-the-detail-panel",
       "title": "Attempts in the detail panel",
       "level": 3,
-      "line": 5324,
+      "line": 5365,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28172,7 +28173,7 @@
       "id": "spec.viewer.what-depends-on-what",
       "title": "What depends on what",
       "level": 3,
-      "line": 5346,
+      "line": 5387,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28408,7 +28409,7 @@
       "id": "spec.viewer.command-menu",
       "title": "Command menu",
       "level": 3,
-      "line": 5370,
+      "line": 5411,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28892,7 +28893,7 @@
       "id": "spec.viewer.notes",
       "title": "Notes",
       "level": 3,
-      "line": 5449,
+      "line": 5490,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -29105,10 +29106,742 @@
       }
     },
     {
+      "id": "spec.viewer.effect-ui",
+      "title": "Effect UI",
+      "level": 3,
+      "line": 5524,
+      "parent": "spec.viewer",
+      "children": [
+        "spec.viewer.effect-ui.effect-upgrade",
+        "spec.viewer.effect-ui.spike",
+        "spec.viewer.effect-ui.host",
+        "spec.viewer.effect-ui.scene-tests",
+        "spec.viewer.effect-ui.views",
+        "spec.viewer.effect-ui.foldkit-removal",
+        "spec.viewer.effect-ui.components"
+      ],
+      "human": false,
+      "implements": ["prd.viewer.effect-ui"],
+      "files": [],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": [],
+      "summary": "Moves the viewer from Foldkit 0.171.0 to Effect UI in seven steps, each passing `pnpm check`: the Effect upgrade, a gated spike, an Effect UI host over the Foldkit views, the tests, the views top down, removing Foldkit, then components.",
+      "requirements": [
+        {
+          "id": "spec.viewer.effect-ui#r1",
+          "level": "must",
+          "text": "`pnpm check` passes after each step of the move."
+        },
+        {
+          "id": "spec.viewer.effect-ui#r2",
+          "level": "must",
+          "text": "The steps run in order: Effect upgrade, spike, host, Scene tests, views, removing Foldkit, components."
+        },
+        {
+          "id": "spec.viewer.effect-ui#r3",
+          "level": "must-not",
+          "text": "No step ports a canvas view; the canvas is removed before the host step."
+        },
+        {
+          "id": "spec.viewer.effect-ui#r4",
+          "level": "must",
+          "text": "A view added before the host step lands is written in Foldkit, and one added after it in Effect UI."
+        }
+      ],
+      "artifacts": [],
+      "tests": [],
+      "decisions": [
+        {
+          "id": "spec.viewer.effect-ui#d1",
+          "text": "The move goes in steps behind a one-way bridge rather than in one change.",
+          "why": "Each pull request has to pass CI on its own head, and one change across every view and test would be too large to review."
+        },
+        {
+          "id": "spec.viewer.effect-ui#d2",
+          "text": "The canvas is removed first.",
+          "why": "Porting views that are about to be deleted is wasted work."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.effect-ui": "622f93911d20c15df6bd8d4307f68b275bd6d57cdae9cea7503160ab1623633a"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.effect-ui.effect-upgrade",
+      "title": "Effect 4.1.6",
+      "level": 4,
+      "line": 5542,
+      "parent": "spec.viewer.effect-ui",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.effect-ui"],
+      "files": [
+        "pnpm-workspace.yaml",
+        "package.json",
+        "apps/viewer/package.json",
+        "packages/cli/package.json",
+        "pnpm-lock.yaml",
+        ".agent_sources/effect/"
+      ],
+      "dependsOn": [],
+      "defers": [],
+      "context": [],
+      "tasks": ["t236"],
+      "summary": "Moves `effect`, `@effect/vitest` and every `@effect/*` package pinned at 4.1.5 to 4.1.6 in one change and rebuilds the Effect API lookup.",
+      "requirements": [
+        {
+          "id": "spec.viewer.effect-ui.effect-upgrade#r1",
+          "level": "must",
+          "text": "`effect` and `@effect/vitest` in the `pnpm-workspace.yaml` catalog are 4.1.6."
+        },
+        {
+          "id": "spec.viewer.effect-ui.effect-upgrade#r2",
+          "level": "must",
+          "text": "Every `@effect/*` package pinned at 4.1.5 in a `package.json` moves to 4.1.6 in the same change."
+        },
+        {
+          "id": "spec.viewer.effect-ui.effect-upgrade#r3",
+          "level": "must",
+          "text": "Only one version of `effect` is installed."
+        },
+        {
+          "id": "spec.viewer.effect-ui.effect-upgrade#r4",
+          "level": "must",
+          "text": "The Effect API lookup is rebuilt with `refresh-effect-api.ts` and `index-effect-core.ts`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.effect-upgrade#r5",
+          "level": "must",
+          "text": "A breaking change in the release is fixed in this change."
+        }
+      ],
+      "artifacts": [],
+      "tests": [
+        {
+          "id": "spec.viewer.effect-ui.effect-upgrade#t1",
+          "kind": "check",
+          "proves": [],
+          "text": "`pnpm check` passes, including `check:effect-api`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.effect-upgrade#t2",
+          "kind": "check",
+          "proves": [],
+          "text": "`pnpm why effect` lists 4.1.6 and no other version."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.effect-ui.effect-upgrade#d1",
+          "text": "Every Effect package moves together.",
+          "why": "Two versions of `effect` in one install break Schema and service identity."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.effect-ui": "622f93911d20c15df6bd8d4307f68b275bd6d57cdae9cea7503160ab1623633a"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.effect-ui.spike",
+      "title": "Spike",
+      "level": 4,
+      "line": 5553,
+      "parent": "spec.viewer.effect-ui",
+      "children": [],
+      "human": true,
+      "implements": ["prd.viewer.effect-ui"],
+      "files": [
+        "pnpm-workspace.yaml",
+        "apps/viewer/package.json",
+        "pnpm-lock.yaml",
+        "apps/viewer/src/effect-ui/controls.ts",
+        "apps/viewer/src/effect-ui/bridge.ts",
+        "apps/viewer/test/effect-ui/controls.scene.test.ts",
+        "apps/viewer/test/effect-ui/bridge.test.ts",
+        "apps/viewer/EFFECT-UI.md",
+        ".agent_sources/README.md",
+        ".agent_sources/effect-ui/index.md",
+        "AGENTS.md"
+      ],
+      "dependsOn": ["spec.viewer.effect-ui.effect-upgrade"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t237"],
+      "summary": "Installs Effect UI from one pinned pkg.pr.new snapshot, rebuilds the switch and disclosure on `@effect/ui-kit`, prototypes a bridge that renders Foldkit views under Effect UI, and writes a report of what Effect UI lacks for a person to read before the port.",
+      "requirements": [
+        {
+          "id": "spec.viewer.effect-ui.spike#r1",
+          "level": "must",
+          "text": "`@effect/ui` and `@effect/ui-kit` are installed from the pkg.pr.new snapshot of one Effect-TS/ui commit, named by its short SHA."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#r2",
+          "level": "must",
+          "text": "The SHA is written once, in the `effect-ui` catalog in `pnpm-workspace.yaml`, and both packages use it."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#r3",
+          "level": "must",
+          "text": "Moving to a newer SHA is its own change."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#r4",
+          "level": "must-not",
+          "text": "Nothing the spike adds runs in the viewer."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#r5",
+          "level": "must",
+          "text": "`.agent_sources/effect-ui/index.md` points at Effect UI's `LLMS.md`, `ai-docs/src/10_ui/` and package sources at the pinned SHA, and AGENTS.md's table has an Effect UI row."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#r6",
+          "level": "must",
+          "text": "`effect-ui/controls.ts` rebuilds the switch and disclosure on `@effect/ui-kit`'s `Switch` and `Collapsible` with the same classes, roles and labels."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#r7",
+          "level": "must",
+          "text": "`foldkitView(h, html)` renders a Foldkit `Html` value as Effect UI children with the same elements, attributes, properties, classes, styles, keys and text."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#r8",
+          "level": "must",
+          "text": "A bridged event handler sends the same `Message` the Foldkit handler sends."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#r9",
+          "level": "must",
+          "text": "A Foldkit `Mount` becomes an Effect UI mount on the same element."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#r10",
+          "level": "must",
+          "text": "`EFFECT-UI.md` has one row for each Foldkit API the viewer imports, naming its Effect UI replacement or saying there is none and what the viewer does instead."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#r11",
+          "level": "must",
+          "text": "`EFFECT-UI.md` says whether the bridge works and which later step changes if it does not, and lists what was reported upstream."
+        }
+      ],
+      "artifacts": [
+        {
+          "description": "Renders a Foldkit Html value as Effect UI children, mapping handlers to the same Messages.",
+          "id": "spec.viewer.effect-ui.spike#function:foldkitview",
+          "kind": "function",
+          "location": "apps/viewer/src/effect-ui/bridge.ts",
+          "name": "foldkitView",
+          "signature": "foldkitView(h, html)"
+        },
+        {
+          "description": "The spike's report: each Foldkit API the viewer uses and its Effect UI replacement or gap.",
+          "id": "spec.viewer.effect-ui.spike#file:effect-ui-md",
+          "kind": "file",
+          "location": "apps/viewer/EFFECT-UI.md",
+          "name": "EFFECT-UI.md"
+        },
+        {
+          "description": "The pinned pkg.pr.new snapshot of Effect UI.",
+          "id": "spec.viewer.effect-ui.spike#config-key:catalog-effect-ui",
+          "kind": "config-key",
+          "location": "pnpm-workspace.yaml",
+          "name": "catalog:effect-ui"
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.effect-ui.spike#t1",
+          "kind": "scene",
+          "proves": [],
+          "text": "`controls.scene.test.ts` clicks the Effect UI switch and disclosure and checks the same `aria-checked` and `aria-expanded` values `ui.scene.test.ts` checks today."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#t2",
+          "kind": "example",
+          "proves": [],
+          "text": "`bridge.test.ts` renders `linkNoticeView` and the PRD pane through Foldkit and through the bridge and finds the same DOM."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#t3",
+          "kind": "example",
+          "proves": [],
+          "text": "A click on a bridged button sends the Message the Foldkit button sends."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#t4",
+          "kind": "mutation",
+          "proves": [],
+          "text": "Dropping one event from the bridge's handler mapping fails `bridge.test.ts`."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.effect-ui.spike#d1",
+          "text": "The spike is gated on a person.",
+          "why": "Effect UI is a preview with no upgrade guide, so whether the rest of the plan holds is a judgment on the report."
+        },
+        {
+          "id": "spec.viewer.effect-ui.spike#d2",
+          "text": "Effect UI is pinned by commit SHA through one catalog entry.",
+          "why": "Snapshots change with every push to Effect-TS/ui's main, and the lockfile's integrity makes CI install what was checked."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.effect-ui": "622f93911d20c15df6bd8d4307f68b275bd6d57cdae9cea7503160ab1623633a"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.effect-ui.host",
+      "title": "The host",
+      "level": 4,
+      "line": 5577,
+      "parent": "spec.viewer.effect-ui",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.effect-ui"],
+      "files": [
+        "apps/viewer/src/entry.ts",
+        "apps/viewer/src/app.ts",
+        "apps/viewer/src/effect-ui/bridge.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/route.ts",
+        "apps/viewer/src/subscription/",
+        "apps/viewer/vite.config.ts",
+        "apps/viewer/package.json",
+        "apps/viewer/test/effect-ui/host.play.test.ts"
+      ],
+      "dependsOn": ["spec.viewer.effect-ui.spike", "spec.viewer.canvas-removal"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t238"],
+      "summary": "Mounts the viewer as one Effect UI component, `Viewer`, whose update wraps today's update and whose view renders today's Foldkit views through the bridge, with the address and subscriptions on Effect UI.",
+      "requirements": [
+        {
+          "id": "spec.viewer.effect-ui.host#r1",
+          "level": "must",
+          "text": "`Viewer` is an Effect UI component with the viewer's `Model` and `Message`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.host#r2",
+          "level": "must",
+          "text": "`Viewer`'s `init` is today's `init`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.host#r3",
+          "level": "must",
+          "text": "`Viewer`'s `update` calls today's `withAddress(update)`, returns the new Model with `$.evolve` and runs each Foldkit Command with `$.run`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.host#r4",
+          "level": "must-not",
+          "text": "No Message handler is rewritten in this step."
+        },
+        {
+          "id": "spec.viewer.effect-ui.host#r5",
+          "level": "must",
+          "text": "`Viewer`'s `view` is `foldkitView(h, view(model))`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.host#r6",
+          "level": "must",
+          "text": "`entry.ts` mounts `Viewer` with `BrowserHost.mount` in place of `Runtime.run`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.host#r7",
+          "level": "must",
+          "text": "Back, Forward and a hash change send `ChangedUrl`, and a click on an anchor sends `ClickedLink`, through `BrowserRouter`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.host#r8",
+          "level": "must",
+          "text": "Each subscription becomes `Subscription.make(key, stream)` over the stream it has now."
+        },
+        {
+          "id": "spec.viewer.effect-ui.host#r9",
+          "level": "must",
+          "text": "Foldkit stays installed, and every existing test passes unchanged."
+        }
+      ],
+      "artifacts": [
+        {
+          "description": "The viewer as one Effect UI component over today's Model, Messages, update and view.",
+          "id": "spec.viewer.effect-ui.host#type:viewer",
+          "kind": "type",
+          "location": "apps/viewer/src/app.ts",
+          "name": "Viewer"
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.viewer.effect-ui.host#t1",
+          "kind": "integration",
+          "proves": [],
+          "text": "`host.play.test.ts` mounts `Viewer` on the demo trace and finds the PRD's title and first status line."
+        },
+        {
+          "id": "spec.viewer.effect-ui.host#t2",
+          "kind": "integration",
+          "proves": [],
+          "text": "A click on a status line pins the section, and a `ChangedUrl` to a section link opens it."
+        },
+        {
+          "id": "spec.viewer.effect-ui.host#t3",
+          "kind": "integration",
+          "proves": [],
+          "text": "Copying a link runs its Command through `$.run` and its Message arrives."
+        },
+        {
+          "id": "spec.viewer.effect-ui.host#t4",
+          "kind": "mutation",
+          "proves": [],
+          "text": "Making the update adapter drop the Commands fails `host.play.test.ts`."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.effect-ui.host#d1",
+          "text": "The host keeps today's update and views behind adapters.",
+          "why": "So the runtime changes in one reviewable step and the tests show nothing else changed."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.effect-ui": "622f93911d20c15df6bd8d4307f68b275bd6d57cdae9cea7503160ab1623633a"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.effect-ui.scene-tests",
+      "title": "Scene tests",
+      "level": 4,
+      "line": 5595,
+      "parent": "spec.viewer.effect-ui",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.effect-ui"],
+      "files": ["apps/viewer/test/"],
+      "dependsOn": ["spec.viewer.effect-ui.host"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t239"],
+      "summary": "Moves every Scene test from `foldkit/scene` to `HtmlScene` on `Viewer` and the Story tests to `Story`, keeping each test's name, clicks and checks.",
+      "requirements": [
+        {
+          "id": "spec.viewer.effect-ui.scene-tests#r1",
+          "level": "must",
+          "text": "Every `*.scene.test.ts` in `apps/viewer/test` runs on `HtmlScene` against `Viewer`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.scene-tests#r2",
+          "level": "must",
+          "text": "The Story tests run on Effect UI's `Story`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.scene-tests#r3",
+          "level": "must",
+          "text": "A test keeps its name, its clicks and what it checks; only the harness calls change."
+        },
+        {
+          "id": "spec.viewer.effect-ui.scene-tests#r4",
+          "level": "must",
+          "text": "A difference the bridge causes is fixed in `bridge.ts`, not in the test."
+        }
+      ],
+      "artifacts": [],
+      "tests": [
+        {
+          "id": "spec.viewer.effect-ui.scene-tests#t1",
+          "kind": "check",
+          "proves": ["prd.viewer.effect-ui#v2"],
+          "text": "The same Scene and Story tests pass before and after, by name."
+        },
+        {
+          "id": "spec.viewer.effect-ui.scene-tests#t2",
+          "kind": "mutation",
+          "proves": [],
+          "text": "Reverting one bridged handler fails at least one Scene test."
+        }
+      ],
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.effect-ui": "622f93911d20c15df6bd8d4307f68b275bd6d57cdae9cea7503160ab1623633a"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.effect-ui.views",
+      "title": "Views",
+      "level": 4,
+      "line": 5607,
+      "parent": "spec.viewer.effect-ui",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.effect-ui"],
+      "files": [
+        "apps/viewer/src/view/",
+        "apps/viewer/src/ui/",
+        "apps/viewer/src/effect-ui/",
+        "apps/viewer/src/markdown.ts",
+        "apps/viewer/src/code.ts",
+        "apps/viewer/src/diagram.ts",
+        "apps/viewer/src/app.ts",
+        "apps/viewer/test/"
+      ],
+      "dependsOn": ["spec.viewer.effect-ui.scene-tests"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t240", "t241", "t242", "t243", "t244"],
+      "summary": "Rewrites the viewer's views in Effect UI's `h` from the top down, in five parts (frame, reader, stacks, detail and code, markdown), with lower views bridged until their part moves.",
+      "requirements": [
+        {
+          "id": "spec.viewer.effect-ui.views#r1",
+          "level": "must",
+          "text": "Views move from the top of the tree down, one part per change: frame, reader, stacks, detail and code, then markdown."
+        },
+        {
+          "id": "spec.viewer.effect-ui.views#r2",
+          "level": "must-not",
+          "text": "A Foldkit view never holds an Effect UI view."
+        },
+        {
+          "id": "spec.viewer.effect-ui.views#r3",
+          "level": "must",
+          "text": "A moved view keeps its classes, roles, labels, keys and Messages."
+        },
+        {
+          "id": "spec.viewer.effect-ui.views#r4",
+          "level": "must",
+          "text": "Native buttons keep `type=\"button\"`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.views#r5",
+          "level": "must",
+          "text": "Markdown moves last, once every view that renders it has moved."
+        },
+        {
+          "id": "spec.viewer.effect-ui.views#r6",
+          "level": "may",
+          "text": "A view may use an `@effect/ui-kit` component when the DOM the tests check stays the same."
+        }
+      ],
+      "artifacts": [],
+      "tests": [
+        {
+          "id": "spec.viewer.effect-ui.views#t1",
+          "kind": "check",
+          "proves": [],
+          "text": "Every Scene test passes after each part."
+        },
+        {
+          "id": "spec.viewer.effect-ui.views#t2",
+          "kind": "check",
+          "proves": [],
+          "text": "After the markdown part, nothing under `apps/viewer/src` imports `foldkit/html`."
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.viewer.effect-ui.views#d1",
+          "text": "The bridge runs only from Foldkit into Effect UI.",
+          "why": "Moving from the top down never needs the other direction."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.effect-ui": "622f93911d20c15df6bd8d4307f68b275bd6d57cdae9cea7503160ab1623633a"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.effect-ui.foldkit-removal",
+      "title": "Removing Foldkit",
+      "level": 4,
+      "line": 5627,
+      "parent": "spec.viewer.effect-ui",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.effect-ui"],
+      "files": [
+        "apps/viewer/package.json",
+        "package.json",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "patches/",
+        "apps/viewer/vite.config.ts",
+        "apps/viewer/src/",
+        "oxlint.config.ts",
+        "lint/effect-core-plugin.test.mjs",
+        "AGENTS.md",
+        ".agent_sources/effect/checklist.md",
+        "THIRD_PARTY_NOTICES.md",
+        "LICENSING.md"
+      ],
+      "dependsOn": ["spec.viewer.effect-ui.views"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t245"],
+      "summary": "Ports anything left on Foldkit, makes update return Effect UI results itself, deletes the bridge and uninstalls every Foldkit package, its patch and plugins, and points the docs at Effect UI.",
+      "requirements": [
+        {
+          "id": "spec.viewer.effect-ui.foldkit-removal#r1",
+          "level": "must",
+          "text": "Any view still on Foldkit is rewritten in Effect UI."
+        },
+        {
+          "id": "spec.viewer.effect-ui.foldkit-removal#r2",
+          "level": "must",
+          "text": "`update` returns `$` results itself, and the update adapter is deleted."
+        },
+        {
+          "id": "spec.viewer.effect-ui.foldkit-removal#r3",
+          "level": "must",
+          "text": "`modifyFields` becomes `$.evolve`, and `defineMessageUnion` and `defineTaggedUnion` become `UiSchema.TaggedEnum`."
+        },
+        {
+          "id": "spec.viewer.effect-ui.foldkit-removal#r4",
+          "level": "must-not",
+          "text": "No Message is renamed."
+        },
+        {
+          "id": "spec.viewer.effect-ui.foldkit-removal#r5",
+          "level": "must",
+          "text": "`bridge.ts` is deleted."
+        },
+        {
+          "id": "spec.viewer.effect-ui.foldkit-removal#r6",
+          "level": "must",
+          "text": "`foldkit`, `@foldkit/ui`, `@foldkit/vite-plugin` and `@foldkit/oxlint-plugin` are uninstalled, and the Foldkit patch and its `patchedDependencies` entry are removed."
+        },
+        {
+          "id": "spec.viewer.effect-ui.foldkit-removal#r7",
+          "level": "must",
+          "text": "AGENTS.md, the Effect checklist, THIRD_PARTY_NOTICES and LICENSING name Effect UI instead of Foldkit."
+        }
+      ],
+      "artifacts": [],
+      "tests": [
+        {
+          "id": "spec.viewer.effect-ui.foldkit-removal#t1",
+          "kind": "check",
+          "proves": [],
+          "text": "`pnpm check` passes."
+        },
+        {
+          "id": "spec.viewer.effect-ui.foldkit-removal#t2",
+          "kind": "check",
+          "proves": ["prd.viewer.effect-ui#v1"],
+          "text": "`rg -l foldkit apps packages scripts lint` finds nothing outside the demo trace's copy of the PRD and spec."
+        },
+        {
+          "id": "spec.viewer.effect-ui.foldkit-removal#t3",
+          "kind": "check",
+          "proves": ["prd.viewer.effect-ui#v3"],
+          "text": "The owner compares the demo build (`vite build --mode demo`) with the one from before the move, side by side, and finds the same screens and behaviour."
+        }
+      ],
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.effect-ui": "622f93911d20c15df6bd8d4307f68b275bd6d57cdae9cea7503160ab1623633a"
+        }
+      }
+    },
+    {
+      "id": "spec.viewer.effect-ui.components",
+      "title": "Components",
+      "level": 4,
+      "line": 5645,
+      "parent": "spec.viewer.effect-ui",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.effect-ui"],
+      "files": [
+        "apps/viewer/src/app.ts",
+        "apps/viewer/src/model.ts",
+        "apps/viewer/src/message.ts",
+        "apps/viewer/src/update.ts",
+        "apps/viewer/src/init.ts",
+        "apps/viewer/src/view/",
+        "apps/viewer/src/components/",
+        "apps/viewer/test/"
+      ],
+      "dependsOn": ["spec.viewer.effect-ui.foldkit-removal"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t246", "t247", "t248", "t249"],
+      "summary": "Splits `Viewer` into pane components (PRD, spec, stacks, task detail and code view) that own their Model and Messages, with shared state in a Provider and pane events mapped in `onEmit`.",
+      "requirements": [
+        {
+          "id": "spec.viewer.effect-ui.components#r1",
+          "level": "must",
+          "text": "The panes become components one at a time: PRD pane, spec pane, stacks pane, then task detail and code view."
+        },
+        {
+          "id": "spec.viewer.effect-ui.components#r2",
+          "level": "must",
+          "text": "What a pane only reads comes in as props."
+        },
+        {
+          "id": "spec.viewer.effect-ui.components#r3",
+          "level": "must",
+          "text": "What several panes change stays with `Viewer` and is shared through a Provider."
+        },
+        {
+          "id": "spec.viewer.effect-ui.components#r4",
+          "level": "must",
+          "text": "A pane tells `Viewer` what happened through its `events`, mapped in `onEmit`, with no `Got*` wrapper."
+        },
+        {
+          "id": "spec.viewer.effect-ui.components#r5",
+          "level": "must",
+          "text": "A Message moves to the pane that handles it and keeps its name."
+        }
+      ],
+      "artifacts": [],
+      "tests": [
+        {
+          "id": "spec.viewer.effect-ui.components#t1",
+          "kind": "example",
+          "proves": [],
+          "text": "Each pane has Story tests for the Messages it owns, including the ones it must ignore."
+        },
+        {
+          "id": "spec.viewer.effect-ui.components#t2",
+          "kind": "check",
+          "proves": [],
+          "text": "The Scene tests on `Viewer` pass unchanged."
+        }
+      ],
+      "decisions": [],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.effect-ui": "622f93911d20c15df6bd8d4307f68b275bd6d57cdae9cea7503160ab1623633a"
+        }
+      }
+    },
+    {
       "id": "spec.testing",
       "title": "Testing",
       "level": 2,
-      "line": 5483,
+      "line": 5659,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.testing.model-based",
@@ -29137,7 +29870,7 @@
       "id": "spec.testing.model-based",
       "title": "Model-based tests",
       "level": 3,
-      "line": 5487,
+      "line": 5663,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -29233,7 +29966,7 @@
       "id": "spec.testing.presence-model",
       "title": "Presence against the room machine",
       "level": 3,
-      "line": 5507,
+      "line": 5683,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -29305,7 +30038,7 @@
       "id": "spec.testing.viewer-models",
       "title": "Reader interactions against models",
       "level": 3,
-      "line": 5523,
+      "line": 5699,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -29415,7 +30148,7 @@
       "id": "spec.testing.derivation-model",
       "title": "Derivation against a model of its inputs",
       "level": 3,
-      "line": 5553,
+      "line": 5729,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -29492,7 +30225,7 @@
       "id": "spec.acceptance",
       "title": "Acceptance",
       "level": 2,
-      "line": 5571,
+      "line": 5747,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -29643,7 +30376,7 @@
       "id": "spec.hosted-launch",
       "title": "Hosted launch",
       "level": 2,
-      "line": 5597,
+      "line": 5773,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.hosted-launch.hosted-contract",
@@ -29876,7 +30609,7 @@
       "id": "spec.hosted-launch.hosted-contract",
       "title": "Hosted contract",
       "level": 3,
-      "line": 5635,
+      "line": 5811,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -31286,7 +32019,7 @@
       "id": "spec.hosted-launch.policy",
       "title": "Policy",
       "level": 3,
-      "line": 5788,
+      "line": 5964,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -31610,7 +32343,7 @@
       "id": "spec.hosted-launch.worker-and-storage",
       "title": "Worker and storage",
       "level": 3,
-      "line": 5853,
+      "line": 6029,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -32419,7 +33152,7 @@
       "id": "spec.hosted-launch.accounts-and-workspaces",
       "title": "Accounts and workspaces",
       "level": 3,
-      "line": 5894,
+      "line": 6070,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -32691,7 +33424,7 @@
       "id": "spec.hosted-launch.entitlements",
       "title": "Entitlements",
       "level": 3,
-      "line": 5926,
+      "line": 6102,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33029,7 +33762,7 @@
       "id": "spec.hosted-launch.room",
       "title": "Room",
       "level": 3,
-      "line": 5959,
+      "line": 6135,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33469,7 +34202,7 @@
       "id": "spec.hosted-launch.revisions",
       "title": "Revisions",
       "level": 3,
-      "line": 6024,
+      "line": 6200,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33865,7 +34598,7 @@
       "id": "spec.hosted-launch.document-directory",
       "title": "Document directory",
       "level": 3,
-      "line": 6072,
+      "line": 6248,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -34159,7 +34892,7 @@
       "id": "spec.hosted-launch.members-and-invitations",
       "title": "Members and invitations",
       "level": 3,
-      "line": 6098,
+      "line": 6274,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -34517,7 +35250,7 @@
       "id": "spec.hosted-launch.agent-credentials-and-gate-approvals",
       "title": "Agent credentials and gate approvals",
       "level": 3,
-      "line": 6142,
+      "line": 6318,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -34859,7 +35592,7 @@
       "id": "spec.hosted-launch.visibility",
       "title": "Visibility",
       "level": 3,
-      "line": 6180,
+      "line": 6356,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -35275,7 +36008,7 @@
       "id": "spec.hosted-launch.discussion",
       "title": "Discussion",
       "level": 3,
-      "line": 6250,
+      "line": 6426,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -35731,7 +36464,7 @@
       "id": "spec.hosted-launch.links-between-prds",
       "title": "Links between PRDs",
       "level": 3,
-      "line": 6292,
+      "line": 6468,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -35965,7 +36698,7 @@
       "id": "spec.hosted-launch.data-sources",
       "title": "Data sources",
       "level": 3,
-      "line": 6315,
+      "line": 6491,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36190,7 +36923,7 @@
       "id": "spec.hosted-launch.workspace-screens",
       "title": "Workspace screens",
       "level": 3,
-      "line": 6342,
+      "line": 6518,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36654,7 +37387,7 @@
       "id": "spec.hosted-launch.workspace-settings",
       "title": "Workspace settings",
       "level": 3,
-      "line": 6399,
+      "line": 6575,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36862,7 +37595,7 @@
       "id": "spec.hosted-launch.sharing-dialog",
       "title": "Sharing dialog",
       "level": 3,
-      "line": 6420,
+      "line": 6596,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37062,7 +37795,7 @@
       "id": "spec.hosted-launch.comments-in-the-reader",
       "title": "Comments in the reader",
       "level": 3,
-      "line": 6456,
+      "line": 6632,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37250,7 +37983,7 @@
       "id": "spec.hosted-launch.cairn-connect",
       "title": "`cairn connect`",
       "level": 3,
-      "line": 6492,
+      "line": 6668,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37665,7 +38398,7 @@
       "id": "spec.hosted-launch.plan-source",
       "title": "Plan source",
       "level": 3,
-      "line": 6531,
+      "line": 6707,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37901,7 +38634,7 @@
       "id": "spec.hosted-launch.billing",
       "title": "Billing",
       "level": 3,
-      "line": 6563,
+      "line": 6739,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -38285,7 +39018,7 @@
       "id": "spec.hosted-launch.self-hosting",
       "title": "Self-hosting",
       "level": 3,
-      "line": 6617,
+      "line": 6793,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -38821,7 +39554,7 @@
       "id": "spec.hosted-launch.launch-acceptance",
       "title": "Launch acceptance",
       "level": 3,
-      "line": 6672,
+      "line": 6848,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
