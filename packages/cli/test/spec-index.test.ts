@@ -18,6 +18,7 @@ import {
   FileSystem,
   Number,
   Option,
+  Order,
   Ref,
   Result,
   Schema,
@@ -27,7 +28,7 @@ import { TestClock, TestConsole } from "effect/testing";
 
 import { Planner, PlannerError } from "../src/planner.ts";
 import type { IndexTarget } from "../src/planner.ts";
-import { specIndexOf, specIndexText } from "../src/spec-index.ts";
+import { editedOf, specIndexOf, specIndexText } from "../src/spec-index.ts";
 import type { SpecIndexInput } from "../src/spec-index.ts";
 
 const decodeId = Schema.decodeSync(SpecSectionId);
@@ -257,6 +258,58 @@ it.effect(
       expect(edited.sections[0]?.writtenFrom).toEqual(first.sections[0]?.writtenFrom);
       expect(rewritten.calls).toEqual(["spec.s0"]);
       expect(rewritten.index.sections[0]?.writtenFrom.body).toBe(bodyHashOf("\nRewritten.\n"));
+    }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect.prop(
+  "an edited section is read once: after indexing what editedOf names, nothing is edited",
+  [Levels, Schema.Array(Schema.Boolean).check(Schema.isMaxLength(8))],
+  ([levels, edits]) =>
+    Effect.gen(function* () {
+      const manifest = yield* manifestOf();
+      const spec = specOf(levels);
+      const ids = Array.map(levels, (_level, at) => decodeId(`spec.s${at}`));
+      // Cairn writes every section, then a person edits some of them.
+      const first = yield* indexing(inputOf(manifest, spec, { written: ids }));
+      const edited = Array.filter(ids, (_id, at) => edits[at] === true);
+      const now = Array.reduce(Array.range(0, Array.length(levels) - 1), spec, (text, at) =>
+        edits[at] === true ? String.replace(`Text ${at}.`, `Text ${at}, edited.`)(text) : text,
+      );
+      const changed = editedOf(now, first.index);
+      const second = yield* indexing(
+        inputOf(manifest, now, { changed, previous: Option.some(first.index) }),
+        2,
+      );
+      // The next run finds nothing to read, though `writtenFrom` still says a person edited them.
+      const third = yield* indexing(
+        inputOf(manifest, now, {
+          changed: editedOf(now, second.index),
+          previous: Option.some(second.index),
+        }),
+        3,
+      );
+      expect(changed).toEqual(edited);
+      expect(Array.sort(second.calls, Order.String)).toEqual(Array.sort(edited, Order.String));
+      expect(third.calls).toEqual([]);
+      expect(Array.map(third.index.sections, (section) => section.writtenFrom)).toEqual(
+        Array.map(first.index.sections, (section) => section.writtenFrom),
+      );
+      expect(Array.map(third.index.sections, (section) => section.summary)).toEqual(
+        Array.map(ids, (id) => `round ${Array.contains(edited, id) ? 2 : 1}: ${id}`),
+      );
+    }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect(
+  "a section a person wrote records the body it was indexed from, and an edit to it is not seen",
+  () =>
+    Effect.gen(function* () {
+      const manifest = yield* manifestOf();
+      const { index } = yield* indexing(inputOf(manifest, "# One {#spec.s0}\n\nMine.\n"));
+      const [entry] = index.sections;
+      expect(entry?.writtenFrom.body).toBeNull();
+      expect(entry?.indexedFrom).toBe(bodyHashOf("\nMine.\n"));
+      expect(editedOf("# One {#spec.s0}\n\nMine, edited.\n", index)).toEqual([]);
     }).pipe(Effect.provide(NodeServices.layer)),
 );
 
