@@ -1,8 +1,12 @@
-import { Array, Match, Number, Option, Record, Schema } from "effect";
+import type { TaskId, TraceTask } from "@cairn/contract";
+import { TaskIdOrder } from "@cairn/core/stacks";
+import { Array, HashSet, Match, Number, Option, Record, Schema } from "effect";
 
 import type { Box } from "./boxes.ts";
-import { ArrowLink } from "./boxes.ts";
+import { ArrowLink, endKeyInOf } from "./boxes.ts";
 import { Rect } from "./geometry.ts";
+import type { Model } from "./model.ts";
+import { Node } from "./trace.ts";
 import type { Measured } from "./wires.ts";
 
 /** The `data-wire` key of the stacks list: the origin the arrows are drawn from. */
@@ -115,13 +119,103 @@ export const arrowsOf = (
     ),
   );
 
+/** The task a node is, when it is one. */
+const taskOfNode = (node: Node): Option.Option<TaskId> =>
+  Node.match(node, { section: () => Option.none(), task: ({ id }) => Option.some(id) });
+
 /**
- * The arrows of every box, from the last `MeasuredWires`. Before the first, or while the list has
- * no rectangle, there are none.
+ * The task in focus: the hovered node when it is a task, which a chip sends on pointer enter and on
+ * keyboard focus; otherwise the last node of the detail trail when that is a task.
+ */
+export const focusTaskOf = (model: Pick<Model, "detail" | "maybeHovered">): Option.Option<TaskId> =>
+  Option.orElse(Option.flatMap(model.maybeHovered, taskOfNode), () =>
+    Option.flatMap(Array.last(model.detail), taskOfNode),
+  );
+
+/** The dependency links of the task in focus, and the tasks at their other ends. */
+export interface Dependencies {
+  readonly links: ReadonlyArray<ArrowLink>;
+  readonly lit: HashSet.HashSet<TaskId>;
+}
+
+/**
+ * The links of the task in focus to the tasks in other stacks: one from each task it depends on to
+ * it, and one from it to each task that depends on it. A task inside a folded trunk is the trunk's
+ * segment. A dependency inside one stack, or on an ID that names no task, draws nothing. `lit`
+ * holds the tasks at the other ends.
+ */
+export const dependencyLinksOf = (
+  trace: { readonly tasks: ReadonlyArray<Pick<TraceTask, "dependsOn" | "id">> },
+  boxes: ReadonlyArray<Pick<Box, "maybeTrunk" | "stack">>,
+  maybeFocus: Option.Option<TaskId>,
+): Dependencies => {
+  const none: Dependencies = { links: [], lit: HashSet.empty() };
+  return Option.match(
+    Option.flatMap(maybeFocus, (focus) =>
+      Option.map(
+        Array.findFirst(trace.tasks, (task) => task.id === focus),
+        (task) => ({ focus, task }),
+      ),
+    ),
+    {
+      onNone: () => none,
+      onSome: ({ focus, task }) => {
+        const endKey = endKeyInOf(boxes);
+        const stackNumberOf = (id: TaskId): Option.Option<number> =>
+          Option.map(
+            Array.findFirst(boxes, (box) => Record.has(box.stack.cells, id)),
+            (box) => box.stack.number,
+          );
+        const isElsewhere = (id: TaskId): boolean =>
+          Option.match(Option.all([stackNumberOf(focus), stackNumberOf(id)]), {
+            onNone: () => false,
+            onSome: ([own, other]) => own !== other,
+          });
+        const needs = Array.filter(Array.dedupe(task.dependsOn), isElsewhere);
+        const dependents = Array.sort(
+          Array.dedupe(
+            Array.map(
+              Array.filter(
+                trace.tasks,
+                (each) => Array.contains(each.dependsOn, focus) && isElsewhere(each.id),
+              ),
+              (each) => each.id,
+            ),
+          ),
+          TaskIdOrder,
+        );
+        return {
+          // Two tasks of one folded trunk share a segment, so they share a link.
+          links: Array.dedupeWith(
+            Array.appendAll(
+              Array.map(needs, (id): ArrowLink => ({
+                kind: "dependency",
+                source: endKey(id),
+                target: endKey(focus),
+              })),
+              Array.map(dependents, (id): ArrowLink => ({
+                kind: "dependency",
+                source: endKey(focus),
+                target: endKey(id),
+              })),
+            ),
+            (self, that) => self.source === that.source && self.target === that.target,
+          ),
+          lit: HashSet.fromIterable(Array.appendAll(needs, dependents)),
+        };
+      },
+    },
+  );
+};
+
+/**
+ * The arrows of every box, from the last `MeasuredWires`, and then the dependency links, so they
+ * are drawn above. Before the first, or while the list has no rectangle, there are none.
  */
 export const stackArrowsOf = (
   boxes: ReadonlyArray<Pick<Box, "arrows">>,
   maybeMeasured: Option.Option<Measured>,
+  dependencies: ReadonlyArray<ArrowLink>,
 ): ReadonlyArray<Arrow> =>
   Option.match(maybeMeasured, {
     onNone: () => [],
@@ -130,7 +224,10 @@ export const stackArrowsOf = (
         onNone: () => [],
         onSome: (origin) =>
           arrowsOf(
-            Array.flatMap(boxes, (box) => box.arrows),
+            Array.appendAll(
+              Array.flatMap(boxes, (box) => box.arrows),
+              dependencies,
+            ),
             measured.boxes,
             origin,
           ),

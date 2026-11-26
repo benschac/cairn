@@ -2,6 +2,7 @@ import type { Trace } from "@cairn/contract";
 import { Array, Option, Record } from "effect";
 import type { Html, HtmlBuilder } from "foldkit/html";
 
+import { focusTaskOf } from "../arrows.ts";
 import { Message } from "../message.ts";
 import type { Destination, Model } from "../model.ts";
 import { currentOf, searchedSectionOf } from "../reader.ts";
@@ -243,6 +244,7 @@ export const readerView = (
               model.maybeMeasuredWires,
               Array.last(model.detail),
               maybePreview,
+              focusTaskOf(model),
               model.search.results,
               model.search.maybeActive,
               h,

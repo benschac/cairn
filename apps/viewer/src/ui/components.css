@@ -568,6 +568,13 @@ button.chip:active {
   border-color: var(--ink);
 }
 
+/* A task at the other end of a dependency arrow of the task in focus. */
+.stack .chip[data-lit] {
+  border-color: var(--ink);
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
 .stack .chip > .dot {
   width: 6px;
   height: 6px;
@@ -1354,6 +1361,7 @@ mark[data-search-match] {
 }
 
 .stack > .segment[data-current],
+.stack > .segment[data-lit],
 .stack > .segment[data-selected] {
   border-color: var(--ink);
 }
@@ -1363,7 +1371,8 @@ mark[data-search-match] {
   font-weight: 700;
 }
 
-.stack > .segment[data-selected] {
+.stack > .segment[data-selected],
+.stack > .segment[data-lit] {
   outline: 2px solid var(--ink);
   outline-offset: 1px;
 }
