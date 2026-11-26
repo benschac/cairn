@@ -49,6 +49,7 @@ export const init: Runtime.ApplicationInit<Model, Message> = () => ({
       maybePinned: Option.none(),
       opened: {},
       prdOpened: {},
+      unfolded: {},
     },
     resize: Resize.Idle(),
     search: NO_SEARCH,

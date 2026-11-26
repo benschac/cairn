@@ -50,7 +50,7 @@ import {
   type PatchData,
 } from "./model.ts";
 import { Range } from "./range.ts";
-import type { ScrollTarget } from "./reader.ts";
+import { stackTaskSelectorOf, type ScrollTarget } from "./reader.ts";
 import { indexOf, type SearchIndex } from "./search.ts";
 import { Node } from "./trace.ts";
 import { turnElementIdOf } from "./view/sessionView.ts";
@@ -749,7 +749,7 @@ const prdHeadingSelector = (id: string): string =>
 
 const cardSelector = (id: string): string => `[data-spec="${id}"]`;
 
-const chipSelector = (id: string): string => `${STACKS_PANE} [data-task="${id}"]`;
+const chipSelector = stackTaskSelectorOf;
 
 const sectionSelector = (id: string): string =>
   isPrdSection(id) ? prdHeadingSelector(id) : cardSelector(id);

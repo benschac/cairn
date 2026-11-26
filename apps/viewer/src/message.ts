@@ -63,6 +63,8 @@ export const Message = defineMessageUnion({
   ClickedStatusLine: { id: PrdSectionId },
   /** A result in the search list: it becomes the active result and is brought into view. */
   ClickedSearchResult: { node: Node },
+  /** A stack's segment: unfolds its finished trunk, or folds it again. Only the window keeps it. */
+  ClickedSegment: { root: TaskId },
   /** A task row in a spec card: opens the task's detail. */
   ClickedTask: { id: TaskId },
   /** A commit in the code view's tree. */

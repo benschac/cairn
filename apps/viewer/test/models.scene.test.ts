@@ -12,9 +12,11 @@ import { update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom } from "../src/view/stackChipsView.ts";
 import { view } from "../src/view/view.ts";
-import { loaded, wiresMounted } from "./fixtures.ts";
+import { loaded, unfolded, wiresMounted } from "./fixtures.ts";
 
-const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
+const folded = modifyFields(loaded, { screen: () => Screen.Reader() });
+/** With every finished trunk unfolded, so the chips these scenes look at are drawn. */
+const reading = unfolded(folded);
 
 /** The reader open on the section whose cards list t6, which ran, and tasks that did not. */
 const opened = [
@@ -83,7 +85,7 @@ it("a stack chip carries its model's mark, and a card's header and rows carry sq
 it("turning the switch changes the attribute the wires are measured again on", () => {
   scene(
     { update, view },
-    given(reading),
+    given(folded),
     ...opened,
     expect(selector("[data-wires]")).toHaveAttr("data-wires", "prd.viewer.models|models"),
     click(modelsSwitch),

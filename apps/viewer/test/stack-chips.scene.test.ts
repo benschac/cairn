@@ -16,6 +16,7 @@ import {
 } from "foldkit/scene";
 import { modifyFields } from "foldkit/struct";
 
+import { stackBoxesOf } from "../src/boxes.ts";
 import { demoTrace } from "../src/demo.ts";
 import { Message } from "../src/message.ts";
 import { Screen } from "../src/model.ts";
@@ -23,10 +24,15 @@ import { update } from "../src/update.ts";
 import { TrackPrdScroll } from "../src/view/prdPaneView.ts";
 import { ScrollStacksToBottom, chipTitleOf } from "../src/view/stackChipsView.ts";
 import { view } from "../src/view/view.ts";
-import { focusedDetailHeading, loaded, wiresMounted } from "./fixtures.ts";
+import { focusedDetailHeading, loaded, unfolded, wiresMounted } from "./fixtures.ts";
 
 const reading = modifyFields(loaded, { screen: () => Screen.Reader() });
 const stacks = stacksOf(demoTrace.tasks);
+const boxes = stackBoxesOf(demoTrace.tasks, {});
+const boxOf = (stack: Stack) =>
+  Option.getOrThrow(Array.findFirst(boxes, (box) => box.stack.number === stack.number));
+/** Every finished trunk unfolded, for the scenes that look at a chip inside one. */
+const unfoldedReading = unfolded(reading);
 const stackOf = (id: string): Stack =>
   Option.getOrThrow(Array.findFirst(stacks, (stack) => Record.has(stack.cells, TaskId.make(id))));
 const box = (stack: Stack) => selector(`[data-stack="${stack.number}"]`);
@@ -51,12 +57,25 @@ it("every stack is a box with its label for a title, holding its own chips", () 
     expectAll(all.selector("[data-stacks-pane] [data-stack]")).toHaveCount(stacks.length),
     ...Array.map(stacks, (stack) => expect(box(stack)).toHaveAttr("title", labelOf(stack))),
     expect(role("group", { name: labelOf(viewer) })).toHaveAttr("data-stack", `${viewer.number}`),
+    // Folded, the trunk t45 to t52 is the segment and has no chips; every other task has its own.
+    ...Array.map(Record.keys(boxOf(viewer).cells), (id) =>
+      expect(within(box(viewer), chip(id))).toExist(),
+    ),
+    ...Array.map(
+      Array.filter(Record.keys(viewer.cells), (id) => !Record.has(boxOf(viewer).cells, id)),
+      (id) => expect(within(box(viewer), chip(id))).toBeAbsent(),
+    ),
+    expect(within(box(viewer), chip("t45"))).toBeAbsent(),
+    expect(within(box(viewer), chip("t9"))).toBeAbsent(),
+    expect(within(box(viewer), selector("[data-stack-label]"))).toHaveText(`${viewer.number}`),
+    expectAll(all.selector("[data-stacks-pane] [data-task]")).toHaveCount(
+      Array.reduce(boxes, 0, (drawn, each) => drawn + Record.size(each.cells)),
+    ),
+    // Unfolded, every task of the plan is a chip again.
+    click(selector('[data-segment="t45"]')),
     ...Array.map(Record.keys(viewer.cells), (id) =>
       expect(within(box(viewer), chip(id))).toExist(),
     ),
-    expect(within(box(viewer), chip("t9"))).toBeAbsent(),
-    expect(within(box(viewer), selector("[data-stack-label]"))).toHaveText(`${viewer.number}`),
-    expectAll(all.selector("[data-stacks-pane] [data-task]")).toHaveCount(demoTrace.tasks.length),
   );
 });
 
@@ -67,12 +86,14 @@ it("a child chip sits in the row above its parent, in the same box", () => {
     Number.max(highest, cell.row),
   );
   assert(top).toBeGreaterThan(2);
+  // Each chip row is two grid rows, the chips' and a gap row under them.
+  const gridRowOf = (row: number) => 2 * (top - row) + 1;
   scene(
     { update, view },
     given(reading),
     ...opened,
-    expect(within(box(stack), chip("t9"))).toHaveStyle("grid-row", `${top}`),
-    expect(within(box(stack), chip("t6"))).toHaveStyle("grid-row", `${top - 1}`),
+    expect(within(box(stack), chip("t9"))).toHaveStyle("grid-row", `${gridRowOf(1)}`),
+    expect(within(box(stack), chip("t6"))).toHaveStyle("grid-row", `${gridRowOf(2)}`),
   );
 });
 
@@ -103,7 +124,7 @@ it("a gated chip has a gate mark in its border and says what it is; the others d
   assert(Array.length(gated)).toBeGreaterThan(0);
   scene(
     { update, view },
-    given(reading),
+    given(unfoldedReading),
     ...opened,
     ...Array.map(gated, (task) => expect(chip(task.id)).toHaveAttr("data-gated", "")),
     ...Array.map(Array.take(free, 5), (task) => expect(chip(task.id)).not.toHaveAttr("data-gated")),

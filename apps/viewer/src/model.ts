@@ -129,6 +129,8 @@ export const Reader = Schema.Struct({
   maybeFocus: Schema.Option(Focus),
   /** How much of every spec card shows. */
   density: Density,
+  /** The finished trunks opened, by the root of their stack. A trunk not named here is folded. */
+  unfolded: Schema.Record(TaskId, Schema.Boolean),
   /** The cards opened or closed on their own, apart from the density. */
   opened: Schema.Record(SectionId, Schema.Boolean),
   /** The PRD pane shows its headings without their prose. Off at first. */

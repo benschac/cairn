@@ -1,5 +1,6 @@
 import { Session, type SectionId, type TaskId } from "@cairn/contract";
-import { Array, Option, Schema, String } from "effect";
+import { stacksOf } from "@cairn/core/stacks";
+import { Array, Option, Record, Schema, String } from "effect";
 import { Command, Mount, role, within } from "foldkit/scene";
 import type { Document, HtmlBuilder } from "foldkit/html";
 import { modifyFields } from "foldkit/struct";
@@ -29,6 +30,19 @@ import { view } from "../src/view/view.ts";
 export const loaded = modifyFields(init().model, {
   trace: () => TraceData.Success({ data: demoTrace }),
 });
+
+/**
+ * The model with every stack's finished trunk unfolded, for a scene that looks at chips inside one
+ * and has no use for the fold.
+ */
+export const unfolded = (model: Model): Model =>
+  modifyFields(model, {
+    reader: (reader) =>
+      modifyFields(reader, {
+        unfolded: () =>
+          Record.fromIterableWith(stacksOf(demoTrace.tasks), (stack) => [stack.root, true]),
+      }),
+  });
 
 /** The size a scene gives the canvas pane. */
 export const paneSize = { height: 600, width: 1200 };
