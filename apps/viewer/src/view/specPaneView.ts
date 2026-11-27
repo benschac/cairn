@@ -1,14 +1,14 @@
 import {
+  PrdSectionId,
   SectionId,
   type PassageStep,
-  type PrdSectionId,
   type Trace,
   type TraceSection,
   type TraceTask,
 } from "@cairn/contract";
 import type { View } from "@effect/ui";
 import type { Html } from "@effect/ui/html";
-import { Array, Option, Predicate, String } from "effect";
+import { Array, Option, Predicate, Schema, String } from "effect";
 
 import { diagramView } from "../diagram.ts";
 import { disclosureView, segmentedView } from "../effect-ui/controls.ts";
@@ -36,6 +36,8 @@ import { copyButtonView, copyPassageView, passageButtonFor } from "./copyLinkVie
 import { modelChipView, modelSquareView } from "./modelView.ts";
 import { fieldView, matchView, titleView, withSearched } from "./nodeView.ts";
 import { withHover } from "./wiresView.ts";
+
+const isPrdSection = Schema.is(PrdSectionId);
 
 const DENSITIES: ReadonlyArray<{ readonly label: string; readonly value: Density }> = [
   { label: "Titles", value: "titles" },
@@ -149,6 +151,13 @@ const fullSectionView = (
   const sectionId: string = section.id;
   const hooks: SectionHooks<Message> = {
     blockAttributesOf: (offset: number) => ({ "data-block": blockKeyFor("spec", offset) }),
+    // An `Implements` chip that names a PRD section or item scrolls the PRD pane to it.
+    chipMessageOf: (key, id) =>
+      key === "Implements"
+        ? Option.map(Option.liftPredicate(id, isPrdSection), (prd) =>
+            Message.ClickedImplementsChip({ id: prd }),
+          )
+        : Option.none(),
     diagramView: (source, key) => diagramView(h, source, key),
     linked: linkedMarksOf(
       trace,

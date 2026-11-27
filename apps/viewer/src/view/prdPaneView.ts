@@ -34,6 +34,7 @@ import {
   renderSectionTitle,
   type MarkdownDocument,
   type Marks,
+  type Rendered,
   type SectionHooks,
 } from "../markdown.ts";
 import { nodeSearchOf, type NodeSearch } from "../highlight.ts";
@@ -56,6 +57,7 @@ import { sectionStatusOf, type Node } from "../trace.ts";
 import { disclosureView } from "../effect-ui/controls.ts";
 import { dotView } from "../ui/marks.ts";
 import { prdKey } from "../wires.ts";
+import { withHover } from "./wiresView.ts";
 import { copyButtonView, copyPassageView, passageButtonFor } from "./copyLinkView.ts";
 import { fieldView, matchView, withSearched } from "./nodeView.ts";
 
@@ -155,9 +157,13 @@ export const TrackPrdScroll = UiMount.makeStream(
   (element: HTMLElement) => Stream.callback<PrdMessage>((queue) => trackScroll(element, queue)),
 );
 
+/** `3 spec · 5/12 tasks`. */
+const itemCountsText = (counts: Counts): string =>
+  `${counts.specs} spec · ${counts.done}/${counts.tasks} tasks`;
+
 /** `in progress · 3 spec · 5/12 tasks`. */
 export const statusLineText = (status: SectionStatus, counts: Counts): string =>
-  `${statusWordOf(status)} · ${counts.specs} spec · ${counts.done}/${counts.tasks} tasks`;
+  `${statusWordOf(status)} · ${itemCountsText(counts)}`;
 
 /**
  * What the markdown of the document is rendered with: the parsed document, and the stretches a
@@ -167,11 +173,63 @@ interface Markup {
   readonly document: MarkdownDocument;
   readonly linked: Record.ReadonlyRecord<string, ReadonlyArray<Range>>;
   readonly marks: Marks;
+  /** What a list item's annotation and attributes read: the trace, the pin and the copied ID. */
+  readonly trace: Trace;
+  readonly maybeCurrent: Option.Option<PrdSectionId>;
+  readonly maybePinned: Option.Option<PrdSectionId>;
+  readonly maybeCopied: Option.Option<PrdSectionId>;
+  /** The IDs of the sections and items marked: the one a spec card's chip named, and the ones a hovered task builds. */
+  readonly marked: ReadonlyArray<string>;
 }
+
+/** The item's ID, small after its text; it shows on hover and on focus within the item and copies on click. */
+const itemIdView = (h: Html.H<Message>, id: PrdSectionId, isCopied: boolean) =>
+  h.button
+    .attr("type", "button")
+    .class("prd-id item-id")
+    .attr("data-item-id", id)
+    .attr("aria-label", `Copy the item ID ${id}`)
+    .attr("title", "Copy the item ID")
+    .on("click", Message.ClickedSectionId({ id }))
+    .children(isCopied ? "copied" : id);
+
+/**
+ * The end of a list item: its annotation, a button that pins the item and shows its status and
+ * `1 spec · 2/7 tasks`, or `nothing maps to this`; then its ID. Hovering the annotation lights the
+ * item's chain.
+ */
+const itemAnnotationView = (h: Html.H<Message>, markup: Markup, id: SectionId): Rendered<Message> =>
+  Array.flatMap(Array.fromOption(Option.liftPredicate(id, isPrdSection)), (prd) => {
+    const counts = countsOf(markup.trace, prd);
+    return [
+      withHover(
+        h.button
+          .attr("type", "button")
+          .class("btn item-note")
+          .attr("data-item-annotation", prd)
+          .attr("aria-pressed", `${Option.contains(markup.maybePinned, prd)}`)
+          .on("click", Message.ClickedItemAnnotation({ id: prd })),
+        { id: prd, kind: "section" },
+      ).children(
+        Option.getOrUndefined(
+          Option.map(sectionStatusOf(markup.trace, prd), (status) => dotView(h, status)),
+        ),
+        counts.specs === 0 && counts.tasks === 0 ? "nothing maps to this" : itemCountsText(counts),
+      ),
+      itemIdView(h, prd, Option.contains(markup.maybeCopied, prd)),
+    ];
+  });
 
 const hooksOf = (h: Html.H<Message>, markup: Markup): SectionHooks<Message> => ({
   blockAttributesOf: (offset: number) => ({ "data-block": blockKeyFor("prd", offset) }),
   diagramView: (source, key) => diagramView(h, source, key),
+  itemAnnotation: (id) => itemAnnotationView(h, markup, id),
+  itemAttributesOf: (id) => ({
+    "data-current": Option.exists(markup.maybeCurrent, (current) => String.Equivalence(current, id))
+      ? ""
+      : undefined,
+    "data-marked": Array.contains(markup.marked, id) ? "" : undefined,
+  }),
   linked: markup.linked,
   marks: markup.marks,
   markView: (text: string) => matchView(h, text),
@@ -431,6 +489,7 @@ const sectionView = (
               .id(section.id)
               .attr("data-section", section.id)
               .attr("data-current", isCurrent ? "" : undefined)
+              .attr("data-marked", Array.contains(markup.marked, section.id) ? "" : undefined)
               .attr("data-wire", isCurrent ? prdKey(PrdSectionId.make(section.id)) : undefined),
             search,
           ).children(
@@ -511,11 +570,17 @@ const prdBodyView = (
   selectedSection: string,
   isSelectionOverLimit: boolean,
   readers: ReadonlyArray<SectionReader>,
+  marked: string,
 ) => {
   const markup: Markup = {
     document: documentOf(trace.prd.markdown),
     linked: linkedMarksOf(trace, maybePassage, "prd"),
+    marked: String.split(marked, " "),
     marks: marksOf("prd", results),
+    maybeCopied,
+    maybeCurrent,
+    maybePinned,
+    trace,
   };
   const folded: Folded = { isPrdCondensed, prdOpened };
   const searchOf = (sectionId: SectionId) =>
@@ -578,6 +643,7 @@ export const prdPaneView = (
   selectedSection: string,
   isSelectionOverLimit: boolean,
   readers: ReadonlyArray<SectionReader>,
+  marked: string,
 ) =>
   h.div
     .attr("role", "region")
@@ -611,5 +677,6 @@ export const prdPaneView = (
         selectedSection,
         isSelectionOverLimit,
         readers,
+        marked,
       ),
     );

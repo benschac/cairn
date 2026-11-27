@@ -3,7 +3,7 @@ import { Array, HashSet, Match, Number, Option, Predicate, Record, Schema, Strin
 
 import type { Trunk } from "./boxes.ts";
 import { Positions, Rect } from "./geometry.ts";
-import type { Cards } from "./reader.ts";
+import type { Cards, ItemSpecs } from "./reader.ts";
 import { chainOf, type Chain, type Node } from "./trace.ts";
 
 /** What the reader's curves join, as `data-wire` keys: a source key and a target key. */
@@ -48,15 +48,20 @@ export const strayKey = STRAYS;
  * The curves the current section calls for: its PRD heading to the header of each card, and each
  * task row, a stray's too, to the key `endKey` gives its task: its chip in the stacks pane, or the
  * segment of the folded trunk it is in. Spec gap: the spec writes `linksOf(cards)`, but `Cards`
- * does not name the PRD section, so it is the first argument.
+ * does not name the PRD section, so it is the first argument. Each item under the section also
+ * has a curve to each of the cards that implement it.
  */
 export const linksOf = (
   prd: PrdSectionId,
   { cards, strays }: Cards,
   endKey: (id: TaskId) => string = taskKey,
+  items: ReadonlyArray<ItemSpecs> = [],
 ): ReadonlyArray<Link> =>
   Array.flatten([
     Array.map(cards, (card) => ({ source: prdKey(prd), target: specKey(card.section.id) })),
+    Array.flatMap(items, (item) =>
+      Array.map(item.specs, (spec) => ({ source: prdKey(item.id), target: specKey(spec) })),
+    ),
     Array.flatMap(cards, (card) =>
       Array.map(card.tasks, (task) => ({
         source: rowKey(card.section.id, task.id),

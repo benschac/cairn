@@ -1,4 +1,5 @@
 import {
+  PrdSectionId,
   ProbabilityAnswer,
   RateAnswer,
   SectionId,
@@ -20,7 +21,7 @@ import { trailStepOf, pathOfLink } from "../links.ts";
 import { Message } from "../message.ts";
 import { WHOLE_TASK, type DiffStyle, type PatchData } from "../model.ts";
 import { ranOf, relationsOf, statusWordOf } from "../reader.ts";
-import { Node, judgmentsOf, nodeKeyOf, sectionTitleOf } from "../trace.ts";
+import { Node, itemsOfTask, judgmentsOf, nodeKeyOf, sectionTitleOf } from "../trace.ts";
 import { dotView, labelView, tagView } from "../ui/marks.ts";
 import { copyButtonView } from "./copyLinkView.ts";
 import { patchView } from "./diffView.ts";
@@ -252,6 +253,8 @@ const codePartView = (
     }),
   );
 
+const isPrdSection = Schema.is(PrdSectionId);
+
 const tracesView = (h: Html.H<Message>, trace: Trace, task: TraceTask) =>
   partView(
     h,
@@ -269,8 +272,22 @@ const tracesView = (h: Html.H<Message>, trace: Trace, task: TraceTask) =>
               .children(sectionTitleOf(trace, sectionIdOf(id))),
           ),
         ),
-        Array.map(task.specSections, (id) =>
-          h.li(addButton(h, sectionTitleOf(trace, sectionIdOf(id)), sectionNode(id))),
+        Array.appendAll(
+          Array.flatMap(itemsOfTask(trace, task.id), (item) =>
+            Array.map(Array.fromOption(Option.liftPredicate(item.id, isPrdSection)), (id) =>
+              h.li(
+                h.button
+                  .attr("type", "button")
+                  .class("btn")
+                  .attr("data-detail-item", id)
+                  .on("click", Message.ClickedTraceSection({ id }))
+                  .children(`${id} · in ${sectionTitleOf(trace, item.section)}`),
+              ),
+            ),
+          ),
+          Array.map(task.specSections, (id) =>
+            h.li(addButton(h, sectionTitleOf(trace, sectionIdOf(id)), sectionNode(id))),
+          ),
         ),
       ),
     ),

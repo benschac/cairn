@@ -50,6 +50,7 @@ export const init = (url?: Url): Return => {
         isPrdCondensed: false,
         maybeAtTop: Option.none(),
         maybeFocus: Option.none(),
+        maybeMarked: Option.none(),
         maybePassage: Option.none(),
         maybePinned: Option.none(),
         opened: {},

@@ -140,8 +140,10 @@ export type Density = typeof Density.Type;
 export const Reader = Schema.Struct({
   /** The section at the top of the PRD pane, once it is measured. */
   maybeAtTop: Schema.Option(PrdSectionId),
-  /** The section whose status line was clicked; it stays current while the PRD scrolls. */
+  /** The section or item whose status line or annotation was clicked; it stays current while the PRD scrolls. */
   maybePinned: Schema.Option(PrdSectionId),
+  /** The section or item a spec card's chip named; it is marked until the next click or hover elsewhere. */
+  maybeMarked: Schema.Option(PrdSectionId),
   /** The passage a link opened, in a PRD or a spec section; the panes mark it. */
   maybePassage: Schema.Option(PassageStep),
   /** The stack or finished trunk a link opened; the stacks pane outlines it. */

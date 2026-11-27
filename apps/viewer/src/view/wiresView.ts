@@ -21,7 +21,7 @@ import { svgFor } from "../effect-ui/svg.ts";
 import { endKeyInOf, stackBoxesOf, type Trunk } from "../boxes.ts";
 import { rectOf, type Rect } from "../geometry.ts";
 import { Message } from "../message.ts";
-import { cardsOf, relationsOf } from "../reader.ts";
+import { cardsOf, itemSpecsOf, relationsOf } from "../reader.ts";
 import type { Chain, Node } from "../trace.ts";
 import { Measured, hoverChainOf, isWireLit, linksOf, wiresOf, type Wire } from "../wires.ts";
 
@@ -256,7 +256,7 @@ export const wiresView = (
     onNone: (): ReadonlyArray<Wire> => [],
     onSome: ({ current, measured }) =>
       wiresOf(
-        linksOf(current, cardsOf(trace, current), endKeyInOf(boxes)),
+        linksOf(current, cardsOf(trace, current), endKeyInOf(boxes), itemSpecsOf(trace, current)),
         measured.boxes,
         measured.panes,
       ),

@@ -30,6 +30,7 @@ import {
   viewerScene,
   type ViewerSteps,
   wiresMeasuredAs,
+  withoutAttr,
 } from "./fixtures.ts";
 
 const reading = UiStruct.evolve(loaded, { screen: () => Screen.Reader() });
@@ -167,8 +168,11 @@ it.effect("the elements a curve ends on carry their keys in data-wire", () =>
         ),
         forEachStep(first.tasks, (step, task) => step.expect(chip(task.id)).toExist()),
       )
-      .expect(inside(data("prd-pane"), data("wire")))
-      .toHaveCount(1);
+      // The current heading is the only end that is not an item, and every item is one.
+      .expect(withoutAttr("data-item", inside(data("prd-pane"), data("wire"))))
+      .toHaveCount(1)
+      .expect(inside(data("prd-pane"), both(data("item"), data("wire"))))
+      .toHaveCount(Array.length(demoTrace.prd.items));
   }),
 );
 

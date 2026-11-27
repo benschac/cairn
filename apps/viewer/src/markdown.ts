@@ -15,7 +15,7 @@ import type {
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
-import { SectionId } from "@cairn/contract";
+import { PrdSectionId, SectionId } from "@cairn/contract";
 import {
   Array,
   Hash,
@@ -40,6 +40,9 @@ import { segmentsOf, withinOf, type Range } from "./range.ts";
 export const SECTION_KEYS = ["Implements", "Files", "Depends on", "Defers", "Context"] as const;
 
 const HEADING_ID_PATTERN = /\s*\{#([^\s{}]+)\}\s*$/u;
+
+/** A list item's trailing `{#id}`, or `{#}` asking for one. */
+const ITEM_ATTRIBUTE_PATTERN = /\s*\{#([^\s{}]*)\}\s*$/u;
 
 /** "Key: " with nothing after it but whitespace; the IDs follow as inline code. */
 const KEY_LINE_PATTERN = /^([^:]*): \s*$/u;
@@ -152,6 +155,54 @@ const checkbox = (checked: boolean | null | undefined): ReadonlyArray<string> =>
   );
 
 const isSectionId = Schema.is(SectionId);
+const isPrdSectionId = Schema.is(PrdSectionId);
+
+/** A list item's last text without its trailing `{#id}` or `{#}`. */
+const stripItemAttribute = (child: PhrasingContent): PhrasingContent =>
+  child.type === "text"
+    ? Struct.evolve(child, { value: String.replace(ITEM_ATTRIBUTE_PATTERN, "") })
+    : child;
+
+/**
+ * The attribute that ends a list item's own text, when it is an item ID or an empty `{#}`: the
+ * ID, none for `{#}`. A done-when statement's `{#section#v1}` is not one and is left as written.
+ */
+const itemAttributeOf = (node: ListItem): Option.Option<Option.Option<SectionId>> =>
+  Option.flatMap(
+    Option.filter(Array.head(node.children), (first) => first.type === "paragraph"),
+    (first) =>
+      first.type === "paragraph"
+        ? Option.flatMap(Array.last(first.children), (last) =>
+            last.type === "text"
+              ? Option.flatMap(firstGroup(ITEM_ATTRIBUTE_PATTERN)(last.value), (id) =>
+                  String.isEmpty(id)
+                    ? Option.some(Option.none<SectionId>())
+                    : Option.map(Option.liftPredicate(id, isSectionId), Option.some),
+                )
+              : Option.none(),
+          )
+        : Option.none(),
+  );
+
+/** A list item with its first paragraph's trailing attribute removed. */
+const strippedItem = (node: ListItem): ListItem =>
+  Struct.evolve(node, {
+    children: (children) =>
+      Array.match(children, {
+        onEmpty: () => children,
+        onNonEmpty: Array.modifyHeadNonEmpty((first) =>
+          first.type === "paragraph"
+            ? Struct.evolve(first, {
+                children: (parts) =>
+                  Array.match(parts, {
+                    onEmpty: () => parts,
+                    onNonEmpty: Array.modifyLastNonEmpty(stripItemAttribute),
+                  }),
+              })
+            : first,
+        ),
+      }),
+  });
 
 /**
  * A diagram's identity in the page: its source and the line its fence starts on. A diagram that is
@@ -183,6 +234,15 @@ export interface SectionHooks<Message> {
   readonly attributesOf?: (sectionId: SectionId) => HookAttributes;
   /** Nodes at the end of the heading. */
   readonly decorate?: (sectionId: SectionId) => Rendered<Message>;
+  /** Attributes for the list item whose `{#id}` is a section ID, which already has `data-item` and, in the PRD, `data-wire`. */
+  readonly itemAttributesOf?: (sectionId: SectionId) => HookAttributes;
+  /** Nodes at the end of the list item whose `{#id}` is a section ID, after its text. */
+  readonly itemAnnotation?: (sectionId: SectionId) => Rendered<Message>;
+  /**
+   * What clicking a key row's chip sends, when it sends anything: a chip with a message is a
+   * button, and any other is a span.
+   */
+  readonly chipMessageOf?: (key: string, id: string) => Option.Option<Message>;
   /** What the heading's title renders as, such as a button holding it. */
   readonly wrapTitle?: (sectionId: SectionId, title: Rendered<Message>) => Rendered<Message>;
   /** Levels added to every heading, so "# " can render below the page's own h1; h6 is the deepest. */
@@ -213,6 +273,9 @@ interface RenderContext<Message> {
   readonly attributesOf: (sectionId: SectionId) => HookAttributes;
   readonly decorate: (sectionId: SectionId) => Rendered<Message>;
   readonly wrapTitle: (sectionId: SectionId, title: Rendered<Message>) => Rendered<Message>;
+  readonly itemAttributesOf: (sectionId: SectionId) => HookAttributes;
+  readonly itemAnnotation: (sectionId: SectionId) => Rendered<Message>;
+  readonly chipMessageOf: (key: string, id: string) => Option.Option<Message>;
   readonly headingOffset: number;
   readonly diagramView: (source: string, key: string) => View.Content<Message>;
   readonly marks: Marks;
@@ -427,15 +490,89 @@ const headingView = <Message>(context: RenderContext<Message>, node: Heading) =>
     .children(titled);
 };
 
-const keyRowsView = <Message>(h: Html.H<Message>, keyRows: ReadonlyArray<KeyRow>) =>
-  h.div.attr("data-keys", "").children(
+const keyRowsView = <Message>(context: RenderContext<Message>, keyRows: ReadonlyArray<KeyRow>) => {
+  const { h } = context;
+  return h.div.attr("data-keys", "").children(
     Array.map(keyRows, ({ key, ids }) =>
       h.div.attr("data-key-row", key).children(
         h.span.attr("data-key-label", "").children(key),
-        Array.map(ids, (id) => h.span.attr("data-key", key).children(id)),
+        Array.map(ids, (id) =>
+          Option.match(context.chipMessageOf(key, id), {
+            onNone: () => h.span.attr("data-key", key).children(id),
+            onSome: (message) =>
+              h.button
+                .attr("type", "button")
+                .attr("data-key", key)
+                .on("click", message)
+                .children(id),
+          }),
+        ),
       ),
     ),
   );
+};
+
+/** A paragraph, with its search marks, and `tail` after its text. */
+const paragraphView = <Message>(
+  context: RenderContext<Message>,
+  node: Paragraph,
+  tail: Rendered<Message> = [],
+) => {
+  const block = blockMarksOf(context, node);
+  const content: Rendered<Message> = Array.appendAll(
+    renderInline(context, node.children, block.at),
+    tail,
+  );
+  return context.h.p.attrs(block.attributes).children(content);
+};
+
+/** The first block of a list item, with `tail` at the end when it is a paragraph. */
+const firstView = <Message>(
+  context: RenderContext<Message>,
+  first: ListItem["children"][number],
+  tail: Rendered<Message>,
+): Rendered<Message> =>
+  first.type === "paragraph" ? [paragraphView(context, first, tail)] : render(context, first);
+
+/**
+ * A list item. One whose text ends in `{#id}` or `{#}` is shown without it; an `{#id}` that is a
+ * section ID makes it a small section: `data-item`, `data-wire` in the PRD, the caller's
+ * attributes, and the caller's annotation at the end of its own text.
+ */
+const itemView = <Message>(context: RenderContext<Message>, node: ListItem) => {
+  const { h } = context;
+  const leading = checkbox(node.checked);
+  return Option.match(itemAttributeOf(node), {
+    onNone: () => h.li.children(Array.appendAll(leading, renderBlocks(context, node.children))),
+    onSome: (maybeId) => {
+      const stripped = strippedItem(node);
+      return Option.match(maybeId, {
+        onNone: () =>
+          h.li.children(Array.appendAll(leading, renderBlocks(context, stripped.children))),
+        onSome: (id) =>
+          h.li
+            .attrs({
+              "data-item": id,
+              "data-wire": isPrdSectionId(id) ? `prd:${id}` : undefined,
+            })
+            .attrs(context.itemAttributesOf(id))
+            .children(
+              Array.appendAll(
+                leading,
+                Array.matchLeft(stripped.children, {
+                  onEmpty: (): Rendered<Message> => [],
+                  onNonEmpty: (first, rest): Rendered<Message> =>
+                    Array.appendAll(
+                      firstView(context, first, context.itemAnnotation(id)),
+                      renderBlocks(context, rest),
+                    ),
+                }),
+              ),
+            ),
+      });
+    },
+  });
+};
 
 const render = <Message>(
   context: RenderContext<Message>,
@@ -479,17 +616,8 @@ const render = <Message>(
         const list: Container<Message> = node.ordered === true ? h.ol : h.ul;
         return [list.children(renderBlocks(context, node.children))];
       },
-      listItem: (node) => [
-        h.li.children(
-          Array.appendAll(checkbox(node.checked), renderBlocks(context, node.children)),
-        ),
-      ],
-      paragraph: (node) => {
-        const block = blockMarksOf(context, node);
-        return [
-          h.p.attrs(block.attributes).children(renderInline(context, node.children, block.at)),
-        ];
-      },
+      listItem: (node) => [itemView(context, node)],
+      paragraph: (node) => [paragraphView(context, node)],
       root: (node) => renderBlocks(context, node.children),
       strong: (node) => [h.strong.children(renderInline(context, node.children, at))],
       table: (node) => [tableView(context, node)],
@@ -509,7 +637,7 @@ const renderBlocks = <Message>(
   Array.flatMap(nodes, (node, index) =>
     Option.match(keyRowsAfterHeading(nodes, index), {
       onNone: (): Rendered<Message> => render(context, node),
-      onSome: (keyRows): Rendered<Message> => [keyRowsView(context.h, keyRows)],
+      onSome: (keyRows): Rendered<Message> => [keyRowsView(context, keyRows)],
     }),
   );
 
@@ -649,7 +777,10 @@ const contextOf = <Message>(
   h: Html.H<Message>,
   {
     attributesOf = () => ({}),
+    chipMessageOf = () => Option.none(),
     decorate = () => [],
+    itemAnnotation = () => [],
+    itemAttributesOf = () => ({}),
     diagramView = (source, _key) => codeBlockView(h, source, DIAGRAM_LANGUAGE),
     blockAttributesOf = () => ({}),
     headingOffset = 0,
@@ -662,10 +793,13 @@ const contextOf = <Message>(
 ): RenderContext<Message> => ({
   attributesOf,
   blockAttributesOf,
+  chipMessageOf,
   decorate,
   diagramView,
   h,
   headingOffset,
+  itemAnnotation,
+  itemAttributesOf,
   linked,
   marks,
   markView,

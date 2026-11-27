@@ -8,6 +8,7 @@ import { linkOf, passageButtonOf, pathOfLink, trailLinkOf } from "../links.ts";
 import { Message } from "../message.ts";
 import type { Model } from "../model.ts";
 import { currentOf, searchedSectionOf } from "../reader.ts";
+import { markedItemsOf } from "../trace.ts";
 import { Resize } from "../panes.ts";
 import { detailView } from "./detailView.ts";
 import { linkNoticeView } from "./linkNoticeView.ts";
@@ -37,6 +38,19 @@ const wiresAttributeOf = (
       }),
     ),
     "|",
+  );
+
+/**
+ * The IDs the PRD pane marks, as one string so the pane's memoised body compares it by value: the
+ * section or item a spec card's chip named, and the items a hovered task builds.
+ */
+const markedOf = (trace: Trace, model: Model): string =>
+  Array.join(
+    Array.appendAll(
+      Option.toArray(model.reader.maybeMarked),
+      markedItemsOf(trace, model.maybeHovered),
+    ),
+    " ",
   );
 
 /** The least empty room after the stacks pane's handle, in pixels. */
@@ -137,6 +151,7 @@ export const readerView = (h: Html.H<Message>, trace: Trace, model: Model, prese
             selectedSection,
             isSelectionOverLimit,
             model.readers,
+            markedOf(trace, model),
           ),
           dividerView(h, "prd", model.widths),
           specPaneView(
