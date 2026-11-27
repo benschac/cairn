@@ -10,12 +10,11 @@ import {
   Schema,
   Stream,
   String,
-  Struct,
 } from "effect";
 import { HttpRouter, HttpServerRespondable, HttpServerResponse } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { inputsHashOf, loadTraceInput } from "./load-trace.ts";
+import { inputsHashOf, loadServedTraceInput } from "./load-trace.ts";
 import { TraceStore } from "./trace-store.ts";
 
 /** The repository the patch routes read. A directory other than the server's own lets a test use a temporary repository. */
@@ -163,26 +162,13 @@ const matches = (header: string, etag: string): boolean =>
 const encodeTrace = HttpServerResponse.schemaJson(Trace);
 
 /**
- * What the server builds the Trace from: the files and git, and the notes in `cairn.db`. A stored
- * note that does not decode is a defect, as a session's row is in `sessionResponse`.
- */
-const servedTraceInput = Effect.gen(function* () {
-  const store = yield* TraceStore;
-  const [input, notes] = yield* Effect.all([
-    loadTraceInput,
-    store.notes.pipe(Effect.catchTag("SchemaError", (error) => Effect.die(error))),
-  ]);
-  return Struct.assign(input, { notes });
-});
-
-/**
  * `GET /api/trace` (see `spec.server`): the Trace as JSON with an `ETag` from a hash of its inputs.
  * A request whose `If-None-Match` names that tag gets `304` without the Trace being built. A
  * `.cairn/` file or git that fails is a `500` the server reports.
  */
 export const TraceRoute = HttpRouter.add("GET", "/api/trace", (request) =>
   Effect.gen(function* () {
-    const input = yield* servedTraceInput;
+    const input = yield* loadServedTraceInput;
     const etag = `"${inputsHashOf(input)}"`;
     const headers = { "cache-control": "no-cache", etag };
     const fresh = Option.exists(

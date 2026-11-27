@@ -8,6 +8,7 @@ import { refreshSnapshot, snapshotText, status, statusLines } from "../src/comma
 import { Git, GitHistory } from "../src/git.ts";
 import { inputsHashOf, loadTrace, loadTraceInput } from "../src/load-trace.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
+import { TraceStore } from "../src/trace-store.ts";
 
 const PRD = "# Product {#prd.product}\n\n## Store {#prd.store}\n";
 const SPEC = "# Spec {#spec.spec}\n\n## Store {#spec.store}\n\n- Implements: `prd.store`\n";
@@ -50,7 +51,11 @@ const inCheckout = <A, E>(
   extra: Record<string, string>,
   body: (
     root: string,
-  ) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Git | GitHistory | MainCheckout>,
+  ) => Effect.Effect<
+    A,
+    E,
+    FileSystem.FileSystem | Path.Path | Git | GitHistory | MainCheckout | TraceStore
+  >,
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
@@ -63,7 +68,9 @@ const inCheckout = <A, E>(
         ([name, content]) => fs.writeFileString(path.join(root, ".cairn", name), content),
       );
       return yield* body(root).pipe(
-        Effect.provide(Layer.mergeAll(MainCheckout.fixed(root), Git.memory())),
+        Effect.provide(
+          Layer.mergeAll(MainCheckout.fixed(root), Git.memory(), TraceStore.layerMemory),
+        ),
       );
     }),
   ).pipe(Effect.provide(NodeServices.layer));
@@ -233,6 +240,26 @@ it.effect("--json returns the Trace loadTrace builds", () =>
       const printed = yield* status({ json: true });
       const loaded = yield* loadTrace;
       expect(printed).toEqual(loaded);
+    }),
+  ),
+);
+
+it.effect("--json carries the notes in cairn.db, as the server's Trace does", () =>
+  inCheckout(encodeJson(MANIFEST), {}, () =>
+    Effect.gen(function* () {
+      const store = yield* TraceStore;
+      const note = yield* store.addNote({
+        anchor: "/task/t1",
+        author: "agent:t1",
+        body: "Check the empty case.",
+        kind: "review",
+        resolvedAt: null,
+        session: null,
+        status: "open",
+        task: TaskId.make("t1"),
+      });
+      const printed = yield* status({ json: true });
+      expect(printed.notes).toEqual([note]);
     }),
   ),
 );

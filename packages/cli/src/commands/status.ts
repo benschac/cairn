@@ -20,10 +20,11 @@ import {
 import { Command, Flag } from "effect/cli";
 
 import { replaceFile } from "../atomic-write.ts";
-import { loadTraceInput } from "../load-trace.ts";
+import { loadServedTraceInput, loadTraceInput } from "../load-trace.ts";
 import { layer as gitLayer } from "../git-live.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { stackLines } from "../print-stack.ts";
+import { TraceStore } from "../trace-store.ts";
 import { CAIRN_DIRECTORY } from "../workspace.ts";
 
 const MANIFEST_FILE = "manifest.json";
@@ -187,7 +188,8 @@ export const statusLines = (trace: Trace): ReadonlyArray<string> => {
  * then the warnings; or with `json` the Trace. Both bring the manifest's snapshot up to date.
  */
 export const status = Effect.fn("status")(function* (options: { readonly json: boolean }) {
-  const input = yield* loadTraceInput;
+  // The JSON is the Trace the server serves, notes and all; the tree shows no notes.
+  const input = yield* options.json ? loadServedTraceInput : loadTraceInput;
   const trace = traceOf(input);
   yield* refreshSnapshot(input.manifest, trace.tasks);
   if (options.json) {
@@ -214,7 +216,7 @@ export const statusCommand = Command.make(
         Layer.unwrap(
           Effect.gen(function* () {
             const root = yield* (yield* MainCheckout).root;
-            return gitLayer(root);
+            return Layer.merge(gitLayer(root), TraceStore.layer);
           }),
         ),
       ),
