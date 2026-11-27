@@ -282,7 +282,7 @@ below means its commit is on `main`.
 | `packages/core/src/judging/questions.ts` `sectionQuestions` | `rate` `size`; `probability` `faithful`, `buildable` | Each spec section, after the spec is written. |
 | `taskQuestionsWithoutModel`, `taskQuestions` | `probability` `matches`; `rate` `size`, `reasoning`; `classify` `model` over `judge.models` | Each task, after drafting. `model` is built only with two models or more (`judge.ts`). |
 | `stackQuestions` | `probability` `complete`, `ordered`, `oneFeature` | The whole stack. The viewer shows none of the three. |
-| `packages/core/src/judging/verdicts.ts` | | The truth table: `pass`, `flag` or `unsure` from `judge.pass` (0.8), `judge.flag` (0.5) and `judge.minConfidence` (0.5). |
+| `packages/core/src/judging/verdicts.ts` | | The truth table: `pass`, `flag` or `unsure` from `judge.pass` (0.7), `judge.flag` (0.3) and `judge.minProbability` (0.5). |
 | `packages/cli/src/judge.ts`, `packages/cli/src/refine.ts` | `decideSettled` | One request per target, four at a time, hashed so an unchanged target is not asked again; `refine` splits what is judged too large. |
 
 Before adding or renaming a question:

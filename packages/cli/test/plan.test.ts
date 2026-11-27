@@ -508,7 +508,7 @@ it.effect(
         ]);
         const split = Array.filter(lines, String.startsWith("split"));
         expect(split).toEqual([
-          'split  draft "Add capture": size is too_large, confidence 0.9; split into 2 drafts: "Add capture a", "Add capture b"',
+          'split  draft "Add capture": size is too_large, 0.9; split into 2 drafts: "Add capture a", "Add capture b"',
         ]);
         expect(Array.findFirstIndex(lines, String.startsWith("split"))).toEqual(
           Option.some(
@@ -550,7 +550,7 @@ it.effect("a confident model answer routes the task, and the plan names the task
       const recorded = yield* judgmentsIn(text);
       expect(Array.map(manifest.tasks, (task) => [task.id, task.model])).toEqual([["t1", "haiku"]]);
       expect(Array.filter(lines, String.startsWith("routed"))).toEqual([
-        "routed  t1: model haiku, confidence 0.9; routed sonnet to haiku",
+        "routed  t1: model haiku, 0.9; routed sonnet to haiku",
       ]);
       expect(
         Array.map(

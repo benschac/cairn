@@ -23,6 +23,7 @@ import {
   HashSet,
   Number,
   Option,
+  Record,
   Ref,
   Result,
   Schema,
@@ -125,10 +126,10 @@ const draftInputOf = (
   title: draft.title,
 });
 
-/** The `size` judgment among `judgments` when it is `too_large` with confidence enough to act. */
+/** The `size` judgment among `judgments` when it is `too_large` with probability enough to act. */
 const confidentlyTooLarge = (
   judgments: ReadonlyArray<Judgment>,
-  minConfidence: number,
+  minProbability: number,
 ): Option.Option<Judgment> =>
   Array.findFirst(
     judgments,
@@ -137,8 +138,8 @@ const confidentlyTooLarge = (
       isRate(judgment.answer) &&
       judgment.answer.label === "too_large" &&
       Option.exists(
-        Option.fromUndefinedOr(judgment.answer.confidence),
-        Number.isGreaterThanOrEqualTo(minConfidence),
+        Record.get(judgment.answer.probabilities, judgment.answer.label),
+        Number.isGreaterThanOrEqualTo(minProbability),
       ),
   );
 
@@ -457,7 +458,7 @@ export const refineWith = Effect.fn("refineWith")(function* (
   const judge = yield* Judge;
   const planner = yield* Planner;
   const stack = yield* Ref.make<ReadonlyArray<Judgment>>([]);
-  const { maxRounds, minConfidence } = config.judge;
+  const { maxRounds, minProbability } = config.judge;
   const prdById = byId(sectionsOf(input.prd));
 
   /** Judges sections and drafts as round `round`. A draft's judgments name it by title. */
@@ -543,7 +544,7 @@ export const refineWith = Effect.fn("refineWith")(function* (
         targets,
         ({ id, section }) => {
           const own = ofSection(judgments, id);
-          return Option.match(confidentlyTooLarge(own, minConfidence), {
+          return Option.match(confidentlyTooLarge(own, minProbability), {
             onNone: () => Effect.succeed({ id, own, reply: Option.none<string>() }),
             onSome: (size) =>
               section.human
@@ -653,7 +654,7 @@ export const refineWith = Effect.fn("refineWith")(function* (
         fresh,
         ({ draft }) => {
           const own = ofDraft(judgments, draft.title);
-          return Option.match(confidentlyTooLarge(own, minConfidence), {
+          return Option.match(confidentlyTooLarge(own, minProbability), {
             onNone: () =>
               Effect.succeed({ draft, own, split: Option.none<ReadonlyArray<TaskDraft>>() }),
             onSome: (size) =>
