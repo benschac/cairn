@@ -336,9 +336,9 @@ Config = {
     model: string // defaults to "jev-1.14.0"
     baseUrl: string | undefined // e.g. a Cloudflare AI Gateway URL; required when gatewayTokenEnv is set
     gatewayTokenEnv: string | undefined // the environment variable holding an AI Gateway token
-    pass: number // defaults to 0.8
-    flag: number // defaults to 0.5
-    minConfidence: number // defaults to 0.5
+    pass: number // defaults to 0.7
+    flag: number // defaults to 0.3
+    minProbability: number // the probability a rate or classify answer's label needs to count; defaults to 0.5
     maxRounds: number // defaults to 2
     models: Record<string, string> // name the manifest uses, and when to use it
   }
@@ -370,8 +370,9 @@ Judgment = {
     | { kind: "section"; id: SpecSectionId }
     | { kind: "task"; id: TaskId }
     | { kind: "draft"; title: string } // a draft that was split, so never got a TaskId
+    | { kind: "prd"; id: PrdSectionId } // a PRD section, asked `built`
     | { kind: "stack" }
-  question: "size" | "faithful" | "buildable" | "matches" | "model" | "reasoning" | "complete" | "ordered" | "oneFeature"
+  question: "size" | "faithful" | "inScope" | "buildable" | "matches" | "category" | "model" | "reasoning" | "built" | "ordered" | "oneFeature" | "complete" // "complete" is no longer asked; an older judgments.json still decodes
   verdict: "pass" | "flag" | "unsure"
   action: "none" | "split" | "routed" // what planning did because of it
   round: number // 1 for the first ask; a split's replacements are judged in round 2
@@ -1667,6 +1668,31 @@ flowchart BT
     t248["t248 · 248-make-the-stacks-pane-its-own-effect-ui-component<br/>Make the stacks pane its own Effect UI component<br/>wt-70"]
     t249["t249 · 249-make-the-task-detail-and-code-view-their-own-effect-ui-components<br/>Make the task detail and code view their own Effect UI components<br/>wt-70"]
   end
+  subgraph s138["Stack 138 · judging"]
+    direction BT
+    t250["t250 · 250-ask-scope-apart-from-faithful-and-matches<br/>Ask scope apart from faithful and matches<br/>wt-71"]
+    t251["t251 · 251-ask-which-category-each-tasks-work-fits<br/>Ask which category each task's work fits<br/>wt-71"]
+    t252["t252 · 252-read-each-labels-probability-and-start-at-0-7-and-0-3<br/>Read each label's probability and start at 0.7 and 0.3<br/>wt-71"]
+    t253["t253 · 253-ask-built-per-prd-section-and-ordered-per-task<br/>Ask built per PRD section and ordered per task<br/>wt-71"]
+    t254["t254 · 254-ask-the-judge-narrow-questions-during-planning<br/>Ask the judge narrow questions during planning<br/>wt-71"]
+    t255["t255 · 255-draft-no-statements-for-parts-with-nothing-to-build<br/>Draft no statements for parts with nothing to build<br/>wt-71"]
+    t257["t257 · 257-keep-a-cosmetic-prd-edit-from-rewriting-its-spec-sections<br/>Keep a cosmetic PRD edit from rewriting its spec sections<br/>wt-72"]
+    t259["t259 · 259-label-notes-when-they-are-written · GATE<br/>Label notes when they are written<br/>wt-73"]
+    t256["t256 · 256-show-the-judges-notes-under-each-draft-statement<br/>Show the judge's notes under each draft statement<br/>wt-71"]
+    t258["t258 · 258-map-a-newly-idd-item-to-the-spec-sections-that-build-it<br/>Map a newly ID'd item to the spec sections that build it<br/>wt-72"]
+  end
+  subgraph s139["Stack 139 · orchestrator-adapter"]
+    direction BT
+    t260["t260 · 260-judge-a-failures-reason-when-the-facts-leave-two<br/>Judge a failure's reason when the facts leave two<br/>wt-43"]
+  end
+  subgraph s140["Stack 140 · viewer"]
+    direction BT
+    t261["t261 · 261-show-note-labels-in-the-viewer<br/>Show note labels in the viewer<br/>wt-73"]
+  end
+  subgraph s141["Stack 141 · status"]
+    direction BT
+    t262["t262 · 262-count-review-findings-per-verified-task<br/>Count review findings per verified task<br/>wt-74"]
+  end
   main --> t1
   main --> t2
   t1 --> t3
@@ -2118,10 +2144,26 @@ flowchart BT
   t246 --> t247
   t247 --> t248
   t248 --> t249
-  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122,t138,t139,t140,t142,t144,t145,t148,t149,t150,t152,t154,t155,t158,t171,t175,t176,t179,t196,t198,t199,t200,t201,t203,t205,t206,t207,t208,t209,t212,t228,t231,t237,t238,t246,t247,t248,t249 opus
-  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t172,t173,t174,t177,t178,t180,t181,t182,t183,t184,t185,t186,t187,t188,t189,t190,t191,t192,t193,t194,t195,t197,t202,t204,t211,t213,t214,t215,t216,t217,t218,t219,t220,t221,t222,t223,t224,t225,t226,t227,t229,t230,t232,t233,t234,t235,t236,t239,t240,t241,t242,t243,t244,t245 sonnet
+  main --> t250
+  t250 --> t251
+  t251 --> t252
+  t252 --> t253
+  t253 --> t254
+  t254 --> t255
+  t255 --> t256
+  t254 --> t257
+  t257 --> t258
+  t254 --> t259
+  t157 -.-> t260
+  t254 -.-> t260
+  t170 -.-> t261
+  t259 -.-> t261
+  t149 -.-> t262
+  t259 -.-> t262
+  class t1,t3,t20,t31,t32,t58,t60,t62,t80,t105,t111,t112,t116,t118,t120,t121,t122,t138,t139,t140,t142,t144,t145,t148,t149,t150,t152,t154,t155,t158,t171,t175,t176,t179,t196,t198,t199,t200,t201,t203,t205,t206,t207,t208,t209,t212,t228,t231,t237,t238,t246,t247,t248,t249,t253,t257,t258 opus
+  class t2,t5,t6,t7,t8,t9,t10,t12,t13,t14,t15,t16,t17,t18,t19,t21,t22,t23,t25,t26,t28,t29,t30,t33,t34,t35,t36,t37,t38,t39,t40,t41,t42,t43,t45,t46,t47,t48,t49,t50,t51,t52,t53,t54,t55,t57,t59,t61,t63,t64,t65,t67,t68,t69,t70,t71,t72,t73,t74,t75,t76,t77,t78,t79,t81,t82,t83,t84,t85,t86,t87,t88,t89,t90,t91,t92,t93,t94,t95,t96,t97,t98,t99,t100,t101,t103,t104,t106,t108,t109,t110,t113,t114,t115,t117,t119,t123,t124,t125,t126,t127,t128,t129,t130,t131,t132,t133,t134,t135,t136,t137,t141,t143,t146,t147,t151,t153,t156,t157,t159,t160,t161,t162,t163,t164,t165,t166,t167,t168,t169,t170,t172,t173,t174,t177,t178,t180,t181,t182,t183,t184,t185,t186,t187,t188,t189,t190,t191,t192,t193,t194,t195,t197,t202,t204,t211,t213,t214,t215,t216,t217,t218,t219,t220,t221,t222,t223,t224,t225,t226,t227,t229,t230,t232,t233,t234,t235,t236,t239,t240,t241,t242,t243,t244,t245,t250,t251,t252,t254,t255,t256,t259,t260,t261,t262 sonnet
   class t11,t24,t27,t44,t56,t66,t102,t107,t210 haiku
-  class t1,t2,t3,t81,t97,t126,t144,t147,t153,t155,t162,t175,t176,t194,t195,t200,t202,t205,t206,t214,t232,t237 gate
+  class t1,t2,t3,t81,t97,t126,t144,t147,t153,t155,t162,t175,t176,t194,t195,t200,t202,t205,t206,t214,t232,t237,t259 gate
   classDef opus fill:#7c3aed,color:#ffffff,stroke:#4c1d95
   classDef sonnet fill:#2563eb,color:#ffffff,stroke:#1e3a8a
   classDef haiku fill:#facc15,color:#111111,stroke:#a16207
@@ -2184,6 +2226,46 @@ Tests use the scripted `Planner` and `Judge` in a temporary repository: answerin
 - `staleSections` and `staleTasks` are the lint rules `stale-section` and `stale-task`, so `cairn lint` and the plan output report them the same way. A person settles one by editing the spec section, which makes it theirs, or by accepting it: `cairn plan --accept <section>` records the current hashes in `writtenFrom` and changes nothing else.
 
 Tests: properties over generated plans with an added PRD section, that every existing task is unchanged and every new ID is higher than every old one; that a section a person edited is never in `rewritable`; that a section with a task is never in `rewritable`; and that `replanOf` of a plan just written is empty. One example in a temporary repository adds a section to a PRD and finds new spec sections, new tasks and an unchanged old manifest.
+
+#### Cosmetic PRD edits {#spec.planning.again.cosmetic-edits}
+
+- Implements: `prd.planning.again`
+- Files: `packages/core/src/replan.ts`, `packages/cli/src/commands/plan.ts`, `packages/cli/src/git.ts`, `packages/cli/src/git-live.ts`, `packages/core/test/replan.test.ts`, `packages/cli/test/plan-again.test.ts`
+- Depends on: `spec.planning.again`, `spec.judging.asking-during-planning`
+
+Before `Planner.sections` rewrites the `rewritable` sections, `cairn plan` asks `changeQuestions` once for each changed PRD section they implement.
+
+- The old body is the PRD section's body at the newest commit of `.cairn/prd.md`, among the last 50, whose section body hashes to the spec section's `writtenFrom.prd` entry. `Git` gains `fileAt(path, ref)` and `revisionsOf(path, limit)` for it. When no revision matches, the change counts as material.
+- `cosmeticOf(replan, cosmetic)` in `replan.ts` is pure. It moves every `rewritable` section whose changed PRD sections are all in `cosmetic` to `staleSections`, and changes nothing else.
+- A PRD section goes in `cosmetic` only when its `materialChange` reads `no`. `unsure`, `yes` or no judge leaves the section rewritable, as today.
+- The plan output marks each moved section: `stale  spec.lint (likely cosmetic: prd.cli.lint, 0.06), run cairn plan --accept spec.lint`. Lint reports it as `stale-section` like any other.
+
+Tests:
+
+- Property: `cosmeticOf` never adds a section to `rewritable` and never drops one from the plan.
+- With the scripted judge in a temporary repository: a typo fix answered `no` leaves the section unwritten and marked; `unsure` rewrites it; a PRD with no matching revision rewrites it; without a judge, it is rewritten as before.
+
+#### Mapping new items {#spec.planning.again.mapping-items}
+
+- Implements: `prd.planning.again`
+- Files: `packages/core/src/replan.ts`, `packages/core/src/spec-merge.ts`, `packages/cli/src/commands/plan.ts`, `packages/cli/src/spec-index.ts`, `packages/core/test/replan.test.ts`, `packages/cli/test/plan-again.test.ts`
+- Depends on: `spec.planning.again`, `spec.sections.item-coverage`, `spec.judging.asking-during-planning`
+
+`replanOf` gains `unmappedItems: Array<{ item: PrdSectionId; candidates: Array<SpecSectionId> }>`: each PRD item with an ID that nothing covers, with the spec sections that implement its heading or an item it sits under, and that Cairn wrote and nobody edited.
+
+`cairn plan` asks `itemQuestions` about each item and candidate:
+
+- `yes` for some candidates: `withImplements(spec, section, item)`, pure, adds the item to each such section's `Implements` line and changes no other line. The section's `writtenFrom.body` is recorded again, since Cairn made the edit.
+- `no` for every candidate, or no candidate: the item is planned like an uncovered PRD section, and `Planner.sections` writes for it.
+- Anything else, or no judge: nothing changes, and lint reports `unmapped-item`.
+- An item tagged `<!-- human -->` is never mapped this way; mapping it would gate the tasks of the section. It is reported.
+
+The plan output lists each mapping: `mapped prd.cli.lint → spec.lint (0.93)`.
+
+Tests:
+
+- Properties: `withImplements` changes only the `Implements` line; `replanOf` lists an uncovered item with exactly the candidates described.
+- With the scripted judge: `yes` maps the item and lint no longer reports it; `no` for every candidate plans a section for it; `unsure` leaves it unmapped; a human item is never mapped.
 
 ### Stack diagram {#spec.planning.stack-diagram}
 
@@ -2309,6 +2391,29 @@ Tests, with the scripted `Planner` and scripted stdin, in a temporary repository
 - `--yes` leaves every draft, and a second run asks only about the draft left from the first.
 - A rewrite keeps the ID.
 
+#### Judging drafts {#spec.planning.done-when.judging-drafts}
+
+- Implements: `prd.done-when.asking`
+- Files: `packages/cli/src/ask-statements.ts`, `packages/cli/src/planner.ts`, `packages/cli/src/commands/plan.ts`, `packages/cli/test/ask-statements.test.ts`
+- Depends on: `spec.planning.done-when.asking-the-person`, `spec.judging.asking-during-planning`
+
+Two uses of the judge in `ask-statements.ts`, both skipped when there is no judge.
+
+Parts with nothing to build. Before drafting, `partQuestions` is asked about every target. A target whose `describesBuild` reads `no` is left out of `Planner.statements`, and the plan output lists it: `no draft  prd.later (describes nothing to build, 0.12)`. `unsure` keeps the target, and the planner may still return no drafts for it, as today.
+
+Notes on drafts. After drafting, `draftQuestions` is asked about each new draft and each draft left from an earlier run.
+
+- A new draft whose `namesImplementation` reads `yes` goes back to the planner once, in a follow-up turn that quotes the draft and the rule, and the replacement is written without being sent back again.
+- When asking, each draft prints a note line under it for every answer that is not `unsure`, in words with its probability: `  judge: says what the section asks (0.91) · a person could see it (0.88) · only a person can settle it (0.81), consider <!-- human -->`.
+- Notes are never written to `prd.md`, and an answer never accepts, rewrites, deletes or tags a statement. `--yes`, `--dry-run` and a stdin that is not a terminal print no notes, and still leave out parts with nothing to build.
+
+Tests, with the scripted `Planner`, `DecisionModel` and stdin, in a temporary repository:
+
+- A target answered `no` gets no draft and is listed; one answered `unsure` is drafted.
+- A draft answered `namesImplementation` `yes` is drafted again once, never twice.
+- Notes print under their draft, and `prd.md` holds no note text after the run.
+- Without a judge, the run asks the planner and the person exactly as before.
+
 #### Tracing statements {#spec.planning.done-when.tracing-statements}
 
 - Implements: `prd.done-when.tracing`
@@ -2389,6 +2494,7 @@ categories: Array<{ name: Slug; description: string }>;
 - The `tasks` and `splitTask` prompts list the categories with their descriptions. A draft whose category is not in the list fails to decode, and is retried once like any other failed decode.
 - Lint adds `unknown-category`, an error for a category not in `config.categories`, and `missing-category`, a warning for a task with none.
 - History and metrics group a task with no category under `uncategorised` (see `spec.status.outcome-metrics`). The router reads the config's list and has none built in.
+- Judging asks `category` about each task and reports a disagreement with the planner (see `spec.judging.questions`). It never changes `category`.
 
 Tests:
 
@@ -2468,7 +2574,7 @@ conflicts
 
 The task review question accepts `undo <n>`. That removes ordering `n`, runs `stackOf` again and prints the stack again.
 
-Judging. When `conflicts.hotspot` or more tasks that can run together share one source file, the stack checkpoint asks `splitFile`. It is a probability decision, with the file's path, its line count and the tasks' titles as input: would splitting the file remove more conflicts than reordering the work? `Judgment.target` gains `{ kind: "file"; path: string }`. The answer is only reported.
+Judging. When `conflicts.hotspot` or more tasks that can run together share one source file, the stack checkpoint asks `separable`, a probability decision: the tasks change parts of the file that do not depend on each other. Its input is the file's path, the names of its top-level declarations, and each task's title, its spec sections' summaries and the declarations those sections name. Code finds the hotspot; the judge is not asked to count or to weigh splitting against reordering. `yes` reports "split the file", `no` reports "reorder the work", and `unsure` reports the hotspot alone. `Judgment.target` gains `{ kind: "file"; path: string }`. The answer is only reported.
 
 Tests:
 
@@ -2593,22 +2699,27 @@ Lint says whether the plan is well formed. Judging asks a decision model, at eac
 - Files: `packages/core/src/judging/questions.ts`
 - Depends on: `spec.sections.parsing`, `spec.contract.manifest`
 
-Three `Decision.make` definitions from `effect/ai`, each an input schema and named decisions. They are plain data, so they live in core. `inputsOf(prd, spec, manifest)` is pure and returns one input per spec section, per task and for the stack.
+Three `Decision.make` definitions from `effect/ai`, each an input schema and named decisions. They are plain data, so they live in core. `inputsOf(prd, spec, manifest)` is pure and returns one input per spec section, per task, per PRD section that some task implements, and for the stack.
 
-| Target  | Input                                                                                     | Decision     | Kind                                          | Asks                                                                              |
-| ------- | ----------------------------------------------------------------------------------------- | ------------ | --------------------------------------------- | --------------------------------------------------------------------------------- |
-| Section | The section's title, body and files; the title and body of each PRD section it implements | `size`       | rate: `too_small`, `right`, `too_large`       | Is it one to three tasks' worth, or a detail of a neighbour, or several features? |
-|         |                                                                                           | `faithful`   | probability                                   | It does what its PRD sections ask and adds no behaviour they do not ask for       |
-|         |                                                                                           | `buildable`  | probability                                   | An agent could build it from its text and files without asking a question         |
-| Task    | Title, files, the titles it depends on; the bodies of its spec and PRD sections           | `size`       | rate: `too_small`, `right`, `too_large`       | Is it one reviewable diff from one agent session?                                 |
-|         |                                                                                           | `matches`    | probability                                   | Its title and files carry out its spec sections, and nothing they do not ask      |
-|         |                                                                                           | `model`      | classify: the names in `judge.models`         | Which model the task needs, from each model's description in config               |
-|         |                                                                                           | `reasoning`  | rate: `low`, `medium`, `high`, `xhigh`, `max` | How much reasoning the work needs                                                 |
-| Stack   | Feature, the PRD goal, every PRD section's ID and title, every task's title and sections  | `complete`   | probability                                   | Together the tasks build every PRD section listed                                 |
-|         |                                                                                           | `ordered`    | probability                                   | Each task can be built and tested with only the tasks it depends on               |
-|         |                                                                                           | `oneFeature` | probability                                   | It builds one feature, not several that could ship alone                          |
+| Target      | Input                                                                                                                                                                                                           | Decision     | Kind                                          | Asks                                                                                        |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Section     | The section's title, body and files; the title and body of each PRD section it implements                                                                                                                       | `size`       | rate: `too_small`, `right`, `too_large`       | Is it one to three tasks' worth, or a detail of a neighbour, or several features?           |
+|             |                                                                                                                                                                                                                 | `faithful`   | probability                                   | It does everything its PRD sections ask                                                     |
+|             |                                                                                                                                                                                                                 | `inScope`    | probability                                   | It adds no behaviour its PRD sections do not ask for                                        |
+|             |                                                                                                                                                                                                                 | `buildable`  | probability                                   | An agent could build it from its text and files without asking a question                   |
+| Task        | Title, files, the titles it depends on; the bodies of its spec and PRD sections; `others`, the titles and files of up to ten tasks it does not depend on that share a spec section, PRD section or file with it | `size`       | rate: `too_small`, `right`, `too_large`       | Is it one reviewable diff from one agent session?                                           |
+|             |                                                                                                                                                                                                                 | `matches`    | probability                                   | Its title and files carry out what its spec sections ask                                    |
+|             |                                                                                                                                                                                                                 | `inScope`    | probability                                   | Its title and files reach for nothing its spec sections do not ask                          |
+|             |                                                                                                                                                                                                                 | `category`   | classify: the names in `config.categories`    | Which category its work fits, from each category's description                              |
+|             |                                                                                                                                                                                                                 | `model`      | classify: the names in `judge.models`         | Which model the task needs, from each model's description in config                         |
+|             |                                                                                                                                                                                                                 | `reasoning`  | rate: `low`, `medium`, `high`, `xhigh`, `max` | How much reasoning the work needs                                                           |
+|             |                                                                                                                                                                                                                 | `ordered`    | probability                                   | It can be built and tested with only the tasks it depends on, needing nothing from `others` |
+| PRD section | Its title and body; each task that implements it, with its title, files and its spec sections' titles                                                                                                           | `built`      | probability                                   | The tasks build what the section asks                                                       |
+| Stack       | Feature, the PRD goal, every PRD section's ID and title, every task's title and sections                                                                                                                        | `oneFeature` | probability                                   | It builds one feature, not several that could ship alone                                    |
 
-The task input leaves out the planner's own model and reasoning, so Jev's choice does not lean on them.
+The task input leaves out the planner's own model, reasoning and category, so Jev's choice does not lean on them. `category` is asked only when `config.categories` names two or more, as `model` is only with two models or more. A PRD section is asked `built` only when some task implements it; one that no task implements is lint's `unmapped-section`. A task's `others` are found in code, those sharing the most first.
+
+Each question asks for one judgment about one thing, so a flag says what failed. A question about many things is asked once per thing: `built` per PRD section and `ordered` per task, where the stack used to be asked `complete` and `ordered` once.
 
 Each rating level and probability carries a description in the definition, with an example from this repo's own plan. The definitions are the prompt; there is no prompt file.
 
@@ -2620,12 +2731,16 @@ Each rating level and probability carries a description in the definition, with 
 `verdictOf(question, outcome, thresholds, task?)` is pure and returns `pass`, `flag` or `unsure`:
 
 - A probability: `pass` at or above `judge.pass`, `flag` below `judge.flag`, `unsure` between.
-- `size`: `unsure` when confidence is below `judge.minConfidence`; otherwise `pass` for `right` and `flag` for the other two, with the label in the message.
+- `size`: `unsure` when the probability of its label is below `judge.minProbability`; otherwise `pass` for `right` and `flag` for the other two, with the label in the message.
+- `category`: `unsure` when the probability of its label is below `judge.minProbability`; otherwise `pass` when the label is the task's category and `flag` when it differs, with both in the message. The task's category is never changed.
+
+An answer's `confidence` is never read: it says how concentrated the answer is, not how likely its label is to be right.
+
 - An unanswered decision (refused, missing or invalid) is `unsure`, with the reason in the message.
 
-`model` and `reasoning` choose rather than judge. `routeOf(answers, draft, thresholds)` returns the model and reasoning to use, each with `source: "judge" | "planner"`. An answer with confidence at or above `judge.minConfidence` gives Jev's label and `pass`; a lower one keeps the planner's value and gives `unsure`. In `cairn judge`, which changes nothing, a confident answer that differs from the manifest is a `flag`.
+`model` and `reasoning` choose rather than judge. `routeOf(answers, draft, thresholds)` returns the model and reasoning to use, each with `source: "judge" | "planner"`. An answer whose label has a probability at or above `judge.minProbability` gives Jev's label and `pass`; a lower one keeps the planner's value and gives `unsure`. In `cairn judge`, which changes nothing, a confident answer that differs from the manifest is a `flag`.
 
-Properties: raising a probability never turns `pass` into `flag`; lowering confidence never turns `unsure` into `pass`; an unanswered decision is never `pass`; `routeOf` never returns a model that is not in `judge.models`.
+Properties: raising a probability never turns `pass` into `flag`; lowering a label's probability never turns `unsure` into `pass`; an unanswered decision is never `pass`; `routeOf` never returns a model that is not in `judge.models`.
 
 ### Judge service {#spec.judging.judge-service}
 
@@ -2645,20 +2760,20 @@ Properties: raising a probability never turns `pass` into `flag`; lowering confi
 
 `refine({ prd, spec, drafts, specGenerated })` runs the first three checkpoints in order and returns the refined spec, the refined drafts and the judgments behind every change:
 
-1. Sections, only for the sections written in this run: every section when `specGenerated` is true, and the new or rewritten ones when planning again. A section whose `size` is `too_large` with confidence at or above `judge.minConfidence` goes to `Planner.splitSection`. Its replacement sections get IDs and are judged again. `too_small`, `faithful` and `buildable` are reported. A spec a human wrote or edited is reported on, never rewritten.
-2. Task size. A draft whose `size` is confidently `too_large` goes to `Planner.splitTask`, and the new drafts are judged again. `too_small` and `matches` are reported.
+1. Sections, only for the sections written in this run: every section when `specGenerated` is true, and the new or rewritten ones when planning again. A section whose `size` is `too_large` with a probability at or above `judge.minProbability` goes to `Planner.splitSection`. Its replacement sections get IDs and are judged again. `too_small`, `faithful`, `inScope` and `buildable` are reported. A spec a human wrote or edited is reported on, never rewritten.
+2. Task size. A draft whose `size` is confidently `too_large` goes to `Planner.splitTask`, and the new drafts are judged again. `too_small`, `matches`, `inScope` and `category` are reported.
 3. Routing. Each draft's `model` and `reasoning` answers go through `routeOf`. A confident answer replaces the planner's value; otherwise the planner's value stays and the judgment is `unsure`.
 
-The fourth checkpoint, the stack questions, runs in `cairn plan` after `stackOf` has ordered the drafts. It only reports.
+The fourth checkpoint runs in `cairn plan` after `stackOf` has ordered the drafts: `built` for each PRD section the new tasks implement, `ordered` for each new task, and `oneFeature` for the stack. It only reports.
 
 Bounds:
 
 - Steps 1 and 2 run at most `judge.maxRounds` rounds each. Anything still too large after the last round is reported as `flag`.
 - A split has to cover what it replaces: the replacement sections keep the original's `Implements`, and the new drafts together keep the original's spec sections and files. A split that drops one is discarded, the original is kept, and the judgment says why.
-- Every change is a judgment with `action: "split"` or `action: "routed"`. `cairn plan` prints them before the stack, for example `split  draft "Add the trace store" into 2 tasks (size too_large, confidence 0.83)` and `routed t12 sonnet to haiku (confidence 0.91)`.
+- Every change is a judgment with `action: "split"` or `action: "routed"`. `cairn plan` prints them before the stack, for example `split  draft "Add the trace store" into 2 tasks (size too_large, 0.83)` and `routed t12 sonnet to haiku (0.91)`.
 - Without `TYPESAFE_API_KEY` or `judge.gatewayTokenEnv`, `refine` returns its input unchanged with no judgments.
 
-Tests use the scripted `Judge` and `Planner` layers: one `too_large` answer causes one split; a split that drops a spec section is discarded; rounds stop at `judge.maxRounds` even when every answer is `too_large`; a low-confidence `model` answer leaves the planner's model.
+Tests use the scripted `Judge` and `Planner` layers: one `too_large` answer causes one split; a split that drops a spec section is discarded; rounds stop at `judge.maxRounds` even when every answer is `too_large`; a `model` answer whose label's probability is below `judge.minProbability` leaves the planner's model.
 
 ### `cairn judge` {#spec.judging.cairn-judge}
 
@@ -2666,11 +2781,37 @@ Tests use the scripted `Judge` and `Planner` layers: one `too_large` answer caus
 - Files: `packages/cli/src/commands/judge.ts`
 - Depends on: `spec.judging.judge-service`, `spec.contract.judgments`
 
-`cairn judge` judges the current `spec.md` and `manifest.json`, writes `.cairn/judgments.json`, and prints one line per `flag` or `unsure`: `file:line judge:<question> <verdict> <message>`, with the probability or the label and confidence. Task lines point at the task's first spec section.
+`cairn judge` judges the current `spec.md` and `manifest.json`, writes `.cairn/judgments.json`, and prints one line per `flag` or `unsure`: `file:line judge:<question> <verdict> <message>`, with the probability, or the label and its probability. Task lines point at the task's first spec section, and PRD section lines at the section's heading in `prd.md`.
 
 - `--fresh` ignores previous judgments and asks again.
 - `--strict` exits 1 on any `flag`. Without it the command exits 0 unless it fails.
 - It never writes `manifest.json`, `spec.md`, `spec.json` or `prd.md`. To act on a flag, edit the spec or re-run additive `cairn plan`, which preserves existing tasks and reports stale work. Only `cairn plan --respec`, which replaces the plan, requires every task to be `pending`.
+
+### Asking during planning {#spec.judging.asking-during-planning}
+
+- Implements: `prd.judging-the-plan`
+- Files: `packages/cli/src/judge.ts`, `packages/core/src/judging/questions.ts`, `packages/core/src/judging/verdicts.ts`, `packages/core/src/index.ts`, `packages/cli/test/judge.test.ts`, `packages/core/test/questions.test.ts`
+- Depends on: `spec.judging.judge-service`, `spec.judging.verdicts`
+
+Planning asks the judge narrow questions where code then acts. `Judge.ask(definition, inputs)` asks one definition about many inputs and returns each input's `Decision.Outcomes`, in input order. It follows `Judge.judge`'s rules: `DecisionModel.decideSettled`, four requests at a time, rate-limit retries, and a `JudgeError` naming the input's label on any other failure. It writes no `judgments.json`: the caller acts on the answer and prints what it did. A caller with no judge (no key and no `judge.gatewayTokenEnv`) does not call it and plans as it would without one.
+
+`yesNoOf(outcome, thresholds)` in `verdicts.ts` reads a probability outcome as `yes` at or above `judge.pass`, `no` below `judge.flag`, and `unsure` between or when unanswered.
+
+The definitions live in `questions.ts` beside the others:
+
+| Definition        | Input                                                                                                                | Decision              | Asks                                                                                                                           |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `partQuestions`   | A PRD section's or item's ID and title, its own body up to its first child heading, and its children's titles        | `describesBuild`      | The part asks for behaviour a person could see working, rather than grouping its children, stating scope or listing later work |
+| `draftQuestions`  | A drafted statement, and its section's title and own body                                                            | `faithful`            | The statement says what its section asks for                                                                                   |
+|                   |                                                                                                                      | `observable`          | A person could see what the statement says happen                                                                              |
+|                   |                                                                                                                      | `namesImplementation` | The statement names a file, function, module or test                                                                           |
+|                   |                                                                                                                      | `needsPerson`         | Only a person looking could settle whether the statement holds, such as how something reads or looks                           |
+| `changeQuestions` | A PRD section's title, its body when its spec sections were written, and its body now                                | `materialChange`      | The new text asks for something the old text did not, or stops asking for something it did                                     |
+| `itemQuestions`   | A PRD item's text with its nested lines, its heading's title, and one candidate spec section's title, body and files | `buildsItem`          | The spec section already builds what the item asks for                                                                         |
+
+Each probability's criteria describe both outcomes as situations, with an example from this repository's own PRD.
+
+Tests use the scripted `DecisionModel`: answers come back in input order; an unanswered decision reads as `unsure`; a rate-limit error is retried and any other error names the input.
 
 ### Model catalog {#spec.judging.model-catalog}
 
@@ -2720,13 +2861,12 @@ When `routing.catalog.models` is empty, the catalog is built from `judge.models`
 
 Routing question. The task's `model` decision classifies over the eligible names only. Its input gains:
 
-- each eligible model's description, its supported reasoning settings and its current price, or "price unknown";
-- the task's declared files and their count;
+- each eligible model's description and its supported reasoning settings;
+- the task's declared files;
 - whether it is gated;
-- its statements and the tests that prove them;
-- the person's preferences.
+- its statements and the tests that prove them.
 
-The decision's description asks for the lowest expected total cost of an accepted result within those preferences, counting likely retries and repair, not the lowest token price. When a category has enough history, history ranks the candidates first (see `spec.judging.routing-from-history`).
+It is asked only when two or more models are eligible. Prices, counts and the person's preferences stay out of the question, which asks only which model the work needs: asking a decision model for the cheapest acceptable model asks it to do arithmetic. Two more decisions rate the task, `risk` and `complexity` (`low`, `medium`, `high`), and are recorded as evidence. Code then applies prices, the ceiling and the preferences: when the judge's label has no eligible route or is over the ceiling, the next label by probability that fits is recommended, and the recommendation says why. When a category has enough history, history ranks the candidates first (see `spec.judging.routing-from-history`).
 
 Provider rules. `routeOf` also requires that the configured judge provider is validated for automatic routing, and that the chosen reasoning setting is one the model supports. Otherwise the planner's choice stands, and the judgment is `unsure` with the reason. The thresholds are the provider's own (see `spec.judging.openai-decisions`).
 
@@ -2777,14 +2917,14 @@ judge += {
     model: string // pinned, no "latest"
     pass: number
     flag: number
-    minConfidence: number
+    minProbability: number
     automaticRouting: boolean // defaults to false
     keyEnv: string | undefined // defaults to OPENAI_API_KEY
   }
 }
 ```
 
-`judge.pass`, `judge.flag` and `judge.minConfidence` stay as they are and are TypeSafe's. Thresholds are never copied between providers.
+`judge.pass`, `judge.flag` and `judge.minProbability` stay as they are and are TypeSafe's. Thresholds are never copied between providers.
 
 TypeSafe keeps automatic routing because the checkpoints were built against it. OpenAI is advisory until a person sets `judge.openai.automaticRouting` after the comparison below. That default is my choice.
 
@@ -3074,6 +3214,7 @@ Metrics = {
   failedAttemptShare: number
   cacheUtilization: number | null
   reasoningPerVerified: number | null
+  findingsPerVerified: number | null // review notes labelled breaks_spec or bug, per verified task; null when no note has a label
   leftOut: { attempts: number; tasks: number } // unknown cost: never counted as free
 }
 ```
@@ -3517,6 +3658,20 @@ Tests, in a temporary repository:
 - `resolve` changes only the status.
 - The trace carries the note.
 
+#### Note labels {#spec.sessions.notes.labels}
+
+- Implements: `prd.viewer.notes`
+- Files: `packages/contract/src/note.ts`, `packages/cli/src/migrations/`, `packages/cli/src/trace-store.ts`, `packages/cli/src/commands/note.ts`, `packages/core/src/judging/questions.ts`, `packages/cli/test/note.test.ts`
+- Depends on: `spec.sessions.notes`, `spec.judging.asking-during-planning`
+
+`cairn note add` asks `noteQuestions` about the note it stores, when there is a judge: a `classify` `label` over `question` (asks something), `blocker` (says work cannot go on until something changes), `bug` (says the code does something wrong), `breaks_spec` (says the work does not do what its spec section asks) and `nit` (style, naming or wording), and a `probability` `actionable` (the note asks for a change). The input is the note's kind and body, and the title of what its anchor names.
+
+`Note` gains `label: { label: NoteLabel; probability: number } | null`. A new migration adds the column. The label is stored only when its probability is at or above `judge.minProbability` and `actionable` is not `no` for `blocker`, `bug` and `breaks_spec`; otherwise, or with no judge, it is `null`. A judge error is printed as a warning and the note is stored without a label: a note is never lost to the judge.
+
+The label is the judge's and the kind stays the author's. A label never blocks landing and never resolves a note.
+
+Tests, in a temporary repository with the scripted judge: a review that says the code breaks its spec is stored with `breaks_spec`; a low-probability label is stored as `null`; a judge error stores the note and warns; without a judge, `label` is `null`; an older database migrates with `null` labels.
+
 ## Orchestrator adapter {#spec.orchestrator-adapter}
 
 - Implements: `prd.orchestrator-contract`
@@ -3538,8 +3693,8 @@ The `adapters` package from the vision comes later. For dogfooding, this list is
 ### Attempts and verification {#spec.orchestrator-adapter.attempts-and-verification}
 
 - Implements: `prd.outcomes.attempts`
-- Files: `packages/contract/src/config.ts`, `AGENTS.md`, `packages/cli/test/orchestrator-contract.test.ts`
-- Depends on: `spec.contract.attempts`, `spec.status.attempts`, `spec.sessions.usage-records`
+- Files: `packages/contract/src/config.ts`, `AGENTS.md`, `packages/cli/test/orchestrator-contract.test.ts`, `packages/cli/src/commands/judge.ts`, `packages/core/src/judging/questions.ts`, `packages/cli/test/judge-command.test.ts`
+- Depends on: `spec.contract.attempts`, `spec.status.attempts`, `spec.sessions.usage-records`, `spec.judging.asking-during-planning`
 
 What the orchestrator adds to each task's run:
 
@@ -3549,6 +3704,7 @@ What the orchestrator adds to each task's run:
    - Anything else gives `failed`, with `failure: "checks"`.
    - The agent giving up gives `agent`. A runner, provider or network error gives `infra`. A dependency that turns out to be wrong gives `upstream`.
    - Changes to checks, lint rules and tests an attempt did not write are caught by this repo's hooks, as today. The adapter adds no detector of its own.
+   - When the facts leave the reason between two, the orchestrator asks Cairn: `cairn judge failure <task> --output <file>` asks `upstream` (the failure comes from a task this one depends on, not from its own diff) over the check output's last 200 lines, the task's diff stat and its dependencies' titles, and prints `checks` or `upstream`. With `--stopped`, it asks `infra` (the runner, the provider or the network failed) over the session's last turns and the runner's errors, and prints `agent` or `infra`. The orchestrator writes what it prints on the `failed` event, with `failureJudged: true` when the judge chose. An unsure answer, or no judge, prints `checks` or `agent`. Whether the attempt verified is never asked.
 3. The `done` or `failed` event carries `usage`, `cost` and `route`. A subscription run reports `cost: null` and route `subscription`.
 4. The session goes to `cairn session put`, and the raw usage report, when the provider gave one, goes to `--usage`.
 5. A review or conflict resolution session on the task is a usage event with its `purpose`.
@@ -5520,6 +5676,7 @@ Views:
 - In the diff, notes on lines go into the mount's `data-notes` attribute as JSON, which the mount's `MutationObserver` reads and draws as line annotations, as turn marks are drawn.
 - The task detail lists the task's notes, and each one opens its link.
 - Resolved notes are hidden. A `switchView` labelled "Show resolved notes" sets `isShowingResolved`, which is local to the window.
+- A note with a label (see `spec.sessions.notes.labels`) shows it beside its kind, and open notes list blockers first. A note without one shows none.
 
 Tests:
 
