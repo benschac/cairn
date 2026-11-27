@@ -9,6 +9,7 @@ import { Git, GitHistory } from "../src/git.ts";
 import { inputsHashOf, loadTrace, loadTraceInput } from "../src/load-trace.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { TraceStore } from "../src/trace-store.ts";
+import { SqlError } from "effect/sql/SqlError";
 
 const PRD = "# Product {#prd.product}\n\n## Store {#prd.store}\n";
 const SPEC = "# Spec {#spec.spec}\n\n## Store {#spec.store}\n\n- Implements: `prd.store`\n";
@@ -51,11 +52,7 @@ const inCheckout = <A, E>(
   extra: Record<string, string>,
   body: (
     root: string,
-  ) => Effect.Effect<
-    A,
-    E,
-    FileSystem.FileSystem | Path.Path | Git | GitHistory | MainCheckout | TraceStore
-  >,
+  ) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Git | GitHistory | MainCheckout>,
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
@@ -68,9 +65,7 @@ const inCheckout = <A, E>(
         ([name, content]) => fs.writeFileString(path.join(root, ".cairn", name), content),
       );
       return yield* body(root).pipe(
-        Effect.provide(
-          Layer.mergeAll(MainCheckout.fixed(root), Git.memory(), TraceStore.layerMemory),
-        ),
+        Effect.provide(Layer.mergeAll(MainCheckout.fixed(root), Git.memory())),
       );
     }),
   ).pipe(Effect.provide(NodeServices.layer));
@@ -247,19 +242,31 @@ it.effect("--json returns the Trace loadTrace builds", () =>
 it.effect("--json carries the notes in cairn.db, as the server's Trace does", () =>
   inCheckout(encodeJson(MANIFEST), {}, () =>
     Effect.gen(function* () {
-      const store = yield* TraceStore;
-      const note = yield* store.addNote({
-        anchor: "/task/t1",
-        author: "agent:t1",
-        body: "Check the empty case.",
-        kind: "review",
-        resolvedAt: null,
-        session: null,
-        status: "open",
-        task: TaskId.make("t1"),
-      });
+      const note = yield* Effect.flatMap(TraceStore, (store) =>
+        store.addNote({
+          anchor: "/task/t1",
+          author: "agent:t1",
+          body: "Check the empty case.",
+          kind: "review",
+          resolvedAt: null,
+          session: null,
+          status: "open",
+          task: TaskId.make("t1"),
+        }),
+      ).pipe(Effect.provide(TraceStore.layer));
       const printed = yield* status({ json: true });
       expect(printed.notes).toEqual([note]);
+    }),
+  ),
+);
+
+it.effect("the tree does not open cairn.db, so one that cannot be read does not stop it", () =>
+  inCheckout(encodeJson(MANIFEST), { "cairn.db": "not a database" }, () =>
+    Effect.gen(function* () {
+      const trace = yield* status({ json: false });
+      const json = yield* Effect.flip(status({ json: true }));
+      expect(Array.length(trace.tasks)).toBe(Array.length(MANIFEST.tasks));
+      expect(json).toBeInstanceOf(SqlError);
     }),
   ),
 );

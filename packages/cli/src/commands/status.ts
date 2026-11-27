@@ -188,8 +188,11 @@ export const statusLines = (trace: Trace): ReadonlyArray<string> => {
  * then the warnings; or with `json` the Trace. Both bring the manifest's snapshot up to date.
  */
 export const status = Effect.fn("status")(function* (options: { readonly json: boolean }) {
-  // The JSON is the Trace the server serves, notes and all; the tree shows no notes.
-  const input = yield* options.json ? loadServedTraceInput : loadTraceInput;
+  // The JSON is the Trace the server serves, notes and all. The tree shows no notes, so only the
+  // JSON opens cairn.db, and a database that cannot be read does not stop the tree.
+  const input = yield* options.json
+    ? loadServedTraceInput.pipe(Effect.provide(TraceStore.layer))
+    : loadTraceInput;
   const trace = traceOf(input);
   yield* refreshSnapshot(input.manifest, trace.tasks);
   if (options.json) {
@@ -216,7 +219,7 @@ export const statusCommand = Command.make(
         Layer.unwrap(
           Effect.gen(function* () {
             const root = yield* (yield* MainCheckout).root;
-            return Layer.merge(gitLayer(root), TraceStore.layer);
+            return gitLayer(root);
           }),
         ),
       ),
