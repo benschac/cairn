@@ -12,6 +12,7 @@ const ProbabilityQuestion = Schema.Literals([
   "buildable",
   "complete",
   "faithful",
+  "inScope",
   "matches",
   "oneFeature",
   "ordered",

@@ -62,6 +62,8 @@ interface Pick {
 interface Script {
   /** The answer to a rated or classified question about the target titled `title`. */
   readonly answer?: (title: string, question: string) => Option.Option<Pick>;
+  /** The probability of a yes-or-no question about the target titled `title`; none keeps 0.9. */
+  readonly probability?: (title: string, question: string) => Option.Option<number>;
   readonly splitSection?: (section: string) => string;
   readonly splitTask?: (draft: TaskDraft) => ReadonlyArray<TaskDraft>;
 }
@@ -89,7 +91,10 @@ const answerFor = (
   return Match.value(decision).pipe(
     Match.tag("Probability", (): DecisionModel.ProviderAnswer => ({
       _tag: "Probability",
-      probability: 0.9,
+      probability: Option.getOrElse(
+        Option.flatMap(Option.fromUndefinedOr(script.probability), (say) => say(title, name)),
+        () => 0.9,
+      ),
     })),
     Match.tag("Rate", ({ criteria }): DecisionModel.ProviderAnswer => {
       const labels = Array.map(criteria, Struct.get("label"));
@@ -582,6 +587,49 @@ it.effect("a section split that drops an Implements is discarded and the spec ke
       }),
     ),
   ),
+);
+
+it.effect(
+  "a flagged inScope is reported with the section's and the draft's other answers and changes nothing",
+  () =>
+    Effect.gen(function* () {
+      const given = Struct.evolve(base, {
+        drafts: () => [draft("Refine")],
+        specGenerated: () => true,
+      });
+      const result = yield* refineWith(given, defaults);
+      const scope = Array.filter(result.judgments, (judgment) => judgment.question === "inScope");
+      const kinds = Array.dedupe(Array.map(scope, (judgment) => judgment.target.kind));
+      expect(Array.sort(kinds, Order.String)).toEqual(["draft", "section"]);
+      expect(Array.every(scope, (judgment) => judgment.verdict === "flag")).toBe(true);
+      expect(Array.every(scope, (judgment) => judgment.action === "none")).toBe(true);
+      // Each target that was asked inScope was asked its other probability too.
+      const questionsOf = (kind: "draft" | "section") =>
+        Array.sort(
+          Array.dedupe(
+            Array.filterMap(result.judgments, (judgment) =>
+              judgment.target.kind === kind &&
+              (judgment.question === "faithful" ||
+                judgment.question === "matches" ||
+                judgment.question === "inScope")
+                ? Result.succeed(judgment.question)
+                : Result.failVoid,
+            ),
+          ),
+          Order.String,
+        );
+      expect(questionsOf("section")).toEqual(["faithful", "inScope"]);
+      expect(questionsOf("draft")).toEqual(["inScope", "matches"]);
+      expect([result.spec, result.drafts]).toEqual([given.spec, given.drafts]);
+      const splits = [yield* sectionSplitsOf, yield* taskSplitsOf];
+      expect(splits).toEqual([[], []]);
+    }).pipe(
+      Effect.provide(
+        testing({
+          probability: (_, question) => (question === "inScope" ? Option.some(0) : Option.none()),
+        }),
+      ),
+    ),
 );
 
 it.effect("a section a person wrote is reported on and never split", () =>

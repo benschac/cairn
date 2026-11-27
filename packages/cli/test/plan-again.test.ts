@@ -868,6 +868,7 @@ it.effect("planning again judges the sections it wrote and no other", () =>
       ).toEqual([
         "spec.capture.sharing buildable",
         "spec.capture.sharing faithful",
+        "spec.capture.sharing inScope",
         "spec.capture.sharing size",
       ]);
     }),

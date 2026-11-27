@@ -66,11 +66,18 @@ export const sectionQuestions = Decision.make({
     faithful: Decision.probability({
       criteria: {
         false:
-          "It leaves out what its PRD sections ask, or adds behaviour they do not ask for. Example: a section implementing prd.judging-the-plan that lets the judge rewrite a spec section a human wrote, which the PRD forbids.",
-        true: "It does what its PRD sections ask and nothing more. Example: spec.judging.questions asks the decision model the questions prd.judging-the-plan lists at each checkpoint, and no others.",
+          "Something its PRD sections ask has no place in it. Example: a section implementing prd.judging-the-plan that says what the judge does with a too_large section but never says what happens to a section a person wrote.",
+        true: "Everything its PRD sections ask is in it, including the cases they name. Example: spec.judging.questions asks the decision model each question prd.judging-the-plan lists at its checkpoints.",
       },
-      instructions:
-        "The section does what the PRD sections it implements ask, and adds no behaviour they do not ask for.",
+      instructions: "The section does everything the PRD sections it implements ask.",
+    }),
+    inScope: Decision.probability({
+      criteria: {
+        false:
+          "It specifies behaviour none of its PRD sections ask for. Example: a section implementing prd.judging-the-plan that lets the judge rewrite a spec section a human wrote, which the PRD forbids.",
+        true: "Everything it specifies is something its PRD sections ask for. Example: spec.judging.verdicts turns each answer into pass, flag or unsure and picks the model, as prd.judging-the-plan asks, and adds no other behaviour.",
+      },
+      instructions: "The section adds no behaviour the PRD sections it implements do not ask for.",
     }),
     size: Decision.rate({
       criteria: [
@@ -127,20 +134,27 @@ const REASONING = [
 ] as const satisfies ReadonlyArray<{ readonly description: string; readonly label: Reasoning }>;
 
 /**
- * The task questions without `model`: `matches`, `reasoning` and `size`, which do not depend on
+ * The task questions without `model`: `inScope`, `matches`, `reasoning` and `size`, which do not depend on
  * config. The judge asks these alone when `judge.models` names fewer than two models, since there
  * is nothing to choose between; `taskQuestions` adds `model` to them.
  */
 export const taskQuestionsWithoutModel = Decision.make({
   decisions: {
+    inScope: Decision.probability({
+      criteria: {
+        false:
+          "Its title or files reach for something none of its spec sections ask for. Example: a task for spec.judging.verdicts whose files add a viewer file the section never names. A test of its own files, or the export of what it adds, is not past its sections.",
+        true: "Everything in its title and files is something its spec sections ask for. Example: t58, Define the judging questions and their inputs, touches questions.ts, its export and its test, which spec.judging.questions names.",
+      },
+      instructions: "The task's title and files reach for nothing its spec sections do not ask.",
+    }),
     matches: Decision.probability({
       criteria: {
         false:
-          "Its title or files leave out what its spec sections ask, or reach past them. Example: a task for spec.lint whose files leave out packages/cli/src/commands/lint.ts, or add a viewer file the section never names.",
-        true: "Its title and files carry out its spec sections and nothing else. Example: t59, Turn answers into verdicts and routes, touches verdicts.ts and its test, as spec.judging.verdicts asks.",
+          "Its title or files leave out what its spec sections ask. Example: a task for spec.lint whose files leave out packages/cli/src/commands/lint.ts.",
+        true: "Its title and files carry out everything its spec sections ask. Example: t59, Turn answers into verdicts and routes, touches verdicts.ts and its test, as spec.judging.verdicts asks.",
       },
-      instructions:
-        "The task's title and files carry out its spec sections, and nothing they do not ask.",
+      instructions: "The task's title and files carry out what its spec sections ask.",
     }),
     reasoning: Decision.rate({
       criteria: REASONING,
