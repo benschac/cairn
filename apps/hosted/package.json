@@ -9,16 +9,19 @@
     "typecheck": "effect-tsgo tsc --noEmit"
   },
   "dependencies": {
+    "@alchemy.run/better-auth": "2.0.0-beta.87",
     "@cairn/contract": "workspace:*",
     "@effect/sql-d1": "4.1.6",
-    "effect": "catalog:"
+    "alchemy": "2.0.0-beta.87",
+    "better-auth": "1.7.28",
+    "effect": "catalog:",
+    "kysely": "0.29.4"
   },
   "devDependencies": {
     "@alchemy.run/cloudflare": "2.0.0-beta.87",
     "@cloudflare/vitest-plugin": "1.9.2",
     "@cloudflare/workers-types": "5.20261125.1",
     "@effect/vitest": "catalog:",
-    "alchemy": "2.0.0-beta.87",
     "vitest": "catalog:"
   }
 }

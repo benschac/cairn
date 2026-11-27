@@ -3,8 +3,11 @@ import { Effect, Layer } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 
+import { Auth, AuthenticationLive, AuthRoutes } from "../auth.ts";
 import { NoStore } from "./caching.ts";
 import { DecodeFailuresLive } from "./decode-failures.ts";
+import { MeLive } from "./me.ts";
+import { WorkspacesLive } from "./workspaces.ts";
 
 /** Any method on a path under `/api/` that no route claims: `NotFound`, in the error shape. */
 export const UnknownApiRoute = HttpRouter.add(
@@ -24,5 +27,16 @@ export const routesFor = <E, R>(api: Layer.Layer<never, E, R>) =>
     Layer.provide(HttpServer.layerServices),
   );
 
-/** The hosted API's routes. */
-export const Routes = routesFor(HttpApiBuilder.layer(HostedApi));
+/**
+ * The hosted API's routes, and Better Auth's under `/api/auth/`. They need the bindings, the account
+ * settings and a `Mailer`, which `worker.ts` provides.
+ */
+export const Routes = routesFor(
+  Layer.merge(
+    HttpApiBuilder.layer(HostedApi).pipe(
+      Layer.provide(Layer.mergeAll(MeLive, WorkspacesLive)),
+      Layer.provide(AuthenticationLive),
+    ),
+    AuthRoutes,
+  ),
+).pipe(Layer.provide(Auth.layer));
