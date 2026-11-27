@@ -21,7 +21,7 @@ question and how to write and read them, see
 import { AnthropicClient, AnthropicLanguageModel } from "@effect/ai-anthropic";
 import { OpenAiClient, OpenAiLanguageModel } from "@effect/ai-openai";
 import { TypeSafeClient, TypeSafeDecisionModel } from "@effect/ai-typesafe";
-import { Config, Effect, Layer, Record, Result, Schema } from "effect";
+import { Array, Config, Effect, Layer, Option, Record, Result, Schema } from "effect";
 import { Decision, DecisionModel, LanguageModel, Model } from "effect/ai";
 import { FetchHttpClient } from "effect/http";
 
@@ -41,20 +41,25 @@ const judge = TypeSafeDecisionModel.model("jev-1.14.0").pipe(
 const draft = (prd: string) =>
   Effect.gen(function* () {
     const response = yield* LanguageModel.generateText({ prompt: prd });
-    const model = yield* Model.ModelName; // which model answered, from the layer
-    return { model, text: response.text };
+    const configured = yield* Model.ModelName; // the name given to the layer
+    // The model the provider says ran, which can differ when the name is an alias.
+    const answered = Array.findFirst(response.content, (part) =>
+      part.type === "response-metadata" ? Option.fromUndefinedOr(part.modelId) : Option.none(),
+    );
+    return { answered, configured, text: response.text };
   });
 
 // 3. The judge's question. Its labels are the candidates' keys, so the answer indexes back.
+// The judge sees only its input, so the input carries the PRD as well as the drafts.
 const Drafts = Schema.Struct({ gpt: Schema.String, opus: Schema.String, sonnet: Schema.String });
 const PickDraft = Decision.make({
   decisions: {
     best: Decision.classify({
       criteria: { gpt: null, opus: null, sonnet: null },
-      instructions: "Which draft is the best spec for this PRD?",
+      instructions: "Which draft is the most faithful and buildable spec for the PRD?",
     }),
   },
-  input: Drafts,
+  input: Schema.Struct({ drafts: Drafts, prd: Schema.String }),
 });
 
 // 4. Fan out, then judge.
@@ -64,7 +69,7 @@ export const compare = Effect.fn("compare")(function* (prd: string) {
     { concurrency: "unbounded", mode: "result" },
   );
   const texts = Record.map(drafts, Result.match({ onFailure: () => "(no draft)", onSuccess: (d) => d.text }));
-  const { answers } = yield* DecisionModel.decide(PickDraft, { input: texts }).pipe(Effect.provide(judge));
+  const { answers } = yield* DecisionModel.decide(PickDraft, { input: { drafts: texts, prd } }).pipe(Effect.provide(judge));
   return {
     best: answers.best.label, // "gpt" | "opus" | "sonnet"
     probabilities: answers.best.probabilities, // one per candidate
@@ -99,10 +104,16 @@ free text to parse, and it is a layer too, swappable like the models it judges.
   with a number, as the `Judge` does with `CONCURRENT_REQUESTS`
   (`packages/cli/src/judge.ts`), and retries rate limits with the provider's
   delay.
-- **Name what answered from the layer.** `Model.ModelName` and
-  `Model.ProviderName` come with every `*.model(name)` layer (unstable API,
-  the checker warns), and `DecisionModel.decide` returns `modelId`. Record
-  these, not the name you meant to call.
+- **Record both the name you asked for and the model that answered.**
+  `Model.ModelName` and `Model.ProviderName` (unstable API) come with every
+  `*.model(name)` layer, but they hold the name given to the layer. The model
+  that ran is the `modelId` of the response's `response-metadata` part, and
+  `DecisionModel.decide` returns `modelId` too. An alias can resolve to a
+  versioned model, so keep both.
+- **The judge sees only its input.** It does not inherit the candidates'
+  prompts. Put what the candidates were asked (the PRD here) in the decision's
+  input beside their answers, or it can only compare the answers with each
+  other.
 - **Providers do not share thresholds.** A probability from one judge and a
   score from another mean different things; keep each provider's thresholds in
   config and never copy them across (`prd.judging-the-plan`). A low-confidence
