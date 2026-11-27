@@ -134,17 +134,18 @@ const Planner = PlannerFields.pipe(
  */
 const JudgeFields = Schema.Struct({
   baseUrl: Schema.optionalKey(Schema.String),
-  flag: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.5))),
+  flag: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.3))),
   maxRounds: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(2)),
   ),
   gatewayTokenEnv: Schema.optionalKey(Schema.String),
-  minConfidence: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.5))),
+  /** The probability a rate or classify answer's label needs to count. */
+  minProbability: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.5))),
   model: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed("jev-1.14.0"))),
   models: Schema.Record(Schema.String, Schema.String).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(JUDGE_MODELS)),
   ),
-  pass: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.8))),
+  pass: Unit.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.7))),
 });
 
 /** `judge.pass` must be greater than `judge.flag`. */

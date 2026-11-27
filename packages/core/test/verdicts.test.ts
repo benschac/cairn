@@ -18,6 +18,7 @@ const ProbabilityQuestion = Schema.Literals([
   "ordered",
 ]);
 const RatedQuestion = Schema.Literals(["size", "model", "reasoning"]);
+const AnyRated = Schema.Literals(["size", "model", "reasoning", "category"]);
 const AnyQuestion = Schema.Union([ProbabilityQuestion, RatedQuestion]);
 const Routed = Schema.Struct({ model: Schema.NonEmptyString, reasoning: Reasoning });
 
@@ -28,10 +29,11 @@ const byRank = Order.mapInput(Order.Number, (verdict: Verdict) => RANK[verdict])
 const sorted = (a: number, b: number): readonly [number, number] =>
   Order.isLessThanOrEqualTo(Order.Number)(a, b) ? [a, b] : [b, a];
 
-const rate = (label: string, confidence: number | undefined): RateAnswer => ({
-  ...(confidence === undefined ? {} : { confidence }),
+/** An answer whose label has `probability` (none when undefined); its confidence is always 1, so a verdict that read it would be wrong. */
+const rate = (label: string, probability: number | undefined): RateAnswer => ({
+  confidence: 1,
   label,
-  probabilities: {},
+  probabilities: probability === undefined ? {} : Record.singleton(label, probability),
 });
 
 it.prop(
@@ -57,27 +59,55 @@ it.prop(
 );
 
 it.prop(
-  "lowering the confidence never turns a rate answer into a pass",
+  "lowering a label's probability never turns a rate answer into a pass",
   [Judge, Schema.NonEmptyString, Unit, Unit, RatedQuestion, Schema.Boolean, Routed],
   ([judge, label, a, b, question, withTask, task]) => {
     const [low, high] = sorted(a, b);
-    const at = (confidence: number) =>
-      verdictOf(question, rate(label, confidence), judge, withTask ? task : undefined).verdict;
+    const at = (probability: number) =>
+      verdictOf(question, rate(label, probability), judge, withTask ? task : undefined).verdict;
     expect(at(low) === "pass" ? at(high) : "pass").toBe("pass");
   },
 );
 
 it.prop(
-  "a rate answer below minConfidence, or with none, is unsure",
+  "a rate answer whose label is below minProbability, or has none, is unsure",
   [Judge, Schema.NonEmptyString, Unit, RatedQuestion, Routed],
   ([judge, label, confidence, question, task]) => {
-    const below = Number.multiply(confidence, judge.minConfidence);
+    const below = Number.multiply(confidence, judge.minProbability);
     const unsure = (answer: RateAnswer) =>
       verdictOf(question, answer, judge, task).verdict === "unsure";
-    expect(Number.isLessThan(below, judge.minConfidence) ? unsure(rate(label, below)) : true).toBe(
+    expect(Number.isLessThan(below, judge.minProbability) ? unsure(rate(label, below)) : true).toBe(
       true,
     );
     expect(unsure(rate(label, undefined))).toBe(true);
+  },
+);
+
+it.prop(
+  "confidence is never read: only the probability of the label decides",
+  [Judge, Schema.NonEmptyString, Unit, Schema.Finite, Schema.Finite, AnyRated, Routed],
+  ([judge, label, probability, a, b, question, task]) => {
+    const withConfidence = (confidence: number): RateAnswer => ({
+      confidence,
+      label,
+      probabilities: Record.singleton(label, probability),
+    });
+    expect(verdictOf(question, withConfidence(a), judge, task)).toStrictEqual(
+      verdictOf(question, withConfidence(b), judge, task),
+    );
+  },
+);
+
+it.prop(
+  "a label's probability, not another label's, decides a rate answer",
+  [Judge, Schema.NonEmptyString, Schema.NonEmptyString, Unit, RatedQuestion, Routed],
+  ([judge, label, other, probability, question, task]) => {
+    // The label has none while `other` has a probability: unsure whatever `other` holds.
+    const answer: RateAnswer = {
+      label: String.concat(label, other),
+      probabilities: { [label]: Number.max(probability, judge.minProbability) },
+    };
+    expect(verdictOf(question, answer, judge, task).verdict).toBe("unsure");
   },
 );
 
@@ -111,8 +141,8 @@ it.prop(
   [Judge, Schema.Literals(["too_small", "right", "too_large"]), Unit],
   ([judge, label, spread]) => {
     const confidence = Number.sum(
-      judge.minConfidence,
-      Number.multiply(spread, Number.subtract(1, judge.minConfidence)),
+      judge.minProbability,
+      Number.multiply(spread, Number.subtract(1, judge.minProbability)),
     );
     const { message, verdict } = verdictOf("size", rate(label, confidence), judge);
     expect(verdict).toBe(label === "right" ? "pass" : "flag");
@@ -125,8 +155,8 @@ it.prop(
   [Judge, Schema.NonEmptyString, Routed, Unit, Schema.Literals(["model", "reasoning"])],
   ([judge, label, task, spread, question]) => {
     const confidence = Number.sum(
-      judge.minConfidence,
-      Number.multiply(spread, Number.subtract(1, judge.minConfidence)),
+      judge.minProbability,
+      Number.multiply(spread, Number.subtract(1, judge.minProbability)),
     );
     const answer = rate(label, confidence);
     expect(verdictOf(question, answer, judge).verdict).toBe("pass");
@@ -137,8 +167,11 @@ it.prop(
   },
 );
 
-const confidentOf = (judge: { readonly minConfidence: number }, spread: number) =>
-  Number.sum(judge.minConfidence, Number.multiply(spread, Number.subtract(1, judge.minConfidence)));
+const confidentOf = (judge: { readonly minProbability: number }, spread: number) =>
+  Number.sum(
+    judge.minProbability,
+    Number.multiply(spread, Number.subtract(1, judge.minProbability)),
+  );
 
 it.prop(
   "a confident category equal to the task's passes and a different one flags with both named",
@@ -170,12 +203,12 @@ it.prop(
 );
 
 it.prop(
-  "a category answer below minConfidence is unsure whatever the task's category is",
+  "a category answer below minProbability is unsure whatever the task's category is",
   [Judge, Schema.NonEmptyString, Schema.NonEmptyString, Routed, Unit],
   ([judge, label, category, routed, fraction]) => {
-    const below = Number.multiply(fraction, judge.minConfidence);
+    const below = Number.multiply(fraction, judge.minProbability);
     expect(
-      Number.isLessThan(below, judge.minConfidence)
+      Number.isLessThan(below, judge.minProbability)
         ? verdictOf("category", rate(label, below), judge, { ...routed, category }).verdict
         : "unsure",
     ).toBe("unsure");
@@ -191,10 +224,10 @@ const modelsOf = (names: Array.NonEmptyReadonlyArray<string>) =>
 
 /** A rate answer that is confident under `judge`. */
 const confident = (
-  judge: { readonly minConfidence: number },
+  judge: { readonly minProbability: number },
   label: string,
   confidence: number,
-): RateAnswer => rate(label, Order.max(Order.Number)(confidence, judge.minConfidence));
+): RateAnswer => rate(label, Order.max(Order.Number)(confidence, judge.minProbability));
 
 it.prop(
   "routeOf never returns a model that is not in judge.models",
@@ -268,11 +301,14 @@ it.prop(
       verdict: "pass",
     });
 
-    // No confidence is always doubtful; so is half of `minConfidence` when that is above zero.
-    const doubtful = Number.isGreaterThan(judge.minConfidence, 0)
-      ? rate(jev, Number.multiply(judge.minConfidence, 0.5))
+    // No confidence is always doubtful; so is half of `minProbability` when that is above zero.
+    const doubtful = Number.isGreaterThan(judge.minProbability, 0)
+      ? rate(jev, Number.multiply(judge.minProbability, 0.5))
       : rate(jev, undefined);
-    const doubtfulReasoning = { ...doubtful, label: chosenReasoning };
+    const doubtfulReasoning = rate(
+      chosenReasoning,
+      Option.getOrUndefined(Record.get(doubtful.probabilities, jev)),
+    );
     const unsure = routeOf(
       { model: doubtful, reasoning: doubtfulReasoning },
       { model: planner, reasoning: plannedReasoning },

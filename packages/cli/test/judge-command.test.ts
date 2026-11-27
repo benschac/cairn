@@ -174,10 +174,10 @@ it.effect("writes judgments.json and prints a line for each flag, none for a pas
     const reported = Array.filter(written.judgments, ({ verdict }) => verdict !== "pass");
     expect(Array.length(printed)).toBe(Array.length(reported));
     expect(printed).toContain(
-      ".cairn/spec.md:3 judge:buildable flag probability 0.1 is below flag 0.5",
+      ".cairn/spec.md:3 judge:buildable flag probability 0.1 is below flag 0.3",
     );
     expect(printed).toContain(
-      ".cairn/manifest.json judge:ordered flag probability 0.1 is below flag 0.5",
+      ".cairn/manifest.json judge:ordered flag probability 0.1 is below flag 0.3",
     );
   }),
 );

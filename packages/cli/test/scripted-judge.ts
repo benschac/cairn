@@ -1,5 +1,16 @@
 import { Config as CairnConfig } from "@cairn/contract";
-import { Array, Effect, Layer, Match, Option, Predicate, Record, Schema, Struct } from "effect";
+import {
+  Array,
+  Effect,
+  Layer,
+  Match,
+  Number,
+  Option,
+  Predicate,
+  Record,
+  Schema,
+  Struct,
+} from "effect";
 import { DecisionModel } from "effect/ai";
 import type { Decision } from "effect/ai";
 
@@ -35,8 +46,24 @@ const defaultPick = (question: string, labels: ReadonlyArray<string>): Pick =>
     })),
   );
 
-const oneHot = (labels: ReadonlyArray<string>, chosen: string) =>
-  Record.fromEntries(Array.map(labels, (label) => [label, label === chosen ? 1 : 0] as const));
+/** The chosen label has `probability`; the others share the rest, so the distribution sums to 1. */
+const oneHot = (labels: ReadonlyArray<string>, chosen: string, probability: number) => {
+  const others = Number.max(Number.decrement(Array.length(labels)), 1);
+  return Record.fromEntries(
+    Array.map(
+      labels,
+      (label) =>
+        [
+          label,
+          label === chosen
+            ? Array.length(labels) > 1
+              ? probability
+              : 1
+            : Number.divideUnsafe(Number.subtract(1, probability), others),
+        ] as const,
+    ),
+  );
+};
 
 const answerFor = (
   title: string,
@@ -63,7 +90,7 @@ const answerFor = (
       return {
         _tag: "Rate",
         confidence,
-        probabilities: oneHot(labels, label),
+        probabilities: oneHot(labels, label, confidence),
         rating: Option.getOrElse(
           Array.findFirstIndex(labels, (each) => each === label),
           () => 0,
@@ -73,7 +100,12 @@ const answerFor = (
     Match.tag("Classify", ({ criteria }): DecisionModel.ProviderAnswer => {
       const labels = Record.keys(criteria);
       const { confidence, label } = pick(labels);
-      return { _tag: "Classify", confidence, label, probabilities: oneHot(labels, label) };
+      return {
+        _tag: "Classify",
+        confidence,
+        label,
+        probabilities: oneHot(labels, label, confidence),
+      };
     }),
     Match.exhaustive,
   );

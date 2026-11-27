@@ -5,8 +5,8 @@ import { Match, Number, Option, Record, Schema, pipe } from "effect";
 /** What the decision model answered to one question, as `judgments.json` stores it. */
 export type Answer = Judgment["answer"];
 
-/** The thresholds `verdictOf` reads: `judge.pass`, `judge.flag` and `judge.minConfidence`. */
-export type Thresholds = Pick<Config["judge"], "flag" | "minConfidence" | "pass">;
+/** The thresholds `verdictOf` reads: `judge.pass`, `judge.flag` and `judge.minProbability`. */
+export type Thresholds = Pick<Config["judge"], "flag" | "minProbability" | "pass">;
 
 /** `routeOf` also reads `judge.models`, the only models it may return. */
 export type RouteThresholds = Thresholds & Pick<Config["judge"], "models">;
@@ -49,32 +49,30 @@ const probabilityVerdict = (answer: ProbabilityAnswer, { flag, pass }: Threshold
       ? { message: `probability ${answer.probability} is below flag ${flag}`, verdict: "flag" }
       : unsure(`probability ${answer.probability} is between flag ${flag} and pass ${pass}`);
 
-/** The answer's confidence when it is at or above `minConfidence`; none when low or missing. */
-const confidenceOf = (answer: RateAnswer, { minConfidence }: Thresholds): Option.Option<number> =>
-  pipe(
-    Option.fromUndefinedOr(answer.confidence),
-    Option.filter(Number.isGreaterThanOrEqualTo(minConfidence)),
-  );
+/** The probability of the answer's own label; none when the answer gives the label none. */
+const labelProbability = (answer: RateAnswer): Option.Option<number> =>
+  Record.get(answer.probabilities, answer.label);
 
-const lowConfidence = (answer: RateAnswer, { minConfidence }: Thresholds): Verdicted =>
+/** The probability of the answer's label when it is at or above `minProbability`; none when low or missing. */
+const probabilityOf = (answer: RateAnswer, { minProbability }: Thresholds): Option.Option<number> =>
+  pipe(labelProbability(answer), Option.filter(Number.isGreaterThanOrEqualTo(minProbability)));
+
+const lowProbability = (answer: RateAnswer, { minProbability }: Thresholds): Verdicted =>
   unsure(
-    pipe(
-      Option.fromUndefinedOr(answer.confidence),
-      Option.match({
-        onNone: () => `${answer.label} came with no confidence`,
-        onSome: (confidence) =>
-          `${answer.label} has confidence ${confidence}, below minConfidence ${minConfidence}`,
-      }),
-    ),
+    Option.match(labelProbability(answer), {
+      onNone: () => `${answer.label} came with no probability`,
+      onSome: (probability) =>
+        `${answer.label} has probability ${probability}, below minProbability ${minProbability}`,
+    }),
   );
 
 const sizeVerdict = (answer: RateAnswer, thresholds: Thresholds): Verdicted =>
-  Option.match(confidenceOf(answer, thresholds), {
-    onNone: () => lowConfidence(answer, thresholds),
-    onSome: (confidence) =>
+  Option.match(probabilityOf(answer, thresholds), {
+    onNone: () => lowProbability(answer, thresholds),
+    onSome: (probability) =>
       answer.label === "right"
-        ? { message: `size is right, confidence ${confidence}`, verdict: "pass" }
-        : { message: `size is ${answer.label}, confidence ${confidence}`, verdict: "flag" },
+        ? { message: `size is right, ${probability}`, verdict: "pass" }
+        : { message: `size is ${answer.label}, ${probability}`, verdict: "flag" },
   });
 
 /**
@@ -88,9 +86,9 @@ const choiceVerdict = (
   thresholds: Thresholds,
   task: Option.Option<RoutedTask>,
 ): Verdicted =>
-  Option.match(confidenceOf(answer, thresholds), {
-    onNone: () => lowConfidence(answer, thresholds),
-    onSome: (confidence) =>
+  Option.match(probabilityOf(answer, thresholds), {
+    onNone: () => lowProbability(answer, thresholds),
+    onSome: (probability) =>
       pipe(
         task,
         Option.flatMapNullishOr((routed) => routed[question]),
@@ -98,20 +96,20 @@ const choiceVerdict = (
           onNone: () =>
             question === "category"
               ? unsure(
-                  `category ${answer.label}, confidence ${confidence}; the task has no category to compare`,
+                  `category ${answer.label}, ${probability}; the task has no category to compare`,
                 )
               : {
-                  message: `${question} ${answer.label}, confidence ${confidence}`,
+                  message: `${question} ${answer.label}, ${probability}`,
                   verdict: "pass" as const,
                 },
           onSome: (current) =>
             current === answer.label
               ? {
-                  message: `${question} ${answer.label}, confidence ${confidence}`,
+                  message: `${question} ${answer.label}, ${probability}`,
                   verdict: "pass" as const,
                 }
               : {
-                  message: `${question} ${answer.label} differs from the manifest's ${current}, confidence ${confidence}`,
+                  message: `${question} ${answer.label} differs from the manifest's ${current}, ${probability}`,
                   verdict: "flag" as const,
                 },
         }),
@@ -125,10 +123,10 @@ const wrongShape = (question: JudgmentQuestion): Verdicted =>
  * What an answer means (`spec.judging.verdicts`). Pure.
  *
  * - A probability: `pass` at or above `pass`, `flag` below `flag`, `unsure` between.
- * - `size`: `unsure` below `minConfidence`; otherwise `pass` for `right` and `flag` for the
+ * - `size`: `unsure` when its label's probability is below `minProbability`; otherwise `pass` for `right` and `flag` for the
  *   other labels, named in the message.
- * - `model` and `reasoning` choose rather than judge: `unsure` below `minConfidence`, `pass`
- *   above it. With `task`, a confident label that differs from the task's value is a `flag`.
+ * - `model` and `reasoning` choose rather than judge: `unsure` when the label's probability is
+ *   below `minProbability`, `pass` above it. With `task`, a confident label that differs from the task's value is a `flag`.
  * - `category` is the same, except a task with no category, or no `task`, gives `unsure` with the
  *   label in the message: the manifest's older tasks have none and must not all flag.
  * - An unanswered decision, or an answer of the wrong kind for the question, is `unsure`.
@@ -218,7 +216,7 @@ const reasoningLabel = (label: string) => Option.liftPredicate(label, isReasonin
 
 /**
  * The model and reasoning to use (`spec.judging.verdicts`). Pure. A confident answer gives Jev's
- * label and `pass`; a low-confidence, unanswered or unusable one keeps the planner's value and
+ * label and `pass`; a low-probability, unanswered or unusable one keeps the planner's value and
  * gives `unsure`. A label outside `judge.models`, or that is no reasoning level, is unusable.
  * The planner's model is kept only when `judge.models` names it: otherwise `model.value` is none,
  * so `routeOf` never returns a model the config does not name. `reasoning.value` is always some.
