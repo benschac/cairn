@@ -20,6 +20,7 @@ import {
   bodyHashOf,
   changeQuestions,
   cosmeticOf,
+  itemQuestions,
   derivedOf,
   gateOf,
   inputsOf,
@@ -36,10 +37,11 @@ import {
   stackOf,
   uncoveredItemsOf,
   uncoveredOf,
+  withImplements,
   withStackDiagram,
   yesNoOf,
 } from "@cairn/core";
-import type { Finding, JudgingInputs, Part, Replan } from "@cairn/core";
+import type { Finding, Item, JudgingInputs, Part, Replan, UnmappedItem } from "@cairn/core";
 import {
   Array,
   Console,
@@ -449,7 +451,8 @@ const isPrdSectionId = Schema.is(PrdSectionId);
 /**
  * The PRD sections and list items that no spec section covers, as `cairn lint` counts them: a
  * section whose items are named is covered, and an item is covered when a key names it.
- * `replanOf` has no item mapping yet (`spec.planning.again`), so a part run reads the items here,
+ * `replanOf`'s `uncovered` holds headings only, and its `unmappedItems` are planned only when no
+ * candidate builds them (`spec.planning.again.mapping-items`), so a part run reads the items here,
  * or a part named by an item would plan nothing and lint would still refuse it.
  */
 const uncoveredWithItems = (prd: string, spec: string): ReadonlyArray<PrdSectionId> => {
@@ -732,17 +735,20 @@ interface IndexChange {
   readonly previous: Option.Option<SpecIndex>;
   /** Sections Cairn writes or rewrites in this run. */
   readonly written: ReadonlyArray<SpecSectionId>;
+  /** Sections Cairn edited in place, whose `writtenFrom.body` is recorded again. */
+  readonly rehashed?: ReadonlyArray<SpecSectionId> | undefined;
 }
 
 /** Writes `spec.json` for the `spec.md` on disk (`spec.contract.spec-index`). */
 const writeIndex = Effect.fn("plan.writeIndex")(function* (
   prd: string,
   manifest: Option.Option<Manifest>,
-  { changed, previous, written }: IndexChange,
+  { changed, previous, rehashed, written }: IndexChange,
 ) {
   const spec = yield* loadSpec;
   const index = yield* specIndexOf({
     changed,
+    rehashed,
     manifest: { tasks: tasksOf(manifest) },
     prd,
     previous,
@@ -811,7 +817,7 @@ const PRD_REVISIONS = 50;
 const PRD_PATH = `${CAIRN_DIRECTORY}/prd.md`;
 
 /** `section` is the one `id` names. */
-const isSection = (section: Section, id: string) => section.id === id;
+const isSection = (section: Pick<Section, "id">, id: string) => section.id === id;
 
 /** A changed PRD section to ask about: its ID and the hash of the body its spec section was written from. */
 interface Recorded {
@@ -990,10 +996,225 @@ const withoutCosmetic = Effect.fn("plan.withoutCosmetic")(function* (
   return next;
 });
 
+/** A PRD item mapped to a spec section that builds it, with the probability the judge gave `buildsItem`. */
+interface Mapping {
+  readonly item: PrdSectionId;
+  readonly probability: number;
+  readonly section: SpecSectionId;
+}
+
+/** The plan output's line for an item added to a section's `Implements`. */
+const mappedLine = ({ item, probability, section }: Mapping) =>
+  `mapped ${item} → ${section} (${Number.round(probability, 2)})`;
+
+/** The plan output's line for a human item that spec sections may build, which is never mapped. */
+const humanItemLine = ({ candidates, item }: UnmappedItem) =>
+  `not mapped ${item}: it is a human item, so name it in the Implements of ${Array.join(candidates, " or ")} by hand`;
+
+/** Some spec section may already build the item. */
+const hasCandidates = ({ candidates }: UnmappedItem) => Array.isReadonlyArrayNonEmpty(candidates);
+
+/** What `mapItems` did: whether it wrote `spec.md` and `spec.json`, and the items to plan. */
+interface ItemsMapped {
+  /** Whether `spec.md` was written. */
+  readonly mapped: boolean;
+  /** Items no spec section builds: planned like an uncovered PRD section. */
+  readonly planned: ReadonlyArray<PrdSectionId>;
+}
+
+/** A run that maps nothing: a first plan, `--respec`, or a part run with no spec yet. */
+const NOTHING_MAPPED: ItemsMapped = { mapped: false, planned: [] };
+
+/** How far a line is indented: the whitespace it starts with. */
+const indentOf = (line: string) => String.length(line) - String.length(String.trimStart(line));
+
+/** A line with nothing but whitespace on it. */
+const isBlankLine = (text: string) => String.isEmpty(String.trim(text));
+
+/** An item's `{#id}`, or a `{#}` asking for one, at the end of a line. */
+const ITEM_ATTRIBUTE = /[ \t]*\{#[^}\s]*\}[ \t]*$/u;
+
+/**
+ * The source of the PRD item on 1-based line `line` of `prd`, as `itemQuestions` reads it: its
+ * line and every line nested in it (items, `Done when:` statements, fenced examples), up to the
+ * first line that is not blank and not indented deeper than the item. The item's indent is taken
+ * off every line, and the `{#id}` attributes are left out.
+ */
+const itemSourceOf = (prd: string, line: number): string => {
+  const lines = String.split(prd, "\n");
+  const own = Option.getOrElse(Array.get(lines, line - 1), () => "");
+  const depth = indentOf(own);
+  const block = Array.prepend(
+    Array.takeWhile(Array.drop(lines, line), (text) => isBlankLine(text) || indentOf(text) > depth),
+    own,
+  );
+  return Array.join(
+    Array.map(Array.reverse(Array.dropWhile(Array.reverse(block), isBlankLine)), (text) =>
+      String.replace(ITEM_ATTRIBUTE, "")(isBlankLine(text) ? "" : String.slice(depth)(text)),
+    ),
+    "\n",
+  );
+};
+
+/** What `mapItems` returns when it wrote nothing: only the items to plan. */
+const unchanged = (planned: ReadonlyArray<PrdSectionId>): ItemsMapped => ({
+  mapped: false,
+  planned,
+});
+
+/** Whether the PRD item `id` is a human item (`Item.human`). */
+const isHumanItem = (items: ReadonlyArray<Item>, id: PrdSectionId) =>
+  Array.some(items, (item) => item.human && isSection(item, id));
+
+/** A human item that spec sections may build: it is only reported, never asked about or planned. */
+const reportedOnly = (items: ReadonlyArray<Item>, found: UnmappedItem) =>
+  hasCandidates(found) && isHumanItem(items, found.item);
+
+/**
+ * Maps the PRD items given IDs after their section was planned (`spec.planning.again.mapping-items`).
+ * For each of `unmapped` and each of its candidates the judge is asked `itemQuestions`:
+ *
+ * - `yes` for some candidates adds the item to each one's `Implements` (`withImplements`), writes
+ *   `spec.md`, records each such section's body hash again in `spec.json` and prints a line.
+ * - `no` for every candidate, or no candidate at all, plans the item: it is in `planned`.
+ * - Anything else, no judge or a failed judge leaves the item as it is, and lint reports it.
+ *
+ * A human item with candidates is never asked about, since mapping it would gate the tasks of the
+ * section; a line reports it.
+ */
+const mapItems = Effect.fn("plan.mapItems")(function* (
+  inputs: Inputs,
+  manifest: Option.Option<Manifest>,
+  spec: string,
+  index: SpecIndex,
+  unmapped: ReadonlyArray<UnmappedItem>,
+) {
+  const prdSections = sectionsOf(inputs.prd);
+  const items = itemsOf(inputs.prd, prdSections);
+  const alone = Array.map(
+    Array.filter(unmapped, (found) => !hasCandidates(found)),
+    ({ item }) => item,
+  );
+  const human = Array.filter(unmapped, (found) => reportedOnly(items, found));
+  yield* Effect.forEach(human, (found) => Console.log(humanItemLine(found)), { discard: true });
+  const specSections = sectionsOf(spec);
+  // One question for each candidate of each item that may be mapped.
+  const asked = Array.flatMap(
+    Array.filter(unmapped, (found) => hasCandidates(found) && !reportedOnly(items, found)),
+    ({ candidates, item }: UnmappedItem) =>
+      Array.getSomes(
+        Array.map(candidates, (section: SpecSectionId) =>
+          Option.map(
+            Option.all({
+              item: Array.findFirst(items, (found) => isSection(found, item)),
+              target: Array.findFirst(specSections, (found) => isSection(found, section)),
+            }),
+            ({ item: text, target }) => ({
+              input: {
+                // The title of the heading the item is under; none when that heading has no ID.
+                heading: Option.getOrElse(
+                  Option.flatMap(Option.fromUndefinedOr(text.section), (under) =>
+                    Option.map(
+                      Array.findFirst(prdSections, (found) => isSection(found, under)),
+                      ({ title }) => title,
+                    ),
+                  ),
+                  () => "",
+                ),
+                item: itemSourceOf(inputs.prd, text.line),
+                section: { body: target.body, files: target.keys.files, title: target.title },
+              },
+              item,
+              section,
+            }),
+          ),
+        ),
+      ),
+  );
+  if (Array.isReadonlyArrayEmpty(asked)) {
+    return unchanged(alone);
+  }
+  const maybeJudge = yield* judging(inputs.told);
+  if (Option.isNone(maybeJudge)) {
+    return unchanged(alone);
+  }
+  const outcomes = yield* maybeJudge.value
+    .ask(
+      itemQuestions,
+      Array.map(asked, ({ input, item, section }) => ({ input, label: `${item} → ${section}` })),
+    )
+    .pipe(Effect.catchTag("JudgeError", failedAs([])));
+  const answers = Array.zipWith(asked, outcomes, ({ item, section }, { buildsItem }) => ({
+    answer: yesNoOf(buildsItem, inputs.config.judge),
+    item,
+    probability: Option.getOrElse(
+      Option.map(Result.getSuccess(buildsItem), ({ probability }) => probability),
+      () => 0,
+    ),
+    section,
+  }));
+  const mappings = Array.map(
+    Array.filter(answers, ({ answer }) => answer === "yes"),
+    ({ item, probability, section }): Mapping => ({ item, probability, section }),
+  );
+  // An item is planned when every candidate it was asked about reads no.
+  const refused = Array.filterMap(unmapped, ({ candidates, item }) => {
+    const mine = Array.filter(answers, (answer) => answer.item === item);
+    return Array.isReadonlyArrayNonEmpty(candidates) &&
+      Array.length(mine) === Array.length(candidates) &&
+      Array.every(mine, ({ answer }) => answer === "no")
+      ? Result.succeed(item)
+      : Result.failVoid;
+  });
+  const planned = Array.appendAll(alone, refused);
+  if (Array.isReadonlyArrayEmpty(mappings)) {
+    return unchanged(planned);
+  }
+  const next = Array.reduce(mappings, spec, (text, { item, section }) =>
+    withImplements(text, section, item),
+  );
+  yield* writeCairn("spec.md", next);
+  yield* writeIndex(inputs.prd, manifest, {
+    changed: [],
+    previous: Option.some(index),
+    rehashed: Array.dedupe(Array.map(mappings, ({ section }) => section)),
+    written: [],
+  });
+  yield* Effect.forEach(mappings, (mapping) => Console.log(mappedLine(mapping)), { discard: true });
+  return { mapped: true, planned };
+});
+
+/**
+ * The mapping step of planning again (`spec.planning.again.mapping-items`), run before the
+ * done-when statements so that an item it sends to planning has its statements drafted like any
+ * uncovered PRD section. It reads the spec and index on disk; a run that plans the spec from
+ * nothing, or a part run with no spec yet, maps nothing.
+ */
+const mapStep = Effect.fn("plan.mapStep")(function* (
+  inputs: Inputs,
+  manifest: Option.Option<Manifest>,
+) {
+  const { options, part, prd } = inputs;
+  const existing = yield* optionally(loadSpec);
+  if (options.respec || Option.isNone(existing)) {
+    return NOTHING_MAPPED;
+  }
+  const spec = existing.value;
+  const index = yield* indexFor(part, prd, manifest);
+  return yield* mapItems(
+    inputs,
+    manifest,
+    spec,
+    index,
+    replanFor(part, prd, spec, index, manifest).unmappedItems,
+  );
+});
+
 /** Step 1: writes `spec.md` from the PRD and prints its sections. Returns whether it wrote and how many sections it printed. */
 const specStep = Effect.fn("plan.specStep")(function* (
   inputs: Inputs,
   manifest: Option.Option<Manifest>,
+  items: ItemsMapped,
 ) {
   const { options, part, prd } = inputs;
   const existing = yield* optionally(loadSpec);
@@ -1034,18 +1255,29 @@ const specStep = Effect.fn("plan.specStep")(function* (
   // nothing. A part run with no spec starts one with a heading, because writing the whole spec would
   // plan what was not named.
   const started = Option.isNone(existing);
+  // `mapStep` has already mapped the items given IDs after their section was planned, so the spec
+  // and index read here have the mappings made (`spec.planning.again.mapping-items`).
   const spec = Option.getOrElse(existing, () => specStartOf(prd));
   const index = started ? NO_INDEX : yield* indexFor(part, prd, manifest);
   yield* reportStale(inputs, spec, manifest, index);
   const whole = replanOf(prd, spec, index, manifest);
   const scoped = narrowed(part, whole, prd, spec, index);
   yield* reportMoved(spec, whole, scoped);
-  const replan = yield* withoutCosmetic(inputs, spec, index, scoped);
+  const replan = yield* withoutCosmetic(
+    inputs,
+    spec,
+    index,
+    // A part run's `uncovered` already holds the part's items that are still unmapped, which it
+    // plans as `spec.planning.planning-a-part` says; a mapped item has left it.
+    Struct.evolve(scoped, {
+      uncovered: (uncovered) => Array.dedupe(Array.appendAll(uncovered, items.planned)),
+    }),
+  );
   if (
     Array.isReadonlyArrayEmpty(replan.uncovered) &&
     Array.isReadonlyArrayEmpty(replan.rewritable)
   ) {
-    return { sections: 0, wrote: false };
+    return { sections: 0, wrote: items.mapped };
   }
   const rewriting = Array.filter(index.sections, (entry) =>
     Array.contains(replan.rewritable, entry.id),
@@ -1385,9 +1617,13 @@ export const needsPlanner = Effect.fn("plan.needsPlanner")(function* (options: P
       const indexed = HashSet.fromIterable<string>(
         Array.map(written.sections, (entry) => entry.id),
       );
+      const items = itemsOf(prd, sectionsOf(prd));
       return (
         Array.isReadonlyArrayNonEmpty(replan.uncovered) ||
         Array.isReadonlyArrayNonEmpty(replan.rewritable) ||
+        // An item given an ID after its section was planned may be mapped, which indexes the
+        // section again, or planned. A human item a section may build is only reported.
+        Array.some(replan.unmappedItems, (found) => !reportedOnly(items, found)) ||
         Array.some(specIdsOf(drawn), (id) => !HashSet.has(indexed, id)) ||
         // An answer about a draft edits the PRD, which can make a section need writing again.
         (draftCountOf(prd, Option.map(part, idsOfPart)) > 0 &&
@@ -1457,6 +1693,7 @@ const statementsStep = Effect.fn("plan.statementsStep")(function* (
   prd: string,
   manifest: Option.Option<Manifest>,
   part: Option.Option<Part>,
+  planned: ReadonlyArray<PrdSectionId>,
 ) {
   const spec = yield* optionally(loadSpec);
   // A first plan drafts for every section and item, and planning again for the sections nothing
@@ -1468,7 +1705,10 @@ const statementsStep = Effect.fn("plan.statementsStep")(function* (
         ? Effect.succeedNone
         : Effect.map(indexFor(part, prd, manifest), (index) =>
             Option.some<ReadonlyArray<string>>(
-              replanFor(part, prd, text, index, manifest).uncovered,
+              // The items mapping sends to planning are targets like the uncovered sections.
+              Array.dedupe(
+                Array.appendAll(replanFor(part, prd, text, index, manifest).uncovered, planned),
+              ),
             ),
           ),
   });
@@ -1480,9 +1720,10 @@ const statementsStep = Effect.fn("plan.statementsStep")(function* (
 const planSteps = Effect.fn("plan.planSteps")(function* (
   inputs: Inputs,
   manifest: Option.Option<Manifest>,
+  items: ItemsMapped,
 ) {
   const { options } = inputs;
-  const { sections, wrote: specWritten } = yield* specStep(inputs, manifest);
+  const { sections, wrote: specWritten } = yield* specStep(inputs, manifest, items);
   const toDraft = options.spec ? Option.none() : yield* draftable(inputs, manifest);
   if (Option.isNone(toDraft)) {
     // A manifest on disk keeps its diagram true, so a spec that drifted from it is drawn again.
@@ -1530,8 +1771,13 @@ const steps = Effect.fn("plan.steps")(function* (options: PlanOptions) {
     yield* Effect.forEach(assigned.added, (id) => Console.log(`Added ${id}`), { discard: true });
   }
   const judged = yield* Ref.make<ReadonlyArray<Judgment>>([]);
-  const prd = yield* statementsStep(options, assigned.markdown, manifest, part);
-  const planned = yield* planSteps({ config, judged, options, part, prd, told }, manifest);
+  // Mapping runs before the statements: an item it sends to planning has its statements drafted.
+  const items = yield* mapStep(
+    { config, judged, options, part, prd: assigned.markdown, told },
+    manifest,
+  );
+  const prd = yield* statementsStep(options, assigned.markdown, manifest, part, items.planned);
+  const planned = yield* planSteps({ config, judged, options, part, prd, told }, manifest, items);
   const drafts = draftCountOf(prd, Option.map(part, idsOfPart));
   if (drafts > 0) {
     yield* Console.log(draftWarning(drafts, Option.isSome(part)));
