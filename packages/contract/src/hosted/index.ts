@@ -1,4 +1,5 @@
 export * from "./access.ts";
+export * from "./api.ts";
 export * from "./discussion.ts";
 export * from "./document.ts";
 export * from "./entitlements.ts";

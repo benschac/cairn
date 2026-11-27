@@ -1,0 +1,24 @@
+{
+  "name": "@cairn/hosted",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "effect-tsgo tsc --noEmit"
+  },
+  "dependencies": {
+    "@cairn/contract": "workspace:*",
+    "@effect/sql-d1": "4.1.6",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@alchemy.run/cloudflare": "2.0.0-beta.87",
+    "@cloudflare/vitest-plugin": "1.9.2",
+    "@cloudflare/workers-types": "5.20261125.1",
+    "@effect/vitest": "catalog:",
+    "alchemy": "2.0.0-beta.87",
+    "vitest": "catalog:"
+  }
+}

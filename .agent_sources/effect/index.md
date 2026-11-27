@@ -20,10 +20,11 @@ Read [the source guide](../README.md) before applying examples.
 | @effect/ai-typesafe | 4.1.6 | 4 | 27 | `packages/cli/node_modules/@effect/ai-typesafe/dist` |
 | @effect/platform-browser | 4.1.6 | 17 | 95 | `apps/viewer/node_modules/@effect/platform-browser/dist` |
 | @effect/platform-node | 4.1.6 | 30 | 69 | `node_modules/@effect/platform-node/dist` |
+| @effect/sql-d1 | 4.1.6 | 1 | 8 | `apps/hosted/node_modules/@effect/sql-d1/dist` |
 | @effect/sql-sqlite-node | 4.1.6 | 2 | 11 | `packages/cli/node_modules/@effect/sql-sqlite-node/dist` |
 | @effect/ui | 0.0.0 | 48 | 858 | `apps/viewer/node_modules/@effect/ui/dist` |
 | @effect/ui-kit | 0.0.0 | 48 | 441 | `apps/viewer/node_modules/@effect/ui-kit/dist` |
-| @effect/vitest | 4.1.6 | 1 | 21 | `apps/viewer/node_modules/@effect/vitest/dist` |
+| @effect/vitest | 4.1.6 | 1 | 21 | `apps/hosted/node_modules/@effect/vitest/dist` |
 
 ## effect@4.1.6
 
@@ -602,6 +603,14 @@ Declarations: `node_modules/@effect/platform-node/dist/<module>.d.ts`. Guides: `
 | @effect/platform-node/NodeWorkerRunner | 1 | 13 | Node.js runtime support for workers that serve Effect worker requests. |
 | @effect/platform-node/Undici | 0 | 31 | Re-export of the Undici HTTP client package used by the Node platform. |
 
+## @effect/sql-d1@4.1.6
+
+Declarations: `apps/hosted/node_modules/@effect/sql-d1/dist/<module>.d.ts`. Guides: `apps/hosted/node_modules/@effect/sql-d1/AGENTS.md`, `apps/hosted/node_modules/@effect/sql-d1/ai-docs`, `apps/hosted/node_modules/@effect/sql-d1/README.md`.
+
+| Module | Exports | Lines | Summary |
+| --- | ---: | ---: | --- |
+| @effect/sql-d1/D1Client | 8 | 125 | Cloudflare D1 client implementation for Effect SQL, backed by a Workers `D1Database` binding. |
+
 ## @effect/sql-sqlite-node@4.1.6
 
 Declarations: `packages/cli/node_modules/@effect/sql-sqlite-node/dist/<module>.d.ts`. Guides: `packages/cli/node_modules/@effect/sql-sqlite-node/AGENTS.md`, `packages/cli/node_modules/@effect/sql-sqlite-node/ai-docs`, `packages/cli/node_modules/@effect/sql-sqlite-node/README.md`.
@@ -723,7 +732,7 @@ Declarations: `apps/viewer/node_modules/@effect/ui-kit/dist/<module>.d.ts`. Guid
 
 ## @effect/vitest@4.1.6
 
-Declarations: `apps/viewer/node_modules/@effect/vitest/dist/<module>.d.ts`. Guides: `apps/viewer/node_modules/@effect/vitest/AGENTS.md`, `apps/viewer/node_modules/@effect/vitest/ai-docs`, `apps/viewer/node_modules/@effect/vitest/README.md`.
+Declarations: `apps/hosted/node_modules/@effect/vitest/dist/<module>.d.ts`. Guides: `apps/hosted/node_modules/@effect/vitest/AGENTS.md`, `apps/hosted/node_modules/@effect/vitest/ai-docs`, `apps/hosted/node_modules/@effect/vitest/README.md`.
 
 | Module | Exports | Lines | Summary |
 | --- | ---: | ---: | --- |

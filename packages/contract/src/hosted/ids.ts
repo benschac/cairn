@@ -17,7 +17,7 @@ const UNBIASED = 252;
 const randomPart = (): string => {
   const kept = Array.getSomes(
     Array.map(
-      Array.fromIterable(globalThis.crypto.getRandomValues(new Uint8Array(RANDOM_LENGTH * 4))),
+      Array.fromIterable(crypto.getRandomValues(new Uint8Array(RANDOM_LENGTH * 4))),
       (byte) =>
         byte < UNBIASED ? Array.get(ALPHABET, byte % Array.length(ALPHABET)) : Option.none(),
     ),
