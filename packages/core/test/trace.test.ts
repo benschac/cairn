@@ -85,6 +85,7 @@ const inputOf = (
   events,
   judgments: [],
   manifest,
+  notes: [],
   prd: PRD,
   rollup,
   spec: SPEC,

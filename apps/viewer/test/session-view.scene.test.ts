@@ -312,7 +312,18 @@ it.effect("the top shows the session ID, its notes and the redaction count of ea
       showing(
         sessionOf([prompt], {
           notes: [
-            { at: "2026-11-25T11:00:00.000Z", author: "ben", body: "Looks right.", kind: "review" },
+            {
+              anchor: "/task/t1",
+              at: "2026-11-25T11:00:00.000Z",
+              author: "ben",
+              body: "Looks right.",
+              id: "n_review0001",
+              kind: "review",
+              resolvedAt: null,
+              session: sessionId,
+              status: "open",
+              task: "t1",
+            },
           ],
           redactions: { email: 2, anthropic: 1, github: 0 },
         }),

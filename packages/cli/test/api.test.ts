@@ -13,6 +13,7 @@ import {
   Schema,
   Scope,
   String,
+  Struct,
 } from "effect";
 import { HttpClient, HttpRouter, HttpServerRespondable } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
@@ -356,5 +357,51 @@ layer(Server)("session route", (it) => {
         expect(unknown?.text).toContain("s_missing1");
         expect(reported).toEqual([]);
       }),
+  );
+});
+
+const NOTE = {
+  anchor: "/task/t1",
+  author: "agent:t1",
+  body: "Check the empty case.",
+  kind: "review",
+  resolvedAt: null,
+  status: "open",
+  task: T1,
+} as const;
+
+layer(Server)("notes", (it) => {
+  it.effect("the Trace carries the stored notes, and a new note changes its ETag", () =>
+    Effect.gen(function* () {
+      const store = yield* TraceStore;
+      const before = (yield* getWith({})).response.headers["etag"] ?? "";
+      const note = yield* store.addNote(Struct.assign(NOTE, { session: null }));
+      const { response, text } = yield* getWith({ "if-none-match": before });
+      const trace = yield* Schema.decodeEffect(TraceJson)(text);
+      expect(response.status).toBe(200);
+      expect(response.headers["etag"]).not.toBe(before);
+      expect(trace.notes).toEqual([note]);
+    }),
+  );
+
+  it.effect("a session carries the notes that hang off it and no others", () =>
+    Effect.gen(function* () {
+      const store = yield* TraceStore;
+      yield* store.put({
+        agent: null,
+        endedAt: null,
+        id: sessionId("s_noted01"),
+        log: LOG,
+        model: null,
+        redactions: {},
+        startedAt: null,
+        taskId: T1,
+      });
+      const own = yield* store.addNote(Struct.assign(NOTE, { session: sessionId("s_noted01") }));
+      yield* store.addNote(Struct.assign(NOTE, { session: sessionId("s_other01") }));
+      const { text } = yield* get("/api/sessions/s_noted01");
+      const session = yield* Schema.decodeEffect(Schema.fromJsonString(Session))(text);
+      expect(session.notes).toEqual([own]);
+    }),
   );
 });

@@ -4,6 +4,7 @@ import { Event } from "./events.ts";
 import { PrdSectionId, SectionId, SpecSectionId, StatementId, TaskId, TestId } from "./ids.ts";
 import { Judgment } from "./judgments.ts";
 import { HumanGate, ManifestTask, SectionStatus, Slug } from "./manifest.ts";
+import { Note } from "./note.ts";
 import { SessionId, Sha } from "./trailers.ts";
 
 export const TraceSection = Schema.Struct({
@@ -114,6 +115,8 @@ export const Trace = Schema.Struct({
   baseBranch: Schema.NonEmptyString,
   feature: Slug,
   judgments: Schema.Array(TraceJudgment),
+  /** The notes in `cairn.db`, oldest first; empty in a trace written before notes existed. */
+  notes: Schema.Array(Note).pipe(Schema.withDecodingDefaultKey(emptyArray)),
   prd: TraceDocument,
   sections: Schema.Array(Schema.Struct({ id: SectionId, status: SectionStatus })),
   spec: TraceDocument,

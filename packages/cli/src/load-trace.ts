@@ -19,7 +19,8 @@ const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 /**
  * Everything `traceOf` reads, from the main checkout's `.cairn/` files and from git: the PRD and
  * spec, the manifest, the spec index and events and config when present, and the commits `Git.log`
- * reads for the manifest. No judgments yet, so the Trace has none.
+ * reads for the manifest. No judgments yet, so the Trace has none. Notes are in `cairn.db`, which only
+ * the server reads (`servedTraceInput` in `api.ts`), so these have none.
  */
 export const loadTraceInput = Effect.gen(function* () {
   const git = yield* Git;
@@ -38,6 +39,7 @@ export const loadTraceInput = Effect.gen(function* () {
     events,
     judgments: [],
     manifest,
+    notes: [],
     prd,
     rollup: rollupOf,
     spec,

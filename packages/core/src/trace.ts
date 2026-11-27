@@ -3,6 +3,7 @@ import type {
   IndexedSection,
   Manifest,
   ManifestTask,
+  Note,
   Section,
   SectionId,
   SectionStatus,
@@ -47,6 +48,8 @@ export interface TraceInput {
   /** Each judgment with `stale` already decided by the caller, who recomputes `inputsOf`. */
   readonly judgments: ReadonlyArray<TraceJudgment>;
   readonly manifest: Manifest;
+  /** The notes in `cairn.db`, oldest first. */
+  readonly notes: ReadonlyArray<Note>;
   readonly prd: string;
   readonly rollup: Rollup;
   readonly spec: string;
@@ -142,6 +145,7 @@ export const traceOf = (input: TraceInput): Trace => {
     baseBranch: input.manifest.baseBranch,
     feature: input.manifest.feature,
     judgments: input.judgments,
+    notes: input.notes,
     prd: documentOf(
       PRD_PATH,
       input.prd,

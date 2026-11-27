@@ -82,8 +82,12 @@ where the places are not a database's.
 - `packages/cli/src/trace-store.ts`: the `sessions` table in `cairn.db`, a `Model.Struct`. `redactions` is
   `Model.JsonFromString` and `storedAt` is `Model.GeneratedByApp`, so `SessionRecord` (`jsonCreate`, what
   `put` takes) has no `storedAt`, `StoredSession` (`json`) is what `get` returns, and `insert` and
-  `select` are the row. The tables still to come in `cairn.db` (notes, attempts, allowance snapshots)
-  take the same shape.
+  `select` are the row.
+- `packages/contract/src/note.ts`: the `notes` table, a `Model.Struct` in the contract because the trace and
+  a session carry its `json` variant, `Note`. `id` and `at` are `Model.GeneratedByApp`, so `NoteRecord`
+  (`jsonCreate`, what `cairn note add` hands `TraceStore.addNote`) has neither, and the store extracts
+  `insert`, `update` and `select` for its rows. The tables still to come in `cairn.db` (attempts,
+  allowance snapshots) take the same shape.
 
 ## Traps
 

@@ -1,6 +1,7 @@
 import { Array, Schema } from "effect";
 
 import { TaskId } from "./ids.ts";
+import { Note } from "./note.ts";
 import { SessionId } from "./trailers.ts";
 
 /** A prompt the person gave the agent. `id` is the log line's uuid. */
@@ -46,15 +47,6 @@ export type ToolTurn = typeof ToolTurn.Type;
 export const Turn = Schema.Union([PromptTurn, ReplyTurn, ToolTurn]);
 export type Turn = typeof Turn.Type;
 
-/** Something a person or reviewer attached to a session. */
-export const SessionNote = Schema.Struct({
-  at: Schema.DateTimeUtcFromString,
-  author: Schema.String,
-  body: Schema.String,
-  kind: Schema.Literals(["note", "review", "annotation"]),
-});
-export type SessionNote = typeof SessionNote.Type;
-
 const uniqueTurnIds = Schema.makeFilter<{ readonly turns: ReadonlyArray<Turn> }>(({ turns }) => {
   const ids = Array.map(turns, ({ id }) => id);
   return Array.dedupe(ids).length === ids.length
@@ -69,7 +61,8 @@ const uniqueTurnIds = Schema.makeFilter<{ readonly turns: ReadonlyArray<Turn> }>
 export const Session = Schema.Struct({
   format: Schema.Literals(["claude-code", "unknown"]),
   id: SessionId,
-  notes: Schema.Array(SessionNote),
+  /** The notes that hang off this session (see `spec.sessions.notes`). */
+  notes: Schema.Array(Note),
   redactions: Schema.Record(Schema.String, Schema.Int),
   skipped: Schema.Int,
   taskId: TaskId,

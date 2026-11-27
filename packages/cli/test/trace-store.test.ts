@@ -1,11 +1,12 @@
-import { SessionId, TaskId } from "@cairn/contract";
+import { Note, NoteId, NoteRecord, SessionId, TaskId } from "@cairn/contract";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
-import { Array, DateTime, Effect, FileSystem, Layer, Path, Schema, Struct } from "effect";
+import { Array, DateTime, Effect, FileSystem, Layer, Path, Schema, String, Struct } from "effect";
 import { SqlClient } from "effect/sql";
 import { SqlError } from "effect/sql/SqlError";
 
 import {
+  NoteNotFound,
   SessionNotFound,
   SessionRecord,
   StoredSession,
@@ -78,7 +79,10 @@ it.effect("a database file keeps its sessions, and its migration runs once", () 
     }).pipe(Effect.provide(sqliteClient(filename)));
 
     expect(read).toEqual(Struct.assign(session, { storedAt: DateTime.makeUnsafe(0) }));
-    expect(migrations).toEqual([{ migration_id: 1, name: "init" }]);
+    expect(migrations).toEqual([
+      { migration_id: 1, name: "init" },
+      { migration_id: 2, name: "notes" },
+    ]);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
@@ -102,7 +106,7 @@ it.effect("text with a lone surrogate is refused, not stored changed", () =>
   Effect.gen(function* () {
     const store = yield* TraceStore;
     const error = yield* Effect.flip(
-      store.put(Struct.assign(session, { log: String.fromCharCode(0xd800) })),
+      store.put(Struct.assign(session, { log: globalThis.String.fromCharCode(0xd800) })),
     );
     const missing = yield* Effect.flip(store.get(session.id));
     expect(error).toBeInstanceOf(Schema.SchemaError);
@@ -136,5 +140,81 @@ it.effect("the row holds redactions as JSON text and storedAt as an ISO string",
     expect(rows).toEqual([
       { redactions: '{"anthropic":1}', stored_at: "1970-01-01T00:00:00.000Z" },
     ]);
+  }).pipe(Effect.provide(TraceStore.layerSql.pipe(Layer.provideMerge(sqliteClient(":memory:"))))),
+);
+
+const byId = (notes: ReadonlyArray<Note>) => Array.sortWith(notes, ({ id }) => id, String.Order);
+
+it.effect.prop(
+  "every added note comes back from notes as addNote returned it, with a fresh id and the time",
+  [Schema.Array(NoteRecord)],
+  ([records]) =>
+    Effect.gen(function* () {
+      const store = yield* TraceStore;
+      const added = yield* Effect.forEach(records, store.addNote);
+      const read = yield* store.notes;
+      const now = yield* DateTime.now;
+      expect(byId(read)).toEqual(byId(added));
+      expect(added).toEqual(
+        Array.zipWith(records, added, (record, { id }) => Struct.assign(record, { at: now, id })),
+      );
+      expect(Array.length(Array.dedupe(Array.map(added, ({ id }) => id)))).toBe(
+        Array.length(records),
+      );
+    }).pipe(Effect.provide(TraceStore.layerMemory)),
+);
+
+const review = NoteRecord.make({
+  anchor: "/task/t2/diff/0000000000000000000000000000000000000000/file/src%2Fstore.ts/lines/n40",
+  author: "agent:t2",
+  body: "This reads the **old** column.",
+  kind: "review",
+  resolvedAt: null,
+  session: SessionId.make("s_abc123"),
+  status: "open",
+  task: TaskId.make("t2"),
+});
+
+it("only the store writes a note's id and time", () => {
+  expect(Array.difference(Struct.keys(Note.fields), Struct.keys(NoteRecord.fields))).toEqual([
+    "at",
+    "id",
+  ]);
+});
+
+it.effect("resolving a note sets its status and when, and changes nothing else", () =>
+  Effect.gen(function* () {
+    const store = yield* TraceStore;
+    const added = yield* store.addNote(review);
+    const resolved = yield* store.resolveNote(added.id);
+    const again = yield* store.resolveNote(added.id);
+    const now = yield* DateTime.now;
+    expect(resolved).toEqual(Struct.assign(added, { resolvedAt: now, status: "resolved" }));
+    const read = yield* store.notes;
+    expect(again).toEqual(resolved);
+    expect(read).toEqual([resolved]);
+  }).pipe(Effect.provide(TraceStore.layerMemory)),
+);
+
+it.effect("resolving a note that was never stored is NoteNotFound", () =>
+  Effect.gen(function* () {
+    const store = yield* TraceStore;
+    yield* store.addNote(review);
+    const id = NoteId.make("n_missing0");
+    const error = yield* Effect.flip(store.resolveNote(id));
+    expect(error).toEqual(new NoteNotFound({ id }));
+  }).pipe(Effect.provide(TraceStore.layerMemory)),
+);
+
+it.effect("the notes row holds its times as ISO strings and an unresolved note's as null", () =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    const store = yield* TraceStore;
+    const { id } = yield* store.addNote(review);
+    const rows = yield* sql`select id, at, resolved_at, task, session from notes`.withoutTransform;
+    expect(rows).toEqual([
+      { at: "1970-01-01T00:00:00.000Z", id, resolved_at: null, session: "s_abc123", task: "t2" },
+    ]);
+    expect(id).toMatch(/^n_[a-z0-9]{12}$/u);
   }).pipe(Effect.provide(TraceStore.layerSql.pipe(Layer.provideMerge(sqliteClient(":memory:"))))),
 );

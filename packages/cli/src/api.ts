@@ -10,6 +10,7 @@ import {
   Schema,
   Stream,
   String,
+  Struct,
 } from "effect";
 import { HttpRouter, HttpServerRespondable, HttpServerResponse } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
@@ -162,13 +163,26 @@ const matches = (header: string, etag: string): boolean =>
 const encodeTrace = HttpServerResponse.schemaJson(Trace);
 
 /**
+ * What the server builds the Trace from: the files and git, and the notes in `cairn.db`. A stored
+ * note that does not decode is a defect, as a session's row is in `sessionResponse`.
+ */
+const servedTraceInput = Effect.gen(function* () {
+  const store = yield* TraceStore;
+  const [input, notes] = yield* Effect.all([
+    loadTraceInput,
+    store.notes.pipe(Effect.catchTag("SchemaError", (error) => Effect.die(error))),
+  ]);
+  return Struct.assign(input, { notes });
+});
+
+/**
  * `GET /api/trace` (see `spec.server`): the Trace as JSON with an `ETag` from a hash of its inputs.
  * A request whose `If-None-Match` names that tag gets `304` without the Trace being built. A
  * `.cairn/` file or git that fails is a `500` the server reports.
  */
 export const TraceRoute = HttpRouter.add("GET", "/api/trace", (request) =>
   Effect.gen(function* () {
-    const input = yield* loadTraceInput;
+    const input = yield* servedTraceInput;
     const etag = `"${inputsHashOf(input)}"`;
     const headers = { "cache-control": "no-cache", etag };
     const fresh = Option.exists(
@@ -186,16 +200,17 @@ const SessionParams = Schema.Struct({ id: SessionId });
 const encodeSession = HttpServerResponse.schemaJson(Session);
 
 /**
- * The stored session read by `sessionOf`. Notes are not stored yet (see `spec.sessions.trace-store`),
- * so they are empty. A stored row that does not decode is a defect here: left a `SchemaError`, it
- * would render as the `400` of a malformed request.
+ * The stored session read by `sessionOf`, with the notes that hang off it. A stored row that does
+ * not decode is a defect here: left a `SchemaError`, it would render as the `400` of a malformed
+ * request.
  */
 const sessionResponse = Effect.fn("sessionResponse")(function* (id: SessionId) {
   const store = yield* TraceStore;
-  const { log, redactions, taskId } = yield* store
-    .get(id)
-    .pipe(Effect.catchTag("SchemaError", (error) => Effect.die(error)));
-  return yield* encodeSession(sessionOf(log, { id, notes: [], redactions, taskId }));
+  const [{ log, redactions, taskId }, notes] = yield* Effect.all([store.get(id), store.notes]).pipe(
+    Effect.catchTag("SchemaError", (error) => Effect.die(error)),
+  );
+  const own = Array.filter(notes, (note) => note.session === id);
+  return yield* encodeSession(sessionOf(log, { id, notes: own, redactions, taskId }));
 });
 
 /**

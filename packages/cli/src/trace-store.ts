@@ -1,12 +1,22 @@
-import { SessionId, TaskId } from "@cairn/contract";
+import {
+  Note,
+  NoteId,
+  NoteRecord,
+  Notes,
+  SessionId,
+  TaskId,
+  WellFormedText as Text,
+} from "@cairn/contract";
 import { SqliteClient, SqliteMigrator } from "@effect/sql-sqlite-node";
 import {
+  Array,
   Context,
   DateTime,
   Effect,
   ErrorReporter,
   Layer,
   Path,
+  Random,
   Schema,
   String,
   Struct,
@@ -18,16 +28,7 @@ import type { SqlError } from "effect/sql/SqlError";
 
 import { MainCheckout } from "./main-checkout.ts";
 import { migration as init } from "./migrations/0001_init.ts";
-
-/**
- * Text SQLite can hold. It stores UTF-8, where a lone surrogate becomes U+FFFD, so a string with
- * one would not come back as it went in; the store refuses it instead.
- */
-const Text = Schema.String.check(
-  Schema.makeFilter((text: string) =>
-    String.isWellFormed(text) ? undefined : "text with a lone surrogate cannot be stored as UTF-8",
-  ),
-);
+import { migration as notes } from "./migrations/0002_notes.ts";
 
 /** How many secrets of each kind redaction replaced in a session's log. */
 const Redactions = Schema.Record(Text, Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)));
@@ -62,6 +63,19 @@ export type StoredSession = typeof StoredSession.Type;
 const SessionInsert = Model.extract(Sessions, "insert");
 const SessionRow = Model.extract(Sessions, "select");
 
+/** The `notes` row `addNote` inserts, the row `resolveNote` writes back and the row the reads select. */
+const NoteInsert = Model.extract(Notes, "insert");
+const NoteUpdate = Model.extract(Notes, "update");
+const NoteRow = Model.extract(Notes, "select");
+
+const ID_CHARACTERS = String.split("abcdefghijklmnopqrstuvwxyz0123456789", "");
+
+/** A fresh note id: `n_` and twelve characters of [a-z0-9]. */
+const newNoteId = Effect.map(
+  Effect.forEach(Array.range(1, 12), () => Random.choice(ID_CHARACTERS)),
+  (picks) => NoteId.make(`n_${Array.join(picks, "")}`),
+);
+
 /**
  * No session with this id is stored. Served, it is a `404` with its message, an answer the sessions
  * route owes, so the server does not report it.
@@ -84,6 +98,16 @@ export class SessionNotFound
   override readonly [ErrorReporter.ignore] = true;
 }
 
+/** No note with this id is stored. */
+export class NoteNotFound extends Schema.TaggedError<
+  NoteNotFound,
+  { readonly brand: unique symbol }
+>()("NoteNotFound", { id: NoteId }) {
+  override get message() {
+    return `No note ${this.id} in cairn.db`;
+  }
+}
+
 /** Why the store could not answer: SQLite failed, or a row does not decode. */
 export type TraceStoreError = SqlError | Schema.SchemaError;
 
@@ -100,10 +124,10 @@ export const sqliteClient = (filename: string) =>
 
 /** Runs the migrations that have not run yet. Listed here, so a bundled CLI scans no directory. */
 const migrations = SqliteMigrator.layer({
-  loader: SqliteMigrator.fromRecord({ "0001_init": init }),
+  loader: SqliteMigrator.fromRecord({ "0001_init": init, "0002_notes": notes }),
 });
 
-/** Stores redacted sessions in `.cairn/cairn.db` and reads them back by id. */
+/** Stores redacted sessions and notes in `.cairn/cairn.db` and reads them back. */
 export class TraceStore extends Context.Service<
   TraceStore,
   {
@@ -113,6 +137,12 @@ export class TraceStore extends Context.Service<
     readonly get: (
       id: SessionId,
     ) => Effect.Effect<StoredSession, SessionNotFound | TraceStoreError>;
+    /** Stores a note, giving it a fresh id and the current time, and returns it. */
+    readonly addNote: (note: NoteRecord) => Effect.Effect<Note, TraceStoreError>;
+    /** Marks a note resolved now, changing nothing else, and returns it; a resolved note is returned as it is. */
+    readonly resolveNote: (id: NoteId) => Effect.Effect<Note, NoteNotFound | TraceStoreError>;
+    /** Every stored note, oldest first. */
+    readonly notes: Effect.Effect<ReadonlyArray<Note>, TraceStoreError>;
   }
 >()("@cairn/cli/TraceStore") {
   /** The store on whichever `SqlClient` the environment provides, after its migrations run. */
@@ -144,7 +174,56 @@ export class TraceStore extends Context.Service<
         );
       });
 
-      return TraceStore.of({ get, put });
+      const insertNote = SqlSchema.void({
+        Request: NoteInsert,
+        execute: (row) => sql`insert into notes ${sql.insert(row)}`,
+      });
+
+      const updateNote = SqlSchema.void({
+        Request: NoteUpdate,
+        execute: (row) => sql`update notes set ${sql.update(row, ["id"])} where id = ${row.id}`,
+      });
+
+      const selectNote = SqlSchema.findOneOption({
+        Request: NoteId,
+        Result: NoteRow,
+        execute: (id) => sql`select * from notes where id = ${id}`,
+      });
+
+      const selectNotes = SqlSchema.findAll({
+        Request: Schema.Void,
+        Result: NoteRow,
+        execute: () => sql`select * from notes order by at, id`,
+      });
+
+      const addNote = Effect.fn("TraceStore.addNote")(function* (note: NoteRecord) {
+        const [id, at] = yield* Effect.all([newNoteId, DateTime.now]);
+        const stored: Note = Struct.assign(note, { at, id });
+        yield* insertNote(stored);
+        return stored;
+      });
+
+      const resolveNote = Effect.fn("TraceStore.resolveNote")(function* (id: NoteId) {
+        const found = yield* selectNote(id);
+        const note = yield* Effect.fromOption(found).pipe(
+          Effect.mapError(() => new NoteNotFound({ id })),
+        );
+        if (note.status === "resolved") {
+          return note;
+        }
+        const resolvedAt = yield* DateTime.now;
+        const resolved: Note = Struct.assign(note, { resolvedAt, status: "resolved" as const });
+        yield* updateNote(resolved);
+        return resolved;
+      });
+
+      return TraceStore.of({
+        addNote,
+        get,
+        notes: selectNotes(undefined),
+        put,
+        resolveNote,
+      });
     }),
   ).pipe(Layer.provide(migrations));
 

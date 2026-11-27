@@ -158,6 +158,8 @@ const build = Effect.fn("demo-trace.build")(function* () {
     config: defaultConfig,
     events: yield* decodeEvents(events),
     judgments: [],
+    // Notes are in cairn.db on the machine that wrote them, so the demo carries none.
+    notes: [],
     manifest,
     prd,
     rollup: rollupOf,

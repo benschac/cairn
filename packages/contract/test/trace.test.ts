@@ -45,6 +45,7 @@ it("a minimal trace decodes", () => {
     warnings: [],
   };
   expect(refused(Trace, minimal)).toBe(false);
+  expect(Schema.decodeUnknownSync(Trace)(minimal).notes).toEqual([]);
 });
 
 it.prop(

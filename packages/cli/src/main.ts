@@ -9,6 +9,7 @@ import { initCommand } from "./commands/init.ts";
 import { linkCommand } from "./commands/link.ts";
 import { judgeCommand } from "./commands/judge.ts";
 import { lintCommand } from "./commands/lint.ts";
+import { noteCommand } from "./commands/note.ts";
 import { planCommand } from "./commands/plan.ts";
 import { statusCommand } from "./commands/status.ts";
 import { serveCommand } from "./serve.ts";
@@ -23,6 +24,7 @@ const cairn = Command.make("cairn").pipe(
     judgeCommand,
     linkCommand,
     lintCommand,
+    noteCommand,
     planCommand,
     statusCommand,
     serveCommand,
