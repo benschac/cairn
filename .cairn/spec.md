@@ -770,6 +770,8 @@ The trace builder fills these fields from the attempts (see `spec.status.attempt
 
 Some fields are private: `account`, `allocated` and the fee behind it, and each `AllowanceShare`. `GET /api/trace` serves them, because it only answers on the person's own machine. `cairn status --json` leaves them out unless `--private` is passed. The demo trace is built by `cairn status --json`, so the demo and any shared export carry none of them.
 
+The trace's fields are declared once with `VariantSchema`, with the variants `local`, `shared` and `public` (see `spec.refactors.variant-schemas`). A private field is in `local` only. `GET /api/trace` and `cairn status --json --private` encode the `local` variant and `cairn status --json` encodes `shared`, so no code deletes the private fields one by one.
+
 Tests:
 
 - A trace written before this change decodes with no attempts and an unknown estimate.
@@ -3500,6 +3502,8 @@ Trace += { notes: Array<Note> }
 
 A new migration adds a `notes` table with those columns. Notes hang off the session ID when there is one, and never off the commit.
 
+The table is declared with `Model.Struct`, as the sessions table is (see `spec.refactors.variant-schemas`). `id` and `at` are `Model.GeneratedByApp`, so the note `cairn note add` hands the store has neither, and `Note` is the `json` variant.
+
 - `cairn note add --kind review --author agent:t2 [--session s_x] <link arguments>` stores a note. The body is read from stdin, or from `--body`. The anchor is built from the same arguments as `cairn link` by `stepsOfArgs`, and encoded with `LinkFromPath`. `task` is the link's task step, or else the session's task. It prints the note's ID and its link.
 - `cairn note resolve <id>` sets `resolved`.
 - The server reads the notes into the trace. `Session.notes` becomes the notes whose `session` is that session.
@@ -5819,6 +5823,8 @@ Every launch section's Done-when statements are proved by a test named in one of
 
 The Worker, the viewer and `cairn connect` exchange the shapes defined here. `@cairn/contract/hosted` exports them. The modules import IDs from `../ids.ts` and `../link.ts`, never from `index.ts`.
 
+A record with more than one shape is declared once with `VariantSchema` (see `spec.refactors.variant-schemas`), and each of its shapes below is extracted from that declaration: `Revision`, `RevisionBody` and `SaveInput`; `Document` and `DocumentView`; `Agent` and the row that stores it, whose secret hash is in no variant the API returns; and a comment as a request sends it and as the room keeps it. A field the server sets, such as an ID, an author or a time, is in no variant a request decodes.
+
 ```ts
 // ids.ts: random IDs are 12 characters of [a-z0-9] from crypto.getRandomValues
 WorkspaceId = ^w_[a-z0-9]{12}$
@@ -6414,6 +6420,8 @@ The plan in public. `publicTraceOf(trace)` is what anonymous readers get from a 
 
 Code, agent transcripts and repository access are never part of a public PRD.
 
+`publicTraceOf` encodes the trace with its `public` variant (see `spec.contract.usage-in-the-trace`). The fields it removes are in no `public` variant, and the commit count is a field only `public` has.
+
 What the server enforces, and how:
 
 | Surface           | Enforced by                                                                         |
@@ -6447,6 +6455,8 @@ create table threads (root text primary key, anchor text not null, status text n
 create table comments (id text primary key, thread text not null, author text not null, body text not null, at text not null,
   edited_at text, version integer not null default 1);
 ```
+
+A comment is declared once in the hosted contract (see `spec.hosted-launch.hosted-contract`). Its `id`, `author` and `at` are in no variant a request decodes, so a client cannot claim an author or a time. `version` is in the edit request only, where it names the version the edit was based on; the room sets the stored one.
 
 | Route                                                         | Policy             | Does                                                                                                                                                                                                             |
 | ------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -7013,3 +7023,35 @@ Tests:
 - `init.test.ts`: an init that fails midway, one interrupted midway and one that cannot read `.gitignore` each leave no `.cairn/` and nothing staged. An init that races another keeps the winner's `.cairn/` and `.gitignore` and fails with `AlreadyInitialized`.
 - `plan-dry-run.test.ts` snapshots the recursive listing under the root as well as the bytes, so a staging directory left on disk fails it.
 - `gate.test.ts`: a second check replaces the record with a new inode and the same mode, and leaves no `.write-` entry in `.git`.
+
+### Variant schemas {#spec.refactors.variant-schemas}
+
+- Implements: `prd.refactors.variant-schemas`
+- Files: `packages/contract/src/spec-index.ts`, `packages/contract/test/spec-index.test.ts`, `packages/contract/src/manifest.ts`, `packages/contract/src/task-draft.ts`, `packages/contract/test/task-draft.test.ts`, `packages/core/src/spec-index.ts`, `packages/core/src/lint.ts`, `packages/core/src/index.ts`, `packages/cli/src/planner.ts`, `packages/cli/src/spec-index.ts`, `packages/cli/src/trace-store.ts`, `packages/cli/test/trace-store.test.ts`, `.agent_sources/effect/variant-schemas.md`, `.agent_sources/effect/checklist.md`, `.agent_sources/README.md`
+
+The contract's `spec-index.ts` makes the toolkit for a `spec.json` entry with `VariantSchema.make({ variants: ["entry", "derived", "prose"], defaultVariant: "entry" })`. Each field is `derived`, `FieldOnly(["entry", "derived"])`, or `prose`, `FieldOnly(["entry", "prose"])`. `IndexedSection`, `DerivedSection` and `IndexProse` are extracted from the one declaration, and the contract exports all three: `IndexProse` was a pick in the planner and `DerivedSection` an `Omit` type in core. `specIndexOf` takes an existing entry's prose with `Struct.keys(IndexProse.fields)` instead of a list of names of its own, and lint's `index-drift` compares each derived field with `DerivedSection`'s schema of it.
+
+`manifest.ts` declares a task with the variants `draft` and `manifest`, the default. `branch`, `commits`, `humanGate`, `id`, `orderedAfter`, `parent`, `sessions`, `status` and `worktree` are `byCairn`, `FieldOnly(["manifest"])`. `category`, `dependsOn` and `model` are each a `Field` with a schema for each variant: `category` is required in a draft and optional in the manifest, `dependsOn` is titles in a draft and task IDs in the manifest, and the descriptions written for the model are on the draft's schemas only. `files`, `prdSections`, `reasoning`, `specSections` and `title` are the same in both. `ManifestTask` and `TaskDraft` are extracted from it. `TaskDraft` moves out of `task-draft.ts`, which keeps `TaskDraftsJson`.
+
+`trace-store.ts` declares the `sessions` row with `Model.Struct`. `redactions` is `Model.JsonFromString(Redactions)` and `storedAt` is `Model.GeneratedByApp(Schema.DateTimeUtcFromString)`. `SessionRecord`, what `put` takes, is the `jsonCreate` variant, so it has no `storedAt`. `StoredSession`, what `get` returns, is `json`. `put` inserts the `insert` variant and `get` decodes the `select` variant. The table, its migration and what `put` and `get` take and return are as they were.
+
+`.agent_sources/effect/variant-schemas.md` describes the toolkit, `Model`'s fields for a table, where the pattern does not fit, the traps and the tests. The checklist gains a Schema row, a scan line and a short section, and the README points to the note.
+
+Decisions:
+
+- The variants are named for the places a record goes, and each `FieldOnly` for who fills the field (`derived`, `prose`, `byCairn`), so the declaration reads as the rules.
+- The fields keep the order they had, so what `Schema.encode` writes is unchanged.
+- A description written for the model's prompt stays on the draft's schema of `category`, `dependsOn` and `model`. `files` and `title` share theirs, which are true of a stored task too, so `ManifestTask`'s JSON Schema gains those two and `TaskDraft`'s is unchanged.
+- `storedAt` is `Model.GeneratedByApp`, not `Model.DateTimeInsert`. The store stamps the time in `put`, and `DateTimeInsert`'s insert schema is branded and fills its default only through `makeEffect`, which fails with a `SchemaIssue` rather than the `SchemaError` that `put` reports.
+- The sessions table keeps `Model`'s variant names, and `jsonCreate` is what a caller hands `put`.
+- `TraceTask`, `TraceJudgment` and core's `GitCommit` stay extensions with `Schema.fieldsAssign`, since they only add fields. `StackTask`, git's `Logged`, `Authored` and `Changed`, and core's `StoredSession` stay picks, since each narrows a function's input.
+- The trace's task is not a third variant of a task. It only adds fields, and declaring it beside the task would move `TraceCommit` and `Event` beneath `manifest.ts`.
+- `VariantSchema` and `Model` are imported through `effect/schema`, which the unstable-API diagnostic does not report. The catalog pins `effect`.
+
+The sections still to build say where it applies to them: `spec.contract.usage-in-the-trace`, `spec.hosted-launch.visibility`, `spec.hosted-launch.hosted-contract`, `spec.hosted-launch.discussion` and `spec.sessions.notes`.
+
+Tests:
+
+- The contract's `spec-index.test.ts` names the prose fields and checks that the derived fields and the prose share none and together are the entry. A property decodes each variant from an encoded entry and checks that the two, assigned together, are the entry.
+- `task-draft.test.ts` checks that a manifest task has every field of a draft, and names the fields only Cairn writes.
+- `trace-store.test.ts` checks that only the store writes `storedAt`, and reads the raw row to check that `redactions` is JSON text and `storedAt` an ISO string.
