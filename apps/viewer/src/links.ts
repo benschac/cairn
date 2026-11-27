@@ -321,6 +321,10 @@ const sectionOf = (trace: Trace, id: string): Option.Option<TraceSection> =>
     (section) => section.id === id,
   );
 
+/** A section step names a section of either document, or a list item of the PRD. */
+const isSectionStep = (trace: Trace, id: string): boolean =>
+  Option.isSome(sectionOf(trace, id)) || Array.some(trace.prd.items, (item) => item.id === id);
+
 const deleted = (id: string): Outcome =>
   stops("section-missing", `No section has the ID ${id}: it was deleted.`);
 
@@ -473,8 +477,7 @@ const check = (trace: Trace, loaded: Loaded, carry: Carry, step: Step): Outcome 
             onSome: (marks) => opens(step, Needs.Passage({ marks })),
           }),
       }),
-    section: ({ id }) =>
-      Option.isSome(sectionOf(trace, id)) ? opens(step, Needs.Nothing()) : deleted(id),
+    section: ({ id }) => (isSectionStep(trace, id) ? opens(step, Needs.Nothing()) : deleted(id)),
     segment: ({ root }) =>
       Option.isSome(
         Array.findFirst(
@@ -897,6 +900,8 @@ const STACKS_PANE = "[data-stacks-pane]";
 const prdHeadingSelector = (id: string): string =>
   `[data-prd-pane] [data-section="${id}"]:not([data-title])`;
 
+const itemSelector = (id: string): string => `[data-prd-pane] [data-item="${id}"]`;
+
 const cardSelector = (id: string): string => `[data-spec="${id}"]`;
 
 const chipSelector = stackTaskSelectorOf;
@@ -938,7 +943,9 @@ export const linkTargetsOf = (trace: Trace, step: Step): ReadonlyArray<ScrollTar
     note: () => [],
     passage: ({ section }) => nearest([LINK_PASSAGE_SELECTOR, sectionSelector(section)]),
     section: ({ id }) =>
-      isPrdSection(id) ? targetOf("start", [prdHeadingSelector(id)]) : nearest([cardSelector(id)]),
+      isPrdSection(id)
+        ? targetOf("start", [prdHeadingSelector(id), itemSelector(id)])
+        : nearest([cardSelector(id)]),
     segment: ({ root }) => nearest(boxSelectorsOf(trace, root)),
     stack: ({ root }) => nearest(boxSelectorsOf(trace, root)),
     task: ({ id }) => nearest([chipSelector(id)]),

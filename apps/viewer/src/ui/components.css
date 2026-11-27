@@ -1190,6 +1190,11 @@ li[data-item] > p > .item-note {
   font-size: var(--t-xs);
 }
 
+/* A selection across items quotes their prose alone: what the annotation adds is not in it. */
+li[data-item] > p > :is(.item-note, .item-links, .item-id, [data-links]) {
+  user-select: none;
+}
+
 li[data-item] > p > .item-id {
   margin-left: 6px;
   opacity: 0;

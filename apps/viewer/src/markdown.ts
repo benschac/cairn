@@ -24,6 +24,7 @@ import {
   Option,
   Predicate,
   Record,
+  Result,
   Schema,
   String,
   Struct,
@@ -168,40 +169,51 @@ const stripItemAttribute = (child: PhrasingContent): PhrasingContent =>
  * ID, none for `{#}`. A done-when statement's `{#section#v1}` is not one and is left as written.
  */
 const itemAttributeOf = (node: ListItem): Option.Option<Option.Option<SectionId>> =>
-  Option.flatMap(
-    Option.filter(Array.head(node.children), (first) => first.type === "paragraph"),
-    (first) =>
-      first.type === "paragraph"
-        ? Option.flatMap(Array.last(first.children), (last) =>
-            last.type === "text"
-              ? Option.flatMap(firstGroup(ITEM_ATTRIBUTE_PATTERN)(last.value), (id) =>
-                  String.isEmpty(id)
-                    ? Option.some(Option.none<SectionId>())
-                    : Option.map(Option.liftPredicate(id, isSectionId), Option.some),
-                )
-              : Option.none(),
+  Option.flatMap(Array.last(ownParagraphsOf(node)), (own) =>
+    Option.flatMap(Array.last(own.children), (last) =>
+      last.type === "text"
+        ? Option.flatMap(firstGroup(ITEM_ATTRIBUTE_PATTERN)(last.value), (id) =>
+            String.isEmpty(id)
+              ? Option.some(Option.none<SectionId>())
+              : Option.map(Option.liftPredicate(id, isSectionId), Option.some),
           )
         : Option.none(),
+    ),
   );
 
-/** A list item with its first paragraph's trailing attribute removed. */
+/**
+ * A list item's own paragraphs: the ones before its first block of another kind, such as a nested
+ * list or a fence. Core reads an item's attribute from the end of this text (`itemBlocksOf`).
+ */
+const ownParagraphsOf = (node: ListItem): ReadonlyArray<Paragraph> =>
+  Array.filterMap(
+    Array.takeWhile(node.children, (child) => child.type === "paragraph"),
+    (child) => (child.type === "paragraph" ? Result.succeed(child) : Result.failVoid),
+  );
+
+/**
+ * A list item with its trailing `{#id}` or `{#}` removed from the last of its own paragraphs; an
+ * item without one is as it was.
+ */
 const strippedItem = (node: ListItem): ListItem =>
-  Struct.evolve(node, {
-    children: (children) =>
-      Array.match(children, {
-        onEmpty: () => children,
-        onNonEmpty: Array.modifyHeadNonEmpty((first) =>
-          first.type === "paragraph"
-            ? Struct.evolve(first, {
+  Option.match(itemAttributeOf(node), {
+    onNone: () => node,
+    onSome: () => {
+      const last = Array.length(ownParagraphsOf(node)) - 1;
+      return Struct.evolve(node, {
+        children: Array.map((child, index) =>
+          index === last && child.type === "paragraph"
+            ? Struct.evolve(child, {
                 children: (parts) =>
                   Array.match(parts, {
                     onEmpty: () => parts,
                     onNonEmpty: Array.modifyLastNonEmpty(stripItemAttribute),
                   }),
               })
-            : first,
+            : child,
         ),
-      }),
+      });
+    },
   });
 
 /**
@@ -526,13 +538,19 @@ const paragraphView = <Message>(
   return context.h.p.attrs(block.attributes).children(content);
 };
 
-/** The first block of a list item, with `tail` at the end when it is a paragraph. */
-const firstView = <Message>(
+/** The blocks of a list item, with `tail` at the end of the last of its own paragraphs. */
+const itemBlocksView = <Message>(
   context: RenderContext<Message>,
-  first: ListItem["children"][number],
+  node: ListItem,
   tail: Rendered<Message>,
-): Rendered<Message> =>
-  first.type === "paragraph" ? [paragraphView(context, first, tail)] : render(context, first);
+): Rendered<Message> => {
+  const last = Array.length(ownParagraphsOf(node)) - 1;
+  return Array.flatMap(node.children, (child, index): Rendered<Message> =>
+    child.type === "paragraph" && index === last
+      ? [paragraphView(context, child, tail)]
+      : render(context, child),
+  );
+};
 
 /**
  * A list item. One whose text ends in `{#id}` or `{#}` is shown without it; an `{#id}` that is a
@@ -559,14 +577,7 @@ const itemView = <Message>(context: RenderContext<Message>, node: ListItem) => {
             .children(
               Array.appendAll(
                 leading,
-                Array.matchLeft(stripped.children, {
-                  onEmpty: (): Rendered<Message> => [],
-                  onNonEmpty: (first, rest): Rendered<Message> =>
-                    Array.appendAll(
-                      firstView(context, first, context.itemAnnotation(id)),
-                      renderBlocks(context, rest),
-                    ),
-                }),
+                itemBlocksView(context, stripped, context.itemAnnotation(id)),
               ),
             ),
       });
@@ -672,7 +683,7 @@ const blocksOf = (node: RootContent): ReadonlyArray<OwnedBlock> =>
     Match.discriminators("type")({
       blockquote: (parent) => blocksIn(parent.children),
       list: (parent) => blocksIn(parent.children),
-      listItem: (parent) => blocksIn(parent.children),
+      listItem: (parent) => blocksIn(strippedItem(parent).children),
       paragraph: (paragraph) => Array.fromOption(blockOf(paragraph)),
       table: (table) =>
         Array.flatMap(table.children, (row) =>

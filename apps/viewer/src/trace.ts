@@ -158,11 +158,32 @@ export const isInChain = (chain: Chain, node: Node): boolean =>
     section: ({ id }) => HashSet.has(chain.prd, id) || HashSet.has(chain.spec, id),
     task: ({ id }) => HashSet.has(chain.tasks, id),
   });
-/** The list items a task builds: those in its chain, in document order. */
-export const itemsOfTask = (trace: Trace, id: TaskId): ReadonlyArray<TraceItem> => {
-  const chain = chainOf(trace, { id, kind: "task" });
-  return Array.filter(trace.prd.items, (item) => HashSet.has(chain.prd, item.id));
-};
+/**
+ * The list items a task builds, in document order: the items it names in `prdSections`, and the
+ * items its spec sections' `Implements` keys name, which already hold what they inherit. An
+ * `Implements` that names the section around an item does not cover the item (see
+ * `spec.sections.item-coverage`), so a heading brings none of its items with it.
+ */
+export const itemsOfTask = (trace: Trace, id: TaskId): ReadonlyArray<TraceItem> =>
+  Option.match(
+    Array.findFirst(trace.tasks, (task) => task.id === id),
+    {
+      onNone: () => [],
+      onSome: (task) => {
+        const built = Array.filter(trace.spec.sections, (section) =>
+          Array.some(task.specSections, (spec) => String.Equivalence(spec, section.id)),
+        );
+        const implemented: ReadonlyArray<string> = Array.flatMap(
+          built,
+          (section) => section.keys.implements,
+        );
+        const named = HashSet.fromIterable<string>(
+          Array.appendAll<string, string>(task.prdSections, implemented),
+        );
+        return Array.filter(trace.prd.items, (item) => HashSet.has(named, item.id));
+      },
+    },
+  );
 
 /** The IDs of the items a hovered task builds: they are marked in the PRD. None for any other node. */
 export const markedItemsOf = (

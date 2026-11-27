@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { SectionId } from "@cairn/contract";
+import { PrdSectionId, Quote, SectionId } from "@cairn/contract";
 import { View } from "@effect/ui";
 import { Html, HtmlServer } from "@effect/ui/html";
 import { HtmlScene } from "@effect/ui/html/testing";
@@ -21,6 +21,9 @@ import {
 } from "effect";
 import { expect as assert } from "vitest";
 
+import { indexOf, searchTrace, blockKeyOf } from "../src/search.ts";
+import { passageOf } from "../src/links.ts";
+import { demoTrace } from "../src/demo.ts";
 import {
   documentOf,
   renderMarkdown,
@@ -995,4 +998,83 @@ it("without hooks an item still has its attributes and no annotation", () => {
     Array.findFirst(walk(root), (element) => attr(element, "data-item") === "prd.cli.init"),
   );
   assert(textOf(init)).toBe("init creates the folder.");
+});
+
+const twoParagraphs = Array.join(
+  [
+    "## CLI {#prd.cli}",
+    "",
+    "- First paragraph of the item.",
+    "",
+    "  Second paragraph. {#prd.cli.two}",
+    "",
+    "  - Nested item. {#prd.cli.nested}",
+    "- Attribute in the first of two paragraphs {#prd.cli.early}",
+    "",
+    "  and no attribute at the end.",
+  ],
+  "\n",
+);
+
+it("an item's attribute is read from the end of its own paragraphs, as core reads it", () => {
+  const root = render(twoParagraphs, itemHooks);
+  const found = Array.filter(walk(root), (element) => attr(element, "data-item") !== undefined);
+  // The last of the item's own paragraphs holds the attribute and the annotation, not the first.
+  assert(Array.map(found, (element) => attr(element, "data-item"))).toEqual([
+    "prd.cli.two",
+    "prd.cli.nested",
+  ]);
+  const two = Option.getOrThrow(Array.head(found));
+  const own = Array.filter(
+    children(two),
+    (child) => !Predicate.isString(child) && tagOf(child) === "p",
+  );
+  assert(Array.map(own, textOf)).toEqual([
+    "First paragraph of the item.",
+    "Second paragraph.[note prd.cli.two]",
+  ]);
+  // An attribute that ends only the first of two paragraphs is not at the end of the item's text.
+  const texts = Array.map(listItems(root), (element) => textOf(element));
+  assert(Array.some(texts, String.includes("{#prd.cli.early}"))).toBe(true);
+  assert(Array.some(texts, String.includes("{#prd.cli.two}"))).toBe(false);
+});
+
+const proseOf = (markdown: string, section: string) =>
+  Array.map(
+    Record.get(documentOf(markdown).blocks, section).pipe(Option.getOrElse(() => [])),
+    (block) => block.text,
+  );
+
+it("the prose index holds an item's text without its attribute, as rendered", () => {
+  const texts = proseOf(twoParagraphs, "prd.cli");
+  assert(Array.some(texts, String.includes("{#"))).toBe(true);
+  assert(texts).toContain("Second paragraph.");
+  assert(texts).toContain("Nested item.");
+  assert(Array.some(texts, String.includes("{#prd.cli.two}"))).toBe(false);
+  assert(Array.some(texts, String.includes("{#prd.cli.nested}"))).toBe(false);
+  // The block's key is where its paragraph starts in the source, which stripping the end leaves be.
+  const blocks = Option.getOrThrow(Record.get(documentOf(twoParagraphs).blocks, "prd.cli"));
+  const second = Option.getOrThrow(
+    Array.findFirst(blocks, (block) => block.text === "Second paragraph."),
+  );
+  assert(String.slice(second.offset, second.offset + 16)(twoParagraphs)).toBe("Second paragraph");
+});
+
+it("a selection across two items is a passage, and the attributes are not searchable text", () => {
+  const blocks = Option.getOrThrow(
+    Record.get(documentOf(demoTrace.prd.markdown).blocks, "prd.cli"),
+  );
+  const textOfItem = (word: string) =>
+    Option.getOrThrow(Array.findFirst(blocks, (block) => String.startsWith(word)(block.text))).text;
+  const quote = `${textOfItem("cairn lint")} ${textOfItem("cairn judge")}`;
+  assert(quote).not.toContain("{#");
+  assert(
+    Option.isSome(passageOf(indexOf(demoTrace), PrdSectionId.make("prd.cli"), Quote.make(quote))),
+  ).toBe(true);
+  const hits = searchTrace(demoTrace, "prd.cli.lint");
+  assert(
+    Array.some(hits, (hit) =>
+      Option.exists(blockKeyOf(hit), (key) => String.startsWith("prd:")(key)),
+    ),
+  ).toBe(false);
 });
