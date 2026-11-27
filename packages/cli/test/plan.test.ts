@@ -7,6 +7,7 @@ import {
   ConfigProvider,
   Context,
   Effect,
+  Equal,
   FileSystem,
   Layer,
   Option,
@@ -34,12 +35,14 @@ import {
   UP_TO_DATE,
   WRITE_QUESTION,
 } from "../src/commands/plan.ts";
-import { Judge, JudgeError } from "../src/judge.ts";
+import { inputsOf } from "@cairn/core";
+
+import { Judge, JudgeError, inputHashesOf } from "../src/judge.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { targetName } from "../src/print-judgments.ts";
 import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
-import { scriptedJudge } from "./scripted-judge.ts";
+import { defaults, scriptedJudge } from "./scripted-judge.ts";
 import type { Script } from "./scripted-judge.ts";
 import { stubPlanner } from "./fixtures/stub-planner.ts";
 
@@ -476,8 +479,8 @@ it.effect("with the key set, every section, task and the stack is judged and rec
             "t1 category",
             "t1 model",
             "t1 reasoning",
-            "stack complete",
-            "stack ordered",
+            "t1 ordered",
+            "prd.capture built",
             "stack oneFeature",
           ],
           Order.String,
@@ -486,6 +489,43 @@ it.effect("with the key set, every section, task and the stack is judged and rec
       expect(Array.some(lines, String.includes("judge:"))).toBe(false);
     }),
   ),
+);
+
+it.effect(
+  "every task judgment the plan records has the hash cairn judge computes, so judging again asks nothing",
+  () =>
+    inRepository(
+      Effect.gen(function* () {
+        const { run, text } = yield* setup({ "prd.md": PRD });
+        // Two tasks that share a section and a file and do not depend on each other, so each is
+        // the other's `others` once the stack is ordered.
+        yield* run({
+          drafts: [draft("Add capture", "spec.capture"), draft("Index captures", "spec.capture")],
+          judge: scriptedJudge(),
+          options: { yes: true },
+        });
+        const manifest = yield* manifestIn(text);
+        const recorded = yield* judgmentsIn(text);
+        const prd = yield* text("prd.md");
+        const spec = yield* text("spec.md");
+        const inputs = inputsOf(prd, spec, manifest);
+        expect(Array.map(inputs.tasks, ({ input }) => Array.length(input.others))).toEqual([1, 1]);
+        const hashes = yield* inputHashesOf(inputs, defaults);
+        const tasks = Array.filter(recorded.judgments, ({ target }) => target.kind === "task");
+        expect(Array.length(tasks)).toBeGreaterThan(0);
+        expect(
+          Array.filter(
+            tasks,
+            (judgment) =>
+              !Array.some(
+                hashes,
+                ({ hash, target }) =>
+                  Equal.equals(target, judgment.target) && hash === judgment.inputHash,
+              ),
+          ),
+        ).toEqual([]);
+      }),
+    ),
 );
 
 it.effect(
@@ -571,14 +611,17 @@ it.effect(
         const { lines, result } = yield* run({
           judge: scriptedJudge({
             probability: (title, question) =>
-              title === "" && question === "complete" ? Option.some(0.1) : Option.none(),
+              title === "" && question === "oneFeature" ? Option.some(0.1) : Option.none(),
           }),
           options: { yes: true },
         });
         const manifest = yield* read("manifest.json");
         expect(Result.isSuccess(result)).toBe(true);
         expect(Option.isSome(manifest)).toBe(true);
-        const flagged = Array.findFirstIndex(lines, String.startsWith("stack judge:complete flag"));
+        const flagged = Array.findFirstIndex(
+          lines,
+          String.startsWith("stack judge:oneFeature flag"),
+        );
         const stack = Array.findFirstIndex(lines, (line) => line === "Stack 1");
         expect(Option.isSome(flagged)).toBe(true);
         expect(Option.getOrThrow(flagged)).toBeGreaterThan(Option.getOrThrow(stack));
@@ -594,7 +637,7 @@ it.effect("a dry run counts the flags in its totals and writes nothing", () =>
       const { lines, result } = yield* run({
         judge: scriptedJudge({
           probability: (title, question) =>
-            title === "" && question === "complete" ? Option.some(0.1) : Option.none(),
+            title === "" && question === "oneFeature" ? Option.some(0.1) : Option.none(),
         }),
         options: { dryRun: true },
       });
@@ -645,7 +688,7 @@ it.effect("the judgments of the spec step survive the tasks step in judgments.js
           Array.dedupe(Array.map(second.judgments, ({ target }) => target.kind)),
           Order.String,
         ),
-      ).toEqual(["section", "stack", "task"]);
+      ).toEqual(["prd", "section", "stack", "task"]);
       // A section judged in the first run is kept once, not once per run.
       expect(askedOf(second.judgments)).toEqual(Array.dedupe(askedOf(second.judgments)));
     }),

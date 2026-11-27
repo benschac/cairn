@@ -1,13 +1,18 @@
-import { Config, JudgmentQuestion, Manifest, Reasoning, Slug } from "@cairn/contract";
+import { Config, JudgmentQuestion, Manifest, PrdSectionId, Reasoning, Slug } from "@cairn/contract";
 import { describe, expect, it } from "@effect/vitest";
-import { Array, Match, Option, Record, Schema, String, Struct, pipe } from "effect";
+import { Array, Match, Number, Option, Order, Record, Schema, String, Struct, pipe } from "effect";
 import type { Decision } from "effect/ai";
 
 import {
+  MAX_OTHERS,
+  sectionsOf,
+  PrdSectionJudgingInput,
   SectionJudgingInput,
   StackJudgingInput,
   TaskJudgingInput,
   inputsOf,
+  prdSectionQuestions,
+  prdSectionsBuiltBy,
   sectionQuestions,
   stackQuestions,
   taskQuestions,
@@ -194,6 +199,7 @@ describe("inputsOf", () => {
       Option.some({
         dependsOn: ["Add the store"],
         files: ["src/charge.ts"],
+        others: [],
         prdSections: [{ body: "\nCharge a card.\n", title: "Charges" }],
         specSections: [
           {
@@ -281,7 +287,16 @@ describe("inputsOf", () => {
   );
 
   it.prop("every input encodes with its definition's input schema", [Tasks], ([tasks]) => {
-    const { sections, stack, tasks: taskInputs } = inputsOf(PRD, SPEC, manifestOf(tasks));
+    const {
+      prdSections,
+      sections,
+      stack,
+      tasks: taskInputs,
+    } = inputsOf(PRD, SPEC, manifestOf(tasks));
+    Array.forEach(prdSections, ({ input }) => {
+      expect(() => encodeJson(prdSectionQuestions.input)(input)).not.toThrow();
+    });
+    expect(prdSectionQuestions.input).toBe(PrdSectionJudgingInput);
     Array.forEach(sections, ({ input }) => {
       expect(() => encodeJson(sectionQuestions.input)(input)).not.toThrow();
     });
@@ -294,6 +309,266 @@ describe("inputsOf", () => {
     expect(taskQuestions({ haiku: "small", opus: "large" }, categories).input).toBe(
       TaskJudgingInput,
     );
+  });
+});
+
+/** `tasks` with each title naming its index, so a task's `others` can be read back as IDs. */
+const titled = (tasks: Tasks): Tasks =>
+  Array.map(tasks, (task, index) => Struct.evolve(task, { title: () => `Task ${index}` }));
+
+/** The task ID a title from `titled` names. */
+const idOfTitle = (title: string) => `t${String.replace("Task ", "")(title)}`;
+
+/** Each spec section's `Implements`, inherited ones included, by its ID. */
+const specImplements: Record.ReadonlyRecord<string, ReadonlyArray<string>> = Record.fromEntries(
+  Array.getSomes(
+    Array.map(sectionsOf(SPEC), (section) =>
+      Option.map(
+        Option.fromUndefinedOr(section.id),
+        (id): readonly [string, ReadonlyArray<string>] => [id, section.keys.implements],
+      ),
+    ),
+  ),
+);
+
+/** The PRD IDs a task names or reaches through the spec sections it builds. */
+const implementedBy = (task: Manifest["tasks"][number]): ReadonlyArray<string> =>
+  Array.appendAll<string, string>(
+    task.prdSections,
+    Array.flatMap(task.specSections, (id) =>
+      Option.getOrElse(Record.get(specImplements, id), (): ReadonlyArray<string> => []),
+    ),
+  );
+
+const PRD_HEADINGS = ["prd.billing", "prd.goal", "prd.charges", "prd.refunds"];
+
+/** Every task reached from `start` by `edges`, one step at a time, at most one step per task. */
+const closureOf = (
+  edges: (id: string) => ReadonlyArray<string>,
+  start: string,
+  steps: number,
+): ReadonlyArray<string> =>
+  Array.reduce(
+    Array.makeBy(steps, () => 0),
+    Array.dedupe(edges(start)),
+    (reached) => Array.dedupe(Array.appendAll(reached, Array.flatMap(reached, edges))),
+  );
+
+describe("PRD section inputs", () => {
+  const one = manifestOf([
+    {
+      files: ["src/store.ts"],
+      model: "sonnet",
+      needs: [],
+      prd: ["prd.charges"],
+      reasoning: "medium",
+      spec: ["spec.store"],
+      title: "Add the store",
+    },
+    {
+      files: ["src/charge.ts"],
+      model: "opus",
+      needs: [0],
+      prd: ["prd.goal"],
+      reasoning: "high",
+      spec: ["spec.charge", "spec.gone"],
+      title: "Charge cards",
+    },
+  ]);
+
+  it("gives a PRD section its title, body and each task that implements it, with that task's spec section titles", () => {
+    expect(inputsOf(PRD, SPEC, one).prdSections).toEqual([
+      {
+        id: "prd.goal",
+        input: {
+          body: "\nCharge every customer once a month.\n",
+          tasks: [{ files: ["src/charge.ts"], specSections: ["Charge"], title: "Charge cards" }],
+          title: "Goal",
+        },
+      },
+      {
+        id: "prd.charges",
+        input: {
+          body: "\nCharge a card.\n",
+          tasks: [
+            { files: ["src/store.ts"], specSections: ["Store"], title: "Add the store" },
+            { files: ["src/charge.ts"], specSections: ["Charge"], title: "Charge cards" },
+          ],
+          title: "Charges",
+        },
+      },
+      {
+        id: "prd.refunds",
+        input: {
+          body: "\nRefund a charge.\n",
+          tasks: [{ files: ["src/charge.ts"], specSections: ["Charge"], title: "Charge cards" }],
+          title: "Refunds",
+        },
+      },
+    ]);
+  });
+
+  it("counts a task that names a list item as implementing the section the item is under", () => {
+    const prd = String.replace(
+      "Refund a charge.\n",
+      "Refund a charge.\n\n- Refund part of a charge. {#prd.refunds.partial}\n",
+    )(PRD);
+    // A task that names only the item, and builds a spec section that implements nothing.
+    const itemOnly = Struct.evolve(
+      manifestOf([
+        {
+          files: ["src/partial.ts"],
+          model: "sonnet",
+          needs: [],
+          prd: ["prd.gone"],
+          reasoning: "medium",
+          spec: ["spec.notes"],
+          title: "Refund part of a charge",
+        },
+      ]),
+      {
+        tasks: Array.map((task) =>
+          Struct.evolve(task, {
+            prdSections: () => Array.make(PrdSectionId.make("prd.refunds.partial")),
+          }),
+        ),
+      },
+    );
+    expect(Array.map(inputsOf(prd, SPEC, itemOnly).prdSections, Struct.get("id"))).toEqual([
+      "prd.refunds",
+    ]);
+    expect(prdSectionsBuiltBy(prd, SPEC, itemOnly.tasks)).toEqual(["prd.refunds"]);
+  });
+
+  it.prop(
+    "one input per PRD section that some task implements, in document order, with only those tasks",
+    [Tasks],
+    ([tasks]) => {
+      const manifest = manifestOf(tasks);
+      const buildersOf = (id: string) =>
+        Array.filter(manifest.tasks, (task) => Array.contains(implementedBy(task), id));
+      const expected = Array.filter(PRD_HEADINGS, (id) =>
+        Array.isReadonlyArrayNonEmpty(buildersOf(id)),
+      );
+      const { prdSections } = inputsOf(PRD, SPEC, manifest);
+      expect(Array.map(prdSections, Struct.get("id"))).toEqual(expected);
+      expect(prdSectionsBuiltBy(PRD, SPEC, manifest.tasks)).toEqual(expected);
+      Array.forEach(prdSections, ({ id, input }) => {
+        expect(Array.map(input.tasks, Struct.get("title"))).toEqual(
+          Array.map(buildersOf(id), Struct.get("title")),
+        );
+      });
+    },
+  );
+});
+
+/** Whether two tasks share a spec section, a PRD section or a file. */
+const shares = (a: Manifest["tasks"][number], b: Manifest["tasks"][number]) =>
+  Array.some(a.specSections, (id) => Array.contains(b.specSections, id)) ||
+  Array.some(a.prdSections, (id) => Array.contains(b.prdSections, id)) ||
+  Array.some(a.files, (file) => Array.contains(b.files, file));
+
+/** A task with one shared file and the sections given. */
+const shaped = (
+  spec: Tasks[number]["spec"],
+  prd: Tasks[number]["prd"],
+  needs: Tasks[number]["needs"] = [],
+): Tasks[number] => ({
+  files: ["src/shared.ts"],
+  model: "sonnet",
+  needs,
+  prd,
+  reasoning: "medium",
+  spec,
+  title: "",
+});
+
+describe("a task's others", () => {
+  it.prop(
+    "never hold the task or a task it depends on, directly or not, and hold every other task it shares a section or file with, up to the cap",
+    [Tasks],
+    ([tasks]) => {
+      const manifest = manifestOf(titled(tasks));
+      const steps = Array.length(manifest.tasks);
+      const dependsOn = (id: string): ReadonlyArray<string> =>
+        Option.match(
+          Array.findFirst(manifest.tasks, (task) => task.id === id),
+          { onNone: () => [], onSome: (task) => task.dependsOn },
+        );
+      const { tasks: inputs } = inputsOf(PRD, SPEC, manifest);
+      Array.forEach(Array.zip(inputs, manifest.tasks), ([{ input }, task]) => {
+        const near = closureOf(dependsOn, task.id, steps);
+        const expected = Array.filter(
+          manifest.tasks,
+          (other) =>
+            other.id !== task.id && !Array.contains<string>(near, other.id) && shares(task, other),
+        );
+        const others = Array.map(input.others, ({ title }) => idOfTitle(title));
+        expect(Array.length(others)).toBe(Number.min(Array.length(expected), MAX_OTHERS));
+        expect(
+          Array.every(others, (id) => !Array.contains<string>(near, id) && id !== task.id),
+        ).toBe(true);
+        expect(Array.sort(others, Order.String)).toEqual(
+          Array.sort(Array.map(expected, Struct.get("id")), Order.String),
+        );
+        Array.forEach(input.others, (other) => {
+          expect(other.files).toEqual(
+            Option.getOrThrow(
+              Array.findFirst(manifest.tasks, (each) => each.id === idOfTitle(other.title)),
+            ).files,
+          );
+        });
+      });
+    },
+  );
+
+  it("holds at most ten, those sharing the most first, then in manifest order", () => {
+    const manifest = manifestOf(
+      titled(
+        Array.flatten([
+          [shaped(["spec.store"], ["prd.charges"])],
+          Array.makeBy(11, () => shaped(["spec.notes"], ["prd.goal"])),
+          Array.makeBy(3, () => shaped(["spec.store"], ["prd.goal"])),
+          [shaped(["spec.store"], ["prd.charges"], [0])],
+        ]),
+      ),
+    );
+    const first = Option.getOrThrow(Array.head(inputsOf(PRD, SPEC, manifest).tasks));
+    // t15 depends on t0 and shares the most with it, so it comes first.
+    expect(Array.map(first.input.others, ({ title }) => idOfTitle(title))).toEqual([
+      "t15",
+      "t12",
+      "t13",
+      "t14",
+      "t1",
+      "t2",
+      "t3",
+      "t4",
+      "t5",
+      "t6",
+    ]);
+    expect(MAX_OTHERS).toBe(10);
+  });
+
+  it("holds a task that depends on it, and never a task it depends on, directly or not", () => {
+    // t1 needs t0 and t2 needs t1; all three share a file.
+    const manifest = manifestOf(
+      titled([
+        shaped(["spec.store"], ["prd.charges"]),
+        shaped(["spec.store"], ["prd.charges"], [0]),
+        shaped(["spec.notes"], ["prd.goal"], [1]),
+      ]),
+    );
+    expect(
+      Array.map(inputsOf(PRD, SPEC, manifest).tasks, ({ id, input }) => [
+        id,
+        Array.map(input.others, ({ title }) => idOfTitle(title)),
+      ]),
+    ).toEqual([
+      ["t0", ["t1", "t2"]],
+      ["t1", ["t2"]],
+      ["t2", []],
+    ]);
   });
 });
 
@@ -343,13 +618,15 @@ describe("the questions", () => {
       inScope: ["probability", []],
       matches: ["probability", []],
       model: ["classify", ["haiku", "opus", "sonnet"]],
+      ordered: ["probability", []],
       reasoning: ["rate", Reasoning.literals],
       size: ["rate", SIZE],
     });
+    expect(Record.map(prdSectionQuestions.decisions, shapeOf)).toEqual({
+      built: ["probability", []],
+    });
     expect(Record.map(stackQuestions.decisions, shapeOf)).toEqual({
-      complete: ["probability", []],
       oneFeature: ["probability", []],
-      ordered: ["probability", []],
     });
   });
 
@@ -388,6 +665,7 @@ describe("the questions", () => {
         sectionQuestions,
         taskQuestions(models, categories),
         taskQuestionsWithoutModel,
+        prdSectionQuestions,
         stackQuestions,
       ],
       (definition) => Record.keys<string, Decision.Any>(definition.decisions),
@@ -451,6 +729,7 @@ describe("the questions", () => {
       [
         sectionQuestions.decisions,
         taskQuestions(models, categories).decisions,
+        prdSectionQuestions.decisions,
         stackQuestions.decisions,
       ],
       (all) => Record.values<string, Decision.Any>(all),

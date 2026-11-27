@@ -30,6 +30,7 @@ const unsure = (message: string): Verdicted => ({ message, verdict: "unsure" });
 /** How each question is answered: a probability, a rating that is judged, or a choice. */
 const KIND = {
   buildable: "probability",
+  built: "probability",
   category: "choice",
   complete: "probability",
   faithful: "probability",

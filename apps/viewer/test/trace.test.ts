@@ -189,6 +189,7 @@ it.prop(
             judgment("flag", false, { id: "t1", kind: "task" }),
             judgment("flag", false, { id: specId(0), kind: "section" }),
             judgment("flag", false, { kind: "stack" }),
+            judgment("flag", false, { id: prdId(0), kind: "prd" }),
           ],
         ),
     });
@@ -206,3 +207,15 @@ it.prop(
     });
   },
 );
+
+it("a PRD section's built judgment marks that PRD section and no other node", () => {
+  const trace = Struct.evolve(build({ specs: [[0]], tasks: [{ prd: [0], spec: [0] }] }), {
+    judgments: () => [judgment("flag", false, { id: prdId(0), kind: "prd" })],
+  });
+  expect(
+    Array.map(
+      [sectionNode(prdId(0)), sectionNode(prdId(1)), sectionNode(specId(0)), taskNode("t0")],
+      (node) => Option.map(judgmentMarkOf(trace, node), Struct.get("verdict")),
+    ),
+  ).toEqual([Option.some("flag"), Option.none(), Option.none(), Option.none()]);
+});

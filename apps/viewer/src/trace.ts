@@ -235,10 +235,12 @@ export type JudgmentMark = typeof JudgmentMark.Type;
 
 const isMarkVerdict = Schema.is(MarkVerdict);
 
-/** Whether a judgment is about the node: a section or task judgment with the node's id. */
+/** Whether a judgment is about the node: a spec section, PRD section or task judgment with the node's id. */
 const judges = (target: JudgmentTarget, node: Node): boolean =>
   JudgmentTarget.match(target, {
     draft: () => false,
+    // A PRD section's `built` judgment marks that section.
+    prd: ({ id }) => node.kind === "section" && String.Equivalence(node.id, id),
     // A judgment names a spec section id, a narrower brand than the viewer's SectionId.
     section: ({ id }) => node.kind === "section" && String.Equivalence(node.id, id),
     stack: () => false,
@@ -257,7 +259,7 @@ const markOrder: Order.Order<JudgmentMark> = Order.combine(
   Order.mapInput(Order.Boolean, (mark: JudgmentMark) => mark.stale),
 );
 
-/** The judgments about a node: those whose section or task target has the node's id. */
+/** The judgments about a node: those whose spec section, PRD section or task target has the node's id. */
 export const judgmentsOf = (trace: Trace, node: Node): ReadonlyArray<TraceJudgment> =>
   Array.filter(trace.judgments, (judgment) => judges(judgment.target, node));
 

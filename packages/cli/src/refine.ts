@@ -113,7 +113,11 @@ const sectionInputOf =
     title: section.title,
   });
 
-/** A draft as a task input. Its `dependsOn` already holds titles, or IDs of planned tasks. */
+/**
+ * A draft as a task input. Its `dependsOn` already holds titles, or IDs of planned tasks. It has
+ * no `others`: until `stackOf` orders the drafts nothing says what a draft does not depend on, so
+ * `ordered` waits for `cairn plan`'s fourth checkpoint.
+ */
 const draftInputOf = (
   prd: HashMap.HashMap<string, Section>,
   spec: HashMap.HashMap<string, Section>,
@@ -121,6 +125,7 @@ const draftInputOf = (
 ): TaskJudgingInput => ({
   dependsOn: draft.dependsOn,
   files: draft.files,
+  others: [],
   prdSections: textsOf(prd, draft.prdSections),
   specSections: textsOf(spec, draft.specSections),
   title: draft.title,
@@ -447,7 +452,7 @@ const ofDraft = (judgments: ReadonlyArray<Judgment>, title: string) =>
  *    A section marked `<!-- human -->` is judged and never split. `faithful`, `inScope` and
  *    `buildable` are reported and never acted on.
  * 2. Task size: every draft, then the drafts each split writes. `matches` and `inScope` are
- *    reported and never acted on.
+ *    reported and never acted on. `ordered` is not asked here: it waits for the stack.
  * 3. Routing: every draft's `model` and `reasoning` answers, from the round it was judged in.
  *    Its `category` answer is reported against the draft's category and never changes it.
  */
@@ -477,11 +482,13 @@ export const refineWith = Effect.fn("refineWith")(function* (
     );
     const result = yield* judge.judge(
       {
+        prdSections: [],
         sections,
         stack: PLACEHOLDER_STACK,
         tasks: Array.zipWith(ids, drafts, (id, draft) => ({ id, input: draft.input })),
       },
       { judgments: yield* Ref.get(stack), model: config.judge.model, version: 1 },
+      { asks: (question) => question !== "ordered" },
     );
     yield* Ref.set(
       stack,
@@ -492,6 +499,7 @@ export const refineWith = Effect.fn("refineWith")(function* (
     return Array.filterMap(result.judgments, (judgment) =>
       JudgmentTarget.match(judgment.target, {
         draft: () => Result.failVoid,
+        prd: () => Result.failVoid,
         section: (target) => Result.succeed(inRound(judgment, target)),
         stack: () => Result.failVoid,
         task: ({ id }) =>

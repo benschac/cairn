@@ -6,6 +6,7 @@ import {
   Console,
   Effect,
   FileSystem,
+  Function,
   HashMap,
   Option,
   Path,
@@ -66,6 +67,7 @@ const loadJudgments = Effect.fn("judge.loadJudgments")(function* () {
 const taskOf = (target: JudgmentTarget, manifest: Manifest): Option.Option<ManifestTask> =>
   JudgmentTarget.match(target, {
     draft: () => Option.none(),
+    prd: () => Option.none(),
     section: () => Option.none(),
     stack: () => Option.none(),
     task: ({ id }) => Array.findFirst(manifest.tasks, (task) => task.id === id),
@@ -101,29 +103,41 @@ const reverdicted = (
     : judgment;
 };
 
-/** Where a judgment points: a section or the task's first spec section in `spec.md`, else the manifest. */
+/** A file in `.cairn/` and the ID of the section a judgment points at in it. */
+type Place = readonly [file: "prd.md" | "spec.md", id: string];
+
+/**
+ * Where a judgment points: a spec section, or the task's first spec section, in `spec.md`; a PRD
+ * section's heading in `prd.md`; else the manifest.
+ */
 const placeOf = (
   { target }: Judgment,
   manifest: Manifest,
   lines: HashMap.HashMap<string, number>,
 ): string => {
-  const specSection = JudgmentTarget.match(target, {
-    draft: () => Option.none<string>(),
-    section: ({ id }) => Option.some<string>(id),
-    stack: () => Option.none<string>(),
+  const place = JudgmentTarget.match(target, {
+    draft: () => Option.none<Place>(),
+    prd: ({ id }) => Option.some<Place>(["prd.md", id]),
+    section: ({ id }) => Option.some<Place>(["spec.md", id]),
+    stack: () => Option.none<Place>(),
     task: () =>
-      Option.flatMap(taskOf(target, manifest), ({ specSections }) => Array.head(specSections)),
+      Option.map(
+        Option.flatMap(taskOf(target, manifest), ({ specSections }) => Array.head(specSections)),
+        (id): Place => ["spec.md", id],
+      ),
   });
   return Option.match(
-    Option.flatMap(specSection, (id) => HashMap.get(lines, id)),
-    {
-      onNone: () => `${CAIRN_DIRECTORY}/manifest.json`,
-      onSome: (line) => `${CAIRN_DIRECTORY}/spec.md:${line}`,
-    },
+    Option.flatMap(place, ([file, id]) =>
+      Option.map(HashMap.get(lines, id), (line) => `${CAIRN_DIRECTORY}/${file}:${line}`),
+    ),
+    { onNone: () => `${CAIRN_DIRECTORY}/manifest.json`, onSome: Function.identity },
   );
 };
 
-/** A judgment as `cairn judge` prints it: `file:line judge:<question> <verdict> <message>`. */
+/**
+ * A judgment as `cairn judge` prints it: `file:line judge:<question> <verdict> <message>`. `lines`
+ * holds the line of each section ID in `spec.md` and `prd.md`.
+ */
 export const formatJudgment = (
   judgment: Judgment,
   manifest: Manifest,
@@ -161,9 +175,10 @@ export const judgePlan = Effect.fn("judgePlan")(function* (options: JudgeOptions
   const text = yield* judgmentsText(judgments);
   yield* replaceFile(path.join(root, CAIRN_DIRECTORY, "judgments.json"), text);
 
+  // Spec and PRD IDs have different prefixes, so one map holds the lines of both files.
   const lines = HashMap.fromIterable(
     Array.getSomes(
-      Array.map(sectionsOf(spec), (section) =>
+      Array.map(Array.appendAll(sectionsOf(spec), sectionsOf(prd)), (section) =>
         Option.map(Option.fromUndefinedOr(section.id), (id) => [id, section.line] as const),
       ),
     ),

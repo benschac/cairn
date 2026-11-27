@@ -177,7 +177,11 @@ it.effect("writes judgments.json and prints a line for each flag, none for a pas
       ".cairn/spec.md:3 judge:buildable flag probability 0.1 is below flag 0.3",
     );
     expect(printed).toContain(
-      ".cairn/manifest.json judge:ordered flag probability 0.1 is below flag 0.3",
+      ".cairn/spec.md:3 judge:ordered flag probability 0.1 is below flag 0.3",
+    );
+    expect(printed).toContain(".cairn/prd.md:3 judge:built flag probability 0.1 is below flag 0.3");
+    expect(printed).toContain(
+      ".cairn/manifest.json judge:oneFeature flag probability 0.1 is below flag 0.3",
     );
   }),
 );
@@ -355,4 +359,18 @@ it("prints file:line judge:question verdict message, pointing a task at its firs
       lines,
     ),
   ).toBe(".cairn/manifest.json judge:complete flag probability 0.1 is below flag 0.4");
+  expect(
+    formatJudgment(
+      { ...base, question: "built", target: decodeTarget({ id: "prd.store", kind: "prd" }) },
+      manifest,
+      HashMap.set(lines, "prd.store", 3),
+    ),
+  ).toBe(".cairn/prd.md:3 judge:built flag probability 0.1 is below flag 0.4");
+  expect(
+    formatJudgment(
+      { ...base, question: "built", target: decodeTarget({ id: "prd.gone", kind: "prd" }) },
+      manifest,
+      lines,
+    ),
+  ).toBe(".cairn/manifest.json judge:built flag probability 0.1 is below flag 0.4");
 });
