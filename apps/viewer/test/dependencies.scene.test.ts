@@ -403,3 +403,25 @@ it.effect(
         .toHaveText("Can start now");
     }),
 );
+
+it.effect(
+  "a running task with nothing left to wait on shows its status in Next, not an empty waits on",
+  () =>
+    Effect.gen(function* () {
+      const running = withStatuses(
+        Record.fromIterableWith(Array.prepend(WAITED_ON, OWN), (id) => [
+          id,
+          id === OWN ? ("running" as const) : ("done" as const),
+        ]),
+      );
+      const s = yield* viewerScene(readingOf(running));
+      s.pipe(readerMounted)
+        .click(linksButton(DEPENDENCIES))
+        .expect(nextTask(DEPENDENCIES, OWN))
+        .toHaveAttribute("data-can-start", "false")
+        .expect(nextTask(DEPENDENCIES, OWN))
+        .toHaveText(containing("running"))
+        .expect(nextTask(DEPENDENCIES, OWN))
+        .toHaveText(notContaining("waits on"));
+    }),
+);

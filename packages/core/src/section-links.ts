@@ -3,6 +3,7 @@ import type { End, SectionId, TaskId, TaskStatus } from "@cairn/contract";
 import {
   Array,
   HashSet,
+  MutableHashMap,
   Number,
   Option,
   Order,
@@ -121,23 +122,27 @@ const idsOf = (ends: ReadonlyArray<End>): ReadonlyArray<PrdSectionId> =>
 const samePair = (self: TaskPair, that: TaskPair) =>
   self.task === that.task && self.needs === that.needs;
 
+/** The links of one section or item, with everything the plan shares already worked out. */
+export type SectionLinker = (id: PrdSectionId, transitive?: boolean) => SectionLinks;
+
 /**
- * The links of the PRD section or item `id` (see `spec.status.section-links`). It is pure: what
- * needs what comes from `index`, and `prd` says only what sits under what.
+ * What `sectionLinksOf` reads of the whole plan, worked out once: the tree, the build order, what
+ * each task needs and links to, and which sections each task rolls up to. The function it returns
+ * answers for one section or item at a time, so a reader asking for every heading of a PRD does
+ * the plan-wide work once (see `spec.status.section-links`).
  *
  * A task links directly to the sections and items it names, and to those that the spec sections it
  * builds implement, with what they inherit from the spec sections above them. The section's own
  * tasks are those that roll up to it (see `spec.sections.item-coverage`): a task rolls up to what it
- * names and to the items its spec sections implement, and so to everything above them.
- * It needs each section or item outside it that a task needed by one of its own tasks links to
+ * names and to the items its spec sections implement, and so to everything above them. A section
+ * needs each section or item outside it that a task needed by one of its own tasks links to
  * directly, when that task is not one of its own; `neededBy` is the same the other way.
  */
-export const sectionLinksOf = (
+export const sectionLinkerOf = (
   index: RelationIndex,
   prd: SectionTree,
-  id: PrdSectionId,
-  { statusOf, transitive = false }: SectionLinksOptions,
-): SectionLinks => {
+  statusOf: StatusOf,
+): SectionLinker => {
   const parents = pipe(
     Array.flatten([prd.sections, prd.items, prd.spec]),
     Array.map((entry) =>
@@ -146,7 +151,14 @@ export const sectionLinksOf = (
     Array.getSomes,
     Record.fromEntries,
   );
-  const isInside = (other: string) => Array.contains(chainOf(parents, other), id);
+  // Each ID with the IDs above it, itself included, worked out the first time it is asked for.
+  const chains = MutableHashMap.empty<string, HashSet.HashSet<string>>();
+  const chainSetOf = (id: string): HashSet.HashSet<string> =>
+    Option.getOrElse(MutableHashMap.get(chains, id), () => {
+      const chain = HashSet.fromIterable(chainOf(parents, id));
+      MutableHashMap.set(chains, id, chain);
+      return chain;
+    });
 
   // Every task once: in build order, then the tasks in a cycle.
   const all: ReadonlyArray<TaskId> = Array.appendAll(
@@ -156,11 +168,20 @@ export const sectionLinksOf = (
   const ranks = Record.fromEntries(Array.map(all, (task, at) => [task, at] as const));
   const rankOf = (task: TaskId) =>
     Option.getOrElse(Record.get(ranks, task), () => Array.length(all));
-  const tasksAt = (ids: ReadonlyArray<string>) =>
-    Array.dedupe(Array.filter(all, (task) => Array.contains(ids, task)));
-  const needsOf = (task: TaskId) => tasksAt(Array.map(index.out(task, "needs"), ({ to }) => to.id));
-  const neededByOf = (task: TaskId) =>
-    tasksAt(Array.map(index.into(task, "needs"), ({ from }) => from.id));
+  const tableOf = <A>(of: (task: TaskId) => A) =>
+    Record.fromEntries(Array.map(all, (task) => [task, of(task)] as const));
+  const tasksAt = (ids: HashSet.HashSet<string>) =>
+    Array.filter(all, (task) => HashSet.has(ids, task));
+  const needsTable = tableOf((task) =>
+    tasksAt(HashSet.fromIterable(Array.map(index.out(task, "needs"), ({ to }) => to.id))),
+  );
+  const neededByTable = tableOf((task) =>
+    tasksAt(HashSet.fromIterable(Array.map(index.into(task, "needs"), ({ from }) => from.id))),
+  );
+  const needsOf = (task: TaskId): ReadonlyArray<TaskId> =>
+    Option.getOrElse(Record.get(needsTable, task), () => []);
+  const neededByOf = (task: TaskId): ReadonlyArray<TaskId> =>
+    Option.getOrElse(Record.get(neededByTable, task), () => []);
 
   const namedOf = (task: TaskId) => Array.map(index.out(task, "names"), ({ to }) => to);
   /** What the spec sections `task` builds implement, with what they inherit from the ones above. */
@@ -172,137 +193,145 @@ export const sectionLinksOf = (
     );
   // A link's other end is any section or item a task links to directly. A section's own tasks
   // follow the rollup: a task rolls up to what it names, and to the items, not the headings, that
-  // its spec sections implement.
-  const targets = Record.fromEntries(
-    Array.map(
-      all,
-      (task) => [task, idsOf(Array.appendAll(namedOf(task), implementedOf(task)))] as const,
-    ),
-  );
-  const rolled = Record.fromEntries(
-    Array.map(
-      all,
-      (task) =>
-        [
-          task,
-          idsOf(
-            Array.appendAll(
-              namedOf(task),
-              Array.filter(implementedOf(task), ({ kind }) => kind === "item"),
-            ),
+  // its spec sections implement, and so to everything above those.
+  const targets = tableOf((task) => idsOf(Array.appendAll(namedOf(task), implementedOf(task))));
+  const rolledUnder = tableOf((task) =>
+    HashSet.fromIterable(
+      Array.flatMap(
+        idsOf(
+          Array.appendAll(
+            namedOf(task),
+            Array.filter(implementedOf(task), ({ kind }) => kind === "item"),
           ),
-        ] as const,
+        ),
+        (rolled) => chainOf(parents, rolled),
+      ),
     ),
   );
   const targetsOf = (task: TaskId): ReadonlyArray<PrdSectionId> =>
     Option.getOrElse(Record.get(targets, task), () => []);
+  const nextOf = tableOf((task): NextTask => ({
+    canStart: index.canStart(task, statusOf),
+    task,
+    waitsOn: index.waitsOn(task, statusOf),
+  }));
 
-  const own = Array.filter(all, (task) =>
-    Array.some(
-      Option.getOrElse(Record.get(rolled, task), () => []),
-      isInside,
-    ),
-  );
-  const ownSet = HashSet.fromIterable(own);
-  const isOwn = (task: TaskId) => HashSet.has(ownSet, task);
-
-  /**
-   * The steps along `step` from the section's own tasks to a task that is not one of them; with
-   * `transitive`, also every step between the tasks that `reach` gives from its own tasks.
-   */
-  const edgesOf = (
-    step: (task: TaskId) => ReadonlyArray<TaskId>,
-    reach: (task: TaskId) => ReadonlyArray<TaskId>,
-    further: boolean,
-  ): ReadonlyArray<Edge> => {
-    const reached = further
-      ? HashSet.fromIterable(Array.filter(Array.flatMap(own, reach), (task) => !isOwn(task)))
-      : HashSet.empty<TaskId>();
-    const isFar = (task: TaskId) => (further ? HashSet.has(reached, task) : !isOwn(task));
-    const nears: ReadonlyArray<TaskId> = Array.appendAll(
-      own,
-      Array.filter(all, (task) => HashSet.has(reached, task)),
+  return (id, transitive = false) => {
+    const isInside = (other: string) => HashSet.has(chainSetOf(other), id);
+    const own = Array.filter(all, (task) =>
+      Option.exists(Record.get(rolledUnder, task), (under) => HashSet.has(under, id)),
     );
-    return Array.flatMap(nears, (near) =>
-      Array.map(Array.filter(step(near), isFar), (far): Edge => ({ far, near })),
-    );
-  };
+    const ownSet = HashSet.fromIterable(own);
+    const isOwn = (task: TaskId) => HashSet.has(ownSet, task);
 
-  const foundOf = (edges: ReadonlyArray<Edge>, pairOf: (edge: Edge) => TaskPair) =>
-    pipe(
-      Array.flatMap(edges, (edge) =>
-        Array.map(
-          Array.filter(targetsOf(edge.far), (target) => !isInside(target)),
-          (target) => ({ edge, target }),
-        ),
-      ),
-      Array.groupBy(({ target }) => target),
-      Record.values,
-      Array.map((entries): Found => {
-        const far = Array.dedupe(Array.map(entries, ({ edge }) => edge.far));
-        return {
-          far,
-          first: Array.reduce(far, Array.length(all), (least, task) =>
-            Number.min(least, rankOf(task)),
+    /**
+     * The steps along `step` from the section's own tasks to a task that is not one of them; with
+     * `transitive`, also every step between the tasks that `reach` gives from its own tasks.
+     */
+    const edgesOf = (
+      step: (task: TaskId) => ReadonlyArray<TaskId>,
+      reach: (task: TaskId) => ReadonlyArray<TaskId>,
+      further: boolean,
+    ): ReadonlyArray<Edge> => {
+      const reached = further
+        ? HashSet.fromIterable(Array.filter(Array.flatMap(own, reach), (task) => !isOwn(task)))
+        : HashSet.empty<TaskId>();
+      const isFar = (task: TaskId) => (further ? HashSet.has(reached, task) : !isOwn(task));
+      const nears: ReadonlyArray<TaskId> = Array.appendAll(
+        own,
+        Array.filter(all, (task) => HashSet.has(reached, task)),
+      );
+      return Array.flatMap(nears, (near) =>
+        Array.map(Array.filter(step(near), isFar), (far): Edge => ({ far, near })),
+      );
+    };
+
+    const foundOf = (edges: ReadonlyArray<Edge>, pairOf: (edge: Edge) => TaskPair) =>
+      pipe(
+        Array.flatMap(edges, (edge) =>
+          Array.map(
+            Array.filter(targetsOf(edge.far), (target) => !isInside(target)),
+            (target) => ({ edge, target }),
           ),
-          link: {
-            id: Array.headNonEmpty(entries).target,
-            pairs: Array.sort(
-              Array.dedupeWith(
-                Array.map(entries, ({ edge }) => pairOf(edge)),
-                samePair,
+        ),
+        Array.groupBy(({ target }) => target),
+        Record.values,
+        Array.map((entries): Found => {
+          const far = Array.dedupe(Array.map(entries, ({ edge }) => edge.far));
+          return {
+            far,
+            first: Array.reduce(far, Array.length(all), (least, task) =>
+              Number.min(least, rankOf(task)),
+            ),
+            link: {
+              id: Array.headNonEmpty(entries).target,
+              pairs: Array.sort(
+                Array.dedupeWith(
+                  Array.map(entries, ({ edge }) => pairOf(edge)),
+                  samePair,
+                ),
+                PairOrder,
               ),
-              PairOrder,
-            ),
-            via: Option.none(),
-          },
-        };
-      }),
-      (found) => Array.sort(found, FoundOrder),
+              via: Option.none(),
+            },
+          };
+        }),
+        (found) => Array.sort(found, FoundOrder),
+      );
+
+    const sideOf = (
+      step: (task: TaskId) => ReadonlyArray<TaskId>,
+      reach: (task: TaskId) => ReadonlyArray<TaskId>,
+      pairOf: (edge: Edge) => TaskPair,
+    ): ReadonlyArray<SectionLink> => {
+      const direct = foundOf(edgesOf(step, reach, false), pairOf);
+      const leadsTo = (from: TaskId, to: TaskId) => from === to || Array.contains(reach(from), to);
+      const viaOf = (found: Found) =>
+        Array.some(direct, ({ link }) => link.id === found.link.id)
+          ? Option.none()
+          : Option.map(
+              Array.findFirst(direct, (through) =>
+                Array.some(through.far, (from) => Array.some(found.far, (to) => leadsTo(from, to))),
+              ),
+              ({ link }) => link.id,
+            );
+      return transitive
+        ? Array.map(foundOf(edgesOf(step, reach, true), pairOf), (found) =>
+            Struct.evolve(found.link, { via: () => viaOf(found) }),
+          )
+        : Array.map(direct, ({ link }) => link);
+    };
+
+    const unfinished = Array.getSomes(
+      Array.map(
+        Array.filter(own, (task) => !Array.contains(FINISHED, statusOf(task))),
+        (task) => Record.get(nextOf, task),
+      ),
     );
-
-  const sideOf = (
-    step: (task: TaskId) => ReadonlyArray<TaskId>,
-    reach: (task: TaskId) => ReadonlyArray<TaskId>,
-    pairOf: (edge: Edge) => TaskPair,
-  ): ReadonlyArray<SectionLink> => {
-    const direct = foundOf(edgesOf(step, reach, false), pairOf);
-    const leadsTo = (from: TaskId, to: TaskId) => from === to || Array.contains(reach(from), to);
-    const viaOf = (found: Found) =>
-      Array.some(direct, ({ link }) => link.id === found.link.id)
-        ? Option.none()
-        : Option.map(
-            Array.findFirst(direct, (through) =>
-              Array.some(through.far, (from) => Array.some(found.far, (to) => leadsTo(from, to))),
-            ),
-            ({ link }) => link.id,
-          );
-    return transitive
-      ? Array.map(foundOf(edgesOf(step, reach, true), pairOf), (found) =>
-          Struct.evolve(found.link, { via: () => viaOf(found) }),
-        )
-      : Array.map(direct, ({ link }) => link);
-  };
-
-  const unfinished = Array.map(
-    Array.filter(own, (task) => !Array.contains(FINISHED, statusOf(task))),
-    (task): NextTask => ({
-      canStart: index.canStart(task, statusOf),
-      task,
-      waitsOn: index.waitsOn(task, statusOf),
-    }),
-  );
-  const [ready, waiting] = Array.partition(unfinished, (task) =>
-    task.canStart ? Result.succeed(task) : Result.fail(task),
-  );
-  return {
-    neededBy: sideOf(neededByOf, index.neededByAll, ({ far, near }) => ({
-      needs: near,
-      task: far,
-    })),
-    needs: sideOf(needsOf, index.needsAll, ({ far, near }) => ({ needs: far, task: near })),
-    next: Array.appendAll(ready, waiting),
-    ready: Array.length(ready),
-    tasks: own,
+    const [ready, waiting] = Array.partition(unfinished, (task) =>
+      task.canStart ? Result.succeed(task) : Result.fail(task),
+    );
+    return {
+      neededBy: sideOf(neededByOf, index.neededByAll, ({ far, near }) => ({
+        needs: near,
+        task: far,
+      })),
+      needs: sideOf(needsOf, index.needsAll, ({ far, near }) => ({ needs: far, task: near })),
+      next: Array.appendAll(ready, waiting),
+      ready: Array.length(ready),
+      tasks: own,
+    };
   };
 };
+
+/**
+ * The links of the PRD section or item `id` (see `spec.status.section-links` and
+ * `sectionLinkerOf`). It is pure: what needs what comes from `index`, and `prd` says only what
+ * sits under what. A caller asking for many sections builds one `sectionLinkerOf` instead.
+ */
+export const sectionLinksOf = (
+  index: RelationIndex,
+  prd: SectionTree,
+  id: PrdSectionId,
+  { statusOf, transitive = false }: SectionLinksOptions,
+): SectionLinks => sectionLinkerOf(index, prd, statusOf)(id, transitive);

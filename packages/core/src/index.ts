@@ -69,7 +69,9 @@ export {
   type StatusOf,
 } from "./relation-index.ts";
 export {
+  sectionLinkerOf,
   sectionLinksOf,
+  type SectionLinker,
   type NextTask,
   type SectionLink,
   type SectionLinks,

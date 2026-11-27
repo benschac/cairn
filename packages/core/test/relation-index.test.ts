@@ -12,9 +12,9 @@ import {
 } from "@cairn/contract";
 import type { Relation, RelationKind, TraceSection } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, Option, Record, Schema, Struct, pipe } from "effect";
+import { Array, Option, Record, Schema, String, Struct, pipe } from "effect";
 
-import { indexOf } from "../src/index.ts";
+import { indexOf, keyEntriesOf, sectionsOf } from "../src/index.ts";
 import type { IndexTask, RelationIndex, RelationSource, StatusOf } from "../src/index.ts";
 
 const repo = (path: string) => readFileSync(new URL(`../../../${path}`, import.meta.url), "utf8");
@@ -434,4 +434,42 @@ it("an item end is an item, and a name that does not exist dangles", () => {
   expect(
     Record.fromEntries(Array.map(index.dangling, ({ kind, to }) => [kind, to.id] as const)),
   ).toEqual({ builds: "spec.s1", names: "prd.gone", needs: "t6" });
+});
+
+/** The values a section's own key lines list under `key`. */
+const ownValues = (section: { readonly body: string }, key: string) =>
+  Array.flatMap(keyEntriesOf(String.split(section.body, "\n")), ([name, values]) =>
+    name === key ? values : [],
+  );
+
+it("reads each spec section's own Implements and Depends on from this repo's spec as sectionsOf does", () => {
+  const markdown = repo(".cairn/spec.md");
+  const index = indexOf({
+    trace: { prd: { items: [], sections: [], statements: [] }, spec: { markdown }, tasks: [] },
+  });
+  /** Every end the index read for `id` and `kind`, the ones that dangle included. */
+  const read = (id: string, kind: RelationKind) =>
+    Array.map(
+      Array.appendAll(
+        index.out(id, kind),
+        Array.filter(
+          index.dangling,
+          (relation) => relation.kind === kind && relation.from.id === id,
+        ),
+      ),
+      ({ to }) => to.id,
+    );
+  const sections = Array.filter(sectionsOf(markdown), (section) =>
+    Schema.is(SpecSectionId)(section.id),
+  );
+  expect(Array.length(sections)).toBeGreaterThan(100);
+  Array.forEach(sections, (section) => {
+    const id = String.isString(section.id) ? section.id : "";
+    expect(read(id, "implements")).toEqual(
+      Array.filter(ownValues(section, "Implements"), Schema.is(PrdSectionId)),
+    );
+    expect(read(id, "dependsOn")).toEqual(
+      Array.filter(ownValues(section, "Depends on"), Schema.is(SpecSectionId)),
+    );
+  });
 });
