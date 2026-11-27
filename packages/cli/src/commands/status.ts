@@ -1,6 +1,6 @@
 import { TaskId, Trace } from "@cairn/contract";
-import type { Manifest, ManifestTask, TraceTask } from "@cairn/contract";
-import { stacksOf, traceOf } from "@cairn/core";
+import type { Manifest, TraceTask } from "@cairn/contract";
+import { traceOf } from "@cairn/core";
 import {
   Array,
   Console,
@@ -147,38 +147,32 @@ export const refreshSnapshot = Effect.fn("status.refreshSnapshot")(function* (
   return true;
 });
 
-/** The tasks a task waits on that sit in another stack and have not landed: it cannot start until they do. */
-const waitsFor = (tasks: ReadonlyArray<ManifestTask>) => {
-  const stackOfTask = Record.fromEntries(
-    Array.flatMap(stacksOf(tasks), (stack) =>
-      Array.map(Record.keys(stack.cells), (id) => [id, stack.root] as const),
-    ),
-  );
-  const statuses = Record.fromIterableWith(tasks, (task) => [task.id, task.status] as const);
-  return (task: ManifestTask): Option.Option<string> => {
-    const blocking = Array.filter(
-      task.dependsOn,
-      (id) =>
-        !Equal.equals(Record.get(stackOfTask, id), Record.get(stackOfTask, task.id)) &&
-        Option.exists(Record.get(statuses, id), (status) => status !== "landed"),
-    );
-    return Array.match(blocking, {
-      onEmpty: Option.none,
-      onNonEmpty: (ids) => Option.some(`waits for ${Array.join(ids, ", ")} to land`),
-    });
-  };
-};
+/**
+ * What the relation index says of a task (see `spec.status.answers-from-the-index`): `can start`,
+ * or `waits on t94, t95` for an unfinished task with unfinished needs; nothing otherwise.
+ */
+const readinessOf = (task: Pick<TraceTask, "canStart" | "waitsOn">): Option.Option<string> =>
+  task.canStart
+    ? Option.some("can start")
+    : Array.match(task.waitsOn, {
+        onEmpty: Option.none,
+        onNonEmpty: (ids) => Option.some(`waits on ${Array.join(ids, ", ")}`),
+      });
 
 const encodeTrace = Schema.encodeSync(Schema.fromJsonString(Trace, { space: 2 }));
 
 /** The text of `cairn status`: each stack as a tree, then one line per warning. */
 export const statusLines = (trace: Trace): ReadonlyArray<string> => {
+  const traced = Record.fromIterableBy(trace.tasks, (task) => task.id);
   const tasks = Array.map(trace.tasks, (task) =>
     // The effective gate: `derive` finds gates a manifest's `humanGate` does not have.
     Struct.assign(task, { commits: shasOf(task.commits), humanGate: task.gate }),
   );
   return Array.appendAll(
-    stackLines(tasks, { branch: true, note: waitsFor(tasks) }),
+    stackLines(tasks, {
+      branch: true,
+      note: (task) => Option.flatMap(Record.get(traced, task.id), readinessOf),
+    }),
     Array.map(trace.warnings, (warning) => `warning: ${warning.message}`),
   );
 };

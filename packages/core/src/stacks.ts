@@ -6,13 +6,16 @@ import {
   MutableHashSet,
   Number,
   Option,
-  Order,
   Record,
   Schema,
   String,
   Struct,
   pipe,
 } from "effect";
+
+import { indexOf } from "./relation-index.ts";
+import type { RelationIndex } from "./relation-index.ts";
+import { TaskIdOrder } from "./task-order.ts";
 
 /** The part of a task the stacks read. A `TraceTask` fits. */
 export const StackTask = ManifestTask.mapFields(
@@ -40,10 +43,7 @@ export const Stack = Schema.Struct({
 });
 export type Stack = typeof Stack.Type;
 
-/** Orders task ids by their number, so `t2` comes before `t10`. */
-export const TaskIdOrder: Order.Order<TaskId> = Order.make((self, that) =>
-  String.localeCompare(that, ["en"], { numeric: true })(self),
-);
+export { TaskIdOrder };
 
 /** `Stack N · area`, or `Stack N` for a root with no spec section: the diagram's subgraph label. */
 export const labelOf = (stack: Stack): string =>
@@ -70,11 +70,15 @@ const areaOf = (task: StackTask): Option.Option<string> =>
  * in id order, starts the column after the last one used by its elder siblings and everything
  * built on them. So the columns under any task are one unbroken run.
  *
- * A stack waits on another when one of its tasks depends on a task in the other. Its level is 1
+ * A stack waits on another when one of its tasks needs a task in the other, as `index` says (see
+ * `spec.status.answers-from-the-index`); by default the index is built from `tasks`. Its level is 1
  * when it waits on nothing, otherwise one more than the highest level among the stacks it waits
  * on. A dependency that names no task, or that would close a cycle between stacks, is ignored.
  */
-export const stacksOf = (tasks: ReadonlyArray<StackTask>): ReadonlyArray<Stack> => {
+export const stacksOf = (
+  tasks: ReadonlyArray<StackTask>,
+  index: Pick<RelationIndex, "out"> = indexOf({ tasks }),
+): ReadonlyArray<Stack> => {
   const sorted = Array.dedupeWith(
     Array.sortWith(tasks, (task) => task.id, TaskIdOrder),
     (self: StackTask, that: StackTask) => self.id === that.id,
@@ -163,17 +167,17 @@ export const stacksOf = (tasks: ReadonlyArray<StackTask>): ReadonlyArray<Stack> 
 
   const roots = Array.filter(sorted, (task) => Option.isNone(parentOf(task)));
   const members = Array.groupBy(sorted, (task) => Array.headNonEmpty(lineageOf(task)).id);
-  const rootIdOf = Record.fromIterableWith(sorted, (task) => [
-    task.id,
-    Array.headNonEmpty(lineageOf(task)).id,
-  ]);
+  const rootIdOf: Record.ReadonlyRecord<string, TaskId> = Record.fromIterableWith(
+    sorted,
+    (task) => [task.id, Array.headNonEmpty(lineageOf(task)).id],
+  );
 
   /** The roots of the stacks a stack waits on, without its own. */
   const waitsOn = (root: TaskId): ReadonlyArray<TaskId> =>
     pipe(
       Option.getOrElse(Record.get(members, root), () => Array.empty<StackTask>()),
-      Array.flatMap((task) => task.dependsOn),
-      Array.map((dependency) => Record.get(rootIdOf, dependency)),
+      Array.flatMap((task) => index.out(task.id, "needs")),
+      Array.map(({ to }) => Record.get(rootIdOf, to.id)),
       Array.getSomes,
       Array.filter((other) => other !== root),
       Array.dedupe,
@@ -196,7 +200,7 @@ export const stacksOf = (tasks: ReadonlyArray<StackTask>): ReadonlyArray<Stack> 
       return level;
     });
 
-  return Array.map(roots, (root, index) => {
+  return Array.map(roots, (root, at) => {
     const own = Option.getOrElse(Record.get(members, root.id), () => Array.empty<StackTask>());
     const columns = Record.fromEntries(placeFrom(root, 1).columns);
     return {
@@ -210,7 +214,7 @@ export const stacksOf = (tasks: ReadonlyArray<StackTask>): ReadonlyArray<Stack> 
         },
       ]),
       level: levelOf(root.id),
-      number: index + 1,
+      number: at + 1,
       root: root.id,
     };
   });

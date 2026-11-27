@@ -29,6 +29,7 @@ import { initialTransition, transition } from "xstate";
 import type { SnapshotFrom } from "xstate";
 
 import { gateOf } from "./gates.ts";
+import { indexOf } from "./relation-index.ts";
 import type { GateConfig, GateItem } from "./gates.ts";
 import { statusOf, taskMachine } from "./task-machine.ts";
 
@@ -314,7 +315,8 @@ const below = (
  * `land` is sent when `baseBranch` reaches a commit with its trailer, whatever the status. What the
  * machine ignores, an event or trailer for a task the manifest does not have, a commit on a task
  * branch without trailers and a gated task that landed without approval are warnings, never errors. A `pending` task with a
- * `blocked_on_human` task below it is `waiting`. `items` are the list items of the PRD, which gate a task that names or implements a human one.
+ * `blocked_on_human` task below it is `waiting`. Whether a task can start, what it waits on and
+ * what waits on it come from the relation index over the derived statuses. `items` are the list items of the PRD, which gate a task that names or implements a human one.
  */
 export const derive = (
   manifest: Manifest,
@@ -360,6 +362,9 @@ export const derive = (
   const isBlocked = (id: TaskId) =>
     Option.exists(Record.get(statuses, id), (status) => status === "blocked_on_human");
   const byBranch = Record.fromIterableBy(manifest.tasks, (task) => task.branch);
+  const index = indexOf({ tasks: manifest.tasks });
+  const derivedStatusOf = (id: TaskId): TaskStatus =>
+    Option.getOrElse(Record.get(statuses, id), (): TaskStatus => "pending");
   const tasks = Array.map(
     folded,
     ({ commits: own, events: lines, gate, result, task }): DerivedTask => {
@@ -371,6 +376,9 @@ export const derive = (
         statements: [],
         status,
         waiting: status === "pending" && Array.some(below(byId, task), isBlocked),
+        canStart: index.canStart(task.id, derivedStatusOf),
+        waitsOn: index.waitsOn(task.id, derivedStatusOf),
+        waitedOnBy: index.waitedOnBy(task.id, derivedStatusOf),
       });
     },
   );

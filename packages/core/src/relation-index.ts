@@ -17,8 +17,8 @@ import { Array, HashSet, Option, Predicate, Record, Result, Schema, String, pipe
 
 import { itemsOf } from "./items.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
-import { identifiedOf } from "./spec-index.ts";
-import { TaskIdOrder } from "./stacks.ts";
+import { identifiedOf } from "./identified.ts";
+import { TaskIdOrder } from "./task-order.ts";
 import { statementsOf } from "./statements.ts";
 
 /** The part of a task the index reads. A `ManifestTask` and a `TraceTask` fit. */
@@ -27,11 +27,16 @@ export type IndexTask = Pick<
   "dependsOn" | "id" | "orderedAfter" | "parent" | "prdSections" | "specSections"
 >;
 
+/** What a source of only tasks reads of each: what it needs and what it is built on. */
+export type NeedsTask = Pick<ManifestTask, "dependsOn" | "id" | "parent">;
+
 /**
- * What `indexOf` reads: the manifest, `spec.json` and the text of `prd.md`, or a trace. Each
- * names only the fields the index reads, so a `Manifest`, a `SpecIndex` and a `Trace` fit.
+ * What `indexOf` reads: the manifest, `spec.json` and the text of `prd.md`, or a trace, or only
+ * the tasks, for the answers between tasks. Each names only the fields the index reads, so a
+ * `Manifest`, a `SpecIndex`, a `Trace` and its tasks fit.
  */
 export type RelationSource =
+  | { readonly tasks: ReadonlyArray<NeedsTask> }
   | {
       readonly manifest: { readonly tasks: ReadonlyArray<IndexTask> };
       /** The text of `prd.md`. */
@@ -86,13 +91,20 @@ interface GraphSection {
   readonly implements: ReadonlyArray<PrdSectionId>;
 }
 
+/** A task as the extractors read it: a source of only tasks names no sections and has no ordering. */
+interface GraphTask extends NeedsTask {
+  readonly orderedAfter: IndexTask["orderedAfter"];
+  readonly prdSections: ReadonlyArray<PrdSectionId>;
+  readonly specSections: ReadonlyArray<SpecSectionId>;
+}
+
 /** The source, read into one shape: what each end can be and what each relation is read from. */
 interface Graph {
   /** The IDs that exist, by the kind of end. */
   readonly ends: { readonly [K in EndKind]: HashSet.HashSet<string> };
   readonly proofs: ReadonlyArray<{ readonly statement: StatementId; readonly test: TestId }>;
   readonly sections: ReadonlyArray<GraphSection>;
-  readonly tasks: ReadonlyArray<IndexTask>;
+  readonly tasks: ReadonlyArray<GraphTask>;
 }
 
 type Extractor = (graph: Graph) => ReadonlyArray<Relation>;
@@ -107,7 +119,7 @@ const prdEnd = (graph: Graph, id: string): End =>
 const fromTasks =
   (
     kind: RelationKind,
-    targets: (task: IndexTask) => ReadonlyArray<string>,
+    targets: (task: GraphTask) => ReadonlyArray<string>,
     to: (graph: Graph, id: string) => End,
   ): Extractor =>
   (graph) =>
@@ -176,6 +188,28 @@ const specSectionsOf = (markdown: string): ReadonlyArray<GraphSection> =>
   }));
 
 const graphOf = (source: RelationSource): Graph => {
+  if ("tasks" in source) {
+    return {
+      ends: {
+        item: HashSet.empty(),
+        prd: HashSet.empty(),
+        spec: HashSet.empty(),
+        statement: HashSet.empty(),
+        task: HashSet.fromIterable(Array.map(source.tasks, ({ id }) => id)),
+        test: HashSet.empty(),
+      },
+      proofs: [],
+      sections: [],
+      tasks: Array.map(source.tasks, (task) => ({
+        dependsOn: task.dependsOn,
+        id: task.id,
+        orderedAfter: [],
+        parent: task.parent,
+        prdSections: [],
+        specSections: [],
+      })),
+    };
+  }
   if ("trace" in source) {
     const { prd, spec, tasks } = source.trace;
     const proofs = Array.flatMap(prd.statements, (statement) =>

@@ -54,7 +54,7 @@ import {
   type PatchData,
 } from "./model.ts";
 import { Range } from "./range.ts";
-import { stackTaskSelectorOf, type ScrollTarget } from "./reader.ts";
+import { relationsOf, stackTaskSelectorOf, type ScrollTarget } from "./reader.ts";
 import { indexOf, type SearchIndex } from "./search.ts";
 import { Node } from "./trace.ts";
 import { turnElementIdOf } from "./view/sessionView.ts";
@@ -478,7 +478,7 @@ const check = (trace: Trace, loaded: Loaded, carry: Carry, step: Step): Outcome 
     segment: ({ root }) =>
       Option.isSome(
         Array.findFirst(
-          stacksOf(trace.tasks),
+          stacksOf(trace.tasks, relationsOf(trace)),
           (stack) => stack.root === root && Array.length(trunkOf(stack, trace.tasks)) >= 2,
         ),
       )
@@ -488,7 +488,7 @@ const check = (trace: Trace, loaded: Loaded, carry: Carry, step: Step): Outcome 
             `The stack from ${root} has no finished trunk of two or more tasks.`,
           ),
     stack: ({ root }) =>
-      Array.some(stacksOf(trace.tasks), (stack) => stack.root === root)
+      Array.some(stacksOf(trace.tasks, relationsOf(trace)), (stack) => stack.root === root)
         ? opens(step, Needs.Nothing())
         : stops("stack-missing", `No stack starts at task ${root}.`),
     task: ({ id }) =>
@@ -908,7 +908,9 @@ const sectionSelector = (id: string): string =>
 const boxSelectorsOf = (trace: Trace, root: string): ReadonlyArray<string> =>
   Array.append(
     Array.map(
-      Array.fromOption(Array.findFirst(stacksOf(trace.tasks), (stack) => stack.root === root)),
+      Array.fromOption(
+        Array.findFirst(stacksOf(trace.tasks, relationsOf(trace)), (stack) => stack.root === root),
+      ),
       (stack) => `${STACKS_PANE} [data-stack="${stack.number}"]`,
     ),
     chipSelector(root),

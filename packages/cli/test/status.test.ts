@@ -105,17 +105,17 @@ const landT1 = Effect.gen(function* () {
 });
 
 it.effect(
-  "prints each stack as a tree with branch, model and gate, and names what a task waits for",
+  "prints each stack as a tree with branch, model and gate, and whether each task can start or what it waits on",
   () =>
     inCheckout(encodeJson(MANIFEST), {}, () =>
       Effect.gen(function* () {
         const trace = yield* traceNow;
         expect(statusLines(trace)).toEqual([
           "Stack 1",
-          "  t1  pending  Title of t1  plan/01-task  sonnet/high  GATE",
-          "    t2  pending  Title of t2  plan/02-task  sonnet/high",
+          "  t1  pending  Title of t1  plan/01-task  sonnet/high  GATE  can start",
+          "    t2  pending  Title of t2  plan/02-task  sonnet/high  waits on t1",
           "Stack 2",
-          "  t3  pending  Title of t3  plan/03-task  sonnet/high  waits for t2 to land",
+          "  t3  pending  Title of t3  plan/03-task  sonnet/high  waits on t2",
         ]);
       }),
     ),
@@ -136,25 +136,27 @@ it.effect("marks a task gated by a commit that touches a gated path, as the Trac
       const trace = yield* traceNow;
       expect(trace.tasks[0]?.gate.required).toBe(true);
       expect(statusLines(trace)).toContain(
-        "  t2  pending  Title of t2  plan/02-task  sonnet/high  GATE",
+        "  t2  pending  Title of t2  plan/02-task  sonnet/high  GATE  can start",
       );
     }),
   ),
 );
 
-it.effect("a task whose dependency landed no longer waits", () =>
-  inCheckout(
-    encodeJson({ ...MANIFEST, tasks: [taskOf(1, null, []), taskOf(2, null, ["t1"])] }),
-    {},
-    () =>
-      Effect.gen(function* () {
-        yield* landT1;
-        const trace = yield* traceNow;
-        expect(statusLines(trace)).toContain(
-          "  t2  pending  Title of t2  plan/02-task  sonnet/high",
-        );
-      }),
-  ),
+it.effect(
+  "once a task's only unfinished dependency lands, the next read says it can start (prd.relations.index#v2)",
+  () =>
+    inCheckout(
+      encodeJson({ ...MANIFEST, tasks: [taskOf(1, null, []), taskOf(2, null, ["t1"])] }),
+      {},
+      () =>
+        Effect.gen(function* () {
+          yield* landT1;
+          const trace = yield* traceNow;
+          expect(statusLines(trace)).toContain(
+            "  t2  pending  Title of t2  plan/02-task  sonnet/high  can start",
+          );
+        }),
+    ),
 );
 
 it.effect("lists the warnings after the stacks", () =>
@@ -304,6 +306,9 @@ it("keeps key order and prints arrays that fit on one line, wrapping the ones th
       statements: [],
       status: "done",
       waiting: false,
+      canStart: false,
+      waitsOn: [],
+      waitedOnBy: [],
     },
   ]);
   expect(text).toBe(

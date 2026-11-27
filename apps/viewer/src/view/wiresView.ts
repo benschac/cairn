@@ -21,7 +21,7 @@ import { svgFor } from "../effect-ui/svg.ts";
 import { endKeyInOf, stackBoxesOf, type Trunk } from "../boxes.ts";
 import { rectOf, type Rect } from "../geometry.ts";
 import { Message } from "../message.ts";
-import { cardsOf } from "../reader.ts";
+import { cardsOf, relationsOf } from "../reader.ts";
 import type { Chain, Node } from "../trace.ts";
 import { Measured, hoverChainOf, isWireLit, linksOf, wiresOf, type Wire } from "../wires.ts";
 
@@ -250,7 +250,7 @@ export const wiresView = (
   unfolded: Record.ReadonlyRecord<string, boolean>,
 ) => {
   const maybeChain = hoverChainOf(trace, maybeHovered);
-  const boxes = stackBoxesOf(trace.tasks, unfolded);
+  const boxes = stackBoxesOf(trace.tasks, unfolded, relationsOf(trace));
   const trunks = Array.flatMap(boxes, (box) => Option.toArray(box.maybeTrunk));
   const wires = Option.match(Option.all({ current: maybeCurrent, measured: maybeMeasured }), {
     onNone: (): ReadonlyArray<Wire> => [],

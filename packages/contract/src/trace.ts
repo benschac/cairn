@@ -85,6 +85,15 @@ export const TraceTask = ManifestTask.pipe(
     /** The statements the task is to prove; empty in a trace written before statements existed. */
     statements: Schema.Array(StatementId).pipe(Schema.withDecodingDefaultKey(emptyArray)),
     waiting: Schema.Boolean,
+    /**
+     * A pending task whose every needed task is `done` or `landed`, as the relation index says
+     * (see `spec.status.answers-from-the-index`); false in a trace written before it was carried.
+     */
+    canStart: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
+    /** The unfinished tasks it needs directly, in id order. */
+    waitsOn: Schema.Array(TaskId).pipe(Schema.withDecodingDefaultKey(emptyArray)),
+    /** The unfinished tasks that need it directly, in id order. */
+    waitedOnBy: Schema.Array(TaskId).pipe(Schema.withDecodingDefaultKey(emptyArray)),
   }),
 );
 export type TraceTask = typeof TraceTask.Type;

@@ -6,6 +6,7 @@ import { Array, HashSet, Option, Order, Record, Result, Schema, String, Struct }
 import {
   STACKS_CLOSE,
   STACKS_OPEN,
+  TaskIdOrder,
   gateOf,
   lint,
   sectionsOf,
@@ -135,9 +136,6 @@ const closureOf = (
 };
 
 /** What a task leans on: its dependencies and its parent. */
-const links = (task: ManifestTask) =>
-  Array.appendAll(task.dependsOn, Option.toArray(Option.fromNullOr(task.parent)));
-
 /** Where a parent puts a task. */
 const where = (id: TaskId | null) =>
   Option.getOrElse(Option.fromNullOr(id), () => "the base branch");
@@ -192,7 +190,7 @@ const Looped = Schema.Struct({
 });
 
 it.prop(
-  "every task that depends on itself through other tasks is named in a bad-parent finding, and no other",
+  "every task that needs itself through other tasks is named in a need-cycle finding, once, and none is a bad-parent finding (spec.status.answers-from-the-index)",
   [Looped],
   ([{ drafts, extra }]) => {
     const planned = plannedOf(drafts);
@@ -211,18 +209,29 @@ it.prop(
       }),
     );
     const onCycle = Array.filterMap(looped.tasks, (task) =>
-      HashSet.has(closureOf(looped, links, task.id), task.id)
+      HashSet.has(
+        closureOf(looped, (each) => each.dependsOn, task.id),
+        task.id,
+      )
         ? Result.succeed(task.id)
         : Result.failVoid,
     );
-    const named = Array.map(only(lintOf(looped), "bad-parent"), (message) =>
-      Option.getOrElse(Array.head(String.split(message, " ")), () => ""),
+    const findings = lintOf(looped);
+    const named = Array.flatMap(only(findings, "need-cycle"), (message) =>
+      Array.map(
+        String.split(
+          Option.getOrElse(Array.head(String.split(message, " need")), () => ""),
+          ", ",
+        ),
+        (id) => TaskId.make(id),
+      ),
     );
-    expect(named).toEqual(onCycle);
+    expect(Array.sort(named, TaskIdOrder)).toEqual(Array.sort(onCycle, TaskIdOrder));
+    expect(only(findings, "bad-parent")).toEqual([]);
   },
 );
 
-it("names a task that depends on itself, and the others on a longer cycle", () => {
+it("names a task that needs itself, and the tasks on a longer cycle together", () => {
   const planned = plannedOf([
     { file: "src/store.ts", key: 0, needs: [], prd: "prd.goal" },
     { file: "src/store.ts", key: 1, needs: [0], prd: "prd.goal" },
@@ -238,11 +247,11 @@ it("names a task that depends on itself, and the others on a longer cycle", () =
             : dependsOn,
     }),
   );
-  expect(only(lintOf(looped), "bad-parent")).toEqual([
-    "t1 is in a cycle with t2.",
-    "t2 is in a cycle with t1.",
-    "t3 depends on itself.",
+  expect(only(lintOf(looped), "need-cycle")).toEqual([
+    "t1, t2 need each other in a cycle.",
+    "t3 needs itself.",
   ]);
+  expect(only(lintOf(looped), "bad-parent")).toEqual([]);
 });
 
 it.prop(
