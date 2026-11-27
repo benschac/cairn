@@ -1,6 +1,7 @@
 import { ProbabilityAnswer, RateAnswer, Reasoning, Unanswered } from "@cairn/contract";
 import type { Config, Judgment, JudgmentQuestion, ManifestTask, Verdict } from "@cairn/contract";
-import { Match, Number, Option, Record, Schema, pipe } from "effect";
+import { Match, Number, Option, Record, Result, Schema, pipe } from "effect";
+import type { Decision } from "effect/ai";
 
 /** What the decision model answered to one question, as `judgments.json` stores it. */
 export type Answer = Judgment["answer"];
@@ -241,3 +242,25 @@ export const routeOf = (
     ),
   };
 };
+
+/** A yes-or-no question as code acts on it. */
+export type YesNo = "no" | "unsure" | "yes";
+
+/**
+ * Reads a probability outcome (`spec.judging.asking-during-planning`): `yes` at or above
+ * `judge.pass`, `no` below `judge.flag`, and `unsure` between them or when the decision went
+ * unanswered. Pure.
+ */
+export const yesNoOf = (
+  outcome: Decision.Outcome<Decision.Probability>,
+  { flag, pass }: Pick<Thresholds, "flag" | "pass">,
+): YesNo =>
+  Result.match(outcome, {
+    onFailure: (): YesNo => "unsure",
+    onSuccess: ({ probability }): YesNo =>
+      Number.isGreaterThanOrEqualTo(probability, pass)
+        ? "yes"
+        : Number.isLessThan(probability, flag)
+          ? "no"
+          : "unsure",
+  });

@@ -1,4 +1,4 @@
-import { PrdSectionId, Reasoning, Slug, SpecSectionId, TaskId } from "@cairn/contract";
+import { NoteKind, PrdSectionId, Reasoning, Slug, SpecSectionId, TaskId } from "@cairn/contract";
 import type { Manifest, ManifestTask, Section } from "@cairn/contract";
 import {
   Array,
@@ -605,3 +605,157 @@ export const inputsOf = (prd: string, spec: string, manifest: Manifest): Judging
     tasks: Array.map(manifest.tasks, (task) => ({ id: task.id, input: taskInputOf(task) })),
   };
 };
+
+/**
+ * A PRD section or item as `partQuestions` reads it: its ID and title, its own body up to its
+ * first child heading, and its children's titles (`spec.judging.asking-during-planning`).
+ */
+export const PartInput = Schema.Struct({
+  body: Schema.String,
+  children: Schema.Array(Schema.String),
+  id: Schema.String,
+  title: Schema.String,
+});
+export type PartInput = typeof PartInput.Type;
+
+/** Does a PRD section or item ask for behaviour, or only group, scope or postpone? */
+export const partQuestions = Decision.make({
+  decisions: {
+    describesBuild: Decision.probability({
+      criteria: {
+        false:
+          "It only introduces the parts named in `children`, states what is out of scope, lists work postponed to later, or explains why. Example: prd.later lists work for after v1; prd.refactors introduces the refactors under it.",
+        true: "It states something the product must do or show, which someone could try once it is built. Example: prd.cli.doctor says `cairn doctor` checks the machine and says what to fix.",
+      },
+      instructions: "`body` asks for behaviour of the product that a person could see working.",
+    }),
+  },
+  input: PartInput,
+});
+
+/** A drafted statement with the section it was drafted from. */
+export const DraftInput = Schema.Struct({ section: SectionText, statement: Schema.String });
+export type DraftInput = typeof DraftInput.Type;
+
+/** Is a drafted statement faithful, observable, free of code names, and settled by a test? */
+export const draftQuestions = Decision.make({
+  decisions: {
+    faithful: Decision.probability({
+      criteria: {
+        false: "The statement asks for something the section does not mention, or contradicts it.",
+        true: "Someone who made the statement come true would have built what the section asks, or a part of it.",
+      },
+      instructions: "`statement` describes what `section` asks for.",
+    }),
+    namesImplementation: Decision.probability({
+      criteria: {
+        false:
+          "It names only what a person does and sees, including commands and labels a person types or reads, such as `cairn doctor` or a Copy link button.",
+        true: "It names something in the code. Example: 'replanOf returns an empty list'.",
+      },
+      instructions: "`statement` names a source file, function, module, type or test.",
+    }),
+    needsPerson: Decision.probability({
+      criteria: {
+        false: "A test could check it by doing the steps and reading what appears.",
+        true: "It is about how something reads, looks or feels. Example: 'the saved views menu reads well at phone width'.",
+      },
+      instructions: "Only a person looking at the product could settle whether `statement` holds.",
+    }),
+    observable: Decision.probability({
+      criteria: {
+        false:
+          "It describes code or internal state that no person sees. Example: 'replanOf returns an empty list when nothing changed'.",
+        true: "It says what the person does and what they then see. Example: 'importing a markdown file shows it in the workspace's PRD list'.",
+      },
+      instructions: "A person using the product could see what `statement` describes happen.",
+    }),
+  },
+  input: DraftInput,
+});
+
+/** A PRD section's title, its body when its spec sections were written, and its body now. */
+export const ChangeInput = Schema.Struct({
+  after: Schema.String,
+  before: Schema.String,
+  title: Schema.String,
+});
+export type ChangeInput = typeof ChangeInput.Type;
+
+/** Did a PRD section's text change what it asks for? */
+export const changeQuestions = Decision.make({
+  decisions: {
+    materialChange: Decision.probability({
+      criteria: {
+        false:
+          "Only spelling, punctuation, formatting or wording changed, and someone building from either text would build the same thing. Example: 'recieve' was corrected to 'receive'.",
+        true: "A behaviour, rule, limit, example or outcome was added, removed or changed. Example: 'lint fails a task' became 'lint warns about a task'.",
+      },
+      instructions:
+        "`after` asks for something that `before` did not ask for, or stops asking for something that `before` asked for.",
+    }),
+  },
+  input: ChangeInput,
+});
+
+/**
+ * A PRD item's text with its nested lines, its heading's title, and one candidate spec section's
+ * title, body and files.
+ */
+export const ItemInput = Schema.Struct({
+  heading: Schema.String,
+  item: Schema.String,
+  section: Schema.Struct({
+    body: Schema.String,
+    files: Schema.Array(Schema.String),
+    title: Schema.String,
+  }),
+});
+export type ItemInput = typeof ItemInput.Type;
+
+/** Does a spec section already build what a PRD item asks for? */
+export const itemQuestions = Decision.make({
+  decisions: {
+    buildsItem: Decision.probability({
+      criteria: {
+        false:
+          "`section` builds something else under the same heading, or only shows or uses what the item asks for. Example: a section about how the viewer shows notes does not build the command that stores them.",
+        true: "`section` describes the behaviour `item` asks for. Example: a section that specifies the `cairn lint` command and its rules builds the item '`cairn lint` checks the plan'.",
+      },
+      instructions: "Building `section` as written would build what `item` asks for.",
+    }),
+  },
+  input: ItemInput,
+});
+
+/** A note's kind and body, and the title of what its anchor names (`spec.sessions.notes.labels`). */
+export const NoteInput = Schema.Struct({
+  body: Schema.String,
+  kind: NoteKind,
+  title: Schema.String,
+});
+export type NoteInput = typeof NoteInput.Type;
+
+/** What a note is, and whether it asks for a change. */
+export const noteQuestions = Decision.make({
+  decisions: {
+    actionable: Decision.probability({
+      criteria: {
+        false: "It only asks a question, reports or praises.",
+        true: "It asks someone to change code, text or the plan.",
+      },
+      instructions: "`body` asks for a change.",
+    }),
+    label: Decision.classify({
+      criteria: {
+        question: "It asks something and expects an answer.",
+        blocker: "It says the work cannot go on until something changes.",
+        bug: "It says the code does something wrong.",
+        breaks_spec: "It says the work does not do what its spec section asks.",
+        nit: "It is about style, naming or wording only.",
+      },
+      instructions: "Which kind of note is `body`?",
+    }),
+  },
+  input: NoteInput,
+});

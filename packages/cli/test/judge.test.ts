@@ -14,6 +14,7 @@ import {
   StackJudgingInput,
   TaskJudgingInput,
   verdictOf,
+  yesNoOf,
 } from "@cairn/core";
 import type { JudgingInputs } from "@cairn/core";
 import { expect, it } from "@effect/vitest";
@@ -38,8 +39,7 @@ import {
   Schema,
   Struct,
 } from "effect";
-import { AiError, DecisionModel } from "effect/ai";
-import type { Decision } from "effect/ai";
+import { AiError, Decision, DecisionModel } from "effect/ai";
 import { TestClock } from "effect/testing";
 
 import { Judge, JudgeError, inputHashesOf } from "../src/judge.ts";
@@ -61,6 +61,8 @@ class Calls extends Context.Service<
 interface Script {
   /** What the first calls fail with, in order; later calls answer. */
   readonly failures?: ReadonlyArray<AiError.AiError>;
+  /** The probability of every probability decision, read from the encoded input; 0.9 by default. */
+  readonly probability?: (state: Schema.Json) => number;
   /** Decisions the model refuses. */
   readonly refuse?: ReadonlyArray<string>;
   /** How long each call takes, on the test clock. */
@@ -75,13 +77,14 @@ const answerFor = (
   name: string,
   decision: Exclude<Decision.Any, Decision.Locate>,
   refuse: ReadonlyArray<string>,
+  probability: number,
 ): DecisionModel.ProviderAnswer =>
   Array.contains(refuse, name)
     ? { _tag: "Refusal" }
     : Match.value(decision).pipe(
         Match.tag("Probability", (): DecisionModel.ProviderAnswer => ({
           _tag: "Probability",
-          probability: 0.9,
+          probability,
         })),
         Match.tag("Rate", ({ criteria }): DecisionModel.ProviderAnswer => ({
           _tag: "Rate",
@@ -101,7 +104,12 @@ const answerFor = (
         Match.exhaustive,
       );
 
-const scripted = ({ failures = [], refuse = [], takes = Duration.zero }: Script = {}) =>
+const scripted = ({
+  failures = [],
+  probability = () => 0.9,
+  refuse = [],
+  takes = Duration.zero,
+}: Script = {}) =>
   Layer.unwrap(
     Effect.gen(function* () {
       const seen = yield* Ref.make<ReadonlyArray<DecisionModel.ProviderOptions>>([]);
@@ -124,7 +132,7 @@ const scripted = ({ failures = [], refuse = [], takes = Duration.zero }: Script 
             }
             return {
               answers: Record.map(options.decisions, (decision, name) =>
-                answerFor(name, decision, refuse),
+                answerFor(name, decision, refuse, probability(options.state)),
               ),
               usage: { inputTokens: 1, outputTokens: 1 },
             };
@@ -830,4 +838,114 @@ it.effect("whenConfigured provides a Judge only when a key or a gateway token is
       ),
     { discard: true },
   ),
+);
+
+/** A definition with one yes-or-no decision, whose scripted probability is the input's `n` over ten. */
+const Numbered = Decision.make({
+  decisions: { holds: Decision.probability({ instructions: "Does it hold?" }) },
+  input: Schema.Struct({ n: Schema.Int }),
+});
+
+const tenths = (state: Schema.Json) =>
+  Predicate.hasProperty(state, "n") && Predicate.isNumber(state.n)
+    ? Number.divideUnsafe(state.n, 10)
+    : 0;
+
+const labelled = (ns: ReadonlyArray<number>) =>
+  Array.map(ns, (n) => ({ input: { n }, label: `input ${n}` }));
+
+const probabilityOfOutcome = (outcome: Decision.Outcome<Decision.Probability>) =>
+  Result.match(outcome, { onFailure: () => -1, onSuccess: Struct.get("probability") });
+
+it.effect.prop(
+  "ask gives each input's outcomes in input order, however the answers differ",
+  [Schema.Array(Schema.Int.check(Schema.isBetween({ maximum: 10, minimum: 0 })))],
+  ([ns]) =>
+    Effect.gen(function* () {
+      const judge = yield* Judge;
+      const outcomes = yield* judge.ask(Numbered, labelled(ns));
+      expect(Array.map(outcomes, ({ holds }) => probabilityOfOutcome(holds))).toEqual(
+        Array.map(ns, (n) => Number.divideUnsafe(n, 10)),
+      );
+      const asked = yield* seenCount;
+      expect(asked).toBe(Array.length(ns));
+    }).pipe(Effect.provide(judging({ probability: tenths }))),
+);
+
+it.effect("an unanswered decision reads as unsure through yesNoOf", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const outcomes = yield* judge.ask(Numbered, labelled([10, 0]));
+    expect(Array.map(outcomes, ({ holds }) => yesNoOf(holds, defaults.judge))).toEqual([
+      "unsure",
+      "unsure",
+    ]);
+  }).pipe(Effect.provide(judging({ refuse: ["holds"] }))),
+);
+
+it.effect("ask reads each answer through yesNoOf against pass and flag", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const outcomes = yield* judge.ask(Numbered, labelled([10, 5, 0]));
+    expect(Array.map(outcomes, ({ holds }) => yesNoOf(holds, defaults.judge))).toEqual([
+      "yes",
+      "unsure",
+      "no",
+    ]);
+  }).pipe(Effect.provide(judging({ probability: tenths }))),
+);
+
+it.effect("ask retries a rate limit after the delay the provider gives", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const fiber = yield* Effect.forkChild(judge.ask(Numbered, labelled([7])));
+    yield* TestClock.adjust(Duration.seconds(29));
+    const before = yield* seenCount;
+    yield* TestClock.adjust(Duration.seconds(1));
+    const outcomes = yield* Fiber.join(fiber);
+    const retried = yield* seenCount;
+    expect([before, retried]).toEqual([1, 2]);
+    expect(Array.map(outcomes, ({ holds }) => probabilityOfOutcome(holds))).toEqual([0.7]);
+  }).pipe(
+    Effect.provide(judging({ failures: [rateLimited(Duration.seconds(30))], probability: tenths })),
+  ),
+);
+
+it.effect("ask fails at once on any other AiError, with a JudgeError that names the input", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const error = yield* Effect.flip(
+      judge.ask(Numbered, [{ input: { n: 1 }, label: "prd.cli.doctor" }]),
+    );
+    expect(Schema.is(JudgeError)(error)).toBe(true);
+    expect(error.message).toContain("prd.cli.doctor");
+    const asked = yield* seenCount;
+    expect(asked).toBe(1);
+  }).pipe(
+    Effect.provide(
+      judging({
+        failures: [
+          AiError.make({
+            method: "decide",
+            module: "ScriptedDecisionModel",
+            reason: new AiError.InvalidRequestError({ description: "Bad request" }),
+          }),
+        ],
+      }),
+    ),
+  ),
+);
+
+it.effect("ask sends no more than four requests at once", () =>
+  Effect.gen(function* () {
+    const judge = yield* Judge;
+    const fiber = yield* Effect.forkChild(
+      judge.ask(Numbered, labelled([1, 2, 3, 4, 5, 6, 7, 8, 9])),
+    );
+    yield* TestClock.adjust(Duration.seconds(10));
+    yield* Fiber.join(fiber);
+    const most = yield* mostOf;
+    const asked = yield* seenCount;
+    expect([most, asked]).toEqual([4, 9]);
+  }).pipe(Effect.provide(judging({ takes: Duration.seconds(1) }))),
 );
