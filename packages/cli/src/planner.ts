@@ -1,4 +1,4 @@
-import { IndexedSection, PrdSectionId, TaskDraft, defaultConfig } from "@cairn/contract";
+import { IndexProse, PrdSectionId, TaskDraft, defaultConfig } from "@cairn/contract";
 import type {
   Category,
   Config,
@@ -29,7 +29,6 @@ import {
   Result,
   Schema,
   String,
-  Struct,
 } from "effect";
 import { AiError, Chat, LanguageModel, Prompt } from "effect/ai";
 
@@ -153,12 +152,6 @@ export const SplitDrafts = Schema.Struct({
 
 /** A draft as JSON text, for the `splitTask` prompt. */
 const DraftJson = Schema.fromJsonString(TaskDraft, { space: 2 });
-
-/** The prose fields of an `IndexedSection`, which `index` asks the model for (`spec.contract.spec-index`). */
-export const IndexProse = IndexedSection.mapFields(
-  Struct.pick(["artifacts", "decisions", "requirements", "summary", "tests"]),
-);
-export type IndexProse = typeof IndexProse.Type;
 
 /** The part of a section `index` reads: its ID, to name the items, and its text. */
 export type IndexTarget = Pick<Section, "body" | "title"> & { readonly id: SpecSectionId };

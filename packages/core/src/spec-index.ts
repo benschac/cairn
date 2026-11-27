@@ -1,5 +1,5 @@
-import { IndexedSection, PrdSectionId, SpecSectionId } from "@cairn/contract";
-import type { BodyHash, ManifestTask, Section, SpecIndex } from "@cairn/contract";
+import { PrdSectionId, SpecSectionId } from "@cairn/contract";
+import type { BodyHash, DerivedSection, ManifestTask, Section, SpecIndex } from "@cairn/contract";
 import { Array, HashSet, Option, Predicate, Record, Result, Schema, String, pipe } from "effect";
 
 import { bodyHashOf } from "./replan.ts";
@@ -47,12 +47,6 @@ const ownValuesOf = (section: Section, key: string): ReadonlyArray<string> =>
 /** The section above it that has a spec section ID, which is its parent in the index. */
 const indexParentOf = (section: Section): SpecSectionId | null =>
   pipe(Option.fromNullishOr(section.parent), Option.filter(isSpecSectionId), Option.getOrNull);
-
-/** The fields of an entry that code derives from `spec.md` and `manifest.json`, and `writtenFrom`. */
-export type DerivedSection = Omit<
-  IndexedSection,
-  "artifacts" | "decisions" | "requirements" | "summary" | "tests"
->;
 
 /**
  * The derived fields of every section of `spec.md` that has an ID, in document order.

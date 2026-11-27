@@ -1,4 +1,4 @@
-import { IndexedSection, SectionPrefix, ownerOf } from "@cairn/contract";
+import { DerivedSection, SectionPrefix, ownerOf } from "@cairn/contract";
 import type {
   HumanGate,
   Manifest,
@@ -33,7 +33,6 @@ import { statementsOf, taskStatementsOf } from "./statements.ts";
 import type { Statement } from "./statements.ts";
 import { parentOf } from "./stack.ts";
 import { derivedOf } from "./spec-index.ts";
-import type { DerivedSection } from "./spec-index.ts";
 import { withStackDiagram } from "./stack-diagram.ts";
 
 /** The rules `lint` checks (see `spec.lint`). */
@@ -436,18 +435,18 @@ type DerivedKey = (typeof DERIVED_KEYS)[number];
 
 /** Whether two values of the derived field `key` are equal, by the field's schema. */
 const SAME_BY_KEY: { readonly [K in DerivedKey]: Equivalence.Equivalence<DerivedSection[K]> } = {
-  children: Schema.toEquivalence(IndexedSection.fields.children),
-  context: Schema.toEquivalence(IndexedSection.fields.context),
-  defers: Schema.toEquivalence(IndexedSection.fields.defers),
-  dependsOn: Schema.toEquivalence(IndexedSection.fields.dependsOn),
-  files: Schema.toEquivalence(IndexedSection.fields.files),
-  human: Schema.toEquivalence(IndexedSection.fields.human),
-  implements: Schema.toEquivalence(IndexedSection.fields.implements),
-  level: Schema.toEquivalence(IndexedSection.fields.level),
-  line: Schema.toEquivalence(IndexedSection.fields.line),
-  parent: Schema.toEquivalence(IndexedSection.fields.parent),
-  tasks: Schema.toEquivalence(IndexedSection.fields.tasks),
-  title: Schema.toEquivalence(IndexedSection.fields.title),
+  children: Schema.toEquivalence(DerivedSection.fields.children),
+  context: Schema.toEquivalence(DerivedSection.fields.context),
+  defers: Schema.toEquivalence(DerivedSection.fields.defers),
+  dependsOn: Schema.toEquivalence(DerivedSection.fields.dependsOn),
+  files: Schema.toEquivalence(DerivedSection.fields.files),
+  human: Schema.toEquivalence(DerivedSection.fields.human),
+  implements: Schema.toEquivalence(DerivedSection.fields.implements),
+  level: Schema.toEquivalence(DerivedSection.fields.level),
+  line: Schema.toEquivalence(DerivedSection.fields.line),
+  parent: Schema.toEquivalence(DerivedSection.fields.parent),
+  tasks: Schema.toEquivalence(DerivedSection.fields.tasks),
+  title: Schema.toEquivalence(DerivedSection.fields.title),
 };
 
 /** Whether one value and another of the derived field `key` are equal. */

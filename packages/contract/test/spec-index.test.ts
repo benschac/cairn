@@ -1,8 +1,14 @@
 import { expect, it } from "@effect/vitest";
-import { Exit, Schema } from "effect";
+import { Array, Exit, Order, Schema, Struct } from "effect";
 
 import repoSpecIndex from "../../../.cairn/spec.json" with { type: "json" };
-import { IndexedSection, SpecIndex, SpecIndexJson } from "../src/index.ts";
+import {
+  DerivedSection,
+  IndexProse,
+  IndexedSection,
+  SpecIndex,
+  SpecIndexJson,
+} from "../src/index.ts";
 
 const encode = Schema.encodeSync(SpecIndexJson);
 const decode = Schema.decodeUnknownSync(SpecIndexJson);
@@ -126,3 +132,28 @@ it("an artifact takes fields, a signature and values, and refuses a kind that do
 it("refuses an artifact field that is a bare name", () => {
   expect(refusedSection({ artifacts: [{ ...artifact, fields: ["id"] }] })).toBe(true);
 });
+
+const sortedKeys = (fields: object) => Array.sort(Struct.keys(fields), Order.String);
+
+it("the planner fills an entry's prose and code fills every other field", () => {
+  const prose = sortedKeys(IndexProse.fields);
+  const derived = sortedKeys(DerivedSection.fields);
+  expect(prose).toEqual(["artifacts", "decisions", "requirements", "summary", "tests"]);
+  expect(Array.intersection(prose, derived)).toEqual([]);
+  expect(Array.sort(Array.appendAll(prose, derived), Order.String)).toEqual(
+    sortedKeys(IndexedSection.fields),
+  );
+});
+
+it.prop(
+  "an entry is its derived fields and its prose, each decoded from the entry",
+  [IndexedSection],
+  ([entry]) => {
+    const encoded = Schema.encodeSync(IndexedSection)(entry);
+    const derived = Schema.decodeUnknownSync(DerivedSection)(encoded);
+    const prose = Schema.decodeUnknownSync(IndexProse)(encoded);
+    expect(Struct.assign(derived, prose)).toStrictEqual(
+      Schema.decodeUnknownSync(IndexedSection)(encoded),
+    );
+  },
+);

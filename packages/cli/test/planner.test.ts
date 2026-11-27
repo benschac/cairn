@@ -1,4 +1,5 @@
 import {
+  IndexProse,
   Manifest,
   PrdSectionId,
   Slug,
@@ -28,7 +29,7 @@ import {
 import { Chat } from "effect/ai";
 import { TestClock, TestConsole } from "effect/testing";
 
-import { IndexProse, Planner, PlannerError, StatementDrafts, TaskDrafts } from "../src/planner.ts";
+import { Planner, PlannerError, StatementDrafts, TaskDrafts } from "../src/planner.ts";
 import { Script, scripted, turnsOf, unreachable } from "./fixtures/scripted-language-model.ts";
 import type { Reply } from "./fixtures/scripted-language-model.ts";
 

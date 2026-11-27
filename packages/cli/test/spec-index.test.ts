@@ -6,6 +6,7 @@ import {
   SpecTest,
   TaskId,
 } from "@cairn/contract";
+import type { IndexProse } from "@cairn/contract";
 import { bodyHashOf } from "@cairn/core";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
@@ -13,7 +14,7 @@ import { Array, Effect, FileSystem, Option, Ref, Result, Schema, String } from "
 import { TestConsole } from "effect/testing";
 
 import { Planner, PlannerError } from "../src/planner.ts";
-import type { IndexProse, IndexTarget } from "../src/planner.ts";
+import type { IndexTarget } from "../src/planner.ts";
 import { specIndexOf, specIndexText } from "../src/spec-index.ts";
 import type { SpecIndexInput } from "../src/spec-index.ts";
 

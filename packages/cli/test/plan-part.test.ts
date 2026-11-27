@@ -1,4 +1,4 @@
-import { Manifest, PrdSectionId, SpecSectionId, TaskDraft } from "@cairn/contract";
+import { IndexProse, Manifest, PrdSectionId, SpecSectionId, TaskDraft } from "@cairn/contract";
 import type { ManifestTask } from "@cairn/contract";
 import { sectionsOf } from "@cairn/core";
 import { NodeServices } from "@effect/platform-node";
@@ -36,7 +36,7 @@ import {
 import type { PlanOptions } from "../src/commands/plan.ts";
 import { Judge } from "../src/judge.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
-import { IndexProse, Planner, PlannerError } from "../src/planner.ts";
+import { Planner, PlannerError } from "../src/planner.ts";
 import type { IndexTarget, PromptError } from "../src/planner.ts";
 import type { PartIds } from "../src/planner.ts";
 import { totalsLine } from "../src/print-stack.ts";

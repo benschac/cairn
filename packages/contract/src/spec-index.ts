@@ -1,4 +1,5 @@
 import { Effect, Schema } from "effect";
+import { VariantSchema } from "effect/schema";
 
 import {
   KEBAB,
@@ -119,32 +120,53 @@ export const WrittenFrom = Schema.Struct({
 export type WrittenFrom = typeof WrittenFrom.Type;
 
 /**
- * One spec section in `spec.json`. Code derives the fields down to `tasks` from `spec.md` and
- * `manifest.json` and `writtenFrom` is recorded when the section is written; the planner extracts
- * the rest from the section's prose.
+ * Who fills each field of a `spec.json` entry. `derived` is what code reads from `spec.md` and
+ * `manifest.json`, with `writtenFrom`, recorded when the section is written; `prose` is what the
+ * planner extracts from the section's text; `entry`, the default, is the whole entry.
  */
-export const IndexedSection = Schema.Struct({
-  artifacts: Schema.Array(Artifact),
-  children: Schema.Array(SpecSectionId),
-  context: Schema.Array(PrdSectionId),
-  decisions: Schema.Array(Decision),
-  defers: Schema.Array(PrdSectionId),
-  dependsOn: Schema.Array(SpecSectionId),
-  files: Schema.Array(Schema.String),
-  human: Schema.Boolean,
-  id: SpecSectionId,
-  implements: Schema.Array(PrdSectionId),
-  level: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
-  line: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
-  parent: Schema.NullOr(SpecSectionId),
-  requirements: Schema.Array(Requirement),
-  summary: Schema.String,
-  tasks: Schema.Array(TaskId),
-  tests: Schema.Array(SpecTest),
-  title: Schema.String,
-  writtenFrom: WrittenFrom,
+const Entry = VariantSchema.make({
+  defaultVariant: "entry",
+  variants: ["entry", "derived", "prose"],
 });
+
+/** A field code fills. */
+const derived = Entry.FieldOnly(["entry", "derived"]);
+/** A field the planner fills. */
+const prose = Entry.FieldOnly(["entry", "prose"]);
+
+const SectionFields = Entry.Struct({
+  artifacts: prose(Schema.Array(Artifact)),
+  children: derived(Schema.Array(SpecSectionId)),
+  context: derived(Schema.Array(PrdSectionId)),
+  decisions: prose(Schema.Array(Decision)),
+  defers: derived(Schema.Array(PrdSectionId)),
+  dependsOn: derived(Schema.Array(SpecSectionId)),
+  files: derived(Schema.Array(Schema.String)),
+  human: derived(Schema.Boolean),
+  id: derived(SpecSectionId),
+  implements: derived(Schema.Array(PrdSectionId)),
+  level: derived(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
+  line: derived(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
+  parent: derived(Schema.NullOr(SpecSectionId)),
+  requirements: prose(Schema.Array(Requirement)),
+  summary: prose(Schema.String),
+  tasks: derived(Schema.Array(TaskId)),
+  tests: prose(Schema.Array(SpecTest)),
+  title: derived(Schema.String),
+  writtenFrom: derived(WrittenFrom),
+});
+
+/** One spec section in `spec.json`: its derived fields and its prose. */
+export const IndexedSection = Entry.extract(SectionFields, "entry");
 export type IndexedSection = typeof IndexedSection.Type;
+
+/** The fields of an entry that code derives from `spec.md` and `manifest.json`, and `writtenFrom`. */
+export const DerivedSection = Entry.extract(SectionFields, "derived");
+export type DerivedSection = typeof DerivedSection.Type;
+
+/** The prose fields of an entry, which the planner's `index` call asks the model for. */
+export const IndexProse = Entry.extract(SectionFields, "prose");
+export type IndexProse = typeof IndexProse.Type;
 
 /** What a task proves: each statement it traces, whether it is a draft and the tests that prove it. */
 export const IndexedTask = Schema.Struct({

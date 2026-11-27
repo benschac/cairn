@@ -90,7 +90,6 @@ export {
   derivedOf,
   identifiedOf,
   type DerivedInput,
-  type DerivedSection,
   type IdentifiedSection,
 } from "./spec-index.ts";
 export { sessionOf, type StoredSession } from "./session.ts";

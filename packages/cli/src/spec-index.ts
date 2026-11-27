@@ -1,4 +1,4 @@
-import { SpecIndexJson, SpecSectionId } from "@cairn/contract";
+import { IndexProse, SpecIndexJson, SpecSectionId } from "@cairn/contract";
 import type { IndexedSection, ManifestTask, SpecIndex, StatementId } from "@cairn/contract";
 import {
   bodyHashOf,
@@ -23,12 +23,8 @@ import {
 } from "effect";
 
 import { Planner } from "./planner.ts";
-import type { IndexProse } from "./planner.ts";
 import type { PlannerError } from "./planner.ts";
 import { CAIRN_DIRECTORY } from "./workspace.ts";
-
-/** The fields of a section's entry that `Planner.index` fills in. */
-const PROSE_FIELDS = ["artifacts", "decisions", "requirements", "summary", "tests"] as const;
 
 /** How many sections are indexed at once. */
 const CONCURRENCY = 4;
@@ -144,9 +140,11 @@ export const specIndexOf = Effect.fn("specIndexOf")(function* (
               Effect.map((prose): IndexedSection => ({ ...derived, ...prose })),
             ),
           onSome: (entry) =>
-            knownProofsOf(derived.id, known, Struct.pick(entry, PROSE_FIELDS)).pipe(
-              Effect.map((prose): IndexedSection => ({ ...derived, ...prose })),
-            ),
+            knownProofsOf(
+              derived.id,
+              known,
+              Struct.pick(entry, Struct.keys(IndexProse.fields)),
+            ).pipe(Effect.map((prose): IndexedSection => ({ ...derived, ...prose }))),
         },
       ),
     { concurrency: CONCURRENCY },
