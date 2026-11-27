@@ -12,7 +12,7 @@ const refusal = (input: unknown) => String(decodeExit(input));
 /** A config's encoding with its judge thresholds replaced by `patch`. */
 const withJudge = (
   config: Config,
-  patch: Partial<Record<"pass" | "flag" | "minConfidence", number>>,
+  patch: Partial<Record<"pass" | "flag" | "minProbability", number>>,
 ) => ({
   ...encode(config),
   judge: { ...config.judge, ...patch },
@@ -41,11 +41,11 @@ it('{"version":1} decodes to the full defaults', () => {
   expect(defaultConfig.planner).toEqual({ cli: "claude", provider: "anthropic", source: "cli" });
   expect(defaultConfig.planner.model).toBeUndefined();
   expect(defaultConfig.judge).toMatchObject({
-    flag: 0.5,
+    flag: 0.3,
     maxRounds: 2,
-    minConfidence: 0.5,
+    minProbability: 0.5,
     model: "jev-1.14.0",
-    pass: 0.8,
+    pass: 0.7,
   });
 });
 
@@ -128,7 +128,7 @@ it("a pass threshold above the flag is accepted", () => {
 it.prop("a threshold outside [0, 1] is refused", [Config, above], ([config, high]) => {
   expect(refused(withJudge(config, { pass: high }))).toBe(true);
   expect(refused(withJudge(config, { flag: -high }))).toBe(true);
-  expect(refused(withJudge(config, { minConfidence: high }))).toBe(true);
+  expect(refused(withJudge(config, { minProbability: high }))).toBe(true);
 });
 
 it("the refusal names the rule that failed", () => {
@@ -138,11 +138,11 @@ it("the refusal names the rule that failed", () => {
 
 it.prop(
   "given judge values are kept and the rest default",
-  [Schema.Finite.check(Schema.isBetween({ exclusiveMinimum: true, maximum: 1, minimum: 0.5 }))],
+  [Schema.Finite.check(Schema.isBetween({ exclusiveMinimum: true, maximum: 1, minimum: 0.3 }))],
   ([pass]) => {
     const config = decode({ version: 1, judge: { pass } });
     expect(config.judge.pass).toBe(pass);
-    expect(config.judge.flag).toBe(0.5);
+    expect(config.judge.flag).toBe(0.3);
     expect(config.judge.model).toBe("jev-1.14.0");
     expect(config.humanPaths).toEqual(defaultConfig.humanPaths);
   },

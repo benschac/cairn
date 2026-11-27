@@ -33,7 +33,7 @@
         "flag": { "type": "number", "minimum": 0, "maximum": 1 },
         "maxRounds": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
         "gatewayTokenEnv": { "type": "string" },
-        "minConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minProbability": { "type": "number", "minimum": 0, "maximum": 1 },
         "model": { "type": "string" },
         "models": { "type": "object", "additionalProperties": { "type": "string" } },
         "pass": { "type": "number", "minimum": 0, "maximum": 1 }

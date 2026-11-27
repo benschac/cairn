@@ -74,8 +74,24 @@ const defaultPick = (question: string, labels: ReadonlyArray<string>): Pick =>
     ? { confidence: 0.9, label: "right" }
     : { confidence: 0.1, label: Option.getOrElse(Array.head(labels), () => "") };
 
-const oneHot = (labels: ReadonlyArray<string>, chosen: string) =>
-  Record.fromEntries(Array.map(labels, (label) => [label, label === chosen ? 1 : 0] as const));
+/** The chosen label has `probability`; the others share the rest, so the distribution sums to 1. */
+const oneHot = (labels: ReadonlyArray<string>, chosen: string, probability: number) => {
+  const others = Number.max(Number.decrement(Array.length(labels)), 1);
+  return Record.fromEntries(
+    Array.map(
+      labels,
+      (label) =>
+        [
+          label,
+          label === chosen
+            ? Array.length(labels) > 1
+              ? probability
+              : 1
+            : Number.divideUnsafe(Number.subtract(1, probability), others),
+        ] as const,
+    ),
+  );
+};
 
 const answerFor = (
   title: string,
@@ -102,7 +118,7 @@ const answerFor = (
       return {
         _tag: "Rate",
         confidence,
-        probabilities: oneHot(labels, label),
+        probabilities: oneHot(labels, label, confidence),
         rating: Option.getOrElse(
           Array.findFirstIndex(labels, (each) => each === label),
           () => 0,
@@ -112,7 +128,12 @@ const answerFor = (
     Match.tag("Classify", ({ criteria }): DecisionModel.ProviderAnswer => {
       const labels = Record.keys(criteria);
       const { confidence, label } = pick(labels);
-      return { _tag: "Classify", confidence, label, probabilities: oneHot(labels, label) };
+      return {
+        _tag: "Classify",
+        confidence,
+        label,
+        probabilities: oneHot(labels, label, confidence),
+      };
     }),
     Match.exhaustive,
   );
@@ -290,9 +311,7 @@ it.effect(
         Option.some({ action: "split", round: 1, verdict: "flag" }),
       );
       expect(Option.map(split, Struct.get("message"))).toEqual(
-        Option.some(
-          'size is too_large, confidence 0.9; split into 2 drafts: "Refine a", "Refine b"',
-        ),
+        Option.some('size is too_large, 0.9; split into 2 drafts: "Refine a", "Refine b"'),
       );
       expect(
         Array.map(["Refine a", "Refine b", "Plan"], (title) =>
@@ -321,7 +340,7 @@ it.effect("a split that drops a spec section or a file is discarded and the draf
     );
     expect(Option.map(size, Struct.get("message"))).toEqual(
       Option.some(
-        "size is too_large, confidence 0.9; the split was discarded: it drops spec section spec.judging.verdicts, file packages/cli/test/refine.test.ts",
+        "size is too_large, 0.9; the split was discarded: it drops spec section spec.judging.verdicts, file packages/cli/test/refine.test.ts",
       ),
     );
     expect(Array.every(result.judgments, (judgment) => judgment.round === 1)).toBe(true);
@@ -450,7 +469,7 @@ it.effect(
 const Confidence = Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 }));
 
 it.effect.prop(
-  "a model answer replaces the planner's model only at or above judge.minConfidence",
+  "a model answer replaces the planner's model only at or above judge.minProbability",
   [Confidence],
   ([confidence]) =>
     Effect.gen(function* () {
@@ -460,7 +479,7 @@ it.effect.prop(
         }),
         defaults,
       );
-      const confident = Number.isGreaterThanOrEqualTo(confidence, defaults.judge.minConfidence);
+      const confident = Number.isGreaterThanOrEqualTo(confidence, defaults.judge.minProbability);
       const model = Array.findFirst(result.judgments, (judgment) => judgment.question === "model");
       expect(Array.map(result.drafts, Struct.get("model"))).toEqual([confident ? "haiku" : "opus"]);
       expect(Option.map(model, Struct.pick(["action", "verdict"]))).toEqual(
@@ -500,7 +519,7 @@ it.effect(
         Array.filterMap(result.judgments, (judgment) =>
           judgment.action === "routed" ? Result.succeed(judgment.message) : Result.failVoid,
         ),
-      ).toEqual(["reasoning low, confidence 0.9; routed high to low"]);
+      ).toEqual(["reasoning low, 0.9; routed high to low"]);
     }).pipe(
       Effect.provide(
         testing({
@@ -532,7 +551,7 @@ it.effect(
         Option.some({
           action: "split",
           message:
-            "size is too_large, confidence 0.9; split into spec.judging.checkpoints-a, spec.judging.checkpoints-b",
+            "size is too_large, 0.9; split into spec.judging.checkpoints-a, spec.judging.checkpoints-b",
           round: 1,
         }),
       );
@@ -574,7 +593,7 @@ it.effect("a section split that drops an Implements is discarded and the spec ke
       Option.some({
         action: "none",
         message:
-          "size is too_large, confidence 0.9; the split was discarded: spec.judging.tasks drops Implements prd.cli",
+          "size is too_large, 0.9; the split was discarded: spec.judging.tasks drops Implements prd.cli",
         verdict: "flag",
       }),
     );
@@ -722,9 +741,7 @@ it.effect("a section a person wrote is reported on and never split", () =>
         sizeOf(result.judgments, "section", "spec.judging.checkpoints"),
         Struct.get("message"),
       ),
-    ).toEqual(
-      Option.some("size is too_large, confidence 0.9; not split: a person wrote or edited it"),
-    );
+    ).toEqual(Option.some("size is too_large, 0.9; not split: a person wrote or edited it"));
   }).pipe(
     Effect.provide(
       testing({

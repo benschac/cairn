@@ -73,7 +73,7 @@ const taskOf = (target: JudgmentTarget, manifest: Manifest): Option.Option<Manif
 
 /**
  * A judgment's verdict and message under the current thresholds, from its answer alone, so a
- * kept judgment follows a changed `judge.pass`, `judge.flag` or `judge.minConfidence`. A
+ * kept judgment follows a changed `judge.pass`, `judge.flag` or `judge.minProbability`. A
  * task's `model`, `reasoning` and `category` answers are compared with the manifest's task, which `Judge`
  * does not see: a confident answer that differs is a `flag`. A judgment that split or routed
  * keeps what the checkpoint wrote.
