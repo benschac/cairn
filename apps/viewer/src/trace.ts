@@ -6,6 +6,7 @@ import {
   Verdict,
   type SectionStatus,
   type Trace,
+  type TraceItem,
   type TraceJudgment,
 } from "@cairn/contract";
 import { Array, HashSet, Option, Order, Record, Schema, String } from "effect";
@@ -34,6 +35,13 @@ const emptyChain = (): Chain => ({
 
 const isPrdSection = Schema.is(PrdSectionId);
 
+/** Both chains' PRD sections, spec sections and tasks together. */
+const joined = (left: Chain, right: Chain): Chain => ({
+  prd: HashSet.union(left.prd, right.prd),
+  spec: HashSet.union(left.spec, right.spec),
+  tasks: HashSet.union(left.tasks, right.tasks),
+});
+
 /** The PRD sections each spec section implements, by spec section id. */
 type Links = Record.ReadonlyRecord<string, ReadonlyArray<string>>;
 
@@ -52,10 +60,11 @@ export const chainOf = (trace: Trace, node: Node): Chain => {
     section.id,
     section.keys.implements,
   ]);
-  // A list item is shown inside its section, so a chain that reaches an item lights that section.
+  // A list item is shown inside its section, so a chain that reaches an item lights the item and
+  // its section.
   const sectionOfItem: Links = Record.fromIterableWith(trace.prd.items, (item) => [
     item.id,
-    [item.section],
+    [item.id, item.section],
   ]);
   const shownAs = (id: string): ReadonlyArray<string> =>
     Option.getOrElse(Record.get(sectionOfItem, id), () => [id]);
@@ -83,10 +92,23 @@ export const chainOf = (trace: Trace, node: Node): Chain => {
       },
     );
 
+  // A section's chain holds the chains of the items under it; an item's holds its own.
   const prdChain = (id: string): Chain =>
     Option.match(
       Array.findFirst(trace.prd.sections, (section) => section.id === id),
-      { onNone: emptyChain, onSome: () => linkedToPrd(id) },
+      {
+        onNone: () =>
+          Option.match(
+            Array.findFirst(trace.prd.items, (item) => item.id === id),
+            { onNone: emptyChain, onSome: () => linkedToPrd(id) },
+          ),
+        onSome: () =>
+          Array.reduce(
+            Array.filter(trace.prd.items, (item) => item.section === id),
+            linkedToPrd(id),
+            (chain, item) => joined(chain, linkedToPrd(item.id)),
+          ),
+      },
     );
 
   const linkedToPrd = (id: string): Chain => {
@@ -136,6 +158,26 @@ export const isInChain = (chain: Chain, node: Node): boolean =>
     section: ({ id }) => HashSet.has(chain.prd, id) || HashSet.has(chain.spec, id),
     task: ({ id }) => HashSet.has(chain.tasks, id),
   });
+/** The list items a task builds: those in its chain, in document order. */
+export const itemsOfTask = (trace: Trace, id: TaskId): ReadonlyArray<TraceItem> => {
+  const chain = chainOf(trace, { id, kind: "task" });
+  return Array.filter(trace.prd.items, (item) => HashSet.has(chain.prd, item.id));
+};
+
+/** The IDs of the items a hovered task builds: they are marked in the PRD. None for any other node. */
+export const markedItemsOf = (
+  trace: Trace,
+  maybeHovered: Option.Option<Node>,
+): ReadonlyArray<string> =>
+  Option.match(maybeHovered, {
+    onNone: () => [],
+    onSome: (node) =>
+      Node.match(node, {
+        section: () => [],
+        task: ({ id }) => Array.map(itemsOfTask(trace, id), (item) => item.id),
+      }),
+  });
+
 /** A section's title, or its id when the trace has no section with that id. */
 export const sectionTitleOf = (trace: Trace, id: SectionId): string =>
   Option.match(

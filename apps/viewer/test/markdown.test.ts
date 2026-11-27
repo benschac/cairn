@@ -918,3 +918,81 @@ it("renderSection reads the document renderMarkdown reads, so a section renders 
   renderOne(NESTED, "spec.own");
   assert(documentOf(NESTED)).toBe(document);
 });
+
+// --- List items ---
+
+const itemMarkdown = Array.join(
+  [
+    "## CLI {#prd.cli}",
+    "",
+    "- `init` creates the folder. {#prd.cli.init}",
+    "- `ids` fills an empty `{#}`. {#}",
+    "- A plain item.",
+    "- Parent with a list. {#prd.cli.parent}",
+    "  - Child item. {#prd.cli.child}",
+    "",
+    "Done when:",
+    "",
+    "- A statement. {#prd.cli#v1}",
+  ],
+  "\n",
+);
+
+const itemHooks: SectionHooks<never> = {
+  itemAnnotation: (id) => [`[note ${id}]`],
+  itemAttributesOf: (id) => ({ "data-seen": id }),
+};
+
+const listItems = (root: VNode) => Array.filter(walk(root), (element) => element.tag === "li");
+
+it("a list item whose text ends in a section ID is shown without it, as an item with a wire", () => {
+  const root = render(itemMarkdown, itemHooks);
+  const found = Array.filter(walk(root), (element) => attr(element, "data-item") !== undefined);
+  assert(Array.map(found, (element) => attr(element, "data-item"))).toEqual([
+    "prd.cli.init",
+    "prd.cli.parent",
+    "prd.cli.child",
+  ]);
+  assert(Array.map(found, (element) => attr(element, "data-wire"))).toEqual([
+    "prd:prd.cli.init",
+    "prd:prd.cli.parent",
+    "prd:prd.cli.child",
+  ]);
+  assert(Array.map(found, (element) => attr(element, "data-seen"))).toEqual([
+    "prd.cli.init",
+    "prd.cli.parent",
+    "prd.cli.child",
+  ]);
+  const init = Option.getOrThrow(Array.head(found));
+  assert(textOf(init)).toBe("init creates the folder.[note prd.cli.init]");
+});
+
+it("the annotation ends the item's own text, before a list nested in it", () => {
+  const root = render(itemMarkdown, itemHooks);
+  const parent = Option.getOrThrow(
+    Array.findFirst(walk(root), (element) => attr(element, "data-item") === "prd.cli.parent"),
+  );
+  const own = Option.getOrThrow(Array.get(children(parent), 0));
+  const nested = Option.getOrThrow(Array.get(children(parent), 1));
+  assert(textOf(own)).toBe("Parent with a list.[note prd.cli.parent]");
+  assert(Predicate.isString(nested) ? "" : tagOf(nested)).toBe("ul");
+  assert(textOf(nested)).toBe("Child item.[note prd.cli.child]");
+});
+
+it("a {#} is stripped, and an item with no ID or a statement's ID is not an item", () => {
+  const root = render(itemMarkdown, itemHooks);
+  const texts = Array.map(listItems(root), (element) => textOf(element));
+  assert(texts).toContain("ids fills an empty {#}.");
+  assert(texts).toContain("A plain item.");
+  // A statement's `{#id#v1}` is not an item ID: it is left as written.
+  assert(texts).toContain("A statement. {#prd.cli#v1}");
+  assert(Array.some(texts, String.includes("{#}.{#}"))).toBe(false);
+});
+
+it("without hooks an item still has its attributes and no annotation", () => {
+  const root = render(itemMarkdown);
+  const init = Option.getOrThrow(
+    Array.findFirst(walk(root), (element) => attr(element, "data-item") === "prd.cli.init"),
+  );
+  assert(textOf(init)).toBe("init creates the folder.");
+});

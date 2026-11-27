@@ -1179,6 +1179,44 @@ mark[data-link-passage] {
   transform: scale(0.97);
 }
 
+/*
+ * A list item with an ID is a small section: its annotation, a small btn, and its ID end its text.
+ * The ID shows while the item is hovered or holds focus, and the item is outlined, as a shape,
+ * while it is marked or pinned.
+ */
+li[data-item] > p > .item-note {
+  margin-left: 8px;
+  padding: 0 8px;
+  font-size: var(--t-xs);
+}
+
+li[data-item] > p > .item-id {
+  margin-left: 6px;
+  opacity: 0;
+}
+
+li[data-item]:hover > p > .item-id,
+li[data-item]:focus-within > p > .item-id {
+  opacity: 1;
+}
+
+li[data-item][data-current],
+li[data-item][data-marked] {
+  outline: var(--line) solid var(--ink);
+  outline-offset: 3px;
+  border-radius: var(--r-s);
+}
+
+li[data-item][data-marked] {
+  outline-style: dashed;
+}
+
+.prd-sec-head[data-marked] {
+  outline: var(--line) dashed var(--ink);
+  outline-offset: 3px;
+  border-radius: var(--r-s);
+}
+
 .prd-covnote {
   margin: 0;
   color: var(--muted);

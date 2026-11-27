@@ -1,6 +1,6 @@
 import { Event, PrdSectionId, SectionId, Trace, type SectionStatus } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, DateTime, HashSet, Option, Schema } from "effect";
+import { Array, DateTime, HashSet, Option, Schema, Struct } from "effect";
 
 import { demoTrace } from "../src/demo.ts";
 import {
@@ -13,7 +13,7 @@ import {
   sectionAtTop,
   statusWordOf,
 } from "../src/reader.ts";
-import { chainOf } from "../src/trace.ts";
+import { chainOf, itemsOfTask } from "../src/trace.ts";
 
 const prd = (n: number): PrdSectionId => PrdSectionId.make(`prd.p${n}`);
 
@@ -233,4 +233,85 @@ it("the demo trace has a task that ran and one that did not", () => {
   const ran = Array.map(demoTrace.tasks, (each) => ranOf(each).ran);
   expect(Array.contains(ran, true)).toBe(true);
   expect(Array.contains(ran, false)).toBe(true);
+});
+
+// --- List items ---
+
+const itemIds = Array.map(demoTrace.prd.items, (item) => item.id);
+
+it("the demo trace has list items with IDs", () => {
+  expect(Array.length(demoTrace.prd.items)).toBeGreaterThan(1);
+});
+
+it.prop(
+  "an item's counts never pass its section's counts",
+  [Schema.Int.check(Schema.isBetween({ maximum: 10_000, minimum: 0 }))],
+  ([seed]) => {
+    const item = Option.getOrThrow(Array.get(demoTrace.prd.items, seed % Array.length(itemIds)));
+    const own = countsOf(demoTrace, Schema.decodeSync(PrdSectionId)(item.id));
+    const section = countsOf(demoTrace, Schema.decodeSync(PrdSectionId)(item.section));
+    expect(own.specs).toBeLessThanOrEqual(section.specs);
+    expect(own.tasks).toBeLessThanOrEqual(section.tasks);
+    expect(own.done).toBeLessThanOrEqual(section.done);
+  },
+);
+
+it.prop(
+  "an item's chain is inside its section's chain, and holds the item",
+  [Schema.Int.check(Schema.isBetween({ maximum: 10_000, minimum: 0 }))],
+  ([seed]) => {
+    const item = Option.getOrThrow(Array.get(demoTrace.prd.items, seed % Array.length(itemIds)));
+    const own = chainOf(demoTrace, { id: item.id, kind: "section" });
+    const section = chainOf(demoTrace, { id: item.section, kind: "section" });
+    expect(HashSet.has(own.prd, item.id)).toBe(true);
+    expect(Array.every(Array.fromIterable(own.spec), (id) => HashSet.has(section.spec, id))).toBe(
+      true,
+    );
+    expect(Array.every(Array.fromIterable(own.tasks), (id) => HashSet.has(section.tasks, id))).toBe(
+      true,
+    );
+  },
+);
+
+/** The demo trace with `spec.lint` implementing only the item, not the section above it. */
+const onlyTheItem: typeof demoTrace = Struct.evolve(demoTrace, {
+  spec: (spec) =>
+    Struct.evolve(spec, {
+      sections: Array.map((section) =>
+        section.id === "spec.lint"
+          ? Struct.evolve(section, {
+              keys: (keys) =>
+                Struct.evolve(keys, { implements: () => [PrdSectionId.make("prd.cli.lint")] }),
+            })
+          : section,
+      ),
+    }),
+});
+
+it("a section's chain holds the chains of its items, so its counts and cards include them", () => {
+  const cli = SectionId.make("prd.cli");
+  const without = chainOf(
+    Struct.evolve(onlyTheItem, { prd: (document) => Struct.evolve(document, { items: () => [] }) }),
+    { id: cli, kind: "section" },
+  );
+  const within = chainOf(onlyTheItem, { id: cli, kind: "section" });
+  expect(HashSet.has(without.spec, "spec.lint")).toBe(false);
+  expect(HashSet.has(within.spec, "spec.lint")).toBe(true);
+  expect(countsOf(onlyTheItem, PrdSectionId.make("prd.cli")).specs).toBeGreaterThan(
+    HashSet.size(without.spec),
+  );
+  expect(
+    Array.some(
+      cardsOf(onlyTheItem, PrdSectionId.make("prd.cli")).cards,
+      (card) => card.section.id === "spec.lint",
+    ),
+  ).toBe(true);
+});
+
+it("a task's chain lights the items its spec sections implement, and itemsOfTask lists them", () => {
+  const task = Option.getOrThrow(Array.findFirst(demoTrace.tasks, (each) => each.id === "t27"));
+  const chain = chainOf(demoTrace, { id: task.id, kind: "task" });
+  expect(HashSet.has(chain.prd, "prd.cli.lint")).toBe(true);
+  expect(HashSet.has(chain.prd, "prd.cli")).toBe(true);
+  expect(Array.map(itemsOfTask(demoTrace, task.id), (item) => item.id)).toEqual(["prd.cli.lint"]);
 });

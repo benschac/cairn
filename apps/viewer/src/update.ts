@@ -11,7 +11,7 @@ import {
   type TraceTask,
 } from "@cairn/contract";
 import { Command, UiStruct } from "@effect/ui";
-import { Array, Boolean, Effect, Option, Record, Result, Schema } from "effect";
+import { Array, Boolean, Effect, Option, Record, Result, Schema, String } from "effect";
 
 import {
   codeScreenOf,
@@ -682,6 +682,50 @@ const searchedWith = (model: Model, search: SearchState) => ({
 const pinToggled = (maybePinned: Option.Option<PrdSectionId>, id: PrdSectionId) =>
   Option.contains(maybePinned, id) ? Option.none() : Option.some(id);
 
+/** Nothing is marked by a spec card's chip any more. */
+const unmarked = (model: Model): Model =>
+  UiStruct.evolve(model, {
+    reader: (reader) => UiStruct.evolve(reader, { maybeMarked: () => Option.none() }),
+  });
+
+/**
+ * A PRD section's status line or an item's annotation: the pin moves to it, or goes when it was the
+ * pin. Pinning keeps the pane where it is. A PRD passage a link opened belongs to the pin it
+ * replaces, so it goes with it.
+ */
+const pinClicked = (model: Model, id: PrdSectionId): Return => ({
+  model: UiStruct.evolve(unmarked(model), {
+    maybeCopied: () => Option.none(),
+    maybeCopiedLink: () => Option.none(),
+    reader: (reader) =>
+      UiStruct.evolve(reader, {
+        maybePassage: Option.filter((passage) => !isPrdSection(passage.section)),
+        maybePinned: (maybePinned) => pinToggled(maybePinned, id),
+      }),
+  }),
+});
+
+/**
+ * A spec card's chip: the PRD pane scrolls to the section or item it names and it is marked. An
+ * item inside a folded section opens that section first, so there is something to scroll to.
+ */
+const chipClicked = (model: Model, id: PrdSectionId): Return => ({
+  commands: [ScrollPrdSection.make({ id })],
+  model: UiStruct.evolve(model, {
+    reader: (reader) =>
+      UiStruct.evolve(reader, {
+        maybeMarked: () => Option.some(id),
+        prdOpened: (opened) =>
+          Option.match(
+            Option.flatMap(traceOf(model), (trace) =>
+              Array.findFirst(trace.prd.items, (item) => String.Equivalence(item.id, id)),
+            ),
+            { onNone: () => opened, onSome: (item) => Record.set(opened, item.section, true) },
+          ),
+      }),
+  }),
+});
+
 /** No buttons held: the pointer is up, whether or not its release was heard. */
 const NO_BUTTONS = 0;
 
@@ -833,7 +877,7 @@ const updated = (model: Model, message: Message) =>
       }),
     }),
     // A task row or a chip starts a new trail on that task.
-    ClickedTask: ({ id }) => detailTrailed(model, openedOn({ id, kind: "task" })),
+    ClickedTask: ({ id }) => detailTrailed(unmarked(model), openedOn({ id, kind: "task" })),
     ClickedDetailNode: ({ node }) => detailTrailed(model, extendedBy(model.detail, node)),
     ClickedTrailStep: ({ index }) => detailTrailed(model, cutBackTo(model.detail, index)),
     ClickedCloseDetail: () => ({ model: UiStruct.evolve(model, { detail: () => [] }) }),
@@ -885,19 +929,10 @@ const updated = (model: Model, message: Message) =>
     }),
     ClickedCopyPassageLink: ({ section }) => passageLinkCopied(model, section),
     ClickedSectionId: ({ id }) => ({ commands: [CopySectionId.make({ id })], model }),
-    // Pinning keeps the pane where it is; the pinned section stays current while the PRD scrolls.
-    // A PRD passage a link opened belongs to the pin it replaces, so it goes with it.
-    ClickedStatusLine: ({ id }) => ({
-      model: UiStruct.evolve(model, {
-        maybeCopied: () => Option.none(),
-        maybeCopiedLink: () => Option.none(),
-        reader: (reader) =>
-          UiStruct.evolve(reader, {
-            maybePassage: Option.filter((passage) => !isPrdSection(passage.section)),
-            maybePinned: (maybePinned) => pinToggled(maybePinned, id),
-          }),
-      }),
-    }),
+    // The pinned section stays current while the PRD scrolls.
+    ClickedStatusLine: ({ id }) => pinClicked(model, id),
+    ClickedItemAnnotation: ({ id }) => pinClicked(model, id),
+    ClickedImplementsChip: ({ id }) => chipClicked(model, id),
     // A click takes focus from the input, so it goes back: the keyboard stays in search.
     ClickedSearchResult: ({ node }) => {
       const selected = selectedResult(model, node);
@@ -998,7 +1033,7 @@ const updated = (model: Model, message: Message) =>
     CompletedDrawDiagram: () => ({ model }),
     CompletedScrollTurn: () => ({ model }),
     HoveredNode: ({ node }) => ({
-      model: UiStruct.evolve(model, { maybeHovered: () => Option.some(node) }),
+      model: UiStruct.evolve(unmarked(model), { maybeHovered: () => Option.some(node) }),
     }),
     LeftNode: () => ({ model: UiStruct.evolve(model, { maybeHovered: () => Option.none() }) }),
     MeasuredWires: ({ measured }) => ({
@@ -1052,7 +1087,7 @@ const updated = (model: Model, message: Message) =>
       Screen.guards.Reader(model.screen)
         ? Array.match(model.detail, {
             onEmpty: () => ({
-              model: UiStruct.evolve(model, {
+              model: UiStruct.evolve(unmarked(model), {
                 maybeCopied: () => Option.none(),
                 maybeCopiedLink: () => Option.none(),
                 reader: (reader) =>
@@ -1140,10 +1175,11 @@ export const FocusDetailHeading = Command.make("FocusDetailHeading", { args: {} 
   ),
 );
 
-/** The heading of a PRD section in the PRD pane; the document's own title is not one. */
-const prdHeadingSelector = (id: PrdSectionId): string => `[data-section="${id}"]:not([data-title])`;
+/** The heading of a PRD section in the PRD pane, or the list item with that ID; the document's own title is not one. */
+const prdHeadingSelector = (id: PrdSectionId): string =>
+  `[data-section="${id}"]:not([data-title]), [data-item="${id}"]`;
 
-/** Scrolls the PRD pane so a section's heading is at its top. */
+/** Scrolls the PRD pane so a section's heading, or an item, is at its top. */
 export const ScrollPrdSection = Command.make(
   "ScrollPrdSection",
   { args: { id: PrdSectionId } },

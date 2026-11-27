@@ -252,6 +252,20 @@ export const countsOf = (trace: Trace, prd: PrdSectionId): Counts => {
   );
 };
 
+/** An item and the spec sections that implement it. */
+export interface ItemSpecs {
+  readonly id: PrdSectionId;
+  readonly specs: ReadonlyArray<string>;
+}
+
+/** The items under a PRD section, each with the spec sections that implement it; none for an item. */
+export const itemSpecsOf = (trace: Trace, prd: PrdSectionId): ReadonlyArray<ItemSpecs> =>
+  Array.flatMap(trace.prd.items, (item) =>
+    isPrdSection(item.id) && String.Equivalence(item.section, prd)
+      ? [{ id: item.id, specs: Array.fromIterable(chainFor(trace, item.id).spec) }]
+      : [],
+  );
+
 /** The IDs of the tasks in the current section's chain; none when there is no current section. */
 export const currentTasksOf = (
   trace: Trace,

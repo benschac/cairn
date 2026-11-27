@@ -55,6 +55,10 @@ export const Message = UiSchema.TaggedEnum({
   ClickedSectionId: { id: PrdSectionId },
   /** The status line under a PRD heading: pins that section, or unpins it when it is the pinned one. */
   ClickedStatusLine: { id: PrdSectionId },
+  /** A list item's annotation: pins the item, or unpins it when it is the pinned one. */
+  ClickedItemAnnotation: { id: PrdSectionId },
+  /** A PRD section or item named by a spec card's `Implements` chip: scrolls the PRD pane to it and marks it. */
+  ClickedImplementsChip: { id: PrdSectionId },
   /** A result in the search list: it becomes the active result and is brought into view. */
   ClickedSearchResult: { node: Node },
   /** A stack's segment: unfolds its finished trunk, or folds it again. Only the window keeps it. */
