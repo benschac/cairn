@@ -59,6 +59,12 @@ export const Message = UiSchema.TaggedEnum({
   ClickedItemAnnotation: { id: PrdSectionId },
   /** A PRD section or item named by a spec card's `Implements` chip: scrolls the PRD pane to it and marks it. */
   ClickedImplementsChip: { id: PrdSectionId },
+  /** The links part of a heading's status line or an item's annotation: opens that section's list, or closes it. */
+  ClickedLinks: { id: PrdSectionId },
+  /** A section or item in an open list: scrolls the PRD pane to it and marks it, as a spec card's chip does. */
+  ClickedLinkedSection: { id: PrdSectionId },
+  /** The open list's "Everything before and after" switch. */
+  ClickedLinksTransitiveSwitch: {},
   /** A result in the search list: it becomes the active result and is brought into view. */
   ClickedSearchResult: { node: Node },
   /** A stack's segment: unfolds its finished trunk, or folds it again. Only the window keeps it. */

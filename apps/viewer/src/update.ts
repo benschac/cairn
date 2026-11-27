@@ -933,6 +933,19 @@ const updated = (model: Model, message: Message) =>
     ClickedStatusLine: ({ id }) => pinClicked(model, id),
     ClickedItemAnnotation: ({ id }) => pinClicked(model, id),
     ClickedImplementsChip: ({ id }) => chipClicked(model, id),
+    ClickedLinkedSection: ({ id }) => chipClicked(model, id),
+    ClickedLinks: ({ id }) => ({
+      model: UiStruct.evolve(model, {
+        reader: (reader) =>
+          UiStruct.evolve(reader, { maybeLinksOpen: (maybeOpen) => pinToggled(maybeOpen, id) }),
+      }),
+    }),
+    ClickedLinksTransitiveSwitch: () => ({
+      model: UiStruct.evolve(model, {
+        reader: (reader) =>
+          UiStruct.evolve(reader, { isLinksTransitive: (isTransitive) => !isTransitive }),
+      }),
+    }),
     // A click takes focus from the input, so it goes back: the keyboard stays in search.
     ClickedSearchResult: ({ node }) => {
       const selected = selectedResult(model, node);
@@ -1081,23 +1094,32 @@ const updated = (model: Model, message: Message) =>
       }),
     }),
     // It is the reader's key: on any other screen it does nothing. With the detail panel open it
-    // goes back one step, which closes the panel at the first; otherwise it unpins, which takes a
-    // linked PRD passage with the pin, and clears a linked stack's focus.
+    // goes back one step, which closes the panel at the first; then an open links list closes;
+    // otherwise it unpins, which takes a linked PRD passage with the pin, and clears a linked
+    // stack's focus.
     PressedEscape: () =>
       Screen.guards.Reader(model.screen)
         ? Array.match(model.detail, {
-            onEmpty: () => ({
-              model: UiStruct.evolve(unmarked(model), {
-                maybeCopied: () => Option.none(),
-                maybeCopiedLink: () => Option.none(),
-                reader: (reader) =>
-                  UiStruct.evolve(reader, {
-                    maybeFocus: () => Option.none(),
-                    maybePassage: Option.filter((passage) => !isPrdSection(passage.section)),
-                    maybePinned: () => Option.none(),
-                  }),
-              }),
-            }),
+            onEmpty: () =>
+              Option.isSome(model.reader.maybeLinksOpen)
+                ? {
+                    model: UiStruct.evolve(model, {
+                      reader: (reader) =>
+                        UiStruct.evolve(reader, { maybeLinksOpen: () => Option.none() }),
+                    }),
+                  }
+                : {
+                    model: UiStruct.evolve(unmarked(model), {
+                      maybeCopied: () => Option.none(),
+                      maybeCopiedLink: () => Option.none(),
+                      reader: (reader) =>
+                        UiStruct.evolve(reader, {
+                          maybeFocus: () => Option.none(),
+                          maybePassage: Option.filter((passage) => !isPrdSection(passage.section)),
+                          maybePinned: () => Option.none(),
+                        }),
+                    }),
+                  },
             onNonEmpty: (trail) => detailTrailed(model, wentBack(trail)),
           })
         : { model },

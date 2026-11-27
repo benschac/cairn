@@ -3,17 +3,22 @@ import {
   PrdSectionId,
   type Reasoning,
   SectionStatus,
+  TaskId,
   Trace,
   TraceSection,
   TraceTask,
+  type TaskStatus,
 } from "@cairn/contract";
 import { indexOf } from "@cairn/core/relation-index";
 import type { RelationIndex } from "@cairn/core/relation-index";
+import { sectionLinksOf, type SectionLinks } from "@cairn/core/section-links";
+import { TaskIdOrder } from "@cairn/core/stacks";
 import {
   Array,
   DateTime,
   HashSet,
   Match,
+  MutableHashMap,
   MutableRef,
   Option,
   Order,
@@ -49,6 +54,85 @@ export const relationsOf = (trace: Trace): RelationIndex =>
       MutableRef.set(relationsCache, Option.some({ index, trace }));
       return index;
     },
+  );
+
+/** What the links of a trace's sections are built from, kept for as long as the trace is the same one. */
+interface LinksCache {
+  readonly links: MutableHashMap.MutableHashMap<string, SectionLinks>;
+  readonly statuses: Record.ReadonlyRecord<string, TaskStatus>;
+  readonly trace: Trace;
+}
+
+const linksCache = MutableRef.make<Option.Option<LinksCache>>(Option.none());
+
+const linksCacheOf = (trace: Trace): LinksCache =>
+  Option.getOrElse(
+    Option.filter(MutableRef.get(linksCache), (cached) => cached.trace === trace),
+    () => {
+      const fresh: LinksCache = {
+        links: MutableHashMap.empty(),
+        statuses: Record.fromIterableWith(trace.tasks, (task) => [task.id, task.status]),
+        trace,
+      };
+      MutableRef.set(linksCache, Option.some(fresh));
+      return fresh;
+    },
+  );
+
+/**
+ * What the PRD section or item `id` needs, what needs it and what it can build next, from
+ * `sectionLinksOf` on the trace's relation index (see `spec.viewer.what-depends-on-what`).
+ * `isTransitive` asks for everything before and after, each with the link it comes through. Each
+ * answer is kept with its trace, so a render that asks again for the same one does no work.
+ */
+export const linksFor = (trace: Trace, id: PrdSectionId, isTransitive: boolean): SectionLinks => {
+  const cache = linksCacheOf(trace);
+  const key = `${isTransitive ? "all" : "direct"}:${id}`;
+  return Option.getOrElse(MutableHashMap.get(cache.links, key), () => {
+    const links = sectionLinksOf(
+      relationsOf(trace),
+      { items: trace.prd.items, sections: trace.prd.sections, spec: trace.spec.sections },
+      id,
+      {
+        statusOf: (task) =>
+          Option.getOrElse(Record.get(cache.statuses, task), (): TaskStatus => "pending"),
+        transitive: isTransitive,
+      },
+    );
+    MutableHashMap.set(cache.links, key, links);
+    return links;
+  });
+};
+
+/**
+ * The end of a heading's status line or an item's annotation: `needs 3 · needed by 1`, then
+ * `2 ready` when the section has unfinished tasks and some can start, or `waiting` when none can.
+ */
+export const linksTextOf = (links: SectionLinks): string =>
+  Array.join(
+    Array.appendAll(
+      [`needs ${Array.length(links.needs)}`, `needed by ${Array.length(links.neededBy)}`],
+      Array.isReadonlyArrayEmpty(links.next)
+        ? []
+        : [links.ready === 0 ? "waiting" : `${links.ready} ready`],
+    ),
+    " · ",
+  );
+
+const isTaskId = Schema.is(TaskId);
+
+/** The tasks that need `task` directly, finished or not, in task order. */
+export const neededByOf = (trace: Trace, task: TaskId): ReadonlyArray<TaskId> =>
+  Array.sort(
+    Array.dedupe(
+      Array.filter(
+        Array.flatMap(relationsOf(trace).into(task, "needs"), ({ from }) =>
+          from.kind === "task" ? [from.id] : [],
+        ),
+        isTaskId,
+      ),
+    ),
+    TaskIdOrder,
   );
 
 /** What a person chose that decides the current section: the model's `reader`, as far as it goes. */
