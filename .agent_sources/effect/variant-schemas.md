@@ -79,6 +79,11 @@ where the places are not a database's.
   and task IDs in the manifest, and the descriptions written for the model's prompt sit on the `draft`
   schema of `category`, `dependsOn` and `model` only. `TaskDraft`'s JSON Schema, which the model is given,
   is the one it was before.
+- `packages/cli/src/trace-store.ts`: the `sessions` table in `cairn.db`, a `Model.Struct`. `redactions` is
+  `Model.JsonFromString` and `storedAt` is `Model.GeneratedByApp`, so `SessionRecord` (`jsonCreate`, what
+  `put` takes) has no `storedAt`, `StoredSession` (`json`) is what `get` returns, and `insert` and
+  `select` are the row. The tables still to come in `cairn.db` (notes, attempts, allowance snapshots)
+  take the same shape.
 
 ## Traps
 
@@ -95,6 +100,12 @@ where the places are not a database's.
 - An annotation on a field shared by several variants is on every variant, and so in each one's JSON
   Schema. A description written for a model's prompt belongs only on that variant: give the field a
   `V.Field` with an annotated schema for it and a plain one for the others.
+- `Model.DateTimeInsert`'s `insert` schema is `Overrideable`: its type is branded, so a value you stamp
+  yourself needs `Model.Override`, and its default runs only through `makeEffect`, which validates the
+  whole row first and fails with a `SchemaIssue` rather than the `SchemaError` an encode gives. A store
+  that stamps the time in its own `put` declares the column `Model.GeneratedByApp` instead.
+- `Model`'s variant names are a web API's. Where the caller is not a client, say in the extract's comment
+  what the variant is here: `jsonCreate` is "what `put` takes", not JSON from a browser.
 - `extract` of the default variant from a `V.Struct` is a plain `Schema.Struct`; from a `V.Class` it is the
   class itself, so the default variant then decodes to instances.
 

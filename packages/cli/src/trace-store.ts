@@ -12,6 +12,7 @@ import {
   Struct,
 } from "effect";
 import { HttpServerRespondable, HttpServerResponse } from "effect/http";
+import { Model } from "effect/schema";
 import { SqlClient, SqlSchema } from "effect/sql";
 import type { SqlError } from "effect/sql/SqlError";
 
@@ -31,29 +32,35 @@ const Text = Schema.String.check(
 /** How many secrets of each kind redaction replaced in a session's log. */
 const Redactions = Schema.Record(Text, Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)));
 
-/** A session to store: its redacted log and what is known of the run that wrote it. */
-export const SessionRecord = Schema.Struct({
+/**
+ * A `sessions` row, declared once: its redacted log and what is known of the run that wrote it.
+ * `redactions` is JSON text in the row and an object in memory, and `storedAt` is stamped by the store,
+ * so a session handed to it has none. Column names are camelCase through the client's name
+ * transforms. Sessions are never updated.
+ */
+const Sessions = Model.Struct({
   agent: Schema.NullOr(Text),
   endedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
   id: SessionId,
   log: Text,
   model: Schema.NullOr(Text),
-  redactions: Redactions,
+  redactions: Model.JsonFromString(Redactions),
   startedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
+  storedAt: Model.GeneratedByApp(Schema.DateTimeUtcFromString),
   taskId: TaskId,
 });
+
+/** A session to store, as a caller hands it to `put`: Model's `jsonCreate` variant. */
+export const SessionRecord = Model.extract(Sessions, "jsonCreate");
 export type SessionRecord = typeof SessionRecord.Type;
 
-/** A session as the store holds it: the record and when it was stored. */
-export const StoredSession = SessionRecord.mapFields(
-  Struct.assign({ storedAt: Schema.DateTimeUtcFromString }),
-);
+/** A session as the store gives it back: the record and when it was stored. */
+export const StoredSession = Model.extract(Sessions, "json");
 export type StoredSession = typeof StoredSession.Type;
 
-/** A `sessions` row, with `redactions` as JSON text. Column names are camelCase through the client's name transforms. */
-const SessionRow = StoredSession.mapFields(
-  Struct.assign({ redactions: Schema.fromJsonString(Redactions) }),
-);
+/** The row `put` inserts and the row `get` selects. */
+const SessionInsert = Model.extract(Sessions, "insert");
+const SessionRow = Model.extract(Sessions, "select");
 
 /**
  * No session with this id is stored. Served, it is a `404` with its message, an answer the sessions
@@ -115,7 +122,7 @@ export class TraceStore extends Context.Service<
       const sql = yield* SqlClient.SqlClient;
 
       const insert = SqlSchema.void({
-        Request: SessionRow,
+        Request: SessionInsert,
         execute: (row) => sql`insert into sessions ${sql.insert(row)}`,
       });
 

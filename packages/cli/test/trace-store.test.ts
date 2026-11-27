@@ -5,7 +5,13 @@ import { Array, DateTime, Effect, FileSystem, Layer, Path, Schema, Struct } from
 import { SqlClient } from "effect/sql";
 import { SqlError } from "effect/sql/SqlError";
 
-import { SessionNotFound, SessionRecord, sqliteClient, TraceStore } from "../src/trace-store.ts";
+import {
+  SessionNotFound,
+  SessionRecord,
+  StoredSession,
+  sqliteClient,
+  TraceStore,
+} from "../src/trace-store.ts";
 
 /** The store keys sessions by id, so generated sessions keep the first of each id. */
 const distinct = (sessions: ReadonlyArray<SessionRecord>) =>
@@ -113,4 +119,22 @@ it.effect("storing an id twice fails and keeps the first session", () =>
     expect(error).toBeInstanceOf(SqlError);
     expect(read.log).toBe(session.log);
   }).pipe(Effect.provide(TraceStore.layerMemory)),
+);
+
+it("only the store writes storedAt", () => {
+  expect(
+    Array.difference(Struct.keys(StoredSession.fields), Struct.keys(SessionRecord.fields)),
+  ).toEqual(["storedAt"]);
+});
+
+it.effect("the row holds redactions as JSON text and storedAt as an ISO string", () =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    const store = yield* TraceStore;
+    yield* store.put(session);
+    const rows = yield* sql`select redactions, stored_at from sessions`.withoutTransform;
+    expect(rows).toEqual([
+      { redactions: '{"anthropic":1}', stored_at: "1970-01-01T00:00:00.000Z" },
+    ]);
+  }).pipe(Effect.provide(TraceStore.layerSql.pipe(Layer.provideMerge(sqliteClient(":memory:"))))),
 );
