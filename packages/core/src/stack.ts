@@ -1,5 +1,5 @@
 import { TaskId } from "@cairn/contract";
-import type { HumanGate, ManifestTask, Slug, TaskDraft } from "@cairn/contract";
+import type { HumanGate, ManifestTask, OrderedAfter, Slug, TaskDraft } from "@cairn/contract";
 import {
   Array,
   HashMap,
@@ -56,6 +56,28 @@ export class StackOrderError extends Schema.TaggedError<
   }
 }
 
+/**
+ * A conflict ordering `stackOf` applies (see `spec.planning.conflict-ordering`): `task` is
+ * stacked on `after` for `reason`, without depending on it.
+ */
+export interface Ordering {
+  readonly after: TaskId;
+  readonly reason: string;
+  readonly task: TaskId;
+}
+
+/**
+ * What a task's parent is computed from: the tasks it depends on, then the tasks it is ordered
+ * after. `parentOf` over these gives the parent `stackOf` sets and `parent-mismatch` expects.
+ */
+export const stackedOn = (
+  task: Pick<ManifestTask, "dependsOn" | "orderedAfter">,
+): ReadonlyArray<TaskId> =>
+  Array.appendAll(
+    task.dependsOn,
+    Array.map(task.orderedAfter, ({ task: after }) => after),
+  );
+
 /** What `parentOf` reads from each task placed so far. */
 export type StackLink = Pick<ManifestTask, "id" | "parent">;
 
@@ -66,7 +88,7 @@ export type StackTask = Pick<ManifestTask, "dependsOn" | "id" | "parent">;
 export type CheckedOut = Pick<ManifestTask, "dependsOn" | "id" | "worktree">;
 
 /** A task and every task below it through parent links. It stops at a task it does not know or one it has seen. */
-const lineOf = (
+export const lineOf = (
   parents: Record.ReadonlyRecord<string, TaskId | null>,
   id: TaskId,
 ): ReadonlyArray<TaskId> =>
@@ -102,6 +124,25 @@ export const parentOf = (
     const line = lineOf(parents, latest);
     return Array.every(dependsOn, (dependency) => Array.contains(line, dependency));
   });
+};
+
+/**
+ * The parent `stackOf` gives a task: `parentOf` over `stackedOn`. A gated task takes none when the
+ * chain below that parent holds a task it does not need, which a conflict ordering from an earlier
+ * plan can put there. It then starts from the base branch once its dependencies land, so nothing
+ * sits below a gate but what it needs (`prd.human-gates`). `needs` says whether the task needs
+ * another, directly or through other tasks.
+ */
+export const placedOn = (
+  task: Pick<ManifestTask, "dependsOn" | "humanGate" | "orderedAfter">,
+  tasks: ReadonlyArray<StackLink>,
+  needs: (other: TaskId) => boolean,
+): Option.Option<TaskId> => {
+  const parent = parentOf(stackedOn(task), tasks);
+  const parents = Record.fromEntries(Array.map(tasks, (link) => [link.id, link.parent] as const));
+  return task.humanGate.required
+    ? Option.filter(parent, (on) => Array.every(lineOf(parents, on), needs))
+    : parent;
 };
 
 /** Worktree 0 is the repo's own checkout; the rest are `wt-1`, `wt-2`, .... */
@@ -327,9 +368,10 @@ const cycleOf = (waiting: Array.NonEmptyReadonlyArray<Node>): Array.NonEmptyRead
   return walk([Array.headNonEmpty(waiting)]);
 };
 
-/** A draft placed in build order, with its ID, dependencies and parent. */
+/** A draft placed in build order, with its ID, dependencies, orderings and parent. */
 interface Placement extends StackTask {
   readonly node: Node;
+  readonly orderedAfter: ReadonlyArray<OrderedAfter>;
   readonly position: number;
 }
 
@@ -339,7 +381,26 @@ interface Placed {
   readonly ids: HashMap.HashMap<number, TaskId>;
   /** Where each task so far sits in the manifest, by ID. */
   readonly rank: Record.ReadonlyRecord<string, number>;
+  /** What each task so far needs, directly or through other tasks, by ID. */
+  readonly needs: Record.ReadonlyRecord<string, HashSet.HashSet<TaskId>>;
 }
+
+/** `needs` with `id`'s: its dependencies and everything they need. */
+const withNeeds = (
+  needs: Record.ReadonlyRecord<string, HashSet.HashSet<TaskId>>,
+  id: TaskId,
+  dependsOn: ReadonlyArray<TaskId>,
+): Record.ReadonlyRecord<string, HashSet.HashSet<TaskId>> =>
+  Record.set(
+    needs,
+    id,
+    Array.reduce(dependsOn, HashSet.fromIterable(dependsOn), (all, dependency) =>
+      HashSet.union(
+        all,
+        Option.getOrElse(Record.get(needs, dependency), () => HashSet.empty()),
+      ),
+    ),
+  );
 
 /** The number in a task ID of the form `t<number>`. An ID of another form has none. */
 const numberOf = (id: TaskId): Option.Option<number> =>
@@ -347,11 +408,13 @@ const numberOf = (id: TaskId): Option.Option<number> =>
 
 /**
  * The drafts placed after `existing`, in order. Their IDs continue from the highest number an
- * existing ID has, and their dependencies are listed in manifest order.
+ * existing ID has, and their dependencies are listed in manifest order. Each takes the orderings
+ * whose `task` is its ID, and its parent from its dependencies and those orderings.
  */
 const placementsOf = (
   order: ReadonlyArray<Node>,
   existing: ReadonlyArray<ManifestTask>,
+  orderings: ReadonlyArray<Ordering>,
 ): ReadonlyArray<Placement> => {
   const highest = Array.reduce(
     Array.getSomes(Array.map(existing, (task) => numberOf(task.id))),
@@ -361,6 +424,10 @@ const placementsOf = (
   const start: Placed = {
     ids: HashMap.empty(),
     links: existing,
+    // A task needs only tasks before it, so one pass in manifest order covers every existing one.
+    needs: Array.reduce(existing, Record.empty(), (needs, task) =>
+      withNeeds(needs, task.id, task.dependsOn),
+    ),
     rank: Record.fromEntries(Array.map(existing, (task, at) => [task.id, at] as const)),
   };
   return Array.mapAccum(order, start, (placed, node, at) => {
@@ -375,14 +442,24 @@ const placementsOf = (
         Option.getOrElse(Record.get(placed.rank, dependency), () => -1),
       ),
     );
-    const parent = Option.getOrNull(parentOf(dependsOn, placed.links));
+    const orderedAfter = Array.filterMap(orderings, ({ after, reason, task }) =>
+      task === id ? Result.succeed({ reason, task: after }) : Result.failVoid,
+    );
+    const needs = withNeeds(placed.needs, id, dependsOn);
+    const needed = Option.getOrElse(Record.get(needs, id), () => HashSet.empty<TaskId>());
+    const parent = Option.getOrNull(
+      placedOn({ dependsOn, humanGate: node.gate, orderedAfter }, placed.links, (other) =>
+        HashSet.has(needed, other),
+      ),
+    );
     return [
       {
         ids: HashMap.set(placed.ids, node.index, id),
         links: Array.append(placed.links, { id, parent }),
+        needs,
         rank: Record.set(placed.rank, id, Array.length(existing) + at),
       },
-      { dependsOn, id, node, parent, position },
+      { dependsOn, id, node, orderedAfter, parent, position },
     ];
   })[1];
 };
@@ -409,7 +486,7 @@ const taskOf = (feature: Slug, placement: Placement, worktree: string | null): M
     humanGate: gate,
     id: placement.id,
     model: draft.model,
-    orderedAfter: [],
+    orderedAfter: placement.orderedAfter,
     parent: placement.parent,
     prdSections: draft.prdSections,
     reasoning: draft.reasoning,
@@ -427,16 +504,22 @@ const taskOf = (feature: Slug, placement: Placement, worktree: string | null): M
  * plan `existing` is empty. New IDs continue from the highest existing `t<number>` ID, `t1` on a
  * first plan, in dependency order, taking a gated draft first among those whose dependencies are
  * placed, then the planner's order. A draft depends on other drafts by title and on existing
- * tasks by ID. Each new task gets its branch, its dependencies as IDs, the parent `parentOf`
+ * tasks by ID. Each new task gets its branch, its dependencies as IDs, the parent `placedOn`
  * gives and the worktree `worktreesOf` gives; either may be an existing task's. `gates` is the
  * plan-time gate of each draft. Two drafts with one title, a dependency that is neither a draft's
  * title nor an existing ID, and a cycle are a `StackOrderError`.
+ *
+ * `orderings` are the conflict orderings to apply (see `spec.planning.conflict-ordering`): a new
+ * task an ordering names gains it in `orderedAfter`, and its parent comes from `dependsOn` plus
+ * `orderedAfter`. An ordering leaves the order and the IDs as they are, since it only stacks a
+ * task on one with a lower ID, and an ordering of an existing task is ignored.
  */
 export const stackOf = (
   feature: Slug,
   drafts: ReadonlyArray<TaskDraft>,
   gates: (draft: TaskDraft) => HumanGate,
   existing: ReadonlyArray<ManifestTask> = [],
+  orderings: ReadonlyArray<Ordering> = [],
 ): Result.Result<ReadonlyArray<ManifestTask>, StackOrderError> =>
   Result.gen(function* () {
     const nodes = yield* Result.flatMap(uniqueTitles(drafts), (unique) =>
@@ -451,7 +534,7 @@ export const stackOf = (
         Array.map(cycleOf(waiting), (node) => node.draft.title),
       );
     }
-    const placements = placementsOf(order, existing);
+    const placements = placementsOf(order, existing, orderings);
     return Array.appendAll(
       existing,
       Array.zipWith(placements, worktreesOf(placements, existing), (placement, worktree) =>

@@ -1,6 +1,6 @@
 import { JudgmentTarget, Judgments } from "@cairn/contract";
 import type { Config, Judgment, Manifest, ManifestTask } from "@cairn/contract";
-import { inputsOf, sectionsOf, verdictOf } from "@cairn/core";
+import { hotspotsOf, inputsOf, sectionsOf, verdictOf } from "@cairn/core";
 import {
   Array,
   Console,
@@ -17,7 +17,7 @@ import {
 import { Command, Flag } from "effect/cli";
 
 import { replaceFile } from "../atomic-write.ts";
-import { Judge } from "../judge.ts";
+import { Judge, fileInputsOf } from "../judge.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { CAIRN_DIRECTORY, loadConfig, loadManifest, loadPrd, loadSpec } from "../workspace.ts";
 
@@ -66,6 +66,7 @@ const loadJudgments = Effect.fn("judge.loadJudgments")(function* () {
 const taskOf = (target: JudgmentTarget, manifest: Manifest): Option.Option<ManifestTask> =>
   JudgmentTarget.match(target, {
     draft: () => Option.none(),
+    file: () => Option.none(),
     section: () => Option.none(),
     stack: () => Option.none(),
     task: ({ id }) => Array.findFirst(manifest.tasks, (task) => task.id === id),
@@ -106,6 +107,7 @@ const placeOf = (
 ): string => {
   const specSection = JudgmentTarget.match(target, {
     draft: () => Option.none<string>(),
+    file: () => Option.none<string>(),
     section: ({ id }) => Option.some<string>(id),
     stack: () => Option.none<string>(),
     task: () =>
@@ -141,8 +143,14 @@ export const judgePlan = Effect.fn("judgePlan")(function* (options: JudgeOptions
   const manifest = yield* loadManifest;
   const config = yield* loadConfig;
   const previous = options.fresh ? Option.none<Judgments>() : yield* loadJudgments();
+  // The files the plan asked `splitFile` about, from the manifest's open tasks, so their
+  // judgments are kept and asked again when the file or its tasks change.
+  const files = yield* fileInputsOf(
+    hotspotsOf(manifest.tasks, [], config.conflicts),
+    manifest.tasks,
+  );
   const judged = yield* judge.judge(
-    inputsOf(prd, spec, manifest),
+    Struct.evolve(inputsOf(prd, spec, manifest), { files: () => files }),
     Option.getOrElse(previous, (): Judgments => ({
       judgments: [],
       model: config.judge.model,

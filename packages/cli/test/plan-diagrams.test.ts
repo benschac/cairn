@@ -21,6 +21,7 @@ import {
 import { TestConsole } from "effect/testing";
 
 import { ManifestRefused, UP_TO_DATE, plan } from "../src/commands/plan.ts";
+import { Git } from "../src/git.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { Script, scripted } from "./fixtures/scripted-language-model.ts";
@@ -245,6 +246,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
               }),
             ),
             MainCheckout.fixed(root),
+            Git.memory(),
             ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
           ),
         ),

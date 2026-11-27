@@ -450,6 +450,7 @@ export const refineWith = Effect.fn("refineWith")(function* (
     );
     const result = yield* judge.judge(
       {
+        files: [],
         sections,
         stack: PLACEHOLDER_STACK,
         tasks: Array.zipWith(ids, drafts, (id, draft) => ({ id, input: draft.input })),
@@ -465,6 +466,7 @@ export const refineWith = Effect.fn("refineWith")(function* (
     return Array.filterMap(result.judgments, (judgment) =>
       JudgmentTarget.match(judgment.target, {
         draft: () => Result.failVoid,
+        file: () => Result.failVoid,
         section: (target) => inRound(judgment, target),
         stack: () => Result.failVoid,
         task: ({ id }) =>

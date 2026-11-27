@@ -20,6 +20,7 @@ import {
 import { TestConsole } from "effect/testing";
 
 import { plan } from "../src/commands/plan.ts";
+import { Git } from "../src/git.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { totalsLine } from "../src/print-stack.ts";
@@ -97,6 +98,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
                 scriptedTerminal([], (line) => Ref.update(asked, Array.append(line))),
                 scriptedPlanner(calls),
                 MainCheckout.fixed(root),
+                Git.memory(),
                 ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
               ),
             ),

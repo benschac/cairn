@@ -2,7 +2,13 @@ import { createHash } from "node:crypto";
 
 import { Config as CairnConfig, Judgments, SpecSectionId, TaskId } from "@cairn/contract";
 import type { JudgmentTarget } from "@cairn/contract";
-import { SectionJudgingInput, StackJudgingInput, TaskJudgingInput, verdictOf } from "@cairn/core";
+import {
+  FileJudgingInput,
+  SectionJudgingInput,
+  StackJudgingInput,
+  TaskJudgingInput,
+  verdictOf,
+} from "@cairn/core";
 import type { JudgingInputs } from "@cairn/core";
 import { expect, it } from "@effect/vitest";
 import {
@@ -138,8 +144,11 @@ const seenOf = Calls.use((calls) => calls.seen);
 const seenCount = Effect.map(seenOf, Array.length);
 const mostOf = Calls.use((calls) => calls.most);
 
-/** Generated inputs, with each section and task ID once, as `inputsOf` gives them. */
+/** Generated inputs, with each section and task ID and each file path once, as `cairn plan` gives them. */
 const Inputs = Schema.Struct({
+  files: Schema.Array(Schema.Struct({ input: FileJudgingInput, path: Schema.String })).check(
+    Schema.isMaxLength(2),
+  ),
   sections: Schema.Array(Schema.Struct({ id: SpecSectionId, input: SectionJudgingInput })).check(
     Schema.isMaxLength(3),
   ),
@@ -151,6 +160,7 @@ const Inputs = Schema.Struct({
 
 const unique = (inputs: typeof Inputs.Type): JudgingInputs =>
   Struct.evolve(inputs, {
+    files: (files) => Array.dedupeWith(files, (a, b) => a.path === b.path),
     sections: (sections) => Array.dedupeWith(sections, (a, b) => a.id === b.id),
     tasks: (tasks) => Array.dedupeWith(tasks, (a, b) => a.id === b.id),
   });
@@ -173,6 +183,7 @@ const task = (id: string) => ({
 });
 
 const fixed: JudgingInputs = {
+  files: [],
   sections: [section("spec.a", "First"), section("spec.b", "Second")],
   stack,
   tasks: [task("t1")],
@@ -196,6 +207,7 @@ it.effect.prop(
           Array.map(inputs.sections, () => ["buildable", "faithful", "size"]),
           Array.map(inputs.tasks, () => ["matches", "model", "reasoning", "size"]),
           [["complete", "oneFeature", "ordered"]],
+          Array.map(inputs.files, () => ["splitFile"]),
         ]),
       );
       expect(Schema.is(Judgments)(result)).toBe(true);
@@ -207,7 +219,10 @@ it.effect.prop(
         ),
       ).toBe(true);
       expect(Array.length(result.judgments)).toBe(
-        3 * Array.length(inputs.sections) + 4 * Array.length(inputs.tasks) + 3,
+        3 * Array.length(inputs.sections) +
+          4 * Array.length(inputs.tasks) +
+          3 +
+          Array.length(inputs.files),
       );
       expect(
         Array.map(result.judgments, (judgment) => Struct.pick(judgment, ["message", "verdict"])),
@@ -457,7 +472,7 @@ it.effect.prop(
         ),
       ).toEqual(Array.map(result.judgments, (j) => Option.some(j.inputHash)));
       expect(Array.length(hashes)).toBe(
-        Array.length(inputs.sections) + Array.length(inputs.tasks) + 1,
+        Array.length(inputs.sections) + Array.length(inputs.tasks) + 1 + Array.length(inputs.files),
       );
     }),
   { arbitrary: { runs: 20 } },
@@ -485,6 +500,7 @@ it.effect("no more than four requests are in flight at once", () =>
   Effect.gen(function* () {
     const judge = yield* Judge;
     const inputs: JudgingInputs = {
+      files: [],
       sections: Array.map(Array.range(1, 10), (n) => section(`spec.s${n}`, `Body ${n}`)),
       stack,
       tasks: [],
@@ -514,7 +530,7 @@ const rateLimited = (retryAfter?: Duration.Duration) =>
 const after = (seconds: number) =>
   Effect.andThen(TestClock.adjust(Duration.seconds(seconds)), seenCount);
 
-const stackOnly: JudgingInputs = { sections: [], stack, tasks: [] };
+const stackOnly: JudgingInputs = { files: [], sections: [], stack, tasks: [] };
 
 it.effect("a rate limit is retried three times, each after the delay the provider gives", () =>
   Effect.gen(function* () {
@@ -561,7 +577,7 @@ it.effect("any other AiError fails at once with a JudgeError that names the targ
   Effect.gen(function* () {
     const judge = yield* Judge;
     const error = yield* Effect.flip(
-      judge.judge({ sections: [section("spec.a", "First")], stack, tasks: [] }, none),
+      judge.judge({ files: [], sections: [section("spec.a", "First")], stack, tasks: [] }, none),
     );
     expect(Schema.is(JudgeError)(error)).toBe(true);
     expect(error.target).toEqual({ id: "spec.a", kind: "section" });

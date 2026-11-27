@@ -12,15 +12,22 @@ import type {
   ManifestTask,
   Section,
   SpecIndex,
+  TaskDraft,
 } from "@cairn/contract";
 import {
   assignItemIds,
   assignSectionIds,
+  conflictOrder,
+  conflictsOf,
   derivedOf,
   gateOf,
+  historyOf,
+  hotspotsOf,
   inputsOf,
   itemsOf,
   lint,
+  orderingOf,
+  orderingsOf,
   partOf,
   refusalOf,
   replanOf,
@@ -32,7 +39,7 @@ import {
   uncoveredOf,
   withStackDiagram,
 } from "@cairn/core";
-import type { Finding, Part, Replan } from "@cairn/core";
+import type { Conflict, Finding, Hotspot, Part, Replan, StackOrderError } from "@cairn/core";
 import {
   Array,
   Console,
@@ -55,6 +62,7 @@ import {
   String,
   Struct,
   Terminal,
+  pipe,
 } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 
@@ -66,7 +74,9 @@ import {
   targetsOf,
 } from "../ask-statements.ts";
 import { replaceFile } from "../atomic-write.ts";
-import { Judge, JudgeError } from "../judge.ts";
+import { Git } from "../git.ts";
+import { layer as gitLayer } from "../git-live.ts";
+import { Judge, JudgeError, fileInputsOf } from "../judge.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { liveLanguageModel } from "../models.ts";
 import { Planner, PlannerError } from "../planner.ts";
@@ -295,18 +305,33 @@ const featureOf = (prd: string): Slug =>
     Option.getOrElse(() => FALLBACK_FEATURE),
   );
 
-/** A yes or no from the person: `y` or `yes`. Anything else, and the end of input, is no. `--yes` answers yes without asking. */
-const confirm = Effect.fn("plan.confirm")(function* (question: string, yes: boolean) {
+/** The person's answer to `question`, trimmed and in lowercase; the end of input is `""`. `--yes` answers `yes` without asking. */
+const reply = Effect.fn("plan.reply")(function* (question: string, yes: boolean) {
   if (yes) {
-    return true;
+    return "yes";
   }
   const terminal = yield* Terminal.Terminal;
   yield* terminal.display(`${question} `);
   const answer = yield* terminal.readLine.pipe(
     Effect.catchTag("QuitError", () => Effect.succeed("")),
   );
-  return Array.contains(["y", "yes"], String.toLowerCase(String.trim(answer)));
+  return String.toLowerCase(String.trim(answer));
 });
+
+/** Whether an answer is a yes: `y` or `yes`. Anything else, and the end of input, is no. */
+const isYes = (answer: string) => Array.contains(["y", "yes"], answer);
+
+/** A yes or no from the person. `--yes` answers yes without asking. */
+const confirm = (question: string, yes: boolean) => Effect.map(reply(question, yes), isYes);
+
+/** The ordering `undo <n>` names at the task review (`spec.planning.conflict-ordering`). */
+const undoOf = (answer: string): Option.Option<number> =>
+  pipe(
+    answer,
+    String.match(/^undo\s+(\d+)$/u),
+    Option.flatMap(Array.get(1)),
+    Option.flatMap(Number.parse),
+  );
 
 /**
  * The judge of the judging checkpoints (`spec.judging.checkpoints`), when the run was given one.
@@ -549,44 +574,50 @@ const refined = Effect.fn("plan.refined")(function* ({ config, told }: Inputs, i
 
 /**
  * The fourth checkpoint, the stack questions (`spec.judging.checkpoints`): asked of the manifest
- * the plan would write. It only reports. A part run's `complete` question lists only the part's
- * PRD sections.
+ * the plan would write, and `splitFile` of each file in `hotspots` (`spec.planning.conflict-ordering`).
+ * It only reports. A part run's `complete` question lists only the part's PRD sections.
  */
 const stackJudged = Effect.fn("plan.stackJudged")(function* (
   { config, part, told }: Inputs,
   prd: string,
   spec: string,
   manifest: Manifest,
+  hotspots: ReadonlyArray<Hotspot>,
 ) {
   const none: ReadonlyArray<Judgment> = [];
   const maybeJudge = yield* judging(told);
   return yield* Option.match(maybeJudge, {
     onNone: () => Effect.succeed(none),
-    onSome: (judge) => {
-      const whole = inputsOf(prd, spec, manifest).stack;
-      // A part run asks whether the stack builds the part's PRD sections, not the ones left for later.
-      const stack = Option.match(part, {
-        onNone: () => whole,
-        onSome: (found) => {
-          const ids = idsOfPart(found);
-          return {
-            ...whole,
-            prdSections: Array.filter(whole.prdSections, ({ id }) => HashSet.has(ids, id)),
-          };
-        },
-      });
-      return judge
-        .judge(
-          { sections: [], stack, tasks: [] },
-          { judgments: [], model: config.judge.model, version: 1 },
-        )
-        .pipe(
-          Effect.map(({ judgments }) =>
-            Array.filter(judgments, (judgment) => judgment.target.kind === "stack"),
-          ),
-          Effect.catchTag("JudgeError", failedAs(none)),
-        );
-    },
+    onSome: (judge) =>
+      Effect.gen(function* () {
+        const files = yield* fileInputsOf(hotspots, manifest.tasks);
+        const whole = inputsOf(prd, spec, manifest).stack;
+        // A part run asks whether the stack builds the part's PRD sections, not the ones left for later.
+        const stack = Option.match(part, {
+          onNone: () => whole,
+          onSome: (found) => {
+            const ids = idsOfPart(found);
+            return {
+              ...whole,
+              prdSections: Array.filter(whole.prdSections, ({ id }) => HashSet.has(ids, id)),
+            };
+          },
+        });
+        return yield* judge
+          .judge(
+            { files, sections: [], stack, tasks: [] },
+            { judgments: [], model: config.judge.model, version: 1 },
+          )
+          .pipe(
+            Effect.map(({ judgments }) =>
+              Array.filter(
+                judgments,
+                (judgment) => judgment.target.kind === "stack" || judgment.target.kind === "file",
+              ),
+            ),
+            Effect.catchTag("JudgeError", failedAs(none)),
+          );
+      }),
   });
 });
 
@@ -908,6 +939,69 @@ const draftable = Effect.fn("plan.draftable")(function* (
   );
 });
 
+/** A stack the task review shows: the manifest it would write, its spec, and what lint found. */
+interface Reviewed {
+  readonly drafted: Manifest;
+  readonly drawn: string;
+  readonly findings: ReadonlyArray<Finding>;
+  /** Findings about what a part run leaves for later, which do not stop its write. */
+  readonly later: ReadonlyArray<Finding>;
+}
+
+const noTasks = () => new PlannerError({ call: "tasks", reason: "The planner drafted no tasks." });
+
+const printed = (lines: ReadonlyArray<string>) =>
+  Effect.forEach(lines, (line) => Console.log(line), { discard: true });
+
+/**
+ * What the base branch's history says about its files, for the conflict scores
+ * (`spec.planning.conflict-scores`). A repository git cannot read, such as one with no commit on
+ * the base branch yet, has no history: every file then counts as one that rarely changes.
+ */
+const historyFor = Effect.fn("plan.history")(function* (baseBranch: string, config: CairnConfig) {
+  const git = yield* Git;
+  return yield* git.history(baseBranch, config.conflicts.history).pipe(
+    Effect.map(historyOf),
+    Effect.catchTag("GitError", (error) =>
+      Console.log(`Conflict history skipped: ${error.message}`).pipe(Effect.as(historyOf([]))),
+    ),
+  );
+});
+
+/** A pair as the conflicts block names it: the earlier task first. */
+const pairOf = ({ earlier, later }: Conflict) => `${earlier} ↔ ${later}`;
+
+/** How many of a stack's lint findings are errors, which refuse the write. */
+const errorsOf = (state: Reviewed) =>
+  Array.length(Array.filter(state.findings, (finding) => finding.severity === "error"));
+
+/**
+ * The conflicts block of the plan output (`spec.planning.conflict-ordering`): each high-scoring
+ * pair, numbered for `undo <n>`, with its score, its reasons and what was done about it. None
+ * when no pair scores high.
+ */
+const conflictLines = (
+  conflicts: ReadonlyArray<Conflict>,
+  stacked: ReadonlyArray<Conflict>,
+): ReadonlyArray<string> => {
+  const width = Array.reduce(conflicts, 0, (widest, conflict) =>
+    Number.max(widest, String.length(pairOf(conflict))),
+  );
+  return Array.match(conflicts, {
+    onEmpty: () => [],
+    onNonEmpty: (listed) =>
+      Array.prepend(
+        Array.map(listed, (conflict, at) => {
+          const done = Array.contains(stacked, conflict)
+            ? `stacked ${conflict.later} on ${conflict.earlier}`
+            : `recommend starting ${conflict.later} after ${conflict.earlier} lands`;
+          return `  ${at + 1}  ${String.padEnd(width)(pairOf(conflict))}  ${conflict.score.score.toFixed(2)}  ${conflict.reason}: ${done}`;
+        }),
+        "conflicts",
+      ),
+  });
+};
+
 /**
  * Step 2: drafts the tasks of `specSections` from the spec on disk, orders them after the tasks the
  * manifest has, lints them, and writes `manifest.json` when the person agrees. A dry run prints the
@@ -949,46 +1043,58 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
     onNone: () => featureOf(prd),
     onSome: (plan) => plan.feature,
   });
-  const ordered = yield* Effect.fromResult(
-    stackOf(feature, drafts, (draft) => gateOf(draft, sections, config, [], items), existing),
-  );
-  yield* Effect.filterOrFail(
-    Effect.succeed(Array.drop(ordered, Array.length(existing))),
-    Array.isReadonlyArrayNonEmpty,
-    () => new PlannerError({ call: "tasks", reason: "The planner drafted no tasks." }),
-  );
-  const added = Array.length(ordered) - Array.length(existing);
-  const tasks = yield* Effect.filterOrFail(
-    Effect.succeed(ordered),
-    Array.isReadonlyArrayNonEmpty,
-    () => new PlannerError({ call: "tasks", reason: "The planner drafted no tasks." }),
-  );
-  const drafted: Manifest = {
-    baseBranch: Option.match(kept, {
-      onNone: () => BASE_BRANCH,
-      onSome: (plan) => plan.baseBranch,
-    }),
-    feature,
-    tasks,
-    version: 1,
-  };
-  // Every manifest write draws the stack diagram again, so lint reads the spec as it will be written.
-  const drawn = withStackDiagram(spec, drafted);
-  const found = lint(prd, drawn, Option.some(drafted), config);
+  const baseBranch = Option.match(kept, {
+    onNone: () => BASE_BRANCH,
+    onSome: (plan) => plan.baseBranch,
+  });
+  const gates = (draft: TaskDraft) => gateOf(draft, sections, config, [], items);
   // What a part run leaves for later does not stop its write: it is listed apart from what does.
   const inPart = Option.map(part, idsOfPart);
   const isLater = (finding: Finding) => Option.exists(inPart, (ids) => notPlannedYet(ids, finding));
-  const later = Array.filter(found, isLater);
-  const findings = Array.filter(found, (finding) => !isLater(finding));
+  const reviewed = (ordered: Array.NonEmptyReadonlyArray<ManifestTask>): Reviewed => {
+    const drafted: Manifest = { baseBranch, feature, tasks: ordered, version: 1 };
+    // Every manifest write draws the stack diagram again, so lint reads the spec as it will be written.
+    const drawn = withStackDiagram(spec, drafted);
+    const found = lint(prd, drawn, Option.some(drafted), config);
+    return {
+      drafted,
+      drawn,
+      findings: Array.filter(found, (finding) => !isLater(finding)),
+      later: Array.filter(found, isLater),
+    };
+  };
+  /** The stack with `stacked` applied as conflict orderings; the drafts were placed once already, so it cannot fail. */
+  const restacked = (stacked: ReadonlyArray<Conflict>) =>
+    Effect.fromResult(
+      stackOf(feature, drafts, gates, existing, Array.map(stacked, orderingOf)),
+    ).pipe(Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, noTasks), Effect.map(reviewed));
+  const unordered = yield* Effect.fromResult(stackOf(feature, drafts, gates, existing));
+  const fresh = Array.drop(unordered, Array.length(existing));
+  yield* Effect.filterOrFail(Effect.succeed(fresh), Array.isReadonlyArrayNonEmpty, noTasks);
+  const added = Array.length(fresh);
+  // High-scoring pairs among the new tasks are stacked or recommended before the stack is shown.
+  const history = yield* historyFor(baseBranch, config);
+  const orderings = orderingsOf(
+    fresh,
+    existing,
+    conflictsOf(existing, fresh, history, config.conflicts),
+    config.conflicts,
+  );
+  const conflicts = Array.sort(
+    Array.appendAll(orderings.applied, orderings.recommended),
+    conflictOrder,
+  );
+  const first = yield* restacked(orderings.applied);
   // A judgment of a draft that became a task is named by the task's ID; one of a draft a split
   // replaced stays named by its title.
-  const ids = HashMap.fromIterable(
-    Array.map(
-      Array.drop(ordered, Array.length(existing)),
-      (task) => [task.title, task.id] as const,
-    ),
+  const ids = HashMap.fromIterable(Array.map(fresh, (task) => [task.title, task.id] as const));
+  const stack = yield* stackJudged(
+    inputs,
+    prd,
+    first.drawn,
+    first.drafted,
+    hotspotsOf(existing, fresh, config.conflicts),
   );
-  const stack = yield* stackJudged(inputs, prd, drawn, drafted);
   const judgments = Array.appendAll(
     Array.map(checked.judgments, (judgment) =>
       judgment.target.kind === "draft"
@@ -1003,25 +1109,27 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
   );
   yield* record(inputs, judgments);
   const old = HashSet.fromIterable(Array.map(existing, (task) => task.id));
-  yield* Effect.forEach(
+  const shown = (state: Reviewed) =>
     Array.flatten([
-      partLines(part),
-      changeLines(judgments),
-      stackLines(drafted.tasks, { isNew: (task) => !HashSet.has(old, task.id) }),
-      Array.map(findings, formatFinding),
-      Array.match(later, {
+      stackLines(state.drafted.tasks, { isNew: (task) => !HashSet.has(old, task.id) }),
+      Array.map(state.findings, formatFinding),
+      Array.match(state.later, {
         onEmpty: () => [],
         onNonEmpty: (left) => Array.prepend(Array.map(left, formatFinding), NOT_PLANNED_YET),
       }),
+    ]);
+  yield* printed(
+    Array.flatten([
+      partLines(part),
+      changeLines(judgments),
+      conflictLines(conflicts, orderings.applied),
+      shown(first),
       reportLines(judgments),
     ]),
-    (line) => Console.log(line),
-    { discard: true },
   );
-  const errors = Array.length(Array.filter(findings, (finding) => finding.severity === "error"));
   const everything = yield* Ref.get(judged);
   const planned: Omit<Planned, "part"> = {
-    errors,
+    errors: errorsOf(first),
     flags: flagsOf(everything),
     sections: 0,
     tasks: added,
@@ -1029,13 +1137,69 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
   if (options.dryRun === true) {
     return planned;
   }
-  yield* Effect.filterOrFail(
-    Effect.succeed(errors),
-    (count) => count === 0,
-    (count) => new ManifestRefused({ errors: count }),
-  );
-  const write = yield* confirm(WRITE_QUESTION, options.yes);
-  if (write) {
+  // The task review: a yes writes, `undo <n>` takes stacking `n` back out and asks again.
+  const review = Effect.fn("plan.review")(function* (
+    state: Reviewed,
+    stacked: ReadonlyArray<Conflict>,
+  ): Effect.fn.Return<
+    Option.Option<Reviewed>,
+    ManifestRefused | PlannerError | PlatformError.PlatformError | StackOrderError,
+    Terminal.Terminal
+  > {
+    yield* Effect.filterOrFail(
+      Effect.succeed(errorsOf(state)),
+      (count) => count === 0,
+      (count) => new ManifestRefused({ errors: count }),
+    );
+    const answer = yield* reply(WRITE_QUESTION, options.yes);
+    if (isYes(answer)) {
+      return Option.some(state);
+    }
+    return yield* Option.match(undoOf(answer), {
+      onNone: () => Effect.succeed(Option.none<Reviewed>()),
+      onSome: (n) =>
+        Option.match(
+          Option.filter(Array.get(conflicts, n - 1), (conflict) =>
+            Array.contains(stacked, conflict),
+          ),
+          {
+            onNone: () =>
+              Console.log(`There is no stacking ${n} to undo.`).pipe(
+                Effect.andThen(review(state, stacked)),
+              ),
+            onSome: (undone) => {
+              // An ordering can need the chain the undone one made, so the rest are checked again.
+              const rechecked = orderingsOf(
+                fresh,
+                existing,
+                Array.filter(stacked, (conflict) => conflict !== undone),
+                config.conflicts,
+              );
+              const left = rechecked.applied;
+              return restacked(left).pipe(
+                Effect.tap((next) =>
+                  printed(
+                    Array.flatten([
+                      [`Undid ${n}: ${undone.later} no longer stacks on ${undone.earlier}.`],
+                      Array.map(
+                        rechecked.recommended,
+                        (dropped) =>
+                          `stacking ${undone.later} on ${undone.earlier} is undone, so ${dropped.later} no longer stacks on ${dropped.earlier} either.`,
+                      ),
+                      shown(next),
+                    ]),
+                  ),
+                ),
+                Effect.flatMap((next) => review(next, left)),
+              );
+            },
+          },
+        ),
+    });
+  });
+  const chosen = yield* review(first, orderings.applied);
+  if (Option.isSome(chosen)) {
+    const { drafted, drawn } = chosen.value;
     const encoded = yield* Schema.encodeEffect(ManifestJson)(drafted);
     yield* writeCairn("manifest.json", withNewline(encoded));
     yield* Console.log(`Wrote ${CAIRN_DIRECTORY}/manifest.json`);
@@ -1392,10 +1556,17 @@ export const planCommand = Command.make(
           ),
         ),
       );
+      // Git is read in the main checkout, for the history the conflict scores weigh files by.
+      const git = Layer.unwrap(
+        Effect.gen(function* () {
+          const root = yield* (yield* MainCheckout).root;
+          return gitLayer(root);
+        }),
+      );
       // A Judge is provided only when a key or a gateway token is configured; without one the
       // checkpoints find none and are skipped.
       yield* plan(options).pipe(
-        Effect.provide(Layer.mergeAll(planner, Judge.whenConfigured(config))),
+        Effect.provide(Layer.mergeAll(planner, Judge.whenConfigured(config), git)),
       );
     }).pipe(
       // The failures log their own message once; the runtime does not print them again.
