@@ -424,8 +424,10 @@ const ofDraft = (judgments: ReadonlyArray<Judgment>, title: string) =>
  * keeps its `flag`.
  *
  * 1. Sections: every section with a spec ID when `specGenerated`, otherwise those in `written`.
- *    A section marked `<!-- human -->` is judged and never split.
- * 2. Task size: every draft, then the drafts each split writes.
+ *    A section marked `<!-- human -->` is judged and never split. `faithful`, `inScope` and
+ *    `buildable` are reported and never acted on.
+ * 2. Task size: every draft, then the drafts each split writes. `matches` and `inScope` are
+ *    reported and never acted on.
  * 3. Routing: every draft's `model` and `reasoning` answers, from the round it was judged in.
  */
 export const refineWith = Effect.fn("refineWith")(function* (

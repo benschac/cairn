@@ -35,6 +35,7 @@ export type JudgmentTarget = typeof JudgmentTarget.Type;
 export const JudgmentQuestion = Schema.Literals([
   "size",
   "faithful",
+  "inScope",
   "buildable",
   "matches",
   "model",

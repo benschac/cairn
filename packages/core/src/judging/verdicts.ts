@@ -32,6 +32,7 @@ const KIND = {
   buildable: "probability",
   complete: "probability",
   faithful: "probability",
+  inScope: "probability",
   matches: "probability",
   model: "choice",
   oneFeature: "probability",

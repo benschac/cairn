@@ -193,8 +193,8 @@ it.effect.prop(
 
       expect(Array.map(seen, decisionsOf)).toEqual(
         Array.flatten([
-          Array.map(inputs.sections, () => ["buildable", "faithful", "size"]),
-          Array.map(inputs.tasks, () => ["matches", "model", "reasoning", "size"]),
+          Array.map(inputs.sections, () => ["buildable", "faithful", "inScope", "size"]),
+          Array.map(inputs.tasks, () => ["inScope", "matches", "model", "reasoning", "size"]),
           [["complete", "oneFeature", "ordered"]],
         ]),
       );
@@ -207,7 +207,7 @@ it.effect.prop(
         ),
       ).toBe(true);
       expect(Array.length(result.judgments)).toBe(
-        3 * Array.length(inputs.sections) + 4 * Array.length(inputs.tasks) + 3,
+        4 * Array.length(inputs.sections) + 5 * Array.length(inputs.tasks) + 3,
       );
       expect(
         Array.map(result.judgments, (judgment) => Struct.pick(judgment, ["message", "verdict"])),
@@ -358,14 +358,14 @@ it.effect("a task is asked again without its model question once judge.models na
       withModels({ haiku: "Small" }),
     );
     expect(Array.map(seen, (options) => options.state)).toEqual([task("t1").input]);
-    expect(askedFor(seen)).toEqual([["matches", "reasoning", "size"]]);
+    expect(askedFor(seen)).toEqual([["inScope", "matches", "reasoning", "size"]]);
     expect(notTask(second)).toEqual(notTask(first));
     expect(
       Array.map(
         Array.filter(second.judgments, (j) => j.target.kind === "task"),
         (j) => j.question,
       ),
-    ).toEqual(["matches", "reasoning", "size"]);
+    ).toEqual(["inScope", "matches", "reasoning", "size"]);
   }),
 );
 

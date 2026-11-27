@@ -1,4 +1,4 @@
-import { Manifest, Reasoning, Slug } from "@cairn/contract";
+import { JudgmentQuestion, Manifest, Reasoning, Slug } from "@cairn/contract";
 import { describe, expect, it } from "@effect/vitest";
 import { Array, Match, Option, Record, Schema, String, Struct, pipe } from "effect";
 import type { Decision } from "effect/ai";
@@ -327,9 +327,11 @@ describe("the questions", () => {
     expect(Record.map(sectionQuestions.decisions, shapeOf)).toEqual({
       buildable: ["probability", []],
       faithful: ["probability", []],
+      inScope: ["probability", []],
       size: ["rate", SIZE],
     });
     expect(Record.map(taskQuestions(models).decisions, shapeOf)).toEqual({
+      inScope: ["probability", []],
       matches: ["probability", []],
       model: ["classify", ["haiku", "opus", "sonnet"]],
       reasoning: ["rate", Reasoning.literals],
@@ -369,13 +371,32 @@ describe("the questions", () => {
     },
   );
 
+  it("names every decision of every definition as a JudgmentQuestion", () => {
+    // `Judge` drops a decision key that is not a JudgmentQuestion without a word, so a question
+    // missing from the contract's union would simply never be asked.
+    const keys = Array.flatMap(
+      [sectionQuestions, taskQuestions(models), taskQuestionsWithoutModel, stackQuestions],
+      (definition) => Record.keys<string, Decision.Any>(definition.decisions),
+    );
+    expect(Array.filter(keys, (key) => !Schema.is(JudgmentQuestion)(key))).toEqual([]);
+  });
+
+  it("asks scope apart from what is left out, of sections and of tasks", () => {
+    expect(Record.keys(sectionQuestions.decisions)).toEqual(
+      expect.arrayContaining(["faithful", "inScope"]),
+    );
+    expect(Record.keys(taskQuestionsWithoutModel.decisions)).toEqual(
+      expect.arrayContaining(["matches", "inScope"]),
+    );
+  });
+
   it("describes every rating level and probability with an example", () => {
     const decisions = Array.flatMap(
       [sectionQuestions.decisions, taskQuestions(models).decisions, stackQuestions.decisions],
       (all) => Record.values<string, Decision.Any>(all),
     );
     const described = Array.flatMap(decisions, descriptionsOf);
-    expect(Array.length(described)).toBe(23);
+    expect(Array.length(described)).toBe(27);
     Array.forEach(described, (description) => {
       expect(description).toSatisfy(
         (text: unknown) => Schema.is(Schema.String)(text) && String.includes("Example: ")(text),
