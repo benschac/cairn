@@ -718,6 +718,7 @@ const recordingJudge = Effect.gen(function* () {
   const judge = Layer.succeed(
     Judge,
     Judge.of({
+      ask: () => Effect.succeed([]),
       judge: ({ prdSections, stack, tasks }, previous, { asks } = {}) =>
         // Only the fourth checkpoint asks `built` without `size`.
         Predicate.isNotUndefined(asks) && asks("built") && !asks("size")

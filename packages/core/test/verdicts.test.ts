@@ -1,9 +1,9 @@
 import { Config, ProbabilityAnswer, RateAnswer, Reasoning, Unanswered } from "@cairn/contract";
 import type { Verdict } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, Number, Option, Order, Record, Schema, String, pipe } from "effect";
+import { Array, Number, Option, Order, Record, Result, Schema, String, pipe } from "effect";
 
-import { routeOf, verdictOf } from "../src/index.ts";
+import { routeOf, verdictOf, yesNoOf } from "../src/index.ts";
 
 /** Thresholds as config decodes them: `pass` above `flag`, every number in [0, 1]. */
 const Judge = Config.fields.judge;
@@ -324,5 +324,37 @@ it.prop(
       value: Option.some(plannedReasoning),
       verdict: "unsure",
     });
+  },
+);
+
+const YES_NO_RANK = { no: 0, unsure: 1, yes: 2 } as const;
+const byYesNo = Order.mapInput(
+  Order.Number,
+  (answer: "no" | "unsure" | "yes") => YES_NO_RANK[answer],
+);
+
+it.prop(
+  "raising a probability never lowers its yes-or-no reading",
+  [Judge, Schema.Finite, Schema.Finite],
+  ([judge, a, b]) => {
+    const [low, high] = sorted(a, b);
+    const at = (probability: number) => yesNoOf(Result.succeed({ probability }), judge);
+    expect(Order.isLessThanOrEqualTo(byYesNo)(at(low), at(high))).toBe(true);
+  },
+);
+
+it.prop("a probability reads yes at pass, no below flag and unsure between", [Judge], ([judge]) => {
+  const at = (probability: number) => yesNoOf(Result.succeed({ probability }), judge);
+  expect(at(judge.pass)).toBe("yes");
+  expect(at(Number.sum(judge.pass, 1))).toBe("yes");
+  expect(at(judge.flag)).toBe("unsure");
+  expect(at(Number.subtract(judge.flag, 1))).toBe("no");
+});
+
+it.prop(
+  "an unanswered decision reads unsure, whatever the reason",
+  [Judge, Schema.Literals(["Missing", "Refused", "Invalid", "NoDistribution"]), Schema.String],
+  ([judge, reason, description]) => {
+    expect(yesNoOf(Result.fail({ _tag: "Unanswered", description, reason }), judge)).toBe("unsure");
   },
 );

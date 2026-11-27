@@ -1,6 +1,18 @@
 import { Config, JudgmentQuestion, Manifest, PrdSectionId, Reasoning, Slug } from "@cairn/contract";
 import { describe, expect, it } from "@effect/vitest";
-import { Array, Match, Number, Option, Order, Record, Schema, String, Struct, pipe } from "effect";
+import {
+  Array,
+  Match,
+  Number,
+  Option,
+  Order,
+  Predicate,
+  Record,
+  Schema,
+  String,
+  Struct,
+  pipe,
+} from "effect";
 import type { Decision } from "effect/ai";
 
 import {
@@ -10,7 +22,12 @@ import {
   SectionJudgingInput,
   StackJudgingInput,
   TaskJudgingInput,
+  changeQuestions,
+  draftQuestions,
   inputsOf,
+  itemQuestions,
+  noteQuestions,
+  partQuestions,
   prdSectionQuestions,
   prdSectionsBuiltBy,
   sectionQuestions,
@@ -741,5 +758,83 @@ describe("the questions", () => {
         (text: unknown) => Schema.is(Schema.String)(text) && String.includes("Example: ")(text),
       );
     });
+  });
+});
+
+describe("the planning questions", () => {
+  const planning = {
+    changeQuestions,
+    draftQuestions,
+    itemQuestions,
+    noteQuestions,
+    partQuestions,
+  } as const;
+
+  it("asks each definition what the spec's table lists, of the kind it lists", () => {
+    expect(Record.map(partQuestions.decisions, shapeOf)).toEqual({
+      describesBuild: ["probability", []],
+    });
+    expect(Record.map(draftQuestions.decisions, shapeOf)).toEqual({
+      faithful: ["probability", []],
+      namesImplementation: ["probability", []],
+      needsPerson: ["probability", []],
+      observable: ["probability", []],
+    });
+    expect(Record.map(changeQuestions.decisions, shapeOf)).toEqual({
+      materialChange: ["probability", []],
+    });
+    expect(Record.map(itemQuestions.decisions, shapeOf)).toEqual({
+      buildsItem: ["probability", []],
+    });
+    expect(Record.map(noteQuestions.decisions, shapeOf)).toEqual({
+      actionable: ["probability", []],
+      label: ["classify", ["question", "blocker", "bug", "breaks_spec", "nit"]],
+    });
+  });
+
+  it("reads each definition's input as the spec's table lists it", () => {
+    expect(
+      Record.map(planning, (definition) => Record.keys<string, unknown>(definition.input.fields)),
+    ).toEqual({
+      changeQuestions: ["after", "before", "title"],
+      draftQuestions: ["section", "statement"],
+      itemQuestions: ["heading", "item", "section"],
+      noteQuestions: ["body", "kind", "title"],
+      partQuestions: ["body", "children", "id", "title"],
+    });
+    expect(Record.keys(itemQuestions.input.fields.section.fields)).toEqual([
+      "body",
+      "files",
+      "title",
+    ]);
+    expect(Record.keys(draftQuestions.input.fields.section.fields)).toEqual(["body", "title"]);
+  });
+
+  it("names in each instruction only fields of its definition's input", () => {
+    Array.forEach(Record.values(planning), (definition) => {
+      const fields = Record.keys<string, unknown>(definition.input.fields);
+      Array.forEach(Record.values<string, Decision.Any>(definition.decisions), (decision) => {
+        const instructions = Match.value(decision.instructions).pipe(
+          Match.when(Predicate.isString, (text) => text),
+          Match.orElse(() => ""),
+        );
+        const quoted = Array.filter(
+          String.split("`")(instructions),
+          (_, index) => Number.remainder(index, 2) === 1,
+        );
+        Array.forEach(quoted, (name) => expect(fields).toContain(name));
+      });
+    });
+  });
+
+  it("describes every probability's outcomes, and each note label, in one sentence or more", () => {
+    const described = Array.flatMap(Record.values(planning), (definition) =>
+      Array.flatMap(Record.values<string, Decision.Any>(definition.decisions), descriptionsOf),
+    );
+    expect(Array.length(described)).toBe(16);
+    Array.forEach(described, (description) =>
+      expect(description).toSatisfy(Schema.is(Schema.NonEmptyString)),
+    );
+    expect(Array.length(Record.values(noteQuestions.decisions.label.criteria))).toBe(5);
   });
 });
