@@ -195,6 +195,22 @@ const statementDraftsOf = (targets: ReadonlyArray<PrdSectionId>) =>
     }),
   );
 
+/** The reason a refused draft is sent back with: the drafts, each under its target, and the rule they broke. */
+const namesCodeError = (refused: ReadonlyArray<Drafted>) =>
+  Array.join(
+    [
+      "These statements name something in the code, such as a file, function, module, type or test:",
+      Array.join(
+        Array.flatMap(refused, ({ drafts, target }) =>
+          Array.map(drafts, (draft) => `- \`${target}\`: "${draft}"`),
+        ),
+        "\n",
+      ),
+      "A statement names no file, function, schema or test, and does not say how the thing is built. It says what a person does and what they then see. Write each part's statements again under that rule, with the same `target`s.",
+    ],
+    "\n\n",
+  );
+
 /**
  * `IndexProse`, and every item's ID starts with the section's ID and `#`, so a reply about
  * another section cannot be written into this one's entry.
@@ -639,10 +655,14 @@ export class Planner extends Context.Service<
      * Drafts of "Done when" statements for `targets`, sections and list items of `prd` that have
      * none (`spec.planning.done-when.asking-the-person`). A target the model describes with no
      * drafts has nothing to build; a reply about a part that was not asked about is refused.
+     * `refused` holds drafts the judge found to name code (`spec.planning.done-when.judging-drafts`):
+     * the chat then holds the prompt and those drafts as the model's reply, and the call is the
+     * follow-up turn that quotes them and the rule, as a retry is.
      */
     readonly statements: (
       prd: string,
       targets: ReadonlyArray<PrdSectionId>,
+      refused?: ReadonlyArray<Drafted>,
     ) => Effect.Effect<ReadonlyArray<Drafted>, PlannerError>;
   }
 >()("@cairn/cli/Planner") {
@@ -829,8 +849,11 @@ export class Planner extends Context.Service<
         );
 
         const statements = Effect.fn("Planner.statements")(
-          function* (prd: string, targets: ReadonlyArray<PrdSectionId>) {
-            const chat = yield* Chat.empty;
+          function* (
+            prd: string,
+            targets: ReadonlyArray<PrdSectionId>,
+            refused: ReadonlyArray<Drafted> = [],
+          ) {
             const prompt = yield* prompts.statements(prd, targets);
             const draftsOf = (own: Chat.Chat) => (text: string) =>
               timed("statements")(
@@ -843,7 +866,19 @@ export class Planner extends Context.Service<
                   })
                   .pipe(using("statements")),
               ).pipe(Effect.map((response) => response.value.statements));
-            return yield* withRetry(chat, prompt, draftsOf);
+            if (!Array.isReadonlyArrayNonEmpty(refused)) {
+              const fresh = yield* Chat.empty;
+              return yield* withRetry(fresh, prompt, draftsOf);
+            }
+            const reply = yield* Schema.encodeEffect(Schema.fromJsonString(StatementDrafts))({
+              statements: refused,
+            });
+            const chat = yield* Chat.fromPrompt([
+              { content: prompt, role: "user" },
+              { content: reply, role: "assistant" },
+            ]);
+            const followUp = yield* prompts.retry(namesCodeError(refused));
+            return yield* withRetry(chat, followUp, draftsOf);
           },
           Effect.mapError(failed("statements")),
         );

@@ -862,6 +862,30 @@ it.effect.prop(
 );
 
 it.effect.prop(
+  "refused statements go back in one chat, as a follow-up turn that quotes them and the rule",
+  [PrdSectionId, Schema.NonEmptyString, Schema.NonEmptyString],
+  ([target, draft, replacement]) =>
+    planning(
+      [encodeStatements({ statements: [{ drafts: [replacement], target }] })],
+      Effect.gen(function* () {
+        const found = yield* Planner.use((planner) =>
+          planner.statements("# Notes", [target], [{ drafts: [draft], target }]),
+        );
+        const requests = yield* conversations;
+        const [turns = []] = requests;
+        expect(found).toEqual([{ drafts: [replacement], target }]);
+        expect(requests).toHaveLength(1);
+        expect(Array.map(turns, Struct.get("role"))).toEqual(["user", "assistant", "user"]);
+        const [asked, answered, followUp] = Array.map(turns, Struct.get("text"));
+        expect(asked).toContain(target);
+        expect(answered).toContain(target);
+        expect(followUp).toContain(`"${draft}"`);
+        expect(followUp).toContain("names no file, function, schema or test");
+      }),
+    ),
+);
+
+it.effect.prop(
   "a model failure while drafting statements is a PlannerError",
   [PrdSectionId],
   ([id]) =>

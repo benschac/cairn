@@ -73,6 +73,7 @@ import {
   draftCountOf,
   draftStatements,
   draftWarning,
+  judgeDrafts,
   partsToDraft,
   targetsOf,
 } from "../ask-statements.ts";
@@ -1716,7 +1717,9 @@ const statementsStep = Effect.fn("plan.statementsStep")(function* (
   });
   const targets = yield* partsToDraft(prd, targetsOf(prd, only), config.judge);
   const drafted = yield* draftStatements(prd, targets, savePrd);
-  return yield* askStatements(drafted, options, savePrd, Option.map(part, idsOfPart));
+  const owners = Option.map(part, idsOfPart);
+  const judged = yield* judgeDrafts(drafted, options, savePrd, owners, config.judge);
+  return yield* askStatements(judged.prd, options, savePrd, owners, judged.notes);
 });
 
 /** The spec and the tasks: what `steps` does once the PRD's statements are settled. */

@@ -22,7 +22,7 @@ export interface Pick {
   readonly label: string;
 }
 
-/** What the scripted decision model answers. A target is named by its title, and the stack by "". */
+/** What the scripted decision model answers. A target is named by its title, a drafted statement by its words, and the stack by "". */
 export interface Script {
   /** The rated or classified answer to a question about the target titled `title`; none keeps the default. */
   readonly answer?: (title: string, question: string) => Option.Option<Pick>;
@@ -112,7 +112,11 @@ const answerFor = (
 };
 
 const titleOf = (state: unknown) =>
-  Predicate.hasProperty(state, "title") && Predicate.isString(state.title) ? state.title : "";
+  Predicate.hasProperty(state, "title") && Predicate.isString(state.title)
+    ? state.title
+    : Predicate.hasProperty(state, "statement") && Predicate.isString(state.statement)
+      ? state.statement
+      : "";
 
 /** The config every field of which is its default. */
 export const defaults = Schema.decodeSync(CairnConfig)({});
