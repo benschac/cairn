@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+        },
+        "required": ["description", "name"],
+        "additionalProperties": true
+      }
+    },
+    "conflicts": {
+      "type": "object",
+      "properties": {
+        "additive": { "type": "array", "items": { "type": "string" } },
+        "generated": { "type": "array", "items": { "type": "string" } },
+        "high": { "type": "number", "minimum": 0, "maximum": 1 },
+        "history": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "hotspot": { "type": "integer", "minimum": 2, "maximum": 9007199254740991 }
+      },
+      "additionalProperties": true
+    },
+    "humanPaths": { "type": "array", "items": { "type": "string" } },
+    "judge": {
+      "type": "object",
+      "properties": {
+        "baseUrl": { "type": "string" },
+        "flag": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maxRounds": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "gatewayTokenEnv": { "type": "string" },
+        "minConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "model": { "type": "string" },
+        "models": { "type": "object", "additionalProperties": { "type": "string" } },
+        "pass": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "planner": {
+      "type": "object",
+      "properties": {
+        "baseUrl": { "type": "string" },
+        "cli": { "type": "string", "enum": ["claude", "codex"] },
+        "gatewayTokenEnv": { "type": "string" },
+        "keyEnv": { "type": "string" },
+        "model": { "type": "string" },
+        "provider": {
+          "type": "string",
+          "enum": ["anthropic", "openai", "openrouter", "openai-compatible"]
+        },
+        "small": { "type": "string" },
+        "source": { "type": "string", "enum": ["cli", "api"] }
+      },
+      "additionalProperties": true
+    },
+    "redact": {
+      "type": "object",
+      "properties": { "deny": { "type": "array", "items": { "type": "string" } } },
+      "additionalProperties": true
+    },
+    "version": { "type": "number", "enum": [1] }
+  },
+  "additionalProperties": true,
+  "$defs": {}
+}

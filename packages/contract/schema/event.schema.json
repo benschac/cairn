@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "actor": {
+      "anyOf": [
+        { "type": "string", "enum": ["orchestrator"] },
+        { "type": "string", "pattern": "^human:[\\s\\S]*?$" },
+        { "type": "string", "pattern": "^agent:[\\s\\S]*?$" }
+      ]
+    },
+    "detail": { "type": "string" },
+    "model": { "type": "string", "minLength": 1 },
+    "reasoning": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "blocked_on_human", "failed", "done", "landed"]
+    },
+    "taskId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "ts": { "type": "string" },
+    "v": { "type": "number", "enum": [1] }
+  },
+  "required": ["status", "taskId", "ts"],
+  "additionalProperties": true,
+  "$defs": {}
+}

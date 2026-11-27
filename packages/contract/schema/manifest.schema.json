@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "baseBranch": { "type": "string", "minLength": 1 },
+    "feature": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "tasks": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "properties": {
+            "branch": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*\\/\\d{2,}-[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "category": { "type": "string", "minLength": 1 },
+            "commits": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+            },
+            "dependsOn": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" }
+            },
+            "files": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "The files the task creates or changes."
+            },
+            "humanGate": {
+              "type": "object",
+              "properties": {
+                "reasons": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      { "type": "string", "enum": ["tag:human"] },
+                      { "type": "string", "pattern": "^path:[\\s\\S]*?$" }
+                    ]
+                  }
+                },
+                "required": { "type": "boolean" }
+              },
+              "required": ["reasons", "required"],
+              "additionalProperties": true
+            },
+            "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+            "model": { "type": "string", "minLength": 1 },
+            "orderedAfter": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "reason": { "type": "string" },
+                  "task": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" }
+                },
+                "required": ["reason", "task"],
+                "additionalProperties": true
+              }
+            },
+            "parent": {
+              "anyOf": [
+                { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+                { "type": "null" }
+              ]
+            },
+            "prdSections": {
+              "type": "array",
+              "prefixItems": [
+                { "type": "string", "pattern": "^prd(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+$" }
+              ],
+              "minItems": 1,
+              "items": { "type": "string", "pattern": "^prd(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+$" }
+            },
+            "reasoning": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] },
+            "sessions": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^s_[a-z0-9]{6,}$" }
+            },
+            "specSections": {
+              "type": "array",
+              "prefixItems": [
+                { "type": "string", "pattern": "^spec(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+$" }
+              ],
+              "minItems": 1,
+              "items": { "type": "string", "pattern": "^spec(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+$" }
+            },
+            "status": {
+              "type": "string",
+              "enum": ["pending", "running", "blocked_on_human", "failed", "done", "landed"]
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A short imperative title, unique among the tasks in this plan."
+            },
+            "worktree": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+          },
+          "required": [
+            "branch",
+            "commits",
+            "dependsOn",
+            "files",
+            "humanGate",
+            "id",
+            "model",
+            "parent",
+            "prdSections",
+            "reasoning",
+            "sessions",
+            "specSections",
+            "status",
+            "title",
+            "worktree"
+          ],
+          "additionalProperties": true
+        }
+      ],
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "branch": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*\\/\\d{2,}-[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "category": { "type": "string", "minLength": 1 },
+          "commits": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+          },
+          "dependsOn": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" }
+          },
+          "files": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "The files the task creates or changes."
+          },
+          "humanGate": {
+            "type": "object",
+            "properties": {
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    { "type": "string", "enum": ["tag:human"] },
+                    { "type": "string", "pattern": "^path:[\\s\\S]*?$" }
+                  ]
+                }
+              },
+              "required": { "type": "boolean" }
+            },
+            "required": ["reasons", "required"],
+            "additionalProperties": true
+          },
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+          "model": { "type": "string", "minLength": 1 },
+          "orderedAfter": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "reason": { "type": "string" },
+                "task": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" }
+              },
+              "required": ["reason", "task"],
+              "additionalProperties": true
+            }
+          },
+          "parent": {
+            "anyOf": [
+              { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+              { "type": "null" }
+            ]
+          },
+          "prdSections": {
+            "type": "array",
+            "prefixItems": [
+              { "type": "string", "pattern": "^prd(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+$" }
+            ],
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^prd(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+$" }
+          },
+          "reasoning": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] },
+          "sessions": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "^s_[a-z0-9]{6,}$" }
+          },
+          "specSections": {
+            "type": "array",
+            "prefixItems": [
+              { "type": "string", "pattern": "^spec(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+$" }
+            ],
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^spec(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+$" }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "running", "blocked_on_human", "failed", "done", "landed"]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A short imperative title, unique among the tasks in this plan."
+          },
+          "worktree": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        },
+        "required": [
+          "branch",
+          "commits",
+          "dependsOn",
+          "files",
+          "humanGate",
+          "id",
+          "model",
+          "parent",
+          "prdSections",
+          "reasoning",
+          "sessions",
+          "specSections",
+          "status",
+          "title",
+          "worktree"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "version": { "type": "number", "enum": [1] }
+  },
+  "required": ["baseBranch", "feature", "tasks", "version"],
+  "additionalProperties": true,
+  "$defs": {}
+}

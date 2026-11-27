@@ -6,9 +6,12 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./js": "./src/js.ts"
+    "./js": "./src/js.ts",
+    "./schema/*": "./schema/*"
   },
   "scripts": {
+    "build": "effect-tsgo tsc -p tsconfig.build.json",
+    "generate-schema": "node scripts/generate-schema.ts",
     "test": "vitest run",
     "typecheck": "effect-tsgo tsc --noEmit"
   },
@@ -16,6 +19,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@effect/platform-node": "4.1.6",
     "@effect/vitest": "catalog:",
     "fast-check": "catalog:",
     "vitest": "catalog:"
