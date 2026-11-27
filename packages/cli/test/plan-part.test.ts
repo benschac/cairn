@@ -35,6 +35,7 @@ import {
 } from "../src/commands/plan.ts";
 import type { PlanOptions } from "../src/commands/plan.ts";
 import { Judge } from "../src/judge.ts";
+import { Git } from "../src/git.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner, PlannerError } from "../src/planner.ts";
 import type { IndexTarget, PromptError } from "../src/planner.ts";
@@ -328,6 +329,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
         const services = Layer.mergeAll(
           scriptedTerminal(answers, (line) => Ref.update(shown, Array.append(line))),
           MainCheckout.fixed(root),
+          Git.memory(),
           ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
           judge,
           Option.getOrElse(Option.fromUndefinedOr(planner), () =>

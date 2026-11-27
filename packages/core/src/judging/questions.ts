@@ -51,6 +51,17 @@ export const StackJudgingInput = Schema.Struct({
 });
 export type StackJudgingInput = typeof StackJudgingInput.Type;
 
+/**
+ * A source file that many tasks that can run at the same time all change (see
+ * `spec.planning.conflict-ordering`): its path, its line count and the titles of those tasks.
+ */
+export const FileJudgingInput = Schema.Struct({
+  lines: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  path: Schema.String,
+  tasks: Schema.Array(Schema.String),
+});
+export type FileJudgingInput = typeof FileJudgingInput.Type;
+
 /** The questions for a spec section. */
 export const sectionQuestions = Decision.make({
   decisions: {
@@ -220,7 +231,29 @@ export const stackQuestions = Decision.make({
   input: StackJudgingInput,
 });
 
-/** What `inputsOf` returns: one input per spec section, per task and for the stack. */
+/**
+ * The question for a file that many parallel tasks share. A yes is the concern: splitting the
+ * file, not reordering the work, is the better fix, so a yes is flagged.
+ */
+export const fileQuestions = Decision.make({
+  decisions: {
+    splitFile: Decision.probability({
+      criteria: {
+        false:
+          "Reordering the tasks removes the conflicts: they touch separate parts of a file whose size suits it. Example: three tasks that each add one rule to packages/core/src/lint.ts, which stacking one on another settles.",
+        true: "The file holds several concerns the tasks change apart, so splitting it removes more conflicts than reordering the work. Example: a thousand-line packages/cli/src/commands/plan.ts that tasks for judging, conflict ordering and part runs all edit in different functions.",
+      },
+      instructions:
+        "Would splitting this file remove more conflicts between these tasks than reordering the work?",
+    }),
+  },
+  input: FileJudgingInput,
+});
+
+/**
+ * What `inputsOf` returns: one input per spec section, per task and for the stack, and one per
+ * file the stack checkpoint asks `splitFile` about.
+ */
 export interface JudgingInputs {
   readonly sections: ReadonlyArray<{
     readonly id: SpecSectionId;
@@ -228,6 +261,8 @@ export interface JudgingInputs {
   }>;
   readonly stack: StackJudgingInput;
   readonly tasks: ReadonlyArray<{ readonly id: TaskId; readonly input: TaskJudgingInput }>;
+  /** Files many parallel tasks share. `inputsOf` gives none: `cairn plan` reads each file's lines. */
+  readonly files: ReadonlyArray<{ readonly path: string; readonly input: FileJudgingInput }>;
 }
 
 const textOf = ({ body, title }: Section): SectionText => ({ body, title });
@@ -304,6 +339,7 @@ export const inputsOf = (prd: string, spec: string, manifest: Manifest): Judging
   });
 
   return {
+    files: [],
     sections,
     stack: {
       feature: manifest.feature,

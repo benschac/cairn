@@ -35,7 +35,7 @@ import { statementsOf, taskStatementsOf } from "./statements.ts";
 import type { Statement } from "./statements.ts";
 import { indexOf } from "./relation-index.ts";
 import type { RelationIndex } from "./relation-index.ts";
-import { parentOf } from "./stack.ts";
+import { parentOf, stackedOn } from "./stack.ts";
 import { derivedOf } from "./spec-index.ts";
 import { withStackDiagram } from "./stack-diagram.ts";
 
@@ -50,6 +50,7 @@ export const LintRule = Schema.Literals([
   "bad-parent",
   "need-cycle",
   "parent-mismatch",
+  "bad-ordering",
   "worktree-clash",
   "gate-mismatch",
   "index-drift",
@@ -91,6 +92,7 @@ const isSpecSectionId = Schema.is(SpecSectionId);
 
 const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
   "bad-diagram": "error",
+  "bad-ordering": "error",
   "bad-parent": "error",
   "diagram-drift": "error",
   "draft-statement": "warning",
@@ -547,8 +549,9 @@ const unrecorded = (task: ManifestTask): ReadonlyArray<Finding> =>
     : [];
 
 /**
- * What is wrong with the manifest's stacks: parents and dependencies that are not tasks, parents `parentOf` would not give, worktrees shared by tasks that could run at the
- * same time, gates plan-time detection would not give, and landed tasks with no commits.
+ * What is wrong with the manifest's stacks: parents and dependencies that are not tasks, parents `parentOf` would not give from dependencies and orderings, orderings after
+ * an unknown, needed or gated task or of a gated task, worktrees shared by tasks that could run at
+ * the same time, gates plan-time detection would not give, and landed tasks with no commits.
  */
 const stackFindings = (
   manifest: Manifest,
@@ -589,7 +592,7 @@ const stackFindings = (
     );
 
   const parentMismatch = (task: ManifestTask): ReadonlyArray<Finding> => {
-    const expected = Option.getOrNull(parentOf(task.dependsOn, tasks));
+    const expected = Option.getOrNull(parentOf(stackedOn(task), tasks));
     return expected === task.parent
       ? []
       : [
@@ -599,6 +602,32 @@ const stackFindings = (
           ),
         ];
   };
+
+  // A conflict ordering stacks a task without making it need anything, so it may name only a
+  // task it does not already need, and never puts a task below or above a gate.
+  const badOrderings = (task: ManifestTask): ReadonlyArray<Finding> =>
+    Array.map(
+      Array.appendAll(
+        Array.filterMap(task.orderedAfter, ({ task: after }) =>
+          !HashSet.has(known, after)
+            ? Result.succeed(`${task.id} is ordered after ${after}, which is not in the manifest.`)
+            : HashSet.has(lookup(needs, task.id), after)
+              ? Result.succeed(`${task.id} is ordered after ${after}, which it already needs.`)
+              : Option.exists(Record.get(byId, after), ({ humanGate }) => humanGate.required)
+                ? Result.succeed(`${task.id} is ordered after ${after}, which is gated.`)
+                : Result.failVoid,
+        ),
+        task.humanGate.required && Array.isReadonlyArrayNonEmpty(task.orderedAfter)
+          ? [
+              `${task.id} is gated and is ordered after ${Array.join(
+                Array.map(task.orderedAfter, ({ task: after }) => after),
+                ", ",
+              )}.`,
+            ]
+          : [],
+      ),
+      (message) => taskFinding("bad-ordering", message),
+    );
 
   const clashes = (task: ManifestTask, earlier: ReadonlyArray<ManifestTask>) =>
     Array.filterMap(earlier, (other) =>
@@ -630,6 +659,7 @@ const stackFindings = (
     Array.flatten([
       badParents(task),
       parentMismatch(task),
+      badOrderings(task),
       clashes(task, Array.take(tasks, at)),
       gateMismatch(task),
       unrecorded(task),

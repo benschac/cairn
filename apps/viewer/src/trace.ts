@@ -239,6 +239,7 @@ const isMarkVerdict = Schema.is(MarkVerdict);
 const judges = (target: JudgmentTarget, node: Node): boolean =>
   JudgmentTarget.match(target, {
     draft: () => false,
+    file: () => false,
     // A judgment names a spec section id, a narrower brand than the viewer's SectionId.
     section: ({ id }) => node.kind === "section" && String.Equivalence(node.id, id),
     stack: () => false,

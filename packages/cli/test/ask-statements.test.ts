@@ -25,6 +25,7 @@ import {
 } from "../src/ask-statements.ts";
 import { needsPlanner, plan } from "../src/commands/plan.ts";
 import type { PlanOptions } from "../src/commands/plan.ts";
+import { Git } from "../src/git.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { Recorder } from "./fixtures/recorder.ts";
@@ -101,6 +102,7 @@ const setup = (prd: string) =>
           Events.use((events) => events.record(`ask ${line}`)),
         ).pipe(Layer.provideMerge(scriptedPlanner(drafts))),
         MainCheckout.fixed(root),
+        Git.memory(),
         ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
       );
       return Effect.gen(function* () {

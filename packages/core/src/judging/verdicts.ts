@@ -27,7 +27,10 @@ const isReasoning = Schema.is(Reasoning);
 
 const unsure = (message: string): Verdicted => ({ message, verdict: "unsure" });
 
-/** How each question is answered: a probability, a rating that is judged, or a choice. */
+/**
+ * How each question is answered: a probability, a probability whose yes is the concern, a rating
+ * that is judged, or a choice.
+ */
 const KIND = {
   buildable: "probability",
   complete: "probability",
@@ -38,13 +41,24 @@ const KIND = {
   ordered: "probability",
   reasoning: "choice",
   size: "size",
-} as const satisfies { readonly [Q in JudgmentQuestion]: "choice" | "probability" | "size" };
+  splitFile: "concern",
+} as const satisfies {
+  readonly [Q in JudgmentQuestion]: "choice" | "concern" | "probability" | "size";
+};
 
 const probabilityVerdict = (answer: ProbabilityAnswer, { flag, pass }: Thresholds): Verdicted =>
   Number.isGreaterThanOrEqualTo(answer.probability, pass)
     ? { message: `probability ${answer.probability} is at or above pass ${pass}`, verdict: "pass" }
     : Number.isLessThan(answer.probability, flag)
       ? { message: `probability ${answer.probability} is below flag ${flag}`, verdict: "flag" }
+      : unsure(`probability ${answer.probability} is between flag ${flag} and pass ${pass}`);
+
+/** A probability whose yes is the concern: `flag` at or above `pass`, `pass` below `flag`. */
+const concernVerdict = (answer: ProbabilityAnswer, { flag, pass }: Thresholds): Verdicted =>
+  Number.isGreaterThanOrEqualTo(answer.probability, pass)
+    ? { message: `probability ${answer.probability} is at or above pass ${pass}`, verdict: "flag" }
+    : Number.isLessThan(answer.probability, flag)
+      ? { message: `probability ${answer.probability} is below flag ${flag}`, verdict: "pass" }
       : unsure(`probability ${answer.probability} is between flag ${flag} and pass ${pass}`);
 
 /** The answer's confidence when it is at or above `minConfidence`; none when low or missing. */
@@ -109,6 +123,8 @@ const wrongShape = (question: JudgmentQuestion): Verdicted =>
  * What an answer means (`spec.judging.verdicts`). Pure.
  *
  * - A probability: `pass` at or above `pass`, `flag` below `flag`, `unsure` between.
+ *   `splitFile` asks whether to split a file, so its yes is the concern: `flag` at or above
+ *   `pass`, `pass` below `flag`.
  * - `size`: `unsure` below `minConfidence`; otherwise `pass` for `right` and `flag` for the
  *   other labels, named in the message.
  * - `model` and `reasoning` choose rather than judge: `unsure` below `minConfidence`, `pass`
@@ -137,13 +153,16 @@ export const verdictOf = (
           ),
         ),
         Match.when("probability", () => wrongShape(question)),
+        Match.when("concern", () => wrongShape(question)),
         Match.exhaustive,
       ),
     ),
     Match.when(isProbability, (answer) =>
-      KIND[question] === "probability"
-        ? probabilityVerdict(answer, thresholds)
-        : wrongShape(question),
+      Match.value(KIND[question]).pipe(
+        Match.when("probability", () => probabilityVerdict(answer, thresholds)),
+        Match.when("concern", () => concernVerdict(answer, thresholds)),
+        Match.orElse(() => wrongShape(question)),
+      ),
     ),
     Match.exhaustive,
   );
