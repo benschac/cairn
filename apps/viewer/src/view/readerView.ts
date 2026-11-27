@@ -152,6 +152,8 @@ export const readerView = (h: Html.H<Message>, trace: Trace, model: Model, prese
             isSelectionOverLimit,
             model.readers,
             markedOf(trace, model),
+            model.reader.maybeLinksOpen,
+            model.reader.isLinksTransitive,
           ),
           dividerView(h, "prd", model.widths),
           specPaneView(

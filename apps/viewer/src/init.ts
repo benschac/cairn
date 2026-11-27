@@ -47,9 +47,11 @@ export const init = (url?: Url): Return => {
       presenceConnection: PresenceConnection.Connecting(),
       reader: {
         density: "summary",
+        isLinksTransitive: false,
         isPrdCondensed: false,
         maybeAtTop: Option.none(),
         maybeFocus: Option.none(),
+        maybeLinksOpen: Option.none(),
         maybeMarked: Option.none(),
         maybePassage: Option.none(),
         maybePinned: Option.none(),

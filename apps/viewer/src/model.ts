@@ -144,6 +144,10 @@ export const Reader = Schema.Struct({
   maybePinned: Schema.Option(PrdSectionId),
   /** The section or item a spec card's chip named; it is marked until the next click or hover elsewhere. */
   maybeMarked: Schema.Option(PrdSectionId),
+  /** The section or item whose list of what it needs and what needs it is open; one at a time. Opening it pins nothing. */
+  maybeLinksOpen: Schema.Option(PrdSectionId),
+  /** The open list shows everything before and after the section, not only its direct links. */
+  isLinksTransitive: Schema.Boolean,
   /** The passage a link opened, in a PRD or a spec section; the panes mark it. */
   maybePassage: Schema.Option(PassageStep),
   /** The stack or finished trunk a link opened; the stacks pane outlines it. */

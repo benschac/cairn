@@ -43,6 +43,8 @@ import {
   coverageOf,
   countsOf,
   isOpenPrdSection,
+  linksFor,
+  linksTextOf,
   planCountsOf,
   sectionAtTop,
   statusWordOf,
@@ -59,6 +61,7 @@ import { dotView } from "../ui/marks.ts";
 import { prdKey } from "../wires.ts";
 import { withHover } from "./wiresView.ts";
 import { copyButtonView, copyPassageView, passageButtonFor } from "./copyLinkView.ts";
+import { linksView } from "./linksView.ts";
 import { fieldView, matchView, withSearched } from "./nodeView.ts";
 
 /** How far below the pane's top the line is that decides which section is being read. */
@@ -180,7 +183,29 @@ interface Markup {
   readonly maybeCopied: Option.Option<PrdSectionId>;
   /** The IDs of the sections and items marked: the one a spec card's chip named, and the ones a hovered task builds. */
   readonly marked: ReadonlyArray<string>;
+  /** The section or item whose list of links is open, and whether it shows everything before and after. */
+  readonly maybeLinksOpen: Option.Option<PrdSectionId>;
+  readonly isLinksTransitive: boolean;
 }
+
+/**
+ * The links part of a status line or an annotation: `needs 3 · needed by 1 · 2 ready`, a button
+ * of its own that opens the list under it and does not pin.
+ */
+const linksButtonView = (h: Html.H<Message>, markup: Markup, id: PrdSectionId, className: string) =>
+  h.button
+    .attr("type", "button")
+    .class(className)
+    .attr("data-links-button", id)
+    .attr("aria-expanded", `${Option.contains(markup.maybeLinksOpen, id)}`)
+    .on("click", Message.ClickedLinks({ id }))
+    .children(linksTextOf(linksFor(markup.trace, id, false)));
+
+/** The list of links, while it is the one open. */
+const openLinksView = (h: Html.H<Message>, markup: Markup, id: PrdSectionId) =>
+  Option.contains(markup.maybeLinksOpen, id)
+    ? [linksView(h, markup.trace, id, markup.isLinksTransitive)]
+    : [];
 
 /** The item's ID, small after its text; it shows on hover and on focus within the item and copies on click. */
 const itemIdView = (h: Html.H<Message>, id: PrdSectionId, isCopied: boolean) =>
@@ -201,23 +226,29 @@ const itemIdView = (h: Html.H<Message>, id: PrdSectionId, isCopied: boolean) =>
 const itemAnnotationView = (h: Html.H<Message>, markup: Markup, id: SectionId): Rendered<Message> =>
   Array.flatMap(Array.fromOption(Option.liftPredicate(id, isPrdSection)), (prd) => {
     const counts = countsOf(markup.trace, prd);
-    return [
-      withHover(
-        h.button
-          .attr("type", "button")
-          .class("btn item-note")
-          .attr("data-item-annotation", prd)
-          .attr("aria-pressed", `${Option.contains(markup.maybePinned, prd)}`)
-          .on("click", Message.ClickedItemAnnotation({ id: prd })),
-        { id: prd, kind: "section" },
-      ).children(
-        Option.getOrUndefined(
-          Option.map(sectionStatusOf(markup.trace, prd), (status) => dotView(h, status)),
+    return Array.appendAll(
+      [
+        withHover(
+          h.button
+            .attr("type", "button")
+            .class("btn item-note")
+            .attr("data-item-annotation", prd)
+            .attr("aria-pressed", `${Option.contains(markup.maybePinned, prd)}`)
+            .on("click", Message.ClickedItemAnnotation({ id: prd })),
+          { id: prd, kind: "section" },
+        ).children(
+          Option.getOrUndefined(
+            Option.map(sectionStatusOf(markup.trace, prd), (status) => dotView(h, status)),
+          ),
+          counts.specs === 0 && counts.tasks === 0
+            ? "nothing maps to this"
+            : itemCountsText(counts),
         ),
-        counts.specs === 0 && counts.tasks === 0 ? "nothing maps to this" : itemCountsText(counts),
-      ),
-      itemIdView(h, prd, Option.contains(markup.maybeCopied, prd)),
-    ];
+        linksButtonView(h, markup, prd, "btn links-button item-links"),
+        itemIdView(h, prd, Option.contains(markup.maybeCopied, prd)),
+      ],
+      openLinksView(h, markup, prd),
+    );
   });
 
 const hooksOf = (h: Html.H<Message>, markup: Markup): SectionHooks<Message> => ({
@@ -251,7 +282,7 @@ const titleContentOf = (h: Html.H<Message>, markup: Markup, section: TraceSectio
  */
 const statusLineView = (
   h: Html.H<Message>,
-  trace: Trace,
+  markup: Markup,
   id: PrdSectionId,
   status: SectionStatus,
   isPinned: boolean,
@@ -261,27 +292,36 @@ const statusLineView = (
 ) =>
   Option.match(coverageOf(status), {
     onNone: () =>
-      h.div.class("prd-pinrow").children(
-        h.button
-          .attr("type", "button")
-          .class("btn")
-          .attr("data-status-line", id)
-          .attr("aria-pressed", `${isPinned}`)
-          .on("click", Message.ClickedStatusLine({ id }))
-          .children(dotView(h, status), statusLineText(status, countsOf(trace, id))),
-        // The pinned section's link, up to its step: the passage when one replaced the section.
-        isPinned && copyButtonView(h, maybeCopiedLink, pinnedPath, "Copy link"),
-        Option.getOrUndefined(
-          Option.map(maybePassageButton, (button) => copyPassageView(h, button)),
-        ),
+      Array.appendAll(
+        [
+          h.div.class("prd-pinrow").children(
+            h.button
+              .attr("type", "button")
+              .class("btn")
+              .attr("data-status-line", id)
+              .attr("aria-pressed", `${isPinned}`)
+              .on("click", Message.ClickedStatusLine({ id }))
+              .children(dotView(h, status), statusLineText(status, countsOf(markup.trace, id))),
+            linksButtonView(h, markup, id, "btn links-button"),
+            // The pinned section's link, up to its step: the passage when one replaced the section.
+            isPinned && copyButtonView(h, maybeCopiedLink, pinnedPath, "Copy link"),
+            Option.getOrUndefined(
+              Option.map(maybePassageButton, (button) => copyPassageView(h, button)),
+            ),
+          ),
+        ],
+        openLinksView(h, markup, id),
       ),
     onSome: (note) => {
       const covered = h.p.class("prd-covnote").attr("data-coverage", status).children(note);
       // A selection in a section with a coverage note puts its button in a row under the note.
-      return Option.match(maybePassageButton, {
-        onNone: () => covered,
-        onSome: (button) => h.div.class("prd-pinrow").children(covered, copyPassageView(h, button)),
-      });
+      return [
+        Option.match(maybePassageButton, {
+          onNone: () => covered,
+          onSome: (button) =>
+            h.div.class("prd-pinrow").children(covered, copyPassageView(h, button)),
+        }),
+      ];
     },
   });
 
@@ -522,10 +562,10 @@ const sectionView = (
               ),
             ),
             Array.flatMap(Array.fromOption(maybeId), (id) =>
-              Array.map(Array.fromOption(sectionStatusOf(trace, id)), (status) =>
+              Array.flatMap(Array.fromOption(sectionStatusOf(trace, id)), (status) =>
                 statusLineView(
                   h,
-                  trace,
+                  markup,
                   id,
                   status,
                   Option.contains(maybePinned, id),
@@ -571,14 +611,18 @@ const prdBodyView = (
   isSelectionOverLimit: boolean,
   readers: ReadonlyArray<SectionReader>,
   marked: string,
+  maybeLinksOpen: Option.Option<PrdSectionId>,
+  isLinksTransitive: boolean,
 ) => {
   const markup: Markup = {
     document: documentOf(trace.prd.markdown),
+    isLinksTransitive,
     linked: linkedMarksOf(trace, maybePassage, "prd"),
     marked: String.split(marked, " "),
     marks: marksOf("prd", results),
     maybeCopied,
     maybeCurrent,
+    maybeLinksOpen,
     maybePinned,
     trace,
   };
@@ -644,6 +688,8 @@ export const prdPaneView = (
   isSelectionOverLimit: boolean,
   readers: ReadonlyArray<SectionReader>,
   marked: string,
+  maybeLinksOpen: Option.Option<PrdSectionId>,
+  isLinksTransitive: boolean,
 ) =>
   h.div
     .attr("role", "region")
@@ -678,5 +724,7 @@ export const prdPaneView = (
         isSelectionOverLimit,
         readers,
         marked,
+        maybeLinksOpen,
+        isLinksTransitive,
       ),
     );

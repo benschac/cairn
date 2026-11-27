@@ -1234,6 +1234,72 @@ li[data-item][data-marked] {
   padding: 5px 10px;
 }
 
+/*
+ * The links part of a status line or an annotation: its own small btn beside the pin button, so
+ * it reads as a second thing to click. It is outlined while its list is open.
+ */
+.prd-pinrow > .links-button,
+li[data-item] > p > .links-button {
+  padding: 1px 8px;
+  color: var(--muted);
+  font-size: var(--t-xs);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+li[data-item] > p > .links-button {
+  margin-left: 6px;
+}
+
+.links-button[aria-expanded="true"] {
+  color: var(--ink);
+}
+
+/* The list under a heading or an item: the switch, then Needs, Needed by and Next. */
+.links {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: var(--line) solid var(--hair);
+  border-radius: var(--r-s);
+  font-size: var(--t-s);
+  font-weight: 400;
+}
+
+.links-group {
+  display: grid;
+  gap: 4px;
+}
+
+.links ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.links li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+}
+
+.link-entry {
+  gap: 6px;
+  padding: 1px 6px;
+  text-align: left;
+}
+
+.link-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--t-xs);
+}
+
 /* A Copy link button is a small btn: it sits beside what it links to and never competes with it. */
 .btn[data-copy-link],
 .btn[data-copy-passage] {

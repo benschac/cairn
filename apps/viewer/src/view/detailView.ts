@@ -20,7 +20,7 @@ import { styleText } from "../effect-ui/attributes.ts";
 import { trailStepOf, pathOfLink } from "../links.ts";
 import { Message } from "../message.ts";
 import { WHOLE_TASK, type DiffStyle, type PatchData } from "../model.ts";
-import { ranOf, relationsOf, statusWordOf } from "../reader.ts";
+import { neededByOf, ranOf, relationsOf, statusWordOf } from "../reader.ts";
 import { Node, itemsOfTask, judgmentsOf, nodeKeyOf, sectionTitleOf } from "../trace.ts";
 import { dotView, labelView, tagView } from "../ui/marks.ts";
 import { copyButtonView } from "./copyLinkView.ts";
@@ -112,6 +112,25 @@ const addButton = (h: Html.H<Message>, label: string, node: Node) =>
     .attr("data-detail-add", nodeKeyOf(node))
     .on("click", Message.ClickedDetailNode({ node }))
     .children(label);
+
+/** Tasks as buttons that add them to the trail, with a comma between: `t94, t95`. */
+const taskButtonsView = (h: Html.H<Message>, ids: ReadonlyArray<TraceTask["id"]>) =>
+  Array.intersperse(
+    Array.map(ids, (id) => addButton(h, id, taskNode(id))),
+    ", ",
+  );
+
+/** `Can start now` for a pending task that can, and `Waits on t94, t95` for one that cannot. */
+const startView = (h: Html.H<Message>, task: TraceTask) =>
+  task.status !== "pending"
+    ? undefined
+    : task.canStart
+      ? h.p.attr("data-detail-starts", "").children("Can start now")
+      : Array.match(task.waitsOn, {
+          onEmpty: () => undefined,
+          onNonEmpty: (waits) =>
+            h.p.attr("data-detail-starts", "").children("Waits on ", taskButtonsView(h, waits)),
+        });
 
 const partView = (h: Html.H<Message>, part: string, heading: string, body: View.Input<Message>) =>
   h.section
@@ -373,6 +392,7 @@ const taskView = (
 ): View.Children<Message, never> => {
   const ran = ranOf(task);
   const others = Array.filter(task.dependsOn, (id) => id !== task.parent);
+  const neededBy = neededByOf(trace, task.id);
   return Array.flatten([
     [
       headingView(h, `${task.id} ${task.title}`),
@@ -392,6 +412,11 @@ const taskView = (
             "Depends on ",
             Array.map(others, (id) => addButton(h, id, taskNode(id))),
           ),
+        Array.isReadonlyArrayNonEmpty(neededBy) &&
+          h.p
+            .attr("data-detail-needed-by", "")
+            .children("Needed by ", taskButtonsView(h, neededBy)),
+        startView(h, task),
       ),
     ],
     doneWhenView(h, trace, task),
