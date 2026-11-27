@@ -320,6 +320,12 @@ const judgmentsOf = (
     }),
   );
 
+/** One input of `Judge.ask`: what to ask about, and the label that names it in an error. */
+export interface AskInput<A> {
+  readonly input: A;
+  readonly label: string;
+}
+
 /** The service: judges every target of `inputs`, keeping what `previous` already answered. */
 export class Judge extends Context.Service<
   Judge,
@@ -329,6 +335,10 @@ export class Judge extends Context.Service<
       previous: Judgments,
       options?: JudgeOptions,
     ) => Effect.Effect<Judgments, JudgeError>;
+    readonly ask: <S extends Schema.Codec<unknown, unknown>, D extends Record<string, Asked>>(
+      definition: Decision.Definition<S, D>,
+      inputs: ReadonlyArray<AskInput<S["Type"]>>,
+    ) => Effect.Effect<ReadonlyArray<Decision.Outcomes<D>>, JudgeError>;
   }
 >()("@cairn/cli/Judge") {
   /**
@@ -345,6 +355,10 @@ export class Judge extends Context.Service<
    *   `category` question when `config.categories` does.
    * - A rate-limit error is retried up to three times, each after the delay the provider gives.
    *   Any other `AiError`, or a fourth rate limit, is a `JudgeError` naming the target.
+   * - `ask` is the other entry point (`spec.judging.asking-during-planning`): one definition, many
+   *   labelled inputs, each input's `Decision.Outcomes` back in input order, four requests at a
+   *   time, with the same rate-limit retries. Any other `AiError` is a `JudgeError` whose reason
+   *   names the input's label. It writes no judgments.
    * - A new judgment is round 1 with action `none`; its verdict and message are `verdictOf`'s,
    *   with no task to compare a `model` or `reasoning` answer with.
    */
@@ -354,14 +368,18 @@ export class Judge extends Context.Service<
       Effect.gen(function* () {
         const decisionModel = yield* DecisionModel.DecisionModel;
 
-        const asked = (request: Request) =>
-          request.ask.pipe(
+        const retried = <A, R>(call: Effect.Effect<A, AiError.AiError, R>) =>
+          call.pipe(
             Effect.retry({
               schedule: providerDelay,
               times: RATE_LIMIT_RETRIES,
               while: isRateLimit,
             }),
             Effect.provideService(DecisionModel.DecisionModel, decisionModel),
+          );
+
+        const asked = (request: Request) =>
+          retried(request.ask).pipe(
             Effect.mapError(
               (error) => new JudgeError({ reason: error.message, target: request.target }),
             ),
@@ -399,7 +417,25 @@ export class Judge extends Context.Service<
           } satisfies Judgments;
         });
 
-        return Judge.of({ judge });
+        const ask = Effect.fn("Judge.ask")(function* <
+          S extends Schema.Codec<unknown, unknown>,
+          D extends Record<string, Asked>,
+        >(definition: Decision.Definition<S, D>, inputs: ReadonlyArray<AskInput<S["Type"]>>) {
+          return yield* Effect.forEach(
+            inputs,
+            ({ input, label }) =>
+              retried(DecisionModel.decideSettled(definition, { input })).pipe(
+                Effect.map(({ outcomes }) => outcomes),
+                Effect.mapError(
+                  (error) =>
+                    new JudgeError({ reason: `asking about ${label} failed: ${error.message}` }),
+                ),
+              ),
+            { concurrency: CONCURRENT_REQUESTS },
+          );
+        });
+
+        return Judge.of({ ask, judge });
       }),
     );
 

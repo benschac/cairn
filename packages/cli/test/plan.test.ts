@@ -656,7 +656,10 @@ it.effect("a judge that fails leaves the planner's work as it was, says so, and 
       const { lines, result } = yield* run({
         judge: Layer.succeed(
           Judge,
-          Judge.of({ judge: () => Effect.fail(new JudgeError({ reason: "the model is down" })) }),
+          Judge.of({
+            ask: () => Effect.succeed([]),
+            judge: () => Effect.fail(new JudgeError({ reason: "the model is down" })),
+          }),
         ),
         options: { yes: true },
       });
