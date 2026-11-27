@@ -16,7 +16,7 @@ import {
 import { matchesPath } from "./gates.ts";
 import { indexOf } from "./relation-index.ts";
 import type { RelationIndex } from "./relation-index.ts";
-import { parentOf, stackedOn } from "./stack.ts";
+import { lineOf, parentOf, stackedOn } from "./stack.ts";
 import type { Ordering, StackLink } from "./stack.ts";
 import { TaskIdOrder } from "./stacks.ts";
 
@@ -370,9 +370,14 @@ const linksWith = (
  *
  * - When both tasks are new and neither is gated, the later one is stacked on the earlier one,
  *   provided its dependencies and the earlier task lie on one chain, so that it gets a parent,
- *   and it is not already stacked on another task.
- * - Any other pair is recommended: one with an existing task, a gated task, or a later task whose
- *   dependencies lie on other stacks. Nothing in the manifest changes for it.
+ *   it is not already stacked on another task, and no gated task would gain a task below it that
+ *   it does not need (`prd.human-gates`).
+ * - Any other pair is recommended: one with an existing task, a gated task, a later task whose
+ *   dependencies lie on other stacks, or one that would slide an unneeded task below a gate.
+ *   Nothing in the manifest changes for it.
+ *
+ * Run again over the applied pairs that are left after one is taken out, it keeps those that
+ * still fit and recommends the ones that only fitted on the chain the removed one made.
  *
  * Gates are read from each task's `humanGate`. `stackOf` with `Array.map(applied, orderingOf)`
  * writes the applied orderings.
@@ -384,6 +389,18 @@ export const orderingsOf = (
   config: Pick<ConflictsConfig, "high">,
 ): Orderings => {
   const byId = Record.fromIterableWith(drafts, (task) => [task.id, task]);
+  const index = taskIndexOf(existing, drafts);
+  const gated = Array.filter(drafts, (task) => !free(task));
+  // Under `links`, every task below each gated draft through parent links is one it needs.
+  const keepsGates = (links: ReadonlyArray<StackLink>) => {
+    const parents = Record.fromEntries(Array.map(links, (link) => [link.id, link.parent] as const));
+    return Array.every(gated, (gate) => {
+      const needs = index.needsAll(gate.id);
+      return Array.every(Array.drop(lineOf(parents, gate.id), 1), (below) =>
+        Array.contains(needs, below),
+      );
+    });
+  };
   const none: Orderings = { applied: [], recommended: [] };
   return Array.reduce(
     Array.sort(
@@ -393,6 +410,7 @@ export const orderingsOf = (
     none,
     (done, conflict) => {
       const orderings = Array.map(done.applied, orderingOf);
+      const withThis = Array.append(orderings, orderingOf(conflict));
       const stackable = Option.exists(
         Option.all([Record.get(byId, conflict.earlier), Record.get(byId, conflict.later)]),
         ([earlier, later]) =>
@@ -404,7 +422,8 @@ export const orderingsOf = (
               Array.append(later.dependsOn, earlier.id),
               linksWith(existing, drafts, orderings),
             ),
-          ),
+          ) &&
+          keepsGates(linksWith(existing, drafts, withThis)),
       );
       return stackable
         ? { applied: Array.append(done.applied, conflict), recommended: done.recommended }
@@ -412,6 +431,33 @@ export const orderingsOf = (
     },
   );
 };
+
+/**
+ * The largest subset of `ids`, in their order, whose tasks can all run with one another; of two
+ * the same size, the one with the earlier tasks. A trunk task and the siblings that need it share
+ * no subset, so the siblings alone count.
+ */
+const largestTogether = (index: RelationIndex, ids: ReadonlyArray<TaskId>): ReadonlyArray<TaskId> =>
+  Array.match(ids, {
+    onEmpty: () => [],
+    onNonEmpty: ([first, ...rest]) => {
+      const withFirst = Array.prepend(
+        largestTogether(
+          index,
+          Array.filter(rest, (other) => index.canRunTogether(first, other)),
+        ),
+        first,
+      );
+      // Leaving `first` out leaves `rest` at most, so a set as large needs no second search.
+      return Array.length(withFirst) >= Array.length(rest)
+        ? withFirst
+        : Array.match(largestTogether(index, rest), {
+            onEmpty: () => withFirst,
+            onNonEmpty: (without) =>
+              Array.length(without) > Array.length(withFirst) ? without : withFirst,
+          });
+    },
+  });
 
 /** A source file that `conflicts.hotspot` or more tasks that can run together all change. */
 export interface Hotspot {
@@ -424,8 +470,8 @@ export interface Hotspot {
  * The files the stack checkpoint asks `splitFile` about (see `spec.planning.conflict-ordering`):
  * each plain file, neither generated nor additive nor a directory, that at least `hotspot` of the
  * plan's tasks change and can all run together. The tasks are the new ones and the existing ones
- * that have not finished. Walking the tasks that change a file in plan order, a task counts when
- * it can run together with each task counted before it.
+ * that have not finished. The tasks named are the largest set of those that change the file whose
+ * tasks can all run with one another, in plan order.
  */
 export const hotspotsOf = (
   existing: ReadonlyArray<ManifestTask>,
@@ -439,13 +485,11 @@ export const hotspotsOf = (
     Order.String,
   );
   return Array.filterMap(files, (path) => {
-    const together = Array.reduce(
-      Array.filter(tasks, ({ files: declared }) => Array.contains(declared, path)),
-      Array.empty<TaskId>(),
-      (counted, { id }) =>
-        Array.every(counted, (other) => index.canRunTogether(other, id))
-          ? Array.append(counted, id)
-          : counted,
+    const together = largestTogether(
+      index,
+      Array.filterMap(tasks, ({ files: declared, id }) =>
+        Array.contains(declared, path) ? Result.succeed(id) : Result.failVoid,
+      ),
     );
     return Array.length(together) >= config.hotspot
       ? Result.succeed({ path, tasks: together })

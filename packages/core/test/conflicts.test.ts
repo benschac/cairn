@@ -510,3 +510,63 @@ it("hotspotsOf names a source file that enough tasks able to run together share"
   ]);
   expect(hotspotsOf(existing, fresh, { ...config, hotspot: 4 })).toEqual([]);
 });
+
+/** Every task `id` needs, directly or through the tasks it needs. */
+const needsOf = (tasks: ReadonlyArray<ManifestTask>, id: TaskId): ReadonlyArray<TaskId> =>
+  Array.flatMap(byId(tasks, id).dependsOn, (need) => Array.prepend(needsOf(tasks, need), need));
+
+/** The tasks below `id` through parent links, nearest first. */
+const belowOf = (tasks: ReadonlyArray<ManifestTask>, id: TaskId): ReadonlyArray<TaskId> =>
+  Option.match(Option.fromNullOr(byId(tasks, id).parent), {
+    onNone: () => [],
+    onSome: (parent) => Array.prepend(belowOf(tasks, parent), parent),
+  });
+
+it.prop(
+  "orderings never put a task below a gated task that it does not need",
+  [Plans],
+  ([{ added, old }]) => {
+    const { existing, ordered } = planned(old, added);
+    const fresh = Array.drop(ordered, Array.length(existing));
+    expect(
+      Array.flatMap(
+        Array.filter(fresh, ({ humanGate }) => humanGate.required),
+        (gate: ManifestTask) =>
+          Array.filter(
+            belowOf(ordered, gate.id),
+            (below) => !Array.contains(needsOf(ordered, gate.id), below),
+          ),
+      ),
+    ).toEqual([]);
+  },
+);
+
+it("a pair whose stacking would slide an unneeded task below a gate is recommended", () => {
+  // t3 is gated and needs only t2. Stacking t2 on t1 would put t1 below t3, which it does not need.
+  const { orderings, ordered } = planned(
+    [],
+    [one(["src/model.ts"]), one(["src/model.ts"]), one(["db/migrations/001.sql"], [1])],
+  );
+  expect(byId(ordered, TaskId.make("t3")).humanGate.required).toBe(true);
+  expect(orderings.applied).toEqual([]);
+  expect(Array.map(orderings.recommended, Struct.pick(["earlier", "later"]))).toEqual([
+    { earlier: "t1", later: "t2" },
+  ]);
+  expect(belowOf(ordered, TaskId.make("t3"))).toEqual(["t2"]);
+});
+
+it("a trunk task does not hide the siblings that need it from hotspotsOf", () => {
+  const { existing, unordered } = planned(
+    [],
+    [
+      one(["src/model.ts"]),
+      one(["src/model.ts"], [0]),
+      one(["src/model.ts"], [0]),
+      one(["src/model.ts"], [0]),
+    ],
+  );
+  const fresh = Array.drop(unordered, Array.length(existing));
+  expect(hotspotsOf(existing, fresh, config)).toEqual([
+    { path: "src/model.ts", tasks: ["t2", "t3", "t4"] },
+  ]);
+});
