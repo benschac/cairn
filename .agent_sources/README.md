@@ -14,6 +14,7 @@ a plain repository search skips it.
 | [effect/](effect/)                                   | Generated indexes of the installed `effect` and `@effect/*` packages, and the native-to-Effect table. Tracked.                                                                                                                                                                                                                                                                                         |
 | [xstate/](xstate/), [xstate-effect/](xstate-effect/) | Indexes of the installed XState docs and the `@xstate/effect` README. Tracked.                                                                                                                                                                                                                                                                                                                         |
 | [effect-ui/](effect-ui/) | An index of Effect UI's guide, worked examples and source, at the commit the viewer pins. Tracked; the clone it points into is not. |
+| [patterns/](patterns/)                               | Patterns from talks and posts, each with its credit, the code, and where it applies in Cairn. Tracked. |
 | [ratstack/](ratstack/)                               | The rat-stack corpus and its topic index. Tracked.                                                                                                                                                                                                                                                                                                                                                     |
 | `github.com/`                                        | Full upstream clones (Effect-TS/effect, statelyai/xstate, joelhooks/rat-stack, Effect-TS/ui, alchemy, effect-solutions) for source-level lookups. Ignored by git; search them by explicit path, for example `rg -n 'makeBy' .agent_sources/github.com/Effect-TS/effect/packages/effect/src/Array.ts`. They may be ahead of or behind the installed versions, so check `node_modules` before relying on one. |
 
@@ -103,6 +104,16 @@ their experimental APIs by name.
 | Reference | When to consult it | Upstream |
 | --- | --- | --- |
 | `effect-ui/` | Components, views, Commands, mounts, routing, the headless kit, Scene, Story and Play tests | [Effect-TS/ui](https://github.com/Effect-TS/ui) |
+
+## Patterns
+
+Each file in [`patterns/`](patterns/) is one pattern: who showed it and where, with a link to the
+moment, the code adapted to the installed Effect, and a table of the places in this repository and
+in `.cairn/prd.md` where it applies.
+
+| File | Pattern | Credit |
+| --- | --- | --- |
+| [patterns/shared-config.md](patterns/shared-config.md) | The environment as a service, built from a shared base that each package extends, which the Alchemy deploy and the Worker both read | Harry Solovay, [Advanced Effect Design Patterns, Effect Miami 3](https://youtu.be/_tSGby_q890?t=1781) |
 
 ## Ratstack
 
