@@ -194,7 +194,14 @@ it.effect.prop(
       expect(Array.map(seen, decisionsOf)).toEqual(
         Array.flatten([
           Array.map(inputs.sections, () => ["buildable", "faithful", "inScope", "size"]),
-          Array.map(inputs.tasks, () => ["inScope", "matches", "model", "reasoning", "size"]),
+          Array.map(inputs.tasks, () => [
+            "category",
+            "inScope",
+            "matches",
+            "model",
+            "reasoning",
+            "size",
+          ]),
           [["complete", "oneFeature", "ordered"]],
         ]),
       );
@@ -207,7 +214,7 @@ it.effect.prop(
         ),
       ).toBe(true);
       expect(Array.length(result.judgments)).toBe(
-        4 * Array.length(inputs.sections) + 5 * Array.length(inputs.tasks) + 3,
+        4 * Array.length(inputs.sections) + 6 * Array.length(inputs.tasks) + 3,
       );
       expect(
         Array.map(result.judgments, (judgment) => Struct.pick(judgment, ["message", "verdict"])),
@@ -358,15 +365,70 @@ it.effect("a task is asked again without its model question once judge.models na
       withModels({ haiku: "Small" }),
     );
     expect(Array.map(seen, (options) => options.state)).toEqual([task("t1").input]);
-    expect(askedFor(seen)).toEqual([["inScope", "matches", "reasoning", "size"]]);
+    expect(askedFor(seen)).toEqual([["category", "inScope", "matches", "reasoning", "size"]]);
     expect(notTask(second)).toEqual(notTask(first));
     expect(
       Array.map(
         Array.filter(second.judgments, (j) => j.target.kind === "task"),
         (j) => j.question,
       ),
-    ).toEqual(["inScope", "matches", "reasoning", "size"]);
+    ).toEqual(["inScope", "matches", "reasoning", "size", "category"]);
   }),
+);
+
+const withCategories = (categories: Record<string, string>) =>
+  configOf({
+    categories: Array.map(Record.toEntries(categories), ([name, description]) => ({
+      description,
+      name,
+    })),
+  });
+
+it.effect("a task is asked again when only a category's description changes", () =>
+  Effect.gen(function* () {
+    const { seen } = yield* rejudged(
+      withCategories({ feature: "New behaviour", ui: "Interface" }),
+      withCategories({ feature: "New behaviour a person can use", ui: "Interface" }),
+    );
+    expect(Array.map(seen, (options) => options.state)).toEqual([task("t1").input]);
+    expect(Array.map(seen, (options) => Record.get(options.decisions, "category"))).toEqual([
+      Option.some(
+        expect.objectContaining({
+          criteria: { feature: "New behaviour a person can use", ui: "Interface" },
+        }),
+      ),
+    ]);
+  }),
+);
+
+it.effect("nothing is asked again when config.categories is the same, in any order", () =>
+  Effect.gen(function* () {
+    const { first, second, seen } = yield* rejudged(
+      withCategories({ feature: "New", ui: "Interface" }),
+      withCategories({ ui: "Interface", feature: "New" }),
+    );
+    expect(Array.length(seen)).toBe(0);
+    expect(second).toEqual(first);
+  }),
+);
+
+it.effect.prop(
+  "a task's category question is asked only when config.categories names two or more",
+  [Schema.Literals([0, 1, 2, 3])],
+  ([count]) => {
+    const categories = Record.fromIterableWith(Array.range(1, count), (n) => [
+      `c${n}`,
+      `Category ${n}`,
+    ]);
+    return Effect.gen(function* () {
+      const judge = yield* Judge;
+      const result = yield* judge.judge(fixed, none);
+      const seen = yield* seenOf;
+      const asks = Array.some(seen, (options) => Record.has(options.decisions, "category"));
+      const judged = Array.some(result.judgments, (j) => j.question === "category");
+      expect([asks, judged]).toEqual([count >= 2, count >= 2]);
+    }).pipe(Effect.provide(judging({}, withCategories(categories))));
+  },
 );
 
 /** A catalog as `judge.models` holds it. */
@@ -448,7 +510,7 @@ it.effect.prop(
       const result = yield* Judge.use((judge) => judge.judge(inputs, none)).pipe(
         Effect.provide(judging({}, config)),
       );
-      const hashes = yield* inputHashesOf(inputs, config.judge);
+      const hashes = yield* inputHashesOf(inputs, config);
       expect(
         Array.map(result.judgments, (j) =>
           Array.findFirst(hashes, ({ target }) => Equal.equals(target, j.target)).pipe(

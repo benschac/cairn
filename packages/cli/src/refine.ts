@@ -4,12 +4,14 @@ import {
   StackJudgingInput,
   assignSectionIds,
   routeOf,
+  verdictOf,
   sectionIdsOf,
   sectionsOf,
 } from "@cairn/core";
 import type {
   Answer,
   Route,
+  RoutedTask,
   SectionJudgingInput,
   SectionText,
   TaskJudgingInput,
@@ -357,6 +359,18 @@ const routedJudgment = (judgment: Judgment, route: Route<string>, before: string
   });
 };
 
+/**
+ * A draft's judgment as its round reports it. A `category` answer is compared with the draft's
+ * category, so the verdict is right even for a draft a split later replaces.
+ */
+const comparedWith = (judgment: Judgment, task: RoutedTask, config: Pick<Config, "judge">) => {
+  if (judgment.question !== "category") {
+    return judgment;
+  }
+  const { message, verdict } = verdictOf(judgment.question, judgment.answer, config.judge, task);
+  return Struct.evolve(judgment, { message: () => message, verdict: () => verdict });
+};
+
 /** What a `model` question the judge did not ask, because there is one model, answers. */
 const NOT_ASKED: Answer = {
   description: "judge.models names fewer than two models, so the judge was not asked",
@@ -371,9 +385,14 @@ interface Judged {
 
 /**
  * The routing checkpoint for one draft: its `model` and `reasoning` answers go through `routeOf`.
- * A confident answer replaces the planner's value; otherwise the planner's value stays.
+ * A confident answer replaces the planner's value; otherwise the planner's value stays. Its
+ * `category` answer is compared with the draft's category for its verdict and message, and the
+ * draft's category stays whatever the answer is.
  */
-const routed = ({ draft, judgments }: Judged, config: Pick<Config, "judge">): Judged => {
+const routed = (
+  { draft, judgments }: Judged,
+  config: Pick<Config, "categories" | "judge">,
+): Judged => {
   const answerTo = (question: "model" | "reasoning") =>
     Option.getOrElse(
       Option.map(
@@ -429,10 +448,11 @@ const ofDraft = (judgments: ReadonlyArray<Judgment>, title: string) =>
  * 2. Task size: every draft, then the drafts each split writes. `matches` and `inScope` are
  *    reported and never acted on.
  * 3. Routing: every draft's `model` and `reasoning` answers, from the round it was judged in.
+ *    Its `category` answer is reported against the draft's category and never changes it.
  */
 export const refineWith = Effect.fn("refineWith")(function* (
   input: RefineInput,
-  config: Pick<Config, "judge">,
+  config: Pick<Config, "categories" | "judge">,
 ) {
   const judge = yield* Judge;
   const planner = yield* Planner;
@@ -444,11 +464,15 @@ export const refineWith = Effect.fn("refineWith")(function* (
   const judged = Effect.fn("refine.judged")(function* (
     round: number,
     sections: ReadonlyArray<{ readonly id: SpecSectionId; readonly input: SectionJudgingInput }>,
-    drafts: ReadonlyArray<{ readonly input: TaskJudgingInput; readonly title: string }>,
+    drafts: ReadonlyArray<{
+      readonly input: TaskJudgingInput;
+      readonly task: RoutedTask;
+      readonly title: string;
+    }>,
   ) {
     const ids = Array.map(drafts, (_, index) => TaskId.make(`draft-${index + 1}`));
     const titles = HashMap.fromIterable(
-      Array.zipWith(ids, drafts, (id, { title }) => [id, title] as const),
+      Array.zipWith(ids, drafts, (id, { task, title }) => [id, { task, title }] as const),
     );
     const result = yield* judge.judge(
       {
@@ -463,16 +487,19 @@ export const refineWith = Effect.fn("refineWith")(function* (
       Array.filter(result.judgments, (judgment) => judgment.target.kind === "stack"),
     );
     const inRound = (judgment: Judgment, target: JudgmentTarget) =>
-      Result.succeed(Struct.evolve(judgment, { round: () => round, target: () => target }));
+      Struct.evolve(judgment, { round: () => round, target: () => target });
     return Array.filterMap(result.judgments, (judgment) =>
       JudgmentTarget.match(judgment.target, {
         draft: () => Result.failVoid,
-        section: (target) => inRound(judgment, target),
+        section: (target) => Result.succeed(inRound(judgment, target)),
         stack: () => Result.failVoid,
         task: ({ id }) =>
           Option.match(HashMap.get(titles, id), {
             onNone: () => Result.failVoid,
-            onSome: (title) => inRound(judgment, { kind: "draft", title }),
+            onSome: ({ task, title }) =>
+              Result.succeed(
+                comparedWith(inRound(judgment, { kind: "draft", title }), task, config),
+              ),
           }),
       }),
     );
@@ -615,6 +642,7 @@ export const refineWith = Effect.fn("refineWith")(function* (
         [],
         Array.map(fresh, ({ draft }) => ({
           input: draftInputOf(prdById, specById, draft),
+          task: draft,
           title: draft.title,
         })),
       );

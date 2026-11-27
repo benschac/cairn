@@ -1,6 +1,6 @@
 import { PrdSectionId, Reasoning, Slug, SpecSectionId, TaskId } from "@cairn/contract";
 import type { Manifest, ManifestTask, Section } from "@cairn/contract";
-import { Array, HashMap, Option, Schema, Struct, pipe } from "effect";
+import { Array, HashMap, Match, Option, Record, Schema, Struct, pipe } from "effect";
 import { Decision } from "effect/ai";
 
 import { sectionsOf } from "../sections.ts";
@@ -184,24 +184,66 @@ export const taskQuestionsWithoutModel = Decision.make({
   input: TaskJudgingInput,
 });
 
+/** Names with a description each: `judge.models`, or `config.categories` as a record. */
+export interface Described {
+  readonly [name: string]: string;
+}
+
+const modelDecision = (models: Described) =>
+  Decision.classify({
+    criteria: models,
+    instructions:
+      "Which model does this task need? Choose from each model's description of when to use it.",
+  });
+
+const categoryDecision = (categories: Described) =>
+  Decision.classify({
+    criteria: categories,
+    instructions:
+      "Which category does this task's work fit? Choose from each category's description.",
+  });
+
 /**
- * The questions for a task: `taskQuestionsWithoutModel` and `model`, which classifies the task
- * into one of `models`, the names in `judge.models` with when to use each, so the definition is
- * built from config. `Decision.classify` throws when `models` names fewer than two models, which
- * `Config` still accepts: a caller with fewer than two has no model to choose and must not build
- * this.
+ * The questions for a task with both choices: `taskQuestionsWithoutModel`, `model`, which
+ * classifies the task into one of `models` (the names in `judge.models` with when to use each),
+ * and `category`, which classifies it into one of `categories` (the names in `config.categories`
+ * with what each is for), so the definition is built from config. `Decision.classify` throws when
+ * either names fewer than two entries, which `Config` still accepts: a caller with fewer than two
+ * has nothing to choose and must not build this; `taskQuestionsFor` leaves the question out.
  */
-export const taskQuestions = (models: { readonly [name: string]: string }) =>
+export const taskQuestions = (models: Described, categories: Described) =>
   Decision.make({
     decisions: Struct.assign(taskQuestionsWithoutModel.decisions, {
-      model: Decision.classify({
-        criteria: models,
-        instructions:
-          "Which model does this task need? Choose from each model's description of when to use it.",
-      }),
+      category: categoryDecision(categories),
+      model: modelDecision(models),
     }),
     input: TaskJudgingInput,
   });
+
+/**
+ * The task questions config allows: `model` only when `models` names two or more, `category`
+ * only when `categories` does, since one entry leaves nothing to choose.
+ */
+export const taskQuestionsFor = (models: Described, categories: Described) => {
+  const base = taskQuestionsWithoutModel.decisions;
+  const twoOrMore = (described: Described) => Record.size(described) >= 2;
+  return Match.value([twoOrMore(models), twoOrMore(categories)] as const).pipe(
+    Match.when([true, true], () => taskQuestions(models, categories)),
+    Match.when([true, false], () =>
+      Decision.make({
+        decisions: Struct.assign(base, { model: modelDecision(models) }),
+        input: TaskJudgingInput,
+      }),
+    ),
+    Match.when([false, true], () =>
+      Decision.make({
+        decisions: Struct.assign(base, { category: categoryDecision(categories) }),
+        input: TaskJudgingInput,
+      }),
+    ),
+    Match.orElse(() => taskQuestionsWithoutModel),
+  );
+};
 
 /** The questions for the whole stack. */
 export const stackQuestions = Decision.make({

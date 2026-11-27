@@ -22,6 +22,7 @@ export {
   sectionQuestions,
   stackQuestions,
   taskQuestions,
+  taskQuestionsFor,
   taskQuestionsWithoutModel,
   type JudgingInputs,
 } from "./judging/questions.ts";

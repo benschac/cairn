@@ -1,4 +1,4 @@
-import { JudgmentQuestion, Manifest, Reasoning, Slug } from "@cairn/contract";
+import { Config, JudgmentQuestion, Manifest, Reasoning, Slug } from "@cairn/contract";
 import { describe, expect, it } from "@effect/vitest";
 import { Array, Match, Option, Record, Schema, String, Struct, pipe } from "effect";
 import type { Decision } from "effect/ai";
@@ -11,6 +11,7 @@ import {
   sectionQuestions,
   stackQuestions,
   taskQuestions,
+  taskQuestionsFor,
   taskQuestionsWithoutModel,
 } from "../src/index.ts";
 
@@ -290,7 +291,9 @@ describe("inputsOf", () => {
     expect(() => encodeJson(stackQuestions.input)(stack)).not.toThrow();
     expect(sectionQuestions.input).toBe(SectionJudgingInput);
     expect(stackQuestions.input).toBe(StackJudgingInput);
-    expect(taskQuestions({ haiku: "small", opus: "large" }).input).toBe(TaskJudgingInput);
+    expect(taskQuestions({ haiku: "small", opus: "large" }, categories).input).toBe(
+      TaskJudgingInput,
+    );
   });
 });
 
@@ -319,8 +322,13 @@ const descriptionsOf = (decision: Decision.Any): ReadonlyArray<unknown> =>
     Rate: ({ criteria }) => Array.map(criteria, ({ description }) => description),
   });
 
+/** `count` names with a description each. */
+const entriesOf = (prefix: string, count: number) =>
+  Record.fromEntries(Array.makeBy(count, (index) => [`${prefix}-${index}`, "when"] as const));
+
 const SIZE = ["too_small", "right", "too_large"];
 const models = { haiku: "Mechanical changes", opus: "Subtle logic", sonnet: "Most tasks" };
+const categories = { feature: "New behaviour", ui: "Interface", test: "Tests" };
 
 describe("the questions", () => {
   it("asks each target what the spec's table lists, of the kind it lists", () => {
@@ -330,7 +338,8 @@ describe("the questions", () => {
       inScope: ["probability", []],
       size: ["rate", SIZE],
     });
-    expect(Record.map(taskQuestions(models).decisions, shapeOf)).toEqual({
+    expect(Record.map(taskQuestions(models, categories).decisions, shapeOf)).toEqual({
+      category: ["classify", ["feature", "ui", "test"]],
       inScope: ["probability", []],
       matches: ["probability", []],
       model: ["classify", ["haiku", "opus", "sonnet"]],
@@ -351,7 +360,7 @@ describe("the questions", () => {
       const named = Record.fromEntries(
         Array.map(descriptions, (description, index) => [`model-${index}`, description] as const),
       );
-      const question = taskQuestions(named).decisions.model;
+      const question = taskQuestions(named, categories).decisions.model;
       expect(question.criteria).toEqual(named);
     },
   );
@@ -363,9 +372,9 @@ describe("the questions", () => {
       const named = Record.fromEntries(
         Array.map(descriptions, (description, index) => [`model-${index}`, description] as const),
       );
-      const withModel = taskQuestions(named);
+      const withModel = taskQuestions(named, categories);
       expect(taskQuestionsWithoutModel.decisions).toEqual(
-        Struct.omit(withModel.decisions, ["model"]),
+        Struct.omit(withModel.decisions, ["category", "model"]),
       );
       expect(taskQuestionsWithoutModel.input).toBe(withModel.input);
     },
@@ -375,10 +384,57 @@ describe("the questions", () => {
     // `Judge` drops a decision key that is not a JudgmentQuestion without a word, so a question
     // missing from the contract's union would simply never be asked.
     const keys = Array.flatMap(
-      [sectionQuestions, taskQuestions(models), taskQuestionsWithoutModel, stackQuestions],
+      [
+        sectionQuestions,
+        taskQuestions(models, categories),
+        taskQuestionsWithoutModel,
+        stackQuestions,
+      ],
       (definition) => Record.keys<string, Decision.Any>(definition.decisions),
     );
     expect(Array.filter(keys, (key) => !Schema.is(JudgmentQuestion)(key))).toEqual([]);
+  });
+
+  it.prop(
+    "the category question chooses between config.categories, with each one's description",
+    [Schema.Array(Schema.String).check(Schema.isMinLength(2), Schema.isMaxLength(6))],
+    ([descriptions]) => {
+      const named = Record.fromEntries(
+        Array.map(
+          descriptions,
+          (description, index) => [`category-${index}`, description] as const,
+        ),
+      );
+      expect(taskQuestions(models, named).decisions.category.criteria).toEqual(named);
+    },
+  );
+
+  it.prop(
+    "model and category are each asked only with two or more entries",
+    [
+      Schema.Int.check(Schema.isBetween({ maximum: 3, minimum: 0 })),
+      Schema.Int.check(Schema.isBetween({ maximum: 3, minimum: 0 })),
+    ],
+    ([modelCount, categoryCount]) => {
+      const keys = Record.keys<string, Decision.Any>(
+        taskQuestionsFor(entriesOf("model", modelCount), entriesOf("category", categoryCount))
+          .decisions,
+      );
+      expect(Array.contains(keys, "model")).toBe(modelCount >= 2);
+      expect(Array.contains(keys, "category")).toBe(categoryCount >= 2);
+      expect(Array.filter(keys, (key) => key !== "model" && key !== "category")).toEqual(
+        Record.keys(taskQuestionsWithoutModel.decisions),
+      );
+    },
+  );
+
+  it("takes the categories' descriptions from the config, and leaves the task's own category out of the input", () => {
+    const config = Schema.decodeSync(Config)({});
+    const fromConfig = Record.fromEntries(
+      Array.map(config.categories, ({ description, name }) => [name, description] as const),
+    );
+    expect(taskQuestions(models, fromConfig).decisions.category.criteria).toEqual(fromConfig);
+    expect(Record.keys(TaskJudgingInput.fields)).not.toContain("category");
   });
 
   it("asks scope apart from what is left out, of sections and of tasks", () => {
@@ -392,7 +448,11 @@ describe("the questions", () => {
 
   it("describes every rating level and probability with an example", () => {
     const decisions = Array.flatMap(
-      [sectionQuestions.decisions, taskQuestions(models).decisions, stackQuestions.decisions],
+      [
+        sectionQuestions.decisions,
+        taskQuestions(models, categories).decisions,
+        stackQuestions.decisions,
+      ],
       (all) => Record.values<string, Decision.Any>(all),
     );
     const described = Array.flatMap(decisions, descriptionsOf);

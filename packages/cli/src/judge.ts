@@ -6,8 +6,7 @@ import {
   TaskJudgingInput,
   sectionQuestions,
   stackQuestions,
-  taskQuestions,
-  taskQuestionsWithoutModel,
+  taskQuestionsFor,
   verdictOf,
 } from "@cairn/core";
 import type { Answer, JudgingInputs } from "@cairn/core";
@@ -126,17 +125,27 @@ interface Request {
 }
 
 type Models = Config["judge"]["models"];
+type Categories = Config["categories"];
 
 /** `judge.models` as a task's hash covers it: `[name, description]` pairs, sorted by name. */
 const CatalogJson = Schema.Array(Schema.Tuple([Schema.String, Schema.String]));
 
-/** What a task's hash is taken over: its input and the catalog its `model` question reads. */
+/**
+ * What a task's hash is taken over: its input and the catalogs its `model` and `category`
+ * questions read.
+ */
 const TaskHashJson = Schema.fromJsonString(
-  Schema.Struct({ input: TaskJudgingInput, models: CatalogJson }),
+  Schema.Struct({ categories: CatalogJson, input: TaskJudgingInput, models: CatalogJson }),
 );
 
 const catalogOf = (models: Models) =>
   Array.sortWith(Record.toEntries(models), Tuple.get(0), Order.String);
+
+/** `config.categories` as a record of name to description, for the `category` question. */
+const categoryRecordOf = (categories: Categories): Models =>
+  Record.fromEntries(
+    Array.map(categories, ({ description, name }) => [name, description] as const),
+  );
 
 /**
  * The request for one target, whose hash is the SHA-256, in hex, of `json`. `json` is encoded by
@@ -174,9 +183,11 @@ const encoded = <S extends Schema.Codec<unknown, unknown>>(schema: S, input: S["
   Schema.encodeEffect(Schema.fromJsonString(schema))(input);
 
 /** One request per spec section, then per task, then the stack, as `inputsOf` orders them. */
-const requestsOf = (inputs: JudgingInputs, models: Models) => {
-  const tasks = Record.size(models) >= 2 ? taskQuestions(models) : taskQuestionsWithoutModel;
+const requestsOf = (inputs: JudgingInputs, models: Models, categories: Categories) => {
+  const categoryRecord = categoryRecordOf(categories);
+  const tasks = taskQuestionsFor(models, categoryRecord);
   const catalog = catalogOf(models);
+  const categoryCatalog = catalogOf(categoryRecord);
   return Effect.all(
     Array.flatten([
       Array.map(inputs.sections, ({ id, input }) =>
@@ -192,7 +203,11 @@ const requestsOf = (inputs: JudgingInputs, models: Models) => {
           { id, kind: "task" },
           tasks,
           input,
-          Schema.encodeEffect(TaskHashJson)({ input, models: catalog }),
+          Schema.encodeEffect(TaskHashJson)({
+            categories: categoryCatalog,
+            input,
+            models: catalog,
+          }),
         ),
       ),
       [
@@ -208,27 +223,30 @@ const requestsOf = (inputs: JudgingInputs, models: Models) => {
 };
 
 /**
- * The `inputHash` the judge gives each target of `inputs` under `judge.models`, in the order
+ * The `inputHash` the judge gives each target of `inputs` under `judge.models` and
+ * `categories`, in the order
  * `inputsOf` gives the targets. A judgment whose `inputHash` differs from its target's here is
  * stale: the judge would ask that target again.
  *
  * - A spec section's or the stack's hash is the SHA-256, in hex, of its input encoded as JSON by
  *   its definition's input schema (`SectionJudgingInput`, `StackJudgingInput`).
- * - A task's hash is the SHA-256, in hex, of `{"input": ..., "models": [[name, description], ...]}`
- *   encoded as JSON: its `TaskJudgingInput` and every entry of `judge.models`, sorted by name.
- *   The descriptions are the `model` question's criteria, so any change to `judge.models`, a
- *   description alone included, makes every task be asked again. The catalog is covered even when
- *   it names fewer than two models and `model` is not asked.
+ * - A task's hash is the SHA-256, in hex, of
+ *   `{"categories": [[name, description], ...], "input": ..., "models": [[name, description], ...]}`
+ *   encoded as JSON: its `TaskJudgingInput` and every entry of `config.categories` and of
+ *   `judge.models`, each sorted by name. The descriptions are the `category` and `model`
+ *   questions' criteria, so any change to either, a description alone included, makes every task
+ *   be asked again. A catalog is covered even when it names fewer than two entries and its
+ *   question is not asked.
  */
 export const inputHashesOf = (
   inputs: JudgingInputs,
-  judge: Pick<Config["judge"], "models">,
+  config: { readonly categories: Categories; readonly judge: Pick<Config["judge"], "models"> },
 ): Effect.Effect<
   ReadonlyArray<{ readonly hash: Sha256Hex; readonly target: JudgmentTarget }>,
   JudgeError
 > =>
   Effect.map(
-    requestsOf(inputs, judge.models),
+    requestsOf(inputs, config.judge.models, config.categories),
     Array.map(({ hash, target }) => ({ hash, target })),
   );
 
@@ -268,18 +286,20 @@ export class Judge extends Context.Service<
   /**
    * Judges with whichever `DecisionModel` the environment provides (`spec.judging.judge-service`).
    *
-   * - Each target is hashed as `inputHashesOf` says; a task's hash covers `judge.models` too.
+   * - Each target is hashed as `inputHashesOf` says; a task's hash covers `judge.models` and
+   *   `config.categories` too.
    *   When `previous` was answered by `judge.model` and holds a judgment with the target's hash
    *   for every question the target asks, those judgments are kept and the target is not asked.
    *   Only the questions it asks now are kept.
    * - The rest go to `decideSettled`, one request per target with all its questions, four at a
-   *   time. A task's `model` question is left out when `judge.models` names fewer than two.
+   *   time. A task's `model` question is left out when `judge.models` names fewer than two, and its
+   *   `category` question when `config.categories` does.
    * - A rate-limit error is retried up to three times, each after the delay the provider gives.
    *   Any other `AiError`, or a fourth rate limit, is a `JudgeError` naming the target.
    * - A new judgment is round 1 with action `none`; its verdict and message are `verdictOf`'s,
    *   with no task to compare a `model` or `reasoning` answer with.
    */
-  static readonly layerWith = (config: Pick<Config, "judge">) =>
+  static readonly layerWith = (config: Pick<Config, "categories" | "judge">) =>
     Layer.effect(
       Judge,
       Effect.gen(function* () {
@@ -304,7 +324,7 @@ export class Judge extends Context.Service<
           previous: Judgments,
         ) {
           const reusable = previous.model === config.judge.model ? previous.judgments : [];
-          const requests = yield* requestsOf(inputs, config.judge.models);
+          const requests = yield* requestsOf(inputs, config.judge.models, config.categories);
           const judgments = yield* Effect.forEach(
             requests,
             (request) => {
