@@ -313,10 +313,24 @@ Before adding or renaming a question:
 
 ### Still to check
 
-- **No wording has been probed against Jev.** Every question above was
-  written to the rules on this page and tested with scripted answers only.
-  Probe each with representative, hard and negative cases from this
-  repository before trusting its thresholds, and keep the payloads.
+- **Only the planning questions have been probed against Jev**: once, on
+  2026-11-27, through the gateway, with 35 cases from this repository
+  (32,878 input tokens, about $0.0014). No answer fell on the wrong side of
+  a threshold in a way that changes what Cairn does.
+  - `materialChange` and `buildsItem` got all 12 cases right, every "no" at
+    0.08 or lower. `buildsItem` passed `prd.cli.lint` against `spec.lint`
+    at only 0.76.
+  - `describesBuild` gave 0.97 to 0.99 to parts that ask for something to
+    build, and under 0.3 to three of the five that do not. `prd.done-when`'s
+    introduction stayed unsure at 0.39. `prd.v2-diverging-state` got 0.83 by
+    reading "This later extension adds ..." literally; `spec.scope` defers it
+    anyway. `prd.repo-layout` got 0.22, so it would get no draft statement.
+  - The draft notes: `namesImplementation` caught both statements that name
+    code (0.86, 0.96) and passed one that names a `cairn` command (0.04);
+    `needsPerson` gave 0.96 to a "reads well" statement.
+  - Not probed yet: `inScope`, `category`, `built`, `ordered`,
+    `noteQuestions` and the `pnpm tasks` reply question. Probe each with
+    representative, hard and negative cases before trusting its thresholds.
 - **`judge.models` lists `haiku` first**, and `classify` leans toward the
   first label, which favours the cheapest model. Probe `model` with the
   labels reordered.
