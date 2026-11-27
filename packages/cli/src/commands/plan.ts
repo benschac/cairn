@@ -73,6 +73,7 @@ import {
   draftCountOf,
   draftStatements,
   draftWarning,
+  partsToDraft,
   targetsOf,
 } from "../ask-statements.ts";
 import { replaceFile } from "../atomic-write.ts";
@@ -1689,6 +1690,7 @@ const savePrd = (text: string) => writeCairn("prd.md", text);
  * covers. Returns the PRD as it is after the answers.
  */
 const statementsStep = Effect.fn("plan.statementsStep")(function* (
+  config: CairnConfig,
   options: PlanOptions,
   prd: string,
   manifest: Option.Option<Manifest>,
@@ -1712,7 +1714,8 @@ const statementsStep = Effect.fn("plan.statementsStep")(function* (
             ),
           ),
   });
-  const drafted = yield* draftStatements(prd, targetsOf(prd, only), savePrd);
+  const targets = yield* partsToDraft(prd, targetsOf(prd, only), config.judge);
+  const drafted = yield* draftStatements(prd, targets, savePrd);
   return yield* askStatements(drafted, options, savePrd, Option.map(part, idsOfPart));
 });
 
@@ -1776,7 +1779,14 @@ const steps = Effect.fn("plan.steps")(function* (options: PlanOptions) {
     { config, judged, options, part, prd: assigned.markdown, told },
     manifest,
   );
-  const prd = yield* statementsStep(options, assigned.markdown, manifest, part, items.planned);
+  const prd = yield* statementsStep(
+    config,
+    options,
+    assigned.markdown,
+    manifest,
+    part,
+    items.planned,
+  );
   const planned = yield* planSteps({ config, judged, options, part, prd, told }, manifest, items);
   const drafts = draftCountOf(prd, Option.map(part, idsOfPart));
   if (drafts > 0) {
