@@ -507,3 +507,54 @@ it.effect("history of a base branch git does not have is an error, in both layer
     expect(fromGit.exitCode).toBe(128);
   }),
 );
+
+/** The commits that changed `path` after `ops`, newest first, and what `path` held at each, by subject. */
+const revisionsAfter = (ops: ReadonlyArray<Op>, path: string, limit: number) =>
+  Effect.gen(function* () {
+    const names = yield* perform(ops);
+    const reader = yield* Git;
+    const revisions = yield* reader.revisionsOf(path, limit);
+    const contents = yield* Effect.forEach(revisions, (sha) => reader.fileAt(path, sha));
+    const nameOf = (sha: Sha) => Option.getOrElse(HashMap.get(names, sha), () => sha);
+    // Git's commits write their subject into a file; the in-memory layer's write their sha.
+    const writerOf = (content: string) =>
+      Option.match(Schema.decodeOption(Sha)(content), {
+        onNone: () => String.trim(content),
+        onSome: nameOf,
+      });
+    return { contents: Array.map(contents, writerOf), revisions: Array.map(revisions, nameOf) };
+  }).pipe(Effect.orDie);
+
+it.effect("revisionsOf lists the commits that changed a path, and fileAt reads it at each", () =>
+  Effect.gen(function* () {
+    const ops: ReadonlyArray<Op> = [
+      commitOn("t1", ["a.txt"], true),
+      commitOn("t1", ["src/b.ts"], true),
+      commitOn("t1", ["a.txt"], true),
+      { _tag: "Merge", task: "t1" },
+    ];
+    const both = (limit: number) =>
+      Effect.all([
+        revisionsAfter(ops, "a.txt", limit).pipe(Effect.provide(live)),
+        revisionsAfter(ops, "a.txt", limit).pipe(Effect.provide(Git.memory())),
+      ]);
+    const all = yield* both(10);
+    const one = yield* both(1);
+    const everything = { contents: ["Commit 2", "Commit 0"], revisions: ["Commit 2", "Commit 0"] };
+    expect(all).toStrictEqual([everything, everything]);
+    const newest = { contents: ["Commit 2"], revisions: ["Commit 2"] };
+    expect(one).toStrictEqual([newest, newest]);
+  }),
+);
+
+it.effect("fileAt of a path the revision does not have is an error, in both layers", () =>
+  Effect.gen(function* () {
+    const read = Git.use((reader) => reader.fileAt("missing.txt", "main")).pipe(Effect.flip);
+    const [fromGit, fromMemory] = yield* Effect.all([
+      read.pipe(Effect.provide(live)),
+      read.pipe(Effect.provide(Git.memory())),
+    ]);
+    expect(Array.map([fromGit, fromMemory], Schema.is(GitError))).toStrictEqual([true, true]);
+    expect(fromGit.exitCode).toBe(128);
+  }),
+);

@@ -121,13 +121,25 @@ export class Git extends Context.Service<
     ) => Effect.Effect<ReadonlyArray<Changed>, GitError>;
     /** `git config user.name`: none when it is unset or empty. */
     readonly userName: Effect.Effect<Option.Option<string>, GitError>;
+    /**
+     * The content of `path`, relative to the repository's directory, at `revision`, a branch or
+     * a sha (see `spec.planning.again.cosmetic-edits`). A path the revision does not have is a
+     * `GitError`.
+     */
+    readonly fileAt: (path: string, revision: string) => Effect.Effect<string, GitError>;
+    /** The last `limit` commits `HEAD` reaches that changed `path`, newest first. */
+    readonly revisionsOf: (
+      path: string,
+      limit: number,
+    ) => Effect.Effect<ReadonlyArray<Sha>, GitError>;
   }
 >()("@cairn/cli/Git") {
   /**
    * An in-memory repository with one empty commit on `baseBranch`. It provides `Git` and
    * `GitHistory`, which writes to the same repository, so a test builds a history and reads it back
    * as the live layer reads the same history from git. `userName` is what `git config user.name`
-   * answers; it defaults to unset.
+   * answers; it defaults to unset. `HEAD` is `baseBranch`, and a file's content is the sha of
+   * the commit that last wrote it.
    */
   static readonly memory = (baseBranch = "main", userName: Option.Option<string> = Option.none()) =>
     Layer.effectContext(
@@ -201,6 +213,35 @@ export class Git extends Context.Service<
             ),
         });
         const git = Git.of({
+          fileAt: (path, revision) =>
+            Effect.flatMap(SynchronizedRef.get(ref), (repo) =>
+              Effect.flatMap(revisionOf(repo, revision), (sha) =>
+                Effect.fromOption(HashMap.get(nodeOf(repo, sha).tree, path)).pipe(
+                  Effect.mapError(() =>
+                    refused(
+                      ["show", `${revision}:${path}`],
+                      `path '${path}' does not exist in '${revision}'`,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          revisionsOf: (path, limit) =>
+            Effect.flatMap(SynchronizedRef.get(ref), (repo) =>
+              Effect.map(headOf(repo, baseBranch), (head) =>
+                Array.take(
+                  Array.filter(
+                    // Newest first, as git log prints them.
+                    Array.sort(
+                      Array.fromIterable(ancestorsOf(repo, head)),
+                      Order.flip(Order.String),
+                    ),
+                    (sha) => Array.contains(nodeOf(repo, sha).files, path),
+                  ),
+                  limit,
+                ),
+              ),
+            ),
           userName: Effect.succeed(userName),
           history: (base, n) =>
             Effect.flatMap(SynchronizedRef.get(ref), (repo) =>
@@ -326,6 +367,13 @@ const both = (repo: Repo, into: string, branch: string) =>
 const headOf = (repo: Repo, branch: string) =>
   Effect.fromOption(HashMap.get(repo.heads, branch)).pipe(
     Effect.mapError(() => refused(["rev-parse", branch], `unknown revision '${branch}'`)),
+  );
+
+/** A branch's head, or a sha the repository has. */
+const revisionOf = (repo: Repo, revision: string) =>
+  Option.match(
+    Option.filter(Schema.decodeOption(Sha)(revision), (sha) => HashMap.has(repo.nodes, sha)),
+    { onNone: () => headOf(repo, revision), onSome: Effect.succeed },
   );
 
 /** A head or a parent always has its node; a missing one is a bug in this module, so it throws. */

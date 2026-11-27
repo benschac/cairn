@@ -19,8 +19,11 @@ import {
   Result,
   Schema,
   Scope,
+  Stream,
   String,
+  Struct,
 } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
 
 import {
@@ -33,6 +36,8 @@ import {
   WRITE_QUESTION,
 } from "../src/commands/plan.ts";
 import type { PlanOptions } from "../src/commands/plan.ts";
+import * as GitLive from "../src/git-live.ts";
+import type { Git } from "../src/git.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { editedOf } from "../src/spec-index.ts";
@@ -162,6 +167,10 @@ const scriptedPlanner = ({ drafts, sections, spec }: Script) =>
 interface Run {
   readonly answers?: ReadonlyArray<string>;
   readonly drafts?: ReadonlyArray<TaskDraft>;
+  /** The git the run reads the PRD's history from: none provides no `Git`. */
+  readonly git?:
+    | Layer.Layer<Git, never, ChildProcessSpawner.ChildProcessSpawner>
+    | typeof Layer.empty;
   /** The judge of the run: none provides no `Judge`, as `cairn plan` does without a key. */
   readonly judge?: Layer.Layer<Judge> | typeof Layer.empty;
   readonly options?: Partial<PlanOptions>;
@@ -204,6 +213,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
     const run = ({
       answers = [],
       drafts = FIRST,
+      git = Layer.empty,
       judge = Layer.empty,
       options: given = {},
       sections = SHARING,
@@ -230,16 +240,21 @@ const setup = (files: Readonly<Record<string, string>>) =>
             MainCheckout.fixed(root),
             ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
             judge,
+            git,
           ),
         ),
       );
     const needs = (given: Partial<PlanOptions> = {}) =>
       needsPlanner(optionsOf(given)).pipe(Effect.provide(MainCheckout.fixed(root)));
-    return { indexOf, manifestOf, needs, read, remove, run, snapshot, text, write };
+    return { indexOf, manifestOf, needs, read, remove, root, run, snapshot, text, write };
   });
 
 const inRepository = <A, E>(
-  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Scope.Scope>,
+  effect: Effect.Effect<
+    A,
+    E,
+    ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path | Scope.Scope
+  >,
 ) => Effect.scoped(effect).pipe(Effect.provide(NodeServices.layer));
 
 const decodeManifest = Schema.decodeUnknownEffect(Schema.fromJsonString(Manifest));
@@ -570,6 +585,179 @@ it.effect(
         expect(editedOf(spec, index)).toEqual([]);
       }),
     ),
+);
+
+/** Runs git in `directory`. A non-zero exit is a defect: the test wrote the command. */
+const gitIn = Effect.fn("gitIn")(function* (directory: string, args: ReadonlyArray<string>) {
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  return yield* Effect.scoped(
+    Effect.gen(function* () {
+      const handle = yield* spawner.spawn(ChildProcess.make("git", args, { cwd: directory }));
+      const [stdout, stderr, exitCode] = yield* Effect.all(
+        [
+          Stream.mkString(Stream.decodeText(handle.stdout)),
+          Stream.mkString(Stream.decodeText(handle.stderr)),
+          handle.exitCode,
+        ],
+        { concurrency: "unbounded" },
+      );
+      return exitCode === 0
+        ? stdout
+        : yield* Effect.die(`git ${Array.join(args, " ")} exited ${exitCode}: ${stderr}`);
+    }),
+  ).pipe(Effect.orDie);
+});
+
+/** Commits `.cairn/prd.md` as it is now. */
+const commitPrd = (root: string, subject: string) =>
+  Effect.forEach(
+    [
+      ["add", ".cairn/prd.md"],
+      ["commit", "--quiet", "-m", subject],
+    ],
+    (args) => gitIn(root, args),
+    { discard: true },
+  );
+
+const TYPO = String.replace("Keep a note.", "Keep a ntoe.")(PRD);
+
+/**
+ * A repository in git whose PRD had a typo when Cairn wrote its spec, which no task builds, and has
+ * it fixed now. `committed` says whether the PRD the spec was written from was committed; without
+ * it, only the fixed PRD is, so no revision has the body the spec was written from.
+ */
+const typoFixed = (committed: boolean) =>
+  Effect.gen(function* () {
+    const repository = yield* setup({ "prd.md": TYPO });
+    yield* Effect.forEach(
+      [
+        ["init", "--quiet", "--initial-branch=main"],
+        ["config", "user.name", "Test"],
+        ["config", "user.email", "test@example.com"],
+        ["config", "commit.gpgsign", "false"],
+      ],
+      (args) => gitIn(repository.root, args),
+      { discard: true },
+    );
+    yield* repository.run({ options: { spec: true } });
+    if (committed) {
+      yield* commitPrd(repository.root, "Write the PRD");
+    }
+    yield* repository.write("prd.md", PRD);
+    yield* commitPrd(repository.root, "Fix a typo");
+    return repository;
+  });
+
+/** A judge whose `materialChange` has `probability`, and a run of it over the repository's git. */
+const cosmeticRun = (root: string, probability: number): Run => ({
+  git: GitLive.layer(root),
+  judge: scriptedJudge({
+    probability: (_title, question) =>
+      question === "materialChange" ? Option.some(probability) : Option.none(),
+  }),
+  options: { spec: true },
+  sections: REWRITTEN,
+});
+
+const COSMETIC_LINE =
+  "stale  spec.capture (likely cosmetic: prd.capture, 0.06), run cairn plan --accept spec.capture";
+
+const REWRITE_ASKED = [{ prdSections: ["prd.capture"], rewrite: ["spec.capture"] }];
+
+it.effect("a typo fix the judge reads as no change leaves its section unwritten and marked", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { root, run, snapshot } = yield* typoFixed(true);
+      const before = yield* snapshot;
+      const { asked, lines, result } = yield* run(cosmeticRun(root, 0.06));
+      expect(Result.isSuccess(result)).toBe(true);
+      expect(asked.sections).toEqual([]);
+      expect(lines).toContain(COSMETIC_LINE);
+      const after = yield* snapshot;
+      expect(after).toEqual(before);
+    }),
+  ),
+);
+
+it.effect("a typo fix the judge is unsure about is written again", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { root, run, text } = yield* typoFixed(true);
+      const { asked, lines } = yield* run(cosmeticRun(root, 0.5));
+      expect(asked.sections).toEqual(REWRITE_ASKED);
+      expect(Array.some(lines, String.includes("likely cosmetic"))).toBe(false);
+      const spec = yield* text("spec.md");
+      expect(spec).toContain("src/other.ts");
+    }),
+  ),
+);
+
+it.effect("a PRD with no revision the spec was written from is written again", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { root, run, text } = yield* typoFixed(false);
+      const { asked, lines } = yield* run(cosmeticRun(root, 0.06));
+      expect(asked.sections).toEqual(REWRITE_ASKED);
+      expect(Array.some(lines, String.includes("likely cosmetic"))).toBe(false);
+      const spec = yield* text("spec.md");
+      expect(spec).toContain("src/other.ts");
+    }),
+  ),
+);
+
+it.effect(
+  "a PRD section another section was written from at a body no revision has is written again",
+  () =>
+    inRepository(
+      Effect.gen(function* () {
+        const { indexOf, root, run, text, write } = yield* typoFixed(true);
+        const written = yield* text("spec.md");
+        const spec = String.replace(
+          "## Acceptance",
+          "## Export {#spec.export}\n\n- Implements: `prd.capture`\n\nExport notes.\n\n## Acceptance",
+        )(written);
+        yield* write("spec.md", spec);
+        const index = yield* indexOf;
+        const capture = Option.getOrThrow(
+          Array.findFirst(index.sections, (entry) => entry.id === "spec.capture"),
+        );
+        const body = Option.getOrThrow(
+          Array.findFirst(sectionsOf(spec), (section) => section.id === "spec.export"),
+        ).body;
+        // spec.export was written from a body of prd.capture that no revision of prd.md has.
+        const exported = Struct.assign(capture, {
+          id: decodeSpecId("spec.export"),
+          writtenFrom: {
+            body: bodyHashOf(body),
+            prd: Record.map(capture.writtenFrom.prd, () => bodyHashOf("A body no revision had.")),
+          },
+        });
+        const encoded = yield* Schema.encodeEffect(SpecIndexJson)(
+          Struct.assign(index, { sections: Array.append(index.sections, exported) }),
+        );
+        yield* write("spec.json", encoded);
+        const { asked, lines } = yield* run(cosmeticRun(root, 0.06));
+        expect(asked.sections).toEqual([
+          { prdSections: ["prd.capture"], rewrite: ["spec.capture", "spec.export"] },
+        ]);
+        expect(Array.some(lines, String.includes("likely cosmetic"))).toBe(false);
+      }),
+    ),
+);
+
+it.effect("without a judge, a typo fix is written again as before", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { root, run, text } = yield* typoFixed(true);
+      const { asked, lines } = yield* run(
+        Struct.assign(cosmeticRun(root, 0.06), { judge: Layer.empty }),
+      );
+      expect(asked.sections).toEqual(REWRITE_ASKED);
+      expect(Array.some(lines, String.includes("likely cosmetic"))).toBe(false);
+      const spec = yield* text("spec.md");
+      expect(spec).toContain("src/other.ts");
+    }),
+  ),
 );
 
 it.effect("a section a person edited is reported and not written again", () =>

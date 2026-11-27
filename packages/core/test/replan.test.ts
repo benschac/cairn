@@ -1,8 +1,8 @@
-import { Manifest, SpecIndex } from "@cairn/contract";
+import { Manifest, PrdSectionId, SpecIndex } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
 import { Array, HashSet, Option, Record, Result, Schema, String, Struct } from "effect";
 
-import { bodyHashOf, lint, replanOf, sectionsOf } from "../src/index.ts";
+import { bodyHashOf, cosmeticOf, lint, outOfDateOf, replanOf, sectionsOf } from "../src/index.ts";
 import type { Finding, Replan } from "../src/index.ts";
 
 /**
@@ -247,6 +247,71 @@ it.prop(
     });
   },
 );
+
+/** Every section the plan writes again or reports, sorted. */
+const plannedOf = (found: Replan) =>
+  Array.sort(Array.appendAll(found.rewritable, found.staleSections), String.Order);
+
+it.prop(
+  "cosmeticOf never adds a section to rewritable and never drops one from the plan",
+  { cosmetic: Schema.Array(Schema.Boolean).check(Schema.isMaxLength(5)), shape: Shape },
+  ({ cosmetic, shape }) => {
+    const prd = prdOf(shape, true);
+    const spec = specOf(shape, true);
+    const replan = replanAfter(shape);
+    const outOfDate = outOfDateOf(prd, spec, indexOf(shape));
+    const marked = HashSet.fromIterable(
+      Array.filterMap(shape.prd, (_, index) =>
+        Option.getOrElse(Array.get(cosmetic, index), () => false)
+          ? Result.succeed(PrdSectionId.make(prdId(index)))
+          : Result.failVoid,
+      ),
+    );
+    const after = cosmeticOf(replan, marked, outOfDate);
+    expect(Array.difference(after.rewritable, replan.rewritable)).toEqual([]);
+    expect(plannedOf(after)).toEqual(plannedOf(replan));
+    expect(Struct.omit(after, ["rewritable", "staleSections"])).toEqual(
+      Struct.omit(replan, ["rewritable", "staleSections"]),
+    );
+    // What moves is each section whose changed PRD sections are all cosmetic, and the stale
+    // sections stay in document order.
+    const allCosmetic = (id: string) =>
+      Array.some(
+        outOfDate,
+        (found) =>
+          found.id === id && Array.every(found.changed, (changed) => HashSet.has(marked, changed)),
+      );
+    expect(Array.difference(replan.rewritable, after.rewritable)).toEqual(
+      Array.filter(replan.rewritable, allCosmetic),
+    );
+    expect(after.staleSections).toEqual(
+      Array.filter(
+        Array.map(outOfDate, ({ id }) => id),
+        (id) => Array.contains(after.staleSections, id),
+      ),
+    );
+  },
+);
+
+it("cosmeticOf moves a section only when every PRD section that changed under it is cosmetic", () => {
+  const shape: Shape = {
+    prd: [{ changed: true }, { changed: true }],
+    spec: [{ also: 1, edited: false, files: false, human: false, nested: false, tasked: false }],
+  };
+  const replan = replanAfter(shape);
+  const outOfDate = outOfDateOf(prdOf(shape, true), specOf(shape, true), indexOf(shape));
+  const moved = (ids: ReadonlyArray<string>) =>
+    cosmeticOf(
+      replan,
+      HashSet.fromIterable(Array.map(ids, (id) => PrdSectionId.make(id))),
+      outOfDate,
+    );
+  expect(replan.rewritable).toEqual(["spec.p0"]);
+  expect(moved(["prd.s0"])).toEqual(replan);
+  expect(moved(["prd.s0", "prd.s1"])).toEqual(
+    Struct.assign(replan, { rewritable: [], staleSections: ["spec.p0"] }),
+  );
+});
 
 /** The level-2 part a nested part sits under. */
 const parentPartOf = (shape: Shape, index: number): Option.Option<number> =>
