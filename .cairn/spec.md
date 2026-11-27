@@ -2238,7 +2238,7 @@ Before `Planner.sections` rewrites the `rewritable` sections, `cairn plan` asks 
 - The old body is the PRD section's body at the newest commit of `.cairn/prd.md`, among the last 50, whose section body hashes to the spec section's `writtenFrom.prd` entry. `Git` gains `fileAt(path, ref)` and `revisionsOf(path, limit)` for it. When no revision matches, the change counts as material.
 - `cosmeticOf(replan, cosmetic)` in `replan.ts` is pure. It moves every `rewritable` section whose changed PRD sections are all in `cosmetic` to `staleSections`, and changes nothing else.
 - A PRD section goes in `cosmetic` only when its `materialChange` reads `no`. `unsure`, `yes` or no judge leaves the section rewritable, as today.
-- The plan output marks each moved section: `stale  spec.lint (likely cosmetic: prd.cli.lint, 0.06), run cairn plan --accept spec.lint`. Lint reports it as `stale-section` like any other.
+- The plan output marks each moved section: `stale  spec.lint (likely cosmetic: prd.cli.lint, 0.06), run cairn plan --accept spec.lint`. Lint does not report it, as it reports no section Cairn could rewrite: the plan output's line is the report, and the next `cairn plan` with a judge asks again.
 
 Tests:
 
@@ -2261,6 +2261,8 @@ Tests:
 - An item tagged `<!-- human -->` is never mapped this way; mapping it would gate the tasks of the section. It is reported.
 
 The plan output lists each mapping: `mapped prd.cli.lint → spec.lint (0.93)`.
+
+In a part run, `uncovered` already holds the part's own items, so an item the judge is unsure about is still planned there, as `spec.planning.planning-a-part` says.
 
 Tests:
 

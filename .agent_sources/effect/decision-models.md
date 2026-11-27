@@ -271,7 +271,8 @@ them, and may not act on its own answer about them.
 ## Where Cairn uses it, or could
 
 Checked against `origin/main` at `5f9d300` on 2026-11-26, with three
-independent passes over the PRD, the spec and the code. `pnpm tasks <id>`
+independent passes over the PRD, the spec and the code, and updated for the
+stack that built t250 to t259 on 2026-11-27. `pnpm tasks <id>`
 shows a task's current state; the manifest's `status` lags, so "built"
 below means its commit is on `main`.
 
@@ -279,18 +280,26 @@ below means its commit is on `main`.
 
 | Where | Kinds | What it asks |
 | --- | --- | --- |
-| `packages/core/src/judging/questions.ts` `sectionQuestions` | `rate` `size`; `probability` `faithful`, `buildable` | Each spec section, after the spec is written. |
-| `taskQuestionsWithoutModel`, `taskQuestions` | `probability` `matches`, `inScope`, `ordered`; `rate` `size`, `reasoning`; `classify` `model` over `judge.models`, `category` over `config.categories` | Each task, after drafting; `ordered` only once `stackOf` has ordered the drafts, over the task's `others`. `model` is built only with two models or more (`judge.ts`). |
+| `packages/core/src/judging/questions.ts` `sectionQuestions` | `rate` `size`; `probability` `faithful`, `inScope`, `buildable` | Each spec section, after the spec is written. |
+| `taskQuestionsWithoutModel`, `taskQuestions`, `taskQuestionsFor` | `probability` `matches`, `inScope`, `ordered`; `rate` `size`, `reasoning`; `classify` `model` over `judge.models`, `category` over `config.categories` | Each task, after drafting; `ordered` only once `stackOf` has ordered the drafts, over the task's `others` (tasks it does not depend on that share a section or file with it). `model` and `category` are asked only with two labels or more. |
 | `prdSectionQuestions` | `probability` `built` | Each PRD section some task implements, given only those tasks. The viewer marks the section. |
 | `stackQuestions` | `probability` `oneFeature` | The whole stack. The viewer does not show it. |
-| `packages/core/src/judging/verdicts.ts` | | The truth table: `pass`, `flag` or `unsure` from `judge.pass` (0.7), `judge.flag` (0.3) and `judge.minProbability` (0.5). |
-| `packages/cli/src/judge.ts`, `packages/cli/src/refine.ts` | `decideSettled` | One request per target, four at a time, hashed so an unchanged target is not asked again; `refine` splits what is judged too large. |
+| `partQuestions` (t255) | `probability` `describesBuild` | Each PRD part before statements are drafted; a confident no gets no draft (`ask-statements.ts`). |
+| `draftQuestions` (t256) | `probability` `faithful`, `observable`, `namesImplementation`, `needsPerson` | Each draft statement: a confident `namesImplementation` is drafted again once; the rest print as notes under the draft and never change the PRD. |
+| `changeQuestions` (t257) | `probability` `materialChange` | Each changed PRD body before a stale spec section is rewritten; a confident no keeps the section and marks it likely cosmetic (`commands/plan.ts`). |
+| `itemQuestions` (t258) | `probability` `buildsItem` | Each new item and candidate spec section; yes adds the item to that section's `Implements` (`commands/plan.ts`). |
+| `noteQuestions` (t259) | `classify` `label`; `probability` `actionable` | Each note `cairn note add` stores; the label is kept only above `judge.minProbability` (`commands/note.ts`). |
+| `scripts/tasks/reply-questions.ts` | `probability` `ended`; `classify` `why` | The latest reply of each board thread that claims a task; the regex decides when the judge is unsure, missing or slow. |
+| `packages/core/src/judging/verdicts.ts` | | The truth tables: `verdictOf` gives `pass`, `flag` or `unsure` from `judge.pass` (0.7), `judge.flag` (0.3) and `judge.minProbability` (0.5), reading a label's own probability, never `confidence`; `yesNoOf` reads a probability as yes, no or unsure. |
+| `packages/cli/src/judge.ts`, `packages/cli/src/refine.ts` | `decideSettled` | `Judge.judge`: one request per target, four at a time, hashed so an unchanged target is not asked again; `refine` splits what is judged too large. `Judge.ask`: one definition about many inputs during planning, no `judgments.json`. |
 
 Before adding or renaming a question:
 
-- Add its name to `JudgmentQuestion` (`packages/contract/src/judgments.ts`)
-  and to `KIND` in `verdicts.ts`. `requestOf` in `judge.ts` drops a
-  decision key that is not a `JudgmentQuestion`, silently.
+- Put its wording in `questions.ts` beside the others.
+- A plan judgment: add its name to `JudgmentQuestion`
+  (`packages/contract/src/judgments.ts`) and to `KIND` in `verdicts.ts`.
+  `requestOf` in `judge.ts` drops a decision key that is not a
+  `JudgmentQuestion`, silently; `questions.test.ts` checks every key.
 - `inputHash` covers the input, not the wording. A reworded criterion
   leaves old judgments fresh until `cairn judge --fresh`.
 - A target needs every current question to be reused, so a new question
@@ -299,97 +308,43 @@ Before adding or renaming a question:
   `JudgmentTarget`, and every exhaustive match on it: `nameOf` in
   `judge.ts`, `targetName` in `print-judgments.ts`, `placeOf` in
   `commands/judge.ts`, `judges()` in `apps/viewer/src/trace.ts`.
+- A planning question goes through `Judge.ask` and `yesNoOf`; without a
+  judge, the step runs as it did before the question existed.
 
-### Against the rules above
+### Still to check
 
-None of these is a bug the tests show. Each is where the written or specified
-questions depart from the guidance. Probe before and after a change.
-
-- **`faithful` and `matches` each ask two things.** "Does what its PRD
-  sections ask *and* adds nothing they do not ask" is a missing-behaviour
-  question and an extra-behaviour question. Split them so a flag says which.
-  The extra half of `matches` ("reaches past its spec sections") is not a
-  clean set difference: 116 of 248 tasks name tests or `index.ts` files that
-  their sections' `Files` leave out, so it stays a question.
-- **`complete` and `ordered` judge a whole list at once.** One question per
-  PRD section, given only the tasks that implement it, and one per task, given
-  only its dependencies, would say which section is missing or which task is
-  out of order. Structural coverage is already lint (`unmapped-section`,
-  `unmapped-item`); the question adds whether those tasks build what the
-  section asks. Under `cairn judge --strict`, many small questions need the
-  unsure band, or a low false-flag rate fails most runs.
-- **`size`, `model` and `reasoning` are gated on `confidence`**, which says
-  how peaked the answer is, not how likely it is to be right. Read the
-  label's probability instead.
-- **Thresholds differ from TypeSafe's starting point.** `judge.pass` 0.8 and
-  `judge.flag` 0.5 make 0.7 to 0.8 unsure and 0.3 to 0.5 a flag, where 0.7
-  and 0.3 would call them yes and unsure.
+- **No wording has been probed against Jev.** Every question above was
+  written to the rules on this page and tested with scripted answers only.
+  Probe each with representative, hard and negative cases from this
+  repository before trusting its thresholds, and keep the payloads.
 - **`judge.models` lists `haiku` first**, and `classify` leans toward the
-  first label, which favours the cheapest model. Test `model` with the
+  first label, which favours the cheapest model. Probe `model` with the
   labels reordered.
-- **The routing `model` question as specified** (`spec.judging.model-catalog`,
-  t145) gives the model prices and asks for "the lowest expected total cost
-  of an accepted result". That is a decision plus arithmetic. Ask capability
-  (`rate` `risk`, `complexity`, `reasoning`) and apply prices, preferences
-  and the ceiling in code, as `rankOf` already does
-  (`spec.judging.routing-from-history`). With fewer than two eligible models
-  `classify` throws: skip the question.
-- **`splitFile`** (`spec.planning.conflict-ordering`, t142, claimed, not
-  built) asks "would splitting the file remove more conflicts than
-  reordering?" over a path, a line count and task titles: a counterfactual
-  and a number, which no person could answer from that input. Code already
-  finds the hotspot; ask `separable` (`` the tasks change parts of `file`
-  that do not depend on each other") over the file's top-level declarations
-  and each task's title and section summary, and report "split" on yes,
-  "reorder" on no, the hotspot alone when unsure.
 - **`judgments.json` records one `model` per file** (`spec.contract.judgments`);
   a per-judgment provider and model arrive with t146.
+- **A part run that plans one list item asks `built` of its heading**, which
+  can flag a sibling left for later (`spec.planning.planning-a-part`).
 
-### Candidates in written code
-
-| Where | Today | Question | Fit |
-| --- | --- | --- | --- |
-| `replan.ts` (`spec.planning.again`, t112 and t113; code on main) | A PRD section's body hash changing marks its spec sections and tasks stale, and a `rewritable` section (Cairn wrote it, nobody edited it, no task builds it) is rewritten by the planner with no question. A typo fix costs a rewrite. | `probability` `materialChange` over the old and new PRD text: "the new text asks for something the old did not, or stops asking for something". | Good. Gate the automatic rewrite: confidently cosmetic skips it, unsure rewrites as today. The stale flag still shows, marked "likely cosmetic", and `cairn plan --accept` still clears it. Call it from the `plan` command; `replanOf` stays pure. PRD change (`prd.planning.again`). The same question serves the v2 rebase flow (`prd.v2-diverging-state.rebase-flow`) and the "plan no longer current" notice (`prd.launch.history`). #249 records spec dependencies' hashes, which this could cover later. |
-| `replan.ts` item coverage (`prd.planning.again`; `spec.sections.item-coverage`) | The PRD says an item given an ID after its section was planned is added to the `Implements` of the spec sections that already build it. The spec has no row for it and no task builds it, so such items stay `unmapped-item`. | Per (item, candidate section) pair, `probability` `buildsItem`: `` `spec` already builds what `item` asks for ``. Code picks the candidates: sections that implement the item's heading or parent item. | Good, and the PRD already asks for it: spec change and a new task. Yes adds the item to that section's `Implements`; no for every candidate writes a new section; unsure leaves it unmapped and reported. Only into sections Cairn wrote and nobody edited; never for a `<!-- human -->` item, whose mapping would gate tasks. |
-| `ask-statements.ts`, `packages/cli/prompts/statements.md` (`spec.planning.done-when.asking-the-person`, t133, built) | The `statements` prompt returns an empty list to mean "this target describes nothing to build", unrecorded. A person then reads every `Draft:` statement. | Per target, `probability` `describesBuild` (input: its own body and its children's titles). Per draft, `probability` `faithful`, `namesImplementation` (names a file, function or test, which `prd.done-when.statements` forbids), `observable` and `needsPerson`. | Good. `describesBuild`: unsure or no key drafts as today. A draft that names implementation goes back to the planner once before the person sees it. The rest are hints beside the prompt, and in MCP beside `Review.drafts`. Never accept for the person; suggest `<!-- human -->`, never add it. PRD change for the hints. |
-| `scripts/tasks/report.ts` `STOPPED`, `isOpen` | A board thread is open until a sentence of its latest reply starts with Stopping, Stopped, Landed or Abandoned: the only keyword match over prose in the repository. | The `replyQuestions` example above: `probability` `ended`, speculative `classify` `why`. | Good. A developer script, no PRD change. `pnpm tasks` already uses the network; only `TYPESAFE_API_KEY` is new, so the regex stays the answer without a key and for unsure. |
-| Task `category` (`spec.planning.task-categories`, t137, built) | The planner picks it from config's list; the planner refuses a draft outside the list and lint reports `unknown-category` and `missing-category`. | `classify` over config's categories, in `taskQuestions` beside `model`. | Good and small, as a second opinion that flags a disagreement. Likely a PRD change: `prd.outcomes.categories` gives the choice to the planner and `prd.judging-the-plan` lists the checkpoints. Not for backfilling old tasks: they have no attempts to feed `rankOf`. |
-| `lint.ts` `unprovedStatements` (`spec.planning.done-when.tracing-statements`, t134, built) | A statement with an ID and no `<!-- human -->` tag is unproved when no test in an implementing spec section lists it in `proves`. The planner writes `proves`; code keeps only IDs it knows. | Per claimed pair, `probability` `` `test` exercises `statement` ``. | Weak: a spec test is one line of prose, so the answer mostly measures word overlap. If built, ask at index time, where the claim is made, and only flag. PRD change. |
-| `conflicts.ts` (t141, built) | A weighted score from co-change history, churn and declared files. | `probability` that two tasks with disjoint files change the same behaviour. | Weak: the score must name its files (`prd.conflicts.predicting`). |
-| `gates.ts` | `<!-- human -->` tags and `humanPaths` globs. | `probability` that an ungated task touches auth, money or data loss. | Weak: a lint warning at most. |
-
-### In the PRD and spec, not built yet
+### Specified, not built yet
 
 | Task | Section | Question | Fit |
 | --- | --- | --- | --- |
-| t143, t145, t150 | `prd.judging-the-plan.routing`, `spec.judging.model-catalog`, `spec.judging.routing-from-history` | `rate` `risk` and `complexity` per task, beside `reasoning`; prices in code (see above). | Good, no PRD change: the PRD names complexity and risk as routing inputs. Required tools is weak: the catalog records no tools per harness. |
-| t142 | `spec.planning.conflict-ordering` | `separable` instead of `splitFile` (see above). | Good once reworded. The task is claimed: change the spec before it is built. |
-| t144, t157 | `prd.outcomes.attempts`, `spec.orchestrator-adapter.attempts-and-verification` | A failure's reason, restricted to what the facts leave open: when verify failed, `classify` `checks` vs `upstream`; when the agent stopped without verifying, `agent` vs `infra`. | Good, and it feeds routing (only `checks` and `agent` count against a first-pass rate). Never let a free choice relabel a failed check as `infra`. The adapter writes the reason on the `failed` event and "adds no detector of its own", so this needs a PRD and a spec change and a place to run. |
-| t150, t126 (built) | `prd.outcomes.metrics`, `spec.sessions.notes` | Per `review` note, `classify` `finding` (`breaks_spec`, `bug`, `test_cannot_fail`, `style`) and `probability` `actionable`, over the note, its hunk and the section title. | Good: the PRD lists review findings and repair work as routing evidence, but `rankOf` reads only first-pass rate and cost. Count findings per verified task in `cairn stats`. PRD change; a label never blocks landing or resolves a note. |
-| t170 | `prd.viewer.notes`, `spec.viewer.notes` | `classify` a note (`question`, `blocker`, `bug`, `nit`); `probability` that a later diff addresses an open thread. | Good for sorting and badges only. A note's `kind` (`note` or `review`) is the author's and stays. Only a human resolves a human's note. PRD change. |
-| t223, t205 | `prd.launch.sharing`, `spec.hosted-launch.sharing-dialog` | Per piece of content that becomes public (section bodies, comments, task titles), `probability` that it holds private data, shown in "Make public…". | Weak: fields are fixed by schema (`publicTraceOf`), so this is a warning on content only, and hosted calls would send customer text out under the operator's key. |
-| t1, t3 | `prd.redaction`, `spec.sessions.redaction` | `probability` that a string left after redaction is a secret. | Weak. It may only strip more. Its input is exactly the text that may still hold a secret, so a miss sends it to a provider; gateway logging of repository content must be set explicitly (`prd.judging-the-plan.gateway`). Needs a PRD change and an explicit opt-in. The section is `<!-- human -->`. |
+| t145 (with t143, t150) | `spec.judging.model-catalog`, `spec.judging.routing-from-history` | `model` over eligible models only, with no prices; `rate` `risk` and `complexity` as evidence; prices, ceiling and preferences in code. | Specified. Asking a decision model for the cheapest acceptable model asks it to do arithmetic. |
+| t142 | `spec.planning.conflict-ordering` | `separable`: the tasks change parts of a hotspot file that do not depend on each other, over its top-level declarations and each task's title and section summaries. | Specified, replacing `splitFile`'s counterfactual over a line count. The task is claimed by another session. |
+| t260 (after t157) | `spec.orchestrator-adapter.attempts-and-verification` | `cairn judge failure`: `upstream` when verify failed, `infra` when the agent stopped without verifying. | Specified. Only the two-way choices the facts leave open; whether an attempt verified is never asked. |
+| t261 (after t170) | `spec.viewer.notes` | Shows each note's label; open notes list blockers first. | Specified; the label is `noteQuestions` (t259). |
+| t262 (after t149) | `spec.status.outcome-metrics` | `findingsPerVerified`: review notes labelled `breaks_spec` or `bug` per verified task. | Specified, as routing evidence beside first-pass rate and cost. |
 | t146, t147 | `spec.judging.openai-decisions`, `spec.judging.comparing-decision-providers` | A second `DecisionModel` layer; the same requests to both. | Covered in [compare-models.md](compare-models.md). A person picks the evaluation tasks. |
-
-### Deferred in `prd.later`
-
-- **Choosing a recovery after a failed attempt.** Ask the facts, not the
-  choice: the brief lacked something the agent needed; the diff spans two
-  concerns; the failure repeats the last one. Code picks retry, stronger
-  model, other harness, more context, smaller task or a person.
-- **Judging during a run, and drift**: the `matches` and `faithful` questions
-  asked of a task's diff instead of its draft.
-- **Scoring planners against a reference plan**: per (reference task,
-  candidate task) pair that shares a PRD section, `probability` `sameChange`;
-  code matches one to one and computes recall and precision. No question
-  scores a whole plan.
-- **Images.** Cairn captures none. v2 stores screenshots attached to notes
-  (`prd.v2-multiplayer-on-cloudflare.notes`); if a feature ever reads them,
-  `screenshotQuestions` above is the shape, and it cannot settle a
-  `<!-- human -->` statement, which only a person confirms.
 
 ### Considered and left out
 
+- **Weak:** whether a test exercises the statement it claims to prove (a spec
+  test is one line of prose, so the answer measures word overlap); two
+  tasks with disjoint files changing the same behaviour (a conflict score
+  must name its files); an ungated task touching auth or money (gates stay
+  deterministic); private data in content made public (fields are fixed by
+  schema, and hosted calls would send customer text out); a secret left
+  after redaction (its input is the text that may hold the secret).
 - **Weak, list only:** whether a section needs an outside section it does not
   name in `Assumes:`; suggesting a diagram for a section that describes
   states or messages; suggesting an ID for an item that could be built alone
@@ -405,3 +360,20 @@ questions depart from the guidance. Probe before and after a change.
   order, relations, stack labels, deep links, the terminal view, the docs
   reference, hunk-to-turn attribution, permissions, billing, invitations,
   agent credentials, presence and the event log.
+
+### Deferred in `prd.later`
+
+- **Choosing a recovery after a failed attempt.** Ask the facts, not the
+  choice: the brief lacked something the agent needed; the diff spans two
+  concerns; the failure repeats the last one. Code picks retry, stronger
+  model, other harness, more context, smaller task or a person.
+- **Judging during a run, and drift**: the `matches`, `inScope` and
+  `faithful` questions asked of a task's diff instead of its draft.
+- **Scoring planners against a reference plan**: per (reference task,
+  candidate task) pair that shares a PRD section, `probability` `sameChange`;
+  code matches one to one and computes recall and precision. No question
+  scores a whole plan.
+- **Images.** Cairn captures none. v2 stores screenshots attached to notes
+  (`prd.v2-multiplayer-on-cloudflare.notes`); if a feature ever reads them,
+  `screenshotQuestions` above is the shape, and it cannot settle a
+  `<!-- human -->` statement, which only a person confirms.
