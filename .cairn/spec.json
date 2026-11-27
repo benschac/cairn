@@ -8808,7 +8808,7 @@
       "defers": [],
       "context": [],
       "tasks": ["t58", "t250", "t251", "t253"],
-      "summary": "Three Decision.make definitions in core, for spec sections, tasks and the stack, and a pure inputsOf; tasks are asked size, matches, model and reasoning.",
+      "summary": "Decision.make definitions in core for spec sections, tasks, PRD sections and the stack, and a pure inputsOf; each question asks one judgment about one thing.",
       "requirements": [
         {
           "id": "spec.judging.questions#r1",
@@ -8828,7 +8828,7 @@
         {
           "id": "spec.judging.questions#r4",
           "level": "must",
-          "text": "A task is asked size, matches, model and reasoning."
+          "text": "A task is asked size, matches, inScope, category, model, reasoning and ordered."
         },
         {
           "id": "spec.judging.questions#r5",
@@ -8843,7 +8843,7 @@
         {
           "id": "spec.judging.questions#r7",
           "level": "must",
-          "text": "The stack is asked complete, ordered and oneFeature."
+          "text": "Each PRD section some task implements is asked built, and the stack is asked oneFeature."
         },
         {
           "id": "spec.judging.questions#r8",
@@ -8925,7 +8925,7 @@
         {
           "id": "spec.judging.verdicts#r2",
           "level": "must",
-          "text": "size is unsure below judge.minConfidence, otherwise pass for right and flag for too_small or too_large."
+          "text": "size is unsure when its label's probability is below judge.minProbability, otherwise pass for right and flag for too_small or too_large."
         },
         {
           "id": "spec.judging.verdicts#r3",
@@ -8940,7 +8940,7 @@
         {
           "id": "spec.judging.verdicts#r5",
           "level": "must",
-          "text": "A routing answer at or above judge.minConfidence gives Jev's label and pass; a lower one keeps the planner's value and gives unsure."
+          "text": "A routing answer whose label's probability is at or above judge.minProbability gives Jev's label and pass; a lower one keeps the planner's value and gives unsure."
         },
         {
           "id": "spec.judging.verdicts#r6",
@@ -8997,7 +8997,7 @@
         {
           "id": "spec.judging.verdicts#t2",
           "kind": "check",
-          "text": "Property: lowering confidence never turns unsure into pass.",
+          "text": "Property: lowering a label's probability never turns unsure into pass.",
           "proves": []
         },
         {
@@ -9213,7 +9213,7 @@
         {
           "id": "spec.judging.checkpoints#t4",
           "kind": "check",
-          "text": "A low-confidence model answer leaves the planner's model.",
+          "text": "A model answer whose label's probability is below judge.minProbability leaves the planner's model.",
           "proves": []
         }
       ],
@@ -9253,7 +9253,7 @@
         {
           "id": "spec.judging.cairn-judge#r2",
           "level": "must",
-          "text": "It prints one line per flag or unsure as file:line judge:<question> <verdict> <message>, with the probability or the label and confidence."
+          "text": "It prints one line per flag or unsure as file:line judge:<question> <verdict> <message>, with the probability, or the label and its probability."
         },
         {
           "id": "spec.judging.cairn-judge#r3",
@@ -9517,7 +9517,7 @@
         {
           "id": "spec.judging.model-catalog#r10",
           "level": "must",
-          "text": "The routing decision's description must ask for the lowest expected total cost of an accepted result within the person's preferences, counting likely retries and repair, not the lowest token price."
+          "text": "The routing decision asks only which eligible model the work needs; prices, the ceiling and the preferences are applied in code, and risk and complexity are rated as evidence."
         },
         {
           "id": "spec.judging.model-catalog#r11",
@@ -10010,7 +10010,7 @@
         {
           "id": "spec.judging.openai-decisions#r7",
           "level": "must",
-          "text": "The judge.openai config holds the OpenAI provider's own pass, flag and minConfidence thresholds."
+          "text": "The judge.openai config holds the OpenAI provider's own pass, flag and minProbability thresholds."
         },
         {
           "id": "spec.judging.openai-decisions#r8",
@@ -10025,7 +10025,7 @@
         {
           "id": "spec.judging.openai-decisions#r10",
           "level": "must",
-          "text": "judge.pass, judge.flag and judge.minConfidence stay as they are and are TypeSafe's thresholds."
+          "text": "judge.pass, judge.flag and judge.minProbability stay as they are and are TypeSafe's thresholds."
         },
         {
           "id": "spec.judging.openai-decisions#r11",

@@ -2631,7 +2631,7 @@ The `sections` prompt gains one rule for part runs. When the part needs somethin
 
 Done-when statements. The targets for new drafts are the part's sections and items that have no statement. The questions cover only drafts whose owner is in `part.ids`. A draft outside the part, whether left from an earlier run or written by hand, is not asked about and is not changed. The closing warning counts only the part's drafts: `Warning: planned against <n> draft statement(s) in this part.`
 
-Judging. The sections and task checkpoints already run only on what the run writes. In the stack checkpoint, the `complete` question lists only the part's PRD sections, so it does not flag the parts left for later. `ordered` and `oneFeature` see the whole stack, as before.
+Judging. The sections and task checkpoints already run only on what the run writes. In the fourth checkpoint, `built` is asked only of the part's PRD sections, so it does not flag the parts left for later. When the part is a list item, `built` is asked of the heading it sits under, so a sibling item left for later can be flagged; the report says which section it was asked of. `ordered` is asked of the run's new tasks and sees every task, and `oneFeature` sees the whole stack, as before.
 
 Lint and the write. `lint` runs over the whole plan, and `cairn lint` is not changed. It still reports every PRD section and item that nothing covers. Before a part run's manifest write, findings are sorted into two groups:
 
