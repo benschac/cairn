@@ -1,6 +1,6 @@
 import { JudgmentsJson, Manifest, SpecIndexJson, SpecSectionId, TaskDraft } from "@cairn/contract";
 import type { IndexedSection, PrdSectionId, SpecIndex } from "@cairn/contract";
-import { bodyHashOf, sectionsOf } from "@cairn/core";
+import { bodyHashOf, lint, sectionsOf } from "@cairn/core";
 import { NodeServices } from "@effect/platform-node";
 import { expect, it } from "@effect/vitest";
 import {
@@ -23,6 +23,7 @@ import {
   String,
   Struct,
 } from "effect";
+import { DecisionModel } from "effect/ai";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { TestConsole } from "effect/testing";
 
@@ -41,11 +42,11 @@ import type { Git } from "../src/git.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { editedOf } from "../src/spec-index.ts";
-import type { Judge } from "../src/judge.ts";
+import { Judge } from "../src/judge.ts";
 import { targetName } from "../src/print-judgments.ts";
 import { mergeSections } from "../src/spec-merge.ts";
 import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
-import { scriptedJudge } from "./scripted-judge.ts";
+import { defaults, scriptedJudge } from "./scripted-judge.ts";
 import { stubPlanner } from "./fixtures/stub-planner.ts";
 
 const PRD = `# Notes {#prd.notes}
@@ -100,6 +101,10 @@ const EMPTY_PROSE = { artifacts: [], decisions: [], requirements: [], summary: "
 
 /** What the scripted planner was asked. */
 interface Asked {
+  /** The PRD each `statements` and `sections` call was given, with the call's name, in call order. */
+  readonly calls: ReadonlyArray<readonly [string, string]>;
+  /** The targets of each `statements` call. */
+  readonly statements: ReadonlyArray<ReadonlyArray<string>>;
   readonly indexed: ReadonlyArray<string>;
   readonly sections: ReadonlyArray<{
     readonly prdSections: ReadonlyArray<string>;
@@ -125,11 +130,20 @@ interface Script {
   readonly drafts: ReadonlyArray<TaskDraft>;
   readonly sections: string;
   readonly spec: string;
+  /** The done-when drafts `statements` answers for each target. */
+  readonly statements: ReadonlyArray<string>;
 }
 
-const NOTHING: Asked = { indexed: [], sections: [], specs: 0, tasks: [] };
+const NOTHING: Asked = {
+  calls: [],
+  indexed: [],
+  sections: [],
+  specs: 0,
+  statements: [],
+  tasks: [],
+};
 
-const scriptedPlanner = ({ drafts, sections, spec }: Script) =>
+const scriptedPlanner = ({ drafts, sections, spec, statements }: Script) =>
   Layer.effectContext(
     Effect.gen(function* () {
       const seen = Seen.of({
@@ -142,15 +156,22 @@ const scriptedPlanner = ({ drafts, sections, spec }: Script) =>
             ...asked,
             indexed: Array.append(asked.indexed, target.id),
           })).pipe(Effect.as(EMPTY_PROSE)),
-        sections: (_prd, _spec, prdSections, rewrite) =>
+        sections: (prd, _spec, prdSections, rewrite) =>
           Ref.update(seen.asked, (asked) => ({
             ...asked,
+            calls: Array.append(asked.calls, ["sections", prd] as const),
             sections: Array.append(asked.sections, { prdSections, rewrite }),
           })).pipe(Effect.as(sections)),
         spec: () =>
           Ref.update(seen.asked, (asked) => ({ ...asked, specs: asked.specs + 1 })).pipe(
             Effect.as(spec),
           ),
+        statements: (prd, targets) =>
+          Ref.update(seen.asked, (asked) => ({
+            ...asked,
+            calls: Array.append(asked.calls, ["statements", prd] as const),
+            statements: Array.append(asked.statements, targets),
+          })).pipe(Effect.as(Array.map(targets, (target) => ({ drafts: statements, target })))),
         tasks: (_prd, _spec, specSections, existing) =>
           Ref.update(seen.asked, (asked) => ({
             ...asked,
@@ -175,6 +196,7 @@ interface Run {
   readonly judge?: Layer.Layer<Judge> | typeof Layer.empty;
   readonly options?: Partial<PlanOptions>;
   readonly sections?: string;
+  readonly statements?: ReadonlyArray<string>;
 }
 
 const decodeSpecId = Schema.decodeSync(SpecSectionId);
@@ -217,6 +239,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
       judge = Layer.empty,
       options: given = {},
       sections = SHARING,
+      statements = [],
     }: Run = {}) =>
       Effect.gen(function* () {
         const before = yield* TestConsole.logLines;
@@ -236,7 +259,9 @@ const setup = (files: Readonly<Record<string, string>>) =>
           Layer.mergeAll(
             scriptedTerminal(answers, (line) =>
               Seen.use((seen) => Ref.update(seen.shown, Array.append(line))),
-            ).pipe(Layer.provideMerge(scriptedPlanner({ drafts, sections, spec: SPEC }))),
+            ).pipe(
+              Layer.provideMerge(scriptedPlanner({ drafts, sections, spec: SPEC, statements })),
+            ),
             MainCheckout.fixed(root),
             ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
             judge,
@@ -1083,6 +1108,221 @@ it.effect("planning again judges the sections it wrote and no other", () =>
         "spec.capture.sharing inScope",
         "spec.capture.sharing size",
       ]);
+    }),
+  ),
+);
+
+/** The PRD with an item that has an ID and that the spec `SPEC` does not name. */
+const withItem = (marker: string) =>
+  String.replace(
+    "Keep a note.\n",
+    `Keep a note.\n\n- Keep it offline${marker} {#prd.capture.offline}\n`,
+  )(PRD);
+
+const OFFLINE = `### Offline {#spec.capture.offline}
+
+- Under: \`spec.capture\`
+- Implements: \`prd.capture.offline\`
+- Files: \`src/offline.ts\`
+
+Keep notes offline.
+`;
+
+/** A judge whose `buildsItem` has `probability`, and a run of it. */
+const itemRun = (probability: number): Run => ({
+  judge: scriptedJudge({
+    probability: (_title, question) =>
+      question === "buildsItem" ? Option.some(probability) : Option.none(),
+  }),
+  options: { spec: true },
+  sections: OFFLINE,
+});
+
+/** A repository whose spec was written before `prd.capture.offline` was named anywhere. */
+const unmappedItem = (marker: string) =>
+  Effect.gen(function* () {
+    const repository = yield* setup({ "prd.md": withItem(marker) });
+    yield* repository.run({ options: { spec: true } });
+    return repository;
+  });
+
+/** The `unmapped-item` findings lint gives the files on disk. */
+const unmappedOf = (text: (name: string) => Effect.Effect<string>) =>
+  Effect.gen(function* () {
+    const prd = yield* text("prd.md");
+    const spec = yield* text("spec.md");
+    const findings = lint(prd, spec, Option.none(), { humanPaths: [] });
+    return Array.filter(findings, ({ rule }) => rule === "unmapped-item");
+  });
+
+const MAPPED_LINE = "mapped prd.capture.offline → spec.capture (0.93)";
+
+it.effect(
+  "an item the judge says a section builds is added to its Implements and no longer unmapped",
+  () =>
+    inRepository(
+      Effect.gen(function* () {
+        const { indexOf, run, text } = yield* unmappedItem("");
+        const unmapped = yield* unmappedOf(text);
+        expect(unmapped).toHaveLength(1);
+        const before = yield* text("spec.md");
+        const { asked, lines, result } = yield* run(itemRun(0.93));
+        expect(Result.isSuccess(result)).toBe(true);
+        expect(lines).toContain(MAPPED_LINE);
+        expect(asked.sections).toEqual([]);
+        const spec = yield* text("spec.md");
+        expect(spec).toBe(
+          String.replace(
+            "- Implements: `prd.capture`",
+            "- Implements: `prd.capture`, `prd.capture.offline`",
+          )(before),
+        );
+        const mapped = yield* unmappedOf(text);
+        expect(mapped).toEqual([]);
+        // Cairn made the edit, so the section's body hash is recorded again and it is not a person's.
+        const index = yield* indexOf;
+        const capture = Option.getOrThrow(
+          Array.findFirst(index.sections, (entry) => entry.id === "spec.capture"),
+        );
+        const body = Option.getOrThrow(
+          Array.findFirst(sectionsOf(spec), (section) => section.id === "spec.capture"),
+        ).body;
+        expect(capture.writtenFrom.body).toBe(bodyHashOf(body));
+        expect(capture.implements).toContain("prd.capture.offline");
+        expect(editedOf(spec, index)).toEqual([]);
+      }),
+    ),
+);
+
+it.effect("an item the judge says no candidate builds is planned like an uncovered section", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run, text } = yield* unmappedItem("");
+      const { asked, lines } = yield* run(itemRun(0.06));
+      expect(Array.some(lines, String.startsWith("mapped "))).toBe(false);
+      expect(asked.sections).toEqual([{ prdSections: ["prd.capture.offline"], rewrite: [] }]);
+      const spec = yield* text("spec.md");
+      expect(spec).toContain("{#spec.capture.offline}");
+      expect(spec).toContain("- Implements: `prd.capture`\n");
+      const unmapped = yield* unmappedOf(text);
+      expect(unmapped).toEqual([]);
+    }),
+  ),
+);
+
+it.effect("an item no candidate builds has its statement drafted before its spec is written", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run, text } = yield* unmappedItem("");
+      const words = "Notes can be read without a network.";
+      const { asked } = yield* run(
+        Struct.assign(itemRun(0.06), { options: { spec: true, yes: true }, statements: [words] }),
+      );
+      expect(asked.statements).toEqual([["prd.capture.offline"]]);
+      expect(Array.map(asked.calls, ([name]) => name)).toEqual(["statements", "sections"]);
+      // The PRD the sections are written from holds the statement drafted for the item.
+      const sectionsPrd = Option.getOrThrow(
+        Array.findFirst(asked.calls, ([name]) => name === "sections"),
+      )[1];
+      expect(sectionsPrd).toContain(words);
+      const prd = yield* text("prd.md");
+      expect(prd).toContain(words);
+    }),
+  ),
+);
+
+it.effect("a run whose only unmapped items are human builds no planner", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { needs } = yield* unmappedItem(" <!-- human -->");
+      const needed = yield* needs({ spec: true });
+      expect(needed).toBe(false);
+    }),
+  ),
+);
+
+it.effect("an item the judge is unsure about, or that no judge reads, is left unmapped", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run, snapshot, text } = yield* unmappedItem("");
+      const before = yield* snapshot;
+      const unsure = yield* run(itemRun(0.5));
+      expect(unsure.asked.sections).toEqual([]);
+      expect(Array.some(unsure.lines, String.startsWith("mapped "))).toBe(false);
+      const afterUnsure = yield* snapshot;
+      expect(afterUnsure).toEqual(before);
+      const unjudged = yield* run(Struct.assign(itemRun(0.93), { judge: Layer.empty }));
+      expect(unjudged.asked.sections).toEqual([]);
+      const afterUnjudged = yield* snapshot;
+      expect(afterUnjudged).toEqual(before);
+      const unmapped = yield* unmappedOf(text);
+      expect(unmapped).toHaveLength(1);
+    }),
+  ),
+);
+
+/** A judge that answers every question 0.5 and keeps the input of each request it is sent. */
+const recordingJudge = (seen: Ref.Ref<ReadonlyArray<Schema.Json>>) =>
+  Judge.layerWith(defaults).pipe(
+    Layer.provide(
+      Layer.effect(
+        DecisionModel.DecisionModel,
+        DecisionModel.make({
+          decide: (options) =>
+            Ref.update(seen, Array.append(options.state)).pipe(
+              Effect.as({
+                answers: Record.map(options.decisions, (): DecisionModel.ProviderAnswer => ({
+                  _tag: "Probability",
+                  probability: 0.5,
+                })),
+                usage: { inputTokens: 1, outputTokens: 1 },
+              }),
+            ),
+        }),
+      ),
+    ),
+  );
+
+it.effect("the judge reads an item with everything nested in it", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run, write } = yield* unmappedItem("");
+      yield* write(
+        "prd.md",
+        String.replace(
+          "{#prd.capture.offline}\n",
+          "{#prd.capture.offline}\n  - Encrypt every local note\n\n  Done when:\n\n  - A note opens with no network.\n",
+        )(withItem("")),
+      );
+      const seen = yield* Ref.make<ReadonlyArray<Schema.Json>>([]);
+      yield* run(Struct.assign(itemRun(0.5), { judge: recordingJudge(seen) }));
+      const asked = yield* Ref.get(seen);
+      // The item is asked about once, with its candidate; other requests judge what was written.
+      expect(Array.filter(asked, (state) => Predicate.hasProperty(state, "item"))).toEqual([
+        expect.objectContaining({
+          heading: "Capture",
+          item: "- Keep it offline\n  - Encrypt every local note\n\n  Done when:\n\n  - A note opens with no network.",
+        }),
+      ]);
+    }),
+  ),
+);
+
+it.effect("a human item is reported and never mapped, even when the judge says yes", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run, snapshot, text } = yield* unmappedItem(" <!-- human -->");
+      const before = yield* snapshot;
+      const { asked, lines } = yield* run(itemRun(0.93));
+      expect(lines).toContain(
+        "not mapped prd.capture.offline: it is a human item, so name it in the Implements of spec.capture by hand",
+      );
+      expect(Array.some(lines, String.startsWith("mapped "))).toBe(false);
+      expect(asked.sections).toEqual([]);
+      const after = yield* snapshot;
+      expect(after).toEqual(before);
+      const unmapped = yield* unmappedOf(text);
+      expect(unmapped).toHaveLength(1);
     }),
   ),
 );

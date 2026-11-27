@@ -81,8 +81,11 @@ export {
   scopeOf,
   uncoveredItemsOf,
   uncoveredOf,
+  UnmappedItem,
+  unmappedItemsOf,
   type StaleSection,
 } from "./replan.ts";
+export { withImplements } from "./spec-merge.ts";
 export {
   partOf,
   refusalOf,

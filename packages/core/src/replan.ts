@@ -24,8 +24,10 @@ import {
 } from "effect";
 
 import type { Part } from "./part.ts";
+import { itemsOf } from "./items.ts";
 import type { Item } from "./items.ts";
 import { chainOf, parentsOf } from "./rollup.ts";
+import type { Parents } from "./rollup.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
 
 /**
@@ -205,6 +207,24 @@ const edited = ({ entry, section }: Recorded): boolean =>
     (hash) => hash !== bodyHashOf(section.body),
   );
 
+/** Cairn wrote the section and nobody edited it since. */
+const untouched = (found: Recorded): boolean =>
+  Predicate.isNotNull(found.entry.writtenFrom.body) && !edited(found);
+
+/** Each spec section of `spec.md` that `spec.json` has, with its entry, in document order. */
+const recordedOf = (spec: ReadonlyArray<Section>, index: SpecIndex): ReadonlyArray<Recorded> => {
+  const entries = Record.fromEntries(
+    Array.map(index.sections, (entry) => [entry.id, entry] as const),
+  );
+  return Array.getSomes(
+    Array.map(spec, (section) =>
+      Option.flatMap(specIdOf(section), (id) =>
+        Option.map(Record.get(entries, id), (entry): Recorded => ({ entry, id, section })),
+      ),
+    ),
+  );
+};
+
 /** A spec section that implements PRD sections that changed after it was written. */
 export interface StaleSection extends Recorded {
   /** The PRD sections whose hash differs from `writtenFrom`, a deleted one included. */
@@ -248,17 +268,8 @@ export const stalenessOf = (
         : Result.succeed([section.id, bodyHashOf(section.body)] as const),
     ),
   );
-  const entries = Record.fromEntries(
-    Array.map(index.sections, (entry) => [entry.id, entry] as const),
-  );
   const built = builtBy(tasks);
-  const recorded = Array.getSomes(
-    Array.map(spec, (section) =>
-      Option.flatMap(specIdOf(section), (id) =>
-        Option.map(Record.get(entries, id), (entry): Recorded => ({ entry, id, section })),
-      ),
-    ),
-  );
+  const recorded = recordedOf(spec, index);
   const outOfDate = Array.filterMap(recorded, (found): Result.Result<StaleSection, void> => {
     const changed = Array.filterMap(Record.toEntries(found.entry.writtenFrom.prd), ([id, hash]) =>
       Option.exists(Record.get(prdHashes, id), (now) => now === hash)
@@ -269,10 +280,7 @@ export const stalenessOf = (
       ? Result.succeed({ changed, entry: found.entry, id: found.id, section: found.section })
       : Result.failVoid;
   });
-  const isRewritable = (found: StaleSection) =>
-    Predicate.isNotNull(found.entry.writtenFrom.body) &&
-    !edited(found) &&
-    !HashSet.has(built, found.id);
+  const isRewritable = (found: StaleSection) => untouched(found) && !HashSet.has(built, found.id);
   const sections = Array.filter(outOfDate, (found) => !isRewritable(found));
   const staleIds = HashSet.fromIterable<string>(Array.map(sections, ({ id }) => id));
   const editedIds = HashSet.fromIterable<string>(
@@ -295,6 +303,67 @@ export const stalenessOf = (
   };
 };
 
+/**
+ * A PRD item with an ID that no key covers, and the spec sections that may already build it
+ * (`spec.planning.again.mapping-items`): those that implement the heading the item is under or an
+ * item it sits under, by their own `Implements` or one they inherit, that have an `Implements`
+ * line of their own for `withImplements` to add the item to, and that Cairn wrote and nobody
+ * edited.
+ */
+export const UnmappedItem = Schema.Struct({
+  item: PrdSectionId,
+  candidates: Schema.Array(SpecSectionId),
+});
+export type UnmappedItem = typeof UnmappedItem.Type;
+
+/** The section has an `Implements` key of its own, not only one it inherits. */
+const hasOwnImplements = (section: Section): boolean =>
+  Array.some(keyEntriesOf(String.split(section.body, "\n")), ([name]) => name === "Implements");
+
+/** The heading an item is under and the items between it and that heading, nearest first. */
+const aboveOf = (
+  parents: Parents,
+  item: CoverageItem & { readonly id: SectionId },
+): ReadonlyArray<string> => {
+  const chain = Array.drop(chainOf(parents, item.id), 1);
+  return Option.match(Option.fromUndefinedOr(item.section), {
+    onNone: () => chain,
+    onSome: (heading) =>
+      Array.append(
+        Array.takeWhile(chain, (id) => id !== heading),
+        heading,
+      ),
+  });
+};
+
+/**
+ * Every PRD item with an ID that nothing covers (`uncoveredItemsOf`), in document order, with its
+ * candidate spec sections in document order (see `UnmappedItem`). Pure.
+ */
+export const unmappedItemsOf = (
+  prd: ReadonlyArray<Section>,
+  spec: ReadonlyArray<Section>,
+  items: ReadonlyArray<CoverageItem>,
+  index: SpecIndex,
+): ReadonlyArray<UnmappedItem> => {
+  const parents = parentsOf(prd, items);
+  const writable = Array.filter(recordedOf(spec, index), untouched);
+  return Array.filterMap(uncoveredItemsOf(prd, spec, items), (item) => {
+    const above = aboveOf(parents, item);
+    return Schema.is(PrdSectionId)(item.id)
+      ? Result.succeed({
+          candidates: Array.filterMap(writable, ({ id, section }) =>
+            hasOwnImplements(section) &&
+            Array.some(section.keys.implements, (named) => Array.contains(above, named))
+              ? Result.succeed(id)
+              : Result.failVoid,
+          ),
+          item: item.id,
+        })
+      : Result.failVoid;
+  });
+};
+
 /** What a second `cairn plan` has to do (see `spec.planning.again`). Each list is in document or manifest order. */
 export const Replan = Schema.Struct({
   /** Spec sections Cairn wrote, nobody edited and no task builds, whose PRD sections changed: written again. */
@@ -305,6 +374,8 @@ export const Replan = Schema.Struct({
   staleTasks: Schema.Array(TaskId),
   /** PRD sections no spec section covers: new spec sections are written for them. */
   uncovered: Schema.Array(PrdSectionId),
+  /** PRD items with an ID that nothing covers, with the spec sections the judge is asked about: mapped, planned or reported. */
+  unmappedItems: Schema.Array(UnmappedItem),
   /** Spec sections with a `Files` key that no task builds, and not above one that a task builds: tasks are drafted for them. */
   untasked: Schema.Array(SpecSectionId),
 });
@@ -337,6 +408,7 @@ export const replanOf = (
       Array.map(uncoveredOf(prdSections, specSections), ({ id }) => id),
       Schema.is(PrdSectionId),
     ),
+    unmappedItems: unmappedItemsOf(prdSections, specSections, itemsOf(prd, prdSections), index),
     untasked: untaskedOf(specSections, tasks),
   };
 };
@@ -418,7 +490,7 @@ const implementedOf = (
  * whole-plan `replanOf`, narrowed to `part`. `index` is `spec.json`, which gives each spec
  * section's own and inherited `Implements`.
  *
- * - `uncovered` keeps the PRD sections and items in the part.
+ * - `uncovered` keeps the PRD sections and items in the part, and `unmappedItems` the items.
  * - `rewritable` keeps the sections that implement something in the part and nothing outside it.
  *   One that implements both is moved to `staleSections`, so a part run never rewrites spec for
  *   another part; one wholly outside is left for its own part's run.
@@ -451,6 +523,7 @@ export const scopeOf = (replan: Replan, part: Part, index: SpecIndex): Replan =>
     ),
     staleTasks: replan.staleTasks,
     uncovered: Array.filter(replan.uncovered, inPart),
+    unmappedItems: Array.filter(replan.unmappedItems, ({ item }) => inPart(item)),
     untasked: Array.filter(replan.untasked, touches),
   };
 };
