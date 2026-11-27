@@ -356,3 +356,53 @@ it("prints file:line judge:question verdict message, pointing a task at its firs
     ),
   ).toBe(".cairn/manifest.json judge:complete flag probability 0.1 is below flag 0.4");
 });
+
+/** `count` independent tasks that all change `src/store.ts`. */
+const sharingManifest = (count: number) =>
+  encodeJson({
+    baseBranch: "main",
+    feature: "product",
+    tasks: Array.map(Array.range(1, count), (n) => ({
+      branch: `cairn-mvp/0${n}-store-${n}`,
+      commits: [],
+      dependsOn: [],
+      files: ["src/store.ts"],
+      humanGate: { reasons: [], required: false },
+      id: `t${n}`,
+      model: FIRST_MODEL,
+      parent: null,
+      prdSections: ["prd.store"],
+      reasoning: "high",
+      sessions: [],
+      specSections: ["spec.store"],
+      status: "pending",
+      title: `Store part ${n}`,
+      worktree: `wt-${n}`,
+    })),
+    version: 1,
+  });
+
+it.effect("judges a file enough open tasks share, and keeps its judgment on the next run", () =>
+  Effect.gen(function* () {
+    const calls = yield* Ref.make(0);
+    const files = {
+      "manifest.json": sharingManifest(defaults.conflicts.hotspot),
+      "prd.md": PRD,
+      "spec.md": SPEC,
+    };
+    const { after } = yield* inCheckout(
+      files,
+      Effect.gen(function* () {
+        yield* judgePlan(both);
+        const first = yield* Ref.get(calls);
+        yield* judgePlan(both);
+        const again = yield* Ref.get(calls);
+        expect(again).toBe(first);
+      }).pipe(Effect.provide(judging(calls, 0.9))),
+    );
+    const written = decodeJudgments(textOf(after, "judgments.json"));
+    expect(Array.filter(written.judgments, ({ target }) => target.kind === "file")).toMatchObject([
+      { question: "splitFile", target: { kind: "file", path: "src/store.ts" } },
+    ]);
+  }),
+);

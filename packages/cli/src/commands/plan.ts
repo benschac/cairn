@@ -76,7 +76,7 @@ import {
 import { replaceFile } from "../atomic-write.ts";
 import { Git } from "../git.ts";
 import { layer as gitLayer } from "../git-live.ts";
-import { Judge, JudgeError } from "../judge.ts";
+import { Judge, JudgeError, fileInputsOf } from "../judge.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { livePlannerModels } from "../models.ts";
 import { Planner, PlannerError } from "../planner.ts";
@@ -590,27 +590,7 @@ const stackJudged = Effect.fn("plan.stackJudged")(function* (
     onNone: () => Effect.succeed(none),
     onSome: (judge) =>
       Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const root = yield* (yield* MainCheckout).root;
-        const titles = HashMap.fromIterable(
-          Array.map(manifest.tasks, (task) => [task.id, task.title] as const),
-        );
-        // Each shared file with its line count; a file the plan creates is not there yet and has none.
-        const files = yield* Effect.forEach(hotspots, (hotspot) =>
-          fs.readFileString(path.join(root, hotspot.path)).pipe(
-            Effect.map((text) => Array.length(String.split(text, "\n"))),
-            Effect.orElseSucceed(() => 0),
-            Effect.map((lines) => ({
-              input: {
-                lines,
-                path: hotspot.path,
-                tasks: Array.getSomes(Array.map(hotspot.tasks, (id) => HashMap.get(titles, id))),
-              },
-              path: hotspot.path,
-            })),
-          ),
-        );
+        const files = yield* fileInputsOf(hotspots, manifest.tasks);
         const whole = inputsOf(prd, spec, manifest).stack;
         // A part run asks whether the stack builds the part's PRD sections, not the ones left for later.
         const stack = Option.match(part, {

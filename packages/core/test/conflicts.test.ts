@@ -570,3 +570,73 @@ it("a trunk task does not hide the siblings that need it from hotspotsOf", () =>
     { path: "src/model.ts", tasks: ["t2", "t3", "t4"] },
   ]);
 });
+
+it("a gated task does not stack on a chain an earlier plan's ordering made", () => {
+  // The first plan stacked t2 on t1, which t2 does not need.
+  const history = historyOf(changed(34, ["src/model.ts"]));
+  const { ordered: existing } = planned(
+    [],
+    [one(["src/model.ts"]), one(["src/model.ts"])],
+    history,
+  );
+  expect(byId(existing, TaskId.make("t2")).parent).toBe("t1");
+  // The next plan adds gated t3, which needs only t2, and t4 and t5, which share a file.
+  const gated = decodeDraft({
+    category: "feature",
+    dependsOn: ["t2"],
+    files: ["db/migrations/001.sql"],
+    model: "sonnet",
+    prdSections: ["prd.goal"],
+    reasoning: "high",
+    specSections: ["spec.store"],
+    title: "Migrate",
+  });
+  const drafts = Array.prepend(
+    draftsOf([one(["src/view.ts"]), one(["src/view.ts"])], "New"),
+    gated,
+  );
+  const unordered = Result.getOrThrow(stackOf(feature, drafts, gates, existing));
+  const fresh = Array.drop(unordered, Array.length(existing));
+  const orderings = orderingsOf(
+    fresh,
+    existing,
+    conflictsOf(existing, fresh, history, config),
+    config,
+  );
+  const ordered = Result.getOrThrow(
+    stackOf(feature, drafts, gates, existing, Array.map(orderings.applied, orderingOf)),
+  );
+  const t3 = byId(ordered, TaskId.make("t3"));
+  expect(t3.humanGate.required).toBe(true);
+  expect(t3.parent).toBeNull();
+  // A gate already off its stack holds up no other pair.
+  expect(Array.map(orderings.applied, Struct.pick(["earlier", "later"]))).toEqual([
+    { earlier: "t4", later: "t5" },
+  ]);
+  const manifest = Schema.decodeUnknownSync(Manifest)({
+    baseBranch: "main",
+    feature,
+    tasks: Schema.encodeSync(Schema.Array(ManifestTask))(ordered),
+    version: 1,
+  });
+  const spec = withStackDiagram(`${PLAN_SPEC}\n${STACKS_OPEN}\n${STACKS_CLOSE}\n`, manifest);
+  expect(
+    Array.filter(
+      lint(PLAN_PRD, spec, Option.some(manifest), gateConfig),
+      ({ rule }) => rule !== "task-without-statement",
+    ),
+  ).toEqual([]);
+});
+
+it("hotspotsOf takes one task from each of many chains that share a file, without trying every subset", () => {
+  // Thirty chains of two: each second task needs the first. Any one task of each chain can run with the rest.
+  const chains = Array.flatMap(Array.range(0, 29), (chain) => [
+    one(["src/model.ts"]),
+    one(["src/model.ts"], [2 * chain]),
+  ]);
+  const existing = Result.getOrThrow(stackOf(feature, [], gates));
+  const fresh = Result.getOrThrow(stackOf(feature, draftsOf(chains, "New"), gates, existing));
+  const [hotspot] = hotspotsOf(existing, fresh, config);
+  expect(hotspot?.path).toBe("src/model.ts");
+  expect(Array.length(hotspot?.tasks ?? [])).toBe(30);
+});

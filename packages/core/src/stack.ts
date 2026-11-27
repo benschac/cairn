@@ -126,6 +126,25 @@ export const parentOf = (
   });
 };
 
+/**
+ * The parent `stackOf` gives a task: `parentOf` over `stackedOn`. A gated task takes none when the
+ * chain below that parent holds a task it does not need, which a conflict ordering from an earlier
+ * plan can put there. It then starts from the base branch once its dependencies land, so nothing
+ * sits below a gate but what it needs (`prd.human-gates`). `needs` says whether the task needs
+ * another, directly or through other tasks.
+ */
+export const placedOn = (
+  task: Pick<ManifestTask, "dependsOn" | "humanGate" | "orderedAfter">,
+  tasks: ReadonlyArray<StackLink>,
+  needs: (other: TaskId) => boolean,
+): Option.Option<TaskId> => {
+  const parent = parentOf(stackedOn(task), tasks);
+  const parents = Record.fromEntries(Array.map(tasks, (link) => [link.id, link.parent] as const));
+  return task.humanGate.required
+    ? Option.filter(parent, (on) => Array.every(lineOf(parents, on), needs))
+    : parent;
+};
+
 /** Worktree 0 is the repo's own checkout; the rest are `wt-1`, `wt-2`, .... */
 const worktreeName = (slot: number): string | null => (slot === 0 ? null : `wt-${slot}`);
 
@@ -362,7 +381,26 @@ interface Placed {
   readonly ids: HashMap.HashMap<number, TaskId>;
   /** Where each task so far sits in the manifest, by ID. */
   readonly rank: Record.ReadonlyRecord<string, number>;
+  /** What each task so far needs, directly or through other tasks, by ID. */
+  readonly needs: Record.ReadonlyRecord<string, HashSet.HashSet<TaskId>>;
 }
+
+/** `needs` with `id`'s: its dependencies and everything they need. */
+const withNeeds = (
+  needs: Record.ReadonlyRecord<string, HashSet.HashSet<TaskId>>,
+  id: TaskId,
+  dependsOn: ReadonlyArray<TaskId>,
+): Record.ReadonlyRecord<string, HashSet.HashSet<TaskId>> =>
+  Record.set(
+    needs,
+    id,
+    Array.reduce(dependsOn, HashSet.fromIterable(dependsOn), (all, dependency) =>
+      HashSet.union(
+        all,
+        Option.getOrElse(Record.get(needs, dependency), () => HashSet.empty()),
+      ),
+    ),
+  );
 
 /** The number in a task ID of the form `t<number>`. An ID of another form has none. */
 const numberOf = (id: TaskId): Option.Option<number> =>
@@ -386,6 +424,10 @@ const placementsOf = (
   const start: Placed = {
     ids: HashMap.empty(),
     links: existing,
+    // A task needs only tasks before it, so one pass in manifest order covers every existing one.
+    needs: Array.reduce(existing, Record.empty(), (needs, task) =>
+      withNeeds(needs, task.id, task.dependsOn),
+    ),
     rank: Record.fromEntries(Array.map(existing, (task, at) => [task.id, at] as const)),
   };
   return Array.mapAccum(order, start, (placed, node, at) => {
@@ -403,11 +445,18 @@ const placementsOf = (
     const orderedAfter = Array.filterMap(orderings, ({ after, reason, task }) =>
       task === id ? Result.succeed({ reason, task: after }) : Result.failVoid,
     );
-    const parent = Option.getOrNull(parentOf(stackedOn({ dependsOn, orderedAfter }), placed.links));
+    const needs = withNeeds(placed.needs, id, dependsOn);
+    const needed = Option.getOrElse(Record.get(needs, id), () => HashSet.empty<TaskId>());
+    const parent = Option.getOrNull(
+      placedOn({ dependsOn, humanGate: node.gate, orderedAfter }, placed.links, (other) =>
+        HashSet.has(needed, other),
+      ),
+    );
     return [
       {
         ids: HashMap.set(placed.ids, node.index, id),
         links: Array.append(placed.links, { id, parent }),
+        needs,
         rank: Record.set(placed.rank, id, Array.length(existing) + at),
       },
       { dependsOn, id, node, orderedAfter, parent, position },
@@ -455,7 +504,7 @@ const taskOf = (feature: Slug, placement: Placement, worktree: string | null): M
  * plan `existing` is empty. New IDs continue from the highest existing `t<number>` ID, `t1` on a
  * first plan, in dependency order, taking a gated draft first among those whose dependencies are
  * placed, then the planner's order. A draft depends on other drafts by title and on existing
- * tasks by ID. Each new task gets its branch, its dependencies as IDs, the parent `parentOf`
+ * tasks by ID. Each new task gets its branch, its dependencies as IDs, the parent `placedOn`
  * gives and the worktree `worktreesOf` gives; either may be an existing task's. `gates` is the
  * plan-time gate of each draft. Two drafts with one title, a dependency that is neither a draft's
  * title nor an existing ID, and a cycle are a `StackOrderError`.
