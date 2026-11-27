@@ -250,6 +250,7 @@ it.effect("--json carries the notes in cairn.db, as the server's Trace does", ()
           author: "agent:t1",
           body: "Check the empty case.",
           kind: "review",
+          label: null,
           resolvedAt: null,
           session: null,
           status: "open",
