@@ -1,7 +1,7 @@
 // Writes the JSON Schemas of what a file in .cairn/ holds, for `@cairn/contract/js` to ship
 // (spec.contract.javascript-entry):
 //
-//   node packages/contract/scripts/generate-schema.ts           write schema/{manifest,event,config}.schema.json
+//   node packages/contract/scripts/generate-schema.ts           write schema/*.schema.json
 //   node packages/contract/scripts/generate-schema.ts --check   write nothing; fail when a committed file differs
 //
 // The files are compact JSON; `pnpm fix` formats them, so a comparison reads both as values.
@@ -12,6 +12,13 @@ import { Command, Flag } from "effect/cli";
 
 import { Config } from "../src/config.ts";
 import { Event } from "../src/events.ts";
+import { Entitlements } from "../src/hosted/entitlements.ts";
+import { HostedError } from "../src/hosted/errors.ts";
+import { DocumentView } from "../src/hosted/document.ts";
+import { ThreadView } from "../src/hosted/discussion.ts";
+import { PlanRecord } from "../src/hosted/plan.ts";
+import { RevisionBody, SaveInput } from "../src/hosted/revision.ts";
+import { RoomMessage } from "../src/hosted/room.ts";
 import { Manifest } from "../src/manifest.ts";
 
 // A schema a validator can load as it is: the root schema with its `$schema` dialect and `$defs`,
@@ -30,6 +37,15 @@ export const schemaDocuments = {
   "manifest.schema.json": standalone(Manifest),
   "event.schema.json": standalone(Event),
   "config.schema.json": standalone(Config),
+  // What the hosted Worker, the viewer and `cairn connect` exchange (spec.hosted-launch.hosted-contract).
+  "hosted-document.schema.json": standalone(DocumentView),
+  "hosted-entitlements.schema.json": standalone(Entitlements),
+  "hosted-error.schema.json": standalone(HostedError),
+  "hosted-plan-record.schema.json": standalone(PlanRecord),
+  "hosted-revision.schema.json": standalone(RevisionBody),
+  "hosted-room-message.schema.json": standalone(RoomMessage),
+  "hosted-save-input.schema.json": standalone(SaveInput),
+  "hosted-thread.schema.json": standalone(ThreadView),
 };
 
 const Json = Schema.fromJsonString(Schema.Unknown);

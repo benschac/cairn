@@ -1,0 +1,498 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "object",
+          "properties": {
+            "author": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "principal": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["user"] },
+                        "userId": { "type": "string", "minLength": 1 }
+                      },
+                      "required": ["kind", "userId"],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "agentId": { "type": "string", "pattern": "^agt_[a-z0-9]{12}$" },
+                        "for": { "type": "string", "minLength": 1 },
+                        "kind": { "type": "string", "enum": ["agent"] }
+                      },
+                      "required": ["agentId", "for", "kind"],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "object",
+                      "properties": { "kind": { "type": "string", "enum": ["anonymous"] } },
+                      "required": ["kind"],
+                      "additionalProperties": true
+                    }
+                  ]
+                }
+              },
+              "required": ["name", "principal"],
+              "additionalProperties": true
+            },
+            "at": { "type": "string" },
+            "bytes": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "documentId": { "type": "string", "pattern": "^doc_[a-z0-9]{12}$" },
+            "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "id": { "type": "string", "pattern": "^rev_[a-z0-9]{12}$" },
+            "kind": { "type": "string", "enum": ["prd", "spec"] },
+            "number": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+            "parent": {
+              "anyOf": [{ "type": "string", "pattern": "^rev_[a-z0-9]{12}$" }, { "type": "null" }]
+            },
+            "restoredFrom": {
+              "anyOf": [{ "type": "string", "pattern": "^rev_[a-z0-9]{12}$" }, { "type": "null" }]
+            }
+          },
+          "required": [
+            "author",
+            "at",
+            "bytes",
+            "documentId",
+            "hash",
+            "id",
+            "kind",
+            "number",
+            "parent",
+            "restoredFrom"
+          ],
+          "additionalProperties": true
+        },
+        "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "type": { "type": "string", "enum": ["revision"] }
+      },
+      "required": ["revision", "seq", "type"],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "thread": {
+          "type": "object",
+          "properties": {
+            "anchor": {
+              "type": "object",
+              "properties": {
+                "document": { "type": "string", "pattern": "^doc_[a-z0-9]{12}$" },
+                "on": { "type": "string", "enum": ["prd", "spec"] },
+                "quote": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 500,
+                      "pattern": "^\\S+(?: \\S+)*$",
+                      "allOf": [
+                        { "pattern": "^[^\\u{D800}-\\u{DFFF}]*$" },
+                        { "pattern": "^(?!\\.\\.?$)" }
+                      ]
+                    },
+                    { "type": "null" }
+                  ]
+                },
+                "revision": { "type": "string", "pattern": "^rev_[a-z0-9]{12}$" },
+                "section": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?:prd|spec)(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+$"
+                    },
+                    { "type": "null" }
+                  ]
+                }
+              },
+              "required": ["document", "on", "quote", "revision", "section"],
+              "additionalProperties": true
+            },
+            "comments": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "at": { "type": "string" },
+                    "author": {
+                      "type": "object",
+                      "properties": {
+                        "name": { "type": "string" },
+                        "principal": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": { "type": "string", "enum": ["user"] },
+                                "userId": { "type": "string", "minLength": 1 }
+                              },
+                              "required": ["kind", "userId"],
+                              "additionalProperties": true
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "agentId": { "type": "string", "pattern": "^agt_[a-z0-9]{12}$" },
+                                "for": { "type": "string", "minLength": 1 },
+                                "kind": { "type": "string", "enum": ["agent"] }
+                              },
+                              "required": ["agentId", "for", "kind"],
+                              "additionalProperties": true
+                            },
+                            {
+                              "type": "object",
+                              "properties": { "kind": { "type": "string", "enum": ["anonymous"] } },
+                              "required": ["kind"],
+                              "additionalProperties": true
+                            }
+                          ]
+                        }
+                      },
+                      "required": ["name", "principal"],
+                      "additionalProperties": true
+                    },
+                    "body": { "type": "string", "maxLength": 20000 },
+                    "editedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "id": { "type": "string", "pattern": "^n_[a-z0-9]{6,}$" },
+                    "thread": { "type": "string", "pattern": "^n_[a-z0-9]{6,}$" },
+                    "version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+                  },
+                  "required": ["at", "author", "body", "editedAt", "id", "thread", "version"],
+                  "additionalProperties": true
+                }
+              ],
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "at": { "type": "string" },
+                  "author": {
+                    "type": "object",
+                    "properties": {
+                      "name": { "type": "string" },
+                      "principal": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": { "type": "string", "enum": ["user"] },
+                              "userId": { "type": "string", "minLength": 1 }
+                            },
+                            "required": ["kind", "userId"],
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "agentId": { "type": "string", "pattern": "^agt_[a-z0-9]{12}$" },
+                              "for": { "type": "string", "minLength": 1 },
+                              "kind": { "type": "string", "enum": ["agent"] }
+                            },
+                            "required": ["agentId", "for", "kind"],
+                            "additionalProperties": true
+                          },
+                          {
+                            "type": "object",
+                            "properties": { "kind": { "type": "string", "enum": ["anonymous"] } },
+                            "required": ["kind"],
+                            "additionalProperties": true
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["name", "principal"],
+                    "additionalProperties": true
+                  },
+                  "body": { "type": "string", "maxLength": 20000 },
+                  "editedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                  "id": { "type": "string", "pattern": "^n_[a-z0-9]{6,}$" },
+                  "thread": { "type": "string", "pattern": "^n_[a-z0-9]{6,}$" },
+                  "version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+                },
+                "required": ["at", "author", "body", "editedAt", "id", "thread", "version"],
+                "additionalProperties": true
+              }
+            },
+            "resolvedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "resolvedBy": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "principal": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": { "type": "string", "enum": ["user"] },
+                            "userId": { "type": "string", "minLength": 1 }
+                          },
+                          "required": ["kind", "userId"],
+                          "additionalProperties": true
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "agentId": { "type": "string", "pattern": "^agt_[a-z0-9]{12}$" },
+                            "for": { "type": "string", "minLength": 1 },
+                            "kind": { "type": "string", "enum": ["agent"] }
+                          },
+                          "required": ["agentId", "for", "kind"],
+                          "additionalProperties": true
+                        },
+                        {
+                          "type": "object",
+                          "properties": { "kind": { "type": "string", "enum": ["anonymous"] } },
+                          "required": ["kind"],
+                          "additionalProperties": true
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["name", "principal"],
+                  "additionalProperties": true
+                },
+                { "type": "null" }
+              ]
+            },
+            "root": { "type": "string", "pattern": "^n_[a-z0-9]{6,}$" },
+            "status": { "type": "string", "enum": ["open", "resolved"] },
+            "anchorState": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": { "state": { "type": "string", "enum": ["attached"] } },
+                  "required": ["state"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "original": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "quote": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 500,
+                                  "pattern": "^\\S+(?: \\S+)*$",
+                                  "allOf": [
+                                    { "pattern": "^[^\\u{D800}-\\u{DFFF}]*$" },
+                                    { "pattern": "^(?!\\.\\.?$)" }
+                                  ]
+                                },
+                                { "type": "null" }
+                              ]
+                            },
+                            "sectionTitle": { "type": "string" }
+                          },
+                          "required": ["quote", "sectionTitle"],
+                          "additionalProperties": true
+                        },
+                        { "type": "null" }
+                      ]
+                    },
+                    "reason": { "type": "string", "enum": ["section-missing", "passage-changed"] },
+                    "state": { "type": "string", "enum": ["changed"] }
+                  },
+                  "required": ["original", "reason", "state"],
+                  "additionalProperties": true
+                }
+              ]
+            }
+          },
+          "required": [
+            "anchor",
+            "comments",
+            "resolvedAt",
+            "resolvedBy",
+            "root",
+            "status",
+            "anchorState"
+          ],
+          "additionalProperties": true
+        },
+        "type": { "type": "string", "enum": ["thread"] }
+      },
+      "required": ["seq", "thread", "type"],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "type": { "type": "string", "enum": ["trace"] }
+      },
+      "required": ["hash", "seq", "type"],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "object",
+          "properties": {
+            "actor": {
+              "anyOf": [
+                { "type": "string", "enum": ["orchestrator"] },
+                { "type": "string", "pattern": "^human:[\\s\\S]*?$" },
+                { "type": "string", "pattern": "^agent:[\\s\\S]*?$" }
+              ]
+            },
+            "detail": { "type": "string" },
+            "model": { "type": "string", "minLength": 1 },
+            "reasoning": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] },
+            "status": {
+              "type": "string",
+              "enum": ["pending", "running", "blocked_on_human", "failed", "done", "landed"]
+            },
+            "taskId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+            "ts": { "type": "string" },
+            "v": { "type": "number", "enum": [1] }
+          },
+          "required": ["status", "taskId", "ts"],
+          "additionalProperties": true
+        },
+        "id": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "type": { "type": "string", "enum": ["event"] }
+      },
+      "required": ["event", "id", "seq", "type"],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "approval": {
+          "type": "object",
+          "properties": {
+            "at": { "type": "string" },
+            "by": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "principal": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["user"] },
+                        "userId": { "type": "string", "minLength": 1 }
+                      },
+                      "required": ["kind", "userId"],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "agentId": { "type": "string", "pattern": "^agt_[a-z0-9]{12}$" },
+                        "for": { "type": "string", "minLength": 1 },
+                        "kind": { "type": "string", "enum": ["agent"] }
+                      },
+                      "required": ["agentId", "for", "kind"],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "object",
+                      "properties": { "kind": { "type": "string", "enum": ["anonymous"] } },
+                      "required": ["kind"],
+                      "additionalProperties": true
+                    }
+                  ]
+                }
+              },
+              "required": ["name", "principal"],
+              "additionalProperties": true
+            },
+            "inputs": {
+              "type": "object",
+              "properties": {
+                "head": {
+                  "anyOf": [{ "type": "string", "pattern": "^[0-9a-f]{40}$" }, { "type": "null" }]
+                },
+                "plan": { "type": "string", "pattern": "^plan_[a-z0-9]{12}$" },
+                "prdRevision": { "type": "string", "pattern": "^rev_[a-z0-9]{12}$" },
+                "specRevision": {
+                  "anyOf": [
+                    { "type": "string", "pattern": "^rev_[a-z0-9]{12}$" },
+                    { "type": "null" }
+                  ]
+                }
+              },
+              "required": ["head", "plan", "prdRevision", "specRevision"],
+              "additionalProperties": true
+            },
+            "task": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" }
+          },
+          "required": ["at", "by", "inputs", "task"],
+          "additionalProperties": true
+        },
+        "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "type": { "type": "string", "enum": ["approval"] }
+      },
+      "required": ["approval", "seq", "type"],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "type": { "type": "string", "enum": ["visibility"] },
+        "visibility": { "type": "string", "enum": ["private", "public"] }
+      },
+      "required": ["seq", "type", "visibility"],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "access": { "type": "string", "enum": ["read", "comment", "edit", "manage", "none"] },
+        "type": { "type": "string", "enum": ["access"] }
+      },
+      "required": ["access", "type"],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "participants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "section": {
+                "anyOf": [
+                  { "type": "string", "pattern": "^prd(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+$" },
+                  { "type": "null" }
+                ]
+              }
+            },
+            "required": ["name", "section"],
+            "additionalProperties": true
+          }
+        },
+        "type": { "type": "string", "enum": ["reading"] }
+      },
+      "required": ["participants", "type"],
+      "additionalProperties": true
+    }
+  ],
+  "$defs": {}
+}

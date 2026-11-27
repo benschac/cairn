@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "base": {
+      "anyOf": [{ "type": "string", "pattern": "^rev_[a-z0-9]{12}$" }, { "type": "null" }]
+    },
+    "clientId": { "type": "string", "minLength": 1 },
+    "kind": { "type": "string", "enum": ["prd", "spec"] },
+    "markdown": { "type": "string" }
+  },
+  "required": ["base", "clientId", "kind", "markdown"],
+  "additionalProperties": true,
+  "$defs": {}
+}

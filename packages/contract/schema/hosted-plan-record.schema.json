@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "documentId": { "type": "string", "pattern": "^doc_[a-z0-9]{12}$" },
+    "id": { "type": "string", "pattern": "^plan_[a-z0-9]{12}$" },
+    "manifestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "source": {
+      "type": "object",
+      "properties": {
+        "prdHash": {
+          "anyOf": [{ "type": "string", "pattern": "^[0-9a-f]{64}$" }, { "type": "null" }]
+        },
+        "prdRevision": {
+          "anyOf": [{ "type": "string", "pattern": "^rev_[a-z0-9]{12}$" }, { "type": "null" }]
+        },
+        "specRevision": {
+          "anyOf": [{ "type": "string", "pattern": "^rev_[a-z0-9]{12}$" }, { "type": "null" }]
+        }
+      },
+      "required": ["prdHash", "prdRevision", "specRevision"],
+      "additionalProperties": true
+    },
+    "uploadedAt": { "type": "string" },
+    "uploadedBy": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "principal": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string", "enum": ["user"] },
+                "userId": { "type": "string", "minLength": 1 }
+              },
+              "required": ["kind", "userId"],
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": {
+                "agentId": { "type": "string", "pattern": "^agt_[a-z0-9]{12}$" },
+                "for": { "type": "string", "minLength": 1 },
+                "kind": { "type": "string", "enum": ["agent"] }
+              },
+              "required": ["agentId", "for", "kind"],
+              "additionalProperties": true
+            },
+            {
+              "type": "object",
+              "properties": { "kind": { "type": "string", "enum": ["anonymous"] } },
+              "required": ["kind"],
+              "additionalProperties": true
+            }
+          ]
+        }
+      },
+      "required": ["name", "principal"],
+      "additionalProperties": true
+    }
+  },
+  "required": ["documentId", "id", "manifestHash", "source", "uploadedAt", "uploadedBy"],
+  "additionalProperties": true,
+  "$defs": {}
+}

@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "anchor": {
+      "type": "object",
+      "properties": {
+        "document": { "type": "string", "pattern": "^doc_[a-z0-9]{12}$" },
+        "on": { "type": "string", "enum": ["prd", "spec"] },
+        "quote": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 500,
+              "pattern": "^\\S+(?: \\S+)*$",
+              "allOf": [{ "pattern": "^[^\\u{D800}-\\u{DFFF}]*$" }, { "pattern": "^(?!\\.\\.?$)" }]
+            },
+            { "type": "null" }
+          ]
+        },
+        "revision": { "type": "string", "pattern": "^rev_[a-z0-9]{12}$" },
+        "section": {
+          "anyOf": [
+            { "type": "string", "pattern": "^(?:prd|spec)(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)+$" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["document", "on", "quote", "revision", "section"],
+      "additionalProperties": true
+    },
+    "comments": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "properties": {
+            "at": { "type": "string" },
+            "author": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "principal": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": { "type": "string", "enum": ["user"] },
+                        "userId": { "type": "string", "minLength": 1 }
+                      },
+                      "required": ["kind", "userId"],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "agentId": { "type": "string", "pattern": "^agt_[a-z0-9]{12}$" },
+                        "for": { "type": "string", "minLength": 1 },
+                        "kind": { "type": "string", "enum": ["agent"] }
+                      },
+                      "required": ["agentId", "for", "kind"],
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "object",
+                      "properties": { "kind": { "type": "string", "enum": ["anonymous"] } },
+                      "required": ["kind"],
+                      "additionalProperties": true
+                    }
+                  ]
+                }
+              },
+              "required": ["name", "principal"],
+              "additionalProperties": true
+            },
+            "body": { "type": "string", "maxLength": 20000 },
+            "editedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "id": { "type": "string", "pattern": "^n_[a-z0-9]{6,}$" },
+            "thread": { "type": "string", "pattern": "^n_[a-z0-9]{6,}$" },
+            "version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+          },
+          "required": ["at", "author", "body", "editedAt", "id", "thread", "version"],
+          "additionalProperties": true
+        }
+      ],
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "at": { "type": "string" },
+          "author": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "principal": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["user"] },
+                      "userId": { "type": "string", "minLength": 1 }
+                    },
+                    "required": ["kind", "userId"],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "agentId": { "type": "string", "pattern": "^agt_[a-z0-9]{12}$" },
+                      "for": { "type": "string", "minLength": 1 },
+                      "kind": { "type": "string", "enum": ["agent"] }
+                    },
+                    "required": ["agentId", "for", "kind"],
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "object",
+                    "properties": { "kind": { "type": "string", "enum": ["anonymous"] } },
+                    "required": ["kind"],
+                    "additionalProperties": true
+                  }
+                ]
+              }
+            },
+            "required": ["name", "principal"],
+            "additionalProperties": true
+          },
+          "body": { "type": "string", "maxLength": 20000 },
+          "editedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "id": { "type": "string", "pattern": "^n_[a-z0-9]{6,}$" },
+          "thread": { "type": "string", "pattern": "^n_[a-z0-9]{6,}$" },
+          "version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+        },
+        "required": ["at", "author", "body", "editedAt", "id", "thread", "version"],
+        "additionalProperties": true
+      }
+    },
+    "resolvedAt": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+    "resolvedBy": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "principal": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": { "type": "string", "enum": ["user"] },
+                    "userId": { "type": "string", "minLength": 1 }
+                  },
+                  "required": ["kind", "userId"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "agentId": { "type": "string", "pattern": "^agt_[a-z0-9]{12}$" },
+                    "for": { "type": "string", "minLength": 1 },
+                    "kind": { "type": "string", "enum": ["agent"] }
+                  },
+                  "required": ["agentId", "for", "kind"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": { "kind": { "type": "string", "enum": ["anonymous"] } },
+                  "required": ["kind"],
+                  "additionalProperties": true
+                }
+              ]
+            }
+          },
+          "required": ["name", "principal"],
+          "additionalProperties": true
+        },
+        { "type": "null" }
+      ]
+    },
+    "root": { "type": "string", "pattern": "^n_[a-z0-9]{6,}$" },
+    "status": { "type": "string", "enum": ["open", "resolved"] },
+    "anchorState": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": { "state": { "type": "string", "enum": ["attached"] } },
+          "required": ["state"],
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "properties": {
+            "original": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "quote": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 500,
+                          "pattern": "^\\S+(?: \\S+)*$",
+                          "allOf": [
+                            { "pattern": "^[^\\u{D800}-\\u{DFFF}]*$" },
+                            { "pattern": "^(?!\\.\\.?$)" }
+                          ]
+                        },
+                        { "type": "null" }
+                      ]
+                    },
+                    "sectionTitle": { "type": "string" }
+                  },
+                  "required": ["quote", "sectionTitle"],
+                  "additionalProperties": true
+                },
+                { "type": "null" }
+              ]
+            },
+            "reason": { "type": "string", "enum": ["section-missing", "passage-changed"] },
+            "state": { "type": "string", "enum": ["changed"] }
+          },
+          "required": ["original", "reason", "state"],
+          "additionalProperties": true
+        }
+      ]
+    }
+  },
+  "required": ["anchor", "comments", "resolvedAt", "resolvedBy", "root", "status", "anchorState"],
+  "additionalProperties": true,
+  "$defs": {}
+}

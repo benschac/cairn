@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./hosted": "./src/hosted/index.ts",
     "./js": "./src/js.ts",
     "./schema/*": "./schema/*"
   },
