@@ -846,6 +846,30 @@ it.effect.prop(
     }),
 );
 
+it.effect(
+  "planning again asks ordered of the new task alone and built of the PRD sections it implements, its spec section's inherited Implements included",
+  () =>
+    inRepository(
+      Effect.gen(function* () {
+        const { run, text } = yield* planned;
+        yield* run({ drafts: SECOND, judge: scriptedJudge(), options: { yes: true } });
+        const recorded = yield* text("judgments.json").pipe(
+          Effect.flatMap(Schema.decodeUnknownEffect(JudgmentsJson)),
+        );
+        const targetsOf = (asked: string) =>
+          Array.map(
+            Array.filter(recorded.judgments, ({ question }) => question === asked),
+            ({ target }) => targetName(target),
+          );
+        expect([targetsOf("ordered"), targetsOf("built"), targetsOf("oneFeature")]).toEqual([
+          ["t2"],
+          ["prd.capture", "prd.share"],
+          ["stack"],
+        ]);
+      }),
+    ),
+);
+
 it.effect("planning again judges the sections it wrote and no other", () =>
   inRepository(
     Effect.gen(function* () {

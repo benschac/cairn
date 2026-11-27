@@ -702,37 +702,79 @@ it.effect(
     ),
 );
 
-/** A judge that notes the PRD sections each stack question lists, and has no judgment of its own. */
+/**
+ * A judge that notes, for each call of the fourth checkpoint (the one that asks `built`), the PRD
+ * sections asked `built`, the tasks asked `ordered` and the PRD sections the stack lists. It has
+ * no judgment of its own.
+ */
 const recordingJudge = Effect.gen(function* () {
-  const listed = yield* Ref.make<ReadonlyArray<ReadonlyArray<string>>>([]);
+  const listed = yield* Ref.make<
+    ReadonlyArray<{
+      readonly built: ReadonlyArray<string>;
+      readonly ordered: ReadonlyArray<string>;
+      readonly stack: ReadonlyArray<string>;
+    }>
+  >([]);
   const judge = Layer.succeed(
     Judge,
     Judge.of({
-      judge: ({ sections, stack, tasks }, previous) =>
-        Array.isReadonlyArrayEmpty(sections) && Array.isReadonlyArrayEmpty(tasks)
-          ? Ref.update(listed, Array.append(Array.map(stack.prdSections, ({ id }) => id))).pipe(
-              Effect.as(previous),
-            )
+      judge: ({ prdSections, stack, tasks }, previous, { asks } = {}) =>
+        // Only the fourth checkpoint asks `built` without `size`.
+        Predicate.isNotUndefined(asks) && asks("built") && !asks("size")
+          ? Ref.update(
+              listed,
+              Array.append({
+                built: Array.map(prdSections, ({ id }) => id),
+                ordered: Array.map(tasks, ({ id }) => id),
+                stack: Array.map(stack.prdSections, ({ id }) => id),
+              }),
+            ).pipe(Effect.as(previous))
           : Effect.succeed(previous),
     }),
   );
   return { judge, listed };
 });
 
-it.effect("the stack question about what is complete lists only the part's PRD sections", () =>
-  inRepository(
-    Effect.gen(function* () {
-      const { judge, listed } = yield* recordingJudge;
-      const { run } = yield* setup({ "prd.md": PRD });
-      const { result } = yield* run({
-        judge,
-        part: ["prd.beta"],
-      });
-      expect(Result.isSuccess(result)).toBe(true);
-      const seen = yield* Ref.get(listed);
-      expect(seen).toEqual([["prd.beta", "prd.beta.detail"]]);
-    }),
-  ),
+it.effect(
+  "the fourth checkpoint asks built of the PRD sections the part's new tasks implement and ordered of those tasks, and the stack lists only the part's PRD sections",
+  () =>
+    inRepository(
+      Effect.gen(function* () {
+        const { judge, listed } = yield* recordingJudge;
+        const { run } = yield* setup({ "prd.md": PRD });
+        const { result } = yield* run({
+          judge,
+          part: ["prd.beta"],
+        });
+        expect(Result.isSuccess(result)).toBe(true);
+        const seen = yield* Ref.get(listed);
+        expect(seen).toEqual([
+          {
+            built: ["prd.beta", "prd.beta.detail"],
+            ordered: ["t1"],
+            stack: ["prd.beta", "prd.beta.detail"],
+          },
+        ]);
+      }),
+    ),
+);
+
+it.effect(
+  "a later part's fourth checkpoint asks built only of what its own new tasks implement",
+  () =>
+    inRepository(
+      Effect.gen(function* () {
+        const { judge, listed } = yield* recordingJudge;
+        const { run } = yield* setup({ "prd.md": PRD });
+        yield* run({ part: ["prd.beta"] });
+        const { result } = yield* run({ judge, part: ["prd.alpha"] });
+        expect(Result.isSuccess(result)).toBe(true);
+        const seen = yield* Ref.get(listed);
+        expect(Array.map(seen, ({ built, ordered }) => ({ built, ordered }))).toEqual([
+          { built: ["prd.alpha", "prd.alpha.detail"], ordered: ["t2"] },
+        ]);
+      }),
+    ),
 );
 
 it.effect("--dry-run with IDs plans in memory and its totals end with the part", () =>

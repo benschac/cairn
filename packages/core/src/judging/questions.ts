@@ -1,8 +1,21 @@
 import { PrdSectionId, Reasoning, Slug, SpecSectionId, TaskId } from "@cairn/contract";
 import type { Manifest, ManifestTask, Section } from "@cairn/contract";
-import { Array, HashMap, Match, Option, Record, Schema, Struct, pipe } from "effect";
+import {
+  Array,
+  HashMap,
+  HashSet,
+  Match,
+  Number,
+  Option,
+  Order,
+  Record,
+  Schema,
+  Struct,
+  pipe,
+} from "effect";
 import { Decision } from "effect/ai";
 
+import { itemsOf } from "../items.ts";
 import { sectionsOf } from "../sections.ts";
 
 /** A section as the judge reads it: its heading text and its body. */
@@ -18,22 +31,56 @@ export const SectionJudgingInput = Schema.Struct({
 });
 export type SectionJudgingInput = typeof SectionJudgingInput.Type;
 
+/** Another task as a task's `others` names it: its title and files. */
+export const OtherTask = Schema.Struct({
+  files: Schema.Array(Schema.String),
+  title: Schema.String,
+});
+export type OtherTask = typeof OtherTask.Type;
+
+/** The most tasks a task's `others` holds, so a request stays small in a large plan. */
+export const MAX_OTHERS = 10;
+
 /**
  * A task, with the titles of the tasks it depends on and the text of its spec and PRD sections.
  * It leaves out the planner's model and reasoning, so the judge's choice does not lean on them.
+ * `others` holds up to `MAX_OTHERS` tasks it does not depend on, directly or through other tasks,
+ * that share a spec section, PRD section or file with it, so `ordered` can ask whether it needs one
+ * of them. A task that depends on it is among them, so a dependency written the wrong way round
+ * shows.
  */
 export const TaskJudgingInput = Schema.Struct({
   dependsOn: Schema.Array(Schema.String),
   files: Schema.Array(Schema.String),
+  others: Schema.Array(OtherTask),
   prdSections: Schema.Array(SectionText),
   specSections: Schema.Array(SectionText),
   title: Schema.String,
 });
 export type TaskJudgingInput = typeof TaskJudgingInput.Type;
 
+/** A task that implements a PRD section, as that section's input names it. */
+export const BuildingTask = Schema.Struct({
+  files: Schema.Array(Schema.String),
+  specSections: Schema.Array(Schema.String),
+  title: Schema.String,
+});
+export type BuildingTask = typeof BuildingTask.Type;
+
 /**
- * The whole stack: the feature, the PRD's goal, every PRD section and every task in stack order.
- * A task carries its ID and dependencies so `ordered` can be read from the input.
+ * A PRD section some task implements: its title and body, and each task that implements it with
+ * its title, files and the titles of its spec sections (`spec.judging.questions`).
+ */
+export const PrdSectionJudgingInput = Schema.Struct({
+  body: Schema.String,
+  tasks: Schema.Array(BuildingTask),
+  title: Schema.String,
+});
+export type PrdSectionJudgingInput = typeof PrdSectionJudgingInput.Type;
+
+/**
+ * The whole stack: the feature, the PRD's goal, every PRD section and every task in stack order,
+ * for `oneFeature`.
  */
 export const StackJudgingInput = Schema.Struct({
   feature: Slug,
@@ -134,8 +181,8 @@ const REASONING = [
 ] as const satisfies ReadonlyArray<{ readonly description: string; readonly label: Reasoning }>;
 
 /**
- * The task questions without `model`: `inScope`, `matches`, `reasoning` and `size`, which do not depend on
- * config. The judge asks these alone when `judge.models` names fewer than two models, since there
+ * The task questions without `model`: `inScope`, `matches`, `ordered`, `reasoning` and `size`, which do
+ * not depend on config. The judge asks these alone when `judge.models` names fewer than two models, since there
  * is nothing to choose between; `taskQuestions` adds `model` to them.
  */
 export const taskQuestionsWithoutModel = Decision.make({
@@ -155,6 +202,15 @@ export const taskQuestionsWithoutModel = Decision.make({
         true: "Its title and files carry out everything its spec sections ask. Example: t59, Turn answers into verdicts and routes, touches verdicts.ts and its test, as spec.judging.verdicts asks.",
       },
       instructions: "The task's title and files carry out what its spec sections ask.",
+    }),
+    ordered: Decision.probability({
+      criteria: {
+        false:
+          "It reads, calls or tests something that only a task in `others` adds. Example: a task that tests cairn judge end to end while the task adding the Judge service in packages/cli/src/judge.ts is in `others`, not among the tasks it depends on.",
+        true: "What it needs is in its own files or in the tasks it depends on; the tasks in `others` only touch the same sections or files. Example: t59, Turn answers into verdicts and routes, builds on t58's questions and t55's judgments schema and depends on both, and a task in `others` that also edits questions.ts adds nothing t59 reads.",
+      },
+      instructions:
+        "The task can be built and tested with only the tasks it depends on, needing nothing from `others`.",
     }),
     reasoning: Decision.rate({
       criteria: REASONING,
@@ -245,17 +301,24 @@ export const taskQuestionsFor = (models: Described, categories: Described) => {
   );
 };
 
-/** The questions for the whole stack. */
-export const stackQuestions = Decision.make({
+/** The question for a PRD section that some task implements. */
+export const prdSectionQuestions = Decision.make({
   decisions: {
-    complete: Decision.probability({
+    built: Decision.probability({
       criteria: {
         false:
-          "Some PRD section listed has no task that builds it. Example: prd.viewer.notes listed with no task whose sections reach it.",
-        true: "Every PRD section listed is built by some task. Example: prd.judging-the-plan, built by t55 through t67.",
+          "Something the section asks for is in no task's title, files or spec sections. Example: prd.viewer.notes asks the viewer to show a task's notes, and its tasks add the notes store and cairn note but none of them touches apps/viewer.",
+        true: "Each thing the section asks for is in some task's title, files or spec sections. Example: prd.cli, whose item for cairn judge is built by t65, Add cairn judge, with packages/cli/src/commands/judge.ts in its files.",
       },
-      instructions: "Together the tasks build every PRD section listed.",
+      instructions: "The tasks in `tasks` together build what the section asks for.",
     }),
+  },
+  input: PrdSectionJudgingInput,
+});
+
+/** The question for the whole stack. */
+export const stackQuestions = Decision.make({
+  decisions: {
     oneFeature: Decision.probability({
       criteria: {
         false:
@@ -264,20 +327,19 @@ export const stackQuestions = Decision.make({
       },
       instructions: "The stack builds one feature, not several that could ship alone.",
     }),
-    ordered: Decision.probability({
-      criteria: {
-        false:
-          "Some task needs a task it does not depend on. Example: a task that tests cairn judge end to end without depending on the Judge service it calls.",
-        true: "Each task needs only what it depends on. Example: t59 builds verdicts on t58's questions and t55's judgments schema, and depends on both.",
-      },
-      instructions: "Each task can be built and tested with only the tasks it depends on.",
-    }),
   },
   input: StackJudgingInput,
 });
 
-/** What `inputsOf` returns: one input per spec section, per task and for the stack. */
+/**
+ * What `inputsOf` returns: one input per spec section, per task, per PRD section some task
+ * implements, and for the stack.
+ */
 export interface JudgingInputs {
+  readonly prdSections: ReadonlyArray<{
+    readonly id: PrdSectionId;
+    readonly input: PrdSectionJudgingInput;
+  }>;
   readonly sections: ReadonlyArray<{
     readonly id: SpecSectionId;
     readonly input: SectionJudgingInput;
@@ -316,12 +378,151 @@ const goalOf = (prd: ReadonlyArray<Section>, prdById: HashMap.HashMap<string, Se
 const isSpecSectionId = Schema.is(SpecSectionId);
 const isPrdSectionId = Schema.is(PrdSectionId);
 
+/** What a task links to: the PRD and spec sections it names. */
+type Linked = Pick<ManifestTask, "prdSections" | "specSections">;
+
+/**
+ * The PRD headings a task implements, by the rollup rule of `spec.sections.item-coverage`: those
+ * its `prdSections` name and those its spec sections' `Implements` name, a list item standing
+ * for the heading it is under.
+ */
+const builtByOf = (
+  prd: string,
+  prdSections: ReadonlyArray<Section>,
+  specById: HashMap.HashMap<string, Section>,
+) => {
+  const headingOfItem = HashMap.fromIterable(
+    Array.getSomes(
+      Array.map(itemsOf(prd, prdSections), ({ id, section }) =>
+        Option.map(
+          Option.all([Option.fromUndefinedOr(id), Option.fromUndefinedOr(section)]),
+          ([item, heading]): readonly [string, string] => [item, heading],
+        ),
+      ),
+    ),
+  );
+  return (task: Linked): HashSet.HashSet<string> =>
+    HashSet.fromIterable(
+      Array.map(
+        Array.appendAll<string, string>(
+          task.prdSections,
+          Array.flatMap(task.specSections, (id) =>
+            Option.match(HashMap.get(specById, id), {
+              onNone: (): ReadonlyArray<string> => [],
+              onSome: ({ keys }) => keys.implements,
+            }),
+          ),
+        ),
+        (id) => Option.getOrElse(HashMap.get(headingOfItem, id), () => id),
+      ),
+    );
+};
+
+/** The PRD headings with an ID, in document order, that some of `tasks` implements. */
+const builtSectionsOf = (
+  prdSections: ReadonlyArray<Section>,
+  builtBy: (task: Linked) => HashSet.HashSet<string>,
+  tasks: ReadonlyArray<Linked>,
+): ReadonlyArray<{ readonly id: PrdSectionId; readonly section: Section }> => {
+  const built = HashSet.fromIterable(
+    Array.flatMap(tasks, (task) => Array.fromIterable(builtBy(task))),
+  );
+  return Array.getSomes(
+    Array.map(prdSections, (section) =>
+      pipe(
+        Option.fromUndefinedOr(section.id),
+        Option.filter(isPrdSectionId),
+        Option.filter((id) => HashSet.has(built, id)),
+        Option.map((id) => ({ id, section })),
+      ),
+    ),
+  );
+};
+
+/**
+ * The PRD sections, in document order, that some of `tasks` implements: what `cairn plan`'s fourth
+ * checkpoint asks `built` of (`spec.judging.checkpoints`). A task implements a PRD section its
+ * `prdSections` name, one a spec section it builds implements, and the section holding a list item
+ * either names.
+ */
+export const prdSectionsBuiltBy = (
+  prd: string,
+  spec: string,
+  tasks: ReadonlyArray<Linked>,
+): ReadonlyArray<PrdSectionId> => {
+  const prdSections = sectionsOf(prd);
+  return Array.map(
+    builtSectionsOf(prdSections, builtByOf(prd, prdSections, byId(sectionsOf(spec))), tasks),
+    Struct.get("id"),
+  );
+};
+
+/** Every task reached from `start` by following `next`, without `start` unless a cycle returns to it. */
+const reachedFrom = (
+  next: (id: string) => ReadonlyArray<string>,
+  start: string,
+): HashSet.HashSet<string> => {
+  const walk = (
+    seen: HashSet.HashSet<string>,
+    frontier: ReadonlyArray<string>,
+  ): HashSet.HashSet<string> => {
+    const fresh = Array.dedupe(
+      Array.filter(Array.flatMap(frontier, next), (id) => !HashSet.has(seen, id)),
+    );
+    return Array.isReadonlyArrayEmpty(fresh)
+      ? seen
+      : walk(HashSet.union(seen, HashSet.fromIterable(fresh)), fresh);
+  };
+  return walk(HashSet.empty(), [start]);
+};
+
+/** How many spec sections, PRD sections and files two tasks share. */
+const sharedBy = (
+  a: Pick<ManifestTask, "files" | "prdSections" | "specSections">,
+  b: Pick<ManifestTask, "files" | "prdSections" | "specSections">,
+): number =>
+  Number.sumAll([
+    Array.length(Array.intersection(a.specSections, b.specSections)),
+    Array.length(Array.intersection(a.prdSections, b.prdSections)),
+    Array.length(Array.intersection(a.files, b.files)),
+  ]);
+
+/** The tasks `record` lists for `id`, none when it lists none. */
+const edges =
+  (record: Record.ReadonlyRecord<string, ReadonlyArray<string>>) =>
+  (id: string): ReadonlyArray<string> =>
+    Option.getOrElse(Record.get(record, id), (): ReadonlyArray<string> => []);
+
+/**
+ * Each task's `others`: up to `MAX_OTHERS` tasks that it does not depend on, directly or through
+ * other tasks, and that share a spec section, PRD section or file with it; those sharing the most
+ * first, then in manifest order. A task that depends on it is kept, so `ordered` can see a
+ * dependency written the wrong way round.
+ */
+const othersOf = (tasks: ReadonlyArray<ManifestTask>) => {
+  const dependsOn = Record.fromIterableWith(tasks, (task) => [task.id, task.dependsOn]);
+  return (task: ManifestTask): ReadonlyArray<OtherTask> => {
+    const needed = reachedFrom(edges(dependsOn), task.id);
+    return pipe(
+      tasks,
+      Array.filter((other) => other.id !== task.id && !HashSet.has(needed, other.id)),
+      Array.map((other) => ({ other, shared: sharedBy(task, other) })),
+      Array.filter(({ shared }) => shared > 0),
+      Array.sortWith(Struct.get("shared"), Order.flip(Order.Number)),
+      Array.take(MAX_OTHERS),
+      Array.map(({ other }) => ({ files: other.files, title: other.title })),
+    );
+  };
+};
+
 /**
  * The inputs to judge, from `prd.md`, `spec.md` and the manifest. Pure.
  *
  * - One per spec section that has an ID, in document order.
  * - One per task, in manifest order. A dependency, spec or PRD section the files do not have is
- *   left out; lint reports it.
+ *   left out; lint reports it. Its `others` are found as `othersOf` says.
+ * - One per PRD section with an ID that some task implements, in document order, with only the
+ *   tasks that implement it, in manifest order.
  * - One for the stack, with every PRD section that has an ID.
  */
 export const inputsOf = (prd: string, spec: string, manifest: Manifest): JudgingInputs => {
@@ -332,6 +533,8 @@ export const inputsOf = (prd: string, spec: string, manifest: Manifest): Judging
   const titles = HashMap.fromIterable(
     Array.map(manifest.tasks, (task) => [task.id, task.title] as const),
   );
+  const builtBy = builtByOf(prd, prdSections, specById);
+  const others = othersOf(manifest.tasks);
 
   const sections = Array.getSomes(
     Array.map(specSections, (section) =>
@@ -354,12 +557,33 @@ export const inputsOf = (prd: string, spec: string, manifest: Manifest): Judging
   const taskInputOf = (task: ManifestTask): TaskJudgingInput => ({
     dependsOn: Array.getSomes(Array.map(task.dependsOn, (id) => HashMap.get(titles, id))),
     files: task.files,
+    others: others(task),
     prdSections: textsOf(prdById, task.prdSections),
     specSections: textsOf(specById, task.specSections),
     title: task.title,
   });
 
+  const prdInputOf = (id: PrdSectionId, section: Section): PrdSectionJudgingInput => ({
+    body: section.body,
+    tasks: Array.map(
+      Array.filter(manifest.tasks, (task) => HashSet.has(builtBy(task), id)),
+      (task) => ({
+        files: task.files,
+        specSections: Array.map(textsOf(specById, task.specSections), Struct.get("title")),
+        title: task.title,
+      }),
+    ),
+    title: section.title,
+  });
+
   return {
+    prdSections: Array.map(
+      builtSectionsOf(prdSections, builtBy, manifest.tasks),
+      ({ id, section }) => ({
+        id,
+        input: prdInputOf(id, section),
+      }),
+    ),
     sections,
     stack: {
       feature: manifest.feature,

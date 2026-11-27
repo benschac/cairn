@@ -4,6 +4,7 @@ import { JudgmentQuestion, JudgmentTarget, Sha256Hex } from "@cairn/contract";
 import type { Config, Judgment, Judgments } from "@cairn/contract";
 import {
   TaskJudgingInput,
+  prdSectionQuestions,
   sectionQuestions,
   stackQuestions,
   taskQuestionsFor,
@@ -16,6 +17,7 @@ import {
   DateTime,
   Duration,
   Effect,
+  Function,
   Layer,
   Option,
   Order,
@@ -52,6 +54,7 @@ export class JudgeError extends Schema.TaggedError<JudgeError, { readonly brand:
 /** How a target is named in a message; also the key that matches a previous judgment to it. */
 const nameOf: (target: JudgmentTarget) => string = JudgmentTarget.match({
   draft: ({ title }) => `draft "${title}"`,
+  prd: ({ id }) => `PRD section ${id}`,
   section: ({ id }) => `section ${id}`,
   stack: () => "the stack",
   task: ({ id }) => `task ${id}`,
@@ -147,43 +150,74 @@ const categoryRecordOf = (categories: Categories): Models =>
     Array.map(categories, ({ description, name }) => [name, description] as const),
   );
 
+/** Which questions a call asks of each target: the ones `asks` holds true, every one by default. */
+export interface JudgeOptions {
+  readonly asks?: Predicate.Predicate<JudgmentQuestion>;
+}
+
 /**
  * The request for one target, whose hash is the SHA-256, in hex, of `json`. `json` is encoded by
- * schemas, so a field they leave out does not change the hash.
+ * schemas, so a field they leave out does not change the hash, and neither does `asks`. The
+ * request asks only the questions `asks` keeps; with none it asks nothing.
  */
-const requestOf = <
-  S extends Schema.Codec<unknown, unknown>,
-  D extends Record<string, Decision.Any>,
->(
+/** The kinds of decision the judging definitions ask; none locates. */
+type Asked = Decision.Classify<string> | Decision.Probability | Decision.Rate<string>;
+
+const requestOf = <S extends Schema.Codec<unknown, unknown>, D extends Record<string, Asked>>(
   target: JudgmentTarget,
   definition: Decision.Definition<S, D>,
   input: S["Type"],
   json: Effect.Effect<string, Schema.SchemaError>,
-) =>
-  json.pipe(
-    Effect.mapError((error) => new JudgeError({ reason: error.message, target })),
-    Effect.map((encodedJson): Request => ({
-      ask: DecisionModel.decideSettled(definition, { input }).pipe(
-        Effect.map(({ outcomes }) =>
-          Array.filterMap(Record.toEntries(outcomes), ([question, outcome]) =>
-            isQuestion(question)
-              ? Result.succeed([question, answerOf(outcome)] as const)
-              : Result.failVoid,
-          ),
+  asks: Predicate.Predicate<JudgmentQuestion>,
+) => {
+  const keeps = (key: string): key is JudgmentQuestion => isQuestion(key) && asks(key);
+  const questions = Array.filter(Record.keys(definition.decisions), keeps);
+  // `Decision.make` throws on no decisions, so a target left with none asks nothing.
+  const asked = (narrowed: Decision.Definition<S, Record<string, Asked>>) =>
+    DecisionModel.decideSettled(narrowed, { input }).pipe(
+      Effect.map(({ outcomes }) =>
+        Array.filterMap(Record.toEntries(outcomes), ([question, outcome]) =>
+          isQuestion(question)
+            ? Result.succeed([question, answerOf(outcome)] as const)
+            : Result.failVoid,
         ),
       ),
+    );
+  const ask = Array.isReadonlyArrayEmpty(questions)
+    ? Effect.succeed<ReadonlyArray<readonly [JudgmentQuestion, Answer]>>([])
+    : asked(
+        Array.length(questions) === Record.size(definition.decisions)
+          ? definition
+          : Decision.make({
+              decisions: Record.filter(definition.decisions, (_, key) => keeps(key)),
+              input: definition.input,
+            }),
+      );
+  return json.pipe(
+    Effect.mapError((error) => new JudgeError({ reason: error.message, target })),
+    Effect.map((encodedJson): Request => ({
+      ask,
       hash: Sha256Hex.make(createHash("sha256").update(encodedJson).digest("hex")),
-      questions: Array.filter(Record.keys(definition.decisions), isQuestion),
+      questions,
       target,
     })),
   );
+};
 
 /** The JSON of `input` as `schema` encodes it. */
 const encoded = <S extends Schema.Codec<unknown, unknown>>(schema: S, input: S["Type"]) =>
   Schema.encodeEffect(Schema.fromJsonString(schema))(input);
 
-/** One request per spec section, then per task, then the stack, as `inputsOf` orders them. */
-const requestsOf = (inputs: JudgingInputs, models: Models, categories: Categories) => {
+/**
+ * One request per spec section, then per task, then per PRD section, then the stack, each asking
+ * what `asks` keeps.
+ */
+const requestsOf = (
+  inputs: JudgingInputs,
+  models: Models,
+  categories: Categories,
+  asks: Predicate.Predicate<JudgmentQuestion> = Function.constTrue,
+) => {
   const categoryRecord = categoryRecordOf(categories);
   const tasks = taskQuestionsFor(models, categoryRecord);
   const catalog = catalogOf(models);
@@ -196,6 +230,7 @@ const requestsOf = (inputs: JudgingInputs, models: Models, categories: Categorie
           sectionQuestions,
           input,
           encoded(sectionQuestions.input, input),
+          asks,
         ),
       ),
       Array.map(inputs.tasks, ({ id, input }) =>
@@ -208,6 +243,16 @@ const requestsOf = (inputs: JudgingInputs, models: Models, categories: Categorie
             input,
             models: catalog,
           }),
+          asks,
+        ),
+      ),
+      Array.map(inputs.prdSections, ({ id, input }) =>
+        requestOf(
+          { id, kind: "prd" },
+          prdSectionQuestions,
+          input,
+          encoded(prdSectionQuestions.input, input),
+          asks,
         ),
       ),
       [
@@ -216,6 +261,7 @@ const requestsOf = (inputs: JudgingInputs, models: Models, categories: Categorie
           stackQuestions,
           inputs.stack,
           encoded(stackQuestions.input, inputs.stack),
+          asks,
         ),
       ],
     ]),
@@ -228,8 +274,9 @@ const requestsOf = (inputs: JudgingInputs, models: Models, categories: Categorie
  * `inputsOf` gives the targets. A judgment whose `inputHash` differs from its target's here is
  * stale: the judge would ask that target again.
  *
- * - A spec section's or the stack's hash is the SHA-256, in hex, of its input encoded as JSON by
- *   its definition's input schema (`SectionJudgingInput`, `StackJudgingInput`).
+ * - A spec section's, a PRD section's or the stack's hash is the SHA-256, in hex, of its input
+ *   encoded as JSON by its definition's input schema (`SectionJudgingInput`,
+ *   `PrdSectionJudgingInput`, `StackJudgingInput`).
  * - A task's hash is the SHA-256, in hex, of
  *   `{"categories": [[name, description], ...], "input": ..., "models": [[name, description], ...]}`
  *   encoded as JSON: its `TaskJudgingInput` and every entry of `config.categories` and of
@@ -280,6 +327,7 @@ export class Judge extends Context.Service<
     readonly judge: (
       inputs: JudgingInputs,
       previous: Judgments,
+      options?: JudgeOptions,
     ) => Effect.Effect<Judgments, JudgeError>;
   }
 >()("@cairn/cli/Judge") {
@@ -292,7 +340,8 @@ export class Judge extends Context.Service<
    *   for every question the target asks, those judgments are kept and the target is not asked.
    *   Only the questions it asks now are kept.
    * - The rest go to `decideSettled`, one request per target with all its questions, four at a
-   *   time. A task's `model` question is left out when `judge.models` names fewer than two, and its
+   *   time. With `options.asks`, a target is asked, and kept, only the questions it holds true;
+   *   a target left with none is not asked. A task's `model` question is left out when `judge.models` names fewer than two, and its
    *   `category` question when `config.categories` does.
    * - A rate-limit error is retried up to three times, each after the delay the provider gives.
    *   Any other `AiError`, or a fourth rate limit, is a `JudgeError` naming the target.
@@ -322,9 +371,10 @@ export class Judge extends Context.Service<
         const judge = Effect.fn("Judge.judge")(function* (
           inputs: JudgingInputs,
           previous: Judgments,
+          { asks = Function.constTrue }: JudgeOptions = {},
         ) {
           const reusable = previous.model === config.judge.model ? previous.judgments : [];
-          const requests = yield* requestsOf(inputs, config.judge.models, config.categories);
+          const requests = yield* requestsOf(inputs, config.judge.models, config.categories, asks);
           const judgments = yield* Effect.forEach(
             requests,
             (request) => {

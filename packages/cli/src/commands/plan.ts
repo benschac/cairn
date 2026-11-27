@@ -9,6 +9,7 @@ import {
 import type {
   Config as CairnConfig,
   Judgment,
+  JudgmentQuestion,
   ManifestTask,
   Section,
   SpecIndex,
@@ -22,6 +23,7 @@ import {
   itemsOf,
   lint,
   partOf,
+  prdSectionsBuiltBy,
   refusalOf,
   replanOf,
   scopeOf,
@@ -32,7 +34,7 @@ import {
   uncoveredOf,
   withStackDiagram,
 } from "@cairn/core";
-import type { Finding, Part, Replan } from "@cairn/core";
+import type { Finding, JudgingInputs, Part, Replan } from "@cairn/core";
 import {
   Array,
   Console,
@@ -66,7 +68,7 @@ import {
   targetsOf,
 } from "../ask-statements.ts";
 import { replaceFile } from "../atomic-write.ts";
-import { Judge, JudgeError } from "../judge.ts";
+import { Judge, JudgeError, inputHashesOf } from "../judge.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { livePlannerModels } from "../models.ts";
 import { Planner, PlannerError } from "../planner.ts";
@@ -547,23 +549,31 @@ const refined = Effect.fn("plan.refined")(function* ({ config, told }: Inputs, i
   });
 });
 
+/** What the fourth checkpoint asks: `built` of PRD sections, `ordered` of tasks, `oneFeature` of the stack. */
+const FOURTH_CHECKPOINT: ReadonlyArray<JudgmentQuestion> = ["built", "ordered", "oneFeature"];
+
 /**
- * The fourth checkpoint, the stack questions (`spec.judging.checkpoints`): asked of the manifest
- * the plan would write. It only reports. A part run's `complete` question lists only the part's
- * PRD sections.
+ * The fourth checkpoint (`spec.judging.checkpoints`), asked of the manifest the plan would write:
+ * `built` for each PRD section the new tasks implement, `ordered` for each new task and
+ * `oneFeature` for the stack. It only reports. A part run's stack lists only the part's PRD
+ * sections, the feature this run builds.
  */
 const stackJudged = Effect.fn("plan.stackJudged")(function* (
   { config, part, told }: Inputs,
   prd: string,
   spec: string,
   manifest: Manifest,
+  added: ReadonlyArray<ManifestTask>,
 ) {
   const none: ReadonlyArray<Judgment> = [];
   const maybeJudge = yield* judging(told);
   return yield* Option.match(maybeJudge, {
     onNone: () => Effect.succeed(none),
     onSome: (judge) => {
-      const whole = inputsOf(prd, spec, manifest).stack;
+      const all = inputsOf(prd, spec, manifest);
+      const whole = all.stack;
+      const fresh = HashSet.fromIterable(Array.map(added, Struct.get("id")));
+      const built = HashSet.fromIterable<string>(prdSectionsBuiltBy(prd, spec, added));
       // A part run asks whether the stack builds the part's PRD sections, not the ones left for later.
       const stack = Option.match(part, {
         onNone: () => whole,
@@ -577,17 +587,75 @@ const stackJudged = Effect.fn("plan.stackJudged")(function* (
       });
       return judge
         .judge(
-          { sections: [], stack, tasks: [] },
+          {
+            prdSections: Array.filter(all.prdSections, ({ id }) => HashSet.has(built, id)),
+            sections: [],
+            stack,
+            tasks: Array.filter(all.tasks, ({ id }) => HashSet.has(fresh, id)),
+          },
           { judgments: [], model: config.judge.model, version: 1 },
+          { asks: (question) => Array.contains(FOURTH_CHECKPOINT, question) },
         )
         .pipe(
-          Effect.map(({ judgments }) =>
-            Array.filter(judgments, (judgment) => judgment.target.kind === "stack"),
-          ),
+          Effect.map(({ judgments }) => judgments),
           Effect.catchTag("JudgeError", failedAs(none)),
         );
     },
   });
+});
+
+/**
+ * `judgments` with each new task's earlier judgments given the hash `cairn judge` computes for the
+ * task. `refine` asked them of drafts before `stackOf`, when a task had no `others`; those
+ * questions do not read `others`, so a judgment whose hash is the task's input with `others` left
+ * empty holds for the input with them, and `cairn judge` then keeps it instead of asking again. A
+ * judgment asked of a different input, such as a dependency named by ID, keeps its hash.
+ */
+const restamped = Effect.fn("plan.restamped")(function* (
+  { config }: Inputs,
+  prd: string,
+  spec: string,
+  manifest: Manifest,
+  added: ReadonlyArray<ManifestTask>,
+  judgments: ReadonlyArray<Judgment>,
+) {
+  const fresh = HashSet.fromIterable(Array.map(added, Struct.get("id")));
+  const all = inputsOf(prd, spec, manifest);
+  const tasks = Array.filter(all.tasks, ({ id }) => HashSet.has(fresh, id));
+  const byTask = (inputs: JudgingInputs) =>
+    Effect.map(inputHashesOf(inputs, config), (hashes) =>
+      HashMap.fromIterable(
+        Array.filterMap(hashes, ({ hash, target }) =>
+          target.kind === "task" ? Result.succeed([target.id, hash] as const) : Result.failVoid,
+        ),
+      ),
+    );
+  const only = { prdSections: [], sections: [], stack: all.stack };
+  const final = yield* byTask(Struct.assign(only, { tasks }));
+  const asked = yield* byTask(
+    Struct.assign(only, {
+      tasks: Array.map(tasks, (entry) =>
+        Struct.evolve(entry, { input: (input) => Struct.evolve(input, { others: () => [] }) }),
+      ),
+    }),
+  );
+  return Array.map(judgments, (judgment) =>
+    judgment.target.kind === "task" && judgment.question !== "ordered"
+      ? Option.match(
+          Option.all([
+            HashMap.get(asked, judgment.target.id),
+            HashMap.get(final, judgment.target.id),
+          ]),
+          {
+            onNone: () => judgment,
+            onSome: ([before, after]) =>
+              judgment.inputHash === before
+                ? Struct.evolve(judgment, { inputHash: () => after })
+                : judgment,
+          },
+        )
+      : judgment,
+  );
 });
 
 /** Adds `judgments` to what this run has judged. */
@@ -988,8 +1056,14 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
       (task) => [task.title, task.id] as const,
     ),
   );
-  const stack = yield* stackJudged(inputs, prd, drawn, drafted);
-  const judgments = Array.appendAll(
+  const stack = yield* stackJudged(
+    inputs,
+    prd,
+    drawn,
+    drafted,
+    Array.drop(ordered, Array.length(existing)),
+  );
+  const retargeted = Array.appendAll(
     Array.map(checked.judgments, (judgment) =>
       judgment.target.kind === "draft"
         ? Option.match(HashMap.get(ids, judgment.target.title), {
@@ -1001,6 +1075,14 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
     ),
     stack,
   );
+  const judgments = yield* restamped(
+    inputs,
+    prd,
+    drawn,
+    drafted,
+    Array.drop(ordered, Array.length(existing)),
+    retargeted,
+  ).pipe(Effect.catchTag("JudgeError", failedAs(retargeted)));
   yield* record(inputs, judgments);
   const old = HashSet.fromIterable(Array.map(existing, (task) => task.id));
   yield* Effect.forEach(

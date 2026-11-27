@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { SpecSectionId, TaskId } from "./ids.ts";
+import { PrdSectionId, SpecSectionId, TaskId } from "./ids.ts";
 
 /** A SHA-256 digest: 64 lowercase hex characters. */
 export const Sha256Hex = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/u)).pipe(
@@ -28,10 +28,15 @@ export const JudgmentTarget = Schema.Union([
   Schema.Struct({ id: SpecSectionId, kind: Schema.Literal("section") }),
   Schema.Struct({ id: TaskId, kind: Schema.Literal("task") }),
   Schema.Struct({ kind: Schema.Literal("draft"), title: Schema.String }),
+  Schema.Struct({ id: PrdSectionId, kind: Schema.Literal("prd") }),
   Schema.Struct({ kind: Schema.Literal("stack") }),
 ]).pipe(Schema.toTaggedUnion("kind"));
 export type JudgmentTarget = typeof JudgmentTarget.Type;
 
+/**
+ * Every question a judgment can answer. `complete` is no longer asked: it stays so a
+ * `judgments.json` written before `built` replaced it still decodes.
+ */
 export const JudgmentQuestion = Schema.Literals([
   "size",
   "faithful",
@@ -41,6 +46,7 @@ export const JudgmentQuestion = Schema.Literals([
   "category",
   "model",
   "reasoning",
+  "built",
   "complete",
   "ordered",
   "oneFeature",
