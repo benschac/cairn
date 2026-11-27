@@ -1188,14 +1188,26 @@ const tasksStep = Effect.fn("plan.tasksStep")(function* (
                 Effect.andThen(review(state, stacked)),
               ),
             onSome: (undone) => {
-              const left = Array.filter(stacked, (conflict) => conflict !== undone);
+              // An ordering can need the chain the undone one made, so the rest are checked again.
+              const rechecked = orderingsOf(
+                fresh,
+                existing,
+                Array.filter(stacked, (conflict) => conflict !== undone),
+                config.conflicts,
+              );
+              const left = rechecked.applied;
               return restacked(left).pipe(
                 Effect.tap((next) =>
                   printed(
-                    Array.prepend(
+                    Array.flatten([
+                      [`Undid ${n}: ${undone.later} no longer stacks on ${undone.earlier}.`],
+                      Array.map(
+                        rechecked.recommended,
+                        (dropped) =>
+                          `stacking ${undone.later} on ${undone.earlier} is undone, so ${dropped.later} no longer stacks on ${dropped.earlier} either.`,
+                      ),
                       shown(next),
-                      `Undid ${n}: ${undone.later} no longer stacks on ${undone.earlier}.`,
-                    ),
+                    ]),
                   ),
                 ),
                 Effect.flatMap((next) => review(next, left)),

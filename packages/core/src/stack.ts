@@ -88,7 +88,7 @@ export type StackTask = Pick<ManifestTask, "dependsOn" | "id" | "parent">;
 export type CheckedOut = Pick<ManifestTask, "dependsOn" | "id" | "worktree">;
 
 /** A task and every task below it through parent links. It stops at a task it does not know or one it has seen. */
-const lineOf = (
+export const lineOf = (
   parents: Record.ReadonlyRecord<string, TaskId | null>,
   id: TaskId,
 ): ReadonlyArray<TaskId> =>
