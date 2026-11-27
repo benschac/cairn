@@ -2,11 +2,14 @@
 //
 //   pnpm land [--branch <top branch>]          print the plan and what blocks it
 //   pnpm land [--branch <top branch>] --push   retarget the pull requests to main, then push
+//   pnpm land ... --skip-ci                     land without waiting for CI: pending or missing checks do not block
 //
 // The stack is the chain of open pull requests from <top branch> (default: the
 // current branch) down to main. It lands only when every pull request is
 // approved or carries the "reviewed" label, has passing checks including CI's
 // "check" job on its own head, and the chain is a straight line from the current main.
+// --skip-ci drops the wait for CI, for the owner to use when the local gate at the top is enough;
+// a failed check still blocks.
 //
 // GitHub marks a pull request merged when its head commits become reachable
 // from its base branch, so each one is retargeted to main before the push. The
@@ -134,9 +137,11 @@ const decodePullRequests = Schema.decodeUnknownEffect(
 const land = Effect.fn("land")(function* ({
   branch,
   push,
+  skipCi,
 }: {
   branch: Option.Option<string>;
   push: boolean;
+  skipCi: boolean;
 }) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const path = yield* Path.Path;
@@ -227,7 +232,7 @@ const land = Effect.fn("land")(function* ({
       reasons: Array.flatten([
         Array.fromOption(brokenReason),
         Array.fromOption(mergeBlocker(merged)),
-        blockers(pull),
+        blockers(pull, { skipCi }),
       ]),
     };
   });
@@ -246,6 +251,11 @@ const land = Effect.fn("land")(function* ({
     `Stack ending at ${top}: ${stack.length} pull requests onto ${TRUNK} (${short(trunkOid)})`,
   );
   yield* Console.log(Array.join(report, "\n"));
+  if (skipCi) {
+    yield* Effect.logWarning(
+      "--skip-ci: pending and missing checks do not block; nothing shows each branch passes CI on its own",
+    );
+  }
   if (blocked > 0) {
     if (Option.isSome(broken) || Array.some(merges, Array.isReadonlyArrayNonEmpty)) {
       yield* Console.log(
@@ -327,6 +337,12 @@ const command = Command.make(
     push: Flag.Boolean("push").pipe(
       Flag.withDescription(
         `Retarget the pull requests to ${TRUNK}, then fast-forward ${TRUNK} to the top of the stack`,
+      ),
+      Flag.withDefault(false),
+    ),
+    skipCi: Flag.Boolean("skip-ci").pipe(
+      Flag.withDescription(
+        "Do not wait for CI: pending checks and a check job that has not run do not block; failed checks still do",
       ),
       Flag.withDefault(false),
     ),

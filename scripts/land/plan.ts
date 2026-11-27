@@ -130,8 +130,16 @@ const listed = (label: string, names: ReadonlyArray<string>): Option.Option<stri
     onNonEmpty: (some) => Option.some(`${label}: ${Array.join(some, ", ")}`),
   });
 
+// What the owner may waive for one landing.
+export interface Waivers {
+  // Pending checks and a "check" job CI has not run do not block; a failed check still does. The local gate
+  // still has to have passed at the top of the stack, but nothing shows that each branch below it passes on its own.
+  readonly skipCi?: boolean;
+}
+
 // Every reason a pull request may not land; an empty list means it may.
-export const blockers = (pull: PullRequest): Array<string> => {
+export const blockers = (pull: PullRequest, waivers: Waivers = {}): Array<string> => {
+  const waitForCi = waivers.skipCi !== true;
   const reviewed =
     pull.reviewDecision === "APPROVED" ||
     Array.some(pull.labels, (label) => label.name === REVIEWED_LABEL);
@@ -142,9 +150,10 @@ export const blockers = (pull: PullRequest): Array<string> => {
     // GitHub starts workflows only after it has computed the merge, so anything else can hide checks that have not started.
     when(pull.mergeable !== "MERGEABLE", `mergeable state is ${pull.mergeable}`),
     listed("failed checks", checks.failed),
-    listed("pending checks", checks.pending),
+    waitForCi ? listed("pending checks", checks.pending) : Option.none(),
     when(
-      !Array.some([checks.failed, checks.pending, checks.passed], Array.contains(REQUIRED_CHECK)),
+      waitForCi &&
+        !Array.some([checks.failed, checks.pending, checks.passed], Array.contains(REQUIRED_CHECK)),
       `CI has not run "${REQUIRED_CHECK}" on it`,
     ),
   ]);

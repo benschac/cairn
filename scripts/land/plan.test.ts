@@ -116,6 +116,36 @@ await test("each unmet requirement blocks the pull request", () => {
   );
 });
 
+const skipping = (extra: Partial<PullRequest>) =>
+  blockers(pull(1, "a", "main", extra), { skipCi: true });
+
+await test("--skip-ci lets pending and missing checks through, and still blocks a failed one", () => {
+  assert.deepEqual(skipping({ statusCheckRollup: null }), []);
+  assert.deepEqual(skipping({ statusCheckRollup: [] }), []);
+  assert.deepEqual(
+    skipping({
+      statusCheckRollup: [
+        { __typename: "CheckRun", name: "check", status: "IN_PROGRESS", conclusion: "" },
+      ],
+    }),
+    [],
+  );
+  assert.match(
+    Array.join(
+      skipping({
+        statusCheckRollup: [
+          { __typename: "CheckRun", name: "check", status: "COMPLETED", conclusion: "FAILURE" },
+        ],
+      }),
+      "; ",
+    ),
+    /failed checks: check/,
+  );
+  // Waiving CI waives nothing else.
+  assert.match(Array.join(skipping({ labels: [], statusCheckRollup: null }), "; "), /not approved/);
+  assert.match(Array.join(skipping({ isDraft: true }), "; "), /draft/);
+});
+
 await test("a stack whose middle pull request failed CI is blocked though its top passed", () => {
   // The local gate passed at the top, which says nothing about the commits below it on their own.
   const failed = {
