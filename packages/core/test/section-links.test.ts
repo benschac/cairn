@@ -3,13 +3,14 @@ import { readFileSync } from "node:fs";
 import {
   Manifest,
   PrdSectionId,
+  SectionId,
   SpecIndex,
   SpecSectionId,
   TaskId,
   TaskStatus,
 } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, Option, Schema, String, pipe } from "effect";
+import { Array, Option, Schema, String, Struct, pipe } from "effect";
 
 import { TaskIdOrder, indexOf, itemsOf, sectionLinksOf, sectionsOf } from "../src/index.ts";
 import type { IndexTask, RelationIndex, SectionTree, StatusOf } from "../src/index.ts";
@@ -55,7 +56,7 @@ const PRD_IDS = Array.map(
   (id) => PrdSectionId.make(id),
 );
 const prdSections = sectionsOf(PRD);
-const tree: SectionTree = { items: itemsOf(PRD, prdSections), sections: prdSections };
+const tree: SectionTree = { items: itemsOf(PRD, prdSections), sections: prdSections, spec: [] };
 
 const pick = <A>(pool: ReadonlyArray<A>, at: number): A =>
   Option.getOrThrow(Array.get(pool, at % Array.length(pool)));
@@ -307,7 +308,11 @@ it("on this repo's plan, Fuzzy search needs Task detail through t95 needs t94, a
   );
   const prd = repo(".cairn/prd.md");
   const sections = sectionsOf(prd);
-  const repoTree: SectionTree = { items: itemsOf(prd, sections), sections };
+  const repoTree: SectionTree = {
+    items: itemsOf(prd, sections),
+    sections,
+    spec: sectionsOf(repo(".cairn/spec.md")),
+  };
   const index = indexOf({ manifest, prd, specIndex });
   const statusOf: StatusOf = (task) =>
     Option.match(
@@ -341,4 +346,44 @@ it("on this repo's plan, Fuzzy search needs Task detail through t95 needs t94, a
         ),
     ),
   ).toEqual(Option.some(true));
+});
+
+const allPending: StatusOf = () => "pending";
+
+it("a task that builds a spec section under one that implements an item is one of the item's own tasks", () => {
+  const index = indexOf({
+    manifest: {
+      tasks: [
+        {
+          dependsOn: [],
+          id: TaskId.make("t1"),
+          orderedAfter: [],
+          parent: null,
+          prdSections: [PrdSectionId.make("prd.p2")],
+          specSections: [SpecSectionId.make("spec.a.b")],
+        },
+      ],
+    },
+    prd: PRD,
+    specIndex: {
+      sections: [
+        {
+          dependsOn: [],
+          id: SpecSectionId.make("spec.a"),
+          implements: [PrdSectionId.make("prd.p1.thing")],
+          tests: [],
+        },
+        { dependsOn: [], id: SpecSectionId.make("spec.a.b"), implements: [], tests: [] },
+      ],
+    },
+  });
+  const spec = [
+    { id: SectionId.make("spec.a"), parent: undefined },
+    { id: SectionId.make("spec.a.b"), parent: SectionId.make("spec.a") },
+  ];
+  const item = PrdSectionId.make("prd.p1.thing");
+  expect(
+    sectionLinksOf(index, Struct.assign(tree, { spec }), item, { statusOf: allPending }).tasks,
+  ).toEqual(["t1"]);
+  expect(sectionLinksOf(index, tree, item, { statusOf: allPending }).tasks).toEqual([]);
 });
