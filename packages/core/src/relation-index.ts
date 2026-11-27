@@ -10,14 +10,13 @@ import type {
   TaskId,
   TaskStatus,
   TestId,
-  Section,
   TraceDocument,
 } from "@cairn/contract";
-import { Array, HashSet, Option, Predicate, Record, Result, Schema, String, pipe } from "effect";
+import { Array, HashSet, Option, Predicate, Record, Result, Schema, pipe } from "effect";
 
 import { itemsOf } from "./items.ts";
+import { headingsOf, linesOf } from "./section-ids.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
-import { identifiedOf } from "./identified.ts";
 import { TaskIdOrder } from "./task-order.ts";
 import { statementsOf } from "./statements.ts";
 
@@ -173,19 +172,39 @@ const extractors: Record.ReadonlyRecord<RelationKind, Extractor> = {
 const isSpecSectionId = Schema.is(SpecSectionId);
 const isPrdSectionId = Schema.is(PrdSectionId);
 
-/** The values `section` itself lists under `key`; `Section.keys` also holds what the headings above it list. */
-const ownValuesOf = (section: Section, key: string): ReadonlyArray<string> =>
-  Array.flatMap(keyEntriesOf(String.split(section.body, "\n")), ([name, values]) =>
-    name === key ? values : [],
-  );
+/** The values a section's own key lines list under `key`; a trace's keys also hold what the headings above list. */
+const ownValuesOf = (body: ReadonlyArray<string>, key: string): ReadonlyArray<string> =>
+  Array.flatMap(keyEntriesOf(body), ([name, values]) => (name === key ? values : []));
 
-/** The spec sections of `spec.md` with their own `Implements` and `Depends on`. */
-const specSectionsOf = (markdown: string): ReadonlyArray<GraphSection> =>
-  Array.map(identifiedOf(sectionsOf(markdown)), ({ id, section }) => ({
-    dependsOn: Array.filter(ownValuesOf(section, "Depends on"), isSpecSectionId),
-    id,
-    implements: Array.filter(ownValuesOf(section, "Implements"), isPrdSectionId),
-  }));
+/**
+ * The spec sections of `spec.md` with their own `Implements` and `Depends on`. It reads headings
+ * and key lines line by line, as `sectionsOf` does, but skips the Markdown parse `sectionsOf`
+ * makes to find human markers, which the index does not read: on this repository's spec that parse
+ * is most of the time it takes to build the index from a trace.
+ */
+const specSectionsOf = (markdown: string): ReadonlyArray<GraphSection> => {
+  const lines = linesOf(markdown);
+  const starts = Array.getSomes(
+    Array.map(headingsOf(lines), (found, at) => Option.map(found, (heading) => ({ at, heading }))),
+  );
+  const ends = Array.append(
+    Array.map(Array.drop(starts, 1), ({ at }) => at),
+    Array.length(lines),
+  );
+  return Array.filterMap(Array.zip(starts, ends), ([{ at, heading }, stop]) =>
+    Option.match(Option.filter(heading.id, isSpecSectionId), {
+      onNone: () => Result.failVoid,
+      onSome: (id) => {
+        const body = Array.take(Array.drop(lines, at + 1), stop - at - 1);
+        return Result.succeed({
+          dependsOn: Array.filter(ownValuesOf(body, "Depends on"), isSpecSectionId),
+          id,
+          implements: Array.filter(ownValuesOf(body, "Implements"), isPrdSectionId),
+        });
+      },
+    }),
+  );
+};
 
 const graphOf = (source: RelationSource): Graph => {
   if ("tasks" in source) {

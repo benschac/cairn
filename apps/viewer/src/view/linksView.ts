@@ -5,7 +5,7 @@ import { Array, Option, String } from "effect";
 
 import { switchView } from "../effect-ui/controls.ts";
 import { Message } from "../message.ts";
-import { linksFor } from "../reader.ts";
+import { linksFor, statusWordOf } from "../reader.ts";
 import { sectionStatusOf, sectionTitleOf } from "../trace.ts";
 import { dotView, labelView } from "../ui/marks.ts";
 import { withHover } from "./wiresView.ts";
@@ -69,7 +69,24 @@ const taskTitleOf = (trace: Trace, id: TaskId): string =>
     { onNone: () => id, onSome: (task) => `${id} ${task.title}` },
   );
 
-/** An unfinished task of the section: a button that opens its detail, and what it waits on when it cannot start. */
+/**
+ * What follows an unfinished task in Next: `waits on t94` for one whose needs are unfinished, and
+ * its status for one that is under way, blocked or failed with nothing left to wait on. A task that
+ * can start needs no note.
+ */
+const nextNoteOf = (trace: Trace, next: NextTask): Option.Option<string> =>
+  Array.match(next.waitsOn, {
+    onEmpty: () =>
+      next.canStart
+        ? Option.none()
+        : Option.map(
+            Array.findFirst(trace.tasks, (task) => task.id === next.task),
+            (task) => statusWordOf(task.status),
+          ),
+    onNonEmpty: (waits) => Option.some(`waits on ${Array.join(waits, ", ")}`),
+  });
+
+/** An unfinished task of the section: a button that opens its detail, then what it waits on or its status. */
 const nextTaskView = (h: Html.H<Message>, trace: Trace, next: NextTask) =>
   h.li
     .key(next.task)
@@ -83,11 +100,14 @@ const nextTaskView = (h: Html.H<Message>, trace: Trace, next: NextTask) =>
           .on("click", Message.ClickedTask({ id: next.task })),
         { id: next.task, kind: "task" },
       ).children(taskTitleOf(trace, next.task)),
-      !next.canStart &&
-        h.span
-          .class("link-note")
-          .attr("data-link-waits", "")
-          .children(`waits on ${Array.join(next.waitsOn, ", ")}`),
+      Option.getOrUndefined(
+        Option.map(nextNoteOf(trace, next), (note) =>
+          h.span
+            .class("link-note")
+            .attr("data-link-waits", Array.isReadonlyArrayEmpty(next.waitsOn) ? undefined : "")
+            .children(note),
+        ),
+      ),
     );
 
 const groupView = <A>(

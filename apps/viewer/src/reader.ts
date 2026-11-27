@@ -11,7 +11,7 @@ import {
 } from "@cairn/contract";
 import { indexOf } from "@cairn/core/relation-index";
 import type { RelationIndex } from "@cairn/core/relation-index";
-import { sectionLinksOf, type SectionLinks } from "@cairn/core/section-links";
+import { sectionLinkerOf, type SectionLinker, type SectionLinks } from "@cairn/core/section-links";
 import { TaskIdOrder } from "@cairn/core/stacks";
 import {
   Array,
@@ -58,8 +58,9 @@ export const relationsOf = (trace: Trace): RelationIndex =>
 
 /** What the links of a trace's sections are built from, kept for as long as the trace is the same one. */
 interface LinksCache {
+  /** The plan-wide part, worked out once for the trace; each section's answer is then quick. */
+  readonly linker: SectionLinker;
   readonly links: MutableHashMap.MutableHashMap<string, SectionLinks>;
-  readonly statuses: Record.ReadonlyRecord<string, TaskStatus>;
   readonly trace: Trace;
 }
 
@@ -69,9 +70,14 @@ const linksCacheOf = (trace: Trace): LinksCache =>
   Option.getOrElse(
     Option.filter(MutableRef.get(linksCache), (cached) => cached.trace === trace),
     () => {
+      const statuses = Record.fromIterableWith(trace.tasks, (task) => [task.id, task.status]);
       const fresh: LinksCache = {
+        linker: sectionLinkerOf(
+          relationsOf(trace),
+          { items: trace.prd.items, sections: trace.prd.sections, spec: trace.spec.sections },
+          (task) => Option.getOrElse(Record.get(statuses, task), (): TaskStatus => "pending"),
+        ),
         links: MutableHashMap.empty(),
-        statuses: Record.fromIterableWith(trace.tasks, (task) => [task.id, task.status]),
         trace,
       };
       MutableRef.set(linksCache, Option.some(fresh));
@@ -81,7 +87,7 @@ const linksCacheOf = (trace: Trace): LinksCache =>
 
 /**
  * What the PRD section or item `id` needs, what needs it and what it can build next, from
- * `sectionLinksOf` on the trace's relation index (see `spec.viewer.what-depends-on-what`).
+ * `sectionLinkerOf` on the trace's relation index (see `spec.viewer.what-depends-on-what`).
  * `isTransitive` asks for everything before and after, each with the link it comes through. Each
  * answer is kept with its trace, so a render that asks again for the same one does no work.
  */
@@ -89,16 +95,7 @@ export const linksFor = (trace: Trace, id: PrdSectionId, isTransitive: boolean):
   const cache = linksCacheOf(trace);
   const key = `${isTransitive ? "all" : "direct"}:${id}`;
   return Option.getOrElse(MutableHashMap.get(cache.links, key), () => {
-    const links = sectionLinksOf(
-      relationsOf(trace),
-      { items: trace.prd.items, sections: trace.prd.sections, spec: trace.spec.sections },
-      id,
-      {
-        statusOf: (task) =>
-          Option.getOrElse(Record.get(cache.statuses, task), (): TaskStatus => "pending"),
-        transitive: isTransitive,
-      },
-    );
+    const links = cache.linker(id, isTransitive);
     MutableHashMap.set(cache.links, key, links);
     return links;
   });
