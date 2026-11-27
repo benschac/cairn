@@ -1131,8 +1131,10 @@ Keep notes offline.
 /** A judge whose `buildsItem` has `probability`, and a run of it. */
 const itemRun = (probability: number): Run => ({
   judge: scriptedJudge({
-    probability: (_title, question) =>
-      question === "buildsItem" ? Option.some(probability) : Option.none(),
+    probability: (_title, question) => {
+      if (question === "namesImplementation") return Option.some(0.05);
+      return question === "buildsItem" ? Option.some(probability) : Option.none();
+    },
   }),
   options: { spec: true },
   sections: OFFLINE,
