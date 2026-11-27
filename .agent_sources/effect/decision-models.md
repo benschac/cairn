@@ -280,8 +280,9 @@ below means its commit is on `main`.
 | Where | Kinds | What it asks |
 | --- | --- | --- |
 | `packages/core/src/judging/questions.ts` `sectionQuestions` | `rate` `size`; `probability` `faithful`, `buildable` | Each spec section, after the spec is written. |
-| `taskQuestionsWithoutModel`, `taskQuestions` | `probability` `matches`; `rate` `size`, `reasoning`; `classify` `model` over `judge.models` | Each task, after drafting. `model` is built only with two models or more (`judge.ts`). |
-| `stackQuestions` | `probability` `complete`, `ordered`, `oneFeature` | The whole stack. The viewer shows none of the three. |
+| `taskQuestionsWithoutModel`, `taskQuestions` | `probability` `matches`, `inScope`, `ordered`; `rate` `size`, `reasoning`; `classify` `model` over `judge.models`, `category` over `config.categories` | Each task, after drafting; `ordered` only once `stackOf` has ordered the drafts, over the task's `others`. `model` is built only with two models or more (`judge.ts`). |
+| `prdSectionQuestions` | `probability` `built` | Each PRD section some task implements, given only those tasks. The viewer marks the section. |
+| `stackQuestions` | `probability` `oneFeature` | The whole stack. The viewer does not show it. |
 | `packages/core/src/judging/verdicts.ts` | | The truth table: `pass`, `flag` or `unsure` from `judge.pass` (0.7), `judge.flag` (0.3) and `judge.minProbability` (0.5). |
 | `packages/cli/src/judge.ts`, `packages/cli/src/refine.ts` | `decideSettled` | One request per target, four at a time, hashed so an unchanged target is not asked again; `refine` splits what is judged too large. |
 

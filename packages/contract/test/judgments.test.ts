@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Exit, Schema, String } from "effect";
+import { Array, Exit, Schema, String } from "effect";
 
 import { Judgment, Judgments, JudgmentsJson, Sha256Hex } from "../src/index.ts";
 
@@ -52,6 +52,26 @@ it("a draft target carries a title, and a section target a section id", () => {
     true,
   );
   expect(refused(Judgment, { ...stack, target: { kind: "other" } })).toBe(true);
+});
+
+it("a PRD section target carries a PRD section id and is asked built", () => {
+  const built = { ...stack, question: "built", target: { id: "prd.cli.judge", kind: "prd" } };
+  expect(refused(Judgment, built)).toBe(false);
+  expect(refused(Judgment, { ...built, target: { id: "spec.judging", kind: "prd" } })).toBe(true);
+  expect(refused(Judgment, { ...built, target: { kind: "prd" } })).toBe(true);
+});
+
+it("a judgments.json written before built replaced complete still decodes", () => {
+  const older = {
+    judgments: [
+      { ...stack, question: "complete" },
+      { ...stack, question: "ordered" },
+    ],
+    model: "jev-1.14.0",
+    version: 1,
+  };
+  const decoded = Schema.decodeUnknownSync(Judgments)(older);
+  expect(Array.map(decoded.judgments, ({ question }) => question)).toEqual(["complete", "ordered"]);
 });
 
 it("a judgment refuses an unknown question, verdict or action, and a round below 1", () => {

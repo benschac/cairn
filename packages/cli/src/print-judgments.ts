@@ -5,6 +5,7 @@ import { Array, Result } from "effect";
 /** How a judgment names its target in the plan's output and when it is matched to another. */
 export const targetName: (target: JudgmentTarget) => string = JudgmentTarget.match({
   draft: ({ title }) => `draft "${title}"`,
+  prd: ({ id }) => id,
   section: ({ id }) => id,
   stack: () => "stack",
   task: ({ id }) => id,

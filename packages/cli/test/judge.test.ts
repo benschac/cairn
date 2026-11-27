@@ -1,8 +1,20 @@
 import { createHash } from "node:crypto";
 
-import { Config as CairnConfig, Judgments, SpecSectionId, TaskId } from "@cairn/contract";
+import {
+  Config as CairnConfig,
+  Judgments,
+  PrdSectionId,
+  SpecSectionId,
+  TaskId,
+} from "@cairn/contract";
 import type { JudgmentTarget } from "@cairn/contract";
-import { SectionJudgingInput, StackJudgingInput, TaskJudgingInput, verdictOf } from "@cairn/core";
+import {
+  PrdSectionJudgingInput,
+  SectionJudgingInput,
+  StackJudgingInput,
+  TaskJudgingInput,
+  verdictOf,
+} from "@cairn/core";
 import type { JudgingInputs } from "@cairn/core";
 import { expect, it } from "@effect/vitest";
 import {
@@ -140,6 +152,9 @@ const mostOf = Calls.use((calls) => calls.most);
 
 /** Generated inputs, with each section and task ID once, as `inputsOf` gives them. */
 const Inputs = Schema.Struct({
+  prdSections: Schema.Array(
+    Schema.Struct({ id: PrdSectionId, input: PrdSectionJudgingInput }),
+  ).check(Schema.isMaxLength(3)),
   sections: Schema.Array(Schema.Struct({ id: SpecSectionId, input: SectionJudgingInput })).check(
     Schema.isMaxLength(3),
   ),
@@ -151,6 +166,7 @@ const Inputs = Schema.Struct({
 
 const unique = (inputs: typeof Inputs.Type): JudgingInputs =>
   Struct.evolve(inputs, {
+    prdSections: (prdSections) => Array.dedupeWith(prdSections, (a, b) => a.id === b.id),
     sections: (sections) => Array.dedupeWith(sections, (a, b) => a.id === b.id),
     tasks: (tasks) => Array.dedupeWith(tasks, (a, b) => a.id === b.id),
   });
@@ -169,10 +185,29 @@ const stack: StackJudgingInput = {
 
 const task = (id: string) => ({
   id: TaskId.make(id),
-  input: { dependsOn: [], files: [], prdSections: [], specSections: [], title: `Task ${id}` },
+  input: {
+    dependsOn: [],
+    files: [],
+    others: [],
+    prdSections: [],
+    specSections: [],
+    title: `Task ${id}`,
+  },
+});
+
+const prdSection = (id: string, body: string) => ({
+  id: PrdSectionId.make(id),
+  input: {
+    body,
+    tasks: [
+      { files: ["packages/cli/src/judge.ts"], specSections: ["Judge service"], title: "Task t1" },
+    ],
+    title: id,
+  },
 });
 
 const fixed: JudgingInputs = {
+  prdSections: [],
   sections: [section("spec.a", "First"), section("spec.b", "Second")],
   stack,
   tasks: [task("t1")],
@@ -199,10 +234,12 @@ it.effect.prop(
             "inScope",
             "matches",
             "model",
+            "ordered",
             "reasoning",
             "size",
           ]),
-          [["complete", "oneFeature", "ordered"]],
+          Array.map(inputs.prdSections, () => ["built"]),
+          [["oneFeature"]],
         ]),
       );
       expect(Schema.is(Judgments)(result)).toBe(true);
@@ -214,7 +251,10 @@ it.effect.prop(
         ),
       ).toBe(true);
       expect(Array.length(result.judgments)).toBe(
-        4 * Array.length(inputs.sections) + 6 * Array.length(inputs.tasks) + 3,
+        4 * Array.length(inputs.sections) +
+          7 * Array.length(inputs.tasks) +
+          Array.length(inputs.prdSections) +
+          1,
       );
       expect(
         Array.map(result.judgments, (judgment) => Struct.pick(judgment, ["message", "verdict"])),
@@ -287,6 +327,87 @@ it.effect("a target is asked again when a question it asks now has no previous j
       Option.some(task("t1").input),
     );
   }).pipe(Effect.provide(judging())),
+);
+
+/** The judgments of one PRD section. */
+const judgmentsOfPrd = (judgments: Judgments, id: string) =>
+  Array.filter(judgments.judgments, (j) => j.target.kind === "prd" && j.target.id === id);
+
+const withPrd: JudgingInputs = Struct.evolve(fixed, {
+  prdSections: () => [prdSection("prd.a", "Judge the plan"), prdSection("prd.b", "Show it")],
+});
+
+it.effect(
+  "a PRD section is asked built in a request of its own, kept when unchanged and asked again when changed",
+  () =>
+    Effect.gen(function* () {
+      const judge = yield* Judge;
+      const first = yield* judge.judge(withPrd, none);
+      const asked = yield* seenOf;
+      expect(
+        Array.map(
+          Array.filter(asked, (options) => Record.has(options.decisions, "built")),
+          (options) => [decisionsOf(options), options.state] as const,
+        ),
+      ).toEqual([
+        [["built"], prdSection("prd.a", "Judge the plan").input],
+        [["built"], prdSection("prd.b", "Show it").input],
+      ]);
+      expect(
+        Array.map(judgmentsOfPrd(first, "prd.a"), (j) => [j.question, j.target] as const),
+      ).toEqual([["built", { id: "prd.a", kind: "prd" }]]);
+
+      const again = yield* judge.judge(withPrd, first);
+      const askedAgain = yield* seenCount;
+      expect([askedAgain, again]).toEqual([Array.length(asked), first]);
+
+      const changed = Struct.evolve(withPrd, {
+        prdSections: (prdSections) =>
+          Array.map(prdSections, (entry) =>
+            entry.id === "prd.b" ? prdSection("prd.b", "Show it, rewritten") : entry,
+          ),
+      });
+      const third = yield* judge.judge(changed, first);
+      const seen = yield* seenOf;
+      expect(Array.length(seen)).toBe(Array.length(asked) + 1);
+      expect(Option.map(Array.last(seen), (options) => options.state)).toEqual(
+        Option.some(prdSection("prd.b", "Show it, rewritten").input),
+      );
+      expect(judgmentsOfPrd(third, "prd.a")).toEqual(judgmentsOfPrd(first, "prd.a"));
+      expect(Array.map(judgmentsOfPrd(third, "prd.b"), (j) => j.inputHash)).not.toEqual(
+        Array.map(judgmentsOfPrd(first, "prd.b"), (j) => j.inputHash),
+      );
+    }).pipe(Effect.provide(judging())),
+);
+
+it.effect.prop(
+  "with asks, each target is asked and kept only the questions asks holds true, and one left with none is not asked",
+  [
+    Schema.Array(
+      Schema.Literals(["built", "ordered", "oneFeature", "size", "matches", "faithful"]),
+    ),
+  ],
+  ([kept]) => {
+    const asks = (question: string) => Array.contains<string>(kept, question);
+    return Effect.gen(function* () {
+      const judge = yield* Judge;
+      const result = yield* judge.judge(withPrd, none, { asks });
+      const seen = yield* seenOf;
+      expect(Array.every(Array.flatMap(seen, decisionsOf), asks)).toBe(true);
+      expect(Array.every(seen, (options) => Record.size(options.decisions) > 0)).toBe(true);
+      expect(Array.every(result.judgments, (j) => asks(j.question))).toBe(true);
+      const everything = yield* judge.judge(withPrd, none);
+      expect(Array.filter(everything.judgments, (j) => asks(j.question))).toHaveLength(
+        Array.length(result.judgments),
+      );
+      const asked = yield* seenCount;
+      const again = yield* judge.judge(withPrd, result, { asks });
+      const askedAgain = yield* seenCount;
+      expect(again).toEqual(result);
+      expect(askedAgain).toBe(asked);
+    }).pipe(Effect.provide(judging()));
+  },
+  { arbitrary: { runs: 20 } },
 );
 
 /** Judges `fixed` under `before`, then again under `after` with the first judgments as previous. */
@@ -365,14 +486,16 @@ it.effect("a task is asked again without its model question once judge.models na
       withModels({ haiku: "Small" }),
     );
     expect(Array.map(seen, (options) => options.state)).toEqual([task("t1").input]);
-    expect(askedFor(seen)).toEqual([["category", "inScope", "matches", "reasoning", "size"]]);
+    expect(askedFor(seen)).toEqual([
+      ["category", "inScope", "matches", "ordered", "reasoning", "size"],
+    ]);
     expect(notTask(second)).toEqual(notTask(first));
     expect(
       Array.map(
         Array.filter(second.judgments, (j) => j.target.kind === "task"),
         (j) => j.question,
       ),
-    ).toEqual(["inScope", "matches", "reasoning", "size", "category"]);
+    ).toEqual(["inScope", "matches", "ordered", "reasoning", "size", "category"]);
   }),
 );
 
@@ -519,7 +642,10 @@ it.effect.prop(
         ),
       ).toEqual(Array.map(result.judgments, (j) => Option.some(j.inputHash)));
       expect(Array.length(hashes)).toBe(
-        Array.length(inputs.sections) + Array.length(inputs.tasks) + 1,
+        Array.length(inputs.sections) +
+          Array.length(inputs.tasks) +
+          Array.length(inputs.prdSections) +
+          1,
       );
     }),
   { arbitrary: { runs: 20 } },
@@ -547,6 +673,7 @@ it.effect("no more than four requests are in flight at once", () =>
   Effect.gen(function* () {
     const judge = yield* Judge;
     const inputs: JudgingInputs = {
+      prdSections: [],
       sections: Array.map(Array.range(1, 10), (n) => section(`spec.s${n}`, `Body ${n}`)),
       stack,
       tasks: [],
@@ -576,7 +703,7 @@ const rateLimited = (retryAfter?: Duration.Duration) =>
 const after = (seconds: number) =>
   Effect.andThen(TestClock.adjust(Duration.seconds(seconds)), seenCount);
 
-const stackOnly: JudgingInputs = { sections: [], stack, tasks: [] };
+const stackOnly: JudgingInputs = { prdSections: [], sections: [], stack, tasks: [] };
 
 it.effect("a rate limit is retried three times, each after the delay the provider gives", () =>
   Effect.gen(function* () {
@@ -585,7 +712,7 @@ it.effect("a rate limit is retried three times, each after the delay the provide
     const counts = yield* Effect.forEach([0, 29, 1, 30, 30], after);
     expect(counts).toEqual([1, 1, 2, 3, 4]);
     const result = yield* Fiber.join(fiber);
-    expect(Array.length(result.judgments)).toBe(3);
+    expect(Array.length(result.judgments)).toBe(1);
   }).pipe(
     Effect.provide(judging({ failures: Array.replicate(rateLimited(Duration.seconds(30)), 3) })),
   ),
@@ -623,7 +750,10 @@ it.effect("any other AiError fails at once with a JudgeError that names the targ
   Effect.gen(function* () {
     const judge = yield* Judge;
     const error = yield* Effect.flip(
-      judge.judge({ sections: [section("spec.a", "First")], stack, tasks: [] }, none),
+      judge.judge(
+        { prdSections: [], sections: [section("spec.a", "First")], stack, tasks: [] },
+        none,
+      ),
     );
     expect(Schema.is(JudgeError)(error)).toBe(true);
     expect(error.target).toEqual({ id: "spec.a", kind: "section" });
@@ -649,11 +779,11 @@ it.effect("a refused question is an unanswered judgment, unsure", () =>
   Effect.gen(function* () {
     const judge = yield* Judge;
     const result = yield* judge.judge(stackOnly, none);
-    const ordered = Array.findFirst(result.judgments, (j) => j.question === "ordered");
-    expect(Option.map(ordered, (j) => [j.answer, j.verdict])).toEqual(
+    const oneFeature = Array.findFirst(result.judgments, (j) => j.question === "oneFeature");
+    expect(Option.map(oneFeature, (j) => [j.answer, j.verdict])).toEqual(
       Option.some([{ description: expect.any(String), unanswered: "Refused" }, "unsure"]),
     );
-  }).pipe(Effect.provide(judging({ refuse: ["ordered"] }))),
+  }).pipe(Effect.provide(judging({ refuse: ["oneFeature"] }))),
 );
 
 it.effect(

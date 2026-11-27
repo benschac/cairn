@@ -14,11 +14,17 @@ export {
 } from "./conflicts.ts";
 export { drawsOf, mermaidBlocksOf, withoutMermaidBlocks, type MermaidBlock } from "./diagrams.ts";
 export {
+  BuildingTask,
+  MAX_OTHERS,
+  OtherTask,
+  PrdSectionJudgingInput,
   SectionJudgingInput,
   SectionText,
   StackJudgingInput,
   TaskJudgingInput,
   inputsOf,
+  prdSectionQuestions,
+  prdSectionsBuiltBy,
   sectionQuestions,
   stackQuestions,
   taskQuestions,
