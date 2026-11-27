@@ -20,6 +20,8 @@ and docs under `node_modules` instead of trusting memory.
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | Any Effect module           | `.agent_sources/effect/index.md`, then `core-index.md` for an export's line range in `node_modules/effect/dist/*.d.ts`            |
 | Review before a commit      | `.agent_sources/effect/checklist.md`: the smells to look for in your diff, the Effect API for each and the check that enforces it |
+| Typed questions to a model  | `.agent_sources/effect/decision-models.md`: `classify`, `rate`, `probability`, `locate`; the model judges, code decides           |
+| Comparing AI models         | `.agent_sources/effect/compare-models.md`: one `effect/ai` effect, a layer per model, a `DecisionModel` to pick the winner        |
 | A native pattern            | `.agent_sources/effect/native-to-effect.md`: the Effect replacement for a loop, comparator, `Set`, `JSON`, `Date`, ...            |
 | Environment and secrets     | `.agent_sources/patterns/shared-config.md`: the environment as a service, shared by the deploy and the runtime                    |
 | Effect idioms               | `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/src/`                                                            |
