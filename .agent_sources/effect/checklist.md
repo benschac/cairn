@@ -164,6 +164,7 @@ which variants have it. [variant-schemas.md](variant-schemas.md) says when that 
 | A number of milliseconds | `Duration.seconds(30)`, `Duration.millis`, `Duration.minutes` | | `scripts/agent-sources/refresh-pattern-sources.ts` |
 | `setTimeout`, `setInterval`, a retry loop | `Effect.sleep`, `Effect.timeout`, `Effect.repeat({ schedule, until })`, `Effect.retry` with `Schedule.spaced`, `Schedule.exponential`, `Schedule.recurs`, `Schedule.during`, `Schedule.jittered` | `globalTimers`, `globalTimersInEffect` | `scripts/land/land.ts` (`Schedule.during`), `ai-docs/src/06_schedule/` |
 | `process.env.X` | `Config.String("X")`, `Config.Port`, `Config.Int`, `Config.Boolean`, `Config.Redacted`, `Config.withDefault`, `Config.option`, `Config.schema` | `processEnv`, `processEnvInEffect` | `packages/cli/src/serve.ts` |
+| An entrypoint reading variables in several places, or a deploy and a Worker listing secrets separately | One env `Context.Service` per entrypoint: `Config.all` over a shared base, extended with `Struct.assign`, provided with `Layer.succeed` | | `.agent_sources/patterns/shared-config.md` |
 
 ## Logging and output
 

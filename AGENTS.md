@@ -21,6 +21,7 @@ and docs under `node_modules` instead of trusting memory.
 | Any Effect module           | `.agent_sources/effect/index.md`, then `core-index.md` for an export's line range in `node_modules/effect/dist/*.d.ts`            |
 | Review before a commit      | `.agent_sources/effect/checklist.md`: the smells to look for in your diff, the Effect API for each and the check that enforces it |
 | A native pattern            | `.agent_sources/effect/native-to-effect.md`: the Effect replacement for a loop, comparator, `Set`, `JSON`, `Date`, ...            |
+| Environment and secrets     | `.agent_sources/patterns/shared-config.md`: the environment as a service, shared by the deploy and the runtime                    |
 | Effect idioms               | `node_modules/effect/AGENTS.md` and `node_modules/effect/ai-docs/src/`                                                            |
 | XState, `@xstate/effect`    | `.agent_sources/xstate/index.md`, `.agent_sources/xstate-effect/index.md`                                                         |
 | Effect UI, `@effect/ui-kit` | `.agent_sources/effect-ui/index.md`, then `apps/viewer/EFFECT-UI.md` for what the viewer's move needs                             |
