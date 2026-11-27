@@ -31,7 +31,7 @@ import { linesOf } from "./section-ids.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
 import { statementsOf, taskStatementsOf } from "./statements.ts";
 import type { Statement } from "./statements.ts";
-import { parentOf, stackedOn } from "./stack.ts";
+import { placedOn } from "./stack.ts";
 import { derivedOf } from "./spec-index.ts";
 import { withStackDiagram } from "./stack-diagram.ts";
 
@@ -526,7 +526,7 @@ const unrecorded = (task: ManifestTask): ReadonlyArray<Finding> =>
 
 /**
  * What is wrong with the manifest's stacks: parents and dependencies that are not tasks or that
- * form a cycle, parents `parentOf` would not give from dependencies and orderings, orderings after
+ * form a cycle, parents `placedOn` would not give from dependencies and orderings, orderings after
  * an unknown, needed or gated task or of a gated task, worktrees shared by tasks that could run at
  * the same time, gates plan-time detection would not give, and landed tasks with no commits.
  */
@@ -597,7 +597,9 @@ const stackFindings = (
   };
 
   const parentMismatch = (task: ManifestTask): ReadonlyArray<Finding> => {
-    const expected = Option.getOrNull(parentOf(stackedOn(task), tasks));
+    const expected = Option.getOrNull(
+      placedOn(task, tasks, (other) => HashSet.has(lookup(needs, task.id), other)),
+    );
     return expected === task.parent
       ? []
       : [

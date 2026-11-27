@@ -2,6 +2,7 @@ import type { ConflictsConfig, ManifestTask, TaskId, TaskStatus } from "@cairn/c
 import {
   Array,
   HashMap,
+  HashSet,
   Match,
   Number,
   Option,
@@ -16,7 +17,7 @@ import {
 import { matchesPath } from "./gates.ts";
 import { indexOf } from "./relation-index.ts";
 import type { RelationIndex } from "./relation-index.ts";
-import { lineOf, parentOf, stackedOn } from "./stack.ts";
+import { lineOf, parentOf, placedOn } from "./stack.ts";
 import type { Ordering, StackLink } from "./stack.ts";
 import { TaskIdOrder } from "./stacks.ts";
 
@@ -337,8 +338,12 @@ export interface Orderings {
 /** A task no human gate holds, which may be stacked on another task or have one stacked on it. */
 const free = (task: ManifestTask) => !task.humanGate.required;
 
-/** The parent links of `existing` and then `drafts`, each draft's parent taken again under `orderings`. */
+/**
+ * The parent links of `existing` and then `drafts`, each draft placed again under `orderings` as
+ * `stackOf` would place it.
+ */
 const linksWith = (
+  index: RelationIndex,
   existing: ReadonlyArray<ManifestTask>,
   drafts: ReadonlyArray<ManifestTask>,
   orderings: ReadonlyArray<Ordering>,
@@ -350,14 +355,16 @@ const linksWith = (
       Array.append(links, {
         id: task.id,
         parent: Option.getOrNull(
-          parentOf(
-            stackedOn({
+          placedOn(
+            {
               dependsOn: task.dependsOn,
+              humanGate: task.humanGate,
               orderedAfter: Array.filterMap(orderings, ({ after, reason, task: ordered }) =>
                 ordered === task.id ? Result.succeed({ reason, task: after }) : Result.failVoid,
               ),
-            }),
+            },
             links,
+            (other) => Array.contains(index.needsAll(task.id), other),
           ),
         ),
       }),
@@ -370,10 +377,11 @@ const linksWith = (
  *
  * - When both tasks are new and neither is gated, the later one is stacked on the earlier one,
  *   provided its dependencies and the earlier task lie on one chain, so that it gets a parent,
- *   it is not already stacked on another task, and no gated task would gain a task below it that
- *   it does not need (`prd.human-gates`).
+ *   it is not already stacked on another task, and no gated task that sits on the stack its
+ *   dependencies give would lose it. A task it does not need sliding below it would do that, since
+ *   `placedOn` then starts it from the base branch (`prd.human-gates`).
  * - Any other pair is recommended: one with an existing task, a gated task, a later task whose
- *   dependencies lie on other stacks, or one that would slide an unneeded task below a gate.
+ *   dependencies lie on other stacks, or one that would push a gate off its stack.
  *   Nothing in the manifest changes for it.
  *
  * Run again over the applied pairs that are left after one is taken out, it keeps those that
@@ -391,15 +399,21 @@ export const orderingsOf = (
   const byId = Record.fromIterableWith(drafts, (task) => [task.id, task]);
   const index = taskIndexOf(existing, drafts);
   const gated = Array.filter(drafts, (task) => !free(task));
-  // Under `links`, every task below each gated draft through parent links is one it needs.
-  const keepsGates = (links: ReadonlyArray<StackLink>) => {
+  // The gated drafts that `links` leave on the stack their dependencies give them: nothing below
+  // that parent is a task they do not need. `placedOn` starts any other from the base branch.
+  const keptGates = (links: ReadonlyArray<StackLink>) => {
     const parents = Record.fromEntries(Array.map(links, (link) => [link.id, link.parent] as const));
-    return Array.every(gated, (gate) => {
-      const needs = index.needsAll(gate.id);
-      return Array.every(Array.drop(lineOf(parents, gate.id), 1), (below) =>
-        Array.contains(needs, below),
-      );
-    });
+    return HashSet.fromIterable(
+      Array.filterMap(gated, (gate) => {
+        const needs = index.needsAll(gate.id);
+        return Option.match(parentOf(gate.dependsOn, links), {
+          onNone: () => true,
+          onSome: (on) => Array.every(lineOf(parents, on), (below) => Array.contains(needs, below)),
+        })
+          ? Result.succeed(gate.id)
+          : Result.failVoid;
+      }),
+    );
   };
   const none: Orderings = { applied: [], recommended: [] };
   return Array.reduce(
@@ -411,19 +425,18 @@ export const orderingsOf = (
     (done, conflict) => {
       const orderings = Array.map(done.applied, orderingOf);
       const withThis = Array.append(orderings, orderingOf(conflict));
+      const before = linksWith(index, existing, drafts, orderings);
       const stackable = Option.exists(
         Option.all([Record.get(byId, conflict.earlier), Record.get(byId, conflict.later)]),
         ([earlier, later]) =>
           free(earlier) &&
           free(later) &&
           !Array.some(orderings, ({ task }) => task === later.id) &&
-          Option.isSome(
-            parentOf(
-              Array.append(later.dependsOn, earlier.id),
-              linksWith(existing, drafts, orderings),
-            ),
-          ) &&
-          keepsGates(linksWith(existing, drafts, withThis)),
+          Option.isSome(parentOf(Array.append(later.dependsOn, earlier.id), before)) &&
+          HashSet.isSubset(
+            keptGates(before),
+            keptGates(linksWith(index, existing, drafts, withThis)),
+          ),
       );
       return stackable
         ? { applied: Array.append(done.applied, conflict), recommended: done.recommended }
@@ -432,32 +445,127 @@ export const orderingsOf = (
   );
 };
 
+/** A maximum matching between each task and the tasks that need it, grown one path at a time. */
+interface Matching {
+  /** The task each later task is matched to: the one it needs. */
+  readonly matched: HashMap.HashMap<TaskId, TaskId>;
+  /** The later tasks this search for a path has already tried. */
+  readonly tried: HashSet.HashSet<TaskId>;
+}
+
+/**
+ * Kuhn's search for an augmenting path from `earlier`: whether `earlier` could be matched to a
+ * task that needs it, moving matched tasks along, and the matching after the search.
+ */
+const augment = (
+  later: (id: TaskId) => ReadonlyArray<TaskId>,
+  earlier: TaskId,
+  search: Matching,
+): readonly [boolean, Matching] =>
+  Array.reduce(
+    later(earlier),
+    [false, search] as const,
+    ([found, current], next): readonly [boolean, Matching] => {
+      if (found || HashSet.has(current.tried, next)) {
+        return [found, current];
+      }
+      const trying: Matching = {
+        matched: current.matched,
+        tried: HashSet.add(current.tried, next),
+      };
+      const [moved, after] = Option.match(HashMap.get(trying.matched, next), {
+        onNone: () => [true, trying] as const,
+        onSome: (holder) => augment(later, holder, trying),
+      });
+      return moved
+        ? [true, { matched: HashMap.set(after.matched, next, earlier), tried: after.tried }]
+        : [false, after];
+    },
+  );
+
+/** The tasks an alternating path reaches from an unmatched one: each as an earlier task and as a later one. */
+interface Reached {
+  readonly earlier: HashSet.HashSet<TaskId>;
+  readonly later: HashSet.HashSet<TaskId>;
+}
+
+/** From `earlier` along every task that needs it, and from a later task back along its match. */
+const reachFrom = (
+  later: (id: TaskId) => ReadonlyArray<TaskId>,
+  matched: HashMap.HashMap<TaskId, TaskId>,
+  earlier: TaskId,
+  reached: Reached,
+): Reached =>
+  HashSet.has(reached.earlier, earlier)
+    ? reached
+    : Array.reduce(
+        later(earlier),
+        { earlier: HashSet.add(reached.earlier, earlier), later: reached.later },
+        (sofar: Reached, next) => {
+          if (HashSet.has(sofar.later, next)) {
+            return sofar;
+          }
+          const withNext = { earlier: sofar.earlier, later: HashSet.add(sofar.later, next) };
+          return Option.match(HashMap.get(matched, next), {
+            onNone: () => withNext,
+            onSome: (holder) => reachFrom(later, matched, holder, withNext),
+          });
+        },
+      );
+
+/**
+ * A largest subset of `ids` whose tasks can all run with one another: a maximum antichain of what
+ * the tasks need, in polynomial time. Kuhn's algorithm matches each task to one that needs it,
+ * directly or through other tasks; by Dilworth's and König's theorems the tasks an alternating
+ * path from an unmatched task reaches as needed but not as needing are such a set.
+ */
+const antichainOf = (index: RelationIndex, ids: ReadonlyArray<TaskId>): ReadonlyArray<TaskId> => {
+  const needs = Record.fromIterableWith(ids, (id) => [id, index.needsAll(id)]);
+  const later = (earlier: TaskId) =>
+    Array.filter(
+      ids,
+      (other) =>
+        other !== earlier &&
+        Option.exists(Record.get(needs, other), (needed) => Array.contains(needed, earlier)),
+    );
+  const matched = Array.reduce(
+    ids,
+    HashMap.empty<TaskId, TaskId>(),
+    (sofar, earlier) =>
+      augment(later, earlier, { matched: sofar, tried: HashSet.empty() })[1].matched,
+  );
+  const holders = HashSet.fromIterable(HashMap.values(matched));
+  const reached = Array.reduce(
+    Array.filter(ids, (id) => !HashSet.has(holders, id)),
+    { earlier: HashSet.empty<TaskId>(), later: HashSet.empty<TaskId>() },
+    (sofar: Reached, unmatched) => reachFrom(later, matched, unmatched, sofar),
+  );
+  return Array.filter(
+    ids,
+    (id) => HashSet.has(reached.earlier, id) && !HashSet.has(reached.later, id),
+  );
+};
+
 /**
  * The largest subset of `ids`, in their order, whose tasks can all run with one another; of two
- * the same size, the one with the earlier tasks. A trunk task and the siblings that need it share
- * no subset, so the siblings alone count.
+ * the same size, the one with the earlier tasks. Walking `ids` in order, a task is taken when a
+ * set that large is still possible with it, which `antichainOf` measures. A trunk task and the
+ * siblings that need it share no subset, so the siblings alone count.
  */
-const largestTogether = (index: RelationIndex, ids: ReadonlyArray<TaskId>): ReadonlyArray<TaskId> =>
-  Array.match(ids, {
-    onEmpty: () => [],
-    onNonEmpty: ([first, ...rest]) => {
-      const withFirst = Array.prepend(
-        largestTogether(
-          index,
-          Array.filter(rest, (other) => index.canRunTogether(first, other)),
-        ),
-        first,
-      );
-      // Leaving `first` out leaves `rest` at most, so a set as large needs no second search.
-      return Array.length(withFirst) >= Array.length(rest)
-        ? withFirst
-        : Array.match(largestTogether(index, rest), {
-            onEmpty: () => withFirst,
-            onNonEmpty: (without) =>
-              Array.length(without) > Array.length(withFirst) ? without : withFirst,
-          });
-    },
-  });
+const largestTogether = (
+  index: RelationIndex,
+  ids: ReadonlyArray<TaskId>,
+): ReadonlyArray<TaskId> => {
+  const size = Array.length(antichainOf(index, ids));
+  return Array.reduce(ids, { left: ids, taken: Array.empty<TaskId>() }, ({ left, taken }, id) => {
+    const rest = Array.filter(left, (other) => other !== id);
+    const withId = Array.filter(rest, (other) => index.canRunTogether(id, other));
+    return Array.contains(left, id) &&
+      Array.length(taken) + 1 + Array.length(antichainOf(index, withId)) === size
+      ? { left: withId, taken: Array.append(taken, id) }
+      : { left: rest, taken };
+  }).taken;
+};
 
 /** A source file that `conflicts.hotspot` or more tasks that can run together all change. */
 export interface Hotspot {

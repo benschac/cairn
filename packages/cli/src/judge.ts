@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { JudgmentQuestion, JudgmentTarget, Sha256Hex } from "@cairn/contract";
-import type { Config, Judgment, Judgments } from "@cairn/contract";
+import type { Config, Judgment, Judgments, ManifestTask } from "@cairn/contract";
 import {
   TaskJudgingInput,
   fileQuestions,
@@ -11,25 +11,30 @@ import {
   taskQuestionsWithoutModel,
   verdictOf,
 } from "@cairn/core";
-import type { Answer, JudgingInputs } from "@cairn/core";
+import type { Answer, Hotspot, JudgingInputs } from "@cairn/core";
 import {
   Array,
   Context,
   DateTime,
   Duration,
   Effect,
+  FileSystem,
+  HashMap,
   Layer,
   Option,
   Order,
+  Path,
   Predicate,
   Record,
   Result,
   Schedule,
   Schema,
+  String,
   Tuple,
 } from "effect";
 import { AiError, Decision, DecisionModel } from "effect/ai";
 
+import { MainCheckout } from "./main-checkout.ts";
 import { judgingAvailable, liveDecisionModel } from "./models.ts";
 
 /**
@@ -369,3 +374,33 @@ export class Judge extends Context.Service<
       ),
     );
 }
+
+/**
+ * The `splitFile` input of each hotspot (`spec.planning.conflict-ordering`): its path, its line
+ * count in the main checkout and its tasks' titles from `tasks`. A file the plan creates is not
+ * there yet and has no lines. `cairn plan` and `cairn judge` both build the file inputs here, so a
+ * judgment one records is one the other finds current.
+ */
+export const fileInputsOf = Effect.fn("fileInputsOf")(function* (
+  hotspots: ReadonlyArray<Hotspot>,
+  tasks: ReadonlyArray<Pick<ManifestTask, "id" | "title">>,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const root = yield* (yield* MainCheckout).root;
+  const titles = HashMap.fromIterable(Array.map(tasks, (task) => [task.id, task.title] as const));
+  return yield* Effect.forEach(hotspots, (hotspot) =>
+    fs.readFileString(path.join(root, hotspot.path)).pipe(
+      Effect.map((text) => Array.length(String.split(text, "\n"))),
+      Effect.orElseSucceed(() => 0),
+      Effect.map((lines): JudgingInputs["files"][number] => ({
+        input: {
+          lines,
+          path: hotspot.path,
+          tasks: Array.getSomes(Array.map(hotspot.tasks, (id) => HashMap.get(titles, id))),
+        },
+        path: hotspot.path,
+      })),
+    ),
+  );
+});

@@ -261,7 +261,7 @@ export interface JudgingInputs {
   }>;
   readonly stack: StackJudgingInput;
   readonly tasks: ReadonlyArray<{ readonly id: TaskId; readonly input: TaskJudgingInput }>;
-  /** Files many parallel tasks share. `inputsOf` gives none: `cairn plan` reads each file's lines. */
+  /** Files many parallel tasks share. `inputsOf` gives none: the CLI reads each file's lines (`fileInputsOf`). */
   readonly files: ReadonlyArray<{ readonly path: string; readonly input: FileJudgingInput }>;
 }
 
