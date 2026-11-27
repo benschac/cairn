@@ -7997,7 +7997,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t3"]
     },
     {
       "branch": "cairn-mvp/02-trace-store",
@@ -8071,7 +8074,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t37", "t78", "t147", "t175"]
     },
     {
       "branch": "cairn-mvp/03-redactor-service",
@@ -8099,7 +8105,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t1"],
+      "waitedOnBy": ["t37"]
     },
     {
       "branch": "cairn-mvp/05-failed-status",
@@ -8159,7 +8168,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/06-manifest-schema",
@@ -8223,7 +8235,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/07-decode-error",
@@ -8255,7 +8270,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/08-event-schema",
@@ -8317,7 +8335,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/09-trailer-schema",
@@ -8381,7 +8402,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/10-trace-schema",
@@ -8449,7 +8473,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t174"]
     },
     {
       "branch": "cairn-mvp/11-config-schema",
@@ -8509,7 +8536,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/12-machine-manifest-task",
@@ -8572,7 +8602,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/13-viewer-manifest-task",
@@ -8636,7 +8669,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/14-js-parse",
@@ -8696,7 +8732,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t15"]
     },
     {
       "branch": "cairn-mvp/15-js-append-event",
@@ -8724,7 +8763,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t16", "t228"]
     },
     {
       "branch": "cairn-mvp/16-json-schema",
@@ -8758,7 +8800,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t15"],
+      "waitedOnBy": ["t38", "t129", "t135", "t161", "t174", "t193"]
     },
     {
       "branch": "cairn-mvp/17-sections-of",
@@ -8826,7 +8871,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t202"]
     },
     {
       "branch": "cairn-mvp/18-gate-path-matching",
@@ -8886,7 +8934,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/19-gate-detection",
@@ -8942,7 +8993,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/20-stack-order",
@@ -9004,7 +9058,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/21-git-service",
@@ -9065,7 +9122,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/22-cli-init",
@@ -9131,7 +9191,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t183", "t227"]
     },
     {
       "branch": "cairn-mvp/23-workspace-loader",
@@ -9183,7 +9246,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t175", "t235"]
     },
     {
       "branch": "cairn-mvp/24-cairn-ids",
@@ -9244,7 +9310,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t177"]
     },
     {
       "branch": "cairn-mvp/25-lint-sections",
@@ -9305,7 +9374,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t174"]
     },
     {
       "branch": "cairn-mvp/26-lint-stack",
@@ -9361,7 +9433,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/27-cairn-lint",
@@ -9422,7 +9497,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t177"]
     },
     {
       "branch": "cairn-mvp/28-planner-service",
@@ -9486,7 +9564,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/29-planner-live",
@@ -9576,7 +9657,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/30-cairn-plan",
@@ -9640,7 +9724,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t210"]
     },
     {
       "branch": "cairn-mvp/31-derive-events",
@@ -9700,7 +9787,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/32-derive-commits",
@@ -9757,7 +9847,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/33-section-rollup",
@@ -9804,7 +9897,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/34-trace-schema",
@@ -9852,7 +9948,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/35-cairn-status",
@@ -9900,7 +9999,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t140", "t151", "t156", "t177", "t184", "t185"]
     },
     {
       "branch": "cairn-mvp/36-cairn-approve",
@@ -9947,7 +10049,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t38", "t135"]
     },
     {
       "branch": "cairn-mvp/37-cairn-session",
@@ -9979,7 +10084,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t3"],
+      "waitedOnBy": ["t38", "t144", "t153"]
     },
     {
       "branch": "cairn-mvp/38-orchestrator-contract-test",
@@ -10007,7 +10115,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t16", "t37"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/39-api-trace",
@@ -10054,7 +10165,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t126", "t140", "t156", "t185"]
     },
     {
       "branch": "cairn-mvp/40-api-sessions-commits",
@@ -10101,7 +10215,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/41-cairn-serve",
@@ -10149,7 +10266,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t181"]
     },
     {
       "branch": "cairn-mvp/42-markdown-rendering",
@@ -10212,7 +10332,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t162", "t215"]
     },
     {
       "branch": "cairn-mvp/43-chain-of",
@@ -10266,7 +10389,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/44-demo-trace",
@@ -10328,7 +10454,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t164"]
     },
     {
       "branch": "cairn-mvp/45-viewer-columns",
@@ -10401,7 +10530,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/46-trace-polling",
@@ -10467,7 +10599,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/47-chain-highlight",
@@ -10531,7 +10666,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/48-curves-of",
@@ -10594,7 +10732,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/49-curves-overlay",
@@ -10662,7 +10803,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/50-canvas-pan-zoom",
@@ -10749,7 +10893,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/51-canvas-presence",
@@ -10822,7 +10969,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/52-detail-drawer",
@@ -10887,7 +11037,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/68-api-trace-polling",
@@ -10934,7 +11087,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t216"]
     },
     {
       "branch": "cairn-mvp/53-diff-parse",
@@ -11012,7 +11168,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/54-diff-render",
@@ -11082,7 +11241,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t67", "t81"]
     },
     {
       "branch": "cairn-mvp/55-judgment-schema",
@@ -11142,7 +11304,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t143"]
     },
     {
       "branch": "cairn-mvp/56-spec-index-schema",
@@ -11204,7 +11369,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/57-decision-model",
@@ -11267,7 +11435,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/58-judging-questions",
@@ -11328,7 +11499,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t142"]
     },
     {
       "branch": "cairn-mvp/59-verdicts",
@@ -11384,7 +11558,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/60-judge-service",
@@ -11460,7 +11637,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t146"]
     },
     {
       "branch": "cairn-mvp/61-planner-split",
@@ -11507,7 +11687,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/62-refine",
@@ -11559,7 +11742,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/63-spec-index-writer",
@@ -11602,7 +11788,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/64-plan-checkpoints",
@@ -11665,7 +11854,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t145"]
     },
     {
       "branch": "cairn-mvp/65-cairn-judge",
@@ -11725,7 +11917,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t147", "t180"]
     },
     {
       "branch": "cairn-mvp/66-index-drift",
@@ -11785,7 +11980,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/67-judgment-markers",
@@ -11819,7 +12017,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/69-stacks-of",
@@ -11878,7 +12079,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/70-stack-boxes",
@@ -11948,7 +12152,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/71-fuzzy-matching",
@@ -12000,7 +12207,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t162"]
     },
     {
       "branch": "cairn-mvp/72-search-interaction",
@@ -12088,7 +12298,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/73-prose-search",
@@ -12159,7 +12372,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/74-patch-routes",
@@ -12222,7 +12438,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t78"]
     },
     {
       "branch": "cairn-mvp/75-code-screen",
@@ -12304,7 +12523,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/76-session-schema",
@@ -12364,7 +12586,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/77-session-reader",
@@ -12425,7 +12650,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t78"]
     },
     {
       "branch": "cairn-mvp/78-session-route",
@@ -12453,7 +12681,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/79-session-pane",
@@ -12500,7 +12731,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t98"]
     },
     {
       "branch": "cairn-mvp/80-attribution",
@@ -12548,7 +12782,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/81-demo-patches",
@@ -12587,7 +12824,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t216"]
     },
     {
       "branch": "cairn-mvp/82-event-model",
@@ -12647,7 +12887,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t129"]
     },
     {
       "branch": "cairn-mvp/83-trace-summary",
@@ -12712,7 +12955,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/84-reader-derive",
@@ -12764,7 +13010,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/85-reader-screen",
@@ -12837,7 +13086,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t104"]
     },
     {
       "branch": "cairn-mvp/86-spec-cards",
@@ -12907,7 +13159,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/87-card-density",
@@ -12970,7 +13225,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/88-stack-chips",
@@ -13036,7 +13294,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/89-wires-of",
@@ -13088,7 +13349,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/90-wires-overlay",
@@ -13168,7 +13432,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/91-models-switch",
@@ -13248,7 +13515,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t184"]
     },
     {
       "branch": "cairn-mvp/92-pane-dividers",
@@ -13336,7 +13606,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t104"]
     },
     {
       "branch": "cairn-mvp/93-detail-trail",
@@ -13425,7 +13698,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t104", "t159", "t165", "t166", "t167", "t224"]
     },
     {
       "branch": "cairn-mvp/94-detail-code",
@@ -13487,7 +13763,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/95-reader-search",
@@ -13562,7 +13841,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t169"]
     },
     {
       "branch": "cairn-mvp/96-reading-presence",
@@ -13655,7 +13937,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t97"]
     },
     {
       "branch": "cairn-mvp/97-remove-canvas",
@@ -13712,7 +13997,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t98", "t238"]
     },
     {
       "branch": "cairn-mvp/98-detail-session",
@@ -13745,7 +14033,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t97"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/99-design-tokens",
@@ -13811,7 +14102,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/100-ui-pieces",
@@ -13879,7 +14173,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t217"]
     },
     {
       "branch": "cairn-mvp/101-restyle-code-view",
@@ -13953,7 +14250,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t162"]
     },
     {
       "branch": "cairn-mvp/102-xstate-test",
@@ -14021,7 +14321,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t104"]
     },
     {
       "branch": "cairn-mvp/103-presence-model",
@@ -14079,7 +14382,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/104-reader-models",
@@ -14113,7 +14419,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/105-derive-model",
@@ -14175,7 +14484,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/106-planner-providers",
@@ -14238,7 +14550,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/107-written-from",
@@ -14299,7 +14614,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/108-diagram-draws",
@@ -14362,7 +14680,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/109-stack-diagram",
@@ -14440,7 +14761,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t140", "t184"]
     },
     {
       "branch": "cairn-mvp/110-diagram-checks",
@@ -14489,7 +14813,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/111-stack-existing",
@@ -14541,7 +14868,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/112-replan",
@@ -14603,7 +14933,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/113-plan-again",
@@ -14655,7 +14988,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t142"]
     },
     {
       "branch": "cairn-mvp/114-plan-dry-run",
@@ -14715,7 +15051,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t176"]
     },
     {
       "branch": "cairn-mvp/115-gateway-token",
@@ -14777,7 +15116,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t148", "t235"]
     },
     {
       "branch": "cairn-mvp/116-land-from-git",
@@ -14827,7 +15169,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t140", "t144"]
     },
     {
       "branch": "cairn-mvp/117-trailer-check",
@@ -14876,7 +15221,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/118-add-the-link-schema-that-reads-and-writes-link-paths",
@@ -14924,7 +15272,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t187", "t193"]
     },
     {
       "branch": "cairn-mvp/119-add-cairn-link",
@@ -14973,7 +15324,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t126", "t161", "t180", "t186"]
     },
     {
       "branch": "cairn-mvp/120-resolve-a-link-against-the-trace-and-show-what-is-missing",
@@ -15022,7 +15376,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t213"]
     },
     {
       "branch": "cairn-mvp/121-open-a-link-s-steps-in-the-reader-and-the-code-view",
@@ -15139,7 +15496,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t122", "t123", "t164", "t170", "t217"]
     },
     {
       "branch": "cairn-mvp/122-keep-the-address-bar-and-browser-history-in-step-with-the-open-link",
@@ -15175,7 +15535,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t124"]
     },
     {
       "branch": "cairn-mvp/123-mark-linked-passages-stacks-and-lines-in-the-panes",
@@ -15215,7 +15578,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t125"]
     },
     {
       "branch": "cairn-mvp/124-add-copy-link-buttons-to-every-step",
@@ -15261,7 +15627,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t122"],
+      "waitedOnBy": ["t125", "t169"]
     },
     {
       "branch": "cairn-mvp/125-copy-links-to-selected-passages-and-diff-lines",
@@ -15306,7 +15675,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t123", "t124"],
+      "waitedOnBy": ["t224"]
     },
     {
       "branch": "cairn-mvp/126-store-notes-and-add-cairn-note",
@@ -15344,7 +15716,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t170", "t180"]
     },
     {
       "branch": "cairn-mvp/127-add-item-and-statement-ids-to-the-contract",
@@ -15416,7 +15791,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/128-declare-the-relation-kinds-and-the-orderedafter-field",
@@ -15480,7 +15858,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/129-report-attempts-usage-and-cost-on-events",
@@ -15514,7 +15895,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t16"],
+      "waitedOnBy": ["t143", "t144", "t158"]
     },
     {
       "branch": "cairn-mvp/130-parse-list-items-and-fill-their-ids-in-cairn-ids",
@@ -15579,7 +15963,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/131-cover-roll-up-and-gate-list-items",
@@ -15655,7 +16042,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t139", "t165"]
     },
     {
       "branch": "cairn-mvp/132-parse-done-when-statements-and-number-them",
@@ -15721,7 +16111,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/133-draft-done-when-statements-and-ask-the-person-about-them",
@@ -15796,7 +16189,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/134-trace-statements-to-tests-and-tasks",
@@ -15874,7 +16270,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t135", "t145"]
     },
     {
       "branch": "cairn-mvp/135-show-a-task-s-statements-in-its-brief-cairn-status-and-cairn-approve",
@@ -15907,7 +16306,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t16"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/136-show-done-when-statements-in-the-task-detail",
@@ -15962,7 +16364,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/137-add-task-categories-to-the-plan",
@@ -16048,7 +16453,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t149"]
     },
     {
       "branch": "cairn-mvp/138-build-the-relation-index",
@@ -16104,7 +16512,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t139", "t140"]
     },
     {
       "branch": "cairn-mvp/139-link-prd-sections-through-their-tasks",
@@ -16132,7 +16543,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t168"]
     },
     {
       "branch": "cairn-mvp/140-answer-needs-and-waits-from-the-relation-index-everywhere",
@@ -16169,7 +16583,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t158", "t168"]
     },
     {
       "branch": "cairn-mvp/141-score-conflicts-between-parallel-tasks",
@@ -16235,7 +16652,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t142", "t158"]
     },
     {
       "branch": "cairn-mvp/142-order-high-scoring-pairs-at-plan-time",
@@ -16272,7 +16692,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/143-add-the-model-catalog-and-eligibility",
@@ -16304,7 +16727,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t129"],
+      "waitedOnBy": ["t144", "t145", "t154"]
     },
     {
       "branch": "cairn-mvp/144-derive-attempts-and-attempt-limits-from-events",
@@ -16339,7 +16765,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t37", "t129", "t143"],
+      "waitedOnBy": ["t149", "t156"]
     },
     {
       "branch": "cairn-mvp/145-route-tasks-from-the-catalog-with-recommendations-and-overrides",
@@ -16374,7 +16803,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t143"],
+      "waitedOnBy": ["t146", "t150"]
     },
     {
       "branch": "cairn-mvp/146-add-the-openai-decisions-layer",
@@ -16410,7 +16842,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t145"],
+      "waitedOnBy": ["t147", "t148"]
     },
     {
       "branch": "cairn-mvp/147-compare-decision-providers-within-a-budget",
@@ -16444,7 +16879,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t146"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/148-route-api-calls-through-cloudflare-ai-gateway",
@@ -16478,7 +16916,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t146"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/149-compute-the-outcome-metrics",
@@ -16506,7 +16947,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t144"],
+      "waitedOnBy": ["t150"]
     },
     {
       "branch": "cairn-mvp/150-rank-models-from-history-at-the-routing-checkpoint",
@@ -16542,7 +16986,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t145", "t149"],
+      "waitedOnBy": ["t151", "t167"]
     },
     {
       "branch": "cairn-mvp/151-add-cairn-stats",
@@ -16574,7 +17021,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t150"],
+      "waitedOnBy": ["t157", "t180"]
     },
     {
       "branch": "cairn-mvp/152-read-per-call-usage-from-codex-rollouts",
@@ -16606,7 +17056,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t153", "t154"]
     },
     {
       "branch": "cairn-mvp/153-store-usage-calls-subagents-and-allocations",
@@ -16640,7 +17093,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t37", "t152"],
+      "waitedOnBy": ["t155", "t157"]
     },
     {
       "branch": "cairn-mvp/154-estimate-the-api-equivalent-cost-of-a-session",
@@ -16668,7 +17124,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t143", "t152"],
+      "waitedOnBy": ["t155"]
     },
     {
       "branch": "cairn-mvp/155-track-subscription-allowance-and-allocate-its-fee",
@@ -16702,7 +17161,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t153", "t154"],
+      "waitedOnBy": ["t156"]
     },
     {
       "branch": "cairn-mvp/156-carry-attempts-and-usage-in-the-trace",
@@ -16735,7 +17197,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t144", "t155"],
+      "waitedOnBy": ["t166", "t167", "t186"]
     },
     {
       "branch": "cairn-mvp/157-verify-each-attempt-and-report-its-usage-in-the-orchestrator-contract",
@@ -16767,7 +17232,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t151", "t153"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/158-add-conflict-events-and-the-run-schedule",
@@ -16804,7 +17272,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t129", "t140"],
+      "waitedOnBy": ["t159", "t160"]
     },
     {
       "branch": "cairn-mvp/159-show-conflict-events-in-the-task-timeline",
@@ -16832,7 +17303,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t158"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/160-record-restacks-and-report-conflict-calibration",
@@ -16864,7 +17338,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t158"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/161-generate-the-docs-reference-from-the-cli-and-schemas",
@@ -16899,7 +17376,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t16"],
+      "waitedOnBy": ["t162", "t182"]
     },
     {
       "branch": "cairn-mvp/162-build-the-docs-site-with-prerendered-pages-and-search",
@@ -16933,7 +17413,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t161"],
+      "waitedOnBy": ["t163", "t164", "t182"]
     },
     {
       "branch": "cairn-mvp/163-write-the-docs-pages",
@@ -16961,7 +17444,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t162"],
+      "waitedOnBy": ["t233"]
     },
     {
       "branch": "cairn-mvp/164-embed-the-viewer-in-docs-pages",
@@ -16989,7 +17475,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t162"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/165-show-list-items-in-the-reader",
@@ -17029,7 +17518,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t168"]
     },
     {
       "branch": "cairn-mvp/166-show-usage-and-cost-in-spec-cards-and-the-task-detail",
@@ -17068,7 +17560,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t156"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/167-list-attempts-and-the-routing-decision-in-the-task-detail",
@@ -17096,7 +17591,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t150", "t156"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/168-show-what-each-section-needs-and-what-needs-it",
@@ -17133,7 +17631,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t139", "t140", "t165"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/169-add-the-command-menu",
@@ -17172,7 +17673,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t124"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/170-show-notes-where-they-are-anchored",
@@ -17212,7 +17716,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t126"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/171-compute-the-part-of-a-prd-and-narrow-a-replan-to-it",
@@ -17274,7 +17781,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/172-keep-the-planner-s-sections-and-drafts-inside-the-part",
@@ -17337,7 +17847,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/173-plan-a-named-part-with-cairn-plan-id",
@@ -17399,7 +17912,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t176"]
     },
     {
       "branch": "cairn-mvp/174-declare-agent-operations-and-their-errors-in-the-contract",
@@ -17433,7 +17949,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t16"],
+      "waitedOnBy": ["t175"]
     },
     {
       "branch": "cairn-mvp/175-run-operations-through-one-entry-point-with-atomic-writes-and-an-operation-log",
@@ -17466,7 +17985,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t174"],
+      "waitedOnBy": ["t176", "t177"]
     },
     {
       "branch": "cairn-mvp/176-return-planning-s-questions-and-reviews-as-resumable-decisions",
@@ -17499,7 +18021,10 @@
         "required": true
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t175"],
+      "waitedOnBy": ["t178"]
     },
     {
       "branch": "cairn-mvp/177-move-init-ids-lint-and-status-onto-the-operation-layer",
@@ -17539,7 +18064,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t175"],
+      "waitedOnBy": ["t178"]
     },
     {
       "branch": "cairn-mvp/178-drive-cairn-plan-through-the-plan-decisions",
@@ -17571,7 +18099,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t176", "t177"],
+      "waitedOnBy": ["t179"]
     },
     {
       "branch": "cairn-mvp/179-add-cairn-mcp-with-operation-tools-over-stdio",
@@ -17608,7 +18139,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t178"],
+      "waitedOnBy": ["t180", "t181"]
     },
     {
       "branch": "cairn-mvp/180-add-judge-stats-link-and-note-tools",
@@ -17648,7 +18182,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t126", "t151", "t179"],
+      "waitedOnBy": ["t182"]
     },
     {
       "branch": "cairn-mvp/181-start-and-stop-the-viewer-from-mcp",
@@ -17682,7 +18219,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t179"],
+      "waitedOnBy": ["t182"]
     },
     {
       "branch": "cairn-mvp/182-write-the-agent-guide-skill-and-mcp-setup-page",
@@ -17717,7 +18257,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t161", "t162", "t180", "t181"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/183-choose-the-terminal-library-and-draw-frames-to-an-ansi-screen",
@@ -17751,7 +18294,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t186"]
     },
     {
       "branch": "cairn-mvp/184-move-status-tree-counts-and-ranof-into-core",
@@ -17786,7 +18332,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t186"]
     },
     {
       "branch": "cairn-mvp/185-follow-the-files-as-a-stream-of-traces",
@@ -17818,7 +18367,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t188", "t228"]
     },
     {
       "branch": "cairn-mvp/186-add-the-terminal-view-s-model-update-and-view",
@@ -17855,7 +18407,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t156", "t183", "t184"],
+      "waitedOnBy": ["t187"]
     },
     {
       "branch": "cairn-mvp/187-handle-the-terminal-view-s-keys",
@@ -17888,7 +18443,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t186"],
+      "waitedOnBy": ["t188"]
     },
     {
       "branch": "cairn-mvp/188-add-cairn-watch-with-a-read-only-terminal-loop",
@@ -17924,7 +18482,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t185", "t187"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/189-work-out-each-stack-box-s-cells-finished-trunk-and-fork-labels",
@@ -17987,7 +18548,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [],
+      "waitedOnBy": ["t190"]
     },
     {
       "branch": "cairn-mvp/190-fold-finished-trunks-and-label-forks-in-the-stacks-pane",
@@ -18029,7 +18593,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t191"]
     },
     {
       "branch": "cairn-mvp/191-draw-solid-parent-arrows-inside-the-stack-boxes",
@@ -18065,7 +18632,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t190"],
+      "waitedOnBy": ["t192"]
     },
     {
       "branch": "cairn-mvp/192-draw-dashed-dependency-arrows-for-the-task-in-focus",
@@ -18102,7 +18672,10 @@
         "required": false
       },
       "statements": [],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t191"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/193-add-the-hosted-contract-schemas",
@@ -18167,7 +18740,10 @@
         "prd.launch.plans#v2",
         "prd.launch.plans#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t16"],
+      "waitedOnBy": ["t194", "t196", "t213", "t217"]
     },
     {
       "branch": "cairn-mvp/194-scaffold-the-hosted-worker-with-its-d1-schema-and-deploy-definition",
@@ -18205,7 +18781,10 @@
         "required": true
       },
       "statements": ["prd.launch#v1"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t193"],
+      "waitedOnBy": ["t195", "t197", "t209"]
     },
     {
       "branch": "cairn-mvp/195-add-the-prdroom-durable-object-with-its-sqlite-and-r2-bodies",
@@ -18238,7 +18817,10 @@
         "required": true
       },
       "statements": ["prd.launch.history#v1", "prd.launch.history#v2", "prd.launch.history#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t194"],
+      "waitedOnBy": ["t201"]
     },
     {
       "branch": "cairn-mvp/196-decide-hosted-access-with-the-policy-function",
@@ -18277,7 +18859,10 @@
         "prd.launch.sharing#v2",
         "prd.launch.sharing#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t193"],
+      "waitedOnBy": ["t198"]
     },
     {
       "branch": "cairn-mvp/197-sign-people-in-and-give-each-a-personal-workspace",
@@ -18316,7 +18901,10 @@
         "prd.launch.workspaces#v2",
         "prd.launch.workspaces#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t194"],
+      "waitedOnBy": ["t198"]
     },
     {
       "branch": "cairn-mvp/198-resolve-request-principals-and-load-policy-facts",
@@ -18355,7 +18943,10 @@
         "prd.launch.sharing#v2",
         "prd.launch.sharing#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t196", "t197"],
+      "waitedOnBy": ["t199", "t201"]
     },
     {
       "branch": "cairn-mvp/199-reserve-and-report-plan-entitlements",
@@ -18388,7 +18979,10 @@
         "required": false
       },
       "statements": ["prd.launch.plans#v1", "prd.launch.plans#v2", "prd.launch.plans#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t198"],
+      "waitedOnBy": ["t200", "t204"]
     },
     {
       "branch": "cairn-mvp/200-bill-workspaces-through-stripe-checkout-and-webhooks",
@@ -18423,7 +19017,10 @@
         "required": true
       },
       "statements": ["prd.launch.plans#v1", "prd.launch.plans#v2", "prd.launch.plans#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t199"],
+      "waitedOnBy": ["t230"]
     },
     {
       "branch": "cairn-mvp/201-order-room-writes-and-push-live-updates-over-room-sockets",
@@ -18465,7 +19062,10 @@
         "prd.launch.discussion#v2",
         "prd.launch.discussion#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t195", "t198"],
+      "waitedOnBy": ["t202", "t203"]
     },
     {
       "branch": "cairn-mvp/202-store-prd-and-spec-revisions-with-stale-save-refusal-and-restore",
@@ -18505,7 +19105,10 @@
         "prd.launch.history#v2",
         "prd.launch.history#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t201"],
+      "waitedOnBy": ["t204", "t211", "t214"]
     },
     {
       "branch": "cairn-mvp/203-revoke-access-across-the-worker-and-open-room-sockets",
@@ -18542,7 +19145,10 @@
         "prd.launch.membership#v2",
         "prd.launch.membership#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t201"],
+      "waitedOnBy": ["t205", "t207"]
     },
     {
       "branch": "cairn-mvp/204-create-import-rename-find-and-export-prds-in-a-workspace",
@@ -18578,7 +19184,10 @@
         "prd.launch.workspaces#v2",
         "prd.launch.workspaces#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t199", "t202"],
+      "waitedOnBy": ["t205", "t207", "t227"]
     },
     {
       "branch": "cairn-mvp/205-switch-prd-visibility-with-public-search-and-discovery",
@@ -18612,7 +19221,10 @@
         "required": true
       },
       "statements": ["prd.launch.sharing#v1", "prd.launch.sharing#v2", "prd.launch.sharing#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t203", "t204"],
+      "waitedOnBy": ["t206", "t215"]
     },
     {
       "branch": "cairn-mvp/206-index-links-between-prds-and-answer-them-by-access",
@@ -18652,7 +19264,10 @@
         "prd.launch.discussion#v2",
         "prd.launch.discussion#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t205"],
+      "waitedOnBy": ["t231"]
     },
     {
       "branch": "cairn-mvp/207-invite-and-remove-workspace-members-and-prd-guests",
@@ -18689,7 +19304,10 @@
         "prd.launch.membership#v2",
         "prd.launch.membership#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t203", "t204"],
+      "waitedOnBy": ["t208"]
     },
     {
       "branch": "cairn-mvp/208-issue-scoped-agent-credentials-and-accept-progress-events",
@@ -18726,7 +19344,10 @@
         "prd.launch.membership#v2",
         "prd.launch.membership#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t207"],
+      "waitedOnBy": ["t211", "t227"]
     },
     {
       "branch": "cairn-mvp/209-strip-a-trace-to-its-public-form",
@@ -18754,7 +19375,10 @@
         "required": false
       },
       "statements": ["prd.launch.sharing#v1", "prd.launch.sharing#v2", "prd.launch.sharing#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t194"],
+      "waitedOnBy": ["t211"]
     },
     {
       "branch": "cairn-mvp/210-record-the-prd-hash-a-plan-was-made-from",
@@ -18787,7 +19411,10 @@
         "required": false
       },
       "statements": ["prd.launch.history#v1", "prd.launch.history#v2", "prd.launch.history#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t211"]
     },
     {
       "branch": "cairn-mvp/211-store-plan-snapshots-and-their-source-revisions-in-the-room",
@@ -18819,7 +19446,10 @@
         "required": false
       },
       "statements": ["prd.launch.history#v1", "prd.launch.history#v2", "prd.launch.history#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t202", "t208", "t209", "t210"],
+      "waitedOnBy": ["t212"]
     },
     {
       "branch": "cairn-mvp/212-approve-human-gates-against-recorded-inputs",
@@ -18858,7 +19488,10 @@
         "prd.launch.history#v2",
         "prd.launch.history#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t211"],
+      "waitedOnBy": ["t228", "t231"]
     },
     {
       "branch": "cairn-mvp/213-match-comment-anchors-against-the-current-revision",
@@ -18895,7 +19528,10 @@
         "prd.launch.discussion#v2",
         "prd.launch.discussion#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t193"],
+      "waitedOnBy": ["t214"]
     },
     {
       "branch": "cairn-mvp/214-store-threads-replies-and-resolution-in-the-room",
@@ -18932,7 +19568,10 @@
         "prd.launch.discussion#v2",
         "prd.launch.discussion#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t202", "t213"],
+      "waitedOnBy": ["t215", "t231"]
     },
     {
       "branch": "cairn-mvp/215-render-public-prd-pages-with-share-metadata",
@@ -18964,7 +19603,10 @@
         "required": false
       },
       "statements": ["prd.launch.sharing#v1", "prd.launch.sharing#v2", "prd.launch.sharing#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t205", "t214"],
+      "waitedOnBy": ["t234"]
     },
     {
       "branch": "cairn-mvp/216-choose-the-viewer-s-data-source-at-build-time",
@@ -19009,7 +19651,10 @@
         "prd.launch.acceptance#v2",
         "prd.launch.acceptance#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t81"],
+      "waitedOnBy": ["t217"]
     },
     {
       "branch": "cairn-mvp/217-add-the-hosted-app-shell-with-sign-in-routes-and-the-workspace-switcher",
@@ -19054,7 +19699,10 @@
         "prd.launch.workspaces#v2",
         "prd.launch.workspaces#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t193", "t216"],
+      "waitedOnBy": ["t218", "t219", "t220", "t221", "t222", "t223", "t226"]
     },
     {
       "branch": "cairn-mvp/218-list-a-workspace-s-prds-with-import-empty-states-and-limit-notes",
@@ -19093,7 +19741,10 @@
         "prd.launch.workspaces#v2",
         "prd.launch.workspaces#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t217"],
+      "waitedOnBy": ["t225", "t229"]
     },
     {
       "branch": "cairn-mvp/219-edit-a-prd-in-the-browser-with-stale-save-handling",
@@ -19129,7 +19780,10 @@
         "prd.launch.workspaces#v2",
         "prd.launch.workspaces#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t217"],
+      "waitedOnBy": ["t234"]
     },
     {
       "branch": "cairn-mvp/220-show-a-prd-s-history-and-restore-a-revision",
@@ -19161,7 +19815,10 @@
         "required": false
       },
       "statements": ["prd.launch.history#v1", "prd.launch.history#v2", "prd.launch.history#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t217"],
+      "waitedOnBy": ["t234"]
     },
     {
       "branch": "cairn-mvp/221-keep-an-open-prd-live-over-its-room-socket",
@@ -19200,7 +19857,10 @@
         "prd.launch.discussion#v2",
         "prd.launch.discussion#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t217"],
+      "waitedOnBy": ["t224"]
     },
     {
       "branch": "cairn-mvp/222-add-the-members-agents-and-invitation-screens",
@@ -19239,7 +19899,10 @@
         "prd.launch.membership#v2",
         "prd.launch.membership#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t217"],
+      "waitedOnBy": ["t234"]
     },
     {
       "branch": "cairn-mvp/223-add-the-sharing-dialog-with-visibility-explanations",
@@ -19279,7 +19942,10 @@
         "prd.launch.sharing#v2",
         "prd.launch.sharing#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t217"],
+      "waitedOnBy": ["t234"]
     },
     {
       "branch": "cairn-mvp/224-start-read-and-resolve-comment-threads-in-the-reader",
@@ -19321,7 +19987,10 @@
         "prd.launch.discussion#v2",
         "prd.launch.discussion#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t125", "t221"],
+      "waitedOnBy": ["t234"]
     },
     {
       "branch": "cairn-mvp/225-show-links-between-prds-and-backlinks-in-the-reader",
@@ -19357,7 +20026,10 @@
         "prd.launch.discussion#v2",
         "prd.launch.discussion#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t218"],
+      "waitedOnBy": ["t234"]
     },
     {
       "branch": "cairn-mvp/226-show-a-plan-s-source-revision-and-stale-approvals-in-the-viewer",
@@ -19389,7 +20061,10 @@
         "required": false
       },
       "statements": ["prd.launch.history#v1", "prd.launch.history#v2", "prd.launch.history#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t217"],
+      "waitedOnBy": ["t234"]
     },
     {
       "branch": "cairn-mvp/227-connect-a-repo-to-a-hosted-prd-with-device-sign-in-and-stored-credentials",
@@ -19432,7 +20107,10 @@
         "prd.launch.acceptance#v2",
         "prd.launch.acceptance#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t204", "t208"],
+      "waitedOnBy": ["t228"]
     },
     {
       "branch": "cairn-mvp/228-sync-documents-events-plans-and-approvals-with-cairn-connect-sync",
@@ -19474,7 +20152,10 @@
         "prd.launch.acceptance#v2",
         "prd.launch.acceptance#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t15", "t185", "t212", "t227"],
+      "waitedOnBy": ["t234"]
     },
     {
       "branch": "cairn-mvp/229-add-the-billing-settings-screen",
@@ -19506,7 +20187,10 @@
         "required": false
       },
       "statements": ["prd.launch.plans#v1", "prd.launch.plans#v2", "prd.launch.plans#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t218"],
+      "waitedOnBy": ["t234"]
     },
     {
       "branch": "cairn-mvp/230-decode-the-deployment-s-self-host-settings",
@@ -19538,7 +20222,10 @@
         "required": false
       },
       "statements": ["prd.launch.plans#v1", "prd.launch.plans#v2", "prd.launch.plans#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t200"],
+      "waitedOnBy": ["t231"]
     },
     {
       "branch": "cairn-mvp/231-back-up-and-restore-a-deployment-with-cairn-admin",
@@ -19580,7 +20267,10 @@
         "prd.launch.acceptance#v2",
         "prd.launch.acceptance#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t206", "t212", "t214", "t230"],
+      "waitedOnBy": ["t232", "t233", "t234"]
     },
     {
       "branch": "cairn-mvp/232-run-the-weekly-restore-drill",
@@ -19615,7 +20305,10 @@
         "prd.launch.acceptance#v2",
         "prd.launch.acceptance#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t231"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/233-write-the-hosted-self-hosting-backup-and-support-docs-pages",
@@ -19648,7 +20341,10 @@
         "required": false
       },
       "statements": ["prd.launch.plans#v1", "prd.launch.plans#v2", "prd.launch.plans#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t163", "t231"],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/234-test-the-hosted-launch-acceptance-flows-and-isolation",
@@ -19696,7 +20392,22 @@
         "prd.launch.acceptance#v2",
         "prd.launch.acceptance#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": [
+        "t215",
+        "t219",
+        "t220",
+        "t222",
+        "t223",
+        "t224",
+        "t225",
+        "t226",
+        "t228",
+        "t229",
+        "t231"
+      ],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/235-add-cairn-doctor-with-git-config-and-planner-checks",
@@ -19732,7 +20443,10 @@
         "required": false
       },
       "statements": ["prd.cli.doctor#v1", "prd.cli.doctor#v2", "prd.cli.doctor#v3"],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": []
     },
     {
       "branch": "cairn-mvp/236-move-every-effect-package-to-4-1-6",
@@ -19772,7 +20486,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": true,
+      "waitsOn": [],
+      "waitedOnBy": ["t237"]
     },
     {
       "branch": "cairn-mvp/237-try-effect-ui-on-the-controls-and-a-foldkit-bridge",
@@ -19817,7 +20534,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t236"],
+      "waitedOnBy": ["t238"]
     },
     {
       "branch": "cairn-mvp/238-host-the-viewer-on-effect-ui-with-its-foldkit-views-bridged",
@@ -19860,7 +20580,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t97", "t237"],
+      "waitedOnBy": ["t239"]
     },
     {
       "branch": "cairn-mvp/239-run-the-scene-and-story-tests-on-the-effect-ui-host",
@@ -19893,7 +20616,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t238"],
+      "waitedOnBy": ["t240"]
     },
     {
       "branch": "cairn-mvp/240-write-the-viewer-s-frame-and-top-bar-in-effect-ui",
@@ -19937,7 +20663,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t239"],
+      "waitedOnBy": ["t241"]
     },
     {
       "branch": "cairn-mvp/241-write-the-reader-panes-in-effect-ui",
@@ -19976,7 +20705,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t240"],
+      "waitedOnBy": ["t242"]
     },
     {
       "branch": "cairn-mvp/242-write-the-stacks-pane-in-effect-ui",
@@ -20014,7 +20746,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t241"],
+      "waitedOnBy": ["t243"]
     },
     {
       "branch": "cairn-mvp/243-write-the-task-detail-code-and-diff-views-in-effect-ui",
@@ -20054,7 +20789,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t242"],
+      "waitedOnBy": ["t244"]
     },
     {
       "branch": "cairn-mvp/244-write-markdown-code-blocks-and-diagrams-in-effect-ui",
@@ -20092,7 +20830,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t243"],
+      "waitedOnBy": ["t245"]
     },
     {
       "branch": "cairn-mvp/245-remove-foldkit-from-the-repo",
@@ -20139,7 +20880,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t244"],
+      "waitedOnBy": ["t246"]
     },
     {
       "branch": "cairn-mvp/246-make-the-prd-pane-its-own-effect-ui-component",
@@ -20180,7 +20924,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t245"],
+      "waitedOnBy": ["t247"]
     },
     {
       "branch": "cairn-mvp/247-make-the-spec-pane-its-own-effect-ui-component",
@@ -20221,7 +20968,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t246"],
+      "waitedOnBy": ["t248"]
     },
     {
       "branch": "cairn-mvp/248-make-the-stacks-pane-its-own-effect-ui-component",
@@ -20262,7 +21012,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t247"],
+      "waitedOnBy": ["t249"]
     },
     {
       "branch": "cairn-mvp/249-make-the-task-detail-and-code-view-their-own-effect-ui-components",
@@ -20305,7 +21058,10 @@
         "prd.viewer.effect-ui#v2",
         "prd.viewer.effect-ui#v3"
       ],
-      "waiting": false
+      "waiting": false,
+      "canStart": false,
+      "waitsOn": ["t248"],
+      "waitedOnBy": []
     }
   ],
   "version": 1,

@@ -1,4 +1,5 @@
 import { TaskId, TaskStatus } from "@cairn/contract";
+import type { RelationIndex } from "@cairn/core/relation-index";
 import { Stack, StackTask, TaskIdOrder, stacksOf } from "@cairn/core/stacks";
 import { Array, Number, Option, Record, Schema, String, Struct, pipe } from "effect";
 
@@ -85,12 +86,16 @@ const forkLabelOf = (task: BoxTask): Option.Option<string> =>
     Array.last(String.split(section, ".")),
   );
 
-/** The box of every stack, each folded unless `unfolded` holds its root as `true`. */
+/**
+ * The box of every stack, each folded unless `unfolded` holds its root as `true`. `index` says what
+ * each task needs; the view passes the trace's, built once.
+ */
 export const stackBoxesOf = (
   tasks: ReadonlyArray<BoxTask>,
   unfolded: Record.ReadonlyRecord<string, boolean>,
+  index?: Pick<RelationIndex, "out">,
 ): ReadonlyArray<Box> =>
-  Array.map(stacksOf(tasks), (stack) =>
+  Array.map(stacksOf(tasks, index), (stack) =>
     boxOf(
       stack,
       tasks,

@@ -7,11 +7,14 @@ import {
   TraceSection,
   TraceTask,
 } from "@cairn/contract";
+import { indexOf } from "@cairn/core/relation-index";
+import type { RelationIndex } from "@cairn/core/relation-index";
 import {
   Array,
   DateTime,
   HashSet,
   Match,
+  MutableRef,
   Option,
   Order,
   Record,
@@ -23,6 +26,30 @@ import {
 import type { Density } from "./model.ts";
 import { blockKeyOf, type SearchResult } from "./search.ts";
 import { Node, chainOf } from "./trace.ts";
+
+/** The last trace the index was built for, with its index. */
+const relationsCache = MutableRef.make<
+  Option.Option<{ readonly index: RelationIndex; readonly trace: Trace }>
+>(Option.none());
+
+/**
+ * The relation index of `trace`, built with `indexOf({ trace })` (see
+ * `spec.status.answers-from-the-index`). The reader asks it what the trace does not carry: section
+ * links, and what a task needs or is needed by, directly or not. Every render reads the same trace
+ * until a new one arrives, so the index is built once per trace.
+ */
+export const relationsOf = (trace: Trace): RelationIndex =>
+  Option.getOrElse(
+    Option.map(
+      Option.filter(MutableRef.get(relationsCache), (cached) => cached.trace === trace),
+      ({ index }) => index,
+    ),
+    () => {
+      const index = indexOf({ trace });
+      MutableRef.set(relationsCache, Option.some({ index, trace }));
+      return index;
+    },
+  );
 
 /** What a person chose that decides the current section: the model's `reader`, as far as it goes. */
 export interface Choice {

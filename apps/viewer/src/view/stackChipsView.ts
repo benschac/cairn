@@ -23,7 +23,7 @@ import { nodeSearchOf } from "../highlight.ts";
 import { pathOfLink } from "../links.ts";
 import { Message } from "../message.ts";
 import type { Focus } from "../model.ts";
-import { currentTasksOf, planCountsOf, ranOf } from "../reader.ts";
+import { currentTasksOf, planCountsOf, ranOf, relationsOf } from "../reader.ts";
 import type { SearchResult } from "../search.ts";
 import { Node, type Chain } from "../trace.ts";
 import { dotView, labelView } from "../ui/marks.ts";
@@ -379,7 +379,7 @@ const stackView = (
 
 /** "N of M stacks hold this section · X of Y tasks done". */
 export const summaryOf = (trace: Trace, current: HashSet.HashSet<string>): string => {
-  const stacks = stacksOf(trace.tasks);
+  const stacks = stacksOf(trace.tasks, relationsOf(trace));
   const counts = planCountsOf(trace);
   const holding = Array.length(Array.filter(stacks, (stack) => holdsCurrent(stack, current)));
   return `${holding} of ${Array.length(stacks)} stacks hold this section · ${counts.done} of ${counts.tasks} tasks done`;
@@ -458,7 +458,7 @@ export const stackChipsView = (
   const current = currentTasksOf(trace, maybeCurrent);
   const maybeChain = hoverChainOf(trace, maybeHovered);
   const hasCurrent = Option.isSome(maybeCurrent);
-  const boxes = stackBoxesOf(trace.tasks, unfolded);
+  const boxes = stackBoxesOf(trace.tasks, unfolded, relationsOf(trace));
   const dependencies = dependencyLinksOf(trace, boxes, maybeFocus);
   const levels = pipe(
     Array.groupBy(boxes, (box) => `${box.stack.level}`),

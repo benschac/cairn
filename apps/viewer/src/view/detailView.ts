@@ -19,7 +19,7 @@ import { styleText } from "../effect-ui/attributes.ts";
 import { trailStepOf, pathOfLink } from "../links.ts";
 import { Message } from "../message.ts";
 import { WHOLE_TASK, type DiffStyle, type PatchData } from "../model.ts";
-import { ranOf, statusWordOf } from "../reader.ts";
+import { ranOf, relationsOf, statusWordOf } from "../reader.ts";
 import { Node, judgmentsOf, nodeKeyOf, sectionTitleOf } from "../trace.ts";
 import { dotView, labelView, tagView } from "../ui/marks.ts";
 import { copyButtonView } from "./copyLinkView.ts";
@@ -341,7 +341,9 @@ const parentText = (task: TraceTask): string =>
 
 const stackNumberOf = (trace: Trace, task: TraceTask): Option.Option<number> =>
   Option.map(
-    Array.findFirst(stacksOf(trace.tasks), (stack) => Record.has(stack.cells, task.id)),
+    Array.findFirst(stacksOf(trace.tasks, relationsOf(trace)), (stack) =>
+      Record.has(stack.cells, task.id),
+    ),
     (stack) => stack.number,
   );
 

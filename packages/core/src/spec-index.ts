@@ -2,6 +2,8 @@ import { PrdSectionId, SpecSectionId } from "@cairn/contract";
 import type { BodyHash, DerivedSection, ManifestTask, Section, SpecIndex } from "@cairn/contract";
 import { Array, HashSet, Option, Predicate, Record, Result, Schema, String, pipe } from "effect";
 
+import { identifiedOf } from "./identified.ts";
+import type { IdentifiedSection } from "./identified.ts";
 import { bodyHashOf } from "./replan.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
 
@@ -22,18 +24,7 @@ export interface DerivedInput {
   readonly written: ReadonlyArray<SpecSectionId>;
 }
 
-/** A section of `spec.md` that has a spec section ID. */
-export interface IdentifiedSection {
-  readonly id: SpecSectionId;
-  readonly section: Section;
-}
-
-export const identifiedOf = (sections: ReadonlyArray<Section>): ReadonlyArray<IdentifiedSection> =>
-  Array.filterMap(sections, (section) =>
-    Predicate.isNotUndefined(section.id) && isSpecSectionId(section.id)
-      ? Result.succeed({ id: section.id, section })
-      : Result.failVoid,
-  );
+export { identifiedOf, type IdentifiedSection };
 
 /**
  * The values the section itself lists under `key`. `Section.keys` also holds what the headings

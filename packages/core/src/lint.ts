@@ -1,8 +1,10 @@
-import { DerivedSection, SectionPrefix, ownerOf } from "@cairn/contract";
+import { DerivedSection, SectionPrefix, SpecSectionId, ownerOf } from "@cairn/contract";
 import type {
   HumanGate,
   Manifest,
   ManifestTask,
+  Relation,
+  RelationKind,
   Section,
   SpecIndex,
   TaskId,
@@ -31,6 +33,8 @@ import { linesOf } from "./section-ids.ts";
 import { keyEntriesOf, sectionsOf } from "./sections.ts";
 import { statementsOf, taskStatementsOf } from "./statements.ts";
 import type { Statement } from "./statements.ts";
+import { indexOf } from "./relation-index.ts";
+import type { RelationIndex } from "./relation-index.ts";
 import { parentOf } from "./stack.ts";
 import { derivedOf } from "./spec-index.ts";
 import { withStackDiagram } from "./stack-diagram.ts";
@@ -44,6 +48,7 @@ export const LintRule = Schema.Literals([
   "duplicate-id",
   "wrong-prefix",
   "bad-parent",
+  "need-cycle",
   "parent-mismatch",
   "worktree-clash",
   "gate-mismatch",
@@ -82,6 +87,8 @@ export const Finding = Schema.Struct({
 });
 export type Finding = typeof Finding.Type;
 
+const isSpecSectionId = Schema.is(SpecSectionId);
+
 const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
   "bad-diagram": "error",
   "bad-parent": "error",
@@ -91,6 +98,7 @@ const SEVERITY: { readonly [Rule in LintRule]: Severity } = {
   "gate-mismatch": "error",
   "index-drift": "warning",
   "missing-id": "error",
+  "need-cycle": "error",
   "no-commits-landed": "warning",
   "parent-mismatch": "error",
   "stale-section": "warning",
@@ -283,31 +291,47 @@ const unknownInKeys = (
     ),
   );
 
-/** IDs a task names that no heading has, including a heading that was deleted. */
-const unknownInTasks = (
+/**
+ * The relations of `kinds` from the manifest's tasks whose other end does not exist, as the index
+ * reads them: in manifest order, and for each task in the order of `kinds`.
+ */
+const danglingOf = (
   manifest: Manifest,
-  prdIds: HashSet.HashSet<string>,
-  specIds: HashSet.HashSet<string>,
-): ReadonlyArray<Finding> =>
-  Array.flatMap(manifest.tasks, (task) => {
-    const unknown = (ids: ReadonlyArray<string>, known: HashSet.HashSet<string>, file: LintFile) =>
-      Array.filterMap(ids, (id) =>
-        HashSet.has(known, id)
-          ? Result.failVoid
-          : Result.succeed(
-              findingOf(
-                "unknown-section",
-                "manifest.json",
-                Option.none(),
-                `${task.id} names ${id}, which no heading in ${file} has.`,
-              ),
-            ),
-      );
-    return Array.appendAll(
-      unknown(task.prdSections, prdIds, "prd.md"),
-      unknown(task.specSections, specIds, "spec.md"),
-    );
-  });
+  index: RelationIndex,
+  kinds: ReadonlyArray<RelationKind>,
+): ReadonlyArray<Relation> =>
+  Array.flatMap(manifest.tasks, (task) =>
+    Array.flatMap(kinds, (kind) =>
+      Array.filter(
+        index.dangling,
+        (relation) =>
+          relation.kind === kind && relation.from.kind === "task" && relation.from.id === task.id,
+      ),
+    ),
+  );
+
+/** IDs a task names that no heading has, including a heading that was deleted. */
+const unknownInTasks = (manifest: Manifest, index: RelationIndex): ReadonlyArray<Finding> =>
+  Array.map(danglingOf(manifest, index, ["names", "builds"]), ({ from, kind, to }) =>
+    findingOf(
+      "unknown-section",
+      "manifest.json",
+      Option.none(),
+      `${from.id} names ${to.id}, which no heading in ${kind === "names" ? "prd.md" : "spec.md"} has.`,
+    ),
+  );
+
+/** One finding for each set of tasks that need each other in a cycle, as the index finds them. */
+const needCycles = (index: RelationIndex): ReadonlyArray<Finding> =>
+  Array.map(index.cycles, (cycle) =>
+    taskFinding(
+      "need-cycle",
+      Array.match(Array.drop(cycle, 1), {
+        onEmpty: () => `${Array.join(cycle, ", ")} needs itself.`,
+        onNonEmpty: () => `${Array.join(cycle, ", ")} need each other in a cycle.`,
+      }),
+    ),
+  );
 
 /** PRD sections no spec section covers (see `spec.format`). */
 const unmapped = (prd: Document, spec: Document): ReadonlyArray<Finding> =>
@@ -523,12 +547,12 @@ const unrecorded = (task: ManifestTask): ReadonlyArray<Finding> =>
     : [];
 
 /**
- * What is wrong with the manifest's stacks: parents and dependencies that are not tasks or that
- * form a cycle, parents `parentOf` would not give, worktrees shared by tasks that could run at the
+ * What is wrong with the manifest's stacks: parents and dependencies that are not tasks, parents `parentOf` would not give, worktrees shared by tasks that could run at the
  * same time, gates plan-time detection would not give, and landed tasks with no commits.
  */
 const stackFindings = (
   manifest: Manifest,
+  index: RelationIndex,
   sections: ReadonlyArray<Section>,
   items: ReadonlyArray<Item>,
   config: GateConfig,
@@ -545,53 +569,24 @@ const stackFindings = (
     Record.fromEntries(
       Array.map(tasks, (task) => [task.id, reachableFrom(linksOf(pick), task.id)] as const),
     );
-  const below = tableOf((task) =>
-    Array.appendAll(task.dependsOn, Option.toArray(Option.fromNullOr(task.parent))),
-  );
   const needs = tableOf((task) => task.dependsOn);
   const lookup = (table: typeof needs, id: TaskId) =>
     Option.getOrElse(Record.get(table, id), () => HashSet.empty<TaskId>());
 
-  const badParents = (task: ManifestTask): ReadonlyArray<Finding> => {
-    const strays = Array.appendAll(
-      Option.match(Option.fromNullOr(task.parent), {
-        onNone: () => [],
-        onSome: (parent) =>
-          HashSet.has(known, parent)
-            ? []
-            : [`${task.id}'s parent ${parent} is not in the manifest.`],
-      }),
-      Array.filterMap(task.dependsOn, (id) =>
-        HashSet.has(known, id)
-          ? Result.failVoid
-          : Result.succeed(`${task.id} depends on ${id}, which is not in the manifest.`),
+  const badParents = (task: ManifestTask): ReadonlyArray<Finding> =>
+    Array.map(
+      Array.filter(
+        danglingOf(manifest, index, ["builtOn", "needs"]),
+        ({ from }) => from.id === task.id,
       ),
+      ({ kind, to }) =>
+        taskFinding(
+          "bad-parent",
+          kind === "builtOn"
+            ? `${task.id}'s parent ${to.id} is not in the manifest.`
+            : `${task.id} depends on ${to.id}, which is not in the manifest.`,
+        ),
     );
-    const cycle = HashSet.has(lookup(below, task.id), task.id)
-      ? [
-          Array.match(
-            Array.filter(
-              tasks,
-              (other) =>
-                other.id !== task.id &&
-                HashSet.has(lookup(below, task.id), other.id) &&
-                HashSet.has(lookup(below, other.id), task.id),
-            ),
-            {
-              onEmpty: () => `${task.id} depends on itself.`,
-              onNonEmpty: (others) =>
-                `${task.id} is in a cycle with ${Array.join(
-                  Array.map(others, (other) => other.id),
-                  ", ",
-                )}.`,
-            },
-          ),
-        ]
-      : [];
-    return Array.map(Array.appendAll(strays, cycle), (message) =>
-      taskFinding("bad-parent", message),
-    );
-  };
 
   const parentMismatch = (task: ManifestTask): ReadonlyArray<Finding> => {
     const expected = Option.getOrNull(parentOf(task.dependsOn, tasks));
@@ -770,6 +765,16 @@ export const lint = (
   const prdIds = HashSet.fromIterable(Array.map(identifiedOf(prdDocument), ({ id }) => id));
   const specIds = HashSet.fromIterable(Array.map(identifiedOf(specDocument), ({ id }) => id));
   const tasks = Option.match(manifest, { onNone: () => [], onSome: (plan) => plan.tasks });
+  // The relation index over the plan, with the spec's headings and items as the ends a task builds.
+  const specEnds = Array.map(
+    Array.filter(
+      Array.map(identifiedOf(specDocument), ({ id }) => id),
+      isSpecSectionId,
+    ),
+    (id) => ({ dependsOn: [], id, implements: [], tests: [] }),
+  );
+  const indexOfPlan = (plan: Manifest) =>
+    indexOf({ manifest: plan, prd, specIndex: { sections: specEnds } });
   const statements = statementsOf(prd, prdSections, prdDocument.items);
   const findings = Array.flatten([
     missingIds(prdDocument),
@@ -788,11 +793,14 @@ export const lint = (
     diagramDrift(spec, manifest),
     Option.match(manifest, {
       onNone: () => [],
-      onSome: (plan) =>
-        Array.flatten([
-          unknownInTasks(plan, prdIds, specIds),
+      onSome: (plan) => {
+        const planIndex = indexOfPlan(plan);
+        return Array.flatten([
+          unknownInTasks(plan, planIndex),
+          needCycles(planIndex),
           stackFindings(
             plan,
+            planIndex,
             Array.appendAll(prdDocument.sections, specDocument.sections),
             prdDocument.items, // the spec's items gate nothing and are read for their IDs only
             config,
@@ -801,7 +809,8 @@ export const lint = (
             onNone: () => [],
             onSome: (categories) => categoryFindings(plan.tasks, categories),
           }),
-        ]),
+        ]);
+      },
     }),
     Option.match(index, {
       onNone: () => [],

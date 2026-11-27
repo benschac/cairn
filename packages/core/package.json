@@ -6,6 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./relation-index": "./src/relation-index.ts",
+    "./section-links": "./src/section-links.ts",
     "./stacks": "./src/stacks.ts"
   },
   "scripts": {

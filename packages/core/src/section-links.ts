@@ -16,7 +16,7 @@ import {
 
 import type { RelationIndex, StatusOf } from "./relation-index.ts";
 import { chainOf } from "./rollup.ts";
-import { TaskIdOrder } from "./stacks.ts";
+import { TaskIdOrder } from "./task-order.ts";
 
 /** A heading or list item of the PRD, as the links read it: its ID and what it sits under. */
 export interface TreeEntry {
