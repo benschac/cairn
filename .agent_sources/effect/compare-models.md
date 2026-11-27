@@ -145,6 +145,9 @@ task's current state.
   layer to `Planner.layerWith`, which closes over it, so the small calls run on
   `planner.model`. The fix is this pattern: write each call once, and provide
   `languageModelFor(config, call)` per call instead of one model per service.
+  Open pull request #218 (`cairn/plan-small-calls`) fixes it with a second,
+  optional `SmallLanguageModel` service that the plan command provides when
+  `planner.small` is set.
 
 ### In the PRD and spec, not built yet
 
