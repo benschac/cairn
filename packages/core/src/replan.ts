@@ -19,6 +19,7 @@ import {
   Result,
   Schema,
   String,
+  Struct,
   pipe,
 } from "effect";
 
@@ -221,6 +222,8 @@ export interface StaleTask {
 export interface Staleness {
   /** Out-of-date sections Cairn wrote, nobody edited and no task builds: `cairn plan` writes them again. */
   readonly rewritable: ReadonlyArray<SpecSectionId>;
+  /** Every out-of-date section, rewritable or not, in document order. */
+  readonly outOfDate: ReadonlyArray<StaleSection>;
   /** Every other out-of-date section: a person settles it. */
   readonly sections: ReadonlyArray<StaleSection>;
   readonly tasks: ReadonlyArray<StaleTask>;
@@ -276,6 +279,7 @@ export const stalenessOf = (
     Array.map(Array.filter(recorded, edited), ({ id }) => id),
   );
   return {
+    outOfDate,
     rewritable: Array.map(Array.filter(outOfDate, isRewritable), ({ id }) => id),
     sections,
     tasks: Array.filterMap(tasks, (task): Result.Result<StaleTask, void> => {
@@ -335,6 +339,54 @@ export const replanOf = (
     ),
     untasked: untaskedOf(specSections, tasks),
   };
+};
+
+/**
+ * Every spec section a PRD section it was written from has changed since, rewritable or not, in
+ * document order, with the PRD sections that changed and its `spec.json` entry, whose
+ * `writtenFrom.prd` holds the hashes it was written from (`spec.planning.again.cosmetic-edits`).
+ * Pure.
+ */
+export const outOfDateOf = (
+  prd: string,
+  spec: string,
+  index: SpecIndex,
+): ReadonlyArray<StaleSection> =>
+  stalenessOf(sectionsOf(prd), sectionsOf(spec), index, []).outOfDate;
+
+/**
+ * `replan` with the edits a judge read as cosmetic left unwritten
+ * (`spec.planning.again.cosmetic-edits`): every `rewritable` section whose changed PRD sections
+ * are all in `cosmetic` moves to `staleSections`, which stays in document order. `outOfDate`
+ * gives each section's changed PRD sections and that order (`outOfDateOf`); a rewritable section
+ * it does not name stays rewritable. Nothing else changes. Pure.
+ */
+export const cosmeticOf = (
+  replan: Replan,
+  cosmetic: HashSet.HashSet<PrdSectionId>,
+  outOfDate: ReadonlyArray<Pick<StaleSection, "changed" | "id">>,
+): Replan => {
+  const changedOf = Record.fromEntries(
+    Array.map(outOfDate, ({ changed, id }) => [id, changed] as const),
+  );
+  const moves = (id: SpecSectionId) =>
+    Option.exists(Record.get(changedOf, id), (changed) =>
+      Array.every(changed, (prd) => HashSet.has(cosmetic, prd)),
+    );
+  const order = Array.map(outOfDate, ({ id }): SpecSectionId => id);
+  const placeOf = (id: SpecSectionId) =>
+    Option.getOrElse(
+      Array.findFirstIndex(order, (other) => other === id),
+      () => Array.length(order),
+    );
+  return Struct.assign(replan, {
+    rewritable: Array.filter(replan.rewritable, (id) => !moves(id)),
+    staleSections: Array.sortWith(
+      Array.appendAll(replan.staleSections, Array.filter(replan.rewritable, moves)),
+      placeOf,
+      Order.Number,
+    ),
+  });
 };
 
 /**

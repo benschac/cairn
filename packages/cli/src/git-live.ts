@@ -173,6 +173,21 @@ export const layer = (directory = ".") =>
         ),
       );
 
-      return Git.of({ history, log, userName });
+      // `./` reads the path from `directory`, as `revisionsOf`'s pathspec does.
+      const fileAt = (path: string, revision: string) => run(["show", `${revision}:./${path}`]);
+
+      const revisionsOf = Effect.fn("Git.revisionsOf")(function* (path: string, limit: number) {
+        const args = ["log", `--max-count=${limit}`, "--format=%H", "HEAD", "--", path];
+        const stdout = yield* run(args);
+        return yield* Effect.forEach(linesOf(stdout), (line) =>
+          Schema.decodeEffect(Sha)(line).pipe(
+            Effect.mapError(
+              (error) => new GitError({ args, detail: error.message, exitCode: null }),
+            ),
+          ),
+        );
+      });
+
+      return Git.of({ fileAt, history, log, revisionsOf, userName });
     }),
   );

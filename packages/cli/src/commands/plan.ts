@@ -17,11 +17,15 @@ import type {
 import {
   assignItemIds,
   assignSectionIds,
+  bodyHashOf,
+  changeQuestions,
+  cosmeticOf,
   derivedOf,
   gateOf,
   inputsOf,
   itemsOf,
   lint,
+  outOfDateOf,
   partOf,
   prdSectionsBuiltBy,
   refusalOf,
@@ -33,6 +37,7 @@ import {
   uncoveredItemsOf,
   uncoveredOf,
   withStackDiagram,
+  yesNoOf,
 } from "@cairn/core";
 import type { Finding, JudgingInputs, Part, Replan } from "@cairn/core";
 import {
@@ -46,6 +51,7 @@ import {
   Layer,
   Number,
   Option,
+  Order,
   Path,
   PlatformError,
   Predicate,
@@ -68,6 +74,8 @@ import {
   targetsOf,
 } from "../ask-statements.ts";
 import { replaceFile } from "../atomic-write.ts";
+import { layer as gitLayer } from "../git-live.ts";
+import { Git } from "../git.ts";
 import { Judge, JudgeError, inputHashesOf } from "../judge.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { livePlannerModels } from "../models.ts";
@@ -797,6 +805,191 @@ const reportStale = Effect.fn("plan.reportStale")(function* (
   });
 });
 
+/** How many revisions of `prd.md` are searched for the body a spec section was written from. */
+const PRD_REVISIONS = 50;
+
+const PRD_PATH = `${CAIRN_DIRECTORY}/prd.md`;
+
+/** `section` is the one `id` names. */
+const isSection = (section: Section, id: string) => section.id === id;
+
+/** A changed PRD section to ask about: its ID and the hash of the body its spec section was written from. */
+interface Recorded {
+  readonly id: PrdSectionId;
+  readonly hash: string;
+}
+
+/**
+ * The body each of `wanted` had when its spec section was written: the PRD section's body at the
+ * newest of the last `PRD_REVISIONS` commits of `prd.md` where it hashes to `hash`
+ * (`spec.planning.again.cosmetic-edits`). None when no revision matches, when there is no `Git`,
+ * and when git cannot read the history: each counts the change as material.
+ */
+const oldBodiesOf = Effect.fn("plan.oldBodiesOf")(function* (wanted: ReadonlyArray<Recorded>) {
+  const none = Array.map(wanted, () => Option.none<string>());
+  const git = yield* Effect.serviceOption(Git);
+  if (Option.isNone(git) || Array.isReadonlyArrayEmpty(wanted)) {
+    return none;
+  }
+  const reader = git.value;
+  return yield* reader.revisionsOf(PRD_PATH, PRD_REVISIONS).pipe(
+    Effect.flatMap((revisions) =>
+      // Newest first, as `revisionsOf` lists them. A revision that cannot be read matches nothing.
+      Effect.forEach(
+        revisions,
+        (revision) =>
+          reader.fileAt(PRD_PATH, revision).pipe(
+            Effect.map(sectionsOf),
+            Effect.catchTag("GitError", () => Effect.succeed<ReadonlyArray<Section>>([])),
+          ),
+        { concurrency: 4 },
+      ),
+    ),
+    Effect.map((revisions) =>
+      Array.map(wanted, ({ hash, id }) =>
+        Array.findFirst(revisions, (sections) =>
+          Option.map(
+            Array.findFirst(
+              sections,
+              (section) => isSection(section, id) && bodyHashOf(section.body) === hash,
+            ),
+            ({ body }) => body,
+          ),
+        ),
+      ),
+    ),
+    Effect.catchTag("GitError", () => Effect.succeed(none)),
+  );
+});
+
+/** A PRD section whose change the judge read as cosmetic, with the probability it gave `materialChange`. */
+interface Cosmetic {
+  readonly id: PrdSectionId;
+  readonly probability: number;
+}
+
+/** The plan output's line for a section left unwritten because its PRD sections' changes look cosmetic. */
+const cosmeticLine = (id: SpecSectionId, cosmetic: ReadonlyArray<Cosmetic>) =>
+  `stale  ${id} (likely cosmetic: ${Array.join(
+    Array.map(cosmetic, (found) => `${found.id}, ${Number.round(found.probability, 2)}`),
+    "; ",
+  )}), run cairn plan --accept ${id}`;
+
+/**
+ * `replan` with the sections whose PRD changes look cosmetic left unwritten
+ * (`spec.planning.again.cosmetic-edits`). Before `Planner.sections` writes the `rewritable`
+ * sections again, the judge is asked `changeQuestions` once for each changed PRD section they
+ * implement, comparing its body now with the body its spec section was written from, and once more
+ * for each other body another section records. A PRD section all of whose bodies' `materialChange`
+ * reads `no` is cosmetic, and `cosmeticOf` moves each section whose changed
+ * PRD sections are all cosmetic to `staleSections`; the run prints a line for each. With no
+ * judge, a judge that fails, or no old body found, `replan` is as it was.
+ */
+const withoutCosmetic = Effect.fn("plan.withoutCosmetic")(function* (
+  inputs: Inputs,
+  spec: string,
+  index: SpecIndex,
+  replan: Replan,
+) {
+  if (Array.isReadonlyArrayEmpty(replan.rewritable)) {
+    return replan;
+  }
+  const maybeJudge = yield* judging(inputs.told);
+  if (Option.isNone(maybeJudge)) {
+    return replan;
+  }
+  const judge = maybeJudge.value;
+  const outOfDate = outOfDateOf(inputs.prd, spec, index);
+  const rewriting = Array.filter(outOfDate, ({ id }) => Array.contains(replan.rewritable, id));
+  // Each changed PRD section once for each body it was written from: two sections that implement
+  // it can record different hashes.
+  const wanted = Array.dedupeWith(
+    Array.flatMap(rewriting, ({ changed, entry }) =>
+      Array.filterMap(changed, (id) =>
+        Option.match(Record.get(entry.writtenFrom.prd, id), {
+          onNone: () => Result.failVoid,
+          onSome: (hash): Result.Result<Recorded, void> => Result.succeed({ hash, id }),
+        }),
+      ),
+    ),
+    (a: Recorded, b: Recorded) => a.id === b.id && a.hash === b.hash,
+  );
+  const olds = yield* oldBodiesOf(wanted);
+  const now = sectionsOf(inputs.prd);
+  // A PRD section that was deleted, or whose old body was not found, is not asked about.
+  const asked = Array.getSomes(
+    Array.zipWith(wanted, olds, (recorded, old) =>
+      Option.map(
+        Option.all({
+          before: old,
+          current: Array.findFirst(now, (section) => isSection(section, recorded.id)),
+        }),
+        ({ before, current }) => ({
+          input: { after: current.body, before, title: current.title },
+          recorded,
+        }),
+      ),
+    ),
+  );
+  if (Array.isReadonlyArrayEmpty(asked)) {
+    return replan;
+  }
+  const outcomes = yield* judge
+    .ask(
+      changeQuestions,
+      Array.map(asked, ({ input, recorded }) => ({ input, label: recorded.id })),
+    )
+    .pipe(Effect.catchTag("JudgeError", failedAs([])));
+  const noes = Array.getSomes(
+    Array.zipWith(asked, outcomes, ({ recorded }, { materialChange }) =>
+      yesNoOf(materialChange, inputs.config.judge) === "no"
+        ? Option.map(Result.getSuccess(materialChange), ({ probability }) => ({
+            id: recorded.id,
+            probability,
+          }))
+        : Option.none(),
+    ),
+  );
+  // A PRD section is cosmetic when every body it was written from reads no; the line gives the
+  // highest probability of a material change among them.
+  const cosmetic = Array.filterMap(
+    Array.dedupe(Array.map(wanted, ({ id }) => id)),
+    (id): Result.Result<Cosmetic, void> => {
+      const found = Array.filter(noes, (no) => no.id === id);
+      return Array.length(found) === Array.length(Array.filter(wanted, (pair) => pair.id === id))
+        ? Array.match(found, {
+            onEmpty: () => Result.failVoid,
+            onNonEmpty: (all) =>
+              Result.succeed({
+                id,
+                probability: Array.max(
+                  Array.map(all, ({ probability }) => probability),
+                  Order.Number,
+                ),
+              }),
+          })
+        : Result.failVoid;
+    },
+  );
+  const next = cosmeticOf(
+    replan,
+    HashSet.fromIterable(Array.map(cosmetic, ({ id }) => id)),
+    outOfDate,
+  );
+  yield* Effect.forEach(
+    Array.filter(rewriting, ({ id }) => !Array.contains(next.rewritable, id)),
+    ({ changed, id }) =>
+      Console.log(
+        cosmeticLine(
+          id,
+          Array.filter(cosmetic, (found) => Array.contains(changed, found.id)),
+        ),
+      ),
+    { discard: true },
+  );
+  return next;
+});
+
 /** Step 1: writes `spec.md` from the PRD and prints its sections. Returns whether it wrote and how many sections it printed. */
 const specStep = Effect.fn("plan.specStep")(function* (
   inputs: Inputs,
@@ -845,8 +1038,9 @@ const specStep = Effect.fn("plan.specStep")(function* (
   const index = started ? NO_INDEX : yield* indexFor(part, prd, manifest);
   yield* reportStale(inputs, spec, manifest, index);
   const whole = replanOf(prd, spec, index, manifest);
-  const replan = narrowed(part, whole, prd, spec, index);
-  yield* reportMoved(spec, whole, replan);
+  const scoped = narrowed(part, whole, prd, spec, index);
+  yield* reportMoved(spec, whole, scoped);
+  const replan = yield* withoutCosmetic(inputs, spec, index, scoped);
   if (
     Array.isReadonlyArrayEmpty(replan.uncovered) &&
     Array.isReadonlyArrayEmpty(replan.rewritable)
@@ -1476,8 +1670,15 @@ export const planCommand = Command.make(
       );
       // A Judge is provided only when a key or a gateway token is configured; without one the
       // checkpoints find none and are skipped.
+      // Git reads the PRD's history, to compare a changed PRD section with the body it had.
+      const git = Layer.unwrap(
+        Effect.gen(function* () {
+          const root = yield* (yield* MainCheckout).root;
+          return gitLayer(root);
+        }),
+      );
       yield* plan(options).pipe(
-        Effect.provide(Layer.mergeAll(planner, Judge.whenConfigured(config))),
+        Effect.provide(Layer.mergeAll(planner, Judge.whenConfigured(config), git)),
       );
     }).pipe(
       // The failures log their own message once; the runtime does not print them again.
