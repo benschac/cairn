@@ -286,9 +286,9 @@ A PRD changes while its stack is being built. Running `cairn plan` on a plan tha
 - A PRD section that no spec section covers gets new spec sections, written to fit the spec that exists.
 - New spec sections for different uncovered PRD sections are written side by side, each from the same reading of the spec that exists, and none sees another's draft.
 - A spec section that no task builds gets new tasks. They take the next free IDs and may depend on tasks already in the manifest.
-- A list item given an ID after its section was planned is mapped, not planned again: `cairn plan` adds it to the `Implements` of the spec sections that already build it, and writes a spec section only for an item that none of them builds.
+- A list item given an ID after its section was planned is mapped, not planned again: `cairn plan` adds it to the `Implements` of the spec sections that already build it, and writes a spec section only for an item that none of them builds. The judge says which sections already build it. An item it is unsure about, or any item when there is no judge, is reported as unmapped for a person to settle.
 - A task already in the manifest is never changed, renumbered or reordered, whatever its status.
-- Cairn records what each spec section was written from. When a PRD section changes afterwards, the spec sections that implement it are reported as out of date, and so are their tasks. Cairn rewrites an out-of-date spec section only when it wrote the section, nobody has edited it and no task builds it yet. Everything else is for a person to settle; changing a task that has started is v2's rebase flow.
+- Cairn records what each spec section was written from. When a PRD section changes afterwards, the spec sections that implement it are reported as out of date, and so are their tasks. Cairn rewrites an out-of-date spec section only when it wrote the section, nobody has edited it and no task builds it yet. When the judge is confident the PRD change is cosmetic, such as a typo fixed or a sentence reworded to ask for the same thing, the section is not rewritten: it stays out of date, marked likely cosmetic, for a person to accept. Everything else is for a person to settle; changing a task that has started is v2's rebase flow.
 - `cairn plan --respec` writes the whole spec again and plans from nothing. It is refused once any task has left `pending`.
 
 ### Diagrams {#prd.planning.diagrams}
@@ -354,7 +354,9 @@ Done when:
 `cairn plan` settles the statements before it writes the spec, so the spec is written against what the person agreed to.
 
 - For each section, and each list item with an ID, that describes something to build and has no statement, the planner drafts one or more and writes them into `prd.md` as drafts. Drafts are the only text `cairn plan` adds to the PRD, and it changes no other line.
+- The judge says whether a part describes something to build. A part it is confident describes nothing to build, such as a heading that only groups its children, a scope note or a list of later work, gets no draft. When it is unsure, or there is no judge, the planner decides as before.
 - It then shows each draft under its section's title and asks whether this is what the person meant. They accept it, which removes `Draft:`; rewrite it, which saves their words as confirmed; delete it; or skip it.
+- Each draft is shown with the judge's notes: whether it says what its section asks, whether a person could see it happen, whether it names a file, function or test, and whether only a person looking could settle it, in which case the note suggests the `<!-- human -->` tag. A draft the judge is confident names a file, function or test goes back to the planner once before it is shown. The notes never accept, rewrite, delete or tag a statement.
 - Skipping never stops the plan. A skipped statement stays a draft, and `cairn plan` ends with a warning that counts the drafts it planned against.
 - `--yes` skips every draft. It answers the two reviews for the person, but it does not agree to a statement on their behalf.
 - Planning again asks only about drafts: the ones just written for sections that had no statement, and the ones skipped before. A confirmed statement is never asked about or rewritten.
@@ -430,14 +432,16 @@ The language model writes; a configurable decision model judges. TypeSafe's Jev 
 
 Checkpoints in `cairn plan`:
 
-1. After the spec is written: is each section sized right? A section judged too large is broken down into smaller sections. Is it faithful to the PRD sections it implements, and could an agent build it without asking a question? Those are reported.
-2. After tasks are drafted: is each task one reviewable diff? A task judged too large is broken down into smaller tasks, and the new tasks are judged again.
+1. After the spec is written: is each section sized right? A section judged too large is broken down into smaller sections. Does it do everything the PRD sections it implements ask, does it add nothing they do not ask for, and could an agent build it without asking a question? Those are reported.
+2. After tasks are drafted: is each task one reviewable diff? A task judged too large is broken down into smaller tasks, and the new tasks are judged again. Does it carry out its spec sections, does it reach for nothing they do not ask, and does its work fit the category the planner gave it? Those are reported; the planner's category stands.
 3. Once tasks are the right size: which model and reasoning level does each task need? The configured judge's choice replaces the planner's only when it meets the routing threshold and the provider has been validated for automatic routing; experimental providers report recommendations only.
-4. The stack as a whole: does it build every PRD section, can each task be built and tested with only the tasks below it, and is it one feature? Those are reported.
+4. The stack as a whole: do the tasks that implement each PRD section build what it asks, can each task be built and tested with only the tasks it depends on, and is the stack one feature? Each PRD section and each task is asked about on its own, so a report names the one that failed. Those are reported.
 
 Rules:
 
 - A low-confidence answer never acts. It is reported as `unsure`, and the planner's draft stands.
+- Each question asks for one judgment about one thing. An answer counts only when the probability of that answer clears the provider's threshold; how concentrated the rest of the answer is does not count.
+- Planning also asks the judge narrow questions where code then acts: whether a part of the PRD describes something to build and what the judge notices about a drafted statement (see asking the person), whether a PRD edit changes what must be built, and which spec sections already build an item (see planning again). The same rules hold: an unsure answer, or no judge, leaves planning as it would be without one, and the plan output says what the judge changed.
 - Breaking down is bounded: at most two rounds, so planning always ends.
 - Judging never decides gates, IDs, branch names or order. Those stay deterministic.
 - Judging shapes the draft before a human sees it. The plan output shows what was broken down and which models were changed, and why. The human still approves the plan.
@@ -495,6 +499,7 @@ History stays in the repo's `cairn.db`. Nothing is sent to a Cairn service, and 
 - A retry is a new attempt with the same model and reasoning level. An escalation is a new attempt with a stronger model or a higher reasoning level, or the task handed to a person. A repair after review is a new attempt on the same task. Review and conflict-resolution sessions on a task count toward its cost.
 - Each attempt records the model ID and reasoning level it ran with, the harness that ran it (Claude Code, Codex, Pi) and its version, when it started and ended, its input, cached input, output and reasoning tokens, its cost, the billing route that paid for it, and its outcome. The orchestrator reports these (see Orchestrator contract).
 - A failed attempt says why: `checks` (the work did not pass), `agent` (the agent stopped or gave up), `infra` (the runner, the provider or the network failed) or `upstream` (a dependency was wrong). Only `checks` and `agent` failures count against the model; `infra` and `upstream` attempts add their cost to the task and nothing to the model's failure rate.
+- When the facts leave a failure's reason between two, the judge chooses: failed checks are `checks` or `upstream`, from the check output and the task's dependencies; an agent that stopped without verifying is `agent` or `infra`, from the session's last turns and the runner's errors. The attempt records that the reason was judged. An unsure answer, or no judge, keeps the reason the orchestrator gave, and the judge never changes whether an attempt verified.
 - Cost comes from the provider's or the gateway's usage report, priced from the catalog's dated prices, and the report is kept as it came beside the normalised numbers. A missing number is unknown, never zero. An attempt run on a subscription records its tokens with cost `null` and route `subscription`; Cairn does not invent a price for it.
 - Each task can set a limit on attempts and on cost in config, with defaults for the repo. A task that reaches its limit without verifying is `failed` for good and is counted as a terminal failure.
 - Attempts are stored in `cairn.db` under their session IDs, beside the session log.
@@ -530,6 +535,7 @@ Each is reported per task and summed per model, reasoning level, harness and tas
 - Cost per attempt, and the share of attempts that failed verification.
 - Cache utilization: cached input tokens over all input tokens.
 - Reasoning tokens: total reasoning tokens per verified task, where the provider reports them.
+- Review findings per verified task: the second-model review's findings that the judge labels as breaking the spec or a bug, so repair work counts as evidence (see choosing models for tasks). A label never blocks landing and never resolves a note.
 
 A metric whose tasks include attempts with unknown cost says how many it left out; it never counts them as free. Every metric is shown with the number of tasks behind it.
 
@@ -537,6 +543,7 @@ A metric whose tasks include attempts with unknown cost says how many it left ou
 
 - Each task has a `category` in the manifest, chosen by the planner from a list in `.cairn/config.json`. The default list is `mechanical` (renames, moves, config), `feature`, `ui`, `test`, `schema`, `refactor`, `bugfix` and `docs`. A repo can add its own; the router reads the list and has none built in.
 - `cairn lint` fails a task whose category is not in the list.
+- Judging asks which category each task's work fits and reports a disagreement with the planner's choice. It never changes the category.
 - History is kept per category, so a model that is cheap for mechanical edits and expensive for schema changes is routed to each on its own record.
 
 ### Routing from history {#prd.outcomes.routing}
@@ -817,6 +824,7 @@ People and agents leave notes on the document, plan and code: a question about a
 - A note shows as a marker where it is anchored: beside the passage or the spec section, on the line in the diff, on the task's row and chip with a count of open notes. The task detail lists the task's notes, and each note opens its link.
 - A note whose anchor no longer resolves shows in the task detail, or under its section, with the step that is missing (see deep links).
 - A resolved note is hidden until a person asks to see resolved notes.
+- The judge labels each open note as a question, a blocker, a bug or a nit, and the viewer sorts and badges by it. The note's kind stays the author's, a label never blocks landing, and only a person resolves a person's note.
 
 ### Effect UI {#prd.viewer.effect-ui}
 

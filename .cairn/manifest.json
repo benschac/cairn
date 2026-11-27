@@ -6449,6 +6449,370 @@
       "commits": [],
       "sessions": [],
       "category": "refactor"
+    },
+    {
+      "id": "t250",
+      "title": "Ask scope apart from faithful and matches",
+      "prdSections": ["prd.judging-the-plan"],
+      "specSections": [
+        "spec.judging.questions",
+        "spec.contract.judgments",
+        "spec.judging.checkpoints"
+      ],
+      "files": [
+        "packages/core/src/judging/questions.ts",
+        "packages/contract/src/judgments.ts",
+        "packages/core/src/judging/verdicts.ts",
+        "packages/cli/src/refine.ts",
+        "packages/core/test/questions.test.ts",
+        "packages/cli/test/refine.test.ts"
+      ],
+      "branch": "cairn-mvp/250-ask-scope-apart-from-faithful-and-matches",
+      "parent": null,
+      "dependsOn": [],
+      "worktree": "wt-71",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
+    },
+    {
+      "id": "t251",
+      "title": "Ask which category each task's work fits",
+      "prdSections": ["prd.judging-the-plan", "prd.outcomes.categories"],
+      "specSections": [
+        "spec.judging.questions",
+        "spec.judging.verdicts",
+        "spec.planning.task-categories"
+      ],
+      "files": [
+        "packages/core/src/judging/questions.ts",
+        "packages/core/src/judging/verdicts.ts",
+        "packages/contract/src/judgments.ts",
+        "packages/cli/src/judge.ts",
+        "packages/cli/src/refine.ts",
+        "packages/core/test/questions.test.ts",
+        "packages/core/test/verdicts.test.ts",
+        "packages/cli/test/judge.test.ts"
+      ],
+      "branch": "cairn-mvp/251-ask-which-category-each-tasks-work-fits",
+      "parent": "t250",
+      "dependsOn": ["t250"],
+      "worktree": "wt-71",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
+    },
+    {
+      "id": "t252",
+      "title": "Read each label's probability and start at 0.7 and 0.3",
+      "prdSections": ["prd.judging-the-plan"],
+      "specSections": ["spec.judging.verdicts", "spec.contract.config", "spec.judging.checkpoints"],
+      "files": [
+        "packages/core/src/judging/verdicts.ts",
+        "packages/contract/src/config.ts",
+        "packages/cli/src/refine.ts",
+        "packages/cli/src/print-judgments.ts",
+        "packages/core/test/verdicts.test.ts",
+        "packages/contract/test/config.test.ts"
+      ],
+      "branch": "cairn-mvp/252-read-each-labels-probability-and-start-at-0-7-and-0-3",
+      "parent": "t251",
+      "dependsOn": ["t251"],
+      "worktree": "wt-71",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
+    },
+    {
+      "id": "t253",
+      "title": "Ask built per PRD section and ordered per task",
+      "prdSections": ["prd.judging-the-plan"],
+      "specSections": [
+        "spec.judging.questions",
+        "spec.contract.judgments",
+        "spec.judging.checkpoints",
+        "spec.judging.cairn-judge"
+      ],
+      "files": [
+        "packages/core/src/judging/questions.ts",
+        "packages/contract/src/judgments.ts",
+        "packages/cli/src/judge.ts",
+        "packages/cli/src/commands/judge.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/src/print-judgments.ts",
+        "apps/viewer/src/trace.ts",
+        "packages/core/test/questions.test.ts",
+        "packages/cli/test/judge.test.ts",
+        "packages/cli/test/judge-command.test.ts"
+      ],
+      "branch": "cairn-mvp/253-ask-built-per-prd-section-and-ordered-per-task",
+      "parent": "t252",
+      "dependsOn": ["t252"],
+      "worktree": "wt-71",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
+    },
+    {
+      "id": "t254",
+      "title": "Ask the judge narrow questions during planning",
+      "prdSections": ["prd.judging-the-plan"],
+      "specSections": ["spec.judging.asking-during-planning"],
+      "files": [
+        "packages/cli/src/judge.ts",
+        "packages/core/src/judging/questions.ts",
+        "packages/core/src/judging/verdicts.ts",
+        "packages/core/src/index.ts",
+        "packages/cli/test/judge.test.ts",
+        "packages/core/test/questions.test.ts"
+      ],
+      "branch": "cairn-mvp/254-ask-the-judge-narrow-questions-during-planning",
+      "parent": "t253",
+      "dependsOn": ["t253"],
+      "worktree": "wt-71",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
+    },
+    {
+      "id": "t255",
+      "title": "Draft no statements for parts with nothing to build",
+      "prdSections": ["prd.done-when.asking"],
+      "specSections": ["spec.planning.done-when.judging-drafts"],
+      "files": [
+        "packages/cli/src/ask-statements.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/test/ask-statements.test.ts"
+      ],
+      "branch": "cairn-mvp/255-draft-no-statements-for-parts-with-nothing-to-build",
+      "parent": "t254",
+      "dependsOn": ["t254"],
+      "worktree": "wt-71",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
+    },
+    {
+      "id": "t256",
+      "title": "Show the judge's notes under each draft statement",
+      "prdSections": ["prd.done-when.asking"],
+      "specSections": ["spec.planning.done-when.judging-drafts"],
+      "files": [
+        "packages/cli/src/ask-statements.ts",
+        "packages/cli/src/planner.ts",
+        "packages/cli/test/ask-statements.test.ts"
+      ],
+      "branch": "cairn-mvp/256-show-the-judges-notes-under-each-draft-statement",
+      "parent": "t255",
+      "dependsOn": ["t255"],
+      "worktree": "wt-71",
+      "model": "sonnet",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
+    },
+    {
+      "id": "t257",
+      "title": "Keep a cosmetic PRD edit from rewriting its spec sections",
+      "prdSections": ["prd.planning.again"],
+      "specSections": ["spec.planning.again.cosmetic-edits"],
+      "files": [
+        "packages/core/src/replan.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/src/git.ts",
+        "packages/cli/src/git-live.ts",
+        "packages/core/test/replan.test.ts",
+        "packages/cli/test/plan-again.test.ts"
+      ],
+      "branch": "cairn-mvp/257-keep-a-cosmetic-prd-edit-from-rewriting-its-spec-sections",
+      "parent": "t254",
+      "dependsOn": ["t254"],
+      "worktree": "wt-72",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
+    },
+    {
+      "id": "t258",
+      "title": "Map a newly ID'd item to the spec sections that build it",
+      "prdSections": ["prd.planning.again"],
+      "specSections": ["spec.planning.again.mapping-items"],
+      "files": [
+        "packages/core/src/replan.ts",
+        "packages/core/src/spec-merge.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/src/spec-index.ts",
+        "packages/core/test/replan.test.ts",
+        "packages/cli/test/plan-again.test.ts"
+      ],
+      "branch": "cairn-mvp/258-map-a-newly-idd-item-to-the-spec-sections-that-build-it",
+      "parent": "t257",
+      "dependsOn": ["t257"],
+      "worktree": "wt-72",
+      "model": "opus",
+      "reasoning": "high",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
+    },
+    {
+      "id": "t259",
+      "title": "Label notes when they are written",
+      "prdSections": ["prd.viewer.notes"],
+      "specSections": ["spec.sessions.notes.labels"],
+      "files": [
+        "packages/contract/src/note.ts",
+        "packages/cli/src/migrations/",
+        "packages/cli/src/trace-store.ts",
+        "packages/cli/src/commands/note.ts",
+        "packages/core/src/judging/questions.ts",
+        "packages/cli/test/note.test.ts"
+      ],
+      "branch": "cairn-mvp/259-label-notes-when-they-are-written",
+      "parent": "t254",
+      "dependsOn": ["t254"],
+      "worktree": "wt-73",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": true,
+        "reasons": ["path:**/migrations/**"]
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
+    },
+    {
+      "id": "t260",
+      "title": "Judge a failure's reason when the facts leave two",
+      "prdSections": ["prd.outcomes.attempts"],
+      "specSections": ["spec.orchestrator-adapter.attempts-and-verification"],
+      "files": [
+        "packages/cli/src/commands/judge.ts",
+        "packages/core/src/judging/questions.ts",
+        "packages/cli/test/judge-command.test.ts"
+      ],
+      "branch": "cairn-mvp/260-judge-a-failures-reason-when-the-facts-leave-two",
+      "parent": null,
+      "dependsOn": ["t157", "t254"],
+      "worktree": "wt-43",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
+    },
+    {
+      "id": "t261",
+      "title": "Show note labels in the viewer",
+      "prdSections": ["prd.viewer.notes"],
+      "specSections": ["spec.viewer.notes"],
+      "files": [
+        "apps/viewer/src/notes.ts",
+        "apps/viewer/src/view/noteView.ts",
+        "apps/viewer/test/notes.test.ts"
+      ],
+      "branch": "cairn-mvp/261-show-note-labels-in-the-viewer",
+      "parent": null,
+      "dependsOn": ["t170", "t259"],
+      "worktree": "wt-73",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "ui"
+    },
+    {
+      "id": "t262",
+      "title": "Count review findings per verified task",
+      "prdSections": ["prd.outcomes.metrics"],
+      "specSections": ["spec.status.outcome-metrics"],
+      "files": ["packages/core/src/metrics.ts", "packages/core/test/metrics.test.ts"],
+      "branch": "cairn-mvp/262-count-review-findings-per-verified-task",
+      "parent": null,
+      "dependsOn": ["t149", "t259"],
+      "worktree": "wt-74",
+      "model": "sonnet",
+      "reasoning": "medium",
+      "humanGate": {
+        "required": false,
+        "reasons": []
+      },
+      "status": "pending",
+      "commits": [],
+      "sessions": [],
+      "category": "feature"
     }
   ]
 }

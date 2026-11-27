@@ -1279,7 +1279,7 @@
       "dependsOn": [],
       "defers": [],
       "context": [],
-      "tasks": ["t11", "t55", "t115"],
+      "tasks": ["t11", "t55", "t115", "t252"],
       "summary": "Defines the Config schema with defaults, that a missing config file decodes to the defaults, and the planner's optional gatewayTokenEnv.",
       "requirements": [
         {
@@ -1448,7 +1448,7 @@
       "dependsOn": [],
       "defers": [],
       "context": [],
-      "tasks": ["t55"],
+      "tasks": ["t55", "t250", "t253"],
       "summary": "Defines the judgments.json schema: the model that answered, and per target and question a verdict, the answer behind it, a message and the hash of the judged input.",
       "requirements": [
         {
@@ -1505,7 +1505,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.judging-the-plan": "27cabc7f46d1e11fa72bc976a037fef9232317b278f483992bdce59a39ab1633"
+          "prd.judging-the-plan": "f585ca9c4978fed0773d0cfaf6ce55832fca8f2a431b1831d12122aec1b5ace5"
         }
       }
     },
@@ -1513,7 +1513,7 @@
       "id": "spec.contract.spec-index",
       "title": "Spec index",
       "level": 3,
-      "line": 391,
+      "line": 392,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1630,7 +1630,7 @@
       "id": "spec.contract.javascript-entry",
       "title": "JavaScript entry",
       "level": 3,
-      "line": 443,
+      "line": 444,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -1806,7 +1806,7 @@
       "id": "spec.contract.links",
       "title": "Links",
       "level": 3,
-      "line": 458,
+      "line": 459,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -2217,7 +2217,7 @@
       "id": "spec.contract.items-and-statements",
       "title": "Items and statements",
       "level": 3,
-      "line": 524,
+      "line": 525,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -2595,7 +2595,7 @@
       "id": "spec.contract.relation-kinds",
       "title": "Relation kinds",
       "level": 3,
-      "line": 580,
+      "line": 581,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -2883,7 +2883,7 @@
       "id": "spec.contract.attempts",
       "title": "Attempts",
       "level": 3,
-      "line": 624,
+      "line": 625,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -3399,7 +3399,7 @@
       "writtenFrom": {
         "body": "5080a6a898903b8b748f599bf5587f1e50f88ef4e3bf00964b6dad5d7d624207",
         "prd": {
-          "prd.outcomes.attempts": "5090bba2eec7fbb94534095a3dd1395721496118bf2c58c17004dc38da67e29d"
+          "prd.outcomes.attempts": "430599432b1ca5a9c1641546ae4271a7c0bd0ea4ae33c366057f5f2957e9e58e"
         }
       }
     },
@@ -3407,7 +3407,7 @@
       "id": "spec.contract.usage-in-the-trace",
       "title": "Usage in the trace",
       "level": 3,
-      "line": 715,
+      "line": 716,
       "parent": "spec.contract",
       "children": [],
       "human": false,
@@ -3815,7 +3815,7 @@
       "id": "spec.sections",
       "title": "Sections",
       "level": 2,
-      "line": 781,
+      "line": 782,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.sections.parsing",
@@ -3844,7 +3844,7 @@
       "id": "spec.sections.parsing",
       "title": "Parsing",
       "level": 3,
-      "line": 783,
+      "line": 784,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -3985,7 +3985,7 @@
       "id": "spec.sections.cairn-ids",
       "title": "`cairn ids`",
       "level": 3,
-      "line": 805,
+      "line": 806,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -4049,7 +4049,7 @@
       "id": "spec.sections.list-items",
       "title": "List items",
       "level": 3,
-      "line": 813,
+      "line": 814,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -4318,7 +4318,7 @@
       "id": "spec.sections.item-coverage",
       "title": "Item coverage",
       "level": 3,
-      "line": 852,
+      "line": 853,
       "parent": "spec.sections",
       "children": [],
       "human": false,
@@ -4525,7 +4525,7 @@
       "id": "spec.gates",
       "title": "Gates",
       "level": 2,
-      "line": 887,
+      "line": 888,
       "parent": "spec.cairn-mvp-spec",
       "children": ["spec.gates.path-matching", "spec.gates.detection"],
       "human": false,
@@ -4549,7 +4549,7 @@
       "id": "spec.gates.path-matching",
       "title": "Path matching",
       "level": 3,
-      "line": 889,
+      "line": 890,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -4605,7 +4605,7 @@
       "id": "spec.gates.detection",
       "title": "Detection",
       "level": 3,
-      "line": 898,
+      "line": 899,
       "parent": "spec.gates",
       "children": [],
       "human": false,
@@ -4666,7 +4666,7 @@
       "id": "spec.models",
       "title": "Models",
       "level": 2,
-      "line": 911,
+      "line": 912,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -4902,7 +4902,7 @@
         "body": null,
         "prd": {
           "prd.implementation-in-effect": "1f3ab37662470bcddc111cd7c02492137ad5c6bb0f14856e46a91c01d22ff125",
-          "prd.judging-the-plan": "27cabc7f46d1e11fa72bc976a037fef9232317b278f483992bdce59a39ab1633",
+          "prd.judging-the-plan": "f585ca9c4978fed0773d0cfaf6ce55832fca8f2a431b1831d12122aec1b5ace5",
           "prd.planning.writers": "4da01fcca44de5ec2bf6e4f2fa0742dca2c9d64beb7ce92d285a5b6d83b139bf"
         }
       }
@@ -4911,7 +4911,7 @@
       "id": "spec.planning",
       "title": "Planning",
       "level": 2,
-      "line": 961,
+      "line": 962,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.planning.planner-service",
@@ -4947,7 +4947,7 @@
       "id": "spec.planning.planner-service",
       "title": "Planner service",
       "level": 3,
-      "line": 963,
+      "line": 964,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5168,7 +5168,7 @@
       "id": "spec.planning.stack-order",
       "title": "Stack order",
       "level": 3,
-      "line": 986,
+      "line": 987,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5296,7 +5296,7 @@
       "id": "spec.planning.cairn-plan",
       "title": "`cairn plan`",
       "level": 3,
-      "line": 2134,
+      "line": 2176,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5467,9 +5467,9 @@
       "id": "spec.planning.again",
       "title": "Planning again",
       "level": 3,
-      "line": 2165,
+      "line": 2207,
       "parent": "spec.planning",
-      "children": [],
+      "children": ["spec.planning.again.cosmetic-edits", "spec.planning.again.mapping-items"],
       "human": false,
       "implements": ["prd.planning.again"],
       "files": [
@@ -5586,7 +5586,219 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.planning.again": "f82c465c4304c0d707e3f7a3d9b14e01914a4e30bc5cb89efecb88dee35978fd"
+          "prd.planning.again": "4bfec0b2ef6d73b2e49356f8e288c148e9361e8d795eada267bed6853cf131e1"
+        }
+      }
+    },
+    {
+      "id": "spec.planning.again.cosmetic-edits",
+      "title": "Cosmetic PRD edits",
+      "level": 4,
+      "line": 2230,
+      "parent": "spec.planning.again",
+      "children": [],
+      "human": false,
+      "implements": ["prd.planning.again"],
+      "files": [
+        "packages/core/src/replan.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/src/git.ts",
+        "packages/cli/src/git-live.ts",
+        "packages/core/test/replan.test.ts",
+        "packages/cli/test/plan-again.test.ts"
+      ],
+      "dependsOn": ["spec.planning.again", "spec.judging.asking-during-planning"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t257"],
+      "summary": "Before rewriting out-of-date spec sections, cairn plan asks whether each changed PRD section's edit is material, using its body at the newest matching revision of prd.md; sections whose changes are all confidently cosmetic are reported as stale and marked likely cosmetic instead of rewritten.",
+      "requirements": [
+        {
+          "id": "spec.planning.again.cosmetic-edits#r1",
+          "level": "must",
+          "text": "cairn plan asks changeQuestions once for each changed PRD section that a rewritable section implements."
+        },
+        {
+          "id": "spec.planning.again.cosmetic-edits#r2",
+          "level": "must",
+          "text": "The old body comes from the newest of the last 50 revisions of prd.md whose section body hashes to writtenFrom.prd; with none, the change counts as material."
+        },
+        {
+          "id": "spec.planning.again.cosmetic-edits#r3",
+          "level": "must",
+          "text": "Git gains fileAt(path, ref) and revisionsOf(path, limit)."
+        },
+        {
+          "id": "spec.planning.again.cosmetic-edits#r4",
+          "level": "must",
+          "text": "cosmeticOf(replan, cosmetic) is pure and moves only rewritable sections whose changed PRD sections are all cosmetic to staleSections."
+        },
+        {
+          "id": "spec.planning.again.cosmetic-edits#r5",
+          "level": "must",
+          "text": "Only a materialChange of no makes a PRD section cosmetic; unsure, yes or no judge leaves the section rewritable."
+        },
+        {
+          "id": "spec.planning.again.cosmetic-edits#r6",
+          "level": "must",
+          "text": "The plan output marks each moved section as likely cosmetic and names cairn plan --accept."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.planning.again.cosmetic-edits#function:cosmeticof",
+          "kind": "function",
+          "name": "cosmeticOf",
+          "location": "packages/core/src/replan.ts",
+          "description": "Moves rewritable sections with only cosmetic PRD changes to staleSections."
+        },
+        {
+          "id": "spec.planning.again.cosmetic-edits#function:git-fileat",
+          "kind": "function",
+          "name": "Git.fileAt",
+          "location": "packages/cli/src/git.ts",
+          "description": "A file at a revision."
+        },
+        {
+          "id": "spec.planning.again.cosmetic-edits#function:git-revisionsof",
+          "kind": "function",
+          "name": "Git.revisionsOf",
+          "location": "packages/cli/src/git.ts",
+          "description": "The newest revisions that changed a file."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.planning.again.cosmetic-edits#t1",
+          "kind": "property",
+          "text": "cosmeticOf never adds a section to rewritable and never drops one from the plan.",
+          "proves": []
+        },
+        {
+          "id": "spec.planning.again.cosmetic-edits#t2",
+          "kind": "example",
+          "text": "A typo fix answered no leaves the section unwritten and marked.",
+          "proves": []
+        },
+        {
+          "id": "spec.planning.again.cosmetic-edits#t3",
+          "kind": "example",
+          "text": "An unsure answer, a PRD with no matching revision, or no judge rewrites the section as before.",
+          "proves": []
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.planning.again.cosmetic-edits#d1",
+          "text": "A cosmetic edit leaves the section stale rather than accepting it.",
+          "why": "Accepting is a person's call; the judge only saves the rewrite."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.planning.again": "4bfec0b2ef6d73b2e49356f8e288c148e9361e8d795eada267bed6853cf131e1"
+        }
+      }
+    },
+    {
+      "id": "spec.planning.again.mapping-items",
+      "title": "Mapping new items",
+      "level": 4,
+      "line": 2248,
+      "parent": "spec.planning.again",
+      "children": [],
+      "human": false,
+      "implements": ["prd.planning.again"],
+      "files": [
+        "packages/core/src/replan.ts",
+        "packages/core/src/spec-merge.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/src/spec-index.ts",
+        "packages/core/test/replan.test.ts",
+        "packages/cli/test/plan-again.test.ts"
+      ],
+      "dependsOn": [
+        "spec.planning.again",
+        "spec.sections.item-coverage",
+        "spec.judging.asking-during-planning"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t258"],
+      "summary": "replanOf lists PRD items with IDs that nothing covers, with the Cairn-written spec sections that implement their heading or parent item; cairn plan asks buildsItem per candidate and adds the item to the Implements of each section that builds it, plans a section when none does, and leaves it unmapped when unsure.",
+      "requirements": [
+        {
+          "id": "spec.planning.again.mapping-items#r1",
+          "level": "must",
+          "text": "replanOf returns unmappedItems: each uncovered item with an ID and its candidate spec sections, which Cairn wrote and nobody edited."
+        },
+        {
+          "id": "spec.planning.again.mapping-items#r2",
+          "level": "must",
+          "text": "withImplements(spec, section, item) is pure and changes only the section's Implements line."
+        },
+        {
+          "id": "spec.planning.again.mapping-items#r3",
+          "level": "must",
+          "text": "A yes adds the item to each such section's Implements and records its writtenFrom.body again."
+        },
+        {
+          "id": "spec.planning.again.mapping-items#r4",
+          "level": "must",
+          "text": "A no for every candidate, or no candidate, plans the item like an uncovered PRD section."
+        },
+        {
+          "id": "spec.planning.again.mapping-items#r5",
+          "level": "must",
+          "text": "Anything else, or no judge, changes nothing and lint reports unmapped-item."
+        },
+        {
+          "id": "spec.planning.again.mapping-items#r6",
+          "level": "must",
+          "text": "An item tagged human is never mapped this way."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.planning.again.mapping-items#function:withimplements",
+          "kind": "function",
+          "name": "withImplements",
+          "location": "packages/core/src/spec-merge.ts",
+          "description": "Adds an item to a spec section's Implements line."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.planning.again.mapping-items#t1",
+          "kind": "property",
+          "text": "withImplements changes only the Implements line.",
+          "proves": []
+        },
+        {
+          "id": "spec.planning.again.mapping-items#t2",
+          "kind": "property",
+          "text": "replanOf lists an uncovered item with exactly its candidates.",
+          "proves": []
+        },
+        {
+          "id": "spec.planning.again.mapping-items#t3",
+          "kind": "example",
+          "text": "yes maps the item and lint no longer reports it; no for every candidate plans a section; unsure leaves it unmapped; a human item is never mapped.",
+          "proves": []
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.planning.again.mapping-items#d1",
+          "text": "A human item is reported, never mapped by the judge.",
+          "why": "Mapping it would gate the section's tasks, which judging never decides."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.planning.again": "4bfec0b2ef6d73b2e49356f8e288c148e9361e8d795eada267bed6853cf131e1"
         }
       }
     },
@@ -5594,7 +5806,7 @@
       "id": "spec.planning.stack-diagram",
       "title": "Stack diagram",
       "level": 3,
-      "line": 2188,
+      "line": 2270,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5706,7 +5918,7 @@
       "id": "spec.planning.dry-run",
       "title": "Dry runs",
       "level": 3,
-      "line": 2205,
+      "line": 2287,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -5801,11 +6013,12 @@
       "id": "spec.planning.done-when",
       "title": "Done when",
       "level": 3,
-      "line": 2217,
+      "line": 2299,
       "parent": "spec.planning",
       "children": [
         "spec.planning.done-when.statements",
         "spec.planning.done-when.asking-the-person",
+        "spec.planning.done-when.judging-drafts",
         "spec.planning.done-when.tracing-statements",
         "spec.planning.done-when.statements-in-briefs-and-reviews"
       ],
@@ -5889,7 +6102,7 @@
       "id": "spec.planning.done-when.statements",
       "title": "Statements",
       "level": 4,
-      "line": 2231,
+      "line": 2313,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6114,7 +6327,7 @@
       "id": "spec.planning.done-when.asking-the-person",
       "title": "Asking the person",
       "level": 4,
-      "line": 2266,
+      "line": 2348,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6403,7 +6616,103 @@
       "writtenFrom": {
         "body": "0fda8aa744fdc60ca6178c9cd819103545c8e4f518e6676bf4ed5a68df9256e9",
         "prd": {
-          "prd.done-when.asking": "2c68800e1640f5fdc6c74b817fb0aa1b539123172c7d8c16132212492fc1a077"
+          "prd.done-when.asking": "fbe7a23f20cec199fc783446a1dd8d368d4fc76b6c87f60398fb1b6716aabe03"
+        }
+      }
+    },
+    {
+      "id": "spec.planning.done-when.judging-drafts",
+      "title": "Judging drafts",
+      "level": 4,
+      "line": 2394,
+      "parent": "spec.planning.done-when",
+      "children": [],
+      "human": false,
+      "implements": ["prd.done-when.asking"],
+      "files": [
+        "packages/cli/src/ask-statements.ts",
+        "packages/cli/src/planner.ts",
+        "packages/cli/src/commands/plan.ts",
+        "packages/cli/test/ask-statements.test.ts"
+      ],
+      "dependsOn": [
+        "spec.planning.done-when.asking-the-person",
+        "spec.judging.asking-during-planning"
+      ],
+      "defers": [],
+      "context": [],
+      "tasks": ["t255", "t256"],
+      "summary": "Uses the judge in ask-statements: a PRD part confidently judged to describe nothing to build gets no draft, a draft that names a file, function or test is drafted again once, and each draft is shown with the judge's notes, which never change the PRD.",
+      "requirements": [
+        {
+          "id": "spec.planning.done-when.judging-drafts#r1",
+          "level": "must",
+          "text": "A target whose describesBuild reads no is left out of Planner.statements and listed in the plan output."
+        },
+        {
+          "id": "spec.planning.done-when.judging-drafts#r2",
+          "level": "must",
+          "text": "A target whose describesBuild reads unsure is kept."
+        },
+        {
+          "id": "spec.planning.done-when.judging-drafts#r3",
+          "level": "must",
+          "text": "A new draft whose namesImplementation reads yes is drafted again once, never twice."
+        },
+        {
+          "id": "spec.planning.done-when.judging-drafts#r4",
+          "level": "must",
+          "text": "Each draft prints a note line for every answer that is not unsure."
+        },
+        {
+          "id": "spec.planning.done-when.judging-drafts#r5",
+          "level": "must",
+          "text": "Notes are never written to prd.md and never accept, rewrite, delete or tag a statement."
+        },
+        {
+          "id": "spec.planning.done-when.judging-drafts#r6",
+          "level": "must",
+          "text": "Without a judge, the run asks the planner and the person exactly as before."
+        }
+      ],
+      "artifacts": [],
+      "tests": [
+        {
+          "id": "spec.planning.done-when.judging-drafts#t1",
+          "kind": "example",
+          "text": "A target answered no gets no draft and is listed; one answered unsure is drafted.",
+          "proves": []
+        },
+        {
+          "id": "spec.planning.done-when.judging-drafts#t2",
+          "kind": "example",
+          "text": "A draft answered namesImplementation yes is drafted again once, never twice.",
+          "proves": []
+        },
+        {
+          "id": "spec.planning.done-when.judging-drafts#t3",
+          "kind": "example",
+          "text": "Notes print under their draft, and prd.md holds no note text after the run.",
+          "proves": []
+        },
+        {
+          "id": "spec.planning.done-when.judging-drafts#t4",
+          "kind": "example",
+          "text": "Without a judge, the run asks the planner and the person exactly as before.",
+          "proves": []
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.planning.done-when.judging-drafts#d1",
+          "text": "A draft that names an implementation is sent back once, not until it passes.",
+          "why": "Planning must always end, as splits are bounded."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.done-when.asking": "fbe7a23f20cec199fc783446a1dd8d368d4fc76b6c87f60398fb1b6716aabe03"
         }
       }
     },
@@ -6411,7 +6720,7 @@
       "id": "spec.planning.done-when.tracing-statements",
       "title": "Tracing statements",
       "level": 4,
-      "line": 2312,
+      "line": 2417,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6668,7 +6977,7 @@
       "id": "spec.planning.done-when.statements-in-briefs-and-reviews",
       "title": "Statements in briefs and reviews",
       "level": 4,
-      "line": 2346,
+      "line": 2451,
       "parent": "spec.planning.done-when",
       "children": [],
       "human": false,
@@ -6833,7 +7142,7 @@
       "id": "spec.planning.task-categories",
       "title": "Task categories",
       "level": 3,
-      "line": 2374,
+      "line": 2479,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -6856,7 +7165,7 @@
       ],
       "defers": [],
       "context": [],
-      "tasks": ["t137"],
+      "tasks": ["t137", "t251"],
       "summary": "Adds a category to planned tasks: a configurable list of categories in the config, a required category on task drafts and an optional one on manifest tasks, prompt and decode checks against the list, and two lint rules for unknown and missing categories.",
       "requirements": [
         {
@@ -7051,7 +7360,7 @@
       "writtenFrom": {
         "body": "e813d65a5c47d4a553090864c6ffc08586a566efda71eec3961e2f5b18f8e7f4",
         "prd": {
-          "prd.outcomes.categories": "3af58df1e71de1c9616aba105fc6ffd2e131df8ad1f99d84f6b4d856890190e4"
+          "prd.outcomes.categories": "f2ca50c25dd406188a958f9824a1b18e3c9a446e6e7b9b4b5d4db88462e51921"
         }
       }
     },
@@ -7059,7 +7368,7 @@
       "id": "spec.planning.conflict-scores",
       "title": "Conflict scores",
       "level": 3,
-      "line": 2399,
+      "line": 2505,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -7328,7 +7637,7 @@
       "id": "spec.planning.conflict-ordering",
       "title": "Conflict ordering",
       "level": 3,
-      "line": 2441,
+      "line": 2547,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -7633,7 +7942,7 @@
         }
       ],
       "writtenFrom": {
-        "body": "b619757b1b37ef981996b4958904cd56c428e9b29354af1f624531c83a1464cb",
+        "body": "cfa02e79e93728ca42c0739b2c7d737ddb2c79532e670c5abf9266764f666cee",
         "prd": {
           "prd.conflicts.planning": "b9d8588a0449e0ebcd0fc66413e3040588ac517925333e75e176525668286834"
         }
@@ -7643,7 +7952,7 @@
       "id": "spec.planning.planning-a-part",
       "title": "Planning a part",
       "level": 3,
-      "line": 2479,
+      "line": 2585,
       "parent": "spec.planning",
       "children": [],
       "human": false,
@@ -8154,7 +8463,7 @@
       "id": "spec.lint",
       "title": "Lint",
       "level": 2,
-      "line": 2557,
+      "line": 2663,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -8434,7 +8743,7 @@
       "id": "spec.judging",
       "title": "Judging",
       "level": 2,
-      "line": 2585,
+      "line": 2691,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.judging.questions",
@@ -8442,6 +8751,7 @@
         "spec.judging.judge-service",
         "spec.judging.checkpoints",
         "spec.judging.cairn-judge",
+        "spec.judging.asking-during-planning",
         "spec.judging.model-catalog",
         "spec.judging.openai-decisions",
         "spec.judging.comparing-decision-providers",
@@ -8480,7 +8790,7 @@
       "writtenFrom": {
         "body": null,
         "prd": {
-          "prd.judging-the-plan": "27cabc7f46d1e11fa72bc976a037fef9232317b278f483992bdce59a39ab1633"
+          "prd.judging-the-plan": "f585ca9c4978fed0773d0cfaf6ce55832fca8f2a431b1831d12122aec1b5ace5"
         }
       }
     },
@@ -8488,7 +8798,7 @@
       "id": "spec.judging.questions",
       "title": "Questions",
       "level": 3,
-      "line": 2591,
+      "line": 2697,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8497,7 +8807,7 @@
       "dependsOn": ["spec.sections.parsing", "spec.contract.manifest"],
       "defers": [],
       "context": [],
-      "tasks": ["t58"],
+      "tasks": ["t58", "t250", "t251", "t253"],
       "summary": "Three Decision.make definitions in core, for spec sections, tasks and the stack, and a pure inputsOf; tasks are asked size, matches, model and reasoning.",
       "requirements": [
         {
@@ -8595,7 +8905,7 @@
       "id": "spec.judging.verdicts",
       "title": "Verdicts",
       "level": 3,
-      "line": 2615,
+      "line": 2726,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8604,7 +8914,7 @@
       "dependsOn": ["spec.judging.questions", "spec.contract.judgments"],
       "defers": [],
       "context": [],
-      "tasks": ["t59"],
+      "tasks": ["t59", "t251", "t252"],
       "summary": "verdictOf turns judging answers into pass, flag or unsure, and routeOf picks the model and reasoning, using Jev only when it is confident.",
       "requirements": [
         {
@@ -8713,7 +9023,7 @@
       "id": "spec.judging.judge-service",
       "title": "Judge service",
       "level": 3,
-      "line": 2630,
+      "line": 2745,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8813,7 +9123,7 @@
       "id": "spec.judging.checkpoints",
       "title": "Checkpoints",
       "level": 3,
-      "line": 2641,
+      "line": 2756,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8822,7 +9132,7 @@
       "dependsOn": ["spec.judging.judge-service", "spec.planning.planner-service"],
       "defers": [],
       "context": [],
-      "tasks": ["t62"],
+      "tasks": ["t62", "t250", "t252", "t253"],
       "summary": "refine runs the section, task-size and routing checkpoints, splitting confidently oversized pieces through the Planner within judge.maxRounds and recording every change as a judgment.",
       "requirements": [
         {
@@ -8923,7 +9233,7 @@
       "id": "spec.judging.cairn-judge",
       "title": "`cairn judge`",
       "level": 3,
-      "line": 2663,
+      "line": 2778,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -8932,7 +9242,7 @@
       "dependsOn": ["spec.judging.judge-service", "spec.contract.judgments"],
       "defers": [],
       "context": [],
-      "tasks": ["t65"],
+      "tasks": ["t65", "t253"],
       "summary": "cairn judge judges the current spec and manifest, writes judgments.json and prints flag and unsure lines; --fresh asks again and --strict exits 1 on a flag.",
       "requirements": [
         {
@@ -8997,10 +9307,142 @@
       }
     },
     {
+      "id": "spec.judging.asking-during-planning",
+      "title": "Asking during planning",
+      "level": 3,
+      "line": 2790,
+      "parent": "spec.judging",
+      "children": [],
+      "human": false,
+      "implements": ["prd.judging-the-plan"],
+      "files": [
+        "packages/cli/src/judge.ts",
+        "packages/core/src/judging/questions.ts",
+        "packages/core/src/judging/verdicts.ts",
+        "packages/core/src/index.ts",
+        "packages/cli/test/judge.test.ts",
+        "packages/core/test/questions.test.ts"
+      ],
+      "dependsOn": ["spec.judging.judge-service", "spec.judging.verdicts"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t254"],
+      "summary": "Adds Judge.ask, which asks one decision definition about many inputs during planning without writing judgments.json, yesNoOf to read a probability as yes, no or unsure, and the four planning definitions: partQuestions, draftQuestions, changeQuestions and itemQuestions.",
+      "requirements": [
+        {
+          "id": "spec.judging.asking-during-planning#r1",
+          "level": "must",
+          "text": "Judge.ask(definition, inputs) returns each input's outcomes in input order."
+        },
+        {
+          "id": "spec.judging.asking-during-planning#r2",
+          "level": "must",
+          "text": "Judge.ask uses decideSettled, four requests at a time, retries rate limits and fails with a JudgeError naming the input otherwise."
+        },
+        {
+          "id": "spec.judging.asking-during-planning#r3",
+          "level": "must",
+          "text": "Judge.ask writes no judgments.json."
+        },
+        {
+          "id": "spec.judging.asking-during-planning#r4",
+          "level": "must",
+          "text": "A caller with no judge does not call Judge.ask and plans as it would without one."
+        },
+        {
+          "id": "spec.judging.asking-during-planning#r5",
+          "level": "must",
+          "text": "yesNoOf reads a probability as yes at or above judge.pass, no below judge.flag, and unsure between or when unanswered."
+        },
+        {
+          "id": "spec.judging.asking-during-planning#r6",
+          "level": "must",
+          "text": "partQuestions, draftQuestions, changeQuestions and itemQuestions live in questions.ts with criteria that describe both outcomes as situations."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.judging.asking-during-planning#function:judge-ask",
+          "kind": "function",
+          "name": "Judge.ask",
+          "location": "packages/cli/src/judge.ts",
+          "description": "Asks one definition about many inputs and returns their outcomes."
+        },
+        {
+          "id": "spec.judging.asking-during-planning#function:yesnoof",
+          "kind": "function",
+          "name": "yesNoOf",
+          "location": "packages/core/src/judging/verdicts.ts",
+          "description": "Reads a probability outcome as yes, no or unsure."
+        },
+        {
+          "id": "spec.judging.asking-during-planning#schema:partquestions",
+          "kind": "schema",
+          "name": "partQuestions",
+          "location": "packages/core/src/judging/questions.ts",
+          "description": "describesBuild for a PRD section or item."
+        },
+        {
+          "id": "spec.judging.asking-during-planning#schema:draftquestions",
+          "kind": "schema",
+          "name": "draftQuestions",
+          "location": "packages/core/src/judging/questions.ts",
+          "description": "faithful, observable, namesImplementation and needsPerson for a drafted statement."
+        },
+        {
+          "id": "spec.judging.asking-during-planning#schema:changequestions",
+          "kind": "schema",
+          "name": "changeQuestions",
+          "location": "packages/core/src/judging/questions.ts",
+          "description": "materialChange for an edited PRD section."
+        },
+        {
+          "id": "spec.judging.asking-during-planning#schema:itemquestions",
+          "kind": "schema",
+          "name": "itemQuestions",
+          "location": "packages/core/src/judging/questions.ts",
+          "description": "buildsItem for an item and a candidate spec section."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.judging.asking-during-planning#t1",
+          "kind": "example",
+          "text": "Answers come back in input order.",
+          "proves": []
+        },
+        {
+          "id": "spec.judging.asking-during-planning#t2",
+          "kind": "example",
+          "text": "An unanswered decision reads as unsure.",
+          "proves": []
+        },
+        {
+          "id": "spec.judging.asking-during-planning#t3",
+          "kind": "example",
+          "text": "A rate-limit error is retried and any other error names the input.",
+          "proves": []
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.judging.asking-during-planning#d1",
+          "text": "Planning questions are not recorded in judgments.json.",
+          "why": "They act during one run, and the plan output says what they changed; judgments.json holds the plan's verdicts."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.judging-the-plan": "f585ca9c4978fed0773d0cfaf6ce55832fca8f2a431b1831d12122aec1b5ace5"
+        }
+      }
+    },
+    {
       "id": "spec.judging.model-catalog",
       "title": "Model catalog",
       "level": 3,
-      "line": 2675,
+      "line": 2816,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -9505,7 +9947,7 @@
         }
       ],
       "writtenFrom": {
-        "body": "dd0be3e5a652b1c7ce77b85437e1983082cf21c7957076a4c35895b7ae200558",
+        "body": "8ae6756f0dee20eb2019554eeb8d7fbcfdc8c00d3f91b9ced564ef8328bbd1a4",
         "prd": {
           "prd.judging-the-plan.routing": "210754ebd9130479ba350ee0cd9d097a22b68234b5a7c553808c960b973dfcea"
         }
@@ -9515,7 +9957,7 @@
       "id": "spec.judging.openai-decisions",
       "title": "OpenAI Decisions",
       "level": 3,
-      "line": 2762,
+      "line": 2902,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -9916,7 +10358,7 @@
       "id": "spec.judging.comparing-decision-providers",
       "title": "Comparing decision providers",
       "level": 3,
-      "line": 2810,
+      "line": 2950,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -10196,7 +10638,7 @@
       "id": "spec.judging.cloudflare-ai-gateway",
       "title": "Cloudflare AI Gateway",
       "level": 3,
-      "line": 2844,
+      "line": 2984,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -10603,7 +11045,7 @@
       "id": "spec.judging.routing-from-history",
       "title": "Routing from history",
       "level": 3,
-      "line": 2891,
+      "line": 3031,
       "parent": "spec.judging",
       "children": [],
       "human": false,
@@ -10958,7 +11400,7 @@
       "id": "spec.status",
       "title": "Status",
       "level": 2,
-      "line": 2949,
+      "line": 3089,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.status.task-machine",
@@ -10995,7 +11437,7 @@
       "id": "spec.status.task-machine",
       "title": "Task machine",
       "level": 3,
-      "line": 2951,
+      "line": 3091,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11084,7 +11526,7 @@
       "id": "spec.status.derivation",
       "title": "Derivation",
       "level": 3,
-      "line": 2959,
+      "line": 3099,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11197,7 +11639,7 @@
       "id": "spec.status.section-rollup",
       "title": "Section rollup",
       "level": 3,
-      "line": 2980,
+      "line": 3120,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11284,7 +11726,7 @@
       "id": "spec.status.cairn-status-and-cairn-approve",
       "title": "`cairn status` and `cairn approve`",
       "level": 3,
-      "line": 2996,
+      "line": 3136,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11388,7 +11830,7 @@
       "id": "spec.status.trailer-check",
       "title": "Trailer check",
       "level": 3,
-      "line": 3008,
+      "line": 3148,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11460,7 +11902,7 @@
       "id": "spec.status.attempts",
       "title": "Attempts",
       "level": 3,
-      "line": 3016,
+      "line": 3156,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11815,7 +12257,7 @@
       "writtenFrom": {
         "body": "bdf5d5be2d07b26a46d007c5f44d8bfa5520abbbe567116e32bca9639c36c951",
         "prd": {
-          "prd.outcomes.attempts": "5090bba2eec7fbb94534095a3dd1395721496118bf2c58c17004dc38da67e29d"
+          "prd.outcomes.attempts": "430599432b1ca5a9c1641546ae4271a7c0bd0ea4ae33c366057f5f2957e9e58e"
         }
       }
     },
@@ -11823,7 +12265,7 @@
       "id": "spec.status.outcome-metrics",
       "title": "Outcome metrics",
       "level": 3,
-      "line": 3055,
+      "line": 3195,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -11832,7 +12274,7 @@
       "dependsOn": ["spec.status.attempts", "spec.planning.task-categories"],
       "defers": [],
       "context": [],
-      "tasks": ["t149"],
+      "tasks": ["t149", "t262"],
       "summary": "Defines the pure function `metricsOf`, which groups finished tasks by any combination of category, model, reasoning and harness and computes outcome metrics for each group, such as cost per verified task, first-pass rate, time to done, failure rates and cache use. Tasks with unknown cost are counted in `leftOut` and never treated as free.",
       "requirements": [
         {
@@ -12082,10 +12524,10 @@
         }
       ],
       "writtenFrom": {
-        "body": "c8387f702c3ef4f84c54303ba1ecebda6a754dc5c368585b3fe33ccbd2a84cf3",
+        "body": "3eb92cf1f27d92845165ac9d88c97114ae387c118385109b2773e6ddca54e2a5",
         "prd": {
           "prd.outcomes": "0aba97a04e73dd77d86c15eeb3091928f1282efd61e920222ae4ebf2fb09d5fb",
-          "prd.outcomes.metrics": "cd29874f4d716f7608b40751c9fcfddf6e60f7a1e0ef63427e3b0ee94aae0d4f"
+          "prd.outcomes.metrics": "4e56e75e81023ae2939231c3492b712c2b551cd07a07bea5a7b39c97a4f9d703"
         }
       }
     },
@@ -12093,7 +12535,7 @@
       "id": "spec.status.cairn-stats",
       "title": "`cairn stats`",
       "level": 3,
-      "line": 3096,
+      "line": 3237,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12293,7 +12735,7 @@
       "id": "spec.status.relation-index",
       "title": "Relation index",
       "level": 3,
-      "line": 3137,
+      "line": 3278,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12566,7 +13008,7 @@
       "id": "spec.status.section-links",
       "title": "Section links",
       "level": 3,
-      "line": 3185,
+      "line": 3326,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12730,7 +13172,7 @@
       "id": "spec.status.answers-from-the-index",
       "title": "Answers from the index",
       "level": 3,
-      "line": 3205,
+      "line": 3346,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -12980,7 +13422,7 @@
       "id": "spec.status.conflict-record",
       "title": "Conflict record",
       "level": 3,
-      "line": 3225,
+      "line": 3366,
       "parent": "spec.status",
       "children": [],
       "human": false,
@@ -13118,7 +13560,7 @@
       "id": "spec.sessions",
       "title": "Sessions",
       "level": 2,
-      "line": 3255,
+      "line": 3396,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.sessions.trace-store",
@@ -13151,7 +13593,7 @@
       "id": "spec.sessions.trace-store",
       "title": "Trace store",
       "level": 3,
-      "line": 3257,
+      "line": 3398,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -13315,7 +13757,7 @@
       "id": "spec.sessions.redaction",
       "title": "Redaction",
       "level": 3,
-      "line": 3288,
+      "line": 3429,
       "parent": "spec.sessions",
       "children": [],
       "human": true,
@@ -13440,7 +13882,7 @@
       "id": "spec.sessions.cairn-session",
       "title": "`cairn session`",
       "level": 3,
-      "line": 3307,
+      "line": 3448,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -13506,7 +13948,7 @@
       "id": "spec.sessions.reading",
       "title": "Reading a session",
       "level": 3,
-      "line": 3317,
+      "line": 3458,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -13580,7 +14022,7 @@
       "id": "spec.sessions.usage-records",
       "title": "Usage records",
       "level": 3,
-      "line": 3342,
+      "line": 3483,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -14056,7 +14498,7 @@
       "id": "spec.sessions.api-equivalent-cost",
       "title": "API-equivalent cost",
       "level": 3,
-      "line": 3404,
+      "line": 3545,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -14298,7 +14740,7 @@
       "id": "spec.sessions.subscription-allowance",
       "title": "Subscription allowance",
       "level": 3,
-      "line": 3430,
+      "line": 3571,
       "parent": "spec.sessions",
       "children": [],
       "human": false,
@@ -14595,9 +15037,9 @@
       "id": "spec.sessions.notes",
       "title": "Notes",
       "level": 3,
-      "line": 3481,
+      "line": 3622,
       "parent": "spec.sessions",
-      "children": [],
+      "children": ["spec.sessions.notes.labels"],
       "human": false,
       "implements": ["prd.viewer.notes", "prd.cli.note"],
       "files": [
@@ -14981,7 +15423,105 @@
       "writtenFrom": {
         "body": "b6059c2914f06d586dca53d20846f4778d653b15c9e2a780ba702e3812340044",
         "prd": {
-          "prd.viewer.notes": "28cc4c46779c36c4c5214a6903f622e09586d34278dba0f1befb7b9794673b0d"
+          "prd.viewer.notes": "aebd7136a646635d2531d8a62cddb24e4418591a6f6cb532729579a370d6a109"
+        }
+      }
+    },
+    {
+      "id": "spec.sessions.notes.labels",
+      "title": "Note labels",
+      "level": 4,
+      "line": 3661,
+      "parent": "spec.sessions.notes",
+      "children": [],
+      "human": false,
+      "implements": ["prd.viewer.notes"],
+      "files": [
+        "packages/contract/src/note.ts",
+        "packages/cli/src/migrations/",
+        "packages/cli/src/trace-store.ts",
+        "packages/cli/src/commands/note.ts",
+        "packages/core/src/judging/questions.ts",
+        "packages/cli/test/note.test.ts"
+      ],
+      "dependsOn": ["spec.sessions.notes", "spec.judging.asking-during-planning"],
+      "defers": [],
+      "context": [],
+      "tasks": ["t259"],
+      "summary": "cairn note add asks the judge for a label (question, blocker, bug, breaks_spec or nit) and whether the note asks for a change, and stores the label with its probability, or null when it is unsure, there is no judge or the judge fails.",
+      "requirements": [
+        {
+          "id": "spec.sessions.notes.labels#r1",
+          "level": "must",
+          "text": "cairn note add asks noteQuestions about the note when there is a judge."
+        },
+        {
+          "id": "spec.sessions.notes.labels#r2",
+          "level": "must",
+          "text": "Note gains label: { label, probability } or null, stored in a new column by a migration."
+        },
+        {
+          "id": "spec.sessions.notes.labels#r3",
+          "level": "must",
+          "text": "A label is stored only at or above judge.minProbability, and blocker, bug and breaks_spec only when actionable is not no."
+        },
+        {
+          "id": "spec.sessions.notes.labels#r4",
+          "level": "must",
+          "text": "A judge error prints a warning and stores the note without a label."
+        },
+        {
+          "id": "spec.sessions.notes.labels#r5",
+          "level": "must",
+          "text": "A label never blocks landing and never resolves a note; the kind stays the author's."
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "spec.sessions.notes.labels#schema:notequestions",
+          "kind": "schema",
+          "name": "noteQuestions",
+          "location": "packages/core/src/judging/questions.ts",
+          "description": "label and actionable for a note."
+        }
+      ],
+      "tests": [
+        {
+          "id": "spec.sessions.notes.labels#t1",
+          "kind": "example",
+          "text": "A review that says the code breaks its spec is stored with breaks_spec.",
+          "proves": []
+        },
+        {
+          "id": "spec.sessions.notes.labels#t2",
+          "kind": "example",
+          "text": "A low-probability label is stored as null.",
+          "proves": []
+        },
+        {
+          "id": "spec.sessions.notes.labels#t3",
+          "kind": "example",
+          "text": "A judge error stores the note and warns.",
+          "proves": []
+        },
+        {
+          "id": "spec.sessions.notes.labels#t4",
+          "kind": "example",
+          "text": "Without a judge the label is null, and an older database migrates with null labels.",
+          "proves": []
+        }
+      ],
+      "decisions": [
+        {
+          "id": "spec.sessions.notes.labels#d1",
+          "text": "Notes are labelled when written, not when the trace is read.",
+          "why": "The trace is read often; a note is written once."
+        }
+      ],
+      "writtenFrom": {
+        "body": null,
+        "prd": {
+          "prd.viewer.notes": "aebd7136a646635d2531d8a62cddb24e4418591a6f6cb532729579a370d6a109"
         }
       }
     },
@@ -14989,7 +15529,7 @@
       "id": "spec.orchestrator-adapter",
       "title": "Orchestrator adapter",
       "level": 2,
-      "line": 3520,
+      "line": 3675,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.orchestrator-adapter.attempts-and-verification",
@@ -15219,7 +15759,7 @@
       "id": "spec.orchestrator-adapter.attempts-and-verification",
       "title": "Attempts and verification",
       "level": 3,
-      "line": 3538,
+      "line": 3693,
       "parent": "spec.orchestrator-adapter",
       "children": [],
       "human": false,
@@ -15227,16 +15767,20 @@
       "files": [
         "packages/contract/src/config.ts",
         "AGENTS.md",
-        "packages/cli/test/orchestrator-contract.test.ts"
+        "packages/cli/test/orchestrator-contract.test.ts",
+        "packages/cli/src/commands/judge.ts",
+        "packages/core/src/judging/questions.ts",
+        "packages/cli/test/judge-command.test.ts"
       ],
       "dependsOn": [
         "spec.contract.attempts",
         "spec.status.attempts",
-        "spec.sessions.usage-records"
+        "spec.sessions.usage-records",
+        "spec.judging.asking-during-planning"
       ],
       "defers": [],
       "context": [],
-      "tasks": ["t157"],
+      "tasks": ["t157", "t260"],
       "summary": "Defines what the orchestrator adds to each task run: attempt metadata on the `running` event, a verify command run in the task's worktree that decides `done`, `blocked_on_human` or `failed` (with a failure kind), usage, cost and route on the final event, and session and usage recording through the cairn CLI. AGENTS.md documents these fields for adapter writers.",
       "requirements": [
         {
@@ -15544,9 +16088,9 @@
         }
       ],
       "writtenFrom": {
-        "body": "603f08c1b31602a2891c73c652519aba6993bd0bc52c758b91cbcd7b600f2684",
+        "body": "985a8e5c72a18b2b0afc95d348588ac16ef332f149513ea7378cc4270b13a40a",
         "prd": {
-          "prd.outcomes.attempts": "5090bba2eec7fbb94534095a3dd1395721496118bf2c58c17004dc38da67e29d"
+          "prd.outcomes.attempts": "430599432b1ca5a9c1641546ae4271a7c0bd0ea4ae33c366057f5f2957e9e58e"
         }
       }
     },
@@ -15554,7 +16098,7 @@
       "id": "spec.orchestrator-adapter.conflict-aware-running",
       "title": "Conflict-aware running",
       "level": 3,
-      "line": 3561,
+      "line": 3717,
       "parent": "spec.orchestrator-adapter",
       "children": [],
       "human": false,
@@ -15921,7 +16465,7 @@
       "id": "spec.cli",
       "title": "CLI",
       "level": 2,
-      "line": 3620,
+      "line": 3776,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.cli.cairn-link",
@@ -16021,7 +16565,7 @@
       "id": "spec.cli.cairn-link",
       "title": "`cairn link`",
       "level": 3,
-      "line": 3629,
+      "line": 3785,
       "parent": "spec.cli",
       "children": [],
       "human": false,
@@ -16382,7 +16926,7 @@
       "id": "spec.cli.documentation",
       "title": "Documentation",
       "level": 3,
-      "line": 3681,
+      "line": 3837,
       "parent": "spec.cli",
       "children": [
         "spec.cli.documentation.reference-from-code",
@@ -16458,7 +17002,7 @@
       "id": "spec.cli.documentation.reference-from-code",
       "title": "Reference from code",
       "level": 4,
-      "line": 3687,
+      "line": 3843,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -16629,7 +17173,7 @@
       "id": "spec.cli.documentation.docs-site",
       "title": "Docs site",
       "level": 4,
-      "line": 3707,
+      "line": 3863,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -16856,7 +17400,7 @@
       "id": "spec.cli.documentation.pages",
       "title": "Pages",
       "level": 4,
-      "line": 3730,
+      "line": 3886,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -16964,7 +17508,7 @@
       "id": "spec.cli.documentation.the-viewer-on-a-page",
       "title": "The viewer on a page",
       "level": 4,
-      "line": 3752,
+      "line": 3908,
       "parent": "spec.cli.documentation",
       "children": [],
       "human": false,
@@ -17078,7 +17622,7 @@
       "id": "spec.cli.agent-access",
       "title": "Agent access",
       "level": 3,
-      "line": 3767,
+      "line": 3923,
       "parent": "spec.cli",
       "children": [
         "spec.cli.agent-access.operations",
@@ -17226,7 +17770,7 @@
       "id": "spec.cli.agent-access.operations",
       "title": "Operations",
       "level": 4,
-      "line": 3781,
+      "line": 3937,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -17767,7 +18311,7 @@
       "id": "spec.cli.agent-access.review-checkpoints",
       "title": "Review checkpoints",
       "level": 4,
-      "line": 3847,
+      "line": 4003,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -18404,7 +18948,7 @@
       "id": "spec.cli.agent-access.mcp-server",
       "title": "MCP server",
       "level": 4,
-      "line": 3931,
+      "line": 4087,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -18869,7 +19413,7 @@
       "id": "spec.cli.agent-access.more-tools",
       "title": "More tools",
       "level": 4,
-      "line": 3989,
+      "line": 4145,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -19234,7 +19778,7 @@
       "id": "spec.cli.agent-access.agent-guide",
       "title": "Agent guide",
       "level": 4,
-      "line": 4017,
+      "line": 4173,
       "parent": "spec.cli.agent-access",
       "children": [],
       "human": false,
@@ -19467,7 +20011,7 @@
       "id": "spec.cli.terminal-view",
       "title": "Terminal view",
       "level": 3,
-      "line": 4047,
+      "line": 4203,
       "parent": "spec.cli",
       "children": [
         "spec.cli.terminal-view.rendering-library",
@@ -19675,7 +20219,7 @@
       "id": "spec.cli.terminal-view.rendering-library",
       "title": "Rendering library",
       "level": 4,
-      "line": 4084,
+      "line": 4240,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -20020,7 +20564,7 @@
       "id": "spec.cli.terminal-view.shared-derivations",
       "title": "Shared derivations",
       "level": 4,
-      "line": 4128,
+      "line": 4284,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -20196,7 +20740,7 @@
       "id": "spec.cli.terminal-view.trace-stream",
       "title": "Trace stream",
       "level": 4,
-      "line": 4149,
+      "line": 4305,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -20428,7 +20972,7 @@
       "id": "spec.cli.terminal-view.model-update-and-view",
       "title": "Model, update and view",
       "level": 4,
-      "line": 4177,
+      "line": 4333,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -20790,7 +21334,7 @@
       "id": "spec.cli.terminal-view.keys",
       "title": "Keys",
       "level": 4,
-      "line": 4225,
+      "line": 4381,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -21087,7 +21631,7 @@
       "id": "spec.cli.terminal-view.cairn-watch",
       "title": "`cairn watch`",
       "level": 4,
-      "line": 4264,
+      "line": 4420,
       "parent": "spec.cli.terminal-view",
       "children": [],
       "human": false,
@@ -21403,7 +21947,7 @@
       "id": "spec.cli.cairn-doctor",
       "title": "`cairn doctor`",
       "level": 3,
-      "line": 4312,
+      "line": 4468,
       "parent": "spec.cli",
       "children": [],
       "human": false,
@@ -21773,7 +22317,7 @@
       "id": "spec.patch-routes",
       "title": "Patch routes",
       "level": 2,
-      "line": 4380,
+      "line": 4536,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -21868,7 +22412,7 @@
       "id": "spec.server",
       "title": "Server",
       "level": 2,
-      "line": 4401,
+      "line": 4557,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -22032,7 +22576,7 @@
       "id": "spec.viewer",
       "title": "Viewer",
       "level": 2,
-      "line": 4424,
+      "line": 4580,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.viewer.model-and-messages",
@@ -22086,7 +22630,7 @@
       "id": "spec.viewer.model-and-messages",
       "title": "Model and messages",
       "level": 3,
-      "line": 4426,
+      "line": 4582,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22229,7 +22773,7 @@
       "id": "spec.viewer.markdown-rendering",
       "title": "Markdown rendering",
       "level": 3,
-      "line": 4442,
+      "line": 4598,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22313,7 +22857,7 @@
       "id": "spec.viewer.design-system",
       "title": "Design system",
       "level": 3,
-      "line": 4451,
+      "line": 4607,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22579,7 +23123,7 @@
       "id": "spec.viewer.reader",
       "title": "Reader",
       "level": 3,
-      "line": 4551,
+      "line": 4707,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -22867,7 +23411,7 @@
       "id": "spec.viewer.spec-cards",
       "title": "Spec cards",
       "level": 3,
-      "line": 4603,
+      "line": 4759,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23043,7 +23587,7 @@
       "id": "spec.viewer.fuzzy-matching",
       "title": "Fuzzy matching",
       "level": 3,
-      "line": 4630,
+      "line": 4786,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23103,7 +23647,7 @@
       "id": "spec.viewer.search-interaction",
       "title": "Search controls and chain highlighting",
       "level": 3,
-      "line": 4649,
+      "line": 4805,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23194,7 +23738,7 @@
       "id": "spec.viewer.prose-search",
       "title": "Prose search and inline highlights",
       "level": 3,
-      "line": 4671,
+      "line": 4827,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23267,7 +23811,7 @@
       "id": "spec.viewer.curves",
       "title": "Curves",
       "level": 3,
-      "line": 4693,
+      "line": 4849,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -23458,7 +24002,7 @@
       "id": "spec.viewer.stacks",
       "title": "Stacks",
       "level": 3,
-      "line": 4720,
+      "line": 4876,
       "parent": "spec.viewer",
       "children": [
         "spec.viewer.stacks.boxes",
@@ -23616,7 +24160,7 @@
       "id": "spec.viewer.stacks.boxes",
       "title": "Boxes, forks and finished trunks",
       "level": 4,
-      "line": 4760,
+      "line": 4916,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -24005,7 +24549,7 @@
       "id": "spec.viewer.stacks.box-view",
       "title": "Drawing a box",
       "level": 4,
-      "line": 4802,
+      "line": 4958,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -24274,7 +24818,7 @@
       "id": "spec.viewer.stacks.arrows",
       "title": "Parent arrows",
       "level": 4,
-      "line": 4826,
+      "line": 4982,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -24489,7 +25033,7 @@
       "id": "spec.viewer.stacks.dependencies",
       "title": "Dependency arrows",
       "level": 4,
-      "line": 4850,
+      "line": 5006,
       "parent": "spec.viewer.stacks",
       "children": [],
       "human": false,
@@ -24715,7 +25259,7 @@
       "id": "spec.viewer.models",
       "title": "Models and reasoning",
       "level": 3,
-      "line": 4875,
+      "line": 5031,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -24840,7 +25384,7 @@
       "id": "spec.viewer.panes",
       "title": "Panes",
       "level": 3,
-      "line": 4895,
+      "line": 5051,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25029,7 +25573,7 @@
       "id": "spec.viewer.presence",
       "title": "Presence in the reader",
       "level": 3,
-      "line": 4916,
+      "line": 5072,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25139,7 +25683,7 @@
       "id": "spec.viewer.detail-panel",
       "title": "Detail panel",
       "level": 3,
-      "line": 4931,
+      "line": 5087,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25287,7 +25831,7 @@
       "id": "spec.viewer.code-view",
       "title": "Code view",
       "level": 3,
-      "line": 4965,
+      "line": 5121,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25393,7 +25937,7 @@
       "id": "spec.viewer.diff-view",
       "title": "Diff view",
       "level": 3,
-      "line": 4992,
+      "line": 5148,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25586,7 +26130,7 @@
       "id": "spec.viewer.session-view",
       "title": "Session pane",
       "level": 3,
-      "line": 5018,
+      "line": 5174,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25653,7 +26197,7 @@
       "id": "spec.viewer.attribution",
       "title": "Hunks and turns",
       "level": 3,
-      "line": 5034,
+      "line": 5190,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25746,7 +26290,7 @@
       "id": "spec.viewer.detail-code",
       "title": "Code in the detail panel",
       "level": 3,
-      "line": 5054,
+      "line": 5210,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -25883,7 +26427,7 @@
       "id": "spec.viewer.canvas-removal",
       "title": "Replacing the canvas",
       "level": 3,
-      "line": 5068,
+      "line": 5224,
       "parent": "spec.viewer",
       "children": [],
       "human": true,
@@ -26043,7 +26587,7 @@
       "id": "spec.viewer.demo-data",
       "title": "Demo data",
       "level": 3,
-      "line": 5089,
+      "line": 5245,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -26159,7 +26703,7 @@
       "id": "spec.viewer.deep-links",
       "title": "Deep links",
       "level": 3,
-      "line": 5110,
+      "line": 5266,
       "parent": "spec.viewer",
       "children": [
         "spec.viewer.deep-links.resolving-a-link",
@@ -26239,7 +26783,7 @@
       "id": "spec.viewer.deep-links.resolving-a-link",
       "title": "Resolving a link",
       "level": 4,
-      "line": 5122,
+      "line": 5278,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -26664,7 +27208,7 @@
       "id": "spec.viewer.deep-links.opening-a-link",
       "title": "Opening a link",
       "level": 4,
-      "line": 5181,
+      "line": 5337,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -27140,7 +27684,7 @@
       "id": "spec.viewer.deep-links.copying-a-link",
       "title": "Copying a link",
       "level": 4,
-      "line": 5267,
+      "line": 5423,
       "parent": "spec.viewer.deep-links",
       "children": [],
       "human": false,
@@ -27540,7 +28084,7 @@
       "id": "spec.viewer.list-items",
       "title": "List items",
       "level": 3,
-      "line": 5308,
+      "line": 5464,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -27794,7 +28338,7 @@
       "id": "spec.viewer.cost-on-the-graph",
       "title": "Cost on the graph",
       "level": 3,
-      "line": 5334,
+      "line": 5490,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28084,7 +28628,7 @@
       "id": "spec.viewer.attempts-in-the-detail-panel",
       "title": "Attempts in the detail panel",
       "level": 3,
-      "line": 5372,
+      "line": 5528,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28224,7 +28768,7 @@
       "id": "spec.viewer.what-depends-on-what",
       "title": "What depends on what",
       "level": 3,
-      "line": 5394,
+      "line": 5550,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28460,7 +29004,7 @@
       "id": "spec.viewer.command-menu",
       "title": "Command menu",
       "level": 3,
-      "line": 5418,
+      "line": 5574,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28944,7 +29488,7 @@
       "id": "spec.viewer.notes",
       "title": "Notes",
       "level": 3,
-      "line": 5497,
+      "line": 5653,
       "parent": "spec.viewer",
       "children": [],
       "human": false,
@@ -28972,7 +29516,7 @@
       ],
       "defers": [],
       "context": [],
-      "tasks": ["t170"],
+      "tasks": ["t170", "t261"],
       "summary": "Shows review notes in the viewer: a pure `notesOf` resolves each note's anchor and places it beside a PRD passage or heading, a spec card header, a task row and chip, or a diff line. Notes whose anchors don't fully resolve go into a missing list, and resolved notes are hidden unless a window-local switch is on.",
       "requirements": [
         {
@@ -29152,7 +29696,7 @@
       "writtenFrom": {
         "body": "2903fe3be66cef1126c19982d063c197fe6a465bad386b6f7ee1b7d25905b4e2",
         "prd": {
-          "prd.viewer.notes": "28cc4c46779c36c4c5214a6903f622e09586d34278dba0f1befb7b9794673b0d"
+          "prd.viewer.notes": "aebd7136a646635d2531d8a62cddb24e4418591a6f6cb532729579a370d6a109"
         }
       }
     },
@@ -29160,7 +29704,7 @@
       "id": "spec.viewer.effect-ui",
       "title": "Effect UI",
       "level": 3,
-      "line": 5531,
+      "line": 5688,
       "parent": "spec.viewer",
       "children": [
         "spec.viewer.effect-ui.effect-upgrade",
@@ -29226,7 +29770,7 @@
       "id": "spec.viewer.effect-ui.effect-upgrade",
       "title": "Effect 4.1.6",
       "level": 4,
-      "line": 5549,
+      "line": 5706,
       "parent": "spec.viewer.effect-ui",
       "children": [],
       "human": false,
@@ -29304,7 +29848,7 @@
       "id": "spec.viewer.effect-ui.spike",
       "title": "Spike",
       "level": 4,
-      "line": 5560,
+      "line": 5717,
       "parent": "spec.viewer.effect-ui",
       "children": [],
       "human": true,
@@ -29457,7 +30001,7 @@
       "id": "spec.viewer.effect-ui.host",
       "title": "The host",
       "level": 4,
-      "line": 5584,
+      "line": 5741,
       "parent": "spec.viewer.effect-ui",
       "children": [],
       "human": false,
@@ -29578,7 +30122,7 @@
       "id": "spec.viewer.effect-ui.scene-tests",
       "title": "Scene tests",
       "level": 4,
-      "line": 5602,
+      "line": 5759,
       "parent": "spec.viewer.effect-ui",
       "children": [],
       "human": false,
@@ -29638,7 +30182,7 @@
       "id": "spec.viewer.effect-ui.views",
       "title": "Views",
       "level": 4,
-      "line": 5614,
+      "line": 5771,
       "parent": "spec.viewer.effect-ui",
       "children": [],
       "human": false,
@@ -29723,7 +30267,7 @@
       "id": "spec.viewer.effect-ui.foldkit-removal",
       "title": "Removing Foldkit",
       "level": 4,
-      "line": 5634,
+      "line": 5791,
       "parent": "spec.viewer.effect-ui",
       "children": [],
       "human": false,
@@ -29818,7 +30362,7 @@
       "id": "spec.viewer.effect-ui.components",
       "title": "Components",
       "level": 4,
-      "line": 5652,
+      "line": 5809,
       "parent": "spec.viewer.effect-ui",
       "children": [],
       "human": false,
@@ -29892,7 +30436,7 @@
       "id": "spec.testing",
       "title": "Testing",
       "level": 2,
-      "line": 5666,
+      "line": 5823,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.testing.model-based",
@@ -29921,7 +30465,7 @@
       "id": "spec.testing.model-based",
       "title": "Model-based tests",
       "level": 3,
-      "line": 5670,
+      "line": 5827,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -30017,7 +30561,7 @@
       "id": "spec.testing.presence-model",
       "title": "Presence against the room machine",
       "level": 3,
-      "line": 5690,
+      "line": 5847,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -30089,7 +30633,7 @@
       "id": "spec.testing.viewer-models",
       "title": "Reader interactions against models",
       "level": 3,
-      "line": 5706,
+      "line": 5863,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -30199,7 +30743,7 @@
       "id": "spec.testing.derivation-model",
       "title": "Derivation against a model of its inputs",
       "level": 3,
-      "line": 5736,
+      "line": 5893,
       "parent": "spec.testing",
       "children": [],
       "human": false,
@@ -30276,7 +30820,7 @@
       "id": "spec.acceptance",
       "title": "Acceptance",
       "level": 2,
-      "line": 5754,
+      "line": 5911,
       "parent": "spec.cairn-mvp-spec",
       "children": [],
       "human": false,
@@ -30427,7 +30971,7 @@
       "id": "spec.hosted-launch",
       "title": "Hosted launch",
       "level": 2,
-      "line": 5780,
+      "line": 5937,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.hosted-launch.hosted-contract",
@@ -30660,7 +31204,7 @@
       "id": "spec.hosted-launch.hosted-contract",
       "title": "Hosted contract",
       "level": 3,
-      "line": 5818,
+      "line": 5975,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -32080,7 +32624,7 @@
       "id": "spec.hosted-launch.policy",
       "title": "Policy",
       "level": 3,
-      "line": 5975,
+      "line": 6132,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -32409,7 +32953,7 @@
       "id": "spec.hosted-launch.worker-and-storage",
       "title": "Worker and storage",
       "level": 3,
-      "line": 6040,
+      "line": 6197,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33228,7 +33772,7 @@
       "id": "spec.hosted-launch.accounts-and-workspaces",
       "title": "Accounts and workspaces",
       "level": 3,
-      "line": 6083,
+      "line": 6240,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33500,7 +34044,7 @@
       "id": "spec.hosted-launch.entitlements",
       "title": "Entitlements",
       "level": 3,
-      "line": 6115,
+      "line": 6272,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -33838,7 +34382,7 @@
       "id": "spec.hosted-launch.room",
       "title": "Room",
       "level": 3,
-      "line": 6148,
+      "line": 6305,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -34288,7 +34832,7 @@
       "id": "spec.hosted-launch.revisions",
       "title": "Revisions",
       "level": 3,
-      "line": 6217,
+      "line": 6374,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -34684,7 +35228,7 @@
       "id": "spec.hosted-launch.document-directory",
       "title": "Document directory",
       "level": 3,
-      "line": 6265,
+      "line": 6422,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -34978,7 +35522,7 @@
       "id": "spec.hosted-launch.members-and-invitations",
       "title": "Members and invitations",
       "level": 3,
-      "line": 6291,
+      "line": 6448,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -35336,7 +35880,7 @@
       "id": "spec.hosted-launch.agent-credentials-and-gate-approvals",
       "title": "Agent credentials and gate approvals",
       "level": 3,
-      "line": 6335,
+      "line": 6492,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -35678,7 +36222,7 @@
       "id": "spec.hosted-launch.visibility",
       "title": "Visibility",
       "level": 3,
-      "line": 6373,
+      "line": 6530,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36099,7 +36643,7 @@
       "id": "spec.hosted-launch.discussion",
       "title": "Discussion",
       "level": 3,
-      "line": 6445,
+      "line": 6602,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36560,7 +37104,7 @@
       "id": "spec.hosted-launch.links-between-prds",
       "title": "Links between PRDs",
       "level": 3,
-      "line": 6489,
+      "line": 6646,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -36794,7 +37338,7 @@
       "id": "spec.hosted-launch.data-sources",
       "title": "Data sources",
       "level": 3,
-      "line": 6512,
+      "line": 6669,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37019,7 +37563,7 @@
       "id": "spec.hosted-launch.workspace-screens",
       "title": "Workspace screens",
       "level": 3,
-      "line": 6539,
+      "line": 6696,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37483,7 +38027,7 @@
       "id": "spec.hosted-launch.workspace-settings",
       "title": "Workspace settings",
       "level": 3,
-      "line": 6596,
+      "line": 6753,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37691,7 +38235,7 @@
       "id": "spec.hosted-launch.sharing-dialog",
       "title": "Sharing dialog",
       "level": 3,
-      "line": 6617,
+      "line": 6774,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -37891,7 +38435,7 @@
       "id": "spec.hosted-launch.comments-in-the-reader",
       "title": "Comments in the reader",
       "level": 3,
-      "line": 6653,
+      "line": 6810,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -38079,7 +38623,7 @@
       "id": "spec.hosted-launch.cairn-connect",
       "title": "`cairn connect`",
       "level": 3,
-      "line": 6689,
+      "line": 6846,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -38509,7 +39053,7 @@
       "id": "spec.hosted-launch.plan-source",
       "title": "Plan source",
       "level": 3,
-      "line": 6730,
+      "line": 6887,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -38745,7 +39289,7 @@
       "id": "spec.hosted-launch.billing",
       "title": "Billing",
       "level": 3,
-      "line": 6762,
+      "line": 6919,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -39129,7 +39673,7 @@
       "id": "spec.hosted-launch.self-hosting",
       "title": "Self-hosting",
       "level": 3,
-      "line": 6816,
+      "line": 6973,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -39665,7 +40209,7 @@
       "id": "spec.hosted-launch.launch-acceptance",
       "title": "Launch acceptance",
       "level": 3,
-      "line": 6871,
+      "line": 7028,
       "parent": "spec.hosted-launch",
       "children": [],
       "human": false,
@@ -39844,7 +40388,7 @@
       "id": "spec.refactors",
       "title": "Refactors",
       "level": 2,
-      "line": 6913,
+      "line": 7070,
       "parent": "spec.cairn-mvp-spec",
       "children": [
         "spec.refactors.service-factories",
@@ -39876,7 +40420,7 @@
       "id": "spec.refactors.service-factories",
       "title": "Service factories",
       "level": 3,
-      "line": 6915,
+      "line": 7072,
       "parent": "spec.refactors",
       "children": [],
       "human": false,
@@ -39935,7 +40479,7 @@
       "id": "spec.refactors.optional-services",
       "title": "Optional services",
       "level": 3,
-      "line": 6935,
+      "line": 7092,
       "parent": "spec.refactors",
       "children": [],
       "human": false,
@@ -39992,7 +40536,7 @@
       "id": "spec.refactors.branching-conversations",
       "title": "Branching conversations",
       "level": 3,
-      "line": 6948,
+      "line": 7105,
       "parent": "spec.refactors",
       "children": [],
       "human": false,
@@ -40066,7 +40610,7 @@
       "id": "spec.refactors.carrying-context",
       "title": "Carrying context",
       "level": 3,
-      "line": 6961,
+      "line": 7118,
       "parent": "spec.refactors",
       "children": [],
       "human": false,
@@ -40139,7 +40683,7 @@
       "id": "spec.refactors.errors-that-render-themselves",
       "title": "Errors that render themselves",
       "level": 3,
-      "line": 6974,
+      "line": 7131,
       "parent": "spec.refactors",
       "children": [],
       "human": false,
@@ -40221,7 +40765,7 @@
       "id": "spec.refactors.atomic-writes",
       "title": "Atomic writes",
       "level": 3,
-      "line": 6989,
+      "line": 7146,
       "parent": "spec.refactors",
       "children": [],
       "human": false,
@@ -40370,7 +40914,7 @@
       "id": "spec.refactors.variant-schemas",
       "title": "Variant schemas",
       "level": 3,
-      "line": 7027,
+      "line": 7184,
       "parent": "spec.refactors",
       "children": [],
       "human": false,
