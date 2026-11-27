@@ -24,10 +24,15 @@ export interface TreeEntry {
   readonly parent: SectionId | null | undefined;
 }
 
-/** The PRD's headings and items: a trace's `prd`, or `sectionsOf` and `itemsOf` of `prd.md`. */
+/**
+ * What sits under what: the PRD's headings and items, as a trace's `prd` or `sectionsOf` and
+ * `itemsOf` of `prd.md` give them, and the spec's headings, as a trace's `spec.sections` or
+ * `sectionsOf` of `spec.md`. A spec section implements what the sections above it implement.
+ */
 export interface SectionTree {
   readonly items: ReadonlyArray<TreeEntry>;
   readonly sections: ReadonlyArray<TreeEntry>;
+  readonly spec: ReadonlyArray<TreeEntry>;
 }
 
 /** `task` needs `needs`: one of the pairs of tasks that make a link. */
@@ -112,7 +117,7 @@ const samePair = (self: TaskPair, that: TaskPair) =>
  * needs what comes from `index`, and `prd` says only what sits under what.
  *
  * A task links directly to the sections and items it names, and to those that the spec sections it
- * builds implement. The section's own tasks are those linked directly to it or to anything under it.
+ * builds implement, with what they inherit from the spec sections above them, as the rollup reads them. The section's own tasks are those linked directly to it or to anything under it.
  * It needs each section or item outside it that a task needed by one of its own tasks links to
  * directly, when that task is not one of its own; `neededBy` is the same the other way.
  */
@@ -123,7 +128,7 @@ export const sectionLinksOf = (
   { statusOf, transitive = false }: SectionLinksOptions,
 ): SectionLinks => {
   const parents = pipe(
-    Array.appendAll(prd.sections, prd.items),
+    Array.flatten([prd.sections, prd.items, prd.spec]),
     Array.map((entry) =>
       Option.all([Option.fromNullishOr(entry.id), Option.fromNullishOr(entry.parent)]),
     ),
@@ -157,7 +162,9 @@ export const sectionLinksOf = (
               Array.appendAll(
                 Array.map(index.out(task, "names"), ({ to }) => to.id),
                 Array.flatMap(index.out(task, "builds"), ({ to }) =>
-                  Array.map(index.out(to.id, "implements"), (implemented) => implemented.to.id),
+                  Array.flatMap(chainOf(parents, to.id), (built) =>
+                    Array.map(index.out(built, "implements"), (implemented) => implemented.to.id),
+                  ),
                 ),
               ),
               isPrdSectionId,
