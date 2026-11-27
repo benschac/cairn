@@ -403,6 +403,7 @@ const wholeOf = (plan: Plan): Replan => ({
   staleSections: sectionsWhere(plan, ({ state }) => state === "stale"),
   staleTasks: Array.map(Array.dedupe(plan.staleTasks), (id) => TaskId.make(id)),
   uncovered: Array.dedupe(Array.map(plan.uncovered, (pick) => prdId(plan, pick))),
+  unmappedItems: [],
   untasked: sectionsWhere(plan, ({ untasked }) => untasked),
 });
 
@@ -572,6 +573,7 @@ it("a part run of a changed PRD rewrites only its own sections and reports the o
     staleSections: [],
     staleTasks: [],
     uncovered: ["prd.c"],
+    unmappedItems: [{ candidates: ["spec.b", "spec.both"], item: "prd.b.share" }],
     untasked: ["spec.a", "spec.b", "spec.b.more"],
   });
   const sections = sectionsOf(after);
@@ -583,6 +585,7 @@ it("a part run of a changed PRD rewrites only its own sections and reports the o
     staleSections: ["spec.both"],
     staleTasks: [],
     uncovered: [],
+    unmappedItems: [{ candidates: ["spec.b", "spec.both"], item: "prd.b.share" }],
     untasked: ["spec.b", "spec.b.more"],
   });
   expect(scope(["prd.c"])).toEqual({
@@ -590,6 +593,7 @@ it("a part run of a changed PRD rewrites only its own sections and reports the o
     staleSections: [],
     staleTasks: [],
     uncovered: ["prd.c"],
+    unmappedItems: [],
     untasked: [],
   });
   expect(scope(["prd.b.share"])).toEqual({
@@ -597,6 +601,7 @@ it("a part run of a changed PRD rewrites only its own sections and reports the o
     staleSections: [],
     staleTasks: [],
     uncovered: [],
+    unmappedItems: [{ candidates: ["spec.b", "spec.both"], item: "prd.b.share" }],
     untasked: [],
   });
 });

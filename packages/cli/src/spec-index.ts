@@ -20,6 +20,7 @@ import {
   Schema,
   String,
   Struct,
+  Tuple,
 } from "effect";
 
 import { Planner } from "./planner.ts";
@@ -51,6 +52,12 @@ export interface SpecIndexInput {
    * `writtenFrom` of its entry, or records null when it has none, because a person wrote it.
    */
   readonly written: ReadonlyArray<SpecSectionId>;
+  /**
+   * Sections Cairn edited in place without writing them again, such as one an item was added to the
+   * `Implements` of (`spec.planning.again.mapping-items`). Each records the hash of its body now in
+   * `writtenFrom.body` and keeps the rest of its entry, its prose and `writtenFrom.prd` included.
+   */
+  readonly rehashed?: ReadonlyArray<SpecSectionId> | undefined;
 }
 
 /**
@@ -123,14 +130,29 @@ export const specIndexOf = Effect.fn("specIndexOf")(function* (
     ),
   );
   const changed = HashSet.fromIterable(Array.appendAll(input.changed, input.written));
+  const rehashed = HashSet.fromIterable<string>(
+    Option.getOrElse(
+      Option.fromUndefinedOr(input.rehashed),
+      (): ReadonlyArray<SpecSectionId> => [],
+    ),
+  );
   const prdSections = sectionsOf(input.prd);
   const statements = statementsOf(input.prd, prdSections, itemsOf(input.prd, prdSections));
   const known = HashSet.fromIterable(
     Array.getSomes(Array.map(statements, ({ id }) => Option.fromUndefinedOr(id))),
   );
   const sections = yield* Effect.forEach(
-    Array.zip(derivedOf(input), identified),
-    ([derived, { section }]) =>
+    Array.map(Array.zip(derivedOf(input), identified), ([derived, { section }]) =>
+      Tuple.make(
+        HashSet.has(rehashed, derived.id)
+          ? Struct.evolve(derived, {
+              writtenFrom: (from) => Struct.assign(from, { body: bodyHashOf(section.body) }),
+            })
+          : derived,
+        section,
+      ),
+    ),
+    ([derived, section]) =>
       Option.match(
         Option.filter(Record.get(previous, derived.id), () => !HashSet.has(changed, derived.id)),
         {

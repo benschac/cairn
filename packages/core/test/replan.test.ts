@@ -1,8 +1,28 @@
-import { Manifest, PrdSectionId, SpecIndex } from "@cairn/contract";
+import { Manifest, PrdSectionId, SpecIndex, SpecSectionId } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
-import { Array, HashSet, Option, Record, Result, Schema, String, Struct } from "effect";
+import {
+  Array,
+  HashSet,
+  Number,
+  Option,
+  Record,
+  Result,
+  Schema,
+  String,
+  Struct,
+  pipe,
+} from "effect";
 
-import { bodyHashOf, cosmeticOf, lint, outOfDateOf, replanOf, sectionsOf } from "../src/index.ts";
+import {
+  bodyHashOf,
+  cosmeticOf,
+  derivedOf,
+  lint,
+  outOfDateOf,
+  replanOf,
+  sectionsOf,
+  withImplements,
+} from "../src/index.ts";
 import type { Finding, Replan } from "../src/index.ts";
 
 /**
@@ -219,6 +239,7 @@ const EMPTY: Replan = {
   staleSections: [],
   staleTasks: [],
   uncovered: [],
+  unmappedItems: [],
   untasked: [],
 };
 
@@ -243,6 +264,7 @@ it.prop(
       staleSections: [],
       staleTasks: [],
       uncovered: ["prd.added"],
+      unmappedItems: [],
       untasked: [],
     });
   },
@@ -354,6 +376,7 @@ it.prop(
           : Result.failVoid,
       ),
       uncovered: [],
+      unmappedItems: [],
       untasked: pick((part, index) => part.files && !part.tasked && !builtBelow(index)),
     });
   },
@@ -545,3 +568,322 @@ it("the stack diagram's section covers nothing, though its Context names the PRD
   const findings = lint(prd, spec, Option.none(), { humanPaths: [] });
   expect(Array.map(findings, (finding) => finding.rule)).toContain("unmapped-section");
 });
+
+/**
+ * A spec of level-2 and level-3 parts, each with a key list that may open with the human marker
+ * and may hold an `Implements` line naming some of the PRD IDs `prd.i0` to `prd.i3`, and after
+ * its prose a line that reads like a key but is prose. `target` and `item` pick the section and
+ * the item `withImplements` is given.
+ */
+const KeyedSpec = Schema.Struct({
+  item: Schema.Int.check(Schema.isBetween({ maximum: 3, minimum: 0 })),
+  parts: Schema.Array(
+    Schema.Struct({
+      files: Schema.Boolean,
+      hasImplements: Schema.Boolean,
+      implements: Schema.Array(
+        Schema.Int.check(Schema.isBetween({ maximum: 3, minimum: 0 })),
+      ).check(Schema.isMaxLength(3)),
+      marker: Schema.Boolean,
+      nested: Schema.Boolean,
+    }),
+  ).check(Schema.isMinLength(1), Schema.isMaxLength(5)),
+  target: Schema.Int.check(Schema.isBetween({ maximum: 9, minimum: 0 })),
+});
+type KeyedSpec = typeof KeyedSpec.Type;
+
+const itemId = (index: number) => `prd.i${index}`;
+
+/** The lines of each part of a `KeyedSpec`, with the place of its `Implements` line among them. */
+const keyedPartsOf = (shape: KeyedSpec) =>
+  Array.map(shape.parts, (part, index) => {
+    const heading = `${String.repeat(index > 0 && part.nested ? 3 : 2)("#")} Part ${index} {#${specId(index)}}`;
+    const marker = part.marker ? ["<!-- human -->"] : [];
+    const implemented = part.hasImplements
+      ? [
+          `- Implements:${Array.isReadonlyArrayEmpty(part.implements) ? "" : " "}${codeList(Array.dedupe(Array.map(part.implements, itemId)))}`,
+        ]
+      : [];
+    const files = part.files ? [`- Files: \`src/p${index}.ts\``] : [];
+    return {
+      implementsAt: part.hasImplements
+        ? Option.some(2 + Array.length(marker))
+        : Option.none<number>(),
+      lines: Array.flatten([
+        [heading, ""],
+        marker,
+        implemented,
+        files,
+        ["", `Builds part ${index}.`, "- Implements: `prd.decoy` is prose here.", ""],
+      ]),
+    };
+  });
+
+it.prop(
+  "withImplements adds the item to the section's own Implements line and changes no other line",
+  [KeyedSpec],
+  ([shape]) => {
+    const parts = keyedPartsOf(shape);
+    const lines = Array.flatten(
+      Array.prepend(
+        Array.map(parts, ({ lines: own }) => own),
+        ["# Spec {#spec.spec}", ""],
+      ),
+    );
+    const spec = Array.join(lines, "\n");
+    const target = shape.target % Array.length(shape.parts);
+    const item = PrdSectionId.make(itemId(shape.item));
+    const after = String.split(
+      withImplements(spec, SpecSectionId.make(specId(target)), item),
+      "\n",
+    );
+    const offset =
+      2 +
+      Array.reduce(Array.take(parts, target), 0, (sum, { lines: own }) => sum + Array.length(own));
+    const at = Option.map(
+      Option.flatMap(Array.get(parts, target), ({ implementsAt }) => implementsAt),
+      (inPart) => offset + inPart,
+    );
+    expect(Array.length(after)).toBe(Array.length(lines));
+    expect(Array.filter(after, (_, index) => !Option.contains(at, index))).toEqual(
+      Array.filter(lines, (_, index) => !Option.contains(at, index)),
+    );
+    Option.match(at, {
+      onNone: () => expect(after).toEqual(lines),
+      onSome: (index) => {
+        const before = Option.getOrThrow(Array.get(lines, index));
+        const named = Option.exists(Array.get(shape.parts, target), (part) =>
+          Array.contains(part.implements, shape.item),
+        );
+        const empty = Option.exists(Array.get(shape.parts, target), (part) =>
+          Array.isReadonlyArrayEmpty(part.implements),
+        );
+        expect(Array.get(after, index)).toEqual(
+          Option.some(named ? before : `${before}${empty ? "" : ","} \`${item}\``),
+        );
+      },
+    });
+  },
+);
+
+/**
+ * A PRD of level-2 headings `prd.h<i>` under `prd.product`, each with list items; an item may have
+ * an ID `prd.h<i>.i<j>` and may be nested one level deeper than the item before it. Spec part `k`
+ * has its own `Implements` naming headings and items by their place in `ids`, may be nested
+ * under the part before it, and may have been written by a person (`human`, no `writtenFrom.body`)
+ * or edited by one since Cairn wrote it.
+ */
+const ItemPlan = Schema.Struct({
+  headings: Schema.Array(
+    Schema.Array(Schema.Struct({ hasId: Schema.Boolean, nested: Schema.Boolean })).check(
+      Schema.isMaxLength(4),
+    ),
+  ).check(Schema.isMinLength(1), Schema.isMaxLength(3)),
+  parts: Schema.Array(
+    Schema.Struct({
+      edited: Schema.Boolean,
+      human: Schema.Boolean,
+      names: Schema.Array(Schema.Int.check(Schema.isBetween({ maximum: 15, minimum: 0 }))).check(
+        Schema.isMaxLength(3),
+      ),
+      nested: Schema.Boolean,
+    }),
+  ).check(Schema.isMaxLength(5)),
+});
+type ItemPlan = typeof ItemPlan.Type;
+
+/** A PRD item of an `ItemPlan`: its ID if it has one, its depth, and its heading. */
+interface PlannedItem {
+  readonly depth: number;
+  readonly heading: string;
+  readonly id: Option.Option<string>;
+}
+
+const plannedItemsOf = (plan: ItemPlan): ReadonlyArray<PlannedItem> =>
+  Array.flatMap(
+    plan.headings,
+    (items, h) =>
+      Array.mapAccum(items, -1, (previous, item, j) => {
+        const depth = item.nested && previous >= 0 ? Number.min(previous + 1, 2) : 0;
+        return [
+          depth,
+          {
+            depth,
+            heading: `prd.h${h}`,
+            id: item.hasId ? Option.some(`prd.h${h}.i${j}`) : Option.none<string>(),
+          },
+        ];
+      })[1],
+  );
+
+/** Every ID a spec part can name: the top heading and the others, then the items that have one. */
+const nameableOf = (plan: ItemPlan): ReadonlyArray<string> =>
+  Array.appendAll(
+    Array.prepend(
+      Array.map(plan.headings, (_, h) => `prd.h${h}`),
+      "prd.product",
+    ),
+    Array.getSomes(Array.map(plannedItemsOf(plan), ({ id }) => id)),
+  );
+
+const namesOf = (plan: ItemPlan, part: ItemPlan["parts"][number]): ReadonlyArray<string> => {
+  const nameable = nameableOf(plan);
+  return Array.dedupe(
+    Array.getSomes(
+      Array.map(part.names, (pick) => Array.get(nameable, pick % Array.length(nameable))),
+    ),
+  );
+};
+
+const itemPrdOf = (plan: ItemPlan): string =>
+  Array.join(
+    Array.prepend(
+      Array.map(plan.headings, (_, h) =>
+        Array.join(
+          Array.prepend(
+            Array.map(
+              Array.filter(plannedItemsOf(plan), ({ heading }) => heading === `prd.h${h}`),
+              ({ depth, id }, j) =>
+                `${String.repeat(depth)("  ")}- Item ${j}${Option.match(id, { onNone: () => "", onSome: (found) => ` {#${found}}` })}`,
+            ),
+            `## Heading ${h} {#prd.h${h}}\n`,
+          ),
+          "\n",
+        ),
+      ),
+      "# Product {#prd.product}\n",
+    ),
+    "\n\n",
+  );
+
+const itemSpecOf = (plan: ItemPlan, edited: boolean): string =>
+  Array.join(
+    Array.prepend(
+      Array.map(plan.parts, (part, k) => {
+        const names = namesOf(plan, part);
+        return Array.join(
+          Array.flatten([
+            [`${String.repeat(k > 0 && part.nested ? 3 : 2)("#")} Part ${k} {#${specId(k)}}`, ""],
+            Array.isReadonlyArrayEmpty(names) ? [] : [`- Implements: ${codeList(names)}`, ""],
+            [`Builds part ${k}.${edited && part.edited ? " A person added this." : ""}`, ""],
+          ]),
+          "\n",
+        );
+      }),
+      "# Spec {#spec.spec}\n",
+    ),
+    "\n",
+  );
+
+const itemIndexOf = (plan: ItemPlan): SpecIndex => {
+  const spec = itemSpecOf(plan, false);
+  return decodeIndex({
+    manifest: ".cairn/manifest.json",
+    prd: ".cairn/prd.md",
+    sections: Array.map(
+      derivedOf({
+        manifest: { tasks: [] },
+        prd: itemPrdOf(plan),
+        previous: Option.none(),
+        spec,
+        written: Array.filterMap(plan.parts, (part, k) =>
+          part.human ? Result.failVoid : Result.succeed(SpecSectionId.make(specId(k))),
+        ),
+      }),
+      (entry) =>
+        Struct.assign(entry, {
+          artifacts: [],
+          decisions: [],
+          requirements: [],
+          summary: "",
+          tests: [],
+        }),
+    ),
+    source: ".cairn/spec.md",
+    version: 1,
+  });
+};
+
+it.prop(
+  "replanOf lists each uncovered item with the untouched sections that implement its heading or an item above it, inherited or not",
+  [ItemPlan],
+  ([plan]) => {
+    const items = plannedItemsOf(plan);
+    const named = Array.flatMap(plan.parts, (part) => namesOf(plan, part));
+    /** The items with an ID above item `at` under its heading, nearest first. */
+    const aboveItems = (at: number): ReadonlyArray<string> => {
+      const item = Option.getOrThrow(Array.get(items, at));
+      const before = Array.reverse(
+        Array.filter(Array.take(items, at), ({ heading }) => heading === item.heading),
+      );
+      return pipe(
+        Array.mapAccum(before, item.depth, (depth, other) =>
+          other.depth < depth
+            ? [other.depth, Option.some(other)]
+            : [depth, Option.none<PlannedItem>()],
+        )[1],
+        Array.getSomes,
+        Array.flatMap(({ id }) => Option.toArray(id)),
+      );
+    };
+    /** What part `k` implements: its own names, and its parent's when it is nested. */
+    const implementedBy = (k: number): ReadonlyArray<string> => {
+      const isTop = (j: number) =>
+        j === 0 || !Option.exists(Array.get(plan.parts, j), (part) => part.nested);
+      const own = Option.match(Array.get(plan.parts, k), {
+        onNone: (): ReadonlyArray<string> => [],
+        onSome: (part) => namesOf(plan, part),
+      });
+      const parent = isTop(k)
+        ? Option.none<number>()
+        : Array.findLast(Array.range(0, k - 1), isTop);
+      return Array.appendAll(
+        own,
+        Option.match(
+          Option.flatMap(parent, (j) => Array.get(plan.parts, j)),
+          {
+            onNone: (): ReadonlyArray<string> => [],
+            onSome: (part) => namesOf(plan, part),
+          },
+        ),
+      );
+    };
+    const expected = Array.filterMap(items, (item, at) =>
+      Option.match(
+        Option.filter(item.id, (id) => !Array.contains(named, id)),
+        {
+          onNone: () => Result.failVoid,
+          onSome: (id) => {
+            const above = Array.append(aboveItems(at), item.heading);
+            return Result.succeed({
+              candidates: Array.filterMap(plan.parts, (part, k) =>
+                !part.human &&
+                !part.edited &&
+                // It has an Implements line of its own, and implements the item's heading or an
+                // item above it by that line or the one it inherits.
+                Array.isReadonlyArrayNonEmpty(namesOf(plan, part)) &&
+                Array.some(implementedBy(k), (name) => Array.contains(above, name))
+                  ? Result.succeed(specId(k))
+                  : Result.failVoid,
+              ),
+              item: id,
+            });
+          },
+        },
+      ),
+    );
+    const found = replanOf(
+      itemPrdOf(plan),
+      itemSpecOf(plan, true),
+      itemIndexOf(plan),
+      Option.none(),
+    );
+    expect(found.unmappedItems).toEqual(expected);
+    // What lint reports as unmapped is exactly what is listed.
+    const unmapped = Array.filter(
+      lint(itemPrdOf(plan), itemSpecOf(plan, true), Option.none(), { humanPaths: [] }),
+      (finding: Finding) => finding.rule === "unmapped-item",
+    );
+    expect(Array.length(unmapped)).toBe(Array.length(expected));
+  },
+);

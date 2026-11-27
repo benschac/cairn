@@ -1,6 +1,6 @@
 import { PrdSectionId, SectionId, SpecSectionId } from "@cairn/contract";
 import type { Section, SectionKeys } from "@cairn/contract";
-import { Array, Option, Predicate, Schema, String, pipe } from "effect";
+import { Array, Option, Predicate, Result, Schema, String, pipe } from "effect";
 import type { Nodes } from "mdast";
 import { fromMarkdown } from "mdast-util-from-markdown";
 
@@ -23,14 +23,24 @@ interface Open {
 
 const isBlank = (line: string): boolean => String.isEmpty(String.trim(line));
 
-/** The key list opens the body: after blank lines and the human marker, up to the first line of prose. A blank line between items is part of the list. */
-const keyLinesOf = (body: readonly string[]): readonly string[] =>
-  pipe(
-    body,
-    Array.dropWhile((line) => isBlank(line) || MARKER_LINE.test(line)),
-    Array.takeWhile((line) => isBlank(line) || KEY_LINE.test(line)),
-    Array.filter((line) => KEY_LINE.test(line)),
+/**
+ * The 0-based places in `body` of the lines of its key list. The key list opens the body: after
+ * blank lines and the human marker, up to the first line of prose. A blank line between items is
+ * part of the list.
+ */
+export const keyLineIndexesOf = (body: readonly string[]): readonly number[] => {
+  const start = Array.length(
+    Array.takeWhile(body, (line) => isBlank(line) || MARKER_LINE.test(line)),
   );
+  return Array.filterMap(
+    Array.takeWhile(Array.drop(body, start), (line) => isBlank(line) || KEY_LINE.test(line)),
+    (line, at) => (KEY_LINE.test(line) ? Result.succeed(start + at) : Result.failVoid),
+  );
+};
+
+/** The lines of the key list that opens the body (see `keyLineIndexesOf`). */
+const keyLinesOf = (body: readonly string[]): readonly string[] =>
+  Array.getSomes(Array.map(keyLineIndexesOf(body), (at) => Array.get(body, at)));
 
 /** The backticked values of a key line. */
 const valuesOf = (text: string): readonly string[] =>
