@@ -24,7 +24,7 @@
     "test:demo-trace": "node --test scripts/demo-trace/plan.test.ts",
     "test:land": "node --test scripts/land/plan.test.ts",
     "test:lint": "node --test lint/effect-core-plugin.test.mjs",
-    "test:tasks": "node --test scripts/tasks/report.test.ts",
+    "test:tasks": "node --test scripts/tasks/report.test.ts scripts/tasks/reply-questions.test.ts",
     "test:trailers": "node --test scripts/trailers/commit-msg.test.ts",
     "typecheck:root": "effect-tsgo tsc --noEmit -p tsconfig.json"
   },

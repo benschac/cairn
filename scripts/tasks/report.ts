@@ -128,6 +128,9 @@ export const isOpen = (thread: Thread): boolean =>
     onSome: (last) => Option.isNone(String.match(STOPPED)(last.text)),
   });
 
+// What the judge decided about a thread: its latest reply ends it (closed) or does not.
+export type Decided = { readonly thread: Thread; readonly closed: boolean };
+
 // How long ago `from` was, as minutes, hours or days.
 export const age = (from: DateTime.Utc, now: DateTime.Utc): string => {
   const minutes = Math.floor(Duration.toMinutes(DateTime.distance(from, now)));
@@ -145,6 +148,8 @@ export type Evidence = {
   readonly open: ReadonlyArray<Pull>;
   readonly worktrees: ReadonlyArray<Worktree>;
   readonly threads: ReadonlyArray<Thread>;
+  // Threads a judge was sure about. Any other thread is open or closed by `isOpen`.
+  readonly decided?: ReadonlyArray<Decided>;
   readonly now: DateTime.Utc;
 };
 
@@ -172,7 +177,36 @@ export type Row = {
   readonly unlocks: number;
 };
 
+// Whether a thread is open: the judge's answer when it gave one, otherwise `isOpen`.
+export const isOpenIn = (evidence: Evidence, thread: Thread): boolean =>
+  Option.match(
+    Array.findFirst(
+      Option.getOrElse(Option.fromUndefinedOr(evidence.decided), Array.empty<Decided>),
+      (each) => each.thread === thread,
+    ),
+    { onNone: () => isOpen(thread), onSome: ({ closed }) => !closed },
+  );
+
 const isFinished = Schema.is(Schema.Literals(["done", "landed"]));
+
+// The threads with a latest reply that claim a task of an unfinished row: the ones a judge is asked about.
+export const toJudge = (
+  rows: ReadonlyArray<Row>,
+  threads: ReadonlyArray<Thread>,
+): Array<Thread> => {
+  const unfinished = HashSet.fromIterable(
+    Array.map(
+      Array.filter(rows, (row) => row.state !== "finished" && row.state !== "drifted"),
+      (row) => row.task.id as string,
+    ),
+  );
+  return Array.filter(
+    threads,
+    (thread) =>
+      Option.isSome(Option.fromNullOr(thread.last)) &&
+      Array.some(threadTasks(thread), (id) => HashSet.has(unfinished, id)),
+  );
+};
 
 // The last segment of a path.
 const baseName = (path: string) => Array.lastNonEmpty(String.split(path, "/"));
@@ -183,10 +217,13 @@ const onBranch = <A>(items: ReadonlyArray<A>, branch: (item: A) => string, task:
 
 export const classify = (manifest: Manifest, evidence: Evidence): Array<Row> => {
   const trailers = HashSet.fromIterable(evidence.trailers);
-  const openThreads = Array.map(Array.filter(evidence.threads, isOpen), (thread) => ({
-    thread,
-    ids: HashSet.fromIterable(threadTasks(thread)),
-  }));
+  const openThreads = Array.map(
+    Array.filter(evidence.threads, (thread) => isOpenIn(evidence, thread)),
+    (thread) => ({
+      thread,
+      ids: HashSet.fromIterable(threadTasks(thread)),
+    }),
+  );
   const landed = (task: ManifestTask): Array<string> =>
     Array.appendAll(
       HashSet.has(trailers, task.id) ? ["Cairn-Task trailer on main"] : [],
@@ -307,7 +344,8 @@ export const renderOverview = (
     ),
   );
   const claimsUnfinished = (thread: Thread) =>
-    isOpen(thread) && Array.some(threadTasks(thread), (id) => HashSet.has(unfinished, id));
+    isOpenIn(evidence, thread) &&
+    Array.some(threadTasks(thread), (id) => HashSet.has(unfinished, id));
   const ready = Array.sortWith(
     inState(rows, "ready"),
     (row) => row.unlocks,

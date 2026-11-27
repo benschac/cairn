@@ -28,22 +28,29 @@ import {
   String,
 } from "effect";
 import { Argument, Command } from "effect/cli";
+import type { DecisionModel } from "effect/ai";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
+import { environmentLayer } from "../../packages/cli/src/environment.ts";
+import { liveDecisionModel } from "../../packages/cli/src/models.ts";
 import {
   BoardRead,
   classify,
+  type Decided,
   parseWorktrees,
   Pull,
   PULL_FIELDS,
   renderOverview,
   renderTask,
+  toJudge,
   trailerTasks,
 } from "./report.ts";
+import { judgeThreads, loadConfig } from "./reply-questions.ts";
 
 const TRUNK = "origin/main";
 const CHANNEL = "cairn/work";
 const MANIFEST = ".cairn/manifest.json";
+const CONFIG = ".cairn/config.json";
 const SPEC_INDEX = ".cairn/spec.json";
 const LIST_LIMIT = 300;
 const THREAD_LIMIT = 200;
@@ -186,14 +193,27 @@ const tasks = Effect.fn("tasks")(function* ({ task }: { task: Option.Option<stri
     { concurrency: 4 },
   );
 
-  const evidence = {
-    trailers,
-    merged: onTrunk,
-    open,
-    worktrees,
-    threads,
-    now: yield* DateTime.now,
-  };
+  const now = yield* DateTime.now;
+  const given = { trailers, merged: onTrunk, open, worktrees, threads, now };
+  // The judge's settings are .cairn/config.json's, and building its layer reads its key or gateway token from the
+  // environment: without them the layer fails, and the regex of isOpen decides every thread.
+  const judge: Layer.Layer<DecisionModel.DecisionModel, { readonly message: string }> =
+    Layer.unwrap(
+      loadConfig(fs.readFileString(path.join(repo, CONFIG))).pipe(Effect.map(liveDecisionModel)),
+    );
+  const asked = toJudge(classify(manifest, given), threads);
+  const { decided, unavailable } = yield* Array.match(asked, {
+    onEmpty: () =>
+      Effect.succeed({ decided: Array.empty<Decided>(), unavailable: Option.none<string>() }),
+    // .env is a fallback to the shell environment for the key and the gateway token, as for the cairn CLI.
+    onNonEmpty: (some) => judgeThreads(some, judge, environmentLayer),
+  });
+  yield* Option.match(unavailable, {
+    onNone: () => Effect.void,
+    onSome: (why) =>
+      note(`no judge for the board threads, so the Stopping and Landed convention decides: ${why}`),
+  });
+  const evidence = { ...given, decided };
   const rows = classify(manifest, evidence);
 
   const report = yield* Option.match(task, {
