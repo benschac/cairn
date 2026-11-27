@@ -68,6 +68,16 @@ export {
   type RelationSource,
   type StatusOf,
 } from "./relation-index.ts";
+export {
+  sectionLinksOf,
+  type NextTask,
+  type SectionLink,
+  type SectionLinks,
+  type SectionLinksOptions,
+  type SectionTree,
+  type TaskPair,
+  type TreeEntry,
+} from "./section-links.ts";
 export { rollupOf, type RolledSection, type RollupItem, type RollupTask } from "./rollup.ts";
 export { itemsOf, type Item } from "./items.ts";
 export { assignItemIds, assignSectionIds, sectionIdsOf } from "./section-ids.ts";
