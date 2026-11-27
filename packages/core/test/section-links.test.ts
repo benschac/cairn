@@ -387,3 +387,74 @@ it("a task that builds a spec section under one that implements an item is one o
   ).toEqual(["t1"]);
   expect(sectionLinksOf(index, tree, item, { statusOf: allPending }).tasks).toEqual([]);
 });
+
+it("a task whose spec section implements a heading it does not name links to the heading but is not one of its own", () => {
+  const index = indexOf({
+    manifest: {
+      tasks: [
+        {
+          dependsOn: [],
+          id: TaskId.make("t1"),
+          orderedAfter: [],
+          parent: null,
+          prdSections: [PrdSectionId.make("prd.p2")],
+          specSections: [SpecSectionId.make("spec.a")],
+        },
+        {
+          dependsOn: [TaskId.make("t1")],
+          id: TaskId.make("t2"),
+          orderedAfter: [],
+          parent: null,
+          prdSections: [PrdSectionId.make("prd.p1")],
+          specSections: [SpecSectionId.make("spec.b")],
+        },
+      ],
+    },
+    prd: PRD,
+    specIndex: {
+      sections: [
+        {
+          dependsOn: [],
+          id: SpecSectionId.make("spec.a"),
+          implements: [PrdSectionId.make("prd.p1")],
+          tests: [],
+        },
+        { dependsOn: [], id: SpecSectionId.make("spec.b"), implements: [], tests: [] },
+      ],
+    },
+  });
+  const p1 = sectionLinksOf(index, tree, PrdSectionId.make("prd.p1"), { statusOf: allPending });
+  expect(p1.tasks).toEqual(["t2"]);
+  expect(p1.next).toEqual([{ canStart: false, task: "t2", waitsOn: ["t1"] }]);
+  expect(Array.map(p1.needs, ({ id }) => id)).toEqual(["prd.p2"]);
+});
+
+it("on this repo's plan, a task that only builds a spec section implementing Task detail is not one of its own", () => {
+  const manifest = Schema.decodeUnknownSync(Schema.fromJsonString(Manifest))(
+    repo(".cairn/manifest.json"),
+  );
+  const specIndex = Schema.decodeUnknownSync(Schema.fromJsonString(SpecIndex))(
+    repo(".cairn/spec.json"),
+  );
+  const prd = repo(".cairn/prd.md");
+  const sections = sectionsOf(prd);
+  const index = indexOf({ manifest, prd, specIndex });
+  const links = sectionLinksOf(
+    index,
+    { items: itemsOf(prd, sections), sections, spec: sectionsOf(repo(".cairn/spec.md")) },
+    PrdSectionId.make("prd.viewer.task-detail"),
+    { statusOf: allPending },
+  );
+  const named = Array.filter(manifest.tasks, (task) =>
+    Array.some(
+      task.prdSections,
+      (id) => id === "prd.viewer.task-detail" || String.startsWith("prd.viewer.task-detail.")(id),
+    ),
+  );
+  expect(Array.sort(links.tasks, TaskIdOrder)).toEqual(
+    Array.sort(
+      Array.map(named, ({ id }) => id),
+      TaskIdOrder,
+    ),
+  );
+});

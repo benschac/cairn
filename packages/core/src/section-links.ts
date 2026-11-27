@@ -1,5 +1,5 @@
 import { PrdSectionId } from "@cairn/contract";
-import type { SectionId, TaskId, TaskStatus } from "@cairn/contract";
+import type { End, SectionId, TaskId, TaskStatus } from "@cairn/contract";
 import {
   Array,
   HashSet,
@@ -109,6 +109,15 @@ const FoundOrder: Order.Order<Found> = Order.combine(
   Order.mapInput(String.Order, (found: Found) => found.link.id),
 );
 
+/** The PRD section and item IDs among `ends`, each once. */
+const idsOf = (ends: ReadonlyArray<End>): ReadonlyArray<PrdSectionId> =>
+  Array.dedupe(
+    Array.filter(
+      Array.map(ends, (end) => end.id),
+      isPrdSectionId,
+    ),
+  );
+
 const samePair = (self: TaskPair, that: TaskPair) =>
   self.task === that.task && self.needs === that.needs;
 
@@ -117,7 +126,9 @@ const samePair = (self: TaskPair, that: TaskPair) =>
  * needs what comes from `index`, and `prd` says only what sits under what.
  *
  * A task links directly to the sections and items it names, and to those that the spec sections it
- * builds implement, with what they inherit from the spec sections above them, as the rollup reads them. The section's own tasks are those linked directly to it or to anything under it.
+ * builds implement, with what they inherit from the spec sections above them. The section's own
+ * tasks are those that roll up to it (see `spec.sections.item-coverage`): a task rolls up to what it
+ * names and to the items its spec sections implement, and so to everything above them.
  * It needs each section or item outside it that a task needed by one of its own tasks links to
  * directly, when that task is not one of its own; `neededBy` is the same the other way.
  */
@@ -151,23 +162,33 @@ export const sectionLinksOf = (
   const neededByOf = (task: TaskId) =>
     tasksAt(Array.map(index.into(task, "needs"), ({ from }) => from.id));
 
+  const namedOf = (task: TaskId) => Array.map(index.out(task, "names"), ({ to }) => to);
+  /** What the spec sections `task` builds implement, with what they inherit from the ones above. */
+  const implementedOf = (task: TaskId) =>
+    Array.flatMap(index.out(task, "builds"), ({ to }) =>
+      Array.flatMap(chainOf(parents, to.id), (built) =>
+        Array.map(index.out(built, "implements"), (implemented) => implemented.to),
+      ),
+    );
+  // A link's other end is any section or item a task links to directly. A section's own tasks
+  // follow the rollup: a task rolls up to what it names, and to the items, not the headings, that
+  // its spec sections implement.
   const targets = Record.fromEntries(
+    Array.map(
+      all,
+      (task) => [task, idsOf(Array.appendAll(namedOf(task), implementedOf(task)))] as const,
+    ),
+  );
+  const rolled = Record.fromEntries(
     Array.map(
       all,
       (task) =>
         [
           task,
-          Array.dedupe(
-            Array.filter(
-              Array.appendAll(
-                Array.map(index.out(task, "names"), ({ to }) => to.id),
-                Array.flatMap(index.out(task, "builds"), ({ to }) =>
-                  Array.flatMap(chainOf(parents, to.id), (built) =>
-                    Array.map(index.out(built, "implements"), (implemented) => implemented.to.id),
-                  ),
-                ),
-              ),
-              isPrdSectionId,
+          idsOf(
+            Array.appendAll(
+              namedOf(task),
+              Array.filter(implementedOf(task), ({ kind }) => kind === "item"),
             ),
           ),
         ] as const,
@@ -176,7 +197,12 @@ export const sectionLinksOf = (
   const targetsOf = (task: TaskId): ReadonlyArray<PrdSectionId> =>
     Option.getOrElse(Record.get(targets, task), () => []);
 
-  const own = Array.filter(all, (task) => Array.some(targetsOf(task), isInside));
+  const own = Array.filter(all, (task) =>
+    Array.some(
+      Option.getOrElse(Record.get(rolled, task), () => []),
+      isInside,
+    ),
+  );
   const ownSet = HashSet.fromIterable(own);
   const isOwn = (task: TaskId) => HashSet.has(ownSet, task);
 
@@ -204,9 +230,11 @@ export const sectionLinksOf = (
 
   const foundOf = (edges: ReadonlyArray<Edge>, pairOf: (edge: Edge) => TaskPair) =>
     pipe(
-      // A far task is not one of the section's own, so nothing it links to sits inside the section.
       Array.flatMap(edges, (edge) =>
-        Array.map(targetsOf(edge.far), (target) => ({ edge, target })),
+        Array.map(
+          Array.filter(targetsOf(edge.far), (target) => !isInside(target)),
+          (target) => ({ edge, target }),
+        ),
       ),
       Array.groupBy(({ target }) => target),
       Record.values,
