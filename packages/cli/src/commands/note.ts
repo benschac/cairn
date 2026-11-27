@@ -1,12 +1,17 @@
-import { LinkFromPath, NoteId, SessionId, TaskStep } from "@cairn/contract";
-import type { Step } from "@cairn/contract";
-import { NoteKind } from "@cairn/contract";
+import { LinkFromPath, NoteId, NoteKind, SessionId, TaskStep } from "@cairn/contract";
+import type { Config, LabelledNote, Step } from "@cairn/contract";
+import { noteQuestions, sectionsOf, yesNoOf } from "@cairn/core";
+import type { NoteInput } from "@cairn/core";
 import {
   Array,
   Console,
   Effect,
+  Equal,
   Layer,
+  Number,
   Option,
+  Record,
+  Result,
   Schema,
   Stdio,
   Stream,
@@ -17,9 +22,11 @@ import {
 import { Argument, Command, Flag } from "effect/cli";
 
 import { layer as gitLayer } from "../git-live.ts";
+import { Judge } from "../judge.ts";
 import { LinkArgError, stepsOfArgs } from "../link-args.ts";
 import { MainCheckout } from "../main-checkout.ts";
 import { TraceStore } from "../trace-store.ts";
+import { loadConfig, loadManifest, loadPrd, loadSpec } from "../workspace.ts";
 import { DEFAULT_BASE, linkArguments, planOf } from "./link.ts";
 
 /** The flags that are the note's own, not link arguments. */
@@ -66,6 +73,82 @@ const readStdin = Effect.flatMap(Stdio.Stdio, ({ stdin }) =>
 const lastTaskOf = (steps: ReadonlyArray<Step>) =>
   Option.map(Array.findLast(steps, Schema.is(TaskStep)), ({ id }) => id);
 
+/** The labels that ask for a change: they are kept only when the note is actionable. */
+const ACTIONABLE_LABELS = ["blocker", "bug", "breaks_spec"];
+
+/**
+ * The title of what the anchor names: the last task or section among its steps, else the anchor
+ * path itself, when no step names one that exists.
+ */
+const titleOf = (steps: ReadonlyArray<Step>, anchor: string) =>
+  Effect.map(Effect.all([loadPrd, loadSpec, loadManifest]), ([prd, spec, manifest]) => {
+    const sections = Array.appendAll(sectionsOf(prd), sectionsOf(spec));
+    return Option.getOrElse(
+      Option.flatMap(
+        Array.findLast(steps, (step) => step.kind === "task" || step.kind === "section"),
+        (step) =>
+          step.kind === "task"
+            ? Option.map(
+                Array.findFirst(manifest.tasks, ({ id }) => Equal.equals(id, step.id)),
+                ({ title }) => title,
+              )
+            : step.kind === "section"
+              ? Option.map(
+                  Array.findFirst(sections, ({ id }) => Equal.equals(id, step.id)),
+                  ({ title }) => title,
+                )
+              : Option.none<string>(),
+      ),
+      () => anchor,
+    );
+  });
+
+/**
+ * What the judge says about a note (`spec.sessions.notes.labels`): its label with the label's
+ * probability, when that is at or above `judge.minProbability` and, for a label that asks for a
+ * change, `actionable` is not `no`. Otherwise `null`. A judge error is a warning on standard
+ * error and `null`: a note is never lost to the judge.
+ */
+const labelOf = Effect.fn("noteAdd.labelOf")(function* (input: NoteInput, judge: Config["judge"]) {
+  const asked = yield* Effect.serviceOption(Judge);
+  return yield* Option.match(asked, {
+    onNone: () => Effect.succeed<LabelledNote | null>(null),
+    onSome: (service) =>
+      service.ask(noteQuestions, [{ input, label: "the note" }]).pipe(
+        Effect.map((all): LabelledNote | null =>
+          Option.match(Array.head(all), {
+            onNone: () => null,
+            onSome: (outcomes) =>
+              Result.match(outcomes.label, {
+                onFailure: () => null,
+                onSuccess: ({ label, probabilities }) =>
+                  Option.match(
+                    Option.filter(
+                      Record.get(probabilities, label),
+                      Number.isGreaterThanOrEqualTo(judge.minProbability),
+                    ),
+                    {
+                      onNone: () => null,
+                      onSome: (probability) =>
+                        Array.contains(ACTIONABLE_LABELS, label) &&
+                        yesNoOf(outcomes.actionable, judge) === "no"
+                          ? null
+                          : { label, probability },
+                    },
+                  ),
+              }),
+          }),
+        ),
+        Effect.catchTag("JudgeError", (error) =>
+          Effect.as(
+            Console.error(`Warning: the note is stored without a label. ${error.message}`),
+            null,
+          ),
+        ),
+      ),
+  });
+});
+
 /**
  * `cairn note add`: stores a note anchored at the link the `tokens` name, which may hold the note's
  * own flags too, and prints `<note id> <link to the note>`, `/note/<id>` after `DEFAULT_BASE`. The body is `body`, else standard
@@ -101,11 +184,16 @@ export const noteAdd = Effect.fn("noteAdd")(function* (options: {
     onNone: () => readStdin,
     onSome: Effect.succeed,
   });
+  const label = yield* Effect.flatMap(
+    Effect.all([loadConfig, titleOf(steps, anchor)]),
+    ([config, title]) => labelOf({ body, kind: options.kind, title }, config.judge),
+  );
   const note = yield* store.addNote({
     anchor,
     author: options.author,
     body,
     kind: options.kind,
+    label,
     resolvedAt: null,
     session: Option.getOrNull(session),
     status: "open",
@@ -134,6 +222,22 @@ const gitOfCheckout = Layer.unwrap(
   }),
 );
 
+/**
+ * The judge when `TYPESAFE_API_KEY` or `judge.gatewayTokenEnv` is set, and none otherwise. A judge
+ * that cannot be built, such as a `judge.gatewayTokenEnv` variable that is not set, is a warning on
+ * standard error and no judge: a note is never lost to the judge.
+ */
+export const judgeFor = (config: Config) =>
+  Judge.whenConfigured(config).pipe(
+    Layer.catchTag("JudgeError", (error) =>
+      Layer.effectDiscard(
+        Console.error(`Warning: notes are stored without labels. ${error.message}`),
+      ),
+    ),
+  );
+
+const judgeOfConfig = Layer.unwrap(Effect.map(loadConfig, judgeFor));
+
 const addCommand = Command.make(
   "add",
   Struct.assign(linkArguments, {
@@ -153,7 +257,10 @@ const addCommand = Command.make(
   ({ author, body, kind, session }) =>
     Effect.flatMap(tokensAfterAdd, (tokens) =>
       noteAdd({ author, body, kind, session, tokens }),
-    ).pipe(Effect.asVoid, Effect.provide(Layer.mergeAll(TraceStore.layer, gitOfCheckout))),
+    ).pipe(
+      Effect.asVoid,
+      Effect.provide(Layer.mergeAll(TraceStore.layer, gitOfCheckout, judgeOfConfig)),
+    ),
 ).pipe(Command.withDescription("Store a note or a review finding anchored at a link"));
 
 const resolveCommand = Command.make(

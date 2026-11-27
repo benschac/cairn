@@ -18,6 +18,17 @@ export const WellFormedText = Schema.String.check(
 export const NoteKind = Schema.Literals(["note", "review"]);
 export type NoteKind = typeof NoteKind.Type;
 
+/** What a note is, as the judge reads it (`spec.sessions.notes.labels`). */
+export const NoteLabel = Schema.Literals(["question", "blocker", "bug", "breaks_spec", "nit"]);
+export type NoteLabel = typeof NoteLabel.Type;
+
+/** A label and the probability the judge gave it. */
+export const LabelledNote = Schema.Struct({
+  label: NoteLabel,
+  probability: Schema.Finite,
+});
+export type LabelledNote = typeof LabelledNote.Type;
+
 export const NoteStatus = Schema.Literals(["open", "resolved"]);
 export type NoteStatus = typeof NoteStatus.Type;
 
@@ -37,6 +48,15 @@ export const Notes = Model.Struct({
   body: WellFormedText,
   id: Model.GeneratedByApp(NoteId),
   kind: NoteKind,
+  /** The judge's label, JSON text in the row; `null` when there was no judge, it was unsure or it failed. */
+  label: Model.Field({
+    insert: Schema.NullOr(Schema.fromJsonString(LabelledNote)),
+    json: Schema.NullOr(LabelledNote),
+    jsonCreate: Schema.NullOr(LabelledNote),
+    jsonUpdate: Schema.NullOr(LabelledNote),
+    select: Schema.NullOr(Schema.fromJsonString(LabelledNote)),
+    update: Schema.NullOr(Schema.fromJsonString(LabelledNote)),
+  }),
   resolvedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
   /** The session the note hangs off, when there is one. A note never hangs off a commit. */
   session: Schema.NullOr(SessionId),

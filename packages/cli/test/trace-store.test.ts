@@ -82,6 +82,7 @@ it.effect("a database file keeps its sessions, and its migration runs once", () 
     expect(migrations).toEqual([
       { migration_id: 1, name: "init" },
       { migration_id: 2, name: "notes" },
+      { migration_id: 3, name: "note_labels" },
     ]);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
@@ -154,7 +155,8 @@ it.effect.prop(
       const added = yield* Effect.forEach(records, store.addNote);
       const read = yield* store.notes;
       const now = yield* DateTime.now;
-      expect(byId(read)).toEqual(byId(added));
+      // JSON stores a probability of -0 as 0. Both represent the same probability.
+      expect(Schema.toEquivalence(Schema.Array(Note))(byId(read), byId(added))).toBe(true);
       expect(added).toEqual(
         Array.zipWith(records, added, (record, { id }) => Struct.assign(record, { at: now, id })),
       );
@@ -169,6 +171,7 @@ const review = NoteRecord.make({
   author: "agent:t2",
   body: "This reads the **old** column.",
   kind: "review",
+  label: null,
   resolvedAt: null,
   session: SessionId.make("s_abc123"),
   status: "open",

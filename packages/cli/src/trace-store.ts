@@ -29,6 +29,7 @@ import type { SqlError } from "effect/sql/SqlError";
 import { MainCheckout } from "./main-checkout.ts";
 import { migration as init } from "./migrations/0001_init.ts";
 import { migration as notes } from "./migrations/0002_notes.ts";
+import { migration as noteLabels } from "./migrations/0003_note_labels.ts";
 
 /** How many secrets of each kind redaction replaced in a session's log. */
 const Redactions = Schema.Record(Text, Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)));
@@ -124,7 +125,11 @@ export const sqliteClient = (filename: string) =>
 
 /** Runs the migrations that have not run yet. Listed here, so a bundled CLI scans no directory. */
 const migrations = SqliteMigrator.layer({
-  loader: SqliteMigrator.fromRecord({ "0001_init": init, "0002_notes": notes }),
+  loader: SqliteMigrator.fromRecord({
+    "0001_init": init,
+    "0002_notes": notes,
+    "0003_note_labels": noteLabels,
+  }),
 });
 
 /** Stores redacted sessions and notes in `.cairn/cairn.db` and reads them back. */

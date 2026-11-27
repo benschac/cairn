@@ -319,6 +319,7 @@ it.effect("the top shows the session ID, its notes and the redaction count of ea
               body: "Looks right.",
               id: "n_review0001",
               kind: "review",
+              label: null,
               resolvedAt: null,
               session: sessionId,
               status: "open",

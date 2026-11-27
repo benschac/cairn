@@ -365,6 +365,7 @@ const NOTE = {
   author: "agent:t1",
   body: "Check the empty case.",
   kind: "review",
+  label: null,
   resolvedAt: null,
   status: "open",
   task: T1,
