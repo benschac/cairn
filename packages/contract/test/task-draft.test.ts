@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { Array, Exit, Order, Record, Schema, Struct } from "effect";
 
-import { TaskDraft, TaskDraftsJson } from "../src/index.ts";
+import { ManifestTask, TaskDraft, TaskDraftsJson } from "../src/index.ts";
 
 const encode = Schema.encodeSync(TaskDraft);
 const decodeExit = Schema.decodeUnknownExit(TaskDraft);
@@ -59,4 +59,21 @@ it.prop(
 
 it.prop("a draft with no spec section is refused", [TaskDraft], ([draft]) => {
   expect(Exit.isFailure(decodeExit(Record.set(encode(draft), "specSections", [])))).toBe(true);
+});
+
+it("a manifest task has every field of a draft, and the fields only Cairn writes", () => {
+  const draft = Array.sort(Struct.keys(TaskDraft.fields), Order.String);
+  const task = Array.sort(Struct.keys(ManifestTask.fields), Order.String);
+  expect(Array.difference(draft, task)).toEqual([]);
+  expect(Array.difference(task, draft)).toEqual([
+    "branch",
+    "commits",
+    "humanGate",
+    "id",
+    "orderedAfter",
+    "parent",
+    "sessions",
+    "status",
+    "worktree",
+  ]);
 });

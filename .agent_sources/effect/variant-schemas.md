@@ -73,6 +73,12 @@ where the places are not a database's.
   the planner's `index` call asks the model for, and `entry` is the whole entry. `IndexedSection`,
   `DerivedSection` and `IndexProse` are extracted from one declaration, and `Struct.keys(IndexProse.fields)`
   replaces the list of prose field names `specIndexOf` kept.
+- `packages/contract/src/manifest.ts`: a task. `draft` is what the planner's model proposes and `manifest`
+  a task in `manifest.json`. The fields `stackOf` and the runs fill (`id`, `branch`, `parent`, `humanGate`,
+  `status`, `commits`, ...) are `byCairn`, so a draft cannot carry them. `dependsOn` is titles in a draft
+  and task IDs in the manifest, and the descriptions written for the model's prompt sit on the `draft`
+  schema of `category`, `dependsOn` and `model` only. `TaskDraft`'s JSON Schema, which the model is given,
+  is the one it was before.
 
 ## Traps
 
