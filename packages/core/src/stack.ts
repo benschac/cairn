@@ -1,5 +1,5 @@
 import { TaskId } from "@cairn/contract";
-import type { HumanGate, ManifestTask, Slug, TaskDraft } from "@cairn/contract";
+import type { HumanGate, ManifestTask, OrderedAfter, Slug, TaskDraft } from "@cairn/contract";
 import {
   Array,
   HashMap,
@@ -55,6 +55,28 @@ export class StackOrderError extends Schema.TaggedError<
     );
   }
 }
+
+/**
+ * A conflict ordering `stackOf` applies (see `spec.planning.conflict-ordering`): `task` is
+ * stacked on `after` for `reason`, without depending on it.
+ */
+export interface Ordering {
+  readonly after: TaskId;
+  readonly reason: string;
+  readonly task: TaskId;
+}
+
+/**
+ * What a task's parent is computed from: the tasks it depends on, then the tasks it is ordered
+ * after. `parentOf` over these gives the parent `stackOf` sets and `parent-mismatch` expects.
+ */
+export const stackedOn = (
+  task: Pick<ManifestTask, "dependsOn" | "orderedAfter">,
+): ReadonlyArray<TaskId> =>
+  Array.appendAll(
+    task.dependsOn,
+    Array.map(task.orderedAfter, ({ task: after }) => after),
+  );
 
 /** What `parentOf` reads from each task placed so far. */
 export type StackLink = Pick<ManifestTask, "id" | "parent">;
@@ -327,9 +349,10 @@ const cycleOf = (waiting: Array.NonEmptyReadonlyArray<Node>): Array.NonEmptyRead
   return walk([Array.headNonEmpty(waiting)]);
 };
 
-/** A draft placed in build order, with its ID, dependencies and parent. */
+/** A draft placed in build order, with its ID, dependencies, orderings and parent. */
 interface Placement extends StackTask {
   readonly node: Node;
+  readonly orderedAfter: ReadonlyArray<OrderedAfter>;
   readonly position: number;
 }
 
@@ -347,11 +370,13 @@ const numberOf = (id: TaskId): Option.Option<number> =>
 
 /**
  * The drafts placed after `existing`, in order. Their IDs continue from the highest number an
- * existing ID has, and their dependencies are listed in manifest order.
+ * existing ID has, and their dependencies are listed in manifest order. Each takes the orderings
+ * whose `task` is its ID, and its parent from its dependencies and those orderings.
  */
 const placementsOf = (
   order: ReadonlyArray<Node>,
   existing: ReadonlyArray<ManifestTask>,
+  orderings: ReadonlyArray<Ordering>,
 ): ReadonlyArray<Placement> => {
   const highest = Array.reduce(
     Array.getSomes(Array.map(existing, (task) => numberOf(task.id))),
@@ -375,14 +400,17 @@ const placementsOf = (
         Option.getOrElse(Record.get(placed.rank, dependency), () => -1),
       ),
     );
-    const parent = Option.getOrNull(parentOf(dependsOn, placed.links));
+    const orderedAfter = Array.filterMap(orderings, ({ after, reason, task }) =>
+      task === id ? Result.succeed({ reason, task: after }) : Result.failVoid,
+    );
+    const parent = Option.getOrNull(parentOf(stackedOn({ dependsOn, orderedAfter }), placed.links));
     return [
       {
         ids: HashMap.set(placed.ids, node.index, id),
         links: Array.append(placed.links, { id, parent }),
         rank: Record.set(placed.rank, id, Array.length(existing) + at),
       },
-      { dependsOn, id, node, parent, position },
+      { dependsOn, id, node, orderedAfter, parent, position },
     ];
   })[1];
 };
@@ -409,7 +437,7 @@ const taskOf = (feature: Slug, placement: Placement, worktree: string | null): M
     humanGate: gate,
     id: placement.id,
     model: draft.model,
-    orderedAfter: [],
+    orderedAfter: placement.orderedAfter,
     parent: placement.parent,
     prdSections: draft.prdSections,
     reasoning: draft.reasoning,
@@ -431,12 +459,18 @@ const taskOf = (feature: Slug, placement: Placement, worktree: string | null): M
  * gives and the worktree `worktreesOf` gives; either may be an existing task's. `gates` is the
  * plan-time gate of each draft. Two drafts with one title, a dependency that is neither a draft's
  * title nor an existing ID, and a cycle are a `StackOrderError`.
+ *
+ * `orderings` are the conflict orderings to apply (see `spec.planning.conflict-ordering`): a new
+ * task an ordering names gains it in `orderedAfter`, and its parent comes from `dependsOn` plus
+ * `orderedAfter`. An ordering leaves the order and the IDs as they are, since it only stacks a
+ * task on one with a lower ID, and an ordering of an existing task is ignored.
  */
 export const stackOf = (
   feature: Slug,
   drafts: ReadonlyArray<TaskDraft>,
   gates: (draft: TaskDraft) => HumanGate,
   existing: ReadonlyArray<ManifestTask> = [],
+  orderings: ReadonlyArray<Ordering> = [],
 ): Result.Result<ReadonlyArray<ManifestTask>, StackOrderError> =>
   Result.gen(function* () {
     const nodes = yield* Result.flatMap(uniqueTitles(drafts), (unique) =>
@@ -451,7 +485,7 @@ export const stackOf = (
         Array.map(cycleOf(waiting), (node) => node.draft.title),
       );
     }
-    const placements = placementsOf(order, existing);
+    const placements = placementsOf(order, existing, orderings);
     return Array.appendAll(
       existing,
       Array.zipWith(placements, worktreesOf(placements, existing), (placement, worktree) =>

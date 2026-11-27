@@ -1,12 +1,20 @@
 export { EventOrder, GitCommit, derive, type Derived, type DerivedTask } from "./derive.ts";
 export {
   changesOf,
+  conflictOrder,
+  conflictsOf,
   historyOf,
+  hotspotsOf,
+  orderingOf,
+  orderingsOf,
   pairKey,
   scoreOf,
   togetherOf,
   type ChangedFiles,
+  type Conflict,
   type History,
+  type Hotspot,
+  type Orderings,
   type Reason,
   type ReasonKind,
   type Score,
@@ -14,8 +22,10 @@ export {
 } from "./conflicts.ts";
 export { drawsOf, mermaidBlocksOf, withoutMermaidBlocks, type MermaidBlock } from "./diagrams.ts";
 export {
+  FileJudgingInput,
   SectionJudgingInput,
   SectionText,
+  fileQuestions,
   StackJudgingInput,
   TaskJudgingInput,
   inputsOf,
@@ -99,7 +109,9 @@ export {
   StackProblem,
   parentOf,
   stackOf,
+  stackedOn,
   worktreesOf,
+  type Ordering,
   type StackLink,
   type StackTask,
 } from "./stack.ts";

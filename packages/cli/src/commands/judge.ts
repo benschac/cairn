@@ -66,6 +66,7 @@ const loadJudgments = Effect.fn("judge.loadJudgments")(function* () {
 const taskOf = (target: JudgmentTarget, manifest: Manifest): Option.Option<ManifestTask> =>
   JudgmentTarget.match(target, {
     draft: () => Option.none(),
+    file: () => Option.none(),
     section: () => Option.none(),
     stack: () => Option.none(),
     task: ({ id }) => Array.findFirst(manifest.tasks, (task) => task.id === id),
@@ -106,6 +107,7 @@ const placeOf = (
 ): string => {
   const specSection = JudgmentTarget.match(target, {
     draft: () => Option.none<string>(),
+    file: () => Option.none<string>(),
     section: ({ id }) => Option.some<string>(id),
     stack: () => Option.none<string>(),
     task: () =>

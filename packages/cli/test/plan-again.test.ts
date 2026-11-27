@@ -33,6 +33,7 @@ import {
   WRITE_QUESTION,
 } from "../src/commands/plan.ts";
 import type { PlanOptions } from "../src/commands/plan.ts";
+import { Git } from "../src/git.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { editedOf } from "../src/spec-index.ts";
@@ -228,6 +229,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
               Seen.use((seen) => Ref.update(seen.shown, Array.append(line))),
             ).pipe(Layer.provideMerge(scriptedPlanner({ drafts, sections, spec: SPEC }))),
             MainCheckout.fixed(root),
+            Git.memory(),
             ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
             judge,
           ),

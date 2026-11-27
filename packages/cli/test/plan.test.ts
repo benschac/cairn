@@ -35,6 +35,7 @@ import {
   WRITE_QUESTION,
 } from "../src/commands/plan.ts";
 import { Judge, JudgeError } from "../src/judge.ts";
+import { Git } from "../src/git.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { targetName } from "../src/print-judgments.ts";
@@ -148,6 +149,7 @@ const setup = (files: Readonly<Record<string, string>>) =>
           Seen.use((seen) => Ref.update(seen.shown, Array.append(line))),
         ).pipe(Layer.provideMerge(scriptedPlanner(spec, drafts, split))),
         MainCheckout.fixed(root),
+        Git.memory(),
         ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
         judge,
       );

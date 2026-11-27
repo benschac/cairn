@@ -4,6 +4,7 @@ import { JudgmentQuestion, JudgmentTarget, Sha256Hex } from "@cairn/contract";
 import type { Config, Judgment, Judgments } from "@cairn/contract";
 import {
   TaskJudgingInput,
+  fileQuestions,
   sectionQuestions,
   stackQuestions,
   taskQuestions,
@@ -53,6 +54,7 @@ export class JudgeError extends Schema.TaggedError<JudgeError, { readonly brand:
 /** How a target is named in a message; also the key that matches a previous judgment to it. */
 const nameOf: (target: JudgmentTarget) => string = JudgmentTarget.match({
   draft: ({ title }) => `draft "${title}"`,
+  file: ({ path }) => `file ${path}`,
   section: ({ id }) => `section ${id}`,
   stack: () => "the stack",
   task: ({ id }) => `task ${id}`,
@@ -173,7 +175,7 @@ const requestOf = <
 const encoded = <S extends Schema.Codec<unknown, unknown>>(schema: S, input: S["Type"]) =>
   Schema.encodeEffect(Schema.fromJsonString(schema))(input);
 
-/** One request per spec section, then per task, then the stack, as `inputsOf` orders them. */
+/** One request per spec section, then per task, then the stack, then per file, as `inputsOf` orders them. */
 const requestsOf = (inputs: JudgingInputs, models: Models) => {
   const tasks = Record.size(models) >= 2 ? taskQuestions(models) : taskQuestionsWithoutModel;
   const catalog = catalogOf(models);
@@ -203,6 +205,14 @@ const requestsOf = (inputs: JudgingInputs, models: Models) => {
           encoded(stackQuestions.input, inputs.stack),
         ),
       ],
+      Array.map(inputs.files, ({ input, path }) =>
+        requestOf(
+          { kind: "file", path },
+          fileQuestions,
+          input,
+          encoded(fileQuestions.input, input),
+        ),
+      ),
     ]),
   );
 };

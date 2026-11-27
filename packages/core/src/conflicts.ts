@@ -1,8 +1,24 @@
-import type { ConflictsConfig, TaskId } from "@cairn/contract";
-import { Array, HashMap, Number, Option, Order, String, pipe } from "effect";
+import type { ConflictsConfig, ManifestTask, TaskId, TaskStatus } from "@cairn/contract";
+import {
+  Array,
+  HashMap,
+  Match,
+  Number,
+  Option,
+  Order,
+  Record,
+  Result,
+  String,
+  Struct,
+  pipe,
+} from "effect";
 
 import { matchesPath } from "./gates.ts";
+import { indexOf } from "./relation-index.ts";
 import type { RelationIndex } from "./relation-index.ts";
+import { parentOf, stackedOn } from "./stack.ts";
+import type { Ordering, StackLink } from "./stack.ts";
+import { TaskIdOrder } from "./stacks.ts";
 
 /** A commit with more files than this is a mass edit, and says nothing about which files go together. */
 const MASS_EDIT = 20;
@@ -48,10 +64,10 @@ const bump = <K>(counts: HashMap.HashMap<K, number>, key: K): HashMap.HashMap<K,
     Option.some(Option.getOrElse(Option.map(count, Number.increment), () => 1)),
   );
 
-/** Every unordered pair of `files`, each once. */
-const pairsOf = (files: ReadonlyArray<string>): ReadonlyArray<readonly [string, string]> =>
-  Array.flatMap(files, (file, at) =>
-    Array.map(Array.drop(files, at + 1), (other) => [file, other] as const),
+/** Every unordered pair of `items`, each once. */
+const pairsOf = <A>(items: ReadonlyArray<A>): ReadonlyArray<readonly [A, A]> =>
+  Array.flatMap(items, (item, at) =>
+    Array.map(Array.drop(items, at + 1), (other) => [item, other] as const),
   );
 
 /**
@@ -200,5 +216,239 @@ export const scoreOf = (
       1 -
         Number.multiplyAll(Array.map(reasons, ({ weight }) => 1 - Number.min(MAX_WEIGHT, weight))),
     ),
+  });
+};
+
+const FINISHED: ReadonlyArray<TaskStatus> = ["done", "landed"];
+
+/**
+ * The existing tasks a plan scores against its new ones: those that have not finished, which can
+ * still run beside a new one. A finished task runs beside nothing.
+ */
+const openOf = (existing: ReadonlyArray<ManifestTask>): ReadonlyArray<ManifestTask> =>
+  Array.filter(existing, ({ status }) => !Array.contains(FINISHED, status));
+
+/** The relation index of a plan's tasks: `canRunTogether` reads only their dependencies. */
+const taskIndexOf = (existing: ReadonlyArray<ManifestTask>, drafts: ReadonlyArray<ManifestTask>) =>
+  indexOf({
+    manifest: { tasks: Array.appendAll(existing, drafts) },
+    prd: "",
+    specIndex: { sections: [] },
+  });
+
+/**
+ * Two tasks that can run at the same time and score above 0, named by ID, the earlier first, with
+ * the score and its reasons as the plan output words them.
+ */
+export interface Conflict {
+  readonly earlier: TaskId;
+  readonly later: TaskId;
+  /** The reasons as text: `shares packages/core/src/lint.ts (34 changes)`. */
+  readonly reason: string;
+  readonly score: Score;
+}
+
+/** ` (34 changes)` after a shared file, or nothing for a file the history never changed. */
+const changesText = (changes: number): string =>
+  changes === 0 ? "" : changes === 1 ? " (1 change)" : ` (${changes} changes)`;
+
+/** How a reason reads in the plan output. A generated file counts for nothing and is left out. */
+const reasonText = (history: History, reason: Reason): Option.Option<string> =>
+  Match.value(reason.kind).pipe(
+    Match.when("generated", () => Option.none()),
+    Match.when("additive", () => Option.some(`adds to ${reason.file}`)),
+    Match.when("shared", () =>
+      Option.some(`shares ${reason.file}${changesText(changesOf(history, reason.file))}`),
+    ),
+    Match.when("coupled", () =>
+      Option.map(
+        Option.fromUndefinedOr(reason.other),
+        (other) =>
+          `${reason.file} changes with ${other} (${togetherOf(history, reason.file, other)} commits)`,
+      ),
+    ),
+    Match.exhaustive,
+  );
+
+/**
+ * The conflicts of a plan (see `spec.planning.conflict-ordering`): every pair of a new task with
+ * another new task, or with an existing task that has not finished, that can run at the same time
+ * and scores above 0. `drafts` are the new tasks as `stackOf` placed them after `existing`. A
+ * task's files are its declared `files`.
+ */
+export const conflictsOf = (
+  existing: ReadonlyArray<ManifestTask>,
+  drafts: ReadonlyArray<ManifestTask>,
+  history: History,
+  config: ScoreConfig,
+): ReadonlyArray<Conflict> => {
+  const index = taskIndexOf(existing, drafts);
+  const files = Record.fromIterableWith(Array.appendAll(existing, drafts), (task) => [
+    task.id,
+    task.files,
+  ]);
+  const filesOf = (id: TaskId) => Option.getOrElse(Record.get(files, id), () => []);
+  return Array.getSomes(
+    Array.map(
+      Array.appendAll(Array.cartesian(openOf(existing), drafts), pairsOf(drafts)),
+      ([a, b]) =>
+        pipe(
+          scoreOf(index, a.id, b.id, filesOf, history, config),
+          Option.filter(({ score }) => score > 0),
+          Option.map((score): Conflict => {
+            const ascending = Order.isLessThan(TaskIdOrder)(a.id, b.id);
+            return {
+              earlier: ascending ? a.id : b.id,
+              later: ascending ? b.id : a.id,
+              reason: Array.join(
+                Array.getSomes(Array.map(score.reasons, (reason) => reasonText(history, reason))),
+                "; ",
+              ),
+              score,
+            };
+          }),
+        ),
+    ),
+  );
+};
+
+/** Highest score first, then by the earlier task's ID and the later one's. */
+export const conflictOrder: Order.Order<Conflict> = Order.combineAll([
+  Order.mapInput(Order.flip(Order.Number), ({ score }: Conflict) => score.score),
+  Order.mapInput(TaskIdOrder, ({ earlier }: Conflict) => earlier),
+  Order.mapInput(TaskIdOrder, ({ later }: Conflict) => later),
+]);
+
+/** The ordering an applied conflict stands for: the later task stacked on the earlier one. */
+export const orderingOf = ({ earlier, later, reason }: Conflict): Ordering => ({
+  after: earlier,
+  reason,
+  task: later,
+});
+
+/** What `orderingsOf` did with each high-scoring pair, highest score first. */
+export interface Orderings {
+  /** Pairs whose later task is stacked on the earlier one through `orderedAfter`. */
+  readonly applied: ReadonlyArray<Conflict>;
+  /** Pairs left as a recommendation for a person: start the later task after the earlier lands. */
+  readonly recommended: ReadonlyArray<Conflict>;
+}
+
+/** A task no human gate holds, which may be stacked on another task or have one stacked on it. */
+const free = (task: ManifestTask) => !task.humanGate.required;
+
+/** The parent links of `existing` and then `drafts`, each draft's parent taken again under `orderings`. */
+const linksWith = (
+  existing: ReadonlyArray<ManifestTask>,
+  drafts: ReadonlyArray<ManifestTask>,
+  orderings: ReadonlyArray<Ordering>,
+): ReadonlyArray<StackLink> =>
+  Array.reduce(
+    drafts,
+    Array.map(existing, Struct.pick(["id", "parent"])),
+    (links: ReadonlyArray<StackLink>, task) =>
+      Array.append(links, {
+        id: task.id,
+        parent: Option.getOrNull(
+          parentOf(
+            stackedOn({
+              dependsOn: task.dependsOn,
+              orderedAfter: Array.filterMap(orderings, ({ after, reason, task: ordered }) =>
+                ordered === task.id ? Result.succeed({ reason, task: after }) : Result.failVoid,
+              ),
+            }),
+            links,
+          ),
+        ),
+      }),
+  );
+
+/**
+ * What to do about each high-scoring pair (see `spec.planning.conflict-ordering`). Pure. It runs
+ * after `stackOf` has placed `drafts`, the new tasks, after `existing`, and walks the pairs of
+ * `conflicts` that score at least `high`, highest first.
+ *
+ * - When both tasks are new and neither is gated, the later one is stacked on the earlier one,
+ *   provided its dependencies and the earlier task lie on one chain, so that it gets a parent,
+ *   and it is not already stacked on another task.
+ * - Any other pair is recommended: one with an existing task, a gated task, or a later task whose
+ *   dependencies lie on other stacks. Nothing in the manifest changes for it.
+ *
+ * Gates are read from each task's `humanGate`. `stackOf` with `Array.map(applied, orderingOf)`
+ * writes the applied orderings.
+ */
+export const orderingsOf = (
+  drafts: ReadonlyArray<ManifestTask>,
+  existing: ReadonlyArray<ManifestTask>,
+  conflicts: ReadonlyArray<Conflict>,
+  config: Pick<ConflictsConfig, "high">,
+): Orderings => {
+  const byId = Record.fromIterableWith(drafts, (task) => [task.id, task]);
+  const none: Orderings = { applied: [], recommended: [] };
+  return Array.reduce(
+    Array.sort(
+      Array.filter(conflicts, ({ score }) => score.score >= config.high),
+      conflictOrder,
+    ),
+    none,
+    (done, conflict) => {
+      const orderings = Array.map(done.applied, orderingOf);
+      const stackable = Option.exists(
+        Option.all([Record.get(byId, conflict.earlier), Record.get(byId, conflict.later)]),
+        ([earlier, later]) =>
+          free(earlier) &&
+          free(later) &&
+          !Array.some(orderings, ({ task }) => task === later.id) &&
+          Option.isSome(
+            parentOf(
+              Array.append(later.dependsOn, earlier.id),
+              linksWith(existing, drafts, orderings),
+            ),
+          ),
+      );
+      return stackable
+        ? { applied: Array.append(done.applied, conflict), recommended: done.recommended }
+        : { applied: done.applied, recommended: Array.append(done.recommended, conflict) };
+    },
+  );
+};
+
+/** A source file that `conflicts.hotspot` or more tasks that can run together all change. */
+export interface Hotspot {
+  readonly path: string;
+  /** The tasks, in plan order. */
+  readonly tasks: ReadonlyArray<TaskId>;
+}
+
+/**
+ * The files the stack checkpoint asks `splitFile` about (see `spec.planning.conflict-ordering`):
+ * each plain file, neither generated nor additive nor a directory, that at least `hotspot` of the
+ * plan's tasks change and can all run together. The tasks are the new ones and the existing ones
+ * that have not finished. Walking the tasks that change a file in plan order, a task counts when
+ * it can run together with each task counted before it.
+ */
+export const hotspotsOf = (
+  existing: ReadonlyArray<ManifestTask>,
+  drafts: ReadonlyArray<ManifestTask>,
+  config: Pick<ConflictsConfig, "additive" | "generated" | "hotspot">,
+): ReadonlyArray<Hotspot> => {
+  const index = taskIndexOf(existing, drafts);
+  const tasks = Array.appendAll(openOf(existing), drafts);
+  const files = Array.sort(
+    couplable(config, Array.dedupe(Array.flatMap(tasks, ({ files: declared }) => declared))),
+    Order.String,
+  );
+  return Array.filterMap(files, (path) => {
+    const together = Array.reduce(
+      Array.filter(tasks, ({ files: declared }) => Array.contains(declared, path)),
+      Array.empty<TaskId>(),
+      (counted, { id }) =>
+        Array.every(counted, (other) => index.canRunTogether(other, id))
+          ? Array.append(counted, id)
+          : counted,
+    );
+    return Array.length(together) >= config.hotspot
+      ? Result.succeed({ path, tasks: together })
+      : Result.failVoid;
   });
 };
