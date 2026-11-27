@@ -1,7 +1,15 @@
 import { PrdSectionId } from "@cairn/contract";
-import type { Section, StatementId } from "@cairn/contract";
-import { itemsOf, sectionsOf, settle, statementsOf, withDrafts } from "@cairn/core";
-import type { DraftAnswer } from "@cairn/core";
+import type { Config, Section, StatementId } from "@cairn/contract";
+import {
+  itemsOf,
+  partQuestions,
+  sectionsOf,
+  settle,
+  statementsOf,
+  withDrafts,
+  yesNoOf,
+} from "@cairn/core";
+import type { DraftAnswer, PartInput } from "@cairn/core";
 import {
   Array,
   Console,
@@ -18,6 +26,7 @@ import {
 } from "effect";
 import { TerminalCapabilities } from "effect/cli";
 
+import { Judge } from "./judge.ts";
 import { Planner } from "./planner.ts";
 
 /** What `cairn plan` asks about each draft statement. */
@@ -88,6 +97,83 @@ export const targetsOf = (
     Array.getSomes,
   );
 };
+
+/** What the judge reads of `id`: a section's title, its own body and its child headings, or an item's text. */
+const partInputOf = (read: ReturnType<typeof readOf>, id: string): PartInput => {
+  const { items, sections } = read;
+  return pipe(
+    Array.findFirst(sections, (section) => section.id === id),
+    Option.map(({ body, title }): PartInput => ({
+      body,
+      children: Array.map(
+        Array.filter(sections, (child) => child.parent === id),
+        ({ title: childTitle }) => childTitle,
+      ),
+      id,
+      title,
+    })),
+    Option.orElse(() =>
+      Option.map(
+        Array.findFirst(items, (item) => item.id === id),
+        ({ text }): PartInput => ({
+          body: text,
+          children: Array.map(
+            Array.filter(items, (child) => child.parent === id),
+            (child) => child.text,
+          ),
+          id,
+          title: text,
+        }),
+      ),
+    ),
+    Option.getOrElse((): PartInput => ({ body: "", children: [], id, title: id })),
+  );
+};
+
+/** The line the plan prints for a target that is left out. */
+export const noDraftLine = (id: string, probability: number) =>
+  `no draft  ${id} (describes nothing to build, ${probability.toFixed(2)})`;
+
+/**
+ * The targets to draft for (`spec.planning.done-when.judging-drafts`): asks the judge
+ * `partQuestions` about each, and leaves out, printing it, a target whose `describesBuild`
+ * reads `no`. `unsure`, unanswered, a failed judge and no judge keep every target, and a run with
+ * no judge does not ask.
+ */
+export const partsToDraft = Effect.fn("askStatements.partsToDraft")(function* (
+  prd: string,
+  targets: ReadonlyArray<PrdSectionId>,
+  thresholds: Pick<Config["judge"], "flag" | "pass">,
+) {
+  const judge = yield* Effect.serviceOption(Judge);
+  if (Option.isNone(judge) || !Array.isReadonlyArrayNonEmpty(targets)) {
+    return targets;
+  }
+  const read = readOf(prd);
+  const outcomes = yield* judge.value
+    .ask(
+      partQuestions,
+      Array.map(targets, (id) => ({ input: partInputOf(read, id), label: id })),
+    )
+    .pipe(
+      Effect.catchTag("JudgeError", (error) =>
+        Console.log(`Judging failed: ${error.message}`).pipe(Effect.as([])),
+      ),
+    );
+  const left = Array.filterMap(Array.zip(targets, outcomes), ([id, { describesBuild }]) =>
+    Result.match(describesBuild, {
+      onFailure: () => Result.failVoid,
+      onSuccess: ({ probability }) =>
+        yesNoOf(describesBuild, thresholds) === "no"
+          ? Result.succeed({ id, probability })
+          : Result.failVoid,
+    }),
+  );
+  yield* Effect.forEach(left, ({ id, probability }) => Console.log(noDraftLine(id, probability)), {
+    discard: true,
+  });
+  return Array.filter(targets, (id) => !Array.some(left, (gone) => gone.id === id));
+});
 
 /**
  * Asks the planner for drafts for `targets` and writes them into `prd` with `save`, which is

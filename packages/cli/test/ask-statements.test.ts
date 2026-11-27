@@ -13,6 +13,7 @@ import {
   Record,
   Schema,
   Scope,
+  String,
 } from "effect";
 import { TerminalCapabilities } from "effect/cli";
 import { TestConsole } from "effect/testing";
@@ -25,11 +26,13 @@ import {
 } from "../src/ask-statements.ts";
 import { needsPlanner, plan } from "../src/commands/plan.ts";
 import type { PlanOptions } from "../src/commands/plan.ts";
+import type { Judge } from "../src/judge.ts";
 import { MainCheckout } from "../src/main-checkout.ts";
 import { Planner } from "../src/planner.ts";
 import { Recorder } from "./fixtures/recorder.ts";
 import { scriptedTerminal } from "./fixtures/scripted-terminal.ts";
 import { stubPlanner } from "./fixtures/stub-planner.ts";
+import { scriptedJudge } from "./scripted-judge.ts";
 
 const PRD = "# Notes\n\n## Capture\n\nKeep a note.\n";
 
@@ -71,6 +74,8 @@ interface Run {
   readonly answers?: ReadonlyArray<string>;
   readonly dryRun?: boolean;
   readonly drafts?: Readonly<Record<string, ReadonlyArray<string>>>;
+  /** The judge of the run; none provides no `Judge`, as `cairn plan` does without a key. */
+  readonly judge?: Layer.Layer<Judge> | typeof Layer.empty;
   /** Whether stdin and stdout are a terminal. */
   readonly terminal?: boolean;
   readonly yes?: boolean;
@@ -92,6 +97,7 @@ const setup = (prd: string) =>
       answers = [],
       dryRun = false,
       drafts = {},
+      judge = Layer.empty,
       terminal = true,
       yes = false,
     }: Run = {}) => {
@@ -101,6 +107,7 @@ const setup = (prd: string) =>
           Events.use((events) => events.record(`ask ${line}`)),
         ).pipe(Layer.provideMerge(scriptedPlanner(drafts))),
         MainCheckout.fixed(root),
+        judge,
         ConfigProvider.layer(ConfigProvider.fromEnvRecord({})),
       );
       return Effect.gen(function* () {
@@ -333,3 +340,55 @@ it("targets are the sections but the title, and the items, that have an ID and n
   ).toEqual(["prd.described.child"]);
   expect(decodeId("prd.capture")).toBe("prd.capture");
 });
+
+const WITH_LATER = "# Notes\n\n## Capture\n\nKeep a note.\n\n## Later\n\nOne day, maybe.\n";
+
+/** A judge that answers `describesBuild` with `probability` for the section titled Later, and 0.9 for the rest. */
+const laterAnswered = (probability: number) =>
+  scriptedJudge({
+    probability: (title, question) =>
+      title === "Later" && question === "describesBuild" ? Option.some(probability) : Option.none(),
+  });
+
+const NO_DRAFT = "no draft  prd.later (describes nothing to build, 0.12)";
+
+it.effect.each([
+  { name: "asking", run: {} },
+  { name: "--yes", run: { yes: true } },
+  { name: "--dry-run", run: { dryRun: true } },
+  { name: "a stdin that is not a terminal", run: { terminal: false } },
+])(
+  "a target answered no gets no draft and is listed, with $name (spec.planning.done-when.judging-drafts)",
+  ({ run: variant }) =>
+    inRepository(
+      Effect.gen(function* () {
+        const { run } = yield* setup(WITH_LATER);
+        const { events, lines } = yield* run({ ...variant, judge: laterAnswered(0.12) });
+        expect(events).toContain("statements prd.capture");
+        expect(events).not.toContain("statements prd.capture,prd.later");
+        expect(Array.contains(lines, NO_DRAFT)).toBe(true);
+      }),
+    ),
+);
+
+it.effect("a target answered unsure is drafted and not listed", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run } = yield* setup(WITH_LATER);
+      const { events, lines } = yield* run({ judge: laterAnswered(0.5), yes: true });
+      expect(events).toContain("statements prd.capture,prd.later");
+      expect(Array.some(lines, String.startsWith("no draft"))).toBe(false);
+    }),
+  ),
+);
+
+it.effect("without a judge, the planner gets every target and nothing is listed", () =>
+  inRepository(
+    Effect.gen(function* () {
+      const { run } = yield* setup(WITH_LATER);
+      const { events, lines } = yield* run({ yes: true });
+      expect(events).toContain("statements prd.capture,prd.later");
+      expect(Array.some(lines, String.startsWith("no draft"))).toBe(false);
+    }),
+  ),
+);
