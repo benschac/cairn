@@ -1,5 +1,5 @@
 import { UiStruct } from "@effect/ui";
-import { PrdSectionId, SectionId, type Trace } from "@cairn/contract";
+import { PrdSectionId, SectionId, TaskId, type Trace } from "@cairn/contract";
 import { expect as assert, it } from "@effect/vitest";
 import { Array, Effect, HashSet, Option, Record, Struct } from "effect";
 
@@ -450,6 +450,39 @@ it.effect("the curve from an item to its card is lit while the item's annotation
       .expect(both(pathBetween(`prd:${LINT}`, `spec:${LINT_SPEC}`), data("lit")))
       .toExist()
       .expect(both(pathBetween(`prd:${SECTION}`, `spec:${LINT_SPEC}`), data("dimmed")))
+      .toExist();
+  }),
+);
+
+it.effect("a detail item in a folded section opens the section and scrolls to the item", () =>
+  Effect.gen(function* () {
+    const folded = UiStruct.evolve(reading, {
+      detail: () => [{ id: TaskId.make("t110"), kind: "task" as const }],
+      reader: (reader) => UiStruct.evolve(reader, { isPrdCondensed: () => true }),
+    });
+    // The item is not in the page while its section is folded; the update opens the section.
+    const { commands: issued, model } = update(
+      folded,
+      Message.ClickedTraceSection({ id: prd(LINT) }),
+    );
+    assert(
+      Array.map(
+        Option.getOrElse(Option.fromNullishOr(issued), () => []),
+        (command) => command.name,
+      ),
+    ).toEqual(["ScrollPrdSection"]);
+    assert(Record.get(model.reader.prdOpened, SectionId.make(SECTION))).toEqual(Option.some(true));
+    // A heading needs nothing opened, and clicking one marks nothing.
+    const heading = update(folded, Message.ClickedTraceSection({ id: prd(SECTION) })).model;
+    assert(heading.reader.prdOpened).toEqual(folded.reader.prdOpened);
+    assert(heading.reader.maybeMarked).toEqual(Option.none());
+    const s = yield* viewerScene(folded);
+    s.pipe(readerMounted, detailDividerRunning)
+      .expect(item(LINT))
+      .toHaveCount(0)
+      .click(data("detail-item", LINT))
+      .pipe(resolved(ScrollPrdSection, Message.CompletedScrollPrdSection()))
+      .expect(item(LINT))
       .toExist();
   }),
 );

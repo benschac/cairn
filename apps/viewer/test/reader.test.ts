@@ -1,4 +1,4 @@
-import { Event, PrdSectionId, SectionId, Trace, type SectionStatus } from "@cairn/contract";
+import { Event, PrdSectionId, SectionId, TaskId, Trace, type SectionStatus } from "@cairn/contract";
 import { expect, it } from "@effect/vitest";
 import { Array, DateTime, HashSet, Option, Schema, Struct } from "effect";
 
@@ -13,7 +13,7 @@ import {
   sectionAtTop,
   statusWordOf,
 } from "../src/reader.ts";
-import { chainOf, itemsOfTask } from "../src/trace.ts";
+import { chainOf, itemsOfTask, markedItemsOf } from "../src/trace.ts";
 
 const prd = (n: number): PrdSectionId => PrdSectionId.make(`prd.p${n}`);
 
@@ -314,4 +314,41 @@ it("a task's chain lights the items its spec sections implement, and itemsOfTask
   expect(HashSet.has(chain.prd, "prd.cli.lint")).toBe(true);
   expect(HashSet.has(chain.prd, "prd.cli")).toBe(true);
   expect(Array.map(itemsOfTask(demoTrace, task.id), (item) => item.id)).toEqual(["prd.cli.lint"]);
+});
+
+it("a task's items are the ones it names and the ones its spec sections' Implements name", () => {
+  const heading = Struct.evolve(demoTrace, {
+    spec: (spec) =>
+      Struct.evolve(spec, {
+        sections: Array.map((section) =>
+          section.id === "spec.lint"
+            ? Struct.evolve(section, {
+                keys: (keys) =>
+                  Struct.evolve(keys, { implements: () => [PrdSectionId.make("prd.cli")] }),
+              })
+            : section,
+        ),
+      }),
+  });
+  // spec.lint implements only the heading, which does not cover the items under it.
+  expect(itemsOfTask(heading, TaskId.make("t27"))).toEqual([]);
+  expect(Array.map(itemsOfTask(demoTrace, TaskId.make("t27")), (item) => item.id)).toEqual([
+    "prd.cli.lint",
+  ]);
+  const named = Struct.evolve(heading, {
+    tasks: Array.map((task) =>
+      task.id === "t27"
+        ? Struct.evolve(task, { prdSections: () => Array.make(PrdSectionId.make("prd.cli.init")) })
+        : task,
+    ),
+  });
+  expect(Array.map(itemsOfTask(named, TaskId.make("t27")), (item) => item.id)).toEqual([
+    "prd.cli.init",
+  ]);
+  expect(
+    markedItemsOf(named, Option.some({ id: TaskId.make("t27"), kind: "task" as const })),
+  ).toEqual(["prd.cli.init"]);
+  expect(
+    markedItemsOf(heading, Option.some({ id: TaskId.make("t27"), kind: "task" as const })),
+  ).toEqual([]);
 });

@@ -705,16 +705,11 @@ const pinClicked = (model: Model, id: PrdSectionId): Return => ({
   }),
 });
 
-/**
- * A spec card's chip: the PRD pane scrolls to the section or item it names and it is marked. An
- * item inside a folded section opens that section first, so there is something to scroll to.
- */
-const chipClicked = (model: Model, id: PrdSectionId): Return => ({
-  commands: [ScrollPrdSection.make({ id })],
-  model: UiStruct.evolve(model, {
+/** The model with the section holding the item opened, so the item is in the PRD pane. A heading is already. */
+const shownInPrd = (model: Model, id: PrdSectionId): Model =>
+  UiStruct.evolve(model, {
     reader: (reader) =>
       UiStruct.evolve(reader, {
-        maybeMarked: () => Option.some(id),
         prdOpened: (opened) =>
           Option.match(
             Option.flatMap(traceOf(model), (trace) =>
@@ -723,6 +718,16 @@ const chipClicked = (model: Model, id: PrdSectionId): Return => ({
             { onNone: () => opened, onSome: (item) => Record.set(opened, item.section, true) },
           ),
       }),
+  });
+
+/**
+ * A spec card's chip: the PRD pane scrolls to the section or item it names and it is marked. An
+ * item inside a folded section opens that section first, so there is something to scroll to.
+ */
+const chipClicked = (model: Model, id: PrdSectionId): Return => ({
+  commands: [ScrollPrdSection.make({ id })],
+  model: UiStruct.evolve(shownInPrd(model, id), {
+    reader: (reader) => UiStruct.evolve(reader, { maybeMarked: () => Option.some(id) }),
   }),
 });
 
@@ -884,7 +889,11 @@ const updated = (model: Model, message: Message) =>
     ClickedDismissLinkNotice: () => ({
       model: UiStruct.evolve(model, { maybeLinkNotice: () => Option.none() }),
     }),
-    ClickedTraceSection: ({ id }) => ({ commands: [ScrollPrdSection.make({ id })], model }),
+    // An item in a folded section is shown first, so there is something to scroll to.
+    ClickedTraceSection: ({ id }) => ({
+      commands: [ScrollPrdSection.make({ id })],
+      model: shownInPrd(model, id),
+    }),
     // "Open code" and a detail panel commit open the code view; a task or commit the trace lacks opens nothing.
     ClickedOpenCode: ({ id, maybeSha }) => codeOn(model, id, maybeSha),
     // The tree selects within the code view; with the reader showing there is no tree to click.

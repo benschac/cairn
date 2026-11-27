@@ -15,7 +15,7 @@ import { Array, Option, Record, Result, Schema, String, pipe } from "effect";
 import { commitPathOf, diffPathOf, filesOf, rangeOf, sessionCommitOf } from "../src/codeView.ts";
 import { demoTrace } from "../src/demo.ts";
 import { init } from "../src/init.ts";
-import { linkOf, trunkOf } from "../src/links.ts";
+import { linkOf, linkTargetsOf, trunkOf } from "../src/links.ts";
 import { Message } from "../src/message.ts";
 import { HighlightedTurn, Screen, Shown, TraceData, WHOLE_TASK, type Model } from "../src/model.ts";
 import { indexOf } from "../src/search.ts";
@@ -602,3 +602,45 @@ it.prop(
     expect(linkOf(openLink(loaded, link).model)).toEqual(link);
   },
 );
+
+// LIST ITEMS
+
+const ITEM = "prd.cli.lint";
+const ITEM_TASK = "t110";
+
+it("a section step that names a list item pins it, and the link it writes is the same", () => {
+  const link = [decodeStep({ id: ITEM, kind: "section" })];
+  const opened = openLink(loaded, link).model;
+  expect(opened.maybeLinkNotice).toEqual(Option.none());
+  expect(opened.reader.maybePinned).toEqual(Option.some(PrdSectionId.make(ITEM)));
+  expect(linkOf(opened)).toEqual(link);
+});
+
+it("an item followed by a task opens both", () => {
+  const link = [
+    decodeStep({ id: ITEM, kind: "section" }),
+    decodeStep({ id: ITEM_TASK, kind: "task" }),
+  ];
+  const opened = openLink(loaded, link).model;
+  expect(opened.maybeLinkNotice).toEqual(Option.none());
+  expect(opened.reader.maybePinned).toEqual(Option.some(PrdSectionId.make(ITEM)));
+  expect(Array.map(opened.detail, (node) => node.id)).toEqual([ITEM_TASK]);
+  expect(linkOf(opened)).toEqual(link);
+});
+
+it("a section step that names neither a section nor an item is still deleted", () => {
+  const opened = openLink(loaded, [decodeStep({ id: "prd.cli.no-such-item", kind: "section" })]);
+  expect(opened.model.reader.maybePinned).toEqual(Option.none());
+  expect(opened.model.maybeLinkNotice).toEqual(
+    Option.some(
+      "Nothing in this link opened. No section has the ID prd.cli.no-such-item: it was deleted.",
+    ),
+  );
+});
+
+it("an item's step scrolls the PRD pane to the item", () => {
+  const targets = linkTargetsOf(demoTrace, decodeStep({ id: ITEM, kind: "section" }));
+  expect(Array.flatMap(targets, (target) => target.selectors)).toContain(
+    `[data-prd-pane] [data-item="${ITEM}"]`,
+  );
+});
