@@ -473,6 +473,7 @@ it.effect("with the key set, every section, task and the stack is judged and rec
             "t1 size",
             "t1 matches",
             "t1 inScope",
+            "t1 category",
             "t1 model",
             "t1 reasoning",
             "stack complete",

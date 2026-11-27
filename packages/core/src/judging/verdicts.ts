@@ -17,8 +17,8 @@ export interface Verdicted {
   readonly verdict: Verdict;
 }
 
-/** The part of a manifest task `verdictOf` compares a `model` or `reasoning` answer with. */
-export type RoutedTask = Pick<ManifestTask, "model" | "reasoning">;
+/** The part of a manifest task `verdictOf` compares a `model`, `reasoning` or `category` answer with. */
+export type RoutedTask = Pick<ManifestTask, "category" | "model" | "reasoning">;
 
 const isUnanswered = Schema.is(Unanswered);
 const isRate = Schema.is(RateAnswer);
@@ -30,6 +30,7 @@ const unsure = (message: string): Verdicted => ({ message, verdict: "unsure" });
 /** How each question is answered: a probability, a rating that is judged, or a choice. */
 const KIND = {
   buildable: "probability",
+  category: "choice",
   complete: "probability",
   faithful: "probability",
   inScope: "probability",
@@ -76,9 +77,13 @@ const sizeVerdict = (answer: RateAnswer, thresholds: Thresholds): Verdicted =>
         : { message: `size is ${answer.label}, confidence ${confidence}`, verdict: "flag" },
   });
 
-/** A `model` or `reasoning` answer: `pass` when confident, `flag` when it differs from the task's. */
+/**
+ * A `model`, `reasoning` or `category` answer: `pass` when confident, `flag` when it differs from
+ * the task's. A `category` with nothing to compare, because the task has none (the manifest's older
+ * tasks) or there is no task, is `unsure` with the label in the message.
+ */
 const choiceVerdict = (
-  question: "model" | "reasoning",
+  question: "category" | "model" | "reasoning",
   answer: RateAnswer,
   thresholds: Thresholds,
   task: Option.Option<RoutedTask>,
@@ -88,17 +93,27 @@ const choiceVerdict = (
     onSome: (confidence) =>
       pipe(
         task,
-        Option.map((routed) => routed[question]),
-        Option.filter((current) => current !== answer.label),
+        Option.flatMapNullishOr((routed) => routed[question]),
         Option.match({
-          onNone: () => ({
-            message: `${question} ${answer.label}, confidence ${confidence}`,
-            verdict: "pass" as const,
-          }),
-          onSome: (current) => ({
-            message: `${question} ${answer.label} differs from the manifest's ${current}, confidence ${confidence}`,
-            verdict: "flag" as const,
-          }),
+          onNone: () =>
+            question === "category"
+              ? unsure(
+                  `category ${answer.label}, confidence ${confidence}; the task has no category to compare`,
+                )
+              : {
+                  message: `${question} ${answer.label}, confidence ${confidence}`,
+                  verdict: "pass" as const,
+                },
+          onSome: (current) =>
+            current === answer.label
+              ? {
+                  message: `${question} ${answer.label}, confidence ${confidence}`,
+                  verdict: "pass" as const,
+                }
+              : {
+                  message: `${question} ${answer.label} differs from the manifest's ${current}, confidence ${confidence}`,
+                  verdict: "flag" as const,
+                },
         }),
       ),
   });
@@ -114,6 +129,8 @@ const wrongShape = (question: JudgmentQuestion): Verdicted =>
  *   other labels, named in the message.
  * - `model` and `reasoning` choose rather than judge: `unsure` below `minConfidence`, `pass`
  *   above it. With `task`, a confident label that differs from the task's value is a `flag`.
+ * - `category` is the same, except a task with no category, or no `task`, gives `unsure` with the
+ *   label in the message: the manifest's older tasks have none and must not all flag.
  * - An unanswered decision, or an answer of the wrong kind for the question, is `unsure`.
  */
 export const verdictOf = (
@@ -131,7 +148,7 @@ export const verdictOf = (
         Match.when("size", () => sizeVerdict(answer, thresholds)),
         Match.when("choice", () =>
           choiceVerdict(
-            question === "model" ? "model" : "reasoning",
+            question === "model" || question === "category" ? question : "reasoning",
             answer,
             thresholds,
             Option.fromUndefinedOr(task),

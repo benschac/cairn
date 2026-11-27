@@ -137,6 +137,51 @@ it.prop(
   },
 );
 
+const confidentOf = (judge: { readonly minConfidence: number }, spread: number) =>
+  Number.sum(judge.minConfidence, Number.multiply(spread, Number.subtract(1, judge.minConfidence)));
+
+it.prop(
+  "a confident category equal to the task's passes and a different one flags with both named",
+  [Judge, Schema.NonEmptyString, Schema.NonEmptyString, Routed, Unit],
+  ([judge, label, category, routed, spread]) => {
+    const confidence = confidentOf(judge, spread);
+    const task = { ...routed, category };
+    const same = verdictOf("category", rate(category, confidence), judge, task);
+    expect(same.verdict).toBe("pass");
+    const other = verdictOf("category", rate(label, confidence), judge, task);
+    expect(other.verdict).toBe(label === category ? "pass" : "flag");
+    if (label !== category) {
+      expect(other.message).toContain(label);
+      expect(other.message).toContain(category);
+    }
+  },
+);
+
+it.prop(
+  "a category answer for a task with none, or with no task, is unsure and names the label",
+  [Judge, Schema.NonEmptyString, Routed, Unit],
+  ([judge, label, routed, spread]) => {
+    const answer = rate(label, confidentOf(judge, spread));
+    const none = verdictOf("category", answer, judge, routed);
+    expect(none.verdict).toBe("unsure");
+    expect(none.message).toContain(label);
+    expect(verdictOf("category", answer, judge).verdict).toBe("unsure");
+  },
+);
+
+it.prop(
+  "a category answer below minConfidence is unsure whatever the task's category is",
+  [Judge, Schema.NonEmptyString, Schema.NonEmptyString, Routed, Unit],
+  ([judge, label, category, routed, fraction]) => {
+    const below = Number.multiply(fraction, judge.minConfidence);
+    expect(
+      Number.isLessThan(below, judge.minConfidence)
+        ? verdictOf("category", rate(label, below), judge, { ...routed, category }).verdict
+        : "unsure",
+    ).toBe("unsure");
+  },
+);
+
 const Answer = Schema.Union([RateAnswer, ProbabilityAnswer, Unanswered]);
 const Names = Schema.NonEmptyArray(Schema.NonEmptyString);
 

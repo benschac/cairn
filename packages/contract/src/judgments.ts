@@ -38,6 +38,7 @@ export const JudgmentQuestion = Schema.Literals([
   "inScope",
   "buildable",
   "matches",
+  "category",
   "model",
   "reasoning",
   "complete",

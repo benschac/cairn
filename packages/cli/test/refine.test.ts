@@ -632,6 +632,76 @@ it.effect(
     ),
 );
 
+it.effect.prop(
+  "a confident category is reported against the draft's and never changes it",
+  [Schema.Literals(Array.map(defaults.categories, Struct.get("name")))],
+  ([label]) =>
+    Effect.gen(function* () {
+      const given = Struct.evolve(base, { drafts: () => [draft("Refine")] });
+      const result = yield* refineWith(given, defaults);
+      const reported = Array.filter(result.judgments, (j) => j.question === "category");
+      expect(Array.map(reported, (j) => [j.target.kind, j.action])).toEqual([["draft", "none"]]);
+      expect(Array.map(reported, (j) => j.verdict)).toEqual([
+        label === "feature" ? "pass" : "flag",
+      ]);
+      if (label !== "feature") {
+        expect(Array.map(reported, (j) => j.message)).toEqual([
+          expect.stringContaining(`category ${label} differs from the manifest's feature`),
+        ]);
+      }
+      expect(result.drafts).toEqual(given.drafts);
+      expect(Array.map(result.drafts, (each) => each.category)).toEqual(["feature"]);
+    }).pipe(
+      Effect.provide(
+        testing({
+          answer: (_, question) =>
+            question === "category" ? Option.some({ confidence: 0.9, label }) : Option.none(),
+        }),
+      ),
+    ),
+);
+
+it.effect(
+  "a draft a split replaces keeps its category verdict against the draft's own category",
+  () =>
+    Effect.gen(function* () {
+      const given = Struct.evolve(base, { drafts: () => [draft("Refine")] });
+      const result = yield* refineWith(given, defaults);
+      const original = Array.filter(
+        result.judgments,
+        (j) =>
+          j.question === "category" && j.target.kind === "draft" && j.target.title === "Refine",
+      );
+      expect(Array.map(original, (j) => j.verdict)).toEqual(["flag"]);
+      expect(Array.map(original, (j) => j.message)).toEqual([expect.stringContaining("feature")]);
+      expect(Array.map(result.drafts, (each) => each.title)).toEqual(["Refine a", "Refine b"]);
+    }).pipe(
+      Effect.provide(
+        testing({
+          answer: (title, question) =>
+            question === "category"
+              ? Option.some({ confidence: 0.9, label: "ui" })
+              : tooLarge((asked) => asked === "Refine")(title, question),
+          splitTask: halves,
+        }),
+      ),
+    ),
+);
+
+it.effect("an unsure category is reported as unsure and the draft keeps its category", () =>
+  Effect.gen(function* () {
+    const given = Struct.evolve(base, { drafts: () => [draft("Refine")] });
+    const result = yield* refineWith(given, defaults);
+    expect(
+      Array.map(
+        Array.filter(result.judgments, (j) => j.question === "category"),
+        (j) => j.verdict,
+      ),
+    ).toEqual(["unsure"]);
+    expect(result.drafts).toEqual(given.drafts);
+  }).pipe(Effect.provide(testing({}))),
+);
+
 it.effect("a section a person wrote is reported on and never split", () =>
   Effect.gen(function* () {
     const spec = pipe(

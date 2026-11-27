@@ -20,12 +20,13 @@ export interface Script {
 }
 
 /**
- * Right-sized, and sure that the planner's `sonnet` and `high` are what the task needs, so a
+ * Right-sized, and sure that the planner's `feature`, `sonnet` and `high` are what the task needs, so a
  * script says only what a test is about.
  */
 const defaultPick = (question: string, labels: ReadonlyArray<string>): Pick =>
   Match.value(question).pipe(
     Match.when("size", (): Pick => ({ confidence: 0.9, label: "right" })),
+    Match.when("category", (): Pick => ({ confidence: 0.9, label: "feature" })),
     Match.when("model", (): Pick => ({ confidence: 0.9, label: "sonnet" })),
     Match.when("reasoning", (): Pick => ({ confidence: 0.9, label: "high" })),
     Match.orElse((): Pick => ({
