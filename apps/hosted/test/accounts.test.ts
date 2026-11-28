@@ -380,37 +380,103 @@ layer(services)("accounts and workspaces", (it) => {
     }),
   );
 
-  it.effect("a personal workspace invites no one; a team workspace can", () =>
+  it.effect("a session past its update age is renewed by the routes behind sign-in", () =>
     Effect.gen(function* () {
       yield* migrate;
-      const cookie = yield* signIn(address("max"));
+      const cookie = yield* signIn(address("ren"));
+      const fresh = yield* send("/api/me", { headers: { cookie } });
+      expect([fresh.status, startsSession(fresh)]).toEqual([200, false]);
+      // Better Auth renews a session a day after it was last renewed, and a session lasts a week.
+      const renewed = yield* later(25 * 3_600_000, send("/api/me", { headers: { cookie } }));
+      expect([renewed.status, startsSession(renewed)]).toEqual([200, true]);
+      const renewedCookie = cookiesOf(renewed);
+      const again = yield* later(
+        50 * 3_600_000,
+        post("/api/workspaces", { name: "Later" }, renewedCookie),
+      );
+      expect([again.status, startsSession(again)]).toEqual([200, true]);
+      // Past the first session's week, the renewed cookie still signs the person in.
+      const nextWeek = yield* later(8 * 24 * 3_600_000, me(cookiesOf(again)));
+      expect(nextWeek.status).toBe(200);
+    }),
+  );
+
+  it.effect("first sign-ins at once leave one personal workspace", () =>
+    Effect.gen(function* () {
+      yield* migrate;
+      const email = address("twin");
+      const cookie = yield* signIn(email);
+      const first = yield* me(cookie);
+      // As if the sign-up batch had failed, so the next sign-ins each find no workspace.
+      const sql = yield* SqlClient.SqlClient;
+      const theirs = sql`select organizationId from member where userId = ${first.body.user.id}`;
+      yield* sql`delete from usage where workspace_id in (select id from workspaces where organization_id in (${theirs}))`;
+      yield* sql`delete from workspaces where organization_id in (${theirs})`;
+      yield* sql`delete from organization where id in (${theirs})`;
+      const user = { email, id: first.body.user.id, name: "" };
+      yield* Effect.all(Array.replicate(ensurePersonalWorkspace(user), 4), {
+        concurrency: "unbounded",
+      });
+      const rows = yield* sql<{ readonly workspaces: number; readonly organizations: number }>`
+        select count(*) as workspaces, count(distinct w.organization_id) as organizations
+        from workspaces w join member m on m.organizationId = w.organization_id
+        where m.userId = ${UserId.make(first.body.user.id)} and w.kind = 'personal'`;
+      expect(rows).toEqual([{ workspaces: 1, organizations: 1 }]);
+    }),
+  );
+
+  it.effect("Better Auth's member and invitation routes are off", () =>
+    Effect.gen(function* () {
+      yield* migrate;
+      const ownerCookie = yield* signIn(address("lead"));
       const team = yield* Effect.flatMap(
-        post("/api/workspaces", { name: "Team" }, cookie),
+        post("/api/workspaces", { name: "Team" }, ownerCookie),
         answer(MyWorkspace),
       );
-      const { body } = yield* me(cookie);
+      const memberCookie = yield* signIn(address("mate"));
+      const member = yield* me(memberCookie);
+      const inviteeEmail = address("invitee");
+      const inviteeCookie = yield* signIn(inviteeEmail);
+      const owner = yield* me(ownerCookie);
       const sql = yield* SqlClient.SqlClient;
-      const organizationOf = (id: string) =>
-        Effect.map(
-          sql<{
-            readonly organization_id: string;
-          }>`select organization_id from workspaces where id = ${id}`,
-          Array.map(({ organization_id }) => organization_id),
-        );
-      const invite = (workspaceId: string) =>
-        Effect.flatMap(organizationOf(workspaceId), ([organizationId]) =>
-          post(
+      const [organizationId] = yield* Effect.map(
+        sql<{
+          readonly organization_id: string;
+        }>`select organization_id from workspaces where id = ${team.body.id}`,
+        Array.map(({ organization_id }) => organization_id),
+      );
+      const memberId = randomId("mem");
+      const invitationId = randomId("inv");
+      const at = "2026-11-27T00:00:00.000Z";
+      yield* sql`insert into member (id, organizationId, userId, role, createdAt) values (${memberId}, ${organizationId}, ${member.body.user.id}, 'member', ${at})`;
+      yield* sql`insert into invitation (id, organizationId, email, role, status, expiresAt, createdAt, inviterId) values (${invitationId}, ${organizationId}, ${inviteeEmail}, 'member', 'pending', '2999-01-01T00:00:00.000Z', ${at}, ${owner.body.user.id})`;
+      const refused = yield* Effect.forEach(
+        [
+          [
+            "/api/auth/organization/remove-member",
+            { memberIdOrEmail: memberId, organizationId },
+            ownerCookie,
+          ],
+          ["/api/auth/organization/leave", { organizationId }, memberCookie],
+          [
             "/api/auth/organization/invite-member",
             { email: address("guest"), role: "member", organizationId },
-            cookie,
-          ),
-        );
-      const personal = yield* Effect.fromOption(
-        Array.findFirst(body.workspaces, ({ kind }) => kind === "personal"),
+            ownerCookie,
+          ],
+          ["/api/auth/organization/accept-invitation", { invitationId }, inviteeCookie],
+        ] as const,
+        ([path, request, cookie]) =>
+          Effect.map(post(path, request, cookie), (response) => response.status),
       );
-      const toPersonal = yield* invite(personal.id);
-      const toTeam = yield* invite(team.body.id);
-      expect([toPersonal.status, toTeam.status]).toEqual([403, 200]);
+      expect(refused).toEqual([404, 404, 404, 404]);
+      const members = yield* sql<{ readonly userId: string }>`
+        select userId from member where organizationId = ${organizationId} order by userId`;
+      const invitations = yield* sql<{ readonly status: string }>`
+        select status from invitation where organizationId = ${organizationId}`;
+      expect(Array.map(members, ({ userId }) => userId)).toEqual(
+        Array.sort([owner.body.user.id, member.body.user.id], Order.String),
+      );
+      expect(invitations).toEqual([{ status: "pending" }]);
     }),
   );
 

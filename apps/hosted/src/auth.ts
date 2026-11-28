@@ -30,7 +30,13 @@ import {
   Scope,
   String,
 } from "effect";
-import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
+import {
+  Cookies,
+  HttpEffect,
+  HttpRouter,
+  HttpServerRequest,
+  HttpServerResponse,
+} from "effect/http";
 
 import { HostedEnv } from "./env.ts";
 import { Mailer, type Mail } from "./mailer.ts";
@@ -150,6 +156,17 @@ export const personalWorkspaceName = (user: { readonly name: string; readonly em
 };
 
 /**
+ * The slug of a workspace's organization. A personal workspace's comes from its owner, and Better
+ * Auth's slugs are unique, so the database holds at most one personal workspace per person.
+ */
+const organizationSlug = (owner: UserId, kind: Workspace["kind"], id: string) =>
+  Match.value(kind).pipe(
+    Match.when("personal", () => `personal-${owner}`),
+    Match.when("team", () => id),
+    Match.exhaustive,
+  );
+
+/**
  * A new workspace with `owner` as its owner, in one D1 batch: Better Auth's organization and
  * membership, the `workspaces` row with Cairn's ID and kind, and the `usage` row.
  */
@@ -166,7 +183,7 @@ export const createWorkspace = Effect.fn("createWorkspace")(function* (input: {
   const now = yield* DateTime.now;
   const at = DateTime.formatIso(now);
   yield* sql.batch([
-    sql`insert into organization (id, name, slug, createdAt) values (${organizationId}, ${input.name}, ${id}, ${at})`,
+    sql`insert into organization (id, name, slug, createdAt) values (${organizationId}, ${input.name}, ${organizationSlug(input.owner, input.kind, id)}, ${at})`,
     sql`insert into member (id, organizationId, userId, role, createdAt) values (${memberId}, ${organizationId}, ${input.owner}, 'owner', ${at})`,
     sql`insert into workspaces (id, organization_id, kind, name, created_at) values (${id}, ${organizationId}, ${input.kind}, ${input.name}, ${at})`,
     sql`insert into usage (workspace_id, members, prds, private_prds, public_prds) values (${id}, 1, 0, 0, 0)`,
@@ -181,22 +198,35 @@ export const createWorkspace = Effect.fn("createWorkspace")(function* (input: {
   });
 });
 
+/** Whether `owner` has a personal workspace. */
+const hasPersonalWorkspace = Effect.fn("hasPersonalWorkspace")(function* (owner: UserId) {
+  const sql = yield* D1Client.D1Client;
+  const existing = yield* sql<{ readonly id: string }>`
+    select w.id from workspaces w join member m on m.organizationId = w.organization_id
+    where m.userId = ${owner} and w.kind = 'personal' limit 1`;
+  return Array.isReadonlyArrayNonEmpty(existing);
+});
+
 /**
  * The personal workspace of a person who has just signed up. It checks for one first, so running it
- * again creates nothing.
+ * again creates nothing. Two sign-ins at once can both pass that check; the second batch then breaks
+ * the organization slug's uniqueness and rolls back, and finding the first one's workspace settles it.
  */
 export const ensurePersonalWorkspace = Effect.fn("ensurePersonalWorkspace")(function* (user: {
   readonly id: string;
   readonly name: string;
   readonly email: string;
 }) {
-  const sql = yield* D1Client.D1Client;
   const owner = UserId.make(user.id);
-  const existing = yield* sql<{ readonly id: string }>`
-    select w.id from workspaces w join member m on m.organizationId = w.organization_id
-    where m.userId = ${owner} and w.kind = 'personal' limit 1`;
-  if (Array.isReadonlyArrayNonEmpty(existing)) return;
-  yield* createWorkspace({ owner, kind: "personal", name: personalWorkspaceName(user) });
+  if (yield* hasPersonalWorkspace(owner)) return;
+  yield* createWorkspace({ owner, kind: "personal", name: personalWorkspaceName(user) }).pipe(
+    Effect.asVoid,
+    Effect.catchTag("SqlError", (error) =>
+      Effect.flatMap(hasPersonalWorkspace(owner), (exists) =>
+        exists ? Effect.void : Effect.fail(error),
+      ),
+    ),
+  );
 });
 
 /** `ensurePersonalWorkspace` for the user with this ID. */
@@ -231,11 +261,24 @@ const SIGN_IN_PATHS = ["/sign-in/magic-link", "/magic-link/verify"];
  * The organization plugin's routes that would change a workspace without its `workspaces` and
  * `usage` rows: a rename, a deletion, and a role change, which also takes a list of roles where
  * Cairn's `Role` is one. They stay off until a route keeps the rows in step.
+ *
+ * Membership is off too until Cairn's own member and invitation routes (see
+ * spec.hosted-launch.members-and-invitations) do it with Cairn's rows: removing or leaving keeps the
+ * person's document grants, and an invitation can carry several roles, which `Role` cannot hold.
  */
 const UNGUARDED_ORGANIZATION_PATHS = [
   "/organization/update",
   "/organization/delete",
   "/organization/update-member-role",
+  "/organization/remove-member",
+  "/organization/leave",
+  "/organization/invite-member",
+  "/organization/accept-invitation",
+  "/organization/reject-invitation",
+  "/organization/cancel-invitation",
+  "/organization/get-invitation",
+  "/organization/list-invitations",
+  "/organization/list-user-invitations",
 ];
 
 /** What Better Auth calls back into: each runs an effect outside any fiber and settles when it ends. */
@@ -361,8 +404,15 @@ export class Auth extends Context.Service<
       never,
       HttpServerRequest.HttpServerRequest | Scope.Scope
     >;
-    /** The request's signed-in person, or none. */
-    readonly user: Effect.Effect<Option.Option<User>, never, HttpServerRequest.HttpServerRequest>;
+    /**
+     * The request's signed-in person, or none, and the cookies Better Auth set while reading the
+     * session: a refreshed session token once the session is past its update age, or a cleared one.
+     */
+    readonly session: Effect.Effect<
+      { readonly user: Option.Option<User>; readonly cookies: Cookies.Cookies },
+      never,
+      HttpServerRequest.HttpServerRequest
+    >;
   }
 >()("@cairn/hosted/Auth") {
   static readonly layer = Layer.effect(
@@ -372,22 +422,29 @@ export class Auth extends Context.Service<
       return Auth.of({
         // Alchemy's `RuntimeContext` only marks code that runs in a deployed Worker; it holds nothing.
         fetch: auth.fetch.pipe(Effect.orDie, Effect.provide(RuntimeContext.phantom)),
-        user: auth.getSession().pipe(
-          Effect.orDie,
-          Effect.flatMap((session) =>
-            Option.match(Option.fromNullOr(session), {
-              onNone: () => Effect.succeedNone,
-              onSome: ({ user }) =>
-                Schema.decodeEffect(User)({
-                  email: user.email,
-                  id: user.id,
-                  image: Option.getOrNull(Option.fromNullishOr(user.image)),
-                  name: user.name,
-                }).pipe(Effect.orDie, Effect.asSome),
-            }),
-          ),
-          Effect.provide(RuntimeContext.phantom),
-        ),
+        session: Effect.gen(function* () {
+          const request = yield* HttpServerRequest.HttpServerRequest;
+          const { headers } = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie);
+          const instance = yield* auth.auth;
+          // Alchemy's `getSession` drops the headers Better Auth sets, so ask for them.
+          const read = yield* Effect.promise(() =>
+            instance.api.getSession({ headers, returnHeaders: true }),
+          );
+          const signedIn = yield* Option.match(Option.fromNullOr(read.response), {
+            onNone: () => Effect.succeedNone,
+            onSome: ({ user }) =>
+              Schema.decodeEffect(User)({
+                email: user.email,
+                id: user.id,
+                image: Option.getOrNull(Option.fromNullishOr(user.image)),
+                name: user.name,
+              }).pipe(Effect.orDie, Effect.asSome),
+          });
+          return {
+            cookies: Cookies.fromSetCookie(read.headers.getSetCookie()),
+            user: signedIn,
+          };
+        }).pipe(Effect.provide(RuntimeContext.phantom)),
       });
     }),
   ).pipe(Layer.provide(D1Database));
@@ -398,15 +455,22 @@ export const AuthRoutes = HttpRouter.use((router) =>
   Effect.flatMap(Effect.service(Auth), (auth) => router.add("*", "/api/auth/*", auth.fetch)),
 );
 
-/** The session's user as `CurrentUser`; a request without a session is `Unauthenticated`. */
+/**
+ * The session's user as `CurrentUser`; a request without a session is `Unauthenticated`. The
+ * response, a failure included, carries the cookies Better Auth set while reading the session, so a
+ * browser that only calls the API keeps its session alive.
+ */
 export const AuthenticationLive = Layer.effect(
   Authentication,
   Effect.gen(function* () {
     const auth = yield* Auth;
     return (httpEffect) =>
       Effect.gen(function* () {
-        const signedIn = yield* auth.user;
-        const user = yield* Effect.fromOption(signedIn).pipe(
+        const session = yield* auth.session;
+        yield* HttpEffect.appendPreResponseHandler((_request, response) =>
+          Effect.succeed(HttpServerResponse.mergeCookies(response, session.cookies)),
+        );
+        const user = yield* Effect.fromOption(session.user).pipe(
           Effect.mapError(() => new Unauthenticated({ message: "Sign in first." })),
         );
         return yield* Effect.provideService(httpEffect, CurrentUser, user);
