@@ -1281,6 +1281,7 @@ Done when:
 - Scoring planners against a reference plan, so a provider is chosen on measured quality and cost.
 - State diagrams drawn from the machines themselves.
 - A plan split across several PRD files, with one set of section IDs and one manifest.
+- Questions before the spec. After the done-when statements are settled and before the spec is written, `cairn plan` lists what the part being planned leaves open: places where two careful readers would build different things, such as a state the PRD relies on without saying how Cairn learns that it changed. The judge keeps a question only when it is confident the answers would change what gets built. Each question is shown under its section with the planner's proposed answer, and the person answers in their own words, accepts the proposal or skips it. An answer goes into `prd.md` as the person's text. A skipped question leaves the planner's assumption written in the spec section, and `cairn plan` ends with a warning that counts them. Judging already reports whether an agent could build a spec section without asking a question, but only after the spec is written; this asks the person first. It changes the rule that drafts are the only text `cairn plan` adds to the PRD.
 - Several independent plans in one local repo, for a monorepo that holds more than one product. Multiple independent PRDs in a hosted workspace already belong to launch.
 
 ## Refactors {#prd.refactors}
