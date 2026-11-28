@@ -185,8 +185,9 @@ const itemAttributeOf = (node: ListItem): Option.Option<Option.Option<SectionId>
   );
 
 /**
- * A paragraph that is the line `Done when:` as written, as core matches it on the source line: a
- * formatted `**Done when:**` is prose.
+ * A paragraph that is the line `Done when:` as written, as core matches it on the source line: one
+ * text whose source is that text, so a formatted `**Done when:**` or an escaped `Done when\:` is
+ * prose.
  */
 const isDoneWhen = (paragraph: Paragraph): boolean =>
   Array.match(paragraph.children, {
@@ -194,17 +195,28 @@ const isDoneWhen = (paragraph: Paragraph): boolean =>
     onNonEmpty: ([only, ...rest]) =>
       Array.isReadonlyArrayEmpty(rest) &&
       only.type === "text" &&
-      DONE_WHEN_PATTERN.test(only.value),
+      DONE_WHEN_PATTERN.test(only.value) &&
+      Option.exists(
+        Option.fromNullishOr(only.position),
+        ({ end, start }) =>
+          Predicate.isNumber(end.offset) &&
+          Predicate.isNumber(start.offset) &&
+          end.offset - start.offset === String.length(only.value),
+      ),
   });
 
 /**
  * A list item's own paragraphs: the ones before its first block of another kind, such as a nested
- * list or a fence, or a `Done when:` paragraph. Core reads an item's attribute from the end of
- * this text (`itemBlocksOf`).
+ * list or a fence, or a `Done when:` paragraph. The first is always its own, since it starts on the
+ * item's marker line, which core never reads as `Done when:`. Core reads an item's attribute from
+ * the end of this text (`itemBlocksOf`).
  */
 const ownParagraphsOf = (node: ListItem): ReadonlyArray<Paragraph> =>
   Array.filterMap(
-    Array.takeWhile(node.children, (child) => child.type === "paragraph" && !isDoneWhen(child)),
+    Array.takeWhile(
+      node.children,
+      (child, index) => child.type === "paragraph" && (index === 0 || !isDoneWhen(child)),
+    ),
     (child) => (child.type === "paragraph" ? Result.succeed(child) : Result.failVoid),
   );
 
