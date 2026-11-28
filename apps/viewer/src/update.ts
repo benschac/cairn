@@ -346,11 +346,11 @@ const appliedStep = (trace: Trace, model: Model, step: Step): Model =>
     note: () => model,
     passage: (passage) =>
       isPrdSection(passage.section)
-        ? marked(pinnedOn(model, passage.section), passage)
+        ? marked(pinnedOn(shownInPrd(model, passage.section), passage.section), passage)
         : specPassageOpened(trace, model, passage),
     section: ({ id }) =>
       isPrdSection(id)
-        ? pinnedOn(model, id)
+        ? pinnedOn(shownInPrd(model, id), id)
         : trailedOn(model, { id: SectionId.make(id), kind: "section" }),
     segment: (focus) =>
       UiStruct.evolve(model, {

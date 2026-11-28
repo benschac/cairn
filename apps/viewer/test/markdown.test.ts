@@ -1039,6 +1039,34 @@ it("an item's attribute is read from the end of its own paragraphs, as core read
   assert(Array.some(texts, String.includes("{#prd.cli.two}"))).toBe(false);
 });
 
+const doneWhenUnder = Array.join(
+  [
+    "## CLI {#prd.cli}",
+    "",
+    "- lint checks the plan. {#prd.cli.lint}",
+    "",
+    "  Done when:",
+    "",
+    "  - lint names the line of each error. {#prd.cli.lint#v1}",
+  ],
+  "\n",
+);
+
+it("an item's own text stops at a Done when: line under it, as core's does", () => {
+  const root = render(doneWhenUnder, itemHooks);
+  const lint = Option.getOrThrow(
+    Array.findFirst(walk(root), (element) => attr(element, "data-item") === "prd.cli.lint"),
+  );
+  const own = Array.filter(
+    children(lint),
+    (child) => !Predicate.isString(child) && tagOf(child) === "p",
+  );
+  assert(Array.map(own, textOf)).toEqual([
+    "lint checks the plan.[note prd.cli.lint]",
+    "Done when:",
+  ]);
+});
+
 const proseOf = (markdown: string, section: string) =>
   Array.map(
     Record.get(documentOf(markdown).blocks, section).pipe(Option.getOrElse(() => [])),

@@ -638,6 +638,23 @@ it("a section step that names neither a section nor an item is still deleted", (
   );
 });
 
+const ITEM_SECTION = Option.getOrThrow(
+  Array.findFirst(demoTrace.prd.items, (item) => String.Equivalence(item.id, ITEM)),
+).section;
+
+it("an item's step opens its section when the PRD is condensed or the section was folded", () => {
+  const condensed = update(loaded, Message.ClickedCondensePrd()).model;
+  const folded = UiStruct.evolve(loaded, {
+    reader: (reader) => UiStruct.evolve(reader, { prdOpened: () => ({ [ITEM_SECTION]: false }) }),
+  });
+  const link = [decodeStep({ id: ITEM, kind: "section" })];
+  Array.forEach([condensed, folded], (before) =>
+    expect(Record.get(openLink(before, link).model.reader.prdOpened, ITEM_SECTION)).toEqual(
+      Option.some(true),
+    ),
+  );
+});
+
 it("an item's step scrolls the PRD pane to the item", () => {
   const targets = linkTargetsOf(demoTrace, decodeStep({ id: ITEM, kind: "section" }));
   expect(Array.flatMap(targets, (target) => target.selectors)).toContain(

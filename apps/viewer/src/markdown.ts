@@ -45,6 +45,9 @@ const HEADING_ID_PATTERN = /\s*\{#([^\s{}]+)\}\s*$/u;
 /** A list item's trailing `{#id}`, or `{#}` asking for one. */
 const ITEM_ATTRIBUTE_PATTERN = /\s*\{#([^\s{}]*)\}\s*$/u;
 
+/** The line that starts a section's or an item's done-when statements. */
+const DONE_WHEN_PATTERN = /^\s*Done when:\s*$/u;
+
 /** "Key: " with nothing after it but whitespace; the IDs follow as inline code. */
 const KEY_LINE_PATTERN = /^([^:]*): \s*$/u;
 
@@ -183,11 +186,15 @@ const itemAttributeOf = (node: ListItem): Option.Option<Option.Option<SectionId>
 
 /**
  * A list item's own paragraphs: the ones before its first block of another kind, such as a nested
- * list or a fence. Core reads an item's attribute from the end of this text (`itemBlocksOf`).
+ * list or a fence, or a `Done when:` paragraph. Core reads an item's attribute from the end of
+ * this text (`itemBlocksOf`).
  */
 const ownParagraphsOf = (node: ListItem): ReadonlyArray<Paragraph> =>
   Array.filterMap(
-    Array.takeWhile(node.children, (child) => child.type === "paragraph"),
+    Array.takeWhile(
+      node.children,
+      (child) => child.type === "paragraph" && !DONE_WHEN_PATTERN.test(textOf(child)),
+    ),
     (child) => (child.type === "paragraph" ? Result.succeed(child) : Result.failVoid),
   );
 
