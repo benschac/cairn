@@ -1089,6 +1089,39 @@ it("a formatted **Done when:** is the item's prose, so its ID is still read at t
   assert(textOf(fast)).toBe("lint checks the plan.Done when:it is fast.[note prd.cli.fast]");
 });
 
+it("an item that starts with Done when:, or an escaped Done when\\:, keeps its ID as core reads it", () => {
+  const root = render(
+    Array.join(
+      [
+        "## CLI {#prd.cli}",
+        "",
+        "- Done when:",
+        "",
+        "  it is fast. {#prd.cli.fast}",
+        "- Done when: {#prd.cli.lone}",
+        "- Escaped.",
+        "",
+        "  Done when\\:",
+        "",
+        "  it is escaped. {#prd.cli.escaped}",
+      ],
+      "\n",
+    ),
+    itemHooks,
+  );
+  const items = Array.filter(walk(root), (element) => attr(element, "data-item") !== undefined);
+  assert(Array.map(items, (element) => attr(element, "data-item"))).toEqual([
+    "prd.cli.fast",
+    "prd.cli.lone",
+    "prd.cli.escaped",
+  ]);
+  assert(Array.map(items, textOf)).toEqual([
+    "Done when:it is fast.[note prd.cli.fast]",
+    "Done when:[note prd.cli.lone]",
+    "Escaped.Done when:it is escaped.[note prd.cli.escaped]",
+  ]);
+});
+
 const proseOf = (markdown: string, section: string) =>
   Array.map(
     Record.get(documentOf(markdown).blocks, section).pipe(Option.getOrElse(() => [])),
