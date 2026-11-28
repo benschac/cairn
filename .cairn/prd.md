@@ -1208,8 +1208,11 @@ How the viewer gets them depends on where it runs:
 - For a private repository, showing code is optional. The team installs a GitHub App on its personal account or organisation and grants access to selected repositories, with read-only Contents permission and GitHub's required Metadata permission. Connecting one of those repositories to a room explicitly enables its code access; signing in with GitHub alone does not grant it.
 - The Worker uses short-lived installation access tokens scoped to the connected repository. The App's private key and tokens never reach the browser. It passes fetched code and sessions to the browser and writes them to no storage and no log.
 - When a person opens a private diff or session without the required installation or repository access, the pane explains what is missing and offers to install the App or update its repository selection. A person who cannot install it on the organisation is sent to GitHub's request to an owner; Cairn shows access as pending until GitHub grants it.
+- The App's webhooks tell the room when access changes: an installation created, deleted, suspended or unsuspended, repositories added to or removed from its selection, and an owner granting a request. The Worker checks each delivery's signature with the App's webhook secret and refuses one that does not match. A webhook only changes what the room shows about access. Every read still asks GitHub with a fresh installation token, so a late or lost delivery never grants access that GitHub has taken away.
 - Both paths respect GitHub's rate limits and retry guidance. An exhausted limit shows a temporary unavailable state and when to retry, rather than an empty diff or an installation requirement. Unauthenticated REST requests, if used as a fallback for public data, have only 60 requests per hour per originating IP; the hosted service does not depend on that allowance for normal use. These are GitHub's normal primary limits, not fixed guarantees: Enterprise allowances can differ, secondary limits still apply, and the Worker follows the response rate-limit and retry headers. See [GitHub's REST API rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
 - Diffs use the recorded base and head commit IDs, with the same task and commit boundaries as the local code view. A missing commit or a truncated, oversized or unavailable patch is labelled explicitly; a partial diff is never presented as complete.
+- Each file and hunk in a diff links to the same lines on GitHub at the commit it shows, so a reader can follow the code to where it lives. A task whose branch has a pull request links to it from the task detail and the code view. GitHub decides who can open a link into a private repository. A commit that has not been pushed has no GitHub link.
+- The public demo at prdtrace.com has no room and no sign-in. It shows Cairn's own repository, which is public, through the same server-side path: the site's Worker fetches each diff from GitHub with Cairn's OAuth app credentials, and the code view shows it with its GitHub links. This path does not wait for rooms.
 - The PRD, the spec, statuses, notes and presence need no App.
 - A commit that has not been pushed shows as not pushed, with no diff.
 
@@ -1229,6 +1232,8 @@ What Cairn can read:
 
 A spike proves the fit before this is built: from a Worker, the App reads a commit's patch and a 20 MB session under `refs/cairn/sessions/` through GitHub's API. If GitHub will not serve those refs, sessions go on one branch, `cairn/sessions`, that no stack is built on, and the rest stands.
 
+[Janitor](https://github.com/Effect-TS/janitor), the Effect team's GitHub App on Cloudflare, does much of this with Effect: the App's JWT and installation tokens in a Worker, webhook signatures, and one rate budget shared by every Worker and Durable Object. Read it before building this. It has no license, so learn from it and do not copy it.
+
 Done when:
 
 - A signed-in room member with no checkout or GitHub account opens a task from a public repository and sees its diff without installing an App.
@@ -1241,6 +1246,9 @@ Done when:
 - A public repository becoming private stops unauthenticated code access and offers the private-repository connection flow without exposing previously fetched code to new readers.
 - A rate-limited request or an incomplete GitHub patch shows its specific limitation and never appears as a complete, empty diff.
 - After `cairn session unshare` on a shared session, a teammate's viewer and the room both show it as not shared, and the command says to rotate any secret the log held.
+- Draft: On prdtrace.com, with no sign-in, opening a task from Cairn's own plan shows its diff fetched from GitHub.
+- Draft: Clicking a hunk's GitHub link opens the same lines on github.com at the commit the diff shows.
+- Draft: After the App is uninstalled in GitHub's settings, the room shows the repository as disconnected without anyone opening a diff, and a new private diff request is refused with a way to reconnect.
 
 ### Multiplayer acceptance criteria {#prd.v2-multiplayer-on-cloudflare.multiplayer-acceptance-criteria}
 
