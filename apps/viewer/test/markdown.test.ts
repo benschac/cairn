@@ -1067,6 +1067,28 @@ it("an item's own text stops at a Done when: line under it, as core's does", () 
   ]);
 });
 
+it("a formatted **Done when:** is the item's prose, so its ID is still read at the end", () => {
+  const root = render(
+    Array.join(
+      [
+        "## CLI {#prd.cli}",
+        "",
+        "- lint checks the plan.",
+        "",
+        "  **Done when:**",
+        "",
+        "  it is fast. {#prd.cli.fast}",
+      ],
+      "\n",
+    ),
+    itemHooks,
+  );
+  const fast = Option.getOrThrow(
+    Array.findFirst(walk(root), (element) => attr(element, "data-item") === "prd.cli.fast"),
+  );
+  assert(textOf(fast)).toBe("lint checks the plan.Done when:it is fast.[note prd.cli.fast]");
+});
+
 const proseOf = (markdown: string, section: string) =>
   Array.map(
     Record.get(documentOf(markdown).blocks, section).pipe(Option.getOrElse(() => [])),
