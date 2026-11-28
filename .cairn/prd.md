@@ -684,6 +684,23 @@ The quickest way to a swarm is the CI a repo already has. Each task is one run o
 
 Done when starting two tasks of this repo on the `github-actions` runner opens two runs, each task's `running` event carries its run's ID, each run pushes a branch whose pull request's checks start without an approval, and no secret's value appears in either job's log.
 
+### Surviving a restart {#prd.runners.durable}
+
+A run on a remote runner outlives the process that started it: a job or a sandbox keeps going when the laptop sleeps, the terminal closes or `cairn` crashes. Starting the same task again has to find that run, not start a second agent on the same branch.
+
+- Each attempt is a durable workflow, keyed `<task>.<attempt>`. Its steps are the ones `cairn run-task` already takes: make the workspace, start the harness, collect the event lines, verify, push and remove the workspace. After a restart a finished step is not run again; its saved result is read back.
+- Starting an attempt that already exists joins it. `cairn run-task t12` run twice, or an orchestrator that restarts and starts every ready task again, still makes one workspace and one agent.
+- The workspace's ID is saved before the harness starts. A restart that finds a saved ID asks the runner for that workspace and reads its output from where it stopped. When the runner says the workspace is gone, the attempt fails as `infra` and the retry is a new attempt in a new workspace.
+- Every event line is written under a key made from its attempt and its place in the output, so a line read twice is appended once.
+- Attempt counts and spend are read from what was saved, so the attempt and cost limits hold across restarts.
+- A stop is saved before it is sent to the runner, so a stop that a crash cut off still ends the workspace when the attempt resumes.
+- The state is Effect's `effect/workflow` on `effect/cluster`, on one machine with `SingleRunner` and its storage in `cairn.db`. Nothing keeps running on the person's machine between commands: an unfinished attempt resumes the next time `cairn run-task` runs there. The hosted room can later run the same workflow on Alchemy's Durable Object pool (see Later) by changing its Layer.
+- The `local` runner needs none of this at first: its workspace is the worktree, and its agent stops with the process that started it.
+- The orchestrator still chooses what starts. The workflow is the run of one task, not a queue of tasks.
+- The pattern comes from [Claptraps](https://github.com/eersnington/rivet-claptrap), which runs each agent's run as an Effect workflow and keys every write so that a replay changes nothing. Cairn takes the pattern, not its code or its hosting on Rivet.
+
+Done when killing `cairn` while a task runs on the `github-actions` runner, then running `cairn run-task` for that task again, starts no second job, appends each of the job's event lines to `events.jsonl` once, and finishes the attempt as `done`.
+
 ### Credentials {#prd.runners.credentials}
 
 <!-- human -->
@@ -707,7 +724,7 @@ Done when a run on a remote runner finishes with no provider key in the workspac
 - Each attempt records its runner, the workspace's size, the seconds the workspace ran and what that compute cost. A price the runner does not report is unknown, never zero.
 - Cost per verified task includes compute. `cairn stats` reports the outcome metrics per runner as well, with tokens and compute shown apart.
 
-Ship this in five diffs: `cairn run-task` on the `local` runner; the `github-actions` runner with its workflow and `cairn runners`; the `ssh` runner; the `cloudflare-sandbox` runner with its Alchemy stack; then compute in attempts and `cairn stats`.
+Ship this in six diffs: `cairn run-task` on the `local` runner; the `github-actions` runner with its workflow and `cairn runners`; surviving a restart; the `ssh` runner; the `cloudflare-sandbox` runner with its Alchemy stack; then compute in attempts and `cairn stats`.
 
 ## Relations {#prd.relations}
 
@@ -1168,6 +1185,7 @@ The hosted release gates are in Launch acceptance. These criteria describe the e
 - A branch pushed from a GitHub Actions job opens a pull request whose checks start without an approval.
 - A run on a remote runner finishes with no provider key in the workspace or its log, and a task routed to a subscription is refused there before a workspace is made.
 - A workspace killed while its task runs fails the attempt as `infra`, and the retry builds the task in a new workspace from the pushed parent branch.
+- A `cairn` process killed while a remote task runs, then started again, joins the running attempt: one workspace, one agent and each event line once.
 - `cairn runners` fails a runner whose workspace cannot run the repo's check command, and names what it lacked.
 
 ## Original local build order {#prd.one-day-build-order}
