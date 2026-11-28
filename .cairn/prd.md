@@ -926,6 +926,75 @@ Done when:
 - Leaving by `q`, by Ctrl-C and by a thrown defect each restores the terminal and leaves no watcher open.
 - `cairn watch` piped to a file writes no escape sequence and exits non-zero.
 
+## Mobile app {#prd.mobile}
+
+The phone app is for following a run and answering it away from the desk: where each stack stands, what is waiting on a person, and approving it. It is a third reader of the Trace, after the viewer and the terminal view, and like them it holds no state of its own. It runs natively on iOS and Android, with no WebView.
+
+Reading the plan side by side stays in the browser. The phone does not draw the panes, the curves between sections, the diagrams or the code view, and a link to any of those opens in the browser.
+
+### What it shows {#prd.mobile.screens}
+
+- Runs: each PRD the person can see that has a run, with its counts of tasks by status, as the terminal view's top line has them.
+- Waiting on me: the tasks blocked on a human that the person can approve, listed first, above everything else.
+- Stacks: the stacks as a list, each task with its status and gate marker, in the order `cairn status` prints them.
+- Task: the selected task's PRD and spec sections and their statements, its branch, the model and reasoning level it ran with, its attempts with their cost, its events and its gate reasons.
+- Section: a PRD or spec section's text, read on its own, with the tasks that build it.
+
+Done when:
+
+- Draft: Opening the app on an iPhone and on an Android phone shows the same task statuses and counts for a run as `cairn status` and the viewer. {#prd.mobile.screens#v1}
+- Draft: The app looks at home on each phone: legible type, buttons within reach of a thumb, and the system's light and dark modes. <!-- human --> {#prd.mobile.screens#v2}
+
+### Notifications and approvals {#prd.mobile.approvals}
+
+- The phone reaches a run through the hosted workspace the repo reports into (see hosted launch). It needs no network path to the machine running the agents.
+- A task that becomes blocked on a human, or fails, sends a push notification to the people who can act on it. Opening the notification opens that task.
+- Approving a gate shows the task's statements as the checklist a reviewer sees at a desk, the ones tagged for a person first.
+- Approving from the phone is the same approval as `cairn approve`: it is recorded with a `human:` actor naming the person, and the orchestrator sees no difference.
+- A person who cannot approve a task sees its gate and no button.
+
+Done when:
+
+- Draft: When a task becomes blocked on a human, the person who can approve it gets a notification, and tapping it opens that task. {#prd.mobile.approvals#v1}
+- Draft: Approving a gate from the phone moves the task out of `blocked_on_human` as `cairn approve` does, and the viewer shows who approved it. {#prd.mobile.approvals#v2}
+
+### Links on the phone {#prd.mobile.links}
+
+- A `cairn link` opened on a phone with the app installed opens the app at the deepest step it shows: a task, a stack or a section. A link whose steps go further, to a passage, a diff or a line of code, opens in the browser at the same link.
+- "Copy link" in the app copies a link that opens the same place in the viewer.
+
+Done when:
+
+- Draft: A task's link copied in the viewer and opened on the phone opens that task in the app, and a link to a line of its diff opens the browser on that line. {#prd.mobile.links#v1}
+
+### One model, three views {#prd.mobile.shared}
+
+- The app is built the way the viewer is: a Schema-defined Model, fact-named Messages, one `update` and one `view`, as Effect UI components. Only `view` and the platform layers know it is on a phone.
+- Counts, rollups, stack order and status derivation come from `core`, the same functions the viewer, the terminal view and `cairn status` use.
+- What the browser gives the viewer for free is an Effect service with a web layer, a native layer and a test layer: the address and history, the clipboard, notifications, haptics, and scrolling to and focusing an element. Shared code imports no browser or NativeScript module.
+- The screens are tested in Node with Effect UI's test harness, tapping what a person taps and asserting on what they see, with no simulator. A build for each platform runs before a release.
+
+### Native host {#prd.mobile.host}
+
+The app runs on [NativeScript](https://nativescript.org/) through [`@nstudio/nativescript-effect-ui`](https://github.com/nstudio/ns-effect-ui). Its `MasonHost` mounts unchanged `Html.component` views and `@effect/ui-kit` components on UIKit and Android views, laid out by MasonKit's flexbox and grid. NativeScript calls each platform's own APIs from TypeScript, so haptics, the clipboard and notifications need no Swift or Kotlin of Cairn's own.
+
+It was first published on 27 November 2026 and, as of November 2026, is at version 0.1.1 with one demo app, a beta MasonKit (`1.0.0-beta.135`) and an Effect UI snapshot (`5cb34b2`) other than the one Cairn pins (`87a704b`). Cairn adopts it as it adopted Effect UI: early, pinned to one version, and reporting what it finds upstream.
+
+- The app and the viewer use the same Effect UI commit. Moving either one to match is its own change.
+- React Native Skia and Reanimated are not used. Both need React and React Native, which NativeScript does not run. NativeScript runs JavaScript on the main thread, so motion goes straight to Core Animation and Android's view animator through the host's `motion` module, and drawing goes through [`@nativescript/canvas`](https://github.com/NativeScript/canvas), which gives the browser's Canvas 2D API on native views.
+- The work starts with a spike in two parts. First, the app's own screens: a list of stacks, status chips, a task, a dialog and an approve button render and respond on an iPhone simulator and an Android emulator. Second, how far the existing viewer gets: mount it in `MasonHost` with its diagram and diff Mounts stubbed, and list what does not render. Each gap is worked around in Cairn or reported upstream.
+- What the viewer needs that `MasonHost` does not have, as of November 2026:
+  - SVG. `svg`, `path` and the other shapes become empty boxes, so the curves and arrows draw nothing. The spike tries drawing an `svg` element's shapes on a canvas, passing each path's `d` to `Path2D`.
+  - Measurement. The curves place themselves with `getBoundingClientRect` and `ResizeObserver`. On native the positions come from MasonKit's layout.
+  - Markup from a string. A Mermaid diagram is set with `innerHTML`, which has no native counterpart. It needs an SVG renderer, such as the canvas project's `canvas-svg`.
+  - The code view. `@pierre/diffs` renders into the DOM. Its patch parsing carries over and its rendering does not.
+  - CSS. The viewer's styles use `position`, `sticky`, `transform`, `transition` and `:hover`, none of which has been checked against MasonKit.
+- If the spike finds that `MasonHost` cannot carry the app's screens, the fallback is Effect UI on React Native's renderer through [foldkit-native](https://github.com/goetzrobin/foldkit-native), where Skia and Reanimated work. Its views use a React Native vocabulary, so the screens are written again; the Model, the Messages and `update` are not.
+
+Done when:
+
+- Draft: The spike's screens open on an iPhone simulator and an Android emulator, and tapping approve on a blocked task shows it approved. {#prd.mobile.host#v1}
+
 ## Deep links {#prd.deep-links}
 
 Everything the viewer shows has a link, and links compose, so a person can send someone to an exact point: this passage of the PRD, then the spec section that implements it, then the line of the stacked diff that builds it.
@@ -1265,6 +1334,7 @@ Done when:
 - Workspace-wide activity feeds and expanded cross-document reporting beyond the initial PRD directory and links.
 - A map of the whole plan on one screen: every PRD section, spec section and stack at once, with every curve drawn. The prototype has it as its Map variant.
 - An inbox view of agent activity across rooms.
+- The plan on the phone: the panes side by side, the curves, the diagrams and the code view, drawn natively. The mobile spike says how far the viewer gets on `MasonHost`.
 - More in the terminal view: approving a gate, reading the plan and its two reviews, and following an agent's output while it runs. The last needs the orchestrator to publish output as it is written, which the orchestrator contract does not ask for. Starting, detaching from and cancelling a run stay with the orchestrator unless Cairn becomes one.
 - Drift detection that flags or proposes spec updates when code diverges.
 - Cost per PRD section, and the outcome metrics drawn in the viewer as well as printed by `cairn stats`: cost by model and category, trends over time and retry chains.
