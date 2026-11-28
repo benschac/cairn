@@ -385,6 +385,20 @@ interface Placed {
   readonly needs: Record.ReadonlyRecord<string, HashSet.HashSet<TaskId>>;
 }
 
+/** `seen` and every task `pending` names, with what each needs through `dependsOn`, in any order. */
+const neededFrom = (
+  dependsOn: (id: TaskId) => ReadonlyArray<TaskId>,
+  pending: ReadonlyArray<TaskId>,
+  seen: HashSet.HashSet<TaskId>,
+): HashSet.HashSet<TaskId> =>
+  Array.match(pending, {
+    onEmpty: () => seen,
+    onNonEmpty: ([next, ...rest]) =>
+      HashSet.has(seen, next)
+        ? neededFrom(dependsOn, rest, seen)
+        : neededFrom(dependsOn, Array.appendAll(rest, dependsOn(next)), HashSet.add(seen, next)),
+  });
+
 /** `needs` with `id`'s: its dependencies and everything they need. */
 const withNeeds = (
   needs: Record.ReadonlyRecord<string, HashSet.HashSet<TaskId>>,
@@ -421,12 +435,20 @@ const placementsOf = (
     0,
     (most, number) => Number.max(most, number),
   );
+  const existingDependsOn = Record.fromEntries(
+    Array.map(existing, (task) => [task.id, task.dependsOn] as const),
+  );
+  const dependsOnOf = (id: TaskId) =>
+    Option.getOrElse(Record.get(existingDependsOn, id), (): ReadonlyArray<TaskId> => []);
   const start: Placed = {
     ids: HashMap.empty(),
     links: existing,
-    // A task needs only tasks before it, so one pass in manifest order covers every existing one.
-    needs: Array.reduce(existing, Record.empty(), (needs, task) =>
-      withNeeds(needs, task.id, task.dependsOn),
+    // Read from the whole graph, since a manifest need not list a task after what it needs.
+    needs: Record.fromEntries(
+      Array.map(
+        existing,
+        (task) => [task.id, neededFrom(dependsOnOf, task.dependsOn, HashSet.empty())] as const,
+      ),
     ),
     rank: Record.fromEntries(Array.map(existing, (task, at) => [task.id, at] as const)),
   };

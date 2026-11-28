@@ -355,6 +355,17 @@ it("prints file:line judge:question verdict message, pointing a task at its firs
       lines,
     ),
   ).toBe(".cairn/manifest.json judge:complete flag probability 0.1 is below flag 0.4");
+  expect(
+    formatJudgment(
+      {
+        ...base,
+        question: "splitFile",
+        target: decodeTarget({ kind: "file", path: "src/store.ts" }),
+      },
+      manifest,
+      lines,
+    ),
+  ).toBe("src/store.ts judge:splitFile flag probability 0.1 is below flag 0.4");
 });
 
 /** `count` independent tasks that all change `src/store.ts`. */

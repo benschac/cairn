@@ -640,3 +640,79 @@ it("hotspotsOf takes one task from each of many chains that share a file, withou
   expect(hotspot?.path).toBe("src/model.ts");
   expect(Array.length(hotspot?.tasks ?? [])).toBe(30);
 });
+
+it("a pair whose stacking would hold a task behind a gate it does not need is recommended", () => {
+  // t1 is gated and t2 needs it. Stacking t3, which needs neither, on t2 would make t3 wait on t1.
+  const { orderings, ordered } = planned(
+    [],
+    [one(["db/migrations/001.sql"]), one(["src/model.ts"], [0]), one(["src/model.ts"])],
+    historyOf(changed(34, ["src/model.ts"])),
+  );
+  expect(byId(ordered, TaskId.make("t1")).humanGate.required).toBe(true);
+  expect(orderings.applied).toEqual([]);
+  expect(Array.map(orderings.recommended, Struct.pick(["earlier", "later"]))).toEqual([
+    { earlier: "t2", later: "t3" },
+  ]);
+  expect(byId(ordered, TaskId.make("t3")).parent).toBeNull();
+});
+
+it.prop(
+  "orderings never put a new task above a gated task that it does not need",
+  [Plans],
+  ([{ added, old }]) => {
+    const { existing, ordered } = planned(old, added);
+    const gated = HashSet.fromIterable(
+      Array.filterMap(ordered, ({ humanGate, id }) =>
+        humanGate.required ? Result.succeed(id) : Result.failVoid,
+      ),
+    );
+    expect(
+      Array.flatMap(Array.drop(ordered, Array.length(existing)), (placed: ManifestTask) =>
+        Array.filter(
+          belowOf(ordered, placed.id),
+          (below) =>
+            HashSet.has(gated, below) && !Array.contains(needsOf(ordered, placed.id), below),
+        ),
+      ),
+    ).toEqual([]);
+  },
+);
+
+it("a gated task reads what it needs from the whole manifest, whatever order it lists tasks in", () => {
+  // t3 needs t2, which needs t1, but the manifest lists them last first.
+  const chain = Result.getOrThrow(
+    stackOf(
+      feature,
+      draftsOf(
+        [one(["src/model.ts"]), one(["src/model.ts"], [0]), one(["src/model.ts"], [1])],
+        "Old",
+      ),
+      gates,
+    ),
+  );
+  const existing = Array.reverse(chain);
+  const gated = decodeDraft({
+    category: "feature",
+    dependsOn: ["t3"],
+    files: ["db/migrations/001.sql"],
+    model: "sonnet",
+    prdSections: ["prd.goal"],
+    reasoning: "high",
+    specSections: ["spec.store"],
+    title: "Migrate",
+  });
+  const ordered = Result.getOrThrow(stackOf(feature, [gated], gates, existing));
+  expect(byId(ordered, TaskId.make("t4")).parent).toBe("t3");
+  const manifest = Schema.decodeUnknownSync(Manifest)({
+    baseBranch: "main",
+    feature,
+    tasks: Schema.encodeSync(Schema.Array(ManifestTask))(ordered),
+    version: 1,
+  });
+  expect(
+    Array.filter(
+      lint(PLAN_PRD, PLAN_SPEC, Option.some(manifest), gateConfig),
+      ({ rule }) => rule === "parent-mismatch",
+    ),
+  ).toEqual([]);
+});

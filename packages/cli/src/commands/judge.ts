@@ -99,12 +99,18 @@ const reverdicted = (
     : judgment;
 };
 
-/** Where a judgment points: a section or the task's first spec section in `spec.md`, else the manifest. */
+/**
+ * Where a judgment points: a section or the task's first spec section in `spec.md`, a file's own
+ * path, else the manifest.
+ */
 const placeOf = (
   { target }: Judgment,
   manifest: Manifest,
   lines: HashMap.HashMap<string, number>,
 ): string => {
+  if (target.kind === "file") {
+    return target.path;
+  }
   const specSection = JudgmentTarget.match(target, {
     draft: () => Option.none<string>(),
     file: () => Option.none<string>(),

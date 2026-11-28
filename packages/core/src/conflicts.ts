@@ -377,11 +377,13 @@ const linksWith = (
  *
  * - When both tasks are new and neither is gated, the later one is stacked on the earlier one,
  *   provided its dependencies and the earlier task lie on one chain, so that it gets a parent,
- *   it is not already stacked on another task, and no gated task that sits on the stack its
- *   dependencies give would lose it. A task it does not need sliding below it would do that, since
+ *   it is not already stacked on another task, no task would come to sit above a gated task it
+ *   does not need and wait on it, and no gated task that sits on the stack its dependencies give
+ *   would lose it. A task it does not need sliding below it would do that, since
  *   `placedOn` then starts it from the base branch (`prd.human-gates`).
  * - Any other pair is recommended: one with an existing task, a gated task, a later task whose
- *   dependencies lie on other stacks, or one that would push a gate off its stack.
+ *   dependencies lie on other stacks, or one that would hold a task behind a gate it does not
+ *   need or push a gate off its stack.
  *   Nothing in the manifest changes for it.
  *
  * Run again over the applied pairs that are left after one is taken out, it keeps those that
@@ -415,6 +417,25 @@ export const orderingsOf = (
       }),
     );
   };
+  const gatedIds = HashSet.fromIterable(
+    Array.filterMap(Array.appendAll(existing, drafts), (task) =>
+      free(task) ? Result.failVoid : Result.succeed(task.id),
+    ),
+  );
+  // Each task that `links` put above a gated task it does not need, which would wait on that gate.
+  const heldOf = (links: ReadonlyArray<StackLink>) => {
+    const parents = Record.fromEntries(Array.map(links, (link) => [link.id, link.parent] as const));
+    return HashSet.fromIterable(
+      Array.flatMap(links, ({ id }) => {
+        const needs = index.needsAll(id);
+        return Array.filterMap(Array.drop(lineOf(parents, id), 1), (below) =>
+          HashSet.has(gatedIds, below) && !Array.contains(needs, below)
+            ? Result.succeed(`${id} ${below}`)
+            : Result.failVoid,
+        );
+      }),
+    );
+  };
   const none: Orderings = { applied: [], recommended: [] };
   return Array.reduce(
     Array.sort(
@@ -426,6 +447,7 @@ export const orderingsOf = (
       const orderings = Array.map(done.applied, orderingOf);
       const withThis = Array.append(orderings, orderingOf(conflict));
       const before = linksWith(index, existing, drafts, orderings);
+      const after = linksWith(index, existing, drafts, withThis);
       const stackable = Option.exists(
         Option.all([Record.get(byId, conflict.earlier), Record.get(byId, conflict.later)]),
         ([earlier, later]) =>
@@ -433,10 +455,8 @@ export const orderingsOf = (
           free(later) &&
           !Array.some(orderings, ({ task }) => task === later.id) &&
           Option.isSome(parentOf(Array.append(later.dependsOn, earlier.id), before)) &&
-          HashSet.isSubset(
-            keptGates(before),
-            keptGates(linksWith(index, existing, drafts, withThis)),
-          ),
+          HashSet.isSubset(keptGates(before), keptGates(after)) &&
+          HashSet.isSubset(heldOf(after), heldOf(before)),
       );
       return stackable
         ? { applied: Array.append(done.applied, conflict), recommended: done.recommended }
