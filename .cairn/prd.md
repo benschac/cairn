@@ -624,13 +624,15 @@ Every agent runs on the person's machine today, one in each worktree. A plan wit
 - The harness is Claude Code, Codex or Pi, whichever the catalog's execution route for the task's model names. A harness runs only the models it supports, so a model outside Anthropic's needs a harness other than Claude Code.
 - It commits with the task's trailers, runs verification on the branch (see attempts), and pushes the branch only when verification passes.
 - It reports by printing event lines on stdout, one JSON object per line, the same lines as `events.jsonl`. Whatever started the run appends them, so a workspace needs no connection back to the person's machine.
-- It redacts the session log in the workspace and sends it after the last event. If redaction fails, the session never leaves the workspace and the attempt says it has none (see Redaction).
+- What started the run decodes each line and keeps only lines for the task and attempt it started. It sets each line's actor itself and refuses a line a workspace may not write, such as a gate approval, so a workspace reports a task's progress and nothing else.
+- It redacts the session log in the workspace and sends it after the last event. If redaction fails, the session never leaves the workspace and the attempt says it has none (see Redaction). With `sessions.share: false` the session is not sent either: it stays in the workspace and is removed with it, and the attempt says it was not shared.
+- The runner sets `CAIRN_WORKSPACE` to the workspace's ID. With it set, `cairn run-task` builds in the checkout it runs in, ignores the configured `runner`, and never starts another run, so a run cannot start a copy of itself.
 - A gated task stops after its push with `blocked_on_human`, as on the person's machine.
 - It needs no Graphite sign-in. It commits and pushes with git, and the orchestrator tracks the fetched branch under its parent and submits it.
 - It stops when the task reaches its limit on cost, and the attempt fails with what it spent.
 - It runs the same way in a worktree on the person's machine, which is the `local` runner. Whatever a remote run does can be tried locally first.
 
-Done when `cairn run-task` on a pending task of this repo, in a fresh clone with no `.cairn/events.jsonl`, pushes a branch whose commits carry the task's trailers and prints a `running` line and then a `done` line that decode through the contract.
+Done when `cairn run-task` on a pending task of this repo, in a fresh clone, pushes a branch whose commits carry the task's trailers and prints a `running` line and then a `done` line that decode through the contract, and the same command does the same in a fixture repo with no `.cairn/events.jsonl`.
 
 ### Runners {#prd.runners.kinds}
 
@@ -674,32 +676,33 @@ The quickest way to a swarm is the CI a repo already has. Each task is one run o
 - The workflow is one file, `.github/workflows/cairn-run-task.yml`, which takes a task ID. Cairn ships it as a template and a person commits it: it is on a high-trust path, so Cairn never writes it during a run. It has to be on the repo's default branch before a run can start.
 - Cairn starts the workflow once for each task, with the person's own GitHub sign-in. GitHub answers with the run's ID, which is the workspace's ID, and the viewer links the task to its run.
 - The job checks out the task's parent branch, installs dependencies and runs `cairn run-task`. The workflow's `runs-on` says which machine: a GitHub-hosted runner, or a runner the person hosts on a machine of their own.
-- The model credential and the repo token are repository secrets the person sets. Cairn never reads them, and `cairn runners` checks only that they exist.
-- The branch is pushed with a GitHub App's token made for the job, not the job's built-in token. GitHub does not start the pull request's checks for a push made with the built-in token until a person approves them.
+- The model credential and a GitHub App's ID and private key are repository secrets the person sets. The job makes a short-lived installation token for the repo from the App's secrets, allowed to read and write its contents, and pushes with it. Cairn never reads the secrets, and `cairn runners` checks only that they exist.
+- The branch is pushed with that installation token, not the job's built-in `GITHUB_TOKEN`. GitHub starts no workflow for an event made with the built-in token, so a push to an open pull request would leave its `check` job on an old head. The orchestrator opens the pull request from the person's machine, as for every runner.
 - Cairn takes `running` from the job starting. The other event lines come from the job's log, when the job ends or sooner where GitHub serves the log of a running job, so the viewer can lag a task until its job finishes.
-- A job's log and artifacts can be read by everyone who can read the repo. The redacted session is uploaded as an artifact, and on a public repo only when the runner's config sets `sessions: true`.
+- A job's log and artifacts can be read by everyone who can read the repo. The redacted session is uploaded as an artifact only when `sessions.share` allows it, and on a public repo only when the runner's config also sets `sessions: true`.
 - `max` should stay under the number of jobs the person's GitHub plan runs at once, which is 20 on the free plan. Jobs beyond GitHub's limit wait in its queue, and Cairn reports them as waiting, not running.
 - A job that GitHub cancels, or that reaches GitHub's time limit for a job, fails the attempt as `infra`.
 - A GitHub-hosted runner cannot limit what a job reaches on the network, and `cairn runners` says so (see Credentials).
 
-Done when starting two tasks of this repo on the `github-actions` runner opens two runs, each task's `running` event carries its run's ID, each run pushes a branch whose pull request's checks start without an approval, and no secret's value appears in either job's log.
+Done when starting two tasks of this repo on the `github-actions` runner opens two runs, each task's `running` event carries its run's ID, each run pushes a branch whose pull request's `check` job runs on its head with no step from a person, and no secret's value appears in either job's log.
 
 ### Surviving a restart {#prd.runners.durable}
 
 A run on a remote runner outlives the process that started it: a job or a sandbox keeps going when the laptop sleeps, the terminal closes or `cairn` crashes. Starting the same task again has to find that run, not start a second agent on the same branch.
 
-- Each attempt is a durable workflow, keyed `<task>.<attempt>`. Its steps are the ones `cairn run-task` already takes: make the workspace, start the harness, collect the event lines, verify, push and remove the workspace. After a restart a finished step is not run again; its saved result is read back.
+- Each attempt is a durable workflow, keyed `<task>.<attempt>`. Its steps are the ones `cairn run-task` already takes: make the workspace, start the harness, collect the event lines, verify and push. The workspace is removed after the attempt when the runner's workspaces last one task, and otherwise after the worktree's last task. After a restart a finished step is not run again; its saved result is read back.
 - Starting an attempt that already exists joins it. `cairn run-task t12` run twice, or an orchestrator that restarts and starts every ready task again, still makes one workspace and one agent.
+- The attempt's key is saved before the runner is asked for a workspace, and the runner is given it: as the workspace's name, or for GitHub Actions as an input of the run. A restart that has no workspace ID yet asks the runner for a workspace or run carrying the key before it makes one, so a crash between the request and its answer starts no second agent.
 - The workspace's ID is saved before the harness starts. A restart that finds a saved ID asks the runner for that workspace and reads its output from where it stopped. When the runner says the workspace is gone, the attempt fails as `infra` and the retry is a new attempt in a new workspace.
-- Every event line is written under a key made from its attempt and its place in the output, so a line read twice is appended once.
+- Every event line carries a key made from its attempt and its place in the output. A resumed attempt reads `events.jsonl` for the keys it already appended before it appends again, so a crash between an append and its checkpoint neither repeats a line nor loses one.
 - Attempt counts and spend are read from what was saved, so the attempt and cost limits hold across restarts.
 - A stop is saved before it is sent to the runner, so a stop that a crash cut off still ends the workspace when the attempt resumes.
-- The state is Effect's `effect/workflow` on `effect/cluster`, on one machine with `SingleRunner` and its storage in `cairn.db`. Nothing keeps running on the person's machine between commands: an unfinished attempt resumes the next time `cairn run-task` runs there. The hosted room can later run the same workflow on Alchemy's Durable Object pool (see Later) by changing its Layer.
+- The state is Effect's `effect/workflow` on `effect/cluster`, on one machine with `SingleRunner` and its storage in `cairn.db`. `SingleRunner` serves one process, so one `cairn` process on a machine owns the attempts and holds a lock beside `cairn.db`. The first `cairn run-task` becomes the owner. Another, while it runs, hands its task to the owner over a local socket and prints that attempt's event lines as they arrive. The owner exits when its last attempt ends, and an unfinished attempt resumes when the next `cairn run-task` becomes the owner. The hosted room can later run the same workflow on Alchemy's Durable Object pool (see Later) by changing its Layer.
 - The `local` runner needs none of this at first: its workspace is the worktree, and its agent stops with the process that started it.
 - The orchestrator still chooses what starts. The workflow is the run of one task, not a queue of tasks.
 - The pattern comes from [Claptraps](https://github.com/eersnington/rivet-claptrap), which runs each agent's run as an Effect workflow and keys every write so that a replay changes nothing. Cairn takes the pattern, not its code or its hosting on Rivet.
 
-Done when killing `cairn` while a task runs on the `github-actions` runner, then running `cairn run-task` for that task again, starts no second job, appends each of the job's event lines to `events.jsonl` once, and finishes the attempt as `done`.
+Done when killing `cairn` while a task runs on the `github-actions` runner, then running `cairn run-task` for that task again, starts no second job, appends each of the job's event lines to `events.jsonl` once, and finishes the attempt as `done`. The same holds when `cairn` is killed after the run is requested and before its ID is saved, and when two `cairn run-task` commands for the task overlap.
 
 ### Credentials {#prd.runners.credentials}
 
@@ -708,14 +711,14 @@ Done when killing `cairn` while a task runs on the `github-actions` runner, then
 A workspace is given what one run needs and nothing that outlives it.
 
 - Models on a rented workspace are paid for through an API, by the Cloudflare AI Gateway route (see Cloudflare AI Gateway). The workspace gets the gateway's endpoint and a token; the provider's key stays in the gateway's stored keys and never enters the workspace.
-- Cairn never copies, stores or forwards a subscription sign-in. On `local` and `ssh`, the harness uses whatever sign-in the person set up on that machine themselves, and the attempt's route is `subscription`. On a workspace Cairn makes, subscription routes are not eligible and routing leaves them out (see choosing models for tasks). Anthropic does not let another product [offer claude.ai sign-in or its rate limits](https://code.claude.com/docs/en/agent-sdk/overview.md), so this is not left to configuration.
-- The repo is reached with a short-lived token for that one repo, allowed to read and write contents and pull requests and nothing else. An `ssh` runner uses the machine's own git credentials.
+- Cairn never copies, stores or forwards a subscription sign-in. On `local` and `ssh`, the harness uses whatever sign-in or key the person set up on that machine themselves, and the attempt's route is the one it actually used: `subscription` for a sign-in, an API route for a key. On a workspace Cairn makes, subscription routes are not eligible and routing leaves them out (see choosing models for tasks). Anthropic does not let another product [offer claude.ai sign-in or its rate limits](https://code.claude.com/docs/en/agent-sdk/overview.md), so this is not left to configuration.
+- The repo is reached with a short-lived token for that one repo, allowed to read and write its contents and nothing else. The pull request is opened by the machine that submits the branch, so a workspace cannot change any pull request. An `ssh` runner uses the machine's own git credentials.
 - Credentials are read from the environment of the machine that starts the run and handed to the workspace for that run. They are never written to `.cairn/`, to an event or to a session log, and every value given to a workspace is on the redaction list for its session.
 - A workspace Cairn makes reaches only the model gateway, the git remote, the package registry and the hosts the config lists, where the runner can enforce it. `cairn runners` says when a runner cannot.
 - A workspace's repo token can push branches, so `baseBranch` should be protected on the remote. `cairn runners` warns when it is not.
 - A workspace cannot approve a gate. Approval stays with a person, on their own machine or in the room.
 
-Done when a run on a remote runner finishes with no provider key in the workspace's environment, files, job log or session log, and a task routed to a subscription is refused there before a workspace is made.
+Done when a run on a remote runner finishes with no provider key in the workspace's environment, files, job log or session log, and a task routed to a subscription is refused on a runner whose workspaces Cairn makes, before a workspace is made.
 
 ### What a run costs {#prd.runners.cost}
 
@@ -1182,8 +1185,8 @@ The hosted release gates are in Launch acceptance. These criteria describe the e
 - `cairn lint`, `cairn status` and the viewer give the same answer to what a task waits on, property tested over generated manifests, and a cycle in what tasks need fails `cairn lint` with its tasks named.
 - `cairn run-task` builds the same task to the same verified, pushed branch on the `local` runner and on an `ssh` runner, and the event lines it prints decode through the contract on both.
 - Three ready tasks on three stacks run at the same time in three GitHub Actions jobs, and the viewer shows each task's runner, its run and its status.
-- A branch pushed from a GitHub Actions job opens a pull request whose checks start without an approval.
-- A run on a remote runner finishes with no provider key in the workspace or its log, and a task routed to a subscription is refused there before a workspace is made.
+- A branch pushed from a GitHub Actions job gets a pull request whose `check` job runs on its head with no step from a person.
+- A run on a remote runner finishes with no provider key in the workspace or its log, and a task routed to a subscription is refused on a runner whose workspaces Cairn makes, before a workspace is made.
 - A workspace killed while its task runs fails the attempt as `infra`, and the retry builds the task in a new workspace from the pushed parent branch.
 - A `cairn` process killed while a remote task runs, then started again, joins the running attempt: one workspace, one agent and each event line once.
 - `cairn runners` fails a runner whose workspace cannot run the repo's check command, and names what it lacked.
