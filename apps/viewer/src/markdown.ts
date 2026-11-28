@@ -185,16 +185,26 @@ const itemAttributeOf = (node: ListItem): Option.Option<Option.Option<SectionId>
   );
 
 /**
+ * A paragraph that is the line `Done when:` as written, as core matches it on the source line: a
+ * formatted `**Done when:**` is prose.
+ */
+const isDoneWhen = (paragraph: Paragraph): boolean =>
+  Array.match(paragraph.children, {
+    onEmpty: () => false,
+    onNonEmpty: ([only, ...rest]) =>
+      Array.isReadonlyArrayEmpty(rest) &&
+      only.type === "text" &&
+      DONE_WHEN_PATTERN.test(only.value),
+  });
+
+/**
  * A list item's own paragraphs: the ones before its first block of another kind, such as a nested
  * list or a fence, or a `Done when:` paragraph. Core reads an item's attribute from the end of
  * this text (`itemBlocksOf`).
  */
 const ownParagraphsOf = (node: ListItem): ReadonlyArray<Paragraph> =>
   Array.filterMap(
-    Array.takeWhile(
-      node.children,
-      (child) => child.type === "paragraph" && !DONE_WHEN_PATTERN.test(textOf(child)),
-    ),
+    Array.takeWhile(node.children, (child) => child.type === "paragraph" && !isDoneWhen(child)),
     (child) => (child.type === "paragraph" ? Result.succeed(child) : Result.failVoid),
   );
 
