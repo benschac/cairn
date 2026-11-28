@@ -436,33 +436,53 @@ export const orderingsOf = (
       }),
     );
   };
-  const none: Orderings = { applied: [], recommended: [] };
-  return Array.reduce(
+  // What the stack looks like under the orderings applied so far; it changes only when one is applied.
+  const stateOf = (applied: ReadonlyArray<Conflict>) => {
+    const links = linksWith(index, existing, drafts, Array.map(applied, orderingOf));
+    return { held: heldOf(links), kept: keptGates(links), links };
+  };
+  const start = Struct.assign(stateOf([]), {
+    applied: Array.empty<Conflict>(),
+    recommended: Array.empty<Conflict>(),
+  });
+  const done = Array.reduce(
     Array.sort(
       Array.filter(conflicts, ({ score }) => score.score >= config.high),
       conflictOrder,
     ),
-    none,
-    (done, conflict) => {
-      const orderings = Array.map(done.applied, orderingOf);
-      const withThis = Array.append(orderings, orderingOf(conflict));
-      const before = linksWith(index, existing, drafts, orderings);
-      const after = linksWith(index, existing, drafts, withThis);
-      const stackable = Option.exists(
+    start,
+    (sofar, conflict) => {
+      // The cheap checks first; only a pair that passes them is tried on the whole stack.
+      const eligible = Option.exists(
         Option.all([Record.get(byId, conflict.earlier), Record.get(byId, conflict.later)]),
         ([earlier, later]) =>
           free(earlier) &&
           free(later) &&
-          !Array.some(orderings, ({ task }) => task === later.id) &&
-          Option.isSome(parentOf(Array.append(later.dependsOn, earlier.id), before)) &&
-          HashSet.isSubset(keptGates(before), keptGates(after)) &&
-          HashSet.isSubset(heldOf(after), heldOf(before)),
+          !Array.some(sofar.applied, (applied) => applied.later === later.id) &&
+          Option.isSome(parentOf(Array.append(later.dependsOn, earlier.id), sofar.links)),
       );
-      return stackable
-        ? { applied: Array.append(done.applied, conflict), recommended: done.recommended }
-        : { applied: done.applied, recommended: Array.append(done.recommended, conflict) };
+      const tried = eligible
+        ? Option.some(stateOf(Array.append(sofar.applied, conflict)))
+        : Option.none();
+      return Option.match(
+        Option.filter(
+          tried,
+          (next) =>
+            HashSet.isSubset(sofar.kept, next.kept) && HashSet.isSubset(next.held, sofar.held),
+        ),
+        {
+          onNone: () =>
+            Struct.evolve(sofar, { recommended: (left) => Array.append(left, conflict) }),
+          onSome: (next) =>
+            Struct.assign(next, {
+              applied: Array.append(sofar.applied, conflict),
+              recommended: sofar.recommended,
+            }),
+        },
+      );
     },
   );
+  return { applied: done.applied, recommended: done.recommended };
 };
 
 /** A maximum matching between each task and the tasks that need it, grown one path at a time. */
@@ -595,9 +615,10 @@ export interface Hotspot {
 }
 
 /**
- * The files the stack checkpoint asks `splitFile` about (see `spec.planning.conflict-ordering`):
+ * The files the stack checkpoint asks `separable` about (see `spec.planning.conflict-ordering`):
  * each plain file, neither generated nor additive nor a directory, that at least `hotspot` of the
- * plan's tasks change and can all run together. The tasks are the new ones and the existing ones
+ * plan's tasks change and can all run together; a task that declares a directory changes every
+ * file in it. The tasks are the new ones and the existing ones
  * that have not finished. The tasks named are the largest set of those that change the file whose
  * tasks can all run with one another, in plan order.
  */
@@ -616,7 +637,9 @@ export const hotspotsOf = (
     const together = largestTogether(
       index,
       Array.filterMap(tasks, ({ files: declared, id }) =>
-        Array.contains(declared, path) ? Result.succeed(id) : Result.failVoid,
+        Array.some(declared, (covering) => covers(covering, path))
+          ? Result.succeed(id)
+          : Result.failVoid,
       ),
     );
     return Array.length(together) >= config.hotspot

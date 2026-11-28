@@ -23,6 +23,8 @@ export {
 export { drawsOf, mermaidBlocksOf, withoutMermaidBlocks, type MermaidBlock } from "./diagrams.ts";
 export {
   FileJudgingInput,
+  declarationsOf,
+  separableInputOf,
   SectionJudgingInput,
   SectionText,
   fileQuestions,
@@ -34,6 +36,7 @@ export {
   taskQuestions,
   taskQuestionsWithoutModel,
   type JudgingInputs,
+  type SeparableTask,
 } from "./judging/questions.ts";
 export {
   routeOf,

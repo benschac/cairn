@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
 
 import { JudgmentQuestion, JudgmentTarget, Sha256Hex } from "@cairn/contract";
-import type { Config, Judgment, Judgments, ManifestTask } from "@cairn/contract";
+import type { Config, Judgment, Judgments, ManifestTask, SpecIndex } from "@cairn/contract";
 import {
   TaskJudgingInput,
+  declarationsOf,
   fileQuestions,
+  sectionsOf,
+  separableInputOf,
   sectionQuestions,
   stackQuestions,
   taskQuestions,
@@ -36,6 +39,7 @@ import { AiError, Decision, DecisionModel } from "effect/ai";
 
 import { MainCheckout } from "./main-checkout.ts";
 import { judgingAvailable, liveDecisionModel } from "./models.ts";
+import { loadSpecIndex } from "./workspace.ts";
 
 /**
  * Judging failed. With a `target`, the decision model failed on that target's request; without
@@ -376,31 +380,99 @@ export class Judge extends Context.Service<
 }
 
 /**
- * The `splitFile` input of each hotspot (`spec.planning.conflict-ordering`): its path, its line
- * count in the main checkout and its tasks' titles from `tasks`. A file the plan creates is not
- * there yet and has no lines. `cairn plan` and `cairn judge` both build the file inputs here, so a
- * judgment one records is one the other finds current.
+ * The source of a hotspot file in the main checkout: none for a file not written yet. A path that
+ * leaves the checkout, through `..`, an absolute path or a symlink, or names anything but a
+ * regular file, is not read and fails, so no hotspot input is built for it.
+ */
+const sourceOf = Effect.fn("sourceOf")(function* (root: string, file: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const inside = (base: string, target: string) => {
+    const relative = path.relative(base, target);
+    return relative !== "" && !String.startsWith("..")(relative) && !path.isAbsolute(relative);
+  };
+  if (path.isAbsolute(file) || !inside(root, path.join(root, file))) {
+    return yield* Effect.fail(`${file} is outside the checkout`);
+  }
+  const found = yield* fs.realPath(path.join(root, file)).pipe(
+    Effect.asSome,
+    Effect.catchReason("PlatformError", "NotFound", () => Effect.succeedNone),
+    Effect.mapError(() => `${file} could not be resolved`),
+  );
+  return yield* Option.match(found, {
+    onNone: () => Effect.succeedNone,
+    onSome: (real) =>
+      Effect.gen(function* () {
+        const realRoot = yield* fs.realPath(root).pipe(Effect.mapError(() => "no checkout"));
+        if (!inside(realRoot, real)) {
+          return yield* Effect.fail(`${file} leads outside the checkout`);
+        }
+        const info = yield* fs.stat(real).pipe(Effect.mapError(() => `${file} could not be read`));
+        if (info.type !== "File") {
+          return yield* Effect.fail(`${file} is not a regular file`);
+        }
+        return yield* fs.readFileString(real).pipe(
+          Effect.asSome,
+          Effect.mapError(() => `${file} could not be read`),
+        );
+      }),
+  });
+});
+
+/**
+ * The `separable` input of each hotspot (`spec.planning.conflict-ordering`): its path, the
+ * top-level declarations of the file in the main checkout, and for each of its tasks the title and,
+ * for each spec section, the summary from `spec.json` and the declarations the section's body in
+ * `spec` names. A file the plan creates is not there yet and has no declarations; a hotspot whose
+ * file cannot be read safely is left out. `cairn plan` and `cairn judge` both build the file
+ * inputs here, so a judgment one records is one the other finds current.
  */
 export const fileInputsOf = Effect.fn("fileInputsOf")(function* (
   hotspots: ReadonlyArray<Hotspot>,
-  tasks: ReadonlyArray<Pick<ManifestTask, "id" | "title">>,
+  tasks: ReadonlyArray<Pick<ManifestTask, "id" | "specSections" | "title">>,
+  spec: string,
 ) {
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
   const root = yield* (yield* MainCheckout).root;
-  const titles = HashMap.fromIterable(Array.map(tasks, (task) => [task.id, task.title] as const));
-  return yield* Effect.forEach(hotspots, (hotspot) =>
-    fs.readFileString(path.join(root, hotspot.path)).pipe(
-      Effect.map((text) => Array.length(String.split(text, "\n"))),
-      Effect.orElseSucceed(() => 0),
-      Effect.map((lines): JudgingInputs["files"][number] => ({
-        input: {
-          lines,
-          path: hotspot.path,
-          tasks: Array.getSomes(Array.map(hotspot.tasks, (id) => HashMap.get(titles, id))),
-        },
-        path: hotspot.path,
-      })),
+  const index = yield* loadSpecIndex.pipe(Effect.orElseSucceed(() => Option.none<SpecIndex>()));
+  const summaries: HashMap.HashMap<string, string> = HashMap.fromIterable(
+    Array.flatMap(Option.toArray(index), ({ sections }) =>
+      Array.map(sections, ({ id, summary }) => [id, summary] as const),
     ),
   );
+  const bodies: HashMap.HashMap<string, string> = HashMap.fromIterable(
+    Array.getSomes(
+      Array.map(sectionsOf(spec), ({ body, id }) =>
+        Option.map(Option.fromUndefinedOr(id), (found) => [found, body] as const),
+      ),
+    ),
+  );
+  const byId = HashMap.fromIterable(Array.map(tasks, (task) => [task.id, task] as const));
+  const sectionOf = (id: string) => ({
+    body: Option.getOrElse(HashMap.get(bodies, id), () => ""),
+    summary: Option.getOrElse(HashMap.get(summaries, id), () => ""),
+  });
+  const inputs = yield* Effect.forEach(hotspots, (hotspot) =>
+    sourceOf(root, hotspot.path).pipe(
+      Effect.map((source): Option.Option<JudgingInputs["files"][number]> =>
+        Option.some({
+          input: separableInputOf(
+            hotspot.path,
+            Option.match(source, { onNone: () => [], onSome: declarationsOf }),
+            Array.map(
+              Array.getSomes(Array.map(hotspot.tasks, (id) => HashMap.get(byId, id))),
+              ({ specSections, title }) => ({
+                sections: Array.map(specSections, sectionOf),
+                title,
+              }),
+            ),
+          ),
+          path: hotspot.path,
+        }),
+      ),
+      Effect.catch((reason) =>
+        Effect.logWarning(`Not judging ${hotspot.path}: ${reason}`).pipe(Effect.as(Option.none())),
+      ),
+    ),
+  );
+  return Array.getSomes(inputs);
 });

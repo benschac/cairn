@@ -7,7 +7,9 @@ import {
   SectionJudgingInput,
   StackJudgingInput,
   TaskJudgingInput,
+  declarationsOf,
   inputsOf,
+  separableInputOf,
   sectionQuestions,
   stackQuestions,
   taskQuestions,
@@ -380,6 +382,55 @@ describe("the questions", () => {
       expect(description).toSatisfy(
         (text: unknown) => Schema.is(Schema.String)(text) && String.includes("Example: ")(text),
       );
+    });
+  });
+});
+
+describe("separableInputOf", () => {
+  const SOURCE = Array.join(
+    [
+      'import { Array } from "effect";',
+      "",
+      "export const historyOf = (commits) => commits;",
+      "const pairKey = (a, b) => a + b;",
+      "export interface Score {",
+      "  readonly score: number;",
+      "}",
+      "  const nested = 1;",
+      "export function* walk() {}",
+      "export const historyOf = 2;",
+    ],
+    "\n",
+  );
+
+  it("reads the top-level declarations of a file, each once, and none that are nested", () => {
+    expect(declarationsOf(SOURCE)).toEqual(["historyOf", "pairKey", "Score", "walk"]);
+  });
+
+  it("gives each section the declarations its body names as words", () => {
+    expect(
+      separableInputOf("src/conflicts.ts", declarationsOf(SOURCE), [
+        {
+          sections: [
+            {
+              body: "`historyOf(commits)` counts changes; a Scored pair is not Score.",
+              summary: "History",
+            },
+          ],
+          title: "Count history",
+        },
+        { sections: [{ body: "Nothing here.", summary: "Other" }], title: "Other work" },
+      ]),
+    ).toEqual({
+      declarations: ["historyOf", "pairKey", "Score", "walk"],
+      path: "src/conflicts.ts",
+      tasks: [
+        {
+          sections: [{ declarations: ["historyOf", "Score"], summary: "History" }],
+          title: "Count history",
+        },
+        { sections: [{ declarations: [], summary: "Other" }], title: "Other work" },
+      ],
     });
   });
 });

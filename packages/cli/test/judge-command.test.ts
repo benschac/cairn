@@ -359,17 +359,17 @@ it("prints file:line judge:question verdict message, pointing a task at its firs
     formatJudgment(
       {
         ...base,
-        question: "splitFile",
+        question: "separable",
         target: decodeTarget({ kind: "file", path: "src/store.ts" }),
       },
       manifest,
       lines,
     ),
-  ).toBe("src/store.ts judge:splitFile flag probability 0.1 is below flag 0.4");
+  ).toBe("src/store.ts judge:separable flag probability 0.1 is below flag 0.4");
 });
 
-/** `count` independent tasks that all change `src/store.ts`. */
-const sharingManifest = (count: number) =>
+/** `count` independent tasks that all change `file`. */
+const sharingManifest = (count: number, file = "src/store.ts") =>
   encodeJson({
     baseBranch: "main",
     feature: "product",
@@ -377,7 +377,7 @@ const sharingManifest = (count: number) =>
       branch: `cairn-mvp/0${n}-store-${n}`,
       commits: [],
       dependsOn: [],
-      files: ["src/store.ts"],
+      files: [file],
       humanGate: { reasons: [], required: false },
       id: `t${n}`,
       model: FIRST_MODEL,
@@ -413,7 +413,23 @@ it.effect("judges a file enough open tasks share, and keeps its judgment on the 
     );
     const written = decodeJudgments(textOf(after, "judgments.json"));
     expect(Array.filter(written.judgments, ({ target }) => target.kind === "file")).toMatchObject([
-      { question: "splitFile", target: { kind: "file", path: "src/store.ts" } },
+      { question: "separable", target: { kind: "file", path: "src/store.ts" } },
     ]);
+  }),
+);
+
+it.effect("does not read or judge a shared file outside the checkout", () =>
+  Effect.gen(function* () {
+    const calls = yield* Ref.make(0);
+    const { after } = yield* inCheckout(
+      {
+        "manifest.json": sharingManifest(defaults.conflicts.hotspot, "../outside.ts"),
+        "prd.md": PRD,
+        "spec.md": SPEC,
+      },
+      judgePlan(both).pipe(Effect.provide(judging(calls, 0.9))),
+    );
+    const written = decodeJudgments(textOf(after, "judgments.json"));
+    expect(Array.filter(written.judgments, ({ target }) => target.kind === "file")).toEqual([]);
   }),
 );

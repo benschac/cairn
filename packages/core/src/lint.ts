@@ -35,7 +35,7 @@ import { statementsOf, taskStatementsOf } from "./statements.ts";
 import type { Statement } from "./statements.ts";
 import { indexOf } from "./relation-index.ts";
 import type { RelationIndex } from "./relation-index.ts";
-import { placedOn } from "./stack.ts";
+import { lineOf, placedOn } from "./stack.ts";
 import { derivedOf } from "./spec-index.ts";
 import { withStackDiagram } from "./stack-diagram.ts";
 
@@ -577,19 +577,33 @@ const stackFindings = (
   const lookup = (table: typeof needs, id: TaskId) =>
     Option.getOrElse(Record.get(table, id), () => HashSet.empty<TaskId>());
 
+  const parents = Record.fromEntries(Array.map(tasks, (task) => [task.id, task.parent] as const));
+  // A conflict ordering sets a parent without a dependency, so parents can loop where needs do not.
+  const parentCycle = (task: ManifestTask): ReadonlyArray<Finding> =>
+    Option.match(Option.fromNullOr(task.parent), {
+      onNone: () => [],
+      onSome: (parent) =>
+        Array.contains(lineOf(parents, parent), task.id)
+          ? [taskFinding("bad-parent", `${task.id}'s parents lead back to ${task.id}.`)]
+          : [],
+    });
+
   const badParents = (task: ManifestTask): ReadonlyArray<Finding> =>
-    Array.map(
-      Array.filter(
-        danglingOf(manifest, index, ["builtOn", "needs"]),
-        ({ from }) => from.id === task.id,
-      ),
-      ({ kind, to }) =>
-        taskFinding(
-          "bad-parent",
-          kind === "builtOn"
-            ? `${task.id}'s parent ${to.id} is not in the manifest.`
-            : `${task.id} depends on ${to.id}, which is not in the manifest.`,
+    Array.appendAll(
+      Array.map(
+        Array.filter(
+          danglingOf(manifest, index, ["builtOn", "needs"]),
+          ({ from }) => from.id === task.id,
         ),
+        ({ kind, to }) =>
+          taskFinding(
+            "bad-parent",
+            kind === "builtOn"
+              ? `${task.id}'s parent ${to.id} is not in the manifest.`
+              : `${task.id} depends on ${to.id}, which is not in the manifest.`,
+          ),
+      ),
+      parentCycle(task),
     );
 
   const parentMismatch = (task: ManifestTask): ReadonlyArray<Finding> => {
@@ -614,11 +628,13 @@ const stackFindings = (
         Array.filterMap(task.orderedAfter, ({ task: after }) =>
           !HashSet.has(known, after)
             ? Result.succeed(`${task.id} is ordered after ${after}, which is not in the manifest.`)
-            : HashSet.has(lookup(needs, task.id), after)
-              ? Result.succeed(`${task.id} is ordered after ${after}, which it already needs.`)
-              : Option.exists(Record.get(byId, after), ({ humanGate }) => humanGate.required)
-                ? Result.succeed(`${task.id} is ordered after ${after}, which is gated.`)
-                : Result.failVoid,
+            : after === task.id
+              ? Result.succeed(`${task.id} is ordered after itself.`)
+              : HashSet.has(lookup(needs, task.id), after)
+                ? Result.succeed(`${task.id} is ordered after ${after}, which it already needs.`)
+                : Option.exists(Record.get(byId, after), ({ humanGate }) => humanGate.required)
+                  ? Result.succeed(`${task.id} is ordered after ${after}, which is gated.`)
+                  : Result.failVoid,
         ),
         task.humanGate.required && Array.isReadonlyArrayNonEmpty(task.orderedAfter)
           ? [

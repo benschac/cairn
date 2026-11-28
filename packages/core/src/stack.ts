@@ -200,8 +200,12 @@ const closureOf = (
   // loop: walks the dependency graph with a work list until no unseen task is left
   while (Array.isReadonlyArrayNonEmpty(todo)) {
     const [next, ...rest] = todo;
-    todo = HashSet.has(seen, next) ? rest : Array.appendAll(rest, direct(next));
     seen = HashSet.add(seen, next);
+    // Only what has not been seen is queued, so a dense graph does not queue each task many times.
+    todo = Array.appendAll(
+      rest,
+      Array.filter(direct(next), (dependency) => !HashSet.has(seen, dependency)),
+    );
   }
   return seen;
 };
@@ -381,40 +385,9 @@ interface Placed {
   readonly ids: HashMap.HashMap<number, TaskId>;
   /** Where each task so far sits in the manifest, by ID. */
   readonly rank: Record.ReadonlyRecord<string, number>;
-  /** What each task so far needs, directly or through other tasks, by ID. */
-  readonly needs: Record.ReadonlyRecord<string, HashSet.HashSet<TaskId>>;
+  /** What each task so far depends on directly, by ID. */
+  readonly dependsOn: Record.ReadonlyRecord<string, ReadonlyArray<TaskId>>;
 }
-
-/** `seen` and every task `pending` names, with what each needs through `dependsOn`, in any order. */
-const neededFrom = (
-  dependsOn: (id: TaskId) => ReadonlyArray<TaskId>,
-  pending: ReadonlyArray<TaskId>,
-  seen: HashSet.HashSet<TaskId>,
-): HashSet.HashSet<TaskId> =>
-  Array.match(pending, {
-    onEmpty: () => seen,
-    onNonEmpty: ([next, ...rest]) =>
-      HashSet.has(seen, next)
-        ? neededFrom(dependsOn, rest, seen)
-        : neededFrom(dependsOn, Array.appendAll(rest, dependsOn(next)), HashSet.add(seen, next)),
-  });
-
-/** `needs` with `id`'s: its dependencies and everything they need. */
-const withNeeds = (
-  needs: Record.ReadonlyRecord<string, HashSet.HashSet<TaskId>>,
-  id: TaskId,
-  dependsOn: ReadonlyArray<TaskId>,
-): Record.ReadonlyRecord<string, HashSet.HashSet<TaskId>> =>
-  Record.set(
-    needs,
-    id,
-    Array.reduce(dependsOn, HashSet.fromIterable(dependsOn), (all, dependency) =>
-      HashSet.union(
-        all,
-        Option.getOrElse(Record.get(needs, dependency), () => HashSet.empty()),
-      ),
-    ),
-  );
 
 /** The number in a task ID of the form `t<number>`. An ID of another form has none. */
 const numberOf = (id: TaskId): Option.Option<number> =>
@@ -435,21 +408,12 @@ const placementsOf = (
     0,
     (most, number) => Number.max(most, number),
   );
-  const existingDependsOn = Record.fromEntries(
-    Array.map(existing, (task) => [task.id, task.dependsOn] as const),
-  );
-  const dependsOnOf = (id: TaskId) =>
-    Option.getOrElse(Record.get(existingDependsOn, id), (): ReadonlyArray<TaskId> => []);
   const start: Placed = {
+    dependsOn: Record.fromEntries(
+      Array.map(existing, (task) => [task.id, task.dependsOn] as const),
+    ),
     ids: HashMap.empty(),
     links: existing,
-    // Read from the whole graph, since a manifest need not list a task after what it needs.
-    needs: Record.fromEntries(
-      Array.map(
-        existing,
-        (task) => [task.id, neededFrom(dependsOnOf, task.dependsOn, HashSet.empty())] as const,
-      ),
-    ),
     rank: Record.fromEntries(Array.map(existing, (task, at) => [task.id, at] as const)),
   };
   return Array.mapAccum(order, start, (placed, node, at) => {
@@ -467,8 +431,10 @@ const placementsOf = (
     const orderedAfter = Array.filterMap(orderings, ({ after, reason, task }) =>
       task === id ? Result.succeed({ reason, task: after }) : Result.failVoid,
     );
-    const needs = withNeeds(placed.needs, id, dependsOn);
-    const needed = Option.getOrElse(Record.get(needs, id), () => HashSet.empty<TaskId>());
+    const direct = Record.set(placed.dependsOn, id, dependsOn);
+    // Only a gated task reads what it needs, so only one walks the whole graph, which a manifest
+    // need not list in dependency order.
+    const needed = node.gate.required ? closureOf(direct, id) : HashSet.empty<TaskId>();
     const parent = Option.getOrNull(
       placedOn({ dependsOn, humanGate: node.gate, orderedAfter }, placed.links, (other) =>
         HashSet.has(needed, other),
@@ -476,9 +442,9 @@ const placementsOf = (
     );
     return [
       {
+        dependsOn: direct,
         ids: HashMap.set(placed.ids, node.index, id),
         links: Array.append(placed.links, { id, parent }),
-        needs,
         rank: Record.set(placed.rank, id, Array.length(existing) + at),
       },
       { dependsOn, id, node, orderedAfter, parent, position },

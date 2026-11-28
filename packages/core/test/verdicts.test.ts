@@ -244,3 +244,15 @@ it.prop(
     });
   },
 );
+
+it("separable reports splitting at a yes, reordering at a no and the hotspot alone between", () => {
+  const thresholds = Schema.decodeSync(Judge)({});
+  const verdict = (probability: number) => verdictOf("separable", { probability }, thresholds);
+  expect(verdict(1)).toMatchObject({ verdict: "flag" });
+  expect(String.startsWith("split the file")(verdict(1).message)).toBe(true);
+  expect(verdict(0)).toMatchObject({ verdict: "flag" });
+  expect(String.startsWith("reorder the work")(verdict(0).message)).toBe(true);
+  const between = (thresholds.flag + thresholds.pass) / 2;
+  expect(verdict(between)).toMatchObject({ verdict: "unsure" });
+  expect(String.startsWith("a hotspot")(verdict(between).message)).toBe(true);
+});

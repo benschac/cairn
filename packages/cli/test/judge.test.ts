@@ -207,7 +207,7 @@ it.effect.prop(
           Array.map(inputs.sections, () => ["buildable", "faithful", "size"]),
           Array.map(inputs.tasks, () => ["matches", "model", "reasoning", "size"]),
           [["complete", "oneFeature", "ordered"]],
-          Array.map(inputs.files, () => ["splitFile"]),
+          Array.map(inputs.files, () => ["separable"]),
         ]),
       );
       expect(Schema.is(Judgments)(result)).toBe(true);

@@ -1,6 +1,6 @@
 import { PrdSectionId, Reasoning, Slug, SpecSectionId, TaskId } from "@cairn/contract";
 import type { Manifest, ManifestTask, Section } from "@cairn/contract";
-import { Array, HashMap, Option, Schema, Struct, pipe } from "effect";
+import { Array, HashMap, HashSet, Option, Schema, String, Struct, pipe } from "effect";
 import { Decision } from "effect/ai";
 
 import { sectionsOf } from "../sections.ts";
@@ -53,12 +53,20 @@ export type StackJudgingInput = typeof StackJudgingInput.Type;
 
 /**
  * A source file that many tasks that can run at the same time all change (see
- * `spec.planning.conflict-ordering`): its path, its line count and the titles of those tasks.
+ * `spec.planning.conflict-ordering`): its path, the names of its top-level declarations, and
+ * each task's title with its spec sections' summaries and the declarations each section names.
  */
 export const FileJudgingInput = Schema.Struct({
-  lines: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  declarations: Schema.Array(Schema.String),
   path: Schema.String,
-  tasks: Schema.Array(Schema.String),
+  tasks: Schema.Array(
+    Schema.Struct({
+      sections: Schema.Array(
+        Schema.Struct({ declarations: Schema.Array(Schema.String), summary: Schema.String }),
+      ),
+      title: Schema.String,
+    }),
+  ),
 });
 export type FileJudgingInput = typeof FileJudgingInput.Type;
 
@@ -232,27 +240,75 @@ export const stackQuestions = Decision.make({
 });
 
 /**
- * The question for a file that many parallel tasks share. A yes is the concern: splitting the
- * file, not reordering the work, is the better fix, so a yes is flagged.
+ * The question for a file that many parallel tasks share. The judge says only whether the tasks
+ * change parts of it that do not depend on each other; code turns a yes into "split the file"
+ * and a no into "reorder the work".
  */
 export const fileQuestions = Decision.make({
   decisions: {
-    splitFile: Decision.probability({
+    separable: Decision.probability({
       criteria: {
         false:
-          "Reordering the tasks removes the conflicts: they touch separate parts of a file whose size suits it. Example: three tasks that each add one rule to packages/core/src/lint.ts, which stacking one on another settles.",
-        true: "The file holds several concerns the tasks change apart, so splitting it removes more conflicts than reordering the work. Example: a thousand-line packages/cli/src/commands/plan.ts that tasks for judging, conflict ordering and part runs all edit in different functions.",
+          "The tasks change the same declarations, or ones that depend on each other. Example: three tasks whose sections all name lint in packages/core/src/lint.ts, one function they each add a rule to.",
+        true: "Each task changes its own declarations, and none of them uses another task's. Example: tasks whose sections name historyOf, orderingsOf and hotspotsOf in packages/core/src/conflicts.ts, which share the file and nothing else.",
       },
       instructions:
-        "Would splitting this file remove more conflicts between these tasks than reordering the work?",
+        "Do these tasks change parts of this file that do not depend on each other? Read the declarations each task's sections name.",
     }),
   },
   input: FileJudgingInput,
 });
 
+/** A line that starts a top-level declaration, and its name. */
+const TOP_LEVEL =
+  /^(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:const|let|var|function\*?|class|interface|type|enum|namespace)\s+([A-Za-z_$][\w$]*)/u;
+
+/**
+ * The names a source file declares at its top level, in order, each once: every line that starts,
+ * at its first column, a `const`, `let`, `var`, `function`, `class`, `interface`, `type`,
+ * `enum` or `namespace`, exported or not.
+ */
+export const declarationsOf = (source: string): ReadonlyArray<string> =>
+  Array.dedupe(
+    Array.getSomes(
+      Array.map(String.split(source, "\n"), (line) =>
+        pipe(line, String.match(TOP_LEVEL), Option.flatMap(Array.get(1))),
+      ),
+    ),
+  );
+
+/** What `separableInputOf` reads of a task: its title and its spec sections' summaries and bodies. */
+export interface SeparableTask {
+  readonly sections: ReadonlyArray<{ readonly body: string; readonly summary: string }>;
+  readonly title: string;
+}
+
+/**
+ * The `separable` input of a hotspot. A section names a declaration when its body uses the name as
+ * a word. `declarations` is `declarationsOf` of the file, empty for one not written yet.
+ */
+export const separableInputOf = (
+  path: string,
+  declarations: ReadonlyArray<string>,
+  tasks: ReadonlyArray<SeparableTask>,
+): FileJudgingInput => ({
+  declarations,
+  path,
+  tasks: Array.map(tasks, ({ sections, title }) => ({
+    sections: Array.map(sections, ({ body, summary }) => {
+      const words = HashSet.fromIterable(String.split(body, /[^\w$]+/u));
+      return {
+        declarations: Array.filter(declarations, (name) => HashSet.has(words, name)),
+        summary,
+      };
+    }),
+    title,
+  })),
+});
+
 /**
  * What `inputsOf` returns: one input per spec section, per task and for the stack, and one per
- * file the stack checkpoint asks `splitFile` about.
+ * file the stack checkpoint asks `separable` about.
  */
 export interface JudgingInputs {
   readonly sections: ReadonlyArray<{
@@ -261,7 +317,7 @@ export interface JudgingInputs {
   }>;
   readonly stack: StackJudgingInput;
   readonly tasks: ReadonlyArray<{ readonly id: TaskId; readonly input: TaskJudgingInput }>;
-  /** Files many parallel tasks share. `inputsOf` gives none: the CLI reads each file's lines (`fileInputsOf`). */
+  /** Files many parallel tasks share. `inputsOf` gives none: the CLI reads each file (`fileInputsOf`). */
   readonly files: ReadonlyArray<{ readonly path: string; readonly input: FileJudgingInput }>;
 }
 

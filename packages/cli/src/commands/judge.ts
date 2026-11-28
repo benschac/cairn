@@ -149,11 +149,12 @@ export const judgePlan = Effect.fn("judgePlan")(function* (options: JudgeOptions
   const manifest = yield* loadManifest;
   const config = yield* loadConfig;
   const previous = options.fresh ? Option.none<Judgments>() : yield* loadJudgments();
-  // The files the plan asked `splitFile` about, from the manifest's open tasks, so their
+  // The files the plan asked `separable` about, from the manifest's open tasks, so their
   // judgments are kept and asked again when the file or its tasks change.
   const files = yield* fileInputsOf(
     hotspotsOf(manifest.tasks, [], config.conflicts),
     manifest.tasks,
+    spec,
   );
   const judged = yield* judge.judge(
     Struct.evolve(inputsOf(prd, spec, manifest), { files: () => files }),

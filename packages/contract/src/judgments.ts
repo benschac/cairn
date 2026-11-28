@@ -43,7 +43,7 @@ export const JudgmentQuestion = Schema.Literals([
   "complete",
   "ordered",
   "oneFeature",
-  "splitFile",
+  "separable",
 ]);
 export type JudgmentQuestion = typeof JudgmentQuestion.Type;
 

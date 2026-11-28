@@ -574,7 +574,7 @@ const refined = Effect.fn("plan.refined")(function* ({ config, told }: Inputs, i
 
 /**
  * The fourth checkpoint, the stack questions (`spec.judging.checkpoints`): asked of the manifest
- * the plan would write, and `splitFile` of each file in `hotspots` (`spec.planning.conflict-ordering`).
+ * the plan would write, and `separable` of each file in `hotspots` (`spec.planning.conflict-ordering`).
  * It only reports. A part run's `complete` question lists only the part's PRD sections.
  */
 const stackJudged = Effect.fn("plan.stackJudged")(function* (
@@ -590,7 +590,7 @@ const stackJudged = Effect.fn("plan.stackJudged")(function* (
     onNone: () => Effect.succeed(none),
     onSome: (judge) =>
       Effect.gen(function* () {
-        const files = yield* fileInputsOf(hotspots, manifest.tasks);
+        const files = yield* fileInputsOf(hotspots, manifest.tasks, spec);
         const whole = inputsOf(prd, spec, manifest).stack;
         // A part run asks whether the stack builds the part's PRD sections, not the ones left for later.
         const stack = Option.match(part, {

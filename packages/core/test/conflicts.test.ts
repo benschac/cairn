@@ -716,3 +716,98 @@ it("a gated task reads what it needs from the whole manifest, whatever order it 
     ),
   ).toEqual([]);
 });
+
+it("a task that declares a directory counts toward each hotspot file inside it", () => {
+  const { existing, unordered } = planned(
+    [],
+    [one(["src/model.ts"]), one(["src/model.ts"]), one(["src/update.ts"])],
+  );
+  const fresh = Array.map(Array.drop(unordered, Array.length(existing)), (placed) =>
+    placed.id === "t3" ? Struct.evolve(placed, { files: () => ["src/"] }) : placed,
+  );
+  expect(hotspotsOf(existing, fresh, config)).toEqual([
+    { path: "src/model.ts", tasks: ["t1", "t2", "t3"] },
+  ]);
+});
+
+it("stackOf places a task after a long existing chain where each task needs every one before it", () => {
+  // A plain chain, then each task given every one before it, as a hand-edited manifest might.
+  const chain = Array.map(Array.range(0, 199), (at) =>
+    one(["src/model.ts"], at === 0 ? [] : [at - 1]),
+  );
+  const existing = Array.map(
+    Result.getOrThrow(stackOf(feature, draftsOf(chain, "Old"), gates)),
+    (placed, at) =>
+      Struct.evolve(placed, {
+        dependsOn: () =>
+          Array.map(
+            Array.filter(Array.range(1, at + 1), (n) => n <= at),
+            (n) => TaskId.make(`t${n}`),
+          ),
+      }),
+  );
+  const gated = decodeDraft({
+    category: "feature",
+    dependsOn: ["t200"],
+    files: ["db/migrations/001.sql"],
+    model: "sonnet",
+    prdSections: ["prd.goal"],
+    reasoning: "high",
+    specSections: ["spec.store"],
+    title: "Migrate",
+  });
+  const ordered = Result.getOrThrow(stackOf(feature, [gated], gates, existing));
+  expect(byId(ordered, TaskId.make("t201")).parent).toBe("t200");
+});
+
+/** The `bad-ordering` and `bad-parent` findings lint gives `tasks`. */
+const findingsOf = (tasks: ReadonlyArray<ManifestTask>) =>
+  Array.map(
+    Array.filter(
+      lint(
+        PLAN_PRD,
+        PLAN_SPEC,
+        Option.some(
+          Schema.decodeUnknownSync(Manifest)({
+            baseBranch: "main",
+            feature,
+            tasks: Schema.encodeSync(Schema.Array(ManifestTask))(tasks),
+            version: 1,
+          }),
+        ),
+        gateConfig,
+      ),
+      ({ rule }) => rule === "bad-ordering" || rule === "bad-parent",
+    ),
+    Struct.pick(["message", "rule"]),
+  );
+
+it("lint finds an ordering of a task after itself, and parents that form a cycle", () => {
+  const { ordered } = planned(
+    [],
+    [one(["src/model.ts"]), one(["src/model.ts"])],
+    historyOf(changed(34, ["src/model.ts"])),
+  );
+  const onItself = Array.map(ordered, (candidate) =>
+    candidate.id === "t1"
+      ? Struct.evolve(candidate, {
+          orderedAfter: () => [{ reason: "loop", task: TaskId.make("t1") }],
+          parent: () => TaskId.make("t1"),
+        })
+      : candidate,
+  );
+  expect(findingsOf(onItself)).toContainEqual({
+    message: "t1 is ordered after itself.",
+    rule: "bad-ordering",
+  });
+  expect(Array.some(findingsOf(onItself), ({ rule }) => rule === "bad-parent")).toBe(true);
+  const eachOther = Array.map(ordered, (candidate) =>
+    candidate.id === "t1"
+      ? Struct.evolve(candidate, {
+          orderedAfter: () => [{ reason: "loop", task: TaskId.make("t2") }],
+          parent: () => TaskId.make("t2"),
+        })
+      : candidate,
+  );
+  expect(Array.some(findingsOf(eachOther), ({ rule }) => rule === "bad-parent")).toBe(true);
+});
